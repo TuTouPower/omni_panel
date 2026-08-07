@@ -23,6 +23,7 @@ function createMockDeps() {
     const store = {
         query_buckets: vi.fn().mockReturnValue([]),
         query_sessions: vi.fn().mockReturnValue([]),
+        query_session_stats: vi.fn().mockReturnValue({ sessions: 0, agents: 0, tokens: 0 }),
         query_records: vi.fn().mockReturnValue([]),
         query_heatmap: vi.fn().mockReturnValue([]),
         query_hour_buckets: vi.fn().mockReturnValue([]),
@@ -85,6 +86,34 @@ describe("token-stats-ipc sender validation", () => {
         expect(() => pick_handler("tokenStats:sessions")(bad_event())).toThrow(
             "IPC not allowed from unknown origin",
         );
+    });
+
+    it("TOKEN_STATS_SESSION_STATS rejects unknown sender", async () => {
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
+        expect(() => pick_handler("tokenStats:sessionStats")(bad_event())).toThrow(
+            "IPC not allowed from unknown origin",
+        );
+    });
+
+    it("TOKEN_STATS_SESSION_STATS forwards the aggregate query result", async () => {
+        const deps = createMockDeps();
+        const query_session_stats = (
+            deps.store as TokenStatsStore & {
+                query_session_stats: ReturnType<typeof vi.fn>;
+            }
+        ).query_session_stats;
+        query_session_stats.mockReturnValue({
+            sessions: 73,
+            agents: 4,
+            tokens: 9876,
+        });
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const result = pick_handler("tokenStats:sessionStats")(good_event());
+        expect(query_session_stats).toHaveBeenCalledWith();
+        expect(result).toEqual({ ok: true, data: { sessions: 73, agents: 4, tokens: 9876 } });
     });
 
     it("TOKEN_STATS_RECORDS rejects unknown sender", async () => {

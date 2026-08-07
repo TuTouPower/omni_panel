@@ -82,10 +82,9 @@ describe("session-history-ipc (t210)", () => {
         };
     });
 
-    async function register(): Promise<void> {
+    async function register(sessions_provider = vi.fn().mockReturnValue([])): Promise<void> {
         const { registerSessionHistoryIpc } =
             await import("../../../src/main/ipc/session-history-ipc");
-        const sessions_provider = vi.fn().mockReturnValue([]);
         registerSessionHistoryIpc(ipc_main_mock as never, {
             service: service as never,
             sessions_provider,
@@ -390,12 +389,14 @@ describe("session-history-ipc (t210)", () => {
     });
 
     it("SEARCH_CONTENT 跳过未 resolve 的 loc，不整批失败", async () => {
-        locator_mock.resolve_session_file.mockImplementation((_source: string, _env: string, session_id: string) => {
-            if (session_id === "s1") {
-                return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
-            }
-            return null;
-        });
+        locator_mock.resolve_session_file.mockImplementation(
+            (_source: string, _env: string, session_id: string) => {
+                if (session_id === "s1") {
+                    return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
+                }
+                return null;
+            },
+        );
         service.searchContent.mockResolvedValue(new Set(["claude_code|win|s1"]));
         await register();
 
@@ -421,6 +422,83 @@ describe("session-history-ipc (t210)", () => {
                 },
             ],
             "hello",
+        );
+    });
+
+    it("SEARCH_CONTENT 从后端筛选候选集，不要求 renderer 传入全量 locs（t248 AC5）", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/hidden.jsonl",
+            extractor_kind: "claude_code",
+        });
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|hidden"]));
+        const sessions_provider = vi.fn().mockReturnValue([
+            {
+                id: "hidden",
+                source: "claude_code",
+                env: "win",
+                title: "backend candidate",
+                model: "sonnet",
+                started_at: 100,
+                ended_at: 200,
+                session: {
+                    id: "hidden",
+                    source: "claude_code",
+                    env: "win",
+                    model: "sonnet",
+                    title: "backend candidate",
+                    directory: "/hidden",
+                    input_tokens: 1,
+                    output_tokens: 2,
+                    cache_read_tokens: 3,
+                    cache_write_tokens: 4,
+                    calls: 1,
+                    started_at: 100,
+                    ended_at: 200,
+                },
+            },
+        ]);
+        await register(sessions_provider);
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: {
+                sources: ["claude_code"],
+                search: "backend",
+                start_at: 50,
+                end_at: 250,
+            },
+            keyword: "秘密词",
+        })) as { ok: boolean; data: { hits: string[]; sessions: { id: string }[] } };
+
+        expect(result.ok).toBe(true);
+        expect(result.data.hits).toEqual(["claude_code|win|hidden"]);
+        expect(result.data.sessions.map((session) => session.id)).toEqual(["hidden"]);
+        expect(sessions_provider).toHaveBeenNthCalledWith(1, {
+            sources: ["claude_code"],
+            start_at: 50,
+            end_at: 250,
+            limit: 100,
+            offset: 0,
+        });
+        expect(sessions_provider).toHaveBeenNthCalledWith(2, {
+            sources: ["claude_code"],
+            search: "backend",
+            start_at: 50,
+            end_at: 250,
+            limit: 100,
+            offset: 0,
+        });
+        expect(service.searchContent).toHaveBeenCalledWith(
+            [
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "hidden",
+                    file_path: "/x/hidden.jsonl",
+                    extractor_kind: "claude_code",
+                },
+            ],
+            "秘密词",
         );
     });
 
@@ -452,12 +530,14 @@ describe("session-history-ipc (t210)", () => {
     });
 
     it("SUMMARIES 跳过未 resolve 的 loc", async () => {
-        locator_mock.resolve_session_file.mockImplementation((_source: string, _env: string, session_id: string) => {
-            if (session_id === "s1") {
-                return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
-            }
-            return null;
-        });
+        locator_mock.resolve_session_file.mockImplementation(
+            (_source: string, _env: string, session_id: string) => {
+                if (session_id === "s1") {
+                    return { file_path: "/x/s1.jsonl", extractor_kind: "claude_code" };
+                }
+                return null;
+            },
+        );
         await register();
 
         const handler = get_handler("sessionHistory:summaries");

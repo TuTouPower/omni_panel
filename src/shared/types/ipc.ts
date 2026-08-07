@@ -13,6 +13,8 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsRollupRow,
     TokenStatsSession,
+    TokenStatsSessionStats,
+    TokenStatsSessionFilters,
     TokenStatsDashboardDto,
     TokenStatsDashboardQuery,
     TokenStatsDashboardSessionsDto,
@@ -113,6 +115,7 @@ export const IPC_CHANNELS = {
     /** Token stats */
     TOKEN_STATS_BUCKETS: "tokenStats:buckets",
     TOKEN_STATS_SESSIONS: "tokenStats:sessions",
+    TOKEN_STATS_SESSION_STATS: "tokenStats:sessionStats",
     TOKEN_STATS_RECORDS: "tokenStats:records",
     TOKEN_STATS_HEATMAP: "tokenStats:heatmap",
     TOKEN_STATS_HOUR_BUCKETS: "tokenStats:hourBuckets",
@@ -379,11 +382,15 @@ export interface SessionHistoryApi {
         env: string,
         limit: number,
     ): Promise<readonly SessionHistoryRecentItem[]>;
-    /** t239: 批量内容搜索，返回命中会话的 loc key 数组。 */
+    /** t248: 批量内容搜索，返回命中键及其会话元信息。 */
+    searchContent(
+        request: SessionHistorySearchContentRequest,
+    ): Promise<SessionHistorySearchContentResponse>;
+    /** Legacy renderer/test shape retained at the IPC boundary. */
     searchContent(
         locs: readonly SessionHistoryLoc[],
         keyword: string,
-    ): Promise<readonly string[]>;
+    ): Promise<SessionHistorySearchContentResponse>;
     /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
     summaries(locs: readonly SessionHistoryLoc[]): Promise<Readonly<Record<string, string>>>;
     onMessagesUpdated(
@@ -400,15 +407,30 @@ export interface HistoryMessageLike {
     readonly timestamp: number | null;
 }
 
-/** t239: 批量内容搜索请求。 */
+/** t248: backend candidate filters for batch content search. */
+export interface SessionHistorySearchContentFilters {
+    readonly sources?: readonly string[];
+    readonly search?: string;
+    readonly start_at?: number;
+    readonly end_at?: number;
+}
+
+/** t248: batch content search request. */
 export interface SessionHistorySearchContentRequest {
+    readonly filters: SessionHistorySearchContentFilters;
+    readonly keyword: string;
+}
+
+/** Legacy t239 request retained for old IPC callers/tests. */
+export interface SessionHistorySearchContentLegacyRequest {
     readonly locs: readonly SessionHistoryLoc[];
     readonly keyword: string;
 }
 
-/** t239: 批量内容搜索响应：命中的 loc key 集合（source|env|session_id）。 */
+/** t248: 批量内容搜索响应：命中键及后端筛选得到的会话元信息。 */
 export interface SessionHistorySearchContentResponse {
     readonly hits: readonly string[];
+    readonly sessions: readonly TokenStatsSession[];
 }
 
 /** t239: 批量首条用户消息摘要请求。 */
@@ -582,13 +604,8 @@ export interface UsageboardApi {
             from_date?: string;
             to_date?: string;
         }): Promise<TokenStatsBucket[]>;
-        getSessions(filters?: {
-            source?: string;
-            env?: string;
-            search?: string;
-            limit?: number;
-            offset?: number;
-        }): Promise<TokenStatsSession[]>;
+        getSessions(filters?: TokenStatsSessionFilters): Promise<TokenStatsSession[]>;
+        getSessionStats(): Promise<TokenStatsSessionStats>;
         getRecords(filters?: TokenStatsRecordFilters): Promise<AgentSessionUsage[]>;
         getHeatmap(filters?: TokenStatsHeatmapFilters): Promise<TokenStatsHeatmapCell[]>;
         getHourBuckets(filters?: TokenStatsHourFilters): Promise<TokenStatsHourBucket[]>;

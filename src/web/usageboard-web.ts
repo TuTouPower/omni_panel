@@ -11,6 +11,8 @@ import type {
     HistoryMessageLike,
     RendererLogPayload,
     SessionHistoryLoc,
+    SessionHistorySearchContentRequest,
+    SessionHistorySearchContentResponse,
 } from "../shared/types/ipc";
 import type {
     TokenStatsHeatmapFilters,
@@ -19,6 +21,7 @@ import type {
     TokenStatsDashboardQuery,
     TokenStatsDashboardSessionsQuery,
     TokenStatsSession,
+    TokenStatsSessionFilters,
 } from "../shared/types/token-stats";
 
 const POLL_MS = 10_000;
@@ -219,7 +222,23 @@ export function create_web_usageboard(): UsageboardApi {
                 window.location.hash = "agent";
             },
             getBuckets: () => get_json("/v1/buckets"),
-            getSessions: () => get_json("/v1/sessions"),
+            getSessions: (filters?: TokenStatsSessionFilters) => {
+                const params = new URLSearchParams();
+                if (filters?.source) params.set("source", filters.source);
+                if (filters?.sources?.length) params.set("sources", filters.sources.join(","));
+                if (filters?.env) params.set("env", filters.env);
+                if (filters?.search) params.set("search", filters.search);
+                if (filters?.start_at !== undefined)
+                    params.set("start_at", String(filters.start_at));
+                if (filters?.end_at !== undefined) params.set("end_at", String(filters.end_at));
+                if (filters?.order_by) params.set("order_by", filters.order_by);
+                if (filters?.direction) params.set("direction", filters.direction);
+                if (filters?.limit !== undefined) params.set("limit", String(filters.limit));
+                if (filters?.offset !== undefined) params.set("offset", String(filters.offset));
+                const qs = params.toString();
+                return get_json(`/v1/sessions${qs ? `?${qs}` : ""}`);
+            },
+            getSessionStats: () => get_json("/v1/sessionStats"),
             getRecords: () => get_json("/v1/records"),
             getHeatmap: (filters?: TokenStatsHeatmapFilters) => {
                 const params = new URLSearchParams();
@@ -393,11 +412,17 @@ export function create_web_usageboard(): UsageboardApi {
                     agent: s.source.replace(/_/g, "-"),
                 }));
             },
-            searchContent: (_locs: readonly SessionHistoryLoc[], _keyword: string) => {
-                // t239: web 端本地 API 暂未暴露批量内容搜索；返回空数组保持兼容。
-                void _locs;
+            searchContent: (
+                _request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
+                _keyword?: string,
+            ) => {
+                // t239/t248: web 端当前没有批量内容搜索 endpoint；保留两种调用形态。
+                void _request_or_locs;
                 void _keyword;
-                return Promise.resolve([]);
+                return Promise.resolve<SessionHistorySearchContentResponse>({
+                    hits: [],
+                    sessions: [],
+                });
             },
             summaries: (_locs: readonly SessionHistoryLoc[]) => {
                 // t239: web 端本地 API 暂未暴露批量摘要；返回空映射保持兼容。

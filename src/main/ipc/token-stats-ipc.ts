@@ -9,6 +9,8 @@ import type {
     TokenStatsRecordFilters,
     TokenStatsRollupFilters,
     TokenStatsSession,
+    TokenStatsSessionFilters,
+    TokenStatsSessionStats,
     TokenStatsDashboardDto,
     TokenStatsDashboardSessionsDto,
 } from "../../shared/types/token-stats";
@@ -51,21 +53,18 @@ export function registerTokenStatsIpc(
         IPC_CHANNELS.TOKEN_STATS_SESSIONS,
         (
             event: IpcMainInvokeEvent,
-            filters?: {
-                source?: string;
-                sources?: string[];
-                env?: string;
-                search?: string;
-                start_at?: number;
-                end_at?: number;
-                order_by?: "ended_at" | "tokens" | "calls" | "started_at";
-                direction?: "asc" | "desc";
-                limit?: number;
-                offset?: number;
-            },
+            filters?: TokenStatsSessionFilters,
         ): IpcResult<TokenStatsSession[]> => {
             assert_valid_sender(event);
             return ok(deps.store.query_sessions(filters ?? {}));
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_SESSION_STATS,
+        (event: IpcMainInvokeEvent): IpcResult<TokenStatsSessionStats> => {
+            assert_valid_sender(event);
+            return ok(deps.store.query_session_stats());
         },
     );
 

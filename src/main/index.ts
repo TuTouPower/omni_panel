@@ -64,6 +64,7 @@ import { registerSessionHistoryIpc } from "./ipc/session-history-ipc";
 import {
     SessionHistorySubscriptionService,
     type Env,
+    type SessionQueryFilters,
 } from "./core/session-history/subscription-service";
 import { create_history_window_controller } from "./core/main-panel/history-window-controller";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
@@ -73,7 +74,7 @@ import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
 import { createOnConfigImported } from "./config-callbacks";
-import type { TokenStatsConfig } from "../shared/types/token-stats";
+import type { TokenStatsConfig, TokenStatsSessionFilters } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
@@ -371,8 +372,17 @@ void app.whenReady().then(async () => {
                 wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
                 wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
             },
-            sessions_provider: (source, env) =>
-                tokenStatsStore.query_sessions({ source, env }).map((s) => ({
+            sessions_provider: (filters_or_source: SessionQueryFilters | string, env?: Env) => {
+                const filters: TokenStatsSessionFilters =
+                    typeof filters_or_source === "string"
+                        ? { source: filters_or_source, ...(env ? { env } : {}) }
+                        : ({
+                              ...filters_or_source,
+                              ...(filters_or_source.sources
+                                  ? { sources: [...filters_or_source.sources] }
+                                  : {}),
+                          } as TokenStatsSessionFilters);
+                return tokenStatsStore.query_sessions(filters).map((s) => ({
                     id: s.id,
                     source: s.source,
                     env: s.env,
@@ -380,7 +390,9 @@ void app.whenReady().then(async () => {
                     model: s.model,
                     started_at: s.started_at,
                     ended_at: s.ended_at,
-                })),
+                    session: s,
+                }));
+            },
         });
         ipcMain.handle(
             IPC_CHANNELS.SESSION_HISTORY_OPEN,

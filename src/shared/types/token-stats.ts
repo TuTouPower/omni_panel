@@ -156,6 +156,28 @@ export type TokenStatsDailyUpsert = z.infer<typeof tokenStatsDailyUpsertSchema>;
 export type TokenStatsUpdate = z.infer<typeof tokenStatsUpdateSchema>;
 export type TokenStatsConfig = z.infer<typeof tokenStatsConfigSchema>;
 
+/** Lightweight aggregate for the session-library header. */
+export interface TokenStatsSessionStats {
+    readonly sessions: number;
+    readonly agents: number;
+    readonly tokens: number;
+    /** Full session counts by source; optional for legacy renderer mocks. */
+    readonly source_counts?: Readonly<Record<string, number>>;
+}
+
+export interface TokenStatsSessionFilters {
+    source?: string;
+    sources?: string[];
+    env?: string;
+    search?: string;
+    start_at?: number;
+    end_at?: number;
+    order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+    direction?: "asc" | "desc";
+    limit?: number;
+    offset?: number;
+}
+
 export interface TokenStatsRecordFilters {
     agent?: "claude-code" | "opencode" | "kimi-code" | "grok";
     env?: TokenStatsEnv;

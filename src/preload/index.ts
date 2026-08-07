@@ -18,6 +18,8 @@ import type {
     SessionHistoryLoc,
     SessionHistoryMessagesUpdatedPayload,
     SessionHistoryRecentItem,
+    SessionHistorySearchContentRequest,
+    SessionHistorySearchContentResponse,
     SessionLoginRequest,
     SessionLoginResult,
     TrendPoint,
@@ -32,6 +34,8 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsDashboardQuery,
     TokenStatsDashboardSessionsQuery,
+    TokenStatsSessionFilters,
+    TokenStatsSessionStats,
 } from "../shared/types/token-stats";
 import "./usageboard-api";
 
@@ -117,17 +121,12 @@ const token_stats_methods = {
             IPC_CHANNELS.TOKEN_STATS_BUCKETS,
             filters,
         ),
-    getSessions: (filters?: {
-        source?: string;
-        env?: string;
-        search?: string;
-        limit?: number;
-        offset?: number;
-    }) =>
+    getSessions: (filters?: TokenStatsSessionFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getSessions"]>>>(
             IPC_CHANNELS.TOKEN_STATS_SESSIONS,
             filters,
         ),
+    getSessionStats: () => invoke<TokenStatsSessionStats>(IPC_CHANNELS.TOKEN_STATS_SESSION_STATS),
     getRecords: (filters?: TokenStatsRecordFilters) =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["getRecords"]>>>(
             IPC_CHANNELS.TOKEN_STATS_RECORDS,
@@ -231,11 +230,37 @@ const session_history_full_methods = {
             env,
             limit,
         ),
-    searchContent: (locs: readonly SessionHistoryLoc[], keyword: string) =>
-        invoke<readonly string[]>(IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT, {
-            locs,
-            keyword,
-        }),
+    searchContent: (
+        request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
+        keyword?: string,
+    ) => {
+        if (Array.isArray(request_or_locs)) {
+            const candidate = request_or_locs as readonly SessionHistoryLoc[] & {
+                filters?: SessionHistorySearchContentRequest["filters"];
+                keyword?: string;
+            };
+            if (candidate.filters) {
+                return invoke<SessionHistorySearchContentResponse>(
+                    IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
+                    {
+                        filters: candidate.filters,
+                        keyword: keyword ?? candidate.keyword ?? "",
+                    },
+                );
+            }
+            return invoke<SessionHistorySearchContentResponse>(
+                IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
+                {
+                    locs: request_or_locs,
+                    keyword: keyword ?? "",
+                },
+            );
+        }
+        return invoke<SessionHistorySearchContentResponse>(
+            IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
+            request_or_locs,
+        );
+    },
     summaries: (locs: readonly SessionHistoryLoc[]) =>
         invoke<Readonly<Record<string, string>>>(IPC_CHANNELS.SESSION_HISTORY_SUMMARIES, {
             locs,
@@ -256,7 +281,8 @@ const session_history_disabled_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
-    searchContent: (): Promise<readonly string[]> => Promise.resolve([]),
+    searchContent: (): Promise<SessionHistorySearchContentResponse> =>
+        Promise.resolve({ hits: [], sessions: [] }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */
@@ -276,7 +302,8 @@ const session_history_open_only_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
-    searchContent: (): Promise<readonly string[]> => Promise.resolve([]),
+    searchContent: (): Promise<SessionHistorySearchContentResponse> =>
+        Promise.resolve({ hits: [], sessions: [] }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */

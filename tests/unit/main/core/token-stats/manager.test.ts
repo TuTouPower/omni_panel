@@ -45,6 +45,7 @@ function create_mock_store() {
         upsert_records: vi.fn(),
         query_buckets: vi.fn(() => []),
         query_sessions: vi.fn(() => []),
+        query_session_stats: vi.fn(() => ({ sessions: 0, agents: 0, tokens: 0 })),
         query_records: vi.fn(() => []),
         query_heatmap: vi.fn(() => []),
         query_hour_buckets: vi.fn(() => []),

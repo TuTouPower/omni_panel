@@ -74,8 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 「包含消息内容」搜索的候选集在后端按筛选条件确定时的规模上限与超时策略（候选可能达数千个源文件）：UNVERIFIED-SPIKE，执行期以真实数据量评估是否需要分批/进度反馈，必要时在上下文区补充约束。
-- 统计聚合查询是否复用现有 dashboard 查询通道或新增 IPC：UNVERIFIED-SPIKE，执行期核对 `TOKEN_STATS_DASHBOARD` 与 store 现有聚合能力后确定。
+- 「包含消息内容」搜索的候选集与规模策略已验证：当前实现仍由 renderer 在 `SessionLibrary` 中从全量 `all` 生成 loc 集合，再经 `SESSION_HISTORY_SEARCH_CONTENT` 一次性传入 main；main 只做源文件 resolve 后调用 `SessionHistorySubscriptionService.searchContent`。后端没有候选集 SQL 筛选、候选数量上限或超时；service 层已有提取缓存、默认并发上限 3 和 `AbortSignal` 协作中断，但当前 IPC/renderer 未传递 signal，旧查询只能在 renderer 丢弃结果，不能停止 main 侧扫描。验证依据：`src/renderer/components/session-library/SessionLibrary.tsx`、`src/main/ipc/session-history-ipc.ts`、`src/main/core/session-history/subscription-service.ts` 及对应单测。最小实现采用后端按 Agent/日期筛选分页取得候选、固定小批次扫描、保留并发上限 3，并在新查询到达时协作取消旧查询；不设置会静默截断结果的硬候选上限或硬超时，进度反馈暂不新增。
+- 会话库头部统计通道已验证：现有统计由 `count_stats(all)` 对 `token_stats_sessions` 返回的全量累计会话快照计算，口径为 `COUNT(*)`、`COUNT(DISTINCT source)` 和四类 token 之和；`TOKEN_STATS_DASHBOARD` 则基于 `token_stats_records`/hour rollup 的 `[start,end)` 时间窗口，返回 dashboard DTO，无法保持会话库的全量累计语义。验证依据：`src/renderer/lib/session-library/filter.ts`、`src/main/core/token-stats/token-stats-store.ts`、`src/main/ipc/token-stats-ipc.ts` 与 `src/main/core/token-stats/query-dispatcher.ts`。最小实现新增轻量 `TOKEN_STATS_SESSION_STATS` IPC 与 `query_session_stats` SQL 聚合，列表分页与统计请求在 renderer 独立发起；保持当前头部统计不随筛选变化的既有语义。
 
 ### 风险与回退
 

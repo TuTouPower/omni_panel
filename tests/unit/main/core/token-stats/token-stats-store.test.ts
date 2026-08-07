@@ -14,6 +14,15 @@ import type {
     TokenStatsSessionUpsert,
 } from "../../../../../src/shared/types/token-stats";
 
+interface SessionStats {
+    sessions: number;
+    agents: number;
+    tokens: number;
+}
+type SessionStatsStore = TokenStatsStore & {
+    query_session_stats: () => SessionStats;
+};
+
 const T0 = new Date("2026-07-10T08:00:00Z").getTime();
 const T1 = new Date("2026-07-10T09:00:00Z").getTime();
 const T2 = new Date("2026-07-11T10:00:00Z").getTime();
@@ -302,11 +311,65 @@ describe("token-stats-store", () => {
             expect(store.query_sessions({ env: "wsl" })).toHaveLength(1);
         });
 
-        it("searches title, directory, model and id", () => {
+        it("searches title, directory and id, but not model", () => {
             expect(store.query_sessions({ search: "Frontend" })).toHaveLength(1);
             expect(store.query_sessions({ search: "frontend" })).toHaveLength(1); // directory
-            expect(store.query_sessions({ search: "deepseek" })).toHaveLength(1); // model
+            expect(store.query_sessions({ search: "deepseek" })).toHaveLength(0); // model is excluded
             expect(store.query_sessions({ search: "s3" })).toHaveLength(1); // id
+        });
+
+        it("t248 literal-escapes LIKE wildcards", () => {
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "literal",
+                        title: "100%_done",
+                        directory: "C:\\work\\100%_done",
+                    }),
+                ],
+                [],
+            );
+            expect(store.query_sessions({ search: "%" }).map((row) => row.id)).toEqual(["literal"]);
+            expect(store.query_sessions({ search: "_" }).map((row) => row.id)).toEqual(["literal"]);
+            expect(store.query_sessions({ search: "\\" }).map((row) => row.id)).toEqual([
+                "literal",
+            ]);
+        });
+
+        it("searches title, directory and id with JavaScript Unicode case semantics", () => {
+            store.upsert_sessions(
+                [
+                    delta({ id: "СЕССИЯ", title: "Привет мир" }),
+                    delta({ id: "directory", title: "other", directory: "C:\\Проект" }),
+                ],
+                [],
+            );
+
+            expect(store.query_sessions({ search: "привет" }).map((row) => row.id)).toEqual([
+                "СЕССИЯ",
+            ]);
+            expect(store.query_sessions({ search: "c:\\проект" }).map((row) => row.id)).toEqual([
+                "directory",
+            ]);
+            expect(store.query_sessions({ search: "сессия" }).map((row) => row.id)).toEqual([
+                "СЕССИЯ",
+            ]);
+        });
+
+        it("registers Unicode lower on readonly connections", () => {
+            with_temp_store((db_path) => {
+                const writable = create_token_stats_store(db_path);
+                writable.upsert_sessions([delta({ id: "Привет", title: "Привет" })], []);
+                expect(writable.query_sessions({ search: "привет" })).toHaveLength(1);
+                writable.close();
+
+                const readonly_store = create_token_stats_store(db_path, { readonly: true });
+                try {
+                    expect(readonly_store.query_sessions({ search: "привет" })).toHaveLength(1);
+                } finally {
+                    readonly_store.close();
+                }
+            });
         });
 
         it("orders by ended_at desc and respects limit", () => {
@@ -325,6 +388,8 @@ describe("token-stats-store", () => {
                         source: "claude_code",
                         calls: 5,
                         input_tokens: 1000,
+                        title: "match-alpha",
+                        directory: "/alpha",
                         started_at: 100,
                         ended_at: 200,
                     }),
@@ -333,6 +398,8 @@ describe("token-stats-store", () => {
                         source: "opencode",
                         calls: 2,
                         input_tokens: 300,
+                        title: "match-beta",
+                        directory: "/beta",
                         started_at: 300,
                         ended_at: 500,
                     }),
@@ -341,6 +408,8 @@ describe("token-stats-store", () => {
                         source: "grok",
                         calls: 9,
                         input_tokens: 700,
+                        title: "other",
+                        directory: "/gamma",
                         started_at: 600,
                         ended_at: 900,
                     }),
@@ -360,11 +429,51 @@ describe("token-stats-store", () => {
             expect(rows.map((r) => r.id).sort()).toEqual(["b"]);
         });
 
-        it("orders by tokens and calls", () => {
-            const by_tokens = store.query_sessions({ order_by: "tokens", direction: "desc" });
-            expect(by_tokens[0]!.id).toBe("a");
-            const by_calls = store.query_sessions({ order_by: "calls", direction: "asc" });
-            expect(by_calls[0]!.id).toBe("b");
+        it("searches the combined metadata string like renderer filtering", () => {
+            const rows = store.query_sessions({ search: "match-alpha /alpha" });
+            expect(rows.map((row) => row.id)).toEqual(["a"]);
+        });
+
+        it("orders by tokens and calls in both directions", () => {
+            expect(
+                store
+                    .query_sessions({ order_by: "tokens", direction: "desc" })
+                    .map((row) => row.id),
+            ).toEqual(["a", "c", "b"]);
+            expect(
+                store.query_sessions({ order_by: "tokens", direction: "asc" }).map((row) => row.id),
+            ).toEqual(["b", "c", "a"]);
+            expect(
+                store.query_sessions({ order_by: "calls", direction: "desc" }).map((row) => row.id),
+            ).toEqual(["c", "a", "b"]);
+            expect(
+                store.query_sessions({ order_by: "calls", direction: "asc" }).map((row) => row.id),
+            ).toEqual(["b", "a", "c"]);
+        });
+
+        it("combines search, sources, date intersection and limit/offset", () => {
+            const rows = store.query_sessions({
+                search: "match",
+                sources: ["claude_code", "opencode"],
+                start_at: 150,
+                end_at: 550,
+                order_by: "ended_at",
+                direction: "asc",
+                limit: 1,
+                offset: 1,
+            });
+            expect(rows.map((row) => row.id)).toEqual(["b"]);
+        });
+
+        it("t248 AC2：session stats 聚合全量会话，不受列表分页影响", () => {
+            const page = store.query_sessions({ limit: 1 });
+            expect(page).toHaveLength(1);
+            expect((store as SessionStatsStore).query_session_stats()).toEqual({
+                sessions: 3,
+                agents: 3,
+                tokens: 4400,
+                source_counts: { claude_code: 1, grok: 1, opencode: 1 },
+            });
         });
     });
 

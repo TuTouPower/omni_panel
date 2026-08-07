@@ -14,6 +14,7 @@ import {
     tokenStatsDashboardQuerySchema,
     tokenStatsDashboardSessionsDtoSchema,
     tokenStatsDashboardSessionsQuerySchema,
+    type TokenStatsSessionFilters,
 } from "../../../shared/types/token-stats";
 import { is_test_build } from "../paths";
 import {
@@ -446,14 +447,35 @@ export function create_local_api_server(
                     }),
                 );
                 return true;
-            case "/v1/sessions":
-                json_response(
-                    res,
-                    200,
-                    store.query_sessions({
-                        ...(env ? { env } : {}),
-                    }),
-                );
+            case "/v1/sessions": {
+                const sources = params.get("sources");
+                const filters: TokenStatsSessionFilters = {};
+                const source = params.get("source");
+                const search = params.get("search");
+                const order_by = params.get("order_by");
+                const direction = params.get("direction");
+                if (source) filters.source = source;
+                if (sources) filters.sources = sources.split(",").filter((item) => item.length > 0);
+                if (env) filters.env = env;
+                if (search) filters.search = search;
+                if (params.has("start_at")) filters.start_at = Number(params.get("start_at"));
+                if (params.has("end_at")) filters.end_at = Number(params.get("end_at"));
+                if (
+                    order_by === "ended_at" ||
+                    order_by === "tokens" ||
+                    order_by === "calls" ||
+                    order_by === "started_at"
+                ) {
+                    filters.order_by = order_by;
+                }
+                if (direction === "asc" || direction === "desc") filters.direction = direction;
+                if (params.has("limit")) filters.limit = Number(params.get("limit"));
+                if (params.has("offset")) filters.offset = Number(params.get("offset"));
+                json_response(res, 200, store.query_sessions(filters));
+                return true;
+            }
+            case "/v1/sessionStats":
+                json_response(res, 200, store.query_session_stats());
                 return true;
             case "/v1/buckets":
                 json_response(

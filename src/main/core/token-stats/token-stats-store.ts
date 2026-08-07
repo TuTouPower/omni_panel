@@ -23,6 +23,7 @@ import type {
     TokenStatsRollupFilters,
     TokenStatsRollupRow,
     TokenStatsSession,
+    TokenStatsSessionStats,
     TokenStatsSessionUpsert,
 } from "../../../shared/types/token-stats";
 import { createLogger } from "../../../shared/lib/logger";
@@ -59,6 +60,8 @@ export interface TokenStatsStore {
         limit?: number;
         offset?: number;
     }): TokenStatsSession[];
+    /** Aggregate over all stored session rows, independent of pagination. */
+    query_session_stats(): TokenStatsSessionStats;
     query_records(filters: TokenStatsRecordFilters): AgentSessionUsage[];
     /** Weekday×hour aggregation over the records table (hourly heatmap, t170). */
     query_heatmap(filters: TokenStatsHeatmapFilters): TokenStatsHeatmapCell[];
@@ -701,6 +704,9 @@ export function create_token_stats_store(
     // WAL database the main process writes concurrently. Schema/DDL and
     // migrations are skipped — the writable main-process store owns them.
     const db = readonly ? new Database(db_path, { readonly: true }) : new Database(db_path);
+    db.function("unicode_lower", { deterministic: true }, (value: string | null) =>
+        value === null ? null : value.toLowerCase(),
+    );
     db.pragma("busy_timeout = 5000");
     if (!readonly) {
         db.pragma("journal_mode = WAL");
@@ -1042,10 +1048,11 @@ export function create_token_stats_store(
                 params["env"] = filters.env;
             }
             if (filters.search) {
+                const escaped = filters.search.replace(/[\\%_]/g, (character) => `\\${character}`);
                 conditions.push(
-                    "(title LIKE @search OR directory LIKE @search OR model LIKE @search OR id LIKE @search)",
+                    "unicode_lower(COALESCE(title, '') || ' ' || COALESCE(directory, '') || ' ' || id) LIKE unicode_lower(@search) ESCAPE '\\'",
                 );
-                params["search"] = `%${filters.search}%`;
+                params["search"] = `%${escaped}%`;
             }
             if (filters.start_at !== undefined) {
                 // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。
@@ -1075,6 +1082,33 @@ export function create_token_stats_store(
 
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_session);
+        },
+
+        query_session_stats() {
+            const row = db
+                .prepare(
+                    `SELECT COUNT(*) AS sessions,
+                            COUNT(DISTINCT source) AS agents,
+                            COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens), 0) AS tokens
+                     FROM token_stats_sessions`,
+                )
+                .get() as Record<string, unknown>;
+            const source_rows = db
+                .prepare(
+                    `SELECT source, COUNT(*) AS count
+                     FROM token_stats_sessions
+                     GROUP BY source
+                     ORDER BY count DESC, source ASC`,
+                )
+                .all() as { source: string; count: number }[];
+            return {
+                sessions: Number(row["sessions"] ?? 0),
+                agents: Number(row["agents"] ?? 0),
+                tokens: Number(row["tokens"] ?? 0),
+                source_counts: Object.fromEntries(
+                    source_rows.map((source_row) => [source_row.source, source_row.count]),
+                ),
+            };
         },
 
         query_records(filters) {

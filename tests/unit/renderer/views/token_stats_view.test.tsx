@@ -216,6 +216,7 @@ describe("TokenStatsView dashboard query", () => {
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
+                getSessionStats: vi.fn().mockResolvedValue({ sessions: 0, agents: 0, tokens: 0 }),
                 getDashboard: get_dashboard,
                 getBuckets: get_buckets,
                 getSessions: get_sessions,
@@ -852,6 +853,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         window.usageboard = {
             tokenStats: {
                 open: vi.fn(),
+                getSessionStats: vi.fn().mockResolvedValue({ sessions: 0, agents: 0, tokens: 0 }),
                 getDashboard: get_dashboard,
                 getBuckets: vi.fn(),
                 getSessions: vi.fn(),

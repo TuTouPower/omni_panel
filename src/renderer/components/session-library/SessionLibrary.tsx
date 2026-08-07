@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
-import type { TokenStatsSession } from "../../../shared/types/token-stats";
-import {
-    count_stats,
-    filter_sessions,
-    sort_sessions,
-    type LibrarySort,
-} from "../../lib/session-library/filter";
+import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
+import { count_stats, sort_sessions, type LibrarySort } from "../../lib/session-library/filter";
 import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
@@ -22,6 +17,8 @@ const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
 const PREVIEW_MESSAGES = 5;
 
+type SessionStatsStatus = "loading" | "ready" | "error";
+
 export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
@@ -32,16 +29,25 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [sort, set_sort] = useState<LibrarySort>("recent");
     const [view_mode, set_view_mode] = useState<"grid" | "list">("grid");
     const [visible, set_visible] = useState(PAGE_SIZE);
+    const [has_more, set_has_more] = useState(false);
     const [selected, set_selected] = useState<TokenStatsSession[]>([]);
     const [preview, set_preview] = useState<TokenStatsSession | null>(null);
     const [preview_msgs, set_preview_msgs] = useState<HistoryMessageLike[]>([]);
     const [content_searching, set_content_searching] = useState(false);
+    const [content_search_error, set_content_search_error] = useState(false);
+    const [content_sessions, set_content_sessions] = useState<TokenStatsSession[]>([]);
     const [toast, set_toast] = useState<string | null>(null);
     const [summaries, set_summaries] = useState<Record<string, string>>({});
     const [load_error, set_load_error] = useState(false);
+    const [session_stats, set_session_stats] = useState<TokenStatsSessionStats | null>(null);
+    const [session_stats_status, set_session_stats_status] =
+        useState<SessionStatsStatus>("loading");
     const summary_inflight = useRef(new Set<string>());
     const pending_summaries_ref = useRef<Record<string, string>>({});
     const flush_scheduled_ref = useRef(false);
+    const request_seq_ref = useRef(0);
+    const load_more_inflight_ref = useRef(false);
+    const [loading_more, set_loading_more] = useState(false);
     const flush_summaries = useCallback((): void => {
         flush_scheduled_ref.current = false;
         const pending = pending_summaries_ref.current;
@@ -55,34 +61,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         window.setTimeout(flush_summaries, 0);
     }, [flush_summaries]);
 
-    useEffect(() => {
-        void (async () => {
-            const list: TokenStatsSession[] = [];
-            const PAGE = 500;
-            for (let offset = 0; ; offset += PAGE) {
-                try {
-                    const page = await window.usageboard.tokenStats.getSessions({
-                        limit: PAGE,
-                        offset,
-                    });
-                    list.push(...page);
-                    if (page.length < PAGE) break;
-                } catch {
-                    set_load_error(true); // f012：加载中断不再静默（空态/统计按实际数据展示）。
-                    break;
-                }
-            }
-            set_all(list);
-        })();
-    }, []);
-
-    const show_toast = useCallback((message: string): void => {
-        set_toast(message);
-        window.setTimeout(() => {
-            set_toast(null);
-        }, 2500);
-    }, []);
-
     const start_at = useMemo(() => {
         if (!start_date) return undefined;
         return new Date(`${start_date}T00:00:00`).getTime();
@@ -92,43 +70,142 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         return new Date(`${end_date}T23:59:59`).getTime();
     }, [end_date]);
 
+    const backend_filters = useMemo(() => {
+        const order_by =
+            sort === "tokens"
+                ? "tokens"
+                : sort === "calls"
+                  ? "calls"
+                  : sort === "earliest"
+                    ? "started_at"
+                    : "ended_at";
+        const direction = sort === "earliest" ? "asc" : "desc";
+        return {
+            ...(agents.length > 0 ? { sources: [...agents] } : {}),
+            ...(!search_content && search ? { search } : {}),
+            ...(start_at !== undefined ? { start_at } : {}),
+            ...(end_at !== undefined ? { end_at } : {}),
+            order_by,
+            direction,
+        } as const;
+    }, [agents, search, search_content, start_at, end_at, sort]);
+
     const agent_counts = useMemo(() => {
+        if (session_stats_status !== "ready") return [];
+        const source_counts = session_stats?.source_counts;
+        if (source_counts) {
+            return Object.entries(source_counts).sort((a, b) => b[1] - a[1]);
+        }
+        // Legacy renderer mocks may omit source_counts; only use the current page
+        // as a compatibility fallback after the aggregate request is ready.
         const counts = new Map<string, number>();
         for (const s of all) counts.set(s.source, (counts.get(s.source) ?? 0) + 1);
         return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    }, [all]);
+    }, [all, session_stats?.source_counts, session_stats_status]);
 
-    const stats = useMemo(() => count_stats(all), [all]);
+    const stats = useMemo(() => {
+        if (session_stats_status !== "ready") return null;
+        return session_stats ?? count_stats(all);
+    }, [all, session_stats, session_stats_status]);
 
-    const library_filters = useMemo(() => {
-        const f: {
-            agents?: string[];
-            search?: string;
-            start_at?: number;
-            end_at?: number;
-        } = {};
-        if (agents.length > 0) f.agents = agents;
-        if (search) f.search = search;
-        if (start_at !== undefined) f.start_at = start_at;
-        if (end_at !== undefined) f.end_at = end_at;
-        return f;
-    }, [agents, search, start_at, end_at]);
+    useEffect(() => {
+        void window.usageboard.tokenStats
+            .getSessionStats()
+            .then((result) => {
+                set_session_stats(result);
+                set_session_stats_status("ready");
+            })
+            .catch(() => {
+                set_session_stats(null);
+                set_session_stats_status("error");
+            });
+    }, []);
 
-    const filtered = useMemo(() => {
-        const base = filter_sessions(all, library_filters);
-        return sort_sessions(base, sort);
-    }, [all, library_filters, sort]);
+    useEffect(() => {
+        let disposed = false;
+        const seq = ++request_seq_ref.current;
+        load_more_inflight_ref.current = false;
+        set_loading_more(false);
+        set_visible(PAGE_SIZE);
+        set_has_more(false);
+        set_all([]);
+        set_load_error(false);
 
-    const [content_hits, set_content_hits] = useState<Set<string>>(new Set());
-    const content_filtered = useMemo(() => {
-        if (!search || !search_content) return filtered;
-        const hits = content_hits;
-        const filtered_keys = new Set(filtered.map((f) => key_of(f)));
-        const extra = all.filter((s) => hits.has(key_of(s)) && !filtered_keys.has(key_of(s)));
-        return sort_sessions([...filtered, ...extra], sort);
-    }, [filtered, all, search, search_content, sort, content_hits]);
+        const load_first_page = async (): Promise<void> => {
+            try {
+                const page = await window.usageboard.tokenStats.getSessions({
+                    ...backend_filters,
+                    limit: PAGE_SIZE,
+                    offset: 0,
+                });
+                if (disposed || request_seq_ref.current !== seq) return;
+                set_load_error(false);
+                set_all(page);
+                set_has_more(page.length === PAGE_SIZE);
+            } catch {
+                if (disposed || request_seq_ref.current !== seq) return;
+                set_load_error(true);
+            }
+        };
+        void load_first_page();
+        return () => {
+            disposed = true;
+        };
+    }, [backend_filters]);
 
-    // 内容搜索 effect：防抖 300ms + AbortController 作废旧查询（t239）。
+    const load_more = useCallback((): void => {
+        const content_mode = Boolean(search && search_content);
+        if (content_mode) {
+            if (content_sessions.length <= visible || load_more_inflight_ref.current) return;
+            set_visible((current) => current + PAGE_SIZE);
+            return;
+        }
+        if (!has_more || load_more_inflight_ref.current) return;
+        load_more_inflight_ref.current = true;
+        set_loading_more(true);
+        const seq = request_seq_ref.current;
+        const offset = all.length;
+        void window.usageboard.tokenStats
+            .getSessions({ ...backend_filters, limit: PAGE_SIZE, offset })
+            .then((page) => {
+                if (request_seq_ref.current !== seq) return;
+                set_all((current) => [...current, ...page]);
+                set_visible((current) => current + page.length);
+                set_has_more(page.length === PAGE_SIZE);
+            })
+            .catch(() => {
+                if (request_seq_ref.current === seq) set_load_error(true);
+            })
+            .finally(() => {
+                if (request_seq_ref.current !== seq) return;
+                load_more_inflight_ref.current = false;
+                set_loading_more(false);
+            });
+    }, [
+        all.length,
+        backend_filters,
+        content_sessions.length,
+        has_more,
+        search,
+        search_content,
+        visible,
+    ]);
+
+    const show_toast = useCallback((message: string): void => {
+        set_toast(message);
+        window.setTimeout(() => {
+            set_toast(null);
+        }, 2500);
+    }, []);
+
+    const [, set_content_hits] = useState<Set<string>>(new Set());
+    const filtered = all;
+    const content_filtered = useMemo(
+        () => (search && search_content ? sort_sessions(content_sessions, sort) : filtered),
+        [content_sessions, filtered, search, search_content, sort],
+    );
+
+    // 内容搜索 effect：防抖 300ms + AbortController 作废旧查询（t239/t248）。
     const content_debounce_ref = useRef<number | null>(null);
     const content_abort_ref = useRef<AbortController | null>(null);
 
@@ -139,31 +216,48 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         }
         if (!search || !search_content) {
             set_content_hits(new Set());
+            set_content_sessions([]);
             set_content_searching(false);
+            set_content_search_error(false);
             return;
         }
+        set_content_hits(new Set());
+        set_content_sessions([]);
+        set_content_search_error(false);
         set_content_searching(true);
         content_debounce_ref.current = window.setTimeout(() => {
             content_debounce_ref.current = null;
             content_abort_ref.current?.abort();
             const controller = new AbortController();
             content_abort_ref.current = controller;
-            const cand_filters: { agents?: string[]; start_at?: number; end_at?: number } = {};
-            if (agents.length > 0) cand_filters.agents = agents;
-            if (start_at !== undefined) cand_filters.start_at = start_at;
-            if (end_at !== undefined) cand_filters.end_at = end_at;
-            const candidates = filter_sessions(all, cand_filters);
-            const locs = candidates.map((s) => ({ source: s.source, env: s.env, session_id: s.id }));
             window.usageboard.sessionHistory
-                .searchContent(locs, search)
-                .then((hits) => {
+                .searchContent({
+                    filters: {
+                        ...(agents.length > 0 ? { sources: [...agents] } : {}),
+                        ...(search ? { search } : {}),
+                        ...(start_at !== undefined ? { start_at } : {}),
+                        ...(end_at !== undefined ? { end_at } : {}),
+                    },
+                    keyword: search,
+                })
+                .then((result) => {
                     if (controller.signal.aborted) return;
-                    set_content_hits(new Set(hits));
+                    const response = Array.isArray(result)
+                        ? {
+                              hits: result as readonly string[],
+                              sessions: [],
+                          }
+                        : result;
+                    set_content_hits(new Set(response.hits));
+                    set_content_sessions([...response.sessions]);
+                    set_content_search_error(false);
                     set_content_searching(false);
                 })
                 .catch((err: unknown) => {
                     if (controller.signal.aborted) return;
                     if (err instanceof Error && err.name === "AbortError") return;
+                    set_content_sessions([]);
+                    set_content_search_error(true);
                     set_content_searching(false);
                 });
         }, 300);
@@ -175,9 +269,10 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, all, agents, start_at, end_at]);
+    }, [search, search_content, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
+    const can_load_more = search && search_content ? content_filtered.length > visible : has_more;
 
     // 批量加载可见会话的首条用户消息摘要（t239）。
     useEffect(() => {
@@ -261,18 +356,20 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     }, []);
 
     const selected_ids = useMemo(() => new Set(selected.map((s) => key_of(s))), [selected]);
-    const has_filters =
-        search || search_content || start_date || end_date || agents.length > 0;
+    const has_filters = search || search_content || start_date || end_date || agents.length > 0;
     const show_clear = has_filters || all.length > 0;
     const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
+    const stats_text =
+        session_stats_status === "ready" && stats !== null
+            ? `${String(stats.sessions)} 个会话 · ${String(stats.agents)} 个 Agent · ${format_tokens(stats.tokens)} tokens`
+            : session_stats_status === "loading"
+              ? "统计加载中…"
+              : "统计不可用";
     return (
         <div className="session-library">
             <header className="lib-head">
                 <span className="lib-title">会话库</span>
-                <span className="lib-stats">
-                    {String(stats.sessions)} 个会话 · {String(stats.agents)} 个 Agent ·{" "}
-                    {format_tokens(stats.tokens)} tokens
-                </span>
+                <span className="lib-stats">{stats_text}</span>
             </header>
 
             <div className="lib-toolbar">
@@ -359,6 +456,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             />
 
             {content_searching && <div className="lib-content-searching">搜索消息内容中…</div>}
+            {content_search_error && <div className="lib-load-interrupted">消息内容搜索失败</div>}
 
             {load_error && visible_sessions.length > 0 && (
                 <div className="lib-load-interrupted">会话列表加载中断，已显示部分数据</div>
@@ -394,13 +492,12 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 />
             )}
 
-            {visible < content_filtered.length && (
+            {can_load_more && (
                 <button
                     type="button"
                     className="lib-load-more"
-                    onClick={() => {
-                        set_visible((v) => v + PAGE_SIZE);
-                    }}
+                    disabled={loading_more}
+                    onClick={load_more}
                 >
                     加载更多
                 </button>
