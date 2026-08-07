@@ -129,6 +129,14 @@ export function format_tokens(n: number): string {
 
 /** source → rail agent 色左条的 CSS 变量名。agent_id 归一到 demo 变量名
  *  （claude_code→claude、kimi_code→kimi），与 markdown.agent_slug 展示口径一致。 */
+export function vendor_id_for_source(source: string): string {
+    if (source === "claude_code") return "claude";
+    if (source === "kimi_code") return "kimi";
+    if (source === "grok") return "grok";
+    if (source === "opencode") return "opencode_go";
+    return "overview";
+}
+
 const AGENT_COLOR_VAR: Record<string, string> = {
     claude_code: "--agent-claude",
     opencode: "--agent-opencode",

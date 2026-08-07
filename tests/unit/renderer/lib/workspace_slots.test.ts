@@ -13,6 +13,7 @@ import {
     slot_at,
     try_add_slot,
     try_assign_slot,
+    vendor_id_for_source,
 } from "../../../../src/renderer/lib/workspace/slots";
 
 /**
@@ -47,6 +48,16 @@ function sess(
         ...opts,
     };
 }
+
+describe("source → provider logo 映射", () => {
+    it("映射四个已知 source，未知 source 使用 overview 兜底", () => {
+        expect(vendor_id_for_source("claude_code")).toBe("claude");
+        expect(vendor_id_for_source("kimi_code")).toBe("kimi");
+        expect(vendor_id_for_source("grok")).toBe("grok");
+        expect(vendor_id_for_source("opencode")).toBe("opencode_go");
+        expect(vendor_id_for_source("unknown")).toBe("overview");
+    });
+});
 
 describe("slots 初始化与计数", () => {
     it("empty_slots 返回 8 个空槽", () => {

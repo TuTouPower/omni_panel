@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from "react";
 import { format_time_short } from "../../lib/session-history/markdown";
-import type { SlotSession } from "../../lib/workspace/slots";
+import { VendorMark } from "../Icon";
+import { vendor_id_for_source, type SlotSession } from "../../lib/workspace/slots";
 import {
     is_near_bottom,
     message_counts,
@@ -37,14 +38,6 @@ export interface SessionPaneProps {
 
 const OLDER_THRESHOLD_PX = 120;
 const BOTTOM_THRESHOLD_PX = 120;
-
-function agent_initial(source: string): string {
-    if (source === "claude_code") return "C";
-    if (source === "opencode") return "OC";
-    if (source === "kimi_code") return "K";
-    if (source === "grok") return "G";
-    return source.slice(0, 2).toUpperCase();
-}
 
 /** t225 会话面板：头部 + 消息区 + 大纲抽屉 + 脚部。滚动分页/前置补偿沿用 t211 决策 17。 */
 export function SessionPane({
@@ -120,7 +113,7 @@ export function SessionPane({
             <div className="pane-accent" />
             <header className="pane-head">
                 <span className="pane-agent-badge" title={slot_meta.model}>
-                    {agent_initial(column.loc.source)}
+                    <VendorMark id={vendor_id_for_source(column.loc.source)} size={22} />
                 </span>
                 <div className="pane-head-text">
                     <span className="pane-title" title={column.title}>
