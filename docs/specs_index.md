@@ -61,5 +61,6 @@
 | draggable_provider_tabs              | Web           | t242                                                                                              | 2026-08-07   |
 | renderer-bundle-code-split           | Web+Desktop   | t249                                                                                              | 2026-08-07   |
 | session-path-index                   | Desktop       | t254                                                                                              | 2026-08-07   |
+| session-summary-head-read            | Desktop       | t255                                                                                              | 2026-08-07   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

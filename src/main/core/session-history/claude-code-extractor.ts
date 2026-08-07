@@ -9,6 +9,7 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
+import { read_head } from "./head-read";
 
 function pick_text_from_content(content: unknown): string | null {
     if (typeof content === "string") return content;
@@ -47,17 +48,12 @@ function record_to_message(rec: Record<string, unknown>): HistoryMessage | null 
 }
 
 /**
- * 轻量扫描：从文件头开始逐行解析，返回第一条 role === "user" 的消息文本。
- * 读到 max_lines 行仍未命中 user 时返回空串；文件不存在也返回空串。
- * 不调用 extract_full，不缓存，只读前部少量行。
+ * 轻量扫描：从文件头开始限量读取（最多 64KB，t255）逐行解析，返回第一条
+ * role === "user" 的消息文本。头部窗口内未命中或文件不存在返回空串。
+ * 不调用 extract_full，不缓存。
  */
 export function extract_claude_code_first_user(file: string, max_lines = 1000): string {
-    let content: string;
-    try {
-        content = readFileSync(file, "utf-8");
-    } catch {
-        return "";
-    }
+    const content = read_head(file);
     const lines = content.split("\n");
     for (let i = 0; i < Math.min(lines.length, max_lines); i += 1) {
         const line = lines[i];
