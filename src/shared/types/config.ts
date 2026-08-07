@@ -63,6 +63,10 @@ export interface AppConfiguration {
     readonly providerForcePercent?: Readonly<Partial<Record<string, boolean>>>;
     readonly settingsBounds?: FloatingBoundsConfiguration;
     readonly floatingBounds?: FloatingBoundsConfiguration;
+    /** t251: 代理面板窗口 bounds（保存/恢复）。 */
+    readonly agentWindowBounds?: FloatingBoundsConfiguration;
+    /** t251: 会话面板窗口 bounds（保存/恢复）。 */
+    readonly historyWindowBounds?: FloatingBoundsConfiguration;
     readonly accountOverrides?: AccountOverrides;
     readonly accountLabels?: AccountLabels;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;

@@ -99,6 +99,8 @@ export const appConfigurationSchema = z.object({
     providerForcePercent: z.record(z.boolean()).optional(),
     floatingBounds: floatingBoundsSchema.optional(),
     settingsBounds: floatingBoundsSchema.optional(),
+    agentWindowBounds: floatingBoundsSchema.optional(),
+    historyWindowBounds: floatingBoundsSchema.optional(),
     accountOverrides: accountOverridesSchema.optional(),
     accountLabels: z.record(z.record(z.string())).optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),

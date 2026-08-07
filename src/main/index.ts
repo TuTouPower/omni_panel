@@ -87,6 +87,7 @@ import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
+import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { cleanup_temp_files } from "./core/storage/write-json";
 
@@ -348,6 +349,29 @@ void app.whenReady().then(async () => {
             manager: tokenStatsManager,
             dispatcher: tokenStatsQueryDispatcher,
         });
+        // t251: 会话/代理面板窗口 bounds 保存与恢复（复用设置窗口先例）。
+        // createWindowFor 后应用保存的 bounds + 注册 move/resize 保存。
+        const create_panel_window = (
+            key: "agent" | "history",
+            route_query?: Record<string, string>,
+        ) => {
+            const bounds_key = key === "agent" ? "agentWindowBounds" : "historyWindowBounds";
+            const win = windowManager.createWindowFor(key, route_query ? { route_query } : {});
+            const saved = get_saved_bounds(currentConfigSnapshot, bounds_key);
+            if (!apply_window_bounds(win, saved)) {
+                // 无保存值或钳制异常：按配置默认尺寸居中（对齐 apply_settings_bounds 无值语义）。
+                win.center();
+            }
+            watch_window_bounds(win, bounds_key, (k, value) => {
+                currentConfigSnapshot = {
+                    ...currentConfigSnapshot,
+                    [k]: value,
+                };
+                // Thunk 防 renderer 保存无关键时快照回退（对齐 settings 先例）。
+                configStore.scheduleSave(() => currentConfigSnapshot);
+            });
+            return win;
+        };
         // t210: 会话历史订阅服务 + 历史窗口 singleton controller。
         // watcher 触发时由 session-history-ipc 按订阅方窗口推送（t219）；
         // 订阅方窗口关闭时经 SUBSCRIBE 挂的 destroyed 清理各自注销，不在此全局清空。
@@ -356,9 +380,9 @@ void app.whenReady().then(async () => {
             create_window: (loc) => {
                 // 首次创建时经 URL query 传初始定位参数，renderer 启动同步读（见
                 // spec 上下文区已核实契约；window 已存在时走 send_focus，不重复传）。
-                return windowManager.createWindowFor(
+                return create_panel_window(
                     "history",
-                    loc ? { route_query: { loc: JSON.stringify(loc) } } : {},
+                    loc ? { loc: JSON.stringify(loc) } : undefined,
                 );
             },
         });
@@ -701,7 +725,7 @@ void app.whenReady().then(async () => {
         // Agent (token-stats) window singleton: tokenStats.open() reuses an
         // existing window instead of stacking multiple agent BrowserWindows.
         const agent_window_controller = create_agent_window_controller({
-            create_window: () => windowManager.createWindowFor("agent"),
+            create_window: () => create_panel_window("agent"),
         });
 
         cleanupPopupIpc = registerPopupIpc({

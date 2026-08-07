@@ -55,6 +55,18 @@
 - 内容：popup_view_t250.test.tsx 用真实 timers + `wait_debounce`（600ms）等待防抖，测试运行产生 8 条 React act 警告（既有基线 0）。断言无假通过风险。可改 fake timers + advanceTimersByTime 消除（注意 RTL waitFor 与 fake timers 兼容需 shouldAdvanceTime）。
 - 处理：未开
 
+## p080 会话面板窗口 bounds 恢复无独立 e2e（AC2）
+
+- 来源：t251 review f001（minor）
+- 内容：AC2（会话面板 bounds 保存/恢复）仅被共用 `create_panel_window` 路径 + `get_saved_bounds` 键单测覆盖，无 history 窗口独立 e2e（需会话 fixture）。agent 窗口 e2e（panel_window_bounds.spec.ts）已覆盖恢复核心路径。
+- 处理：未开
+
+## p081 面板窗口未设 minWidth，保存尺寸提升致重开放大
+
+- 来源：t251 review f003（minor）
+- 内容：`window-bounds.ts` 保存把尺寸提升到 PANEL_MIN（480x360），但 agent/history 窗口未设 `minWidth`/`minHeight`，用户可缩到更小尺寸，重开时被放大回最小。与设置窗口先例一致（设置窗口也未设 minWidth）。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
