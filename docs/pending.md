@@ -16,12 +16,6 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-### p056 vault/secrets-store 集成测试全量并行超时 flaky
-
-- 来源：t227 实施观察（2026-08-06）
-- 内容：`tests/integration/config/secrets-store.test.ts` 与 `tests/integration/vault/file-vault-backend.test.ts`（crypto 密集 + 文件锁/互斥）在 `pnpm test` 全量并行时随机 5s 超时（一次 0-4 个 test 失败），单独运行两文件 38 全过。与 t218 处置的定时器 flaky 类似，属集成测试并行资源竞争模式；非 t227 改动引入（vault/config 零交集）。候选修法：提高这两文件 `testTimeout`（如 15000），或全量跑时串行化 crypto 密集套件。
-- 处理：未开
-
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
@@ -32,3 +26,5 @@
 - `- 处理` 固定写「不办」。
 
 以下 9 条自 `docs/legacy_backlog.md`「暂不建 task（附理由）」节迁入（2026-07-31 对齐模板时迁移）；2026-08-01 复核后 8 条复活回「待办」节，1 条（p008）保留，2026-08-07 用户要求归档迁出。
+
+统一几个面板的设计语言，主题色 强调色 背景色 辅助色 字体等等。

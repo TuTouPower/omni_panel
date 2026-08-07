@@ -8,7 +8,7 @@ worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t253"
+conflicts_with: "t253,t259"
 note: ""
 ---
 
