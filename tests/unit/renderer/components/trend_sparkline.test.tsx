@@ -61,4 +61,41 @@ describe("TrendSparkline", () => {
         const { container } = render(<TrendSparkline data={[]} />);
         expect(container.querySelector("polyline")).toBeNull();
     });
+
+    it("renders at most ~5 X-axis date labels regardless of point count", () => {
+        const data: (TrendPoint | null)[] = Array.from({ length: 14 }, (_, i) => ({
+            date: `2026-07-${String(i + 1).padStart(2, "0")}`,
+            percent: i * 5,
+        }));
+        const { container } = render(<TrendSparkline data={data} />);
+
+        const date_texts = Array.from(container.querySelectorAll("text")).filter((t) =>
+            t.textContent.includes("-"),
+        );
+        expect(date_texts.length).toBeLessThanOrEqual(5);
+        expect(date_texts.length).toBeGreaterThanOrEqual(2);
+        // First and last dates should still be labelled.
+        const first = date_texts[0];
+        const last = date_texts[date_texts.length - 1];
+        if (first === undefined || last === undefined) {
+            throw new Error("expected at least two date labels");
+        }
+        expect(first.textContent).toBe("07-01");
+        expect(last.textContent).toBe("07-14");
+    });
+
+    it("renders a date label for every point when there are 5 or fewer", () => {
+        const data: (TrendPoint | null)[] = [
+            { date: "2026-07-14", percent: 10 },
+            { date: "2026-07-15", percent: 20 },
+            { date: "2026-07-16", percent: 30 },
+            { date: "2026-07-17", percent: 40 },
+        ];
+        const { container } = render(<TrendSparkline data={data} />);
+
+        const date_texts = Array.from(container.querySelectorAll("text")).filter((t) =>
+            t.textContent.includes("-"),
+        );
+        expect(date_texts.length).toBe(4);
+    });
 });

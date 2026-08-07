@@ -77,6 +77,18 @@ export const TrendSparkline = memo(function TrendSparkline({
 
     const grid_values = [0, 50, 100];
 
+    // Keep every data point visible (line / area / dots); just thin out the
+    // X-axis date labels so they don't overlap. Aim for ~4 labels when there
+    // are many points; show every label for 5 or fewer points.
+    const target_labels = n <= 5 ? n : 4;
+    const label_indices =
+        n <= 1
+            ? []
+            : Array.from({ length: target_labels }, (_, k) =>
+                  Math.round((k * (n - 1)) / (target_labels - 1)),
+              );
+    const should_label = (i: number) => data[i] !== null && label_indices.includes(i);
+
     return (
         <div className="trend-sparkline" style={{ minHeight: `${String(height)}px` }}>
             <svg
@@ -116,7 +128,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                     </g>
                 ))}
                 {data.map((p, i) => {
-                    if (p === null) return null;
+                    if (p === null || !should_label(i)) return null;
                     return (
                         <text
                             key={`d${String(i)}`}
