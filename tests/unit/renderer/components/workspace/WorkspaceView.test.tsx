@@ -656,6 +656,51 @@ describe("WorkspaceView (t224)", () => {
         });
     });
 
+    it("视图菜单按当前会话数提供排布选项并可切换网格列数", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        const cb = focus_cb();
+        act(() => {
+            for (let i = 0; i < 6; i += 1) {
+                cb({ source: "claude_code", env: "win", session_id: `layout-${String(i)}` });
+            }
+        });
+        await waitFor(() => {
+            expect(screen.getByText("6/8")).toBeTruthy();
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        const three_by_two = screen.getByRole("button", { name: "3 列 × 2 行" });
+        const two_by_three = screen.getByRole("button", { name: "2 列 × 3 行" });
+        expect(three_by_two).toBeTruthy();
+        expect(two_by_three).toBeTruthy();
+        expect(three_by_two.getAttribute("aria-pressed")).toBe("true");
+
+        fireEvent.click(two_by_three);
+        expect(two_by_three.getAttribute("aria-pressed")).toBe("true");
+        expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 2");
+    });
+
+    it("8 个会话时视图菜单选中当前有效排布", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render(<WorkspaceView />);
+        const cb = focus_cb();
+        act(() => {
+            for (let i = 0; i < 8; i += 1) {
+                cb({ source: "claude_code", env: "win", session_id: `eight-${String(i)}` });
+            }
+        });
+        await waitFor(() => {
+            expect(screen.getByText("8/8")).toBeTruthy();
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        const four_by_two = screen.getByRole("button", { name: "4 列 × 2 行" });
+        expect(four_by_two.getAttribute("aria-pressed")).toBe("true");
+    });
+
     it("布局切换联动网格列数（--cols）", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });

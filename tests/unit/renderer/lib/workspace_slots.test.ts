@@ -6,6 +6,7 @@ import {
     empty_slots,
     effective_columns,
     find_slot_by_loc,
+    layout_choices_for_count,
     move_slot,
     occupied_count,
     remove_slot,
@@ -171,6 +172,32 @@ describe("session_meta 元数据派生", () => {
     it("title 为 null 时回退 session_id", () => {
         const m = session_meta(sess("b", "opencode", { title: null }), 1);
         expect(m.title).toBe("b");
+    });
+});
+
+describe("会话数对应的排布选项", () => {
+    it("按会话数生成代表性行列排布", () => {
+        expect(layout_choices_for_count(3)).toEqual([
+            { columns: 3, rows: 1 },
+            { columns: 2, rows: 2 },
+        ]);
+        expect(layout_choices_for_count(6)).toEqual([
+            { columns: 3, rows: 2 },
+            { columns: 2, rows: 3 },
+        ]);
+        expect(layout_choices_for_count(8)).toEqual([
+            { columns: 4, rows: 2 },
+            { columns: 2, rows: 4 },
+        ]);
+    });
+
+    it("边界会话数给出不重复的合理选项", () => {
+        expect(layout_choices_for_count(0)).toEqual([]);
+        expect(layout_choices_for_count(1)).toEqual([{ columns: 1, rows: 1 }]);
+        expect(layout_choices_for_count(2)).toEqual([
+            { columns: 2, rows: 1 },
+            { columns: 1, rows: 2 },
+        ]);
     });
 });
 

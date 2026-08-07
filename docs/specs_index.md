@@ -57,7 +57,7 @@
 | unify_account_auth_forms             | Web           | t157                                                                                              | 2026-07-27   |
 | session-history-window               | Desktop       | t211，t212，t213                                                                                  | 2026-08-05   |
 | session-shell                        | Desktop       | t223，t224，t245                                                                                  | 2026-08-07   |
-| workspace                            | Desktop       | t224，t225，t226，t227，t228，t248，t243，t246                                                    | 2026-08-07   |
+| workspace                            | Desktop       | t224，t225，t226，t227，t228，t248，t243，t246，t244                                                    | 2026-08-07   |
 | draggable_provider_tabs              | Web           | t242                                                                                              | 2026-08-07   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
-import { effective_columns, occupied_count, type LayoutCount } from "../../lib/workspace/slots";
+import {
+    effective_columns,
+    layout_choices_for_count,
+    occupied_count,
+    type LayoutCount,
+} from "../../lib/workspace/slots";
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
@@ -242,6 +247,17 @@ export function WorkspaceView() {
     }, [slots_state, focused_index, outline_index]);
 
     const count = occupied_count(slots_state);
+
+    useEffect(() => {
+        const choices = layout_choices_for_count(count);
+        if (choices.length === 0) return;
+        set_layout((current) =>
+            choices.some((choice) => choice.columns === current)
+                ? current
+                : (choices[0]?.columns ?? current),
+        );
+    }, [count]);
+
     const cols = Math.max(1, Math.min(effective_columns(layout, container_width), count));
 
     const open_picker = useCallback((index: number): void => {
