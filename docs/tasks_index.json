@@ -2,5 +2,21 @@
     "generated_by": "scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t249",
+            "slug": "renderer_bundle_code_split",
+            "title": "渲染包代码分割：路由懒加载 + ECharts 动态加载",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t249_renderer_bundle_code_split"
+        }
+    ]
 }
