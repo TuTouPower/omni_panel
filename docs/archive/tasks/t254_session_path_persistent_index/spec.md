@@ -71,7 +71,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- collector 扫描结果中是否已持有可用的 session_id → 路径映射可直接落索引：`UNVERIFIED-SPIKE`，执行期读 collector 与 scan-state 实现核实；若无则索引由 locator 扫描结果自建。
+- collector 扫描结果中是否已持有可用的 session_id → 路径映射可直接落索引：已由 spike s019 读 `src/main/core/token-stats/` 核实。collector（utility 进程）的 `SessionScanState.files` 与持久化 `token-stats-scan-state.json` 均持 file_path→session_id 反向映射；但 (a) 反转后 claude_code subagent 多文件歧义（同 session_id 映射主 transcript + `<id>/subagents/agent-*.jsonl`），(b) 只覆盖「有 usage 数据」的会话，parse 失败/空会话不在其中。故**不直接复用**，索引由 locator 扫描结果自建（新增 session_id(+env)→file_path/extractor_kind 持久表）；collector 扫描新会话经既有事件链路触发索引更新（AC3）。
 
 ### 风险与回退
 

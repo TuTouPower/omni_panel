@@ -26,6 +26,23 @@
 - 线索：`tests/e2e/fixtures/synthetic.json` 端点数 64，无 `/v1/sessionStats` 类统计端点；`scripts/e2e/session_fixture.mjs` 生成脚本亦无「大会话虚拟列表」。
 - 处理：未开
 
+## p076 会话索引落盘 O(N²) 全量写（首开批量性能权衡）
+
+- 来源：t254 code review f002（minor）
+- 内容：`session-locator.ts` 的 `persist_index_entry` 每次 miss 都 `save_session_index` 全量序列化 + 同步写盘。首次打开面板批量 resolve（约 50 可见会话）且索引冷时每个 miss 一次全量写，索引增长到 N 条为 O(N²) 序列化 + 同步 I/O。活跃会话（mtime 高频变化）每次打开也走 miss → 全目录扫描 + 全量写。
+- 权衡：首开批 50 会话、每次 ~10KB JSON、50 次总 <500KB 顺序写，现代 SSD 无感；主瓶颈仍是全目录扫描（t254 已消除命中路径）。同步接口（resolve 同步返回）下做批间合并需引入异步落盘 + flush 等待，破坏现有「resolve 后立即断言索引文件存在」的测试语义，收益有限。
+- 处理：未开
+
+## p077 electron e2e plugin_config CPA 保存偶发失败（完整套件下）
+
+- 来源：t254 黑盒
+- 现象：完整 `pnpm test:e2e:electron` 时 `plugin_config.spec.ts:91`「CPA settings persist after app restart without exposing the secret」偶发失败（endpoint 读回 synthetic 默认 17863 而非保存的 cpa.example.test）；单独跑该 spec 稳定 4 passed。
+- 影响：electron e2e 完整套件偶发非全绿；CPA 配置持久化路径无稳定 e2e 保障。
+- 根因：疑似测试间 electron 进程/端口残留——前一测试的 app 未完全退出时 plugin_config 重启读取用户数据竞态；主仓基线（未改代码）完整 e2e 35 passed，单独跑也过，非 t254 引入（t254 改会话定位不涉 CPA 配置）。
+- 测试缺口：无（测试隔离问题，非断言缺失）。
+- 线索：失败仅出现在完整套件（多 spec 串行）下，单独 spec 恒过；重启相关测试（secrets_persistence 等）前置。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
