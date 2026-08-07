@@ -65,5 +65,6 @@
 | session-first-open-main-unblock      | Desktop       | t256                                                                                              | 2026-08-08   |
 | usage-panel-selection-persist        | Web+Desktop   | t250                                                                                              | 2026-08-08   |
 | panel-window-bounds-persist          | Desktop       | t251                                                                                              | 2026-08-08   |
+| session-pane-display-adjust          | Web+Desktop   | t257                                                                                              | 2026-08-08   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

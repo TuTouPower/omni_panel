@@ -84,3 +84,62 @@ describe("SessionRail provider 徽标", () => {
         });
     });
 });
+
+describe("SessionRail t257 展示调整", () => {
+    const base = {
+        slots: slots_with_sources(["claude_code", "kimi_code"]),
+        collapsed: false,
+        on_toggle_collapse: () => undefined,
+        on_pick: () => undefined,
+        on_close: () => undefined,
+        on_move: () => undefined,
+    };
+
+    it("AC5：槽位不渲染 provider 颜色条（rail-accent）", () => {
+        render(<SessionRail {...base} />);
+        expect(document.querySelector(".rail-accent")).toBeNull();
+    });
+
+    it("AC6：折叠态空槽只显示「+」；AC7：底部无「添加会话」按钮", () => {
+        render(<SessionRail {...base} collapsed={false} />);
+        // AC7：底部添加按钮移除。
+        expect(document.querySelector(".rail-add")).toBeNull();
+
+        // AC6：折叠态空槽按钮文案为「+」。
+        const { container } = render(
+            <SessionRail
+                {...base}
+                slots={empty_slots()}
+                collapsed={true}
+                on_toggle_collapse={() => undefined}
+                on_pick={() => undefined}
+                on_close={() => undefined}
+                on_move={() => undefined}
+            />,
+        );
+        const empty_btns = Array.from(container.querySelectorAll(".rail-slot-empty"));
+        expect(empty_btns.length).toBeGreaterThan(0);
+        for (const b of empty_btns) {
+            expect(b.textContent.trim()).toBe("+");
+        }
+    });
+
+    it("展开态空槽显示「+ 添加会话」文案", () => {
+        const { container } = render(
+            <SessionRail
+                {...base}
+                slots={empty_slots()}
+                collapsed={false}
+                on_toggle_collapse={() => undefined}
+                on_pick={() => undefined}
+                on_close={() => undefined}
+                on_move={() => undefined}
+            />,
+        );
+        const empty_btns = Array.from(container.querySelectorAll(".rail-slot-empty"));
+        expect(empty_btns.length).toBeGreaterThan(0);
+        for (const b of empty_btns) {
+            expect(b.textContent.trim()).toBe("+ 添加会话");
+        }
+    });
+});

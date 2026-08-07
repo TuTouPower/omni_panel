@@ -1,6 +1,22 @@
 import type { HistoryMessageLike, SessionHistoryLoc } from "../../../shared/types/ipc";
 
-/** t225 pane 纯函数：时间分隔线、大纲摘要、消息计数。 */
+/** t225 pane 纯函数：时间分隔线、大纲摘要、消息计数。t257 加目录末级与精确时间。 */
+
+/** t257：目录只显示最后一级；Windows 反斜杠与 POSIX 斜杠都切；尾随斜杠/空/根返回原样。 */
+export function last_dir_segment(cwd: string): string {
+    const trimmed = cwd.replace(/[\\/]+$/, "");
+    if (trimmed.length === 0) return cwd;
+    const parts = trimmed.split(/[\\/]/);
+    const last = parts[parts.length - 1] ?? "";
+    return last.length > 0 ? last : cwd;
+}
+
+/** t257：ms epoch → YYYY-MM-DD HH:MM:SS（最后一条消息精确时间）。 */
+export function format_precise_datetime(ts: number): string {
+    const d = new Date(ts);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
 /** pane 会话数据（t224 前 HistoryColumnData 迁此）。 */
 export interface PaneData {

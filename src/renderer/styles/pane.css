@@ -62,7 +62,8 @@
 }
 
 .pane-title {
-    font-size: 13px;
+    /* t257 AC3：标题小字号（原元信息字号），元信息大字号互换。 */
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -71,7 +72,7 @@
 }
 
 .pane-meta {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -150,6 +151,30 @@
 .pane-msg-body {
     flex: 1;
     min-width: 0;
+}
+
+/* t257 AC9：默认单行折叠；展开按钮。 */
+.pane-msg-content.single-line {
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    overflow: hidden;
+}
+
+.pane-msg-expand {
+    margin-top: 2px;
+    padding: 1px 6px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--accent-lime);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.pane-msg-expand:hover {
+    background: var(--accent-lime-dim);
 }
 
 .pane-msg-meta {

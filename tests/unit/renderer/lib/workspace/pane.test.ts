@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
     compute_message_offsets,
     compute_visible_window,
+    format_precise_datetime,
     is_near_bottom,
+    last_dir_segment,
     message_counts,
     should_insert_divider,
     summarize,
 } from "../../../../../src/renderer/lib/workspace/pane";
 
-/** t237 pane 纯函数单测：时间分隔线、摘要、计数、虚拟窗口计算。 */
+/** t237 pane 纯函数单测：时间分隔线、摘要、计数、虚拟窗口计算。t257 加目录末级与精确时间。 */
 
 describe("pane helpers (t225/t237)", () => {
     it("should_insert_divider：相邻消息跨度超 10 分钟才插", () => {
@@ -107,5 +109,32 @@ describe("pane helpers (t225/t237)", () => {
             expect(win.total_height).toBe(400);
             expect(win.bottom_spacer).toBe(200);
         });
+    });
+});
+
+describe("last_dir_segment (t257)", () => {
+    it("POSIX 路径取末级", () => {
+        expect(last_dir_segment("/home/user/proj")).toBe("proj");
+        expect(last_dir_segment("/proj")).toBe("proj");
+    });
+    it("Windows 反斜杠路径取末级", () => {
+        expect(last_dir_segment("D:\\Dev\\Code\\proj")).toBe("proj");
+        expect(last_dir_segment("C:\\proj")).toBe("proj");
+    });
+    it("尾随斜杠剥离后取末级", () => {
+        expect(last_dir_segment("/home/user/proj/")).toBe("proj");
+        expect(last_dir_segment("D:\\Dev\\Code\\proj\\")).toBe("proj");
+    });
+    it("根目录 / 空返回原样", () => {
+        expect(last_dir_segment("/")).toBe("/");
+        expect(last_dir_segment("")).toBe("");
+    });
+});
+
+describe("format_precise_datetime (t257)", () => {
+    it("格式含年月日时分秒", () => {
+        // 2026-08-07 09:08:07 (UTC+8 由本地时区决定；用本地 Date 构造避免时区依赖)。
+        const d = new Date(2026, 7, 7, 9, 8, 7);
+        expect(format_precise_datetime(d.getTime())).toBe("2026-08-07 09:08:07");
     });
 });

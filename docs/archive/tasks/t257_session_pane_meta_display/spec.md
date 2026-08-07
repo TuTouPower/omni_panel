@@ -77,8 +77,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 「最后一条消息的精确时间」的数据来源：`UNVERIFIED-SPIKE`，执行期 Step 1 核实现有 session meta（SlotSession / token-stats sessions 查询）是否携带最后活动时间戳；若无，需扩展后端查询字段（改动面随之扩大到 store/IPC，在实施笔记记录）。
-- `VirtualMessageList` 的行高机制对动态行高（折叠/展开）的支持方式：`UNVERIFIED-SPIKE`，执行期 Step 1 核实虚拟列表是固定行高还是测量行高；固定行高需先改造为可测高或在展开时重测，方案在实施笔记记录。
+- 「最后一条消息的精确时间」的数据来源：已由 spike s022 核实。`HistoryMessageLike`（shared/types/ipc.ts）含 `timestamp`；pane 内 `messages.at(-1)?.timestamp` 即最后一条消息精确时间（毫秒），前端格式化含年月日时分秒。无需扩展后端。
+- `VirtualMessageList` 的行高机制对动态行高（折叠/展开）的支持方式：已由 spike s022 核实。虚拟列表用 ResizeObserver 测量每行高度存 heights Map，`compute_message_offsets` 按测量高度计算偏移（未知行用 estimate_height）。折叠/展开行高变化被 ResizeObserver 重测，天然支持动态行高。
 
 ### 风险与回退
 

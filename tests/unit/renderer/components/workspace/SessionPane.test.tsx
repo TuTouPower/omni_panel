@@ -63,7 +63,7 @@ beforeEach(() => {
 });
 
 describe("SessionPane (t225)", () => {
-    it("头部显示 agent 徽标（含 model）、标题、cwd 与 轮数·tokens·日期 meta", () => {
+    it("头部显示 agent 徽标（含 model）、标题、末级目录与 轮数·tokens·日期 meta（t257）", () => {
         render(
             <SessionPane
                 {...PROPS}
@@ -75,12 +75,43 @@ describe("SessionPane (t225)", () => {
         expect(screen.getByText("会话标题")).toBeTruthy();
         expect(screen.getByText(/5 轮/)).toBeTruthy();
         expect(screen.getByText(/1,200 tokens/)).toBeTruthy();
-        expect(screen.getByText(/\/path\/to\/proj/)).toBeTruthy();
+        // t257 AC2：目录只显示末级。
+        expect(screen.getByText(/proj/)).toBeTruthy();
+        expect(screen.queryByText(/\/path\/to\/proj/)).toBeNull();
         expect(screen.getByText(/claude-sonnet-4/)).toBeTruthy();
         expect(document.querySelector(".pane-agent-badge")?.getAttribute("title")).toBe(
             "claude-sonnet-4",
         );
         expect(document.querySelector(".pane-accent")).toBeTruthy();
+    });
+
+    it("AC1/AC4：元信息不显示 source 文字，日期为最后一条消息精确时间", () => {
+        const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    messages: [msg("m1", "user", "hi", 100), msg("m2", "assistant", "ok", last_ts)],
+                })}
+            />,
+        );
+        // AC1：无完整软件名文字。
+        expect(screen.queryByText(/claude_code/)).toBeNull();
+        // AC4：日期为最后消息精确时间（含时分秒）。
+        expect(screen.getByText(/2026-08-07 09:08:07/)).toBeTruthy();
+    });
+
+    it("AC4：无消息时日期回退到打开时间", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    openedAt: new Date(2026, 0, 2, 3, 4, 5).getTime(),
+                    messages: [],
+                })}
+            />,
+        );
+        expect(screen.getByText(/2026-01-02 03:04:05/)).toBeTruthy();
     });
 
     it("按 source 渲染对应 provider logo，未知 source 使用 overview 兜底", () => {

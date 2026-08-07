@@ -1,11 +1,6 @@
 import { useState, type DragEvent } from "react";
 import { VendorMark } from "../Icon";
-import {
-    agent_accent,
-    format_tokens,
-    vendor_id_for_source,
-    type SlotsState,
-} from "../../lib/workspace/slots";
+import { format_tokens, vendor_id_for_source, type SlotsState } from "../../lib/workspace/slots";
 
 interface SessionRailProps {
     readonly slots: SlotsState;
@@ -33,8 +28,6 @@ export function SessionRail({
         set_drag_from(null);
     }
 
-    const first_empty = slots.findIndex((s) => s === null);
-
     return (
         <div className={"session-rail" + (collapsed ? " collapsed" : "")}>
             <button
@@ -58,7 +51,7 @@ export function SessionRail({
                                 on_pick(index);
                             }}
                         >
-                            + 添加会话
+                            {collapsed ? "+" : "+ 添加会话"}
                         </button>
                     ) : (
                         <div
@@ -76,10 +69,6 @@ export function SessionRail({
                                 handle_drop(e, index);
                             }}
                         >
-                            <span
-                                className="rail-accent"
-                                style={{ background: agent_accent(slot.loc.source) }}
-                            />
                             <span className="rail-badge">
                                 <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
@@ -105,18 +94,6 @@ export function SessionRail({
                     ),
                 )}
             </div>
-            {!collapsed && (
-                <button
-                    type="button"
-                    className="rail-add"
-                    disabled={first_empty === -1}
-                    onClick={() => {
-                        on_pick(first_empty === -1 ? 0 : first_empty);
-                    }}
-                >
-                    + 添加会话
-                </button>
-            )}
         </div>
     );
 }

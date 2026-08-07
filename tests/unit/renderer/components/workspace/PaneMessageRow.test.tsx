@@ -80,3 +80,76 @@ describe("PaneMessageRow memo (t237)", () => {
         expect(counts).toEqual({ m1: 1, m2: 3, m3: 1 });
     });
 });
+
+describe("PaneMessageRow 单行折叠 (t257)", () => {
+    const base = {
+        selected: false,
+        show_time: true,
+        compact: false,
+        on_toggle: () => undefined,
+        on_hover: () => undefined,
+    };
+
+    // jsdom 无真实布局：mock scrollHeight/clientHeight 控制「超行」判定。
+    function mock_content_size(scroll: number, client: number): void {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+            configurable: true,
+            get: () => scroll,
+        });
+        Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+            configurable: true,
+            get: () => client,
+        });
+    }
+
+    it("AC9：超行消息显示展开按钮，单行消息不显示", () => {
+        mock_content_size(80, 20);
+        const { rerender } = render(
+            <PaneMessageRow {...base} message={msg("m1", "user", "x".repeat(200))} />,
+        );
+        expect(screen.getByLabelText("展开消息")).toBeTruthy();
+
+        mock_content_size(20, 20);
+        rerender(<PaneMessageRow {...base} message={msg("m2", "user", "short")} />);
+        expect(screen.queryByLabelText("展开消息")).toBeNull();
+    });
+
+    it("AC9/AC10：默认折叠（single-line class），点击展开移除折叠，再点恢复", () => {
+        mock_content_size(80, 20);
+        render(<PaneMessageRow {...base} message={msg("m1", "user", "x".repeat(200))} />);
+        // 默认折叠。
+        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
+            true,
+        );
+
+        // 点击展开 → 移除折叠 class。
+        fireEvent.click(screen.getByLabelText("展开消息"));
+        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
+            false,
+        );
+
+        // 再点 → 恢复折叠。
+        fireEvent.click(screen.getByLabelText("折叠消息"));
+        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
+            true,
+        );
+    });
+
+    it("AC11：展开/折叠不改变选中态（checkbox 保持）", () => {
+        mock_content_size(80, 20);
+        const on_toggle = (id: string, shift: boolean) => void [id, shift];
+        render(
+            <PaneMessageRow
+                {...base}
+                message={msg("m1", "user", "x".repeat(200))}
+                selected
+                on_toggle={on_toggle}
+            />,
+        );
+        const check = screen.getByLabelText(/选择消息/);
+        expect(check).toBeChecked();
+
+        fireEvent.click(screen.getByLabelText("展开消息"));
+        expect(screen.getByLabelText(/选择消息/)).toBeChecked();
+    });
+});

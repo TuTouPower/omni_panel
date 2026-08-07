@@ -85,13 +85,6 @@
     background: var(--accent-lime-dim);
 }
 
-.rail-accent {
-    width: 4px;
-    align-self: stretch;
-    border-radius: 0 3px 3px 0;
-    flex-shrink: 0;
-}
-
 .rail-badge {
     width: 20px;
     height: 20px;
@@ -156,33 +149,24 @@
     color: var(--danger);
 }
 
-.rail-add {
-    margin: 6px 8px 8px;
-    padding: 8px;
-    border: 1px dashed var(--border-strong);
-    border-radius: 10px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-        border-color 0.14s,
-        color 0.14s,
-        background 0.14s;
+/* t257 AC5/AC6：折叠态槽位正方形、icon 居中，隐藏正文与关闭钮。 */
+.session-rail.collapsed .rail-slot {
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+    margin: 0 auto;
+    border-radius: 8px;
 }
 
-.rail-add:hover {
-    border-color: var(--accent-lime);
-    color: var(--accent-lime);
-    background: var(--accent-lime-dim);
+.session-rail.collapsed .rail-badge {
+    width: auto;
+    height: auto;
+    margin: 0;
 }
 
-.rail-add:disabled {
-    opacity: 0.45;
-    cursor: default;
-    border-color: var(--border-subtle);
-    color: var(--text-muted);
-    background: transparent;
+.session-rail.collapsed .rail-body,
+.session-rail.collapsed .rail-close {
+    display: none;
 }

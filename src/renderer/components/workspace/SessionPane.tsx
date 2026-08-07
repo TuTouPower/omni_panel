@@ -3,7 +3,9 @@ import { format_time_short } from "../../lib/session-history/markdown";
 import { VendorMark } from "../Icon";
 import { vendor_id_for_source, type SlotSession } from "../../lib/workspace/slots";
 import {
+    format_precise_datetime,
     is_near_bottom,
+    last_dir_segment,
     message_counts,
     should_insert_divider,
     summarize,
@@ -119,11 +121,12 @@ export function SessionPane({
                     <span className="pane-title" title={column.title}>
                         {column.title}
                     </span>
-                    <span className="pane-meta">
-                        {column.loc.source}
-                        {slot_meta.model ? ` · ${slot_meta.model}` : ""}
-                        {slot_meta.cwd ? ` · ${slot_meta.cwd}` : ""} · {String(slot_meta.calls)} 轮
-                        · {format_tokens(slot_meta.tokens)} tokens · {format_date(column.openedAt)}
+                    <span className="pane-meta" title={slot_meta.cwd ?? undefined}>
+                        {slot_meta.model ? slot_meta.model : ""}
+                        {slot_meta.cwd ? ` · ${last_dir_segment(slot_meta.cwd)}` : ""}
+                        {` · ${String(slot_meta.calls)} 轮`}
+                        {` · ${format_tokens(slot_meta.tokens)} tokens`}
+                        {` · ${format_precise_datetime(last_message_time(column))}`}
                     </span>
                 </div>
                 <div className="pane-head-actions">
@@ -278,10 +281,8 @@ function format_tokens(n: number): string {
     return n.toLocaleString("en-US");
 }
 
-function format_date(ts: number): string {
-    const d = new Date(ts);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${String(y)}-${m}-${day}`;
+/** t257：最后一条消息的精确时间（ms epoch）；无消息时回退打开时间。 */
+function last_message_time(column: PaneData): number {
+    const last = column.messages[column.messages.length - 1];
+    return last?.timestamp ?? column.openedAt;
 }
