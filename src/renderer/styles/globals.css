@@ -315,6 +315,14 @@ html[data-window="tray"] #root {
     background: var(--blue);
     border-radius: 3px;
 }
+.tab.dragging {
+    opacity: 0.45;
+}
+.tab.drag-over {
+    background: var(--iconbtn-hov);
+    outline: 1.5px dashed var(--blue);
+    outline-offset: -2px;
+}
 .titlebar-divider {
     height: 0.5px;
     background: var(--hairline);
