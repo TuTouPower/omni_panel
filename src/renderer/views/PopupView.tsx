@@ -5,6 +5,7 @@ import { useNowTick } from "../hooks/use-now-tick";
 import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
 import { use_popup_derived } from "../hooks/use_popup_derived";
 import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
+import { use_provider_tab_drag } from "../hooks/use_provider_tab_drag";
 import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
 import { use_tab_navigation } from "../hooks/use_tab_navigation";
 import { create_debounced_config_patcher } from "../lib/config-debounce";
@@ -586,6 +587,25 @@ export function PopupView() {
         set_account_orders,
     });
 
+    const handle_tab_reorder = useCallback(
+        (next: string[]) => {
+            set_provider_order((current) => (arrays_equal(current, next) ? current : next));
+        },
+        [set_provider_order],
+    );
+
+    const {
+        drag_id: tab_drag_id,
+        over_id: tab_over_id,
+        handle_drag_start: handle_tab_drag_start,
+        handle_drag_enter: handle_tab_drag_enter,
+        handle_drag_over: handle_tab_drag_over,
+        handle_drag_end: handle_tab_drag_end,
+    } = use_provider_tab_drag({
+        orderedProviders,
+        onReorder: handle_tab_reorder,
+    });
+
     use_tab_navigation({
         tabsRef,
         activeTab,
@@ -648,7 +668,14 @@ export function PopupView() {
                     <ProviderNav
                         activeTab={activeTab}
                         visibleProviders={visibleProviders}
+                        orderedProviders={orderedProviders}
                         onChange={is_live ? setActiveTab : () => undefined}
+                        draggingProvider={is_live ? tab_drag_id : null}
+                        overProvider={is_live ? tab_over_id : null}
+                        onDragStart={is_live ? handle_tab_drag_start : undefined}
+                        onDragEnter={is_live ? handle_tab_drag_enter : undefined}
+                        onDragOver={is_live ? handle_tab_drag_over : undefined}
+                        onDragEnd={is_live ? handle_tab_drag_end : undefined}
                     />
                 </div>
                 <div className="titlebar-divider" />

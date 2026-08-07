@@ -599,4 +599,62 @@ describe("PopupView", () => {
             "false",
         );
     });
+
+    it("saves providerOrder to config when user reorders provider tabs", async () => {
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                source: "gateway",
+                sourceInstanceId: "cpa-main",
+                supportedProviders: ["claude", "deepseek"],
+                activeProviders: ["claude", "deepseek"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [],
+                },
+            }),
+        ]);
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        const deepseek_tab = await screen.findByRole("button", { name: /^DeepSeek$/ });
+
+        // Assign realistic horizontal layout rects for the drag midpoint guard.
+        claude_tab.getBoundingClientRect = vi.fn(() =>
+            DOMRect.fromRect({ x: 64, y: 0, width: 62, height: 48 }),
+        );
+        deepseek_tab.getBoundingClientRect = vi.fn(() =>
+            DOMRect.fromRect({ x: 130, y: 0, width: 62, height: 48 }),
+        );
+
+        const deepseek_icon = deepseek_tab.querySelector(".tab-ic");
+        const claude_icon = claude_tab.querySelector(".tab-ic");
+        if (deepseek_icon === null || claude_icon === null) {
+            throw new Error("missing .tab-ic");
+        }
+
+        fireEvent.dragStart(deepseek_icon);
+        fireEvent.dragEnter(claude_tab);
+        fireEvent(
+            claude_icon,
+            new MouseEvent("dragover", {
+                bubbles: true,
+                cancelable: true,
+                clientX: 90,
+                clientY: 24,
+            }),
+        );
+        fireEvent.dragEnd(deepseek_icon);
+
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    providerOrder: ["deepseek", "claude"],
+                }),
+            );
+        });
+    });
 });
