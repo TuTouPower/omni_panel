@@ -1,9 +1,5 @@
 import { useState } from "react";
-import {
-    LAYOUT_OPTIONS,
-    layout_choices_for_count,
-    type LayoutCount,
-} from "../../lib/workspace/slots";
+import { layout_choices_for_count, type LayoutCount } from "../../lib/workspace/slots";
 import type { PaneView } from "./SessionPane";
 
 interface WorkspaceToolbarProps {
@@ -16,7 +12,7 @@ interface WorkspaceToolbarProps {
     readonly on_clear: () => void;
 }
 
-/** t224 工作台工具条：最近会话 / 清空 / 视图下拉 / 居中布局切换器 / 计数。 */
+/** t224 工作台工具条：最近会话 / 清空 / 视图下拉。 */
 export function WorkspaceToolbar({
     layout,
     count,
@@ -120,26 +116,6 @@ export function WorkspaceToolbar({
                         </>
                     )}
                 </div>
-            </div>
-            <div className="ws-layout-switch">
-                {LAYOUT_OPTIONS.map((n) => (
-                    <button
-                        type="button"
-                        key={String(n)}
-                        className={"ws-layout-btn" + (layout === n ? " on" : "")}
-                        aria-label={`布局 ${String(n)}`}
-                        onClick={() => {
-                            on_layout_change(n);
-                        }}
-                    >
-                        {String(n)}
-                    </button>
-                ))}
-            </div>
-            <div className="ws-toolbar-right">
-                <span className="ws-count">
-                    {String(count)}/{String(8)}
-                </span>
             </div>
         </header>
     );

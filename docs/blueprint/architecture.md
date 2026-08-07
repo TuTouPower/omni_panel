@@ -197,7 +197,7 @@ route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceV
 route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs/session-shell.md`），工作台页签为 `WorkspaceView`（t224 槽位模型，见 `specs/workspace.md`）。固定 52px 顶栏 = 品牌 + 居中「工作台/会话库」页签 + 用量/代理面板跳转；两页签常驻挂载，CSS `data-active` 显隐切换，状态不丢。
 
 - **槽位模型**：8 槽纯函数 store（`src/renderer/lib/workspace/slots.ts`），组件内「state + 同步 ref」双维护（t211 同款批处理 stale 坑）。打开入口（onFocus/URL loc/picker/recent）统一走 `open_session` 装入；同 loc 查重防双槽、槽满 toast 拒绝、`confirm_recent` 替换前退订旧槽防 watcher 泄漏。
-- **布局**：`effective_columns(layout, width)` 按 `MIN_COLUMN_WIDTH=375` 降档，`cols = min(effective_columns, 占用数)` 写 `.slot-grid --cols`；工具条三区（左最近/清空，中布局切换器，右复制/计数）。
+- **布局**：`effective_columns(layout, width)` 按 `MIN_COLUMN_WIDTH=375` 降档，`cols = min(effective_columns, 占用数)` 写 `.slot-grid --cols`；工具条保留「最近会话」「清空」「视图」，会话排布通过「视图」菜单选择。
 - **设计系统**：demo 语义色 token（canvas/panel/raised/inset、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger）作用域限定 `.session-shell`，暗色默认，`html[data-theme="light"] .session-shell` 覆盖浅色；内部桥接旧 token 名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等）让会话历史样式直接继承 demo 视觉；agent 识别色 `--agent-{claude,grok,opencode,kimi,codex,cursor,aider}` 明暗两套。字体走系统等价回退，零新增资产。
 - **主题跟随全局**：`SessionShell` 调用共享 `useTheme()`，通过 `config.get` 与 `onThemeChange` 使用全局主题；首帧由 preload 的 `ou_theme` 参数设置。会话窗口不再维护 `omni_session_theme` 独立存储，也不提供独立主题切换按钮。
 - **会话库视图（t227，t248）**：「会话库」页签由 `SessionLibrary`（`src/renderer/components/session-library/`）渲染：搜索（默认元信息 +「包含消息内容」开关并集正文搜索，后端候选筛选分页、序号守卫防迟到覆盖）、agent 多选、四排序、网格/列表、加载更多分页、预览抽屉（前 5 条）、SelectionDock 批量打开（复用摘选 store 与槽位模型）。筛选/排序为纯函数 `lib/session-library/filter.ts`；勾选身份用 `source|env|id` 主键；首条用户消息摘要与内容搜索经 session-history 批量接口读源文件消息（只读）。

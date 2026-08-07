@@ -109,7 +109,7 @@ describe("WorkspaceView (t224)", () => {
         const rail_sub = document.querySelector(".rail-sub");
         expect(rail_sub?.textContent).toContain("3 轮");
         expect(rail_sub?.textContent).toContain("375 tokens");
-        expect(screen.getByText("1/8")).toBeTruthy();
+        expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
     });
 
     it("重复打开同一会话不重复装入槽位", async () => {
@@ -122,7 +122,7 @@ describe("WorkspaceView (t224)", () => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
         await waitFor(() => {
-            expect(screen.getByText("1/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
         });
     });
 
@@ -139,19 +139,23 @@ describe("WorkspaceView (t224)", () => {
         );
         render(<WorkspaceView />);
         await waitFor(() => {
-            expect(screen.getByText("1/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
         });
         window.history.replaceState({}, "", "/");
     });
 
-    it("布局切换器在 1/2/3/4/6/8 间切换", () => {
+    it("工作台工具条移除数字布局按钮与会话计数，保留主要操作入口", () => {
         render(<WorkspaceView />);
+        const toolbar = document.querySelector(".workspace-toolbar");
+        expect(toolbar).toBeTruthy();
+        expect(toolbar?.querySelector(".ws-layout-switch")).toBeNull();
+        expect(toolbar?.querySelector(".ws-count")).toBeNull();
         for (const n of [1, 2, 3, 4, 6, 8]) {
-            fireEvent.click(screen.getByRole("button", { name: `布局 ${String(n)}` }));
-            expect(screen.getByRole("button", { name: `布局 ${String(n)}` }).className).toContain(
-                "on",
-            );
+            expect(screen.queryByRole("button", { name: `布局 ${String(n)}` })).toBeNull();
         }
+        expect(screen.getByRole("button", { name: "最近会话" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "清空" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: /视图/ })).toBeTruthy();
     });
 
     it("消息推送追加到槽位（不回归）", async () => {
@@ -187,7 +191,7 @@ describe("WorkspaceView (t224)", () => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
         await waitFor(() => {
-            expect(screen.getByText("1/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
         });
         fireEvent.click(screen.getByLabelText("关闭会话"));
         expect(ub.sessionHistory.unsubscribe).toHaveBeenCalledWith("claude_code", "win", "sess_a");
@@ -229,7 +233,7 @@ describe("WorkspaceView (t224)", () => {
             focus_cb()({ source: "opencode", env: "win", session_id: "sess_b" });
         });
         await waitFor(() => {
-            expect(screen.getByText("2/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(2);
         });
         const clear_btn0 = screen.getAllByRole("button", { name: "清空" })[0];
         if (!clear_btn0) throw new Error("清空按钮缺失");
@@ -255,7 +259,7 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(screen.getByRole("button", { name: "最近 2 个" }));
         fireEvent.click(screen.getByRole("button", { name: "清空并替换全部槽位" }));
         await waitFor(() => {
-            expect(screen.getByText("2/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(2);
         });
     });
 
@@ -302,7 +306,7 @@ describe("WorkspaceView (t224)", () => {
         });
         fireEvent.click(screen.getByText("会话 s1"));
         await waitFor(() => {
-            expect(screen.getByText("1/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
         });
     });
 
@@ -316,7 +320,7 @@ describe("WorkspaceView (t224)", () => {
             cb({ source: "opencode", env: "win", session_id: "sess_b" });
         });
         await waitFor(() => {
-            expect(screen.getByText("2/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(2);
         });
         await waitFor(() => {
             expect([...document.querySelectorAll(".rail-title")].length).toBe(2);
@@ -357,7 +361,7 @@ describe("WorkspaceView (t224)", () => {
             }
         });
         await waitFor(() => {
-            expect(screen.getByText("8/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(8);
         });
         act(() => {
             cb({ source: "grok", env: "win", session_id: "overflow" });
@@ -412,7 +416,9 @@ describe("WorkspaceView (t224)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "s1" });
         });
-        await waitFor(() => screen.getByText("1/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
+        });
         fireEvent.click(screen.getByRole("button", { name: "槽位 2（空）" }));
         await waitFor(() => screen.getByRole("dialog", { name: "选择会话" }));
         expect(screen.getByText("全部 3")).toBeTruthy();
@@ -667,7 +673,7 @@ describe("WorkspaceView (t224)", () => {
             }
         });
         await waitFor(() => {
-            expect(screen.getByText("6/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(6);
         });
 
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
@@ -693,7 +699,7 @@ describe("WorkspaceView (t224)", () => {
             }
         });
         await waitFor(() => {
-            expect(screen.getByText("8/8")).toBeTruthy();
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(8);
         });
 
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
@@ -701,7 +707,7 @@ describe("WorkspaceView (t224)", () => {
         expect(four_by_two.getAttribute("aria-pressed")).toBe("true");
     });
 
-    it("布局切换联动网格列数（--cols）", async () => {
+    it("视图菜单排布选择联动网格列数（--cols）", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
         render(<WorkspaceView />);
@@ -710,10 +716,13 @@ describe("WorkspaceView (t224)", () => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
             cb({ source: "opencode", env: "win", session_id: "sess_b" });
         });
-        await waitFor(() => screen.getByText("2/8"));
-        fireEvent.click(screen.getByRole("button", { name: "布局 4" }));
-        expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 2");
-        fireEvent.click(screen.getByRole("button", { name: "布局 8" }));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(2);
+        });
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        fireEvent.click(screen.getByRole("button", { name: "1 列 × 2 行" }));
+        expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 1");
+        fireEvent.click(screen.getByRole("button", { name: "2 列 × 1 行" }));
         expect(document.querySelector(".slot-grid")?.getAttribute("style")).toContain("--cols: 2");
     });
 
@@ -724,7 +733,9 @@ describe("WorkspaceView (t224)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
-        await waitFor(() => screen.getByText("1/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
+        });
         fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
         expect(document.querySelector(".slot-grid")?.className).toContain("focused");
         expect(document.querySelector('[data-focused="true"]')).toBeTruthy();
@@ -740,7 +751,9 @@ describe("WorkspaceView (t224)", () => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
             focus_cb()({ source: "opencode", env: "win", session_id: "sess_b" });
         });
-        await waitFor(() => screen.getByText("2/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(2);
+        });
         fireEvent.keyDown(window, { key: "2" });
         expect(document.querySelector(".slot-grid")?.className).toContain("focused");
         const focused_slots = [...document.querySelectorAll('[data-focused="true"]')].map((el) =>
@@ -765,7 +778,9 @@ describe("WorkspaceView (t224)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
-        await waitFor(() => screen.getByText("1/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
+        });
         // 聚焦 + 大纲同时开
         fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
         fireEvent.click(screen.getByRole("button", { name: "大纲" }));
@@ -787,7 +802,9 @@ describe("WorkspaceView (t224)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
-        await waitFor(() => screen.getByText("1/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
+        });
         fireEvent.click(screen.getByRole("button", { name: "聚焦此面板" }));
         expect(document.querySelector(".slot-grid")?.className).toContain("focused");
         fireEvent.click(screen.getByRole("button", { name: "关闭面板" }));
@@ -825,7 +842,9 @@ describe("WorkspaceView (t224)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
-        await waitFor(() => screen.getByText("1/8"));
+        await waitFor(() => {
+            expect(document.querySelectorAll(".rail-title")).toHaveLength(1);
+        });
 
         // 初始 mount 已触发一次 query；过滤出 sess_a 的兜底全量 query 调用。
         const sess_a_queries = () =>
