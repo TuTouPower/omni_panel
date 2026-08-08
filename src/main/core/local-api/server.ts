@@ -311,9 +311,9 @@ async function handle_session_history_search_content(
             !body["locs"].every(
                 (loc) =>
                     is_record(loc) &&
-                    typeof loc.source === "string" &&
-                    typeof loc.env === "string" &&
-                    typeof loc.session_id === "string",
+                    typeof loc["source"] === "string" &&
+                    typeof loc["env"] === "string" &&
+                    typeof loc["session_id"] === "string",
             )
         ) {
             json_response(res, 400, { error: "Invalid searchContent request" });
