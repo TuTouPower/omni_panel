@@ -996,7 +996,9 @@ describe("local-api session history endpoints (t259)", () => {
                 body: JSON.stringify({ filters: { sources: ["claude_code"] }, keyword: "hello" }),
                 signal: controller.signal,
             },
-        );
+        ).catch(() => {
+            /* 客户端已 abort，fetch 拒绝符合预期 */
+        });
         await vi.waitFor(() => {
             expect(service.searchContentWithAbort).toHaveBeenCalled();
         });
@@ -1011,9 +1013,7 @@ describe("local-api session history endpoints (t259)", () => {
         await vi.waitFor(() => {
             expect(signal?.aborted).toBe(true);
         });
-        await req.catch(() => {
-            /* 客户端已 abort，fetch 拒绝符合预期 */
-        });
+        await req;
     });
 
     it("POST /v1/sessionHistory/searchContent returns 400 for malformed bodies (t259 f001)", async () => {
