@@ -59,3 +59,9 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 
 - CLI 模式 e2e：`tests/e2e/electron/cli_serve.spec.ts`（`--cli serve` 起真进程，断言无窗口、stdout URL、cli.json 端口、`--config` 导入 vault 往返、端口优先级、失败退出码）。跑前须 `node scripts/ensure_sqlite_abi.mjs electron`（Electron 主进程加载 better-sqlite3 需 electron ABI），并经 `pnpm build` 出 `out/main/index.js`。
 - 无显示环境（WSL 无 WSLg）：`xvfb-run` 包一层；`DISPLAY` 存在时 `dialog.showErrorBox` 会同步阻塞，CLI 模式启动失败只向 stderr 输出后退出，不弹框。
+
+### CLI 控制子命令验证（t276）
+
+- `tests/e2e/electron/cli_control.spec.ts`：`--cli serve` 起真实例后，瘦客户端（子进程 spawn，因 `app.exit` 快退 Playwright `electron.launch` 会 reject）跑各控制命令，断言实例侧可观察效果——refresh-all 经 `/v1/events` SSE 收到状态事件、restart 后 cli.json pid 更新 + 新端口 health、桌面实例（E2E=1 + `OMNI_PANEL_PORT` 固定端口）可被 `--port` 覆盖控制、实例未运行时非零退出 + stderr 可读错误。
+- 单测：`tests/unit/main/cli/client.test.ts`（实例发现 cli.json/`--port` 覆盖、post_control 端点、autostart Linux unsupported、错误文案）；`tests/integration/local-api/server.test.ts` 控制端点组（refresh-all/pause/resume/restart/quit POST 200、GET 405、未配置 control_deps 时 401 落认证门）。
+- 注意：restart 端点 `app.relaunch()` 出的新进程无 playwright 句柄，测试无法 close，跨 run 会堆积孤儿进程（见 p095）。

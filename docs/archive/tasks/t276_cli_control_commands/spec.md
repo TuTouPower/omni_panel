@@ -77,8 +77,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `restart` 在无窗口 CLI 模式下 `app.relaunch()` 的行为（是否保持原 argv、是否丢失 `--user-data-dir`/`--cli` 上下文）：`UNVERIFIED-SPIKE`，Step 1 实跑核实
-- 同一二进制如何区分「serve 常驻」与「瘦客户端调用」（argv 形态与 Electron 打包后入口表现）：`UNVERIFIED-SPIKE`，Step 1 核实 packaged/dev 两种形态
+- `restart` 在无窗口 CLI 模式下 `app.relaunch()` 保持原 argv：已实跑验证——瘦客户端 POST restart 后旧进程退出、新进程以相同 `--cli serve --port <n> --user-data-dir=<dir>` 重启并重写 cli.json（pid 更新、端口复用、health 恢复 200；验证方式：独立 user-data-dir 起 serve，restart 后对比 cli.json pid 与进程存活）
+- 同一二进制区分「serve 常驻」与「瘦客户端」：已实跑验证——`--cli serve` 常驻（whenReady 服务初始化）；控制子命令为瘦客户端，跳过单实例锁（否则与 serve 同 userData 自锁无法连接），whenReady 早期直接发 HTTP 请求后 `app.exit`（验证方式：serve 持锁时瘦客户端 refresh-all 成功输出「已发送」exitCode 0）
 
 ### 风险与回退
 

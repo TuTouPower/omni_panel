@@ -55,9 +55,20 @@ OmniPanel CLI mode listening on http://localhost:18263/
 
 浏览器打开 stdout 打印的 URL 即可看到用量面板。local-api 监听 `0.0.0.0`，WSL 内可从 Windows 宿主以 `http://localhost:<port>/` 访问。
 
-## 退出
+## 控制子命令（t276）
 
-CLI 进程常驻。退出方式：
+CLI 进程常驻。控制子命令（瘦客户端）经 local-api 作用于运行中实例，执行完即退出：
 
-- 直接关闭进程（`Ctrl-C` 或 `kill <pid>`）。
-- 后续 task 提供的 `--cli quit` 子命令（见 CLI 控制命令文档）。
+```bash
+omni-panel --cli refresh-all     # 触发全部连接器刷新
+omni-panel --cli pause           # 暂停自动刷新（幂等）
+omni-panel --cli resume          # 恢复自动刷新
+omni-panel --cli restart         # 重启实例（保持原 argv，端口可能因旧进程未释放而变化）
+omni-panel --cli quit            # 干净退出实例
+omni-panel --cli open            # 打印面板 URL，WSL 下尝试经 wslview 打开宿主机浏览器
+omni-panel --cli autostart       # Linux 返回 unsupported；Windows 切换开机自启
+```
+
+- 实例发现：默认读 `<dataRoot>/cli.json` 取得端口；`--port <n>` 可覆盖（桌面/自建实例）。
+- 实例未运行时给出「实例未运行」可读错误 + 非零退出码。
+- 控制子命令与桌面 tray 菜单动作走同一份 main 侧能力，行为一致。

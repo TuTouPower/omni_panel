@@ -92,6 +92,18 @@ export interface SessionHistoryDeps {
     readonly locator_paths?: LocatorPaths;
 }
 
+/**
+ * t276: 控制端点依赖（映射 tray 纯 main 动作）。瘦客户端经 local-api 触发，
+ * 复用 main 侧既有能力（refreshService / orchestrator / app）。
+ */
+export interface ControlDeps {
+    readonly refresh_all: () => void;
+    readonly pause: () => void;
+    readonly resume: () => void;
+    readonly restart: () => void;
+    readonly quit: () => void;
+}
+
 /** 会话历史批量内容搜索请求（新 `{filters,keyword}` + legacy `{locs,keyword}`）。 */
 type SessionHistorySearchRequest =
     | SessionHistorySearchContentRequest
@@ -525,6 +537,7 @@ export function create_local_api_server(
         config_deps?: ConfigIpcDeps;
         connector_deps?: ConnectorIpcDeps;
         session_history_deps?: SessionHistoryDeps;
+        control_deps?: ControlDeps;
         web_root?: string;
     },
 ): LocalAPIServer {
@@ -535,6 +548,7 @@ export function create_local_api_server(
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const session_history_deps = options?.session_history_deps;
+    const control_deps = options?.control_deps;
     const web_root = options?.web_root;
     const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
@@ -609,6 +623,9 @@ export function create_local_api_server(
                 session_history_deps &&
                 (await handle_web_session_history(req, res, url, session_history_deps))
             ) {
+                return;
+            }
+            if (control_deps && handle_web_control(req, res, url, control_deps)) {
                 return;
             }
 
@@ -951,6 +968,44 @@ export function create_local_api_server(
             }
         }
         return false;
+    }
+
+    function handle_web_control(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: ControlDeps,
+    ): boolean {
+        if (!url.pathname.startsWith("/v1/control/")) return false;
+        if (req.method !== "POST") {
+            json_response(res, 405, { error: "Method not allowed" });
+            return true;
+        }
+        // t276: 控制端点为免认证（与现有读端点一致，用户确认自用场景）。
+        switch (url.pathname) {
+            case "/v1/control/refresh-all":
+                deps.refresh_all();
+                json_response(res, 200, { status: "ok" });
+                return true;
+            case "/v1/control/pause":
+                deps.pause();
+                json_response(res, 200, { status: "ok" });
+                return true;
+            case "/v1/control/resume":
+                deps.resume();
+                json_response(res, 200, { status: "ok" });
+                return true;
+            case "/v1/control/restart":
+                deps.restart();
+                json_response(res, 200, { status: "ok" });
+                return true;
+            case "/v1/control/quit":
+                deps.quit();
+                json_response(res, 200, { status: "ok" });
+                return true;
+            default:
+                return false;
+        }
     }
 
     function handle_sse(req: IncomingMessage, res: ServerResponse): void {
