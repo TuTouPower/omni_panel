@@ -255,4 +255,71 @@ describe("web usageboard bridge", () => {
         expect(url).toContain("/v1/trend");
         expect(url).toContain("sourceInstanceId=inst-a");
     });
+
+    it("sessionHistory.open switches to the history hash route (t259 AC2)", async () => {
+        const api = create_web_usageboard();
+        await api.sessionHistory.open("claude_code", "win", "sess-1");
+        expect(window.location.hash).toBe("#history");
+    });
+
+    it("sessionHistory.query forwards source/env so the server can resolve the session (t259)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ messages: [], next_cursor: null }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.query("claude_code", "win", "sess-1", { limit: 10 });
+        const url = fetch_mock.mock.calls[0]?.[0] as string;
+        expect(url).toContain("/v1/sessionHistory");
+        expect(url).toContain("id=sess-1");
+        expect(url).toContain("source=claude_code");
+        expect(url).toContain("env=win");
+        expect(url).toContain("limit=10");
+    });
+
+    it("sessionHistory.searchContent POSTs to /v1/sessionHistory/searchContent (t259 AC1)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ hits: [], sessions: [] }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const result = await api.sessionHistory.searchContent({
+            filters: { sources: ["claude_code"] },
+            keyword: "hello",
+        });
+        expect(result).toEqual({ hits: [], sessions: [] });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            expect.stringContaining("/v1/sessionHistory/searchContent"),
+            expect.objectContaining({ method: "POST" }),
+        );
+        // t259 f003: 断言请求 body 含 keyword/filters 与 Content-Type。
+        const opts = fetch_mock.mock.calls[0]?.[1] as {
+            body?: string;
+            headers?: Record<string, string>;
+        };
+        expect(JSON.parse(opts.body ?? "{}")).toEqual({
+            filters: { sources: ["claude_code"] },
+            keyword: "hello",
+        });
+        expect(opts.headers?.["Content-Type"]).toContain("application/json");
+    });
+
+    it("sessionHistory.summaries POSTs to /v1/sessionHistory/summaries (t259 AC1)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ summaries: {} }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const result = await api.sessionHistory.summaries([
+            { source: "claude_code", env: "win", session_id: "sess-1" },
+        ]);
+        expect(result).toEqual({});
+        expect(fetch_mock).toHaveBeenCalledWith(
+            expect.stringContaining("/v1/sessionHistory/summaries"),
+            expect.objectContaining({ method: "POST" }),
+        );
+    });
 });

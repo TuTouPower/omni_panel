@@ -67,6 +67,30 @@
 - 内容：`window-bounds.ts` 保存把尺寸提升到 PANEL_MIN（480x360），但 agent/history 窗口未设 `minWidth`/`minHeight`，用户可缩到更小尺寸，重开时被放大回最小。与设置窗口先例一致（设置窗口也未设 minWidth）。
 - 处理：未开
 
+## p082 web 跨面板「打开会话」丢失目标会话（t259 code f003）
+
+- 来源：t259 code review f003（minor）
+- 内容：`usageboard-web.ts` 的 `sessionHistory.open(source,env,id)` 先同步分发 onFocus 再设 hash。从用量面板会话表（TokenStatsView onOpenSession）触发时 SessionShell 未挂载 → 无 onFocus 订阅 → loc 丢失；`initial_loc()` 只读 URL `?loc`（未设置）。桌面 open_or_focus 带 route_query 能定位目标，web 有差异。面板内互跳入口（空 loc）不受影响。
+- 处理：未开
+
+## p083 GET /v1/sessionHistory 缺 source/env 时全量枚举（t259 code f004）
+
+- 来源：t259 code review f004（minor）
+- 内容：source/env 缺省时 `session_history_query_all_sessions(deps, {})` 分页取全部会话再 find——O(总会话数) provider 调用，无 auth 可反复触发；find 取首个 id 匹配，多 source 同 id 歧义。web query 恒透传 source/env，此路径仅兼容 id-only 调用方。建议移除回退或加 bound。
+- 处理：未开
+
+## p084 web searchContent 无取消，并发扫描堆积（t259 code f005）
+
+- 来源：t259 code review f005（minor）
+- 内容：桌面 IPC 按窗口用 AbortController 取消前序搜索；web 每次 searchContent 独立 POST，服务端全量扫文件且客户端断开不中止。连续触发时多请求并发扫盘，资源压力，与桌面行为不一致。建议渲染层防抖/合并，或服务端按来源去重。
+- 处理：未开
+
+## p085 web 会话检索端点无 auth 暴露会话原文（t259 code f002）
+
+- 来源：t259 code review f002（minor）
+- 内容：`GET /v1/sessionHistory`、`POST /v1/sessionHistory/searchContent`、`POST /v1/sessionHistory/summaries` 与现有 config/secrets GET 一致无 auth（仅 ingest token-gated，intranet 决策）。但新 POST 读会话原文：searchContent 返回命中 key（可探测哪些会话含某关键词），summaries 返回首条 user 消息前 80 字。server 绑定 0.0.0.0，增量暴露高于聚合用量端点。维持现状前提下记录残留风险；如暴露面扩大再评估 token-gate。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

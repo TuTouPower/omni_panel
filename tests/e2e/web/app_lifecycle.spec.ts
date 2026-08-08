@@ -12,7 +12,7 @@ test.describe("app lifecycle (web)", () => {
         await popup.waitReady();
 
         const title = await popup.getTitle();
-        expect(title).toContain("OmniPanel");
+        expect(title).toContain("Omni Panel");
         await expect(popup.root().getByRole("button", { name: "设置" })).toBeVisible();
     });
 

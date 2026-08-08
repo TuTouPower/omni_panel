@@ -65,6 +65,7 @@ import {
     SessionHistorySubscriptionService,
     type Env,
     type SessionQueryFilters,
+    type SessionsProvider,
 } from "./core/session-history/subscription-service";
 import { create_history_window_controller } from "./core/main-panel/history-window-controller";
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
@@ -388,35 +389,41 @@ void app.whenReady().then(async () => {
         });
         // 会话历史 IPC 通道组。sessions_provider 把 token-stats store 的
         // query_sessions 结果映射为 SessionRow（服务层不依赖 store 类型）。
+        // t259: 与 web local-api 会话历史端点共享同一 provider/locator，保证同源。
+        const session_history_locator_paths = {
+            win_home: homedir(),
+            wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
+            wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
+        };
+        const session_history_sessions_provider: SessionsProvider = (
+            filters_or_source: SessionQueryFilters | string,
+            env?: Env,
+        ) => {
+            const filters: TokenStatsSessionFilters =
+                typeof filters_or_source === "string"
+                    ? { source: filters_or_source, ...(env ? { env } : {}) }
+                    : ({
+                          ...filters_or_source,
+                          ...(filters_or_source.sources
+                              ? { sources: [...filters_or_source.sources] }
+                              : {}),
+                      } as TokenStatsSessionFilters);
+            return tokenStatsStore.query_sessions(filters).map((s) => ({
+                id: s.id,
+                source: s.source,
+                env: s.env,
+                title: s.title,
+                model: s.model,
+                started_at: s.started_at,
+                ended_at: s.ended_at,
+                session: s,
+            }));
+        };
         registerSessionHistoryIpc(ipcMain, {
             service: session_history_service,
             // WSL 配置与 token-stats collector 同源：显式值优先，空串由 locator 自动探测。
-            locator_paths: {
-                win_home: homedir(),
-                wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
-                wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
-            },
-            sessions_provider: (filters_or_source: SessionQueryFilters | string, env?: Env) => {
-                const filters: TokenStatsSessionFilters =
-                    typeof filters_or_source === "string"
-                        ? { source: filters_or_source, ...(env ? { env } : {}) }
-                        : ({
-                              ...filters_or_source,
-                              ...(filters_or_source.sources
-                                  ? { sources: [...filters_or_source.sources] }
-                                  : {}),
-                          } as TokenStatsSessionFilters);
-                return tokenStatsStore.query_sessions(filters).map((s) => ({
-                    id: s.id,
-                    source: s.source,
-                    env: s.env,
-                    title: s.title,
-                    model: s.model,
-                    started_at: s.started_at,
-                    ended_at: s.ended_at,
-                    session: s,
-                }));
-            },
+            locator_paths: session_history_locator_paths,
+            sessions_provider: session_history_sessions_provider,
         });
         ipcMain.handle(
             IPC_CHANNELS.SESSION_HISTORY_OPEN,
@@ -503,6 +510,11 @@ void app.whenReady().then(async () => {
                 runtimeStore,
                 refreshService,
                 definitions: allDefinitions,
+            },
+            session_history_deps: {
+                service: session_history_service,
+                sessions_provider: session_history_sessions_provider,
+                locator_paths: session_history_locator_paths,
             },
             ...(existsSync(web_root_path) ? { web_root: web_root_path } : {}),
         });

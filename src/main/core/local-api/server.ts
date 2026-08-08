@@ -34,6 +34,25 @@ import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
 import type { ConnectorSnapshotState } from "../scheduler/types";
 import type { IpcResult } from "../../../shared/types/ipc";
+import { resolve_session_file } from "../session-history/session-locator";
+import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
+import type {
+    Env,
+    QueryOptions,
+    ResolvedSessionLoc,
+    SessionHistorySubscriptionService,
+    SessionQueryFilters,
+    SessionRow,
+    SessionsProvider,
+} from "../session-history/subscription-service";
+import type {
+    SessionHistorySearchContentLegacyRequest,
+    SessionHistorySearchContentRequest,
+    SessionHistorySearchContentResponse,
+    SessionHistorySummariesRequest,
+    SessionHistorySummariesResponse,
+} from "../../../shared/types/ipc";
+import type { TokenStatsSession } from "../../../shared/types/token-stats";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -64,6 +83,21 @@ export interface LocalAPIServer {
     get_port(): number;
     get_token(): string;
 }
+
+/** t259: 会话历史 HTTP 桥依赖（映射桌面 session-history-ipc 的 deps）。 */
+export interface SessionHistoryDeps {
+    readonly service: SessionHistorySubscriptionService;
+    /** 供候选/反查会话：由 main 从 token-stats store 映射注入。 */
+    readonly sessions_provider: SessionsProvider;
+    readonly locator_paths?: LocatorPaths;
+}
+
+/** 会话历史批量内容搜索请求（新 `{filters,keyword}` + legacy `{locs,keyword}`）。 */
+type SessionHistorySearchRequest =
+    | SessionHistorySearchContentRequest
+    | SessionHistorySearchContentLegacyRequest;
+
+const CONTENT_SEARCH_PAGE_SIZE = 100;
 
 function generate_token(): string {
     return randomBytes(32).toString("hex");
@@ -111,6 +145,305 @@ function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
     } else {
         json_response(res, 400, result.error);
     }
+}
+
+// --- t259: 会话历史 HTTP 桥（映射桌面 session-history-ipc 的 QUERY/SEARCH_CONTENT/SUMMARIES） ---
+
+function session_history_key_of(row: SessionRow): string {
+    return `${row.source}|${row.env}|${row.id}`;
+}
+
+function session_history_legacy_row_of(loc: {
+    readonly source: string;
+    readonly env: string;
+    readonly session_id: string;
+}): SessionRow {
+    return {
+        id: loc.session_id,
+        source: loc.source,
+        env: loc.env as Env,
+        title: null,
+        model: null,
+        started_at: 0,
+        ended_at: 0,
+    };
+}
+
+/** 逐页取全量会话行（与 IPC 层 CONTENT_SEARCH_PAGE_SIZE 分页一致）。 */
+function session_history_query_all_sessions(
+    deps: SessionHistoryDeps,
+    filters: SessionQueryFilters,
+): SessionRow[] {
+    const rows: SessionRow[] = [];
+    let offset = 0;
+    let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
+    rows.push(...page);
+    while (page.length === CONTENT_SEARCH_PAGE_SIZE) {
+        offset += CONTENT_SEARCH_PAGE_SIZE;
+        page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
+        rows.push(...page);
+    }
+    return rows;
+}
+
+function is_legacy_search_request(
+    request: SessionHistorySearchRequest,
+): request is SessionHistorySearchContentLegacyRequest {
+    return "locs" in request;
+}
+
+function content_search_candidates(
+    deps: SessionHistoryDeps,
+    request: SessionHistorySearchRequest,
+): SessionRow[] {
+    if (is_legacy_search_request(request)) {
+        return request.locs.map(session_history_legacy_row_of);
+    }
+    const filters: SessionQueryFilters = {
+        ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
+        ...(request.filters.start_at !== undefined ? { start_at: request.filters.start_at } : {}),
+        ...(request.filters.end_at !== undefined ? { end_at: request.filters.end_at } : {}),
+    };
+    return session_history_query_all_sessions(deps, filters);
+}
+
+/** 解析候选行到 ResolvedSessionLoc，跳过定位失败的会话（对齐 IPC 层）。 */
+function resolve_session_rows(
+    deps: SessionHistoryDeps,
+    rows: readonly SessionRow[],
+): ResolvedSessionLoc[] {
+    const resolved_locs: ResolvedSessionLoc[] = [];
+    for (const row of rows) {
+        const resolved = resolve_session_file(
+            row.source as HistorySource,
+            row.env,
+            row.id,
+            deps.locator_paths,
+        );
+        if (!resolved) continue;
+        resolved_locs.push({
+            source: row.source,
+            env: row.env,
+            session_id: row.id,
+            file_path: resolved.file_path,
+            extractor_kind: resolved.extractor_kind,
+        });
+    }
+    return resolved_locs;
+}
+
+/**
+ * GET /v1/sessionHistory：按 id（+ 可选 source/env）取消息分页。
+ * source/env 缺省时经 sessions_provider 反查候选会话行（web query 会透传，
+ * 但保留反查以兼容只有 id 的调用方）。HTTP 边界游标序列化为字符串。
+ */
+function handle_session_history_query(
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    params: URLSearchParams,
+): void {
+    const session_id = params.get("id");
+    if (!session_id) {
+        json_response(res, 400, { error: "id required" });
+        return;
+    }
+    let source = params.get("source");
+    let env = params.get("env");
+    if (!source || !env) {
+        const match = session_history_query_all_sessions(deps, {}).find(
+            (row) => row.id === session_id,
+        );
+        if (match) {
+            source ??= match.source;
+            env ??= match.env;
+        }
+    }
+    if (!source || !env) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    const resolved = resolve_session_file(
+        source as HistorySource,
+        env as Env,
+        session_id,
+        deps.locator_paths,
+    );
+    if (!resolved) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    const options: QueryOptions = {};
+    const limit_raw = params.get("limit");
+    if (limit_raw !== null && Number.isFinite(Number(limit_raw))) {
+        Object.assign(options, { limit: Number(limit_raw) });
+    }
+    const before_raw = params.get("before_cursor");
+    if (before_raw !== null && before_raw !== "") {
+        const end_index = Number(before_raw);
+        if (Number.isFinite(end_index)) {
+            Object.assign(options, { before_cursor: { kind: "pagination", end_index } });
+        }
+    }
+    const result = deps.service.query(
+        {
+            source,
+            env: env as Env,
+            session_id,
+            file_path: resolved.file_path,
+            extractor_kind: resolved.extractor_kind,
+        },
+        options,
+    );
+    const next_cursor =
+        result.next_cursor?.kind === "pagination" ? String(result.next_cursor.end_index) : null;
+    json_response(res, 200, { messages: result.messages, next_cursor });
+}
+
+function is_record(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+async function handle_session_history_search_content(
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    body: unknown,
+): Promise<void> {
+    // t259 f001: 无 auth 端点须对畸形入参回 400（非 500）。
+    if (!is_record(body) || typeof body["keyword"] !== "string") {
+        json_response(res, 400, { error: "Invalid searchContent request" });
+        return;
+    }
+    const legacy = "locs" in body;
+    if (legacy) {
+        if (
+            !Array.isArray(body["locs"]) ||
+            !body["locs"].every(
+                (loc) =>
+                    is_record(loc) &&
+                    typeof loc.source === "string" &&
+                    typeof loc.env === "string" &&
+                    typeof loc.session_id === "string",
+            )
+        ) {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
+    } else {
+        const filters = body["filters"];
+        if (!is_record(filters)) {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
+        if (filters["sources"] !== undefined && !Array.isArray(filters["sources"])) {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
+        if (filters["search"] !== undefined && typeof filters["search"] !== "string") {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
+    }
+    const request = body as unknown as SessionHistorySearchRequest;
+    const candidate_rows = content_search_candidates(deps, request);
+    const metadata_rows =
+        is_legacy_search_request(request) || !request.filters.search
+            ? []
+            : session_history_query_all_sessions(deps, {
+                  ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
+                  search: request.filters.search,
+                  ...(request.filters.start_at !== undefined
+                      ? { start_at: request.filters.start_at }
+                      : {}),
+                  ...(request.filters.end_at !== undefined
+                      ? { end_at: request.filters.end_at }
+                      : {}),
+              });
+    const resolved_locs = resolve_session_rows(deps, candidate_rows);
+    const hits = await deps.service.searchContent(resolved_locs, request.keyword);
+    const hit_keys = new Set(hits);
+    const response_sessions: TokenStatsSession[] = [];
+    const response_keys = new Set<string>();
+    for (const row of [...metadata_rows, ...candidate_rows]) {
+        const key = session_history_key_of(row);
+        if (response_keys.has(key)) continue;
+        if (metadata_rows.includes(row) || (row.session && hit_keys.has(key))) {
+            response_keys.add(key);
+            if (row.session) response_sessions.push(row.session);
+        }
+    }
+    const result: SessionHistorySearchContentResponse = {
+        hits: [...hit_keys],
+        sessions: response_sessions,
+    };
+    json_response(res, 200, result);
+}
+
+async function handle_session_history_summaries(
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    body: unknown,
+): Promise<void> {
+    if (!is_record(body) || !Array.isArray(body["locs"])) {
+        json_response(res, 400, { error: "Invalid summaries request" });
+        return;
+    }
+    // t259 f001: 逐条校验 loc 形态，空/畸形条目跳过（与桌面 resolve 语义一致）。
+    const request = body as unknown as SessionHistorySummariesRequest;
+    const resolved_locs: ResolvedSessionLoc[] = [];
+    for (const loc of request.locs) {
+        if (
+            !is_record(loc) ||
+            typeof loc.source !== "string" ||
+            typeof loc.env !== "string" ||
+            typeof loc.session_id !== "string"
+        ) {
+            continue;
+        }
+        const resolved = resolve_session_file(
+            loc.source as HistorySource,
+            loc.env as Env,
+            loc.session_id,
+            deps.locator_paths,
+        );
+        if (!resolved) continue;
+        resolved_locs.push({
+            source: loc.source,
+            env: loc.env as Env,
+            session_id: loc.session_id,
+            file_path: resolved.file_path,
+            extractor_kind: resolved.extractor_kind,
+        });
+    }
+    const summaries = await deps.service.summaries(resolved_locs);
+    const result: SessionHistorySummariesResponse = { summaries };
+    json_response(res, 200, result);
+}
+
+/** t259: 会话历史 HTTP 端点（GET query + POST searchContent/summaries）。 */
+async function handle_web_session_history(
+    req: IncomingMessage,
+    res: ServerResponse,
+    url: URL,
+    deps: SessionHistoryDeps,
+): Promise<boolean> {
+    if (url.pathname === "/v1/sessionHistory" && req.method === "GET") {
+        handle_session_history_query(res, deps, url.searchParams);
+        return true;
+    }
+    if (req.method !== "POST") return false;
+    if (url.pathname === "/v1/sessionHistory/searchContent") {
+        const parsed = await read_json_body(req, res);
+        if (parsed === null) return true;
+        await handle_session_history_search_content(res, deps, parsed);
+        return true;
+    }
+    if (url.pathname === "/v1/sessionHistory/summaries") {
+        const parsed = await read_json_body(req, res);
+        if (parsed === null) return true;
+        await handle_session_history_summaries(res, deps, parsed);
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -189,6 +522,7 @@ export function create_local_api_server(
         token_stats_query_dispatcher?: TokenStatsQueryDispatcher;
         config_deps?: ConfigIpcDeps;
         connector_deps?: ConnectorIpcDeps;
+        session_history_deps?: SessionHistoryDeps;
         web_root?: string;
     },
 ): LocalAPIServer {
@@ -198,6 +532,7 @@ export function create_local_api_server(
     const token_stats_query_dispatcher = options?.token_stats_query_dispatcher;
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
+    const session_history_deps = options?.session_history_deps;
     const web_root = options?.web_root;
     const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
@@ -266,6 +601,12 @@ export function create_local_api_server(
                 return;
             }
             if (connector_deps && (await handle_web_connector(req, res, url, connector_deps))) {
+                return;
+            }
+            if (
+                session_history_deps &&
+                (await handle_web_session_history(req, res, url, session_history_deps))
+            ) {
                 return;
             }
 

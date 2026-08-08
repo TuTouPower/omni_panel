@@ -10,7 +10,7 @@ test.describe("popup demo alignment (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        await expect(webPage.locator(".app-title").first()).toHaveText("OmniPanel");
+        await expect(webPage.locator(".app-title").first()).toHaveText("Omni Panel - Usage");
         await expect(webPage.locator('[title="刷新全部"]').first()).toBeVisible();
         await expect(webPage.locator('[title="设置"]').first()).toBeVisible();
     });

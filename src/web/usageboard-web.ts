@@ -373,18 +373,25 @@ export function create_web_usageboard(): UsageboardApi {
                 for (const fn of session_focus_listeners) {
                     fn({ source, env, session_id });
                 }
+                // t259: web 端 Session 面板互跳 = 浏览器内切到 history 路由
+                // （t252 遗留 minor：只分发 onFocus 不切 hash，Session 入口失效）。
+                window.location.hash = "history";
                 return Promise.resolve();
             },
             subscribe: () => Promise.resolve({ subscribed: false }),
             unsubscribe: () => Promise.resolve({ unsubscribed: false }),
             // t228/t237: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
             query: async (
-                _source: string,
-                _env: string,
+                source: string,
+                env: string,
                 session_id: string,
                 options?: { limit?: number; before_cursor?: unknown } | null,
             ) => {
                 const params = new URLSearchParams({ id: session_id });
+                // t259: 透传 source/env，服务端据此 resolve_session_file 定位源文件
+                // （缺省回退 sessions_provider 反查，避免歧义）。
+                if (source) params.set("source", source);
+                if (env) params.set("env", env);
                 if (options?.limit) params.set("limit", String(options.limit));
                 if (
                     options?.before_cursor != null &&
@@ -408,21 +415,28 @@ export function create_web_usageboard(): UsageboardApi {
                 }));
             },
             searchContent: (
-                _request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
-                _keyword?: string,
+                request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
+                keyword?: string,
             ) => {
-                // t239/t248: web 端当前没有批量内容搜索 endpoint；保留两种调用形态。
-                void _request_or_locs;
-                void _keyword;
-                return Promise.resolve<SessionHistorySearchContentResponse>({
-                    hits: [],
-                    sessions: [],
-                });
+                // t259: 从 stub 空实现改为真调用本地 API（t248 批量内容搜索契约）。
+                const is_legacy = !("filters" in request_or_locs);
+                const body = is_legacy
+                    ? {
+                          locs: request_or_locs,
+                          keyword: keyword ?? "",
+                      }
+                    : request_or_locs;
+                return post_json(
+                    "/v1/sessionHistory/searchContent",
+                    body,
+                ) as Promise<SessionHistorySearchContentResponse>;
             },
-            summaries: (_locs: readonly SessionHistoryLoc[]) => {
-                // t239: web 端本地 API 暂未暴露批量摘要；返回空映射保持兼容。
-                void _locs;
-                return Promise.resolve({});
+            summaries: async (locs: readonly SessionHistoryLoc[]) => {
+                // t259: 从 stub 空实现改为真调用本地 API（t239 批量摘要契约）。
+                const data = (await post_json("/v1/sessionHistory/summaries", {
+                    locs,
+                })) as { summaries: Record<string, string> };
+                return data.summaries;
             },
             onMessagesUpdated: () => () => {
                 /* web 端不暴露会话历史实时推送 */

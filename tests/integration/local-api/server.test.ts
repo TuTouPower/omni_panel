@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,13 @@ import type { ObservationStore } from "../../../src/main/core/observation/observ
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
 import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
+import type {
+    QueryResult,
+    SessionHistorySubscriptionService,
+    SessionRow,
+    SessionsProvider,
+} from "../../../src/main/core/session-history/subscription-service";
+import { clear_resolution_cache } from "../../../src/main/core/session-history/session-locator";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
@@ -762,6 +769,297 @@ describe("local-api web read endpoints", () => {
         const points_b = series_b.filter((p) => p !== null);
         // inst-b: used 500/1000 = 50%，不串 inst-a 的 10%
         expect(points_b[0]?.percent).toBe(50);
+    });
+});
+
+describe("local-api session history endpoints (t259)", () => {
+    let session_home: string;
+
+    function make_session_row(overrides: Partial<SessionRow> = {}): SessionRow {
+        return {
+            id: "sess-1",
+            source: "claude_code",
+            env: "win",
+            title: "Test Session",
+            model: null,
+            started_at: 0,
+            ended_at: 1000,
+            session: {
+                id: "sess-1",
+                source: "claude_code",
+                env: "win",
+                model: "sonnet",
+                title: "Test Session",
+                directory: "/proj",
+                input_tokens: 100,
+                output_tokens: 50,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 3,
+                started_at: 0,
+                ended_at: 1000,
+            },
+            ...overrides,
+        };
+    }
+
+    function base_session_service() {
+        return {
+            query: vi.fn(
+                (): QueryResult => ({
+                    messages: [{ id: "m1", role: "user" as const, text: "hello", timestamp: 100 }],
+                    next_cursor: null,
+                }),
+            ),
+            searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
+            summaries: vi.fn(() => Promise.resolve({ "claude_code|win|sess-1": "hello world" })),
+        };
+    }
+
+    beforeEach(async () => {
+        clear_resolution_cache();
+        session_home = await mkdtemp(join(tmpdir(), "session-history-home-"));
+        await mkdir(join(session_home, ".claude", "projects"), { recursive: true });
+        // claude_code 快速路径：文件名 === session_id.jsonl。
+        await writeFile(
+            join(session_home, ".claude", "projects", "sess-1.jsonl"),
+            '{"sessionId":"sess-1"}\n',
+        );
+    });
+
+    afterEach(async () => {
+        await api.stop();
+        await rm(session_home, { recursive: true, force: true });
+        clear_resolution_cache();
+    });
+
+    function setup_session_api(
+        service: ReturnType<typeof base_session_service>,
+        provider: SessionsProvider,
+    ): void {
+        api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            config_deps,
+            connector_deps,
+            web_root,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: provider,
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+    }
+
+    it("GET /v1/sessionHistory returns messages without auth (t259 AC1)", async () => {
+        const service = base_session_service();
+        const provider: SessionsProvider = vi.fn(() => [make_session_row()]);
+        setup_session_api(service, provider);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&limit=10`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { messages: unknown[]; next_cursor: unknown };
+        expect(data.messages).toHaveLength(1);
+        expect(data.messages[0]).toMatchObject({ id: "m1", role: "user", text: "hello" });
+        expect(data.next_cursor).toBeNull();
+        // source/env 缺省时经 sessions_provider 反查会话定位。
+        expect(provider).toHaveBeenCalled();
+        expect(service.query).toHaveBeenCalledWith(
+            expect.objectContaining({ source: "claude_code", env: "win", session_id: "sess-1" }),
+            expect.objectContaining({ limit: 10 }),
+        );
+    });
+
+    it("GET /v1/sessionHistory maps string before_cursor to a pagination cursor", async () => {
+        const service = base_session_service();
+        service.query.mockReturnValue({
+            messages: [{ id: "m2", role: "assistant" as const, text: "prev", timestamp: 200 }],
+            next_cursor: { kind: "pagination", end_index: 5 },
+        });
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&limit=10&before_cursor=20`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { next_cursor: unknown };
+        // HTTP 边界游标序列化为字符串（与 web query 的 before_cursor 编码一致）。
+        expect(data.next_cursor).toBe("5");
+        expect(service.query).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                limit: 10,
+                before_cursor: { kind: "pagination", end_index: 20 },
+            }),
+        );
+    });
+
+    it("GET /v1/sessionHistory returns 400 when id is missing", async () => {
+        setup_session_api(
+            base_session_service(),
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory`);
+        expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/sessionHistory returns 404 for an unresolvable session", async () => {
+        setup_session_api(
+            base_session_service(),
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing`,
+        );
+        expect(res.status).toBe(404);
+    });
+
+    it("POST /v1/sessionHistory/searchContent returns hits and sessions (t259 AC1)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: { sources: ["claude_code"] }, keyword: "hello" }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            hits: string[];
+            sessions: { id: string; source: string }[];
+        };
+        expect(data.hits).toEqual(["claude_code|win|sess-1"]);
+        expect(data.sessions).toHaveLength(1);
+        expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
+        expect(service.searchContent).toHaveBeenCalledWith(
+            [expect.objectContaining({ session_id: "sess-1" })],
+            "hello",
+        );
+    });
+
+    it("POST /v1/sessionHistory/searchContent returns 400 for malformed bodies (t259 f001)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const port = String(api.get_port());
+        const bad_bodies: unknown[] = [
+            { keyword: "x" }, // 缺 filters
+            { filters: {}, keyword: 5 }, // keyword 非 string
+            { filters: { sources: 5 }, keyword: "x" }, // sources 非数组
+            { filters: { search: 5 }, keyword: "x" }, // search 非 string
+            { locs: "str", keyword: "x" }, // legacy locs 非数组
+            { locs: [{ source: "a" }], keyword: "x" }, // legacy loc 缺字段
+        ];
+        for (const body of bad_bodies) {
+            const res = await fetch(`http://127.0.0.1:${port}/v1/sessionHistory/searchContent`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            expect(res.status).toBe(400);
+        }
+        expect(service.searchContent).not.toHaveBeenCalled();
+    });
+
+    it("POST /v1/sessionHistory/summaries returns 400 for non-array locs", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/summaries`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ locs: "nope" }),
+            },
+        );
+        expect(res.status).toBe(400);
+        // 畸形 loc 条目被跳过而非 500。
+        const res2 = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/summaries`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    locs: [null, { source: "claude_code", env: "win", session_id: "sess-1" }],
+                }),
+            },
+        );
+        expect(res2.status).toBe(200);
+        expect(service.summaries).toHaveBeenCalled();
+    });
+
+    it("POST /v1/sessionHistory/searchContent supports legacy locs form (t259 f002)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    locs: [{ source: "claude_code", env: "win", session_id: "sess-1" }],
+                    keyword: "hello",
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        expect(service.searchContent).toHaveBeenCalled();
+    });
+
+    it("POST /v1/sessionHistory/summaries returns per-loc summaries (t259 AC1)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/summaries`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    locs: [
+                        { source: "claude_code", env: "win", session_id: "sess-1" },
+                        { source: "claude_code", env: "win", session_id: "missing" },
+                    ],
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { summaries: Record<string, string> };
+        expect(data.summaries).toEqual({ "claude_code|win|sess-1": "hello world" });
+        expect(service.summaries).toHaveBeenCalledWith([
+            expect.objectContaining({ session_id: "sess-1" }),
+        ]);
     });
 });
 
