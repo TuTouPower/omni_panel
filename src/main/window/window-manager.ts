@@ -23,6 +23,7 @@ export interface WindowConfig {
     roundedCorners?: boolean;
     resizable?: boolean;
     minWidth?: number;
+    minHeight?: number;
     maxWidth?: number;
     showWhenReady?: boolean;
 }
@@ -47,6 +48,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
+        minWidth: 480,
+        minHeight: 360,
     },
     tray_menu: {
         route: "tray",
@@ -65,6 +68,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
+        minWidth: 480,
+        minHeight: 360,
     },
     history: {
         route: "history",
@@ -76,6 +81,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
+        minWidth: 480,
+        minHeight: 360,
     },
 };
 
@@ -145,6 +152,7 @@ export function createWindowManager(opts: {
             autoHideMenuBar: cfg.autoHideMenuBar ?? false,
             resizable: cfg.resizable ?? true,
             ...(cfg.minWidth !== undefined && { minWidth: cfg.minWidth }),
+            ...(cfg.minHeight !== undefined && { minHeight: cfg.minHeight }),
             ...(cfg.maxWidth !== undefined && { maxWidth: cfg.maxWidth }),
             ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
             ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
