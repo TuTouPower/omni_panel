@@ -34,10 +34,7 @@ function make_large_messages(total: number) {
 
 async function setup_large_session_routes(page: Page): Promise<void> {
     await page.route("**/v1/sessions", async (route) => {
-        const sessions = [
-            ...((SYNTHETIC["GET /v1/sessions"] ?? []) as unknown[]),
-            LARGE_SESSION,
-        ];
+        const sessions = [...((SYNTHETIC["GET /v1/sessions"] ?? []) as unknown[]), LARGE_SESSION];
         await route.fulfill({
             contentType: "application/json",
             body: JSON.stringify(sessions),
@@ -116,6 +113,23 @@ test.describe("session panel (web, t228)", () => {
         // 消息行渲染（s1 的 fixture 消息）。
         await expect(page.locator(".pane-msg-row").first()).toBeVisible();
         await expect(page.locator(".pane-msg-row").first()).toContainText(/用户|Agent/);
+    });
+
+    test("用量面板跨面板打开会话定位到目标会话（t263）", async ({ webPage }) => {
+        const page = webPage;
+        // 停在 usage 路由（会话面板未挂载）。
+        await page.goto("/#usage");
+        await page.locator('[data-popup="live"]').first().waitFor({ state: "visible" });
+        // 触发跨面板打开（接线 onOpenSession→open 由单测两端覆盖；此处验证本 task
+        // 新增链路：open 把 loc 编码进 URL search → 会话面板懒挂载 → initial_loc 读取 → 定位）。
+        await page.evaluate(() => {
+            void window.usageboard.sessionHistory.open("claude_code", "win", "s1");
+        });
+        // open 切到 history 路由，会话面板挂载并定位 s1。
+        await page.locator(".session-shell").first().waitFor({ state: "visible" });
+        await expect(page.locator(".slot-pane").first()).toBeVisible();
+        const loc_key = await page.locator(".slot-pane").first().getAttribute("data-loc-key");
+        expect(loc_key).toBe("claude_code|win|s1");
     });
 
     test("工作台槽位满时再打开显示 toast 拒绝", async ({ webPage }) => {
@@ -240,9 +254,7 @@ test.describe("session panel virtual list (web, t237)", () => {
         await expect(page.locator(".pane-loading")).toHaveCount(0);
 
         // 滚动补偿后「消息 400」仍应可见。
-        await expect(
-            page.locator(".pane-msg-row", { hasText: "消息 400" }).first(),
-        ).toBeVisible();
+        await expect(page.locator(".pane-msg-row", { hasText: "消息 400" }).first()).toBeVisible();
     });
 
     test("大纲点击可视区外的消息能跳转并渲染", async ({ webPage }) => {
@@ -257,12 +269,7 @@ test.describe("session panel virtual list (web, t237)", () => {
         await expect(page.locator(".pane-outline")).toBeVisible();
 
         // 点击远离可视区的「消息 450」（首页为后 200 条 400–599，450 在可视区外但在首页内）。
-        await page
-            .locator(".pane-outline-row", { hasText: "消息 450" })
-            .first()
-            .click();
-        await expect(
-            page.locator(".pane-msg-row", { hasText: "消息 450" }).first(),
-        ).toBeVisible();
+        await page.locator(".pane-outline-row", { hasText: "消息 450" }).first().click();
+        await expect(page.locator(".pane-msg-row", { hasText: "消息 450" }).first()).toBeVisible();
     });
 });

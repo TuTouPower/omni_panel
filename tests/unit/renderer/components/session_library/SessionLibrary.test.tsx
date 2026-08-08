@@ -248,6 +248,9 @@ describe("SessionLibrary (t227)", () => {
             filters: { search: "秘密词" },
         });
         expect(request).not.toHaveProperty("locs");
+        // t263: 取消信号传入搜索调用（web shim 透传 fetch，服务端断连中止）。
+        const signal: unknown = ub.sessionHistory.searchContent.mock.calls[0]?.[1];
+        expect(signal).toBeInstanceOf(AbortSignal);
         await waitFor(() => {
             expect(screen.getByText("会话 hidden")).toBeTruthy();
         });
@@ -774,7 +777,48 @@ describe("SessionLibrary (t227)", () => {
         expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
         expect(ub.sessionHistory.searchContent).toHaveBeenLastCalledWith(
             expect.objectContaining({ keyword: "秘密" }),
+            // t263: 取消信号随请求传入（web shim 透传 fetch，服务端断连中止）。
+            expect.any(AbortSignal),
         );
+        vi.useRealTimers();
+    });
+
+    it("t263 AC4：内容搜索已触发后再次输入，前序请求 signal 置为 aborted", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        // 挂起首请求 pending，捕获其 signal。
+        let first_signal: AbortSignal | undefined;
+        ub.sessionHistory.searchContent.mockImplementation(
+            (_req: unknown, signal?: AbortSignal) => {
+                first_signal = signal;
+                return new Promise(() => {
+                    /* 挂起，模拟 in-flight */
+                });
+            },
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
+        // 首次防抖触发 → 搜索 A in-flight。
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+        const first_call_signal = first_signal;
+        expect(first_call_signal).toBeInstanceOf(AbortSignal);
+
+        // 防抖窗口外再次输入 → 前序请求被 abort。
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词2" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(first_call_signal?.aborted).toBe(true);
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(2);
         vi.useRealTimers();
     });
 

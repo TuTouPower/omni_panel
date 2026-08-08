@@ -231,15 +231,19 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             const controller = new AbortController();
             content_abort_ref.current = controller;
             window.usageboard.sessionHistory
-                .searchContent({
-                    filters: {
-                        ...(agents.length > 0 ? { sources: [...agents] } : {}),
-                        ...(search ? { search } : {}),
-                        ...(start_at !== undefined ? { start_at } : {}),
-                        ...(end_at !== undefined ? { end_at } : {}),
+                .searchContent(
+                    {
+                        filters: {
+                            ...(agents.length > 0 ? { sources: [...agents] } : {}),
+                            ...(search ? { search } : {}),
+                            ...(start_at !== undefined ? { start_at } : {}),
+                            ...(end_at !== undefined ? { end_at } : {}),
+                        },
+                        keyword: search,
                     },
-                    keyword: search,
-                })
+                    // t263: 取消信号传入搜索调用，web shim 透传 fetch、服务端随断连中止。
+                    controller.signal,
+                )
                 .then((result) => {
                     if (controller.signal.aborted) return;
                     const response = Array.isArray(result)

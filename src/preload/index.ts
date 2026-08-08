@@ -232,8 +232,13 @@ const session_history_full_methods = {
         ),
     searchContent: (
         request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
-        keyword?: string,
+        keyword?: string | AbortSignal,
+        _signal?: AbortSignal,
     ) => {
+        // t263: 桌面 IPC 取消由主进程按 sender 窗口管理，渲染层传入的 signal 忽略。
+        // 接口重载第二参在 legacy 形态为 keyword、现代形态为 AbortSignal，按形态取用。
+        void _signal;
+        const keyword_str = typeof keyword === "string" ? keyword : undefined;
         if (Array.isArray(request_or_locs)) {
             const candidate = request_or_locs as readonly SessionHistoryLoc[] & {
                 filters?: SessionHistorySearchContentRequest["filters"];
@@ -244,7 +249,7 @@ const session_history_full_methods = {
                     IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
                     {
                         filters: candidate.filters,
-                        keyword: keyword ?? candidate.keyword ?? "",
+                        keyword: keyword_str ?? candidate.keyword ?? "",
                     },
                 );
             }
@@ -252,7 +257,7 @@ const session_history_full_methods = {
                 IPC_CHANNELS.SESSION_HISTORY_SEARCH_CONTENT,
                 {
                     locs: request_or_locs,
-                    keyword: keyword ?? "",
+                    keyword: keyword_str ?? "",
                 },
             );
         }

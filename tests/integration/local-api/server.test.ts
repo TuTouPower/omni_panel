@@ -812,6 +812,9 @@ describe("local-api session history endpoints (t259)", () => {
                 }),
             ),
             searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
+            searchContentWithAbort: vi.fn<
+                (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
+            >(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
             summaries: vi.fn(() => Promise.resolve({ "claude_code|win|sess-1": "hello world" })),
         };
     }
@@ -855,7 +858,26 @@ describe("local-api session history endpoints (t259)", () => {
         });
     }
 
-    it("GET /v1/sessionHistory returns messages without auth (t259 AC1)", async () => {
+    it("GET /v1/sessionHistory 带完整 source/env 返回消息 (t259 AC1)", async () => {
+        const service = base_session_service();
+        const provider: SessionsProvider = vi.fn(() => [make_session_row()]);
+        setup_session_api(service, provider);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=win&limit=10`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { messages: unknown[]; next_cursor: unknown };
+        expect(data.messages).toHaveLength(1);
+        expect(data.messages[0]).toMatchObject({ id: "m1", role: "user", text: "hello" });
+        expect(data.next_cursor).toBeNull();
+        expect(service.query).toHaveBeenCalledWith(
+            expect.objectContaining({ source: "claude_code", env: "win", session_id: "sess-1" }),
+            expect.objectContaining({ limit: 10 }),
+        );
+    });
+
+    it("GET /v1/sessionHistory 缺 source/env 返回 400，不再全量枚举 (t263)", async () => {
         const service = base_session_service();
         const provider: SessionsProvider = vi.fn(() => [make_session_row()]);
         setup_session_api(service, provider);
@@ -863,17 +885,10 @@ describe("local-api session history endpoints (t259)", () => {
         const res = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&limit=10`,
         );
-        expect(res.status).toBe(200);
-        const data = (await res.json()) as { messages: unknown[]; next_cursor: unknown };
-        expect(data.messages).toHaveLength(1);
-        expect(data.messages[0]).toMatchObject({ id: "m1", role: "user", text: "hello" });
-        expect(data.next_cursor).toBeNull();
-        // source/env 缺省时经 sessions_provider 反查会话定位。
-        expect(provider).toHaveBeenCalled();
-        expect(service.query).toHaveBeenCalledWith(
-            expect.objectContaining({ source: "claude_code", env: "win", session_id: "sess-1" }),
-            expect.objectContaining({ limit: 10 }),
-        );
+        expect(res.status).toBe(400);
+        // id-only 不再触发 sessions_provider 全量枚举反查。
+        expect(provider).not.toHaveBeenCalled();
+        expect(service.query).not.toHaveBeenCalled();
     });
 
     it("GET /v1/sessionHistory maps string before_cursor to a pagination cursor", async () => {
@@ -888,7 +903,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&limit=10&before_cursor=20`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=win&limit=10&before_cursor=20`,
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { next_cursor: unknown };
@@ -920,7 +935,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing&source=claude_code&env=win`,
         );
         expect(res.status).toBe(404);
     });
@@ -948,10 +963,57 @@ describe("local-api session history endpoints (t259)", () => {
         expect(data.hits).toEqual(["claude_code|win|sess-1"]);
         expect(data.sessions).toHaveLength(1);
         expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
-        expect(service.searchContent).toHaveBeenCalledWith(
+        expect(service.searchContentWithAbort).toHaveBeenCalledWith(
             [expect.objectContaining({ session_id: "sess-1" })],
             "hello",
+            expect.any(AbortSignal),
         );
+    });
+
+    it("POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)", async () => {
+        const service = base_session_service();
+        // 挂起搜索直到 abort signal 触发，模拟长时间扫盘。
+        service.searchContentWithAbort.mockImplementation(
+            (_locs: unknown[], _keyword: string, signal: AbortSignal) =>
+                new Promise<Set<string>>((resolve) => {
+                    signal.addEventListener("abort", () => {
+                        resolve(new Set<string>());
+                    });
+                }),
+        );
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+
+        const controller = new AbortController();
+        const req = fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: { sources: ["claude_code"] }, keyword: "hello" }),
+                signal: controller.signal,
+            },
+        );
+        await vi.waitFor(() => {
+            expect(service.searchContentWithAbort).toHaveBeenCalled();
+        });
+        // 客户端断连 → 服务端 res close → abort 底层扫描。
+        controller.abort();
+        const calls = service.searchContentWithAbort.mock.calls as unknown as [
+            unknown[],
+            string,
+            AbortSignal,
+        ][];
+        const signal = calls[0]?.[2];
+        await vi.waitFor(() => {
+            expect(signal?.aborted).toBe(true);
+        });
+        await req.catch(() => {
+            /* 客户端已 abort，fetch 拒绝符合预期 */
+        });
     });
 
     it("POST /v1/sessionHistory/searchContent returns 400 for malformed bodies (t259 f001)", async () => {
@@ -1031,7 +1093,7 @@ describe("local-api session history endpoints (t259)", () => {
             },
         );
         expect(res.status).toBe(200);
-        expect(service.searchContent).toHaveBeenCalled();
+        expect(service.searchContentWithAbort).toHaveBeenCalled();
     });
 
     it("POST /v1/sessionHistory/summaries returns per-loc summaries (t259 AC1)", async () => {

@@ -233,9 +233,9 @@ function resolve_session_rows(
 }
 
 /**
- * GET /v1/sessionHistory：按 id（+ 可选 source/env）取消息分页。
- * source/env 缺省时经 sessions_provider 反查候选会话行（web query 会透传，
- * 但保留反查以兼容只有 id 的调用方）。HTTP 边界游标序列化为字符串。
+ * GET /v1/sessionHistory：按 id + source/env 取消息分页。
+ * t263: source/env 必须提供，不再支持缺省时全量枚举反查（web query 恒透传，
+ * id-only 回退开销线性且多来源同 id 歧义）。缺 source/env 直接 400。
  */
 function handle_session_history_query(
     res: ServerResponse,
@@ -247,19 +247,10 @@ function handle_session_history_query(
         json_response(res, 400, { error: "id required" });
         return;
     }
-    let source = params.get("source");
-    let env = params.get("env");
+    const source = params.get("source");
+    const env = params.get("env");
     if (!source || !env) {
-        const match = session_history_query_all_sessions(deps, {}).find(
-            (row) => row.id === session_id,
-        );
-        if (match) {
-            source ??= match.source;
-            env ??= match.env;
-        }
-    }
-    if (!source || !env) {
-        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        json_response(res, 400, { error: "source and env required" });
         return;
     }
     const resolved = resolve_session_file(
@@ -359,7 +350,18 @@ async function handle_session_history_search_content(
                       : {}),
               });
     const resolved_locs = resolve_session_rows(deps, candidate_rows);
-    const hits = await deps.service.searchContent(resolved_locs, request.keyword);
+    // t263: 客户端断连（fetch abort / 页面关闭）时中止底层搜索扫描，避免连续搜索
+    // 前序请求持续扫盘并发堆积。res 'close' 在响应正常结束或连接关闭时触发；正常
+    // 完成后 abort 无副作用（搜索已结束）。
+    const abort_controller = new AbortController();
+    res.on("close", () => {
+        if (!res.writableEnded) abort_controller.abort();
+    });
+    const hits = await deps.service.searchContentWithAbort(
+        resolved_locs,
+        request.keyword,
+        abort_controller.signal,
+    );
     const hit_keys = new Set(hits);
     const response_sessions: TokenStatsSession[] = [];
     const response_keys = new Set<string>();

@@ -67,5 +67,5 @@
 ## 会话面板对齐收尾（t228）
 
 - web e2e 覆盖关键路径（`tests/e2e/web/session_panel.spec.ts`，fixture 来自 `scripts/e2e/session_fixture.mjs` 合成会话+消息，经 synthetic.json）：双页签切换状态保留、打开会话装入槽位与消息渲染、槽满 toast 拒绝、摘选三格式复制内容、会话库搜索/筛选/排序/预览/并排打开闭环。全量 `pnpm test:e2e:web`（MOCK_FIXTURE=synthetic）53 passed。
-- web 会话桥语义：web 版 `sessionHistory` 经 local-api mock 读消息（`/v1/sessionHistory?id=`，fixture 按 session_id 索引）；`sessionHistory.open` 直接分发给 `onFocus` 订阅者（对齐 Electron 主进程 open_or_focus 广播），使 web 下「打开会话」能装工作台槽位；`recent` 由 `/v1/sessions` 派生。
+- web 会话桥语义：web 版 `sessionHistory` 经 local-api mock 读消息（`/v1/sessionHistory?id=&source=&env=`，fixture 按 session_id 索引；缺 source/env 服务端返回 400，t263 移除 id-only 全量枚举回退）；`sessionHistory.open` 直接分发给 `onFocus` 订阅者（对齐 Electron 主进程 open_or_focus 广播），使 web 下「打开会话」能装工作台槽位；跨面板打开时 open 把 loc 编码进 URL search（一次性，面板挂载后 initial_loc 读取并清除），会话面板懒挂载后据此定位（t263）；`recent` 由 `/v1/sessions` 派生。
 - 旧实现残留确认：6 栏视图（`SessionHistoryView`）、栏满弹窗（`HistoryOverflowModal`）、旧单一 Markdown 复制（`build_copy_markdown`）均无源码残留（仅 docs/archive 注释保留记录）。

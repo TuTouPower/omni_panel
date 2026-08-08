@@ -384,14 +384,16 @@ export interface SessionHistoryApi {
         env: string,
         limit: number,
     ): Promise<readonly SessionHistoryRecentItem[]>;
-    /** t248: 批量内容搜索，返回命中键及其会话元信息。 */
+    /** t248: 批量内容搜索，返回命中键及其会话元信息。t263: 可选 AbortSignal 支持客户端取消（web shim 透传 fetch）。 */
     searchContent(
         request: SessionHistorySearchContentRequest,
+        signal?: AbortSignal,
     ): Promise<SessionHistorySearchContentResponse>;
     /** Legacy renderer/test shape retained at the IPC boundary. */
     searchContent(
         locs: readonly SessionHistoryLoc[],
         keyword: string,
+        signal?: AbortSignal,
     ): Promise<SessionHistorySearchContentResponse>;
     /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
     summaries(locs: readonly SessionHistoryLoc[]): Promise<Readonly<Record<string, string>>>;
