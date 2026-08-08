@@ -70,7 +70,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 落盘批间合并的具体机制（单 miss 内同步合并 vs 批量窗口 debounce 异步 flush，及异步 flush 对 resolve 同步返回语义的影响）：UNVERIFIED-SPIKE，执行期 Step 1 实验确定。
+- 落盘批间合并机制：采用 dirty 标记 + debounce flush（spike s024 原型验证）。`persist_index_entry` 仅改内存索引，索引内容实际变化（set / delete 存在的 key）才置 dirty 并 schedule debounce（50ms）flush；delete 不存在的 key 不置 dirty，零写盘。提供显式 `flush_session_index`，退出路径（before-quit）调用保证落盘。resolve 同步返回后索引未必已落盘，调用方不得依赖「立即 existsSync」语义。
 
 ### 风险与回退
 

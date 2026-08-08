@@ -207,3 +207,43 @@
 - 证据：s018 最小实验构建产物 chunk 划分（web 入口 204 kB、echarts 拆分 core/charts/components/Axis 各 < 300 kB；renderer 同构但最大约 655 kB）、`tests/unit/build_code_split.test.ts` 产物断言、`tests/unit/renderer/hooks/use_echarts_lazy.test.ts` 竞态测试。
 - 影响：后续新增图表/渲染组件优先走按需注册 + 懒加载；chunk 阈值不调整；新增懒加载路由须带 Suspense fallback。
 - 现状：有效
+
+## d025 RTL fake timers 下 waitFor 依赖全局 jest（2026-08-08）
+
+- 来源：t261
+- 结论：`@testing-library/dom@10.4.1` 的 `waitFor` 无 `shouldAdvanceTime` 选项；fake timers 分支（`jestFakeTimersAreEnabled()`）直接调用全局 `jest.advanceTimersByTime`（`node_modules/@testing-library/dom/dist/wait-for.js`）。vitest 不提供 `jest` 全局，故需在 `beforeEach` `vi.stubGlobal("jest", vi)`，使 waitFor 走 fake-timers 轮询分支并能推进虚拟时钟。跨防抖等待用 `await act(async () => { await vi.advanceTimersByTimeAsync(ms); })`。
+- 证据：`tests/unit/renderer/views/popup_view_t250.test.tsx` beforeEach/afterEach 与 `wait_debounce`；stub 后该文件 5 用例通过、单文件 0 条 act 警告。
+- 影响：后续把真实计时器测试改 fake timers（消 act 警告）时，直接复用此方案；升级 `@testing-library/dom` 后可复核是否已有官方 `shouldAdvanceTime` 等价选项。
+- 现状：有效
+
+## d026 worktree 内 pnpm test 与 electron e2e 的 better-sqlite3 ABI 互斥（2026-08-08）
+
+- 来源：t262
+- 结论：`scripts/ensure_sqlite_abi.mjs` 会把 better-sqlite3 编译为指定运行时 ABI；`pnpm test` 前置切 `node`（NODE_MODULE_VERSION 127），electron e2e 前置切 `electron`（146）。同一 node_modules 状态下两者不能连跑：跑完 `pnpm test` 直接跑 `pnpm test:e2e:electron`，Electron 启动即崩（`NODE_MODULE_VERSION 127 vs 146`，`Startup failed`，firstWindow 超时），且此失败发生在既有用例上，易被误判为代码回归。
+- 证据：t262 中 `pnpm test` 后跑 e2e 全 spec 启动失败（agent 既有用例同崩，非 diff 引入）；切 `node scripts/ensure_sqlite_abi.mjs electron` 后 history e2e 1 passed、agent 回归通过。
+- 影响：worktree 内连续跑单测与 electron e2e 时，中间必须重切 ABI（`node scripts/ensure_sqlite_abi.mjs electron`）；怀疑「e2e 全部启动失败」时先排查 ABI 状态，再查代码。
+- 现状：有效
+
+## d027 dirty + debounce 落盘合并机制（2026-08-08）
+
+- 来源：s024
+- 结论：高频全量写可改为「dirty 标记 + debounce flush」合并。仅当数据实际变化（set / delete 存在的 key）置 dirty 并 schedule 一次性 flush；delete 不存在的 key（内容未变）不置 dirty，零写盘；显式 flush 保证退出前落盘。单 miss 内多次 persist 合并为一次写盘。
+- 证据：s024 原型（`docs/spikes/s024_index_debounce_persist/code/experiment.mjs`）：批量 N=50 persist → debounce 后 1 次写盘；未命中 delete 零写；显式 flush 后条目齐全；删+填两次 persist 一次写。
+- 影响：引入 debounce flush 时，调用方不得依赖「写后立即 existsSync」语义；需退出路径显式 flush。适用于会话索引等高频全量写场景。
+- 现状：有效
+
+## d028 Playwright page.route glob 不匹配 query string（2026-08-08）
+
+- 来源：t266
+- 结论：`page.route("**/v1/sessions")` 的 glob **不匹配 URL query string**。会话库首屏请求实际为 `/v1/sessions?limit=50&offset=0`，该 route 不触发，注入数据失效。须以 `*` 收尾 `"**/v1/sessions*"` 匹配带 query 的请求。
+- 证据：t266 virtual list 用例 `page.route("**/v1/sessions")` 注入 LARGE_SESSION 恒失效（卡片找不到），改 `**/v1/sessions*` 后通过。
+- 影响：web e2e 用 page.route 拦截带 query 的接口时，glob 须以 `*` 收尾。
+- 现状：有效
+
+## d029 Playwright ElectronApplication.close 后子进程可能未完全退出（2026-08-08）
+
+- 来源：t267
+- 结论：Playwright `electronApp.close()` 在 Windows 下等待主进程退出，但 Electron 子进程（renderer/gpu/utility）可能残留，继续写 userData 目录或占用 local-api 端口。e2e harness 需在 close 后 kill 兜底 + 监听进程 exit 确保完全终止，否则下一测试的 restart 可能读到旧状态。
+- 证据：t267 完整 electron e2e run 2 出现 `snapshot-cache.json` rename ENOENT（`writeJsonAtomic` 失败）——close 后子进程仍写已关闭 userData 目录。
+- 影响：electron e2e harness `closeApp` 需确保进程树退出；restart 类测试（stop→start）在完整套件串行下依赖此保证。
+- 现状：有效

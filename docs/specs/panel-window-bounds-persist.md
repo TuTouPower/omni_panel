@@ -30,9 +30,11 @@
 - 新增 config 键 `agentWindowBounds` + `historyWindowBounds`（复用 FloatingBoundsConfiguration 结构，shared + zod 双端）。
 - `src/main/window/window-bounds.ts`：`compute_clamped_bounds` 钳制纯函数（displayId 失效回退主屏、最小尺寸提升、workArea 收缩/负坐标/超界钳制）+ `apply_window_bounds`（真实 screen）+ `watch_window_bounds`（move/resize 保存，值未变跳过防写放大）+ `get_saved_bounds`。
 - index.ts `create_panel_window`：createWindowFor 后 apply 保存 bounds（无值 center），注册 move/resize 保存（scheduleSave thunk 防回退）。agent/history controller 的 create_window 改用之；两窗口各自独立键。
+- `src/main/window/window-manager.ts`：setting/agent/history 窗口创建配置带 `minWidth/minHeight=480x360`，与 `window-bounds.ts` 的 `PANEL_MIN_WIDTH/HEIGHT` 一致（t262）。窗口运行期无法缩到该下限以下，故保存侧 `Math.max` 最小尺寸提升恒为无操作，保存值与用户离开前一致。
 
 ## 测试覆盖
 
 - `tests/unit/main/window-bounds.test.ts`：钳制纯函数 8 例（可见/负坐标/超右界/最小尺寸/超大收缩/副屏/displayId 失效/无 displayId）+ get_saved_bounds 3 例。
-- `tests/e2e/electron/panel_window_bounds.spec.ts`：agent 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（AC1）。
+- `tests/e2e/electron/panel_window_bounds.spec.ts`：agent 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（AC1）；history 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（t262，AC2）。
+- `tests/unit/main/window_manager.test.ts`：setting/agent/history 窗口创建配置断言 minWidth/minHeight=480x360（t262，与 `window-bounds.ts` 最小尺寸钳制一致）。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + `pnpm test:packaged`。

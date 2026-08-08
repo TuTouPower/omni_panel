@@ -57,14 +57,14 @@
 | unify_account_auth_forms             | Web           | t157                                                                                              | 2026-07-27   |
 | session-history-window               | Desktop       | t211，t212，t213                                                                                  | 2026-08-05   |
 | session-shell                        | Desktop       | t223，t224，t245                                                                                  | 2026-08-07   |
-| workspace                            | Desktop       | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247                                        | 2026-08-07   |
+| workspace                            | Desktop       | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263                                  | 2026-08-08   |
 | draggable_provider_tabs              | Web           | t242                                                                                              | 2026-08-07   |
 | renderer-bundle-code-split           | Web+Desktop   | t249                                                                                              | 2026-08-07   |
-| session-path-index                   | Desktop       | t254                                                                                              | 2026-08-07   |
+| session-path-index                   | Desktop       | t254，t264                                                                                        | 2026-08-08   |
 | session-summary-head-read            | Desktop       | t255                                                                                              | 2026-08-07   |
 | session-first-open-main-unblock      | Desktop       | t256                                                                                              | 2026-08-08   |
 | usage-panel-selection-persist        | Web+Desktop   | t250                                                                                              | 2026-08-08   |
-| panel-window-bounds-persist          | Desktop       | t251                                                                                              | 2026-08-08   |
+| panel-window-bounds-persist          | Desktop       | t251, t262                                                                                        | 2026-08-08   |
 | session-pane-display-adjust          | Web+Desktop   | t257                                                                                              | 2026-08-08   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

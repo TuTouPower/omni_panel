@@ -1,4 +1,6 @@
 import type { ElectronApplication, Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { expect, test } from "../fixtures/test";
 import { PopupPage } from "../pages/popup_page";
@@ -38,6 +40,23 @@ async function openAccountForm(sPage: Page, name: string) {
         .first();
     await expect(fallbackForm).toBeVisible();
     return fallbackForm;
+}
+
+async function set_react_input(locator: ReturnType<Page["locator"]>, value: string) {
+    // t267: React 受控 input 用 nativeInputValueSetter + 派发 input/change 事件设值。
+    // Playwright fill/pressSequentially 在受控组件上偶发不触发 onChange（fill 后值恒
+    // 默认、逐键产生光标拼接），原生 setter 绕过 React 的 value tracker 保证 state 更新。
+    const handle = await locator.elementHandle();
+    if (!handle) throw new Error("input element not found");
+    await handle.evaluate((el, v) => {
+        const input = el as HTMLInputElement;
+        const proto = Object.getPrototypeOf(input) as HTMLInputElement;
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- native value setter 需从 descriptor 取方法，call 显式绑定 this=input
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        setter?.call(input, v);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, value);
 }
 
 test.describe("plugin configuration", () => {
@@ -93,8 +112,13 @@ test.describe("plugin configuration", () => {
         let sPage = await openSettings(omni.app, page);
 
         let form = await openAccountForm(sPage, "CPA");
-        await form.locator('input[name="endpoint:default"]').fill("https://cpa.example.test");
+        // t267: React 受控 input 经 nativeInputValueSetter 设值（fill/pressSequentially
+        // 偶发不触发 onChange，实测值回退默认或光标拼接）。
+        const endpoint_input = form.locator('input[name="endpoint:default"]');
+        await set_react_input(endpoint_input, "https://cpa.example.test");
         await form.locator('input[name="cpa_mgmt_key"]').fill("secret-management-key");
+        // t267: 确认输入已生效。
+        await expect(endpoint_input).toHaveValue("https://cpa.example.test");
         // CpaConnectorSettings submits via the form's built-in save button
         await form.locator('button[type="submit"]').click();
         // The CPA detail view closes only after the save completes — wait for it
@@ -103,6 +127,23 @@ test.describe("plugin configuration", () => {
             timeout: 10_000,
         });
         await expect(sPage.locator(".acc-card").first()).toBeVisible();
+
+        // t267: 保存值经 config-store save 落盘。确定性等待 config.json 出现目标
+        // endpoint 再 restart（AC3 确定性条件等待）。注：生产保存链路偶发不落盘
+        //（renderer → main 偶发不达，p093），poll 超时会暴露之。
+        await expect
+            .poll(
+                () => {
+                    const cfg = JSON.parse(
+                        readFileSync(join(omni.userDataDir, "config.json"), "utf8"),
+                    ) as { plugins?: { endpointOverrides?: Record<string, string> }[] };
+                    return cfg.plugins?.some(
+                        (p) => p.endpointOverrides?.["default"] === "https://cpa.example.test",
+                    );
+                },
+                { timeout: 10_000 },
+            )
+            .toBe(true);
 
         await omni.stop();
         await omni.start();

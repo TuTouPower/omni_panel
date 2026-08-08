@@ -32,11 +32,12 @@ async function get_json<T>(path: string): Promise<T> {
     return res.json() as Promise<T>;
 }
 
-async function post_json(path: string, body: unknown): Promise<unknown> {
+async function post_json(path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
     const res = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        ...(signal !== undefined ? { signal } : {}),
     });
     if (!res.ok) throw new Error(`POST ${path} failed: ${String(res.status)}`);
     return res.json();
@@ -373,6 +374,15 @@ export function create_web_usageboard(): UsageboardApi {
                 for (const fn of session_focus_listeners) {
                     fn({ source, env, session_id });
                 }
+                // t263: 跨面板打开会话时会话面板按路由懒挂载，onFocus 同步分发先于
+                // 订阅者注册，目标丢失。把 loc 编码进 URL search，会话面板挂载后经
+                // initial_loc()（workspace-view-helpers）读取定位——与桌面 route_query
+                // 同机制。空 loc（纯面板互跳）不写，避免污染初始位置。
+                if (source && env && session_id) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("loc", JSON.stringify({ source, env, session_id }));
+                    window.history.replaceState(null, "", url);
+                }
                 // t259: web 端 Session 面板互跳 = 浏览器内切到 history 路由
                 // （t252 遗留 minor：只分发 onFocus 不切 hash，Session 入口失效）。
                 window.location.hash = "history";
@@ -388,8 +398,8 @@ export function create_web_usageboard(): UsageboardApi {
                 options?: { limit?: number; before_cursor?: unknown } | null,
             ) => {
                 const params = new URLSearchParams({ id: session_id });
-                // t259: 透传 source/env，服务端据此 resolve_session_file 定位源文件
-                // （缺省回退 sessions_provider 反查，避免歧义）。
+                // t263: 透传 source/env，服务端据此 resolve_session_file 定位源文件；
+                // 缺 source/env 服务端直接返回 400（t259 曾全量枚举反查，t263 移除）。
                 if (source) params.set("source", source);
                 if (env) params.set("env", env);
                 if (options?.limit) params.set("limit", String(options.limit));
@@ -416,19 +426,28 @@ export function create_web_usageboard(): UsageboardApi {
             },
             searchContent: (
                 request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
-                keyword?: string,
+                keyword_or_signal?: string | AbortSignal,
+                signal?: AbortSignal,
             ) => {
                 // t259: 从 stub 空实现改为真调用本地 API（t248 批量内容搜索契约）。
+                // t263: signal 透传 fetch，渲染层取消信号可中止 HTTP 请求。接口重载
+                // 第二参在 legacy 形态为 keyword、现代形态为 AbortSignal，须按形态区分。
                 const is_legacy = !("filters" in request_or_locs);
+                const abort_signal: AbortSignal | undefined = is_legacy
+                    ? signal
+                    : (keyword_or_signal as AbortSignal | undefined);
+                const keyword_str =
+                    is_legacy && typeof keyword_or_signal === "string" ? keyword_or_signal : "";
                 const body = is_legacy
                     ? {
                           locs: request_or_locs,
-                          keyword: keyword ?? "",
+                          keyword: keyword_str,
                       }
                     : request_or_locs;
                 return post_json(
                     "/v1/sessionHistory/searchContent",
                     body,
+                    abort_signal,
                 ) as Promise<SessionHistorySearchContentResponse>;
             },
             summaries: async (locs: readonly SessionHistoryLoc[]) => {

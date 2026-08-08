@@ -7,23 +7,24 @@ describe("createWindowManager", () => {
     const openExternal = vi.fn<typeof electronShell.openExternal>();
     const setWindowOpenHandler = vi.fn<(handler: WindowOpenHandler) => void>();
     const setTitle = vi.fn();
+    const created_args: Record<string, unknown>[] = [];
 
     async function load_manager() {
         vi.doMock("electron", () => ({
-            BrowserWindow: vi.fn().mockImplementation(
-                () =>
-                    ({
-                        webContents: { setWindowOpenHandler },
-                        setAppDetails: vi.fn(),
-                        setTitle,
-                        setMenuBarVisibility: vi.fn(),
-                        loadURL: vi.fn().mockResolvedValue(undefined),
-                        once: vi.fn(),
-                        on: vi.fn(),
-                        isDestroyed: vi.fn().mockReturnValue(false),
-                        show: vi.fn(),
-                    }) as never as BrowserWindow,
-            ),
+            BrowserWindow: vi.fn().mockImplementation((opts: Record<string, unknown>) => {
+                created_args.push(opts);
+                return {
+                    webContents: { setWindowOpenHandler },
+                    setAppDetails: vi.fn(),
+                    setTitle,
+                    setMenuBarVisibility: vi.fn(),
+                    loadURL: vi.fn().mockResolvedValue(undefined),
+                    once: vi.fn(),
+                    on: vi.fn(),
+                    isDestroyed: vi.fn().mockReturnValue(false),
+                    show: vi.fn(),
+                } as never as BrowserWindow;
+            }),
             nativeTheme: {
                 shouldUseDarkColors: false,
                 themeSource: "system",
@@ -41,6 +42,20 @@ describe("createWindowManager", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.resetModules();
+        created_args.length = 0;
+    });
+
+    it("setting/agent/history 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("setting", { load: false });
+        manager.createWindowFor("agent", { load: false });
+        manager.createWindowFor("history", { load: false });
+
+        expect(created_args).toHaveLength(3);
+        for (const arg of created_args) {
+            expect(arg["minWidth"]).toBe(480);
+            expect(arg["minHeight"]).toBe(360);
+        }
     });
 
     it("registers a window-open handler that opens http(s) URLs externally (t156)", async () => {

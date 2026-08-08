@@ -7,7 +7,11 @@ function mock_response(body: unknown): Response {
 }
 
 describe("web usageboard bridge", () => {
-    beforeEach(() => vi.unstubAllGlobals());
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        // 重置 URL，避免 history.replaceState 写入的 loc 参数跨测试污染。
+        window.history.replaceState(null, "", "/");
+    });
 
     it("tokenStats.getRecords fetches /v1/records", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
@@ -260,6 +264,40 @@ describe("web usageboard bridge", () => {
         const api = create_web_usageboard();
         await api.sessionHistory.open("claude_code", "win", "sess-1");
         expect(window.location.hash).toBe("#history");
+    });
+
+    it("sessionHistory.open 把 loc 编码进 URL search 供会话面板初始定位 (t263)", async () => {
+        const api = create_web_usageboard();
+        await api.sessionHistory.open("claude_code", "win", "sess-1");
+        const loc = new URLSearchParams(window.location.search).get("loc");
+        expect(loc).toBe(
+            JSON.stringify({ source: "claude_code", env: "win", session_id: "sess-1" }),
+        );
+    });
+
+    it("sessionHistory.open 空 loc（纯面板互跳）不写 URL search (t263)", async () => {
+        const api = create_web_usageboard();
+        await api.sessionHistory.open("", "", "");
+        expect(new URLSearchParams(window.location.search).get("loc")).toBeNull();
+    });
+
+    it("sessionHistory.searchContent 透传取消 signal 到 fetch (t263)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ hits: [], sessions: [] }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const controller = new AbortController();
+        await api.sessionHistory.searchContent(
+            { filters: { search: "x" }, keyword: "x" },
+            controller.signal,
+        );
+        const first_call = fetch_mock.mock.calls[0];
+        expect(first_call).toBeDefined();
+        const opts = first_call?.[1];
+        expect(opts?.signal).toBe(controller.signal);
+        expect(fetch_mock.mock.calls[0]?.[0]).toContain("/v1/sessionHistory/searchContent");
     });
 
     it("sessionHistory.query forwards source/env so the server can resolve the session (t259)", async () => {

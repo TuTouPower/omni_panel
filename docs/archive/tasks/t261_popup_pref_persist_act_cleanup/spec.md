@@ -54,7 +54,7 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
 - 新增「配置无 `sparklineWindowDays` 键时首次切换即写盘」单测；现有 `tests/unit/renderer/views/popup_view_config.test.tsx:560-598` 只覆盖有键场景，新测在同一测试文件沿用其 mock 边界与断言方式。
-- `popup_view_t250.test.tsx` 改用 fake timers 并以 `advanceTimersByTime` 跨越 500ms 防抖；RTL `waitFor` 需配置 `shouldAdvanceTime`，断言目标与覆盖路径保持不变。
+- `popup_view_t250.test.tsx` 改用 fake timers 并以 `advanceTimersByTime` 跨越 500ms 防抖；`@testing-library/dom@10.4.1` 的 waitFor 无 `shouldAdvanceTime` 选项（fake-timers 分支直接调全局 `jest.advanceTimersByTime`，vitest 未提供），实现以 `vi.stubGlobal("jest", vi)` 使其走 fake-timers 轮询分支；断言目标与覆盖路径保持不变。
 - 运行后确认 act 警告数为 0（基线 0）。
 
 ### 未知契约清单

@@ -17,7 +17,9 @@ reviewer 判 AC 时只看本区。
 
 ### 非范围
 
-- CPA 配置持久化的生产逻辑（基线已验证非生产 bug）。
+### 非范围
+
+- CPA 配置持久化的生产逻辑**在基线判断后经 f003 实证为生产 bug（endpoint 编辑被 effect 覆盖）**；2026-08-08 用户授权扩范围一并修复（见实施笔记与 p093）。
 - web e2e。
 
 ### 验收标准
@@ -64,7 +66,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 偶发失败的确切竞态点（进程残留 vs 端口占用 vs userData 竞态）：UNVERIFIED-SPIKE，执行期多次完整运行套件并结合日志复现确认。
+- 偶发失败的确切竞态点：本机完整 electron e2e 连跑 3 次均 43 passed，未复现 plugin_config 失败；但 run 2 出现 snapshot-cache.json rename ENOENT（`writeJsonAtomic` 失败）——`closeApp` 后仍有子进程写已关闭的 userData 目录，证实 Electron 子进程（renderer/gpu/utility）在 Playwright `app.close()` 后未完全终止。该残留是 restart 竞态候选：旧进程未退出即 start，可能占用 local-api 端口或写共享 userData，使重启读回旧/默认状态（endpoint 17863）。修复方向 = closeApp 确保进程树退出。
 
 ### 风险与回退
 
@@ -73,9 +75,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 依赖与约束
 
-- 修复只限 e2e 测试与 harness，不得改动生产逻辑。
+- 修复只限 e2e 测试与 harness，不得改动生产逻辑；**例外**：2026-08-08 用户授权扩范围修复 f003 实证的生产 bug（CpaConnectorSettings effect 覆盖用户输入），见实施笔记与 p093。
 - 验证依赖本地可运行完整 electron e2e 套件的环境。
-- 来源：p077（bug 条目）；2026-08-08 核实：单独运行该 spec 稳定 4 passed，完整套件偶发失败，主仓基线完整 e2e 35 passed，判定为测试隔离问题而非生产 bug。
+- 来源：p077（bug 条目）；2026-08-08 核实：单独运行该 spec 稳定 4 passed，完整套件偶发失败，主仓基线完整 e2e 35 passed，初判为测试隔离问题；f003 实证含生产 bug。
 
 ### Finalization 时更新的 blueprint
 

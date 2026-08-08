@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useCallback, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SessionPane } from "../../../../../src/renderer/components/workspace/SessionPane";
 import type { PaneData } from "../../../../../src/renderer/lib/workspace/pane";
@@ -230,5 +231,128 @@ describe("SessionPane (t225)", () => {
         fireEvent.click(first);
         // 虚拟列表将 scrollTop 设为第一条消息偏移（jsdom 无测量，按估计高度 80）。
         expect((container as HTMLElement).scrollTop).toBe(0);
+    });
+});
+
+describe("SessionPane 滚动定位与重渲染 (t265)", () => {
+    /** jsdom 无真实布局：mock scrollHeight/clientHeight 供 is_near_bottom / VirtualMessageList 测量。 */
+    function mock_scroll_metrics(scroll: number, client: number): void {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+            configurable: true,
+            get: () => scroll,
+        });
+        Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+            configurable: true,
+            get: () => client,
+        });
+    }
+
+    it("AC2：大纲点击消息滚动定位到目标（scrollToId → scrollTop 置为偏移）", () => {
+        mock_scroll_metrics(2000, 400);
+        // 多条消息：定位第 3 条（index=2），jsdom 无测量，偏移确定 = 2 * 80 = 160。
+        const messages = Array.from({ length: 10 }, (_, i) =>
+            msg(`m${String(i)}`, i % 2 === 0 ? "user" : "assistant", `消息 ${String(i)}`, i * 100),
+        );
+        const { rerender } = render(
+            <SessionPane {...PROPS} outline_open column={column({ messages })} />,
+        );
+        const container = document.querySelector(".pane-msgs");
+        if (!container) throw new Error("pane-msgs missing");
+        Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
+
+        const rows = document.querySelectorAll(".pane-outline-row");
+        const third = rows[2];
+        if (!third) throw new Error("third outline row missing");
+        fireEvent.click(third);
+        rerender(<SessionPane {...PROPS} outline_open column={column({ messages })} />);
+        // scrollToId 经 VirtualMessageList useLayoutEffect 置 scrollTop = offsets[2]（估计 80*2=160）。
+        expect(container.scrollTop).toBe(160);
+    });
+
+    it("AC2：滚到底部附近保持回到底部；离开底部显示回底按钮", () => {
+        mock_scroll_metrics(2000, 400);
+        const messages = Array.from({ length: 30 }, (_, i) =>
+            msg(`m${String(i)}`, "user", `消息 ${String(i)}`, i * 100),
+        );
+        const { rerender } = render(<SessionPane {...PROPS} column={column({ messages })} />);
+        const container = document.querySelector(".pane-msgs");
+        if (!container) throw new Error("pane-msgs missing");
+        Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
+
+        // 初始 at_bottom=true → 无回底按钮。
+        expect(document.querySelector(".pane-to-bottom")).toBeNull();
+        // 滚到中部（非底部）。
+        container.scrollTop = 400;
+        fireEvent.scroll(container);
+        expect(document.querySelector(".pane-to-bottom")).toBeTruthy();
+        // 回到底部按钮点击 → scrollTop = scrollHeight（mock 2000）+ at_bottom。
+        fireEvent.click(screen.getByText(/回到底部/));
+        expect(container.scrollTop).toBe(2000);
+        rerender(<SessionPane {...PROPS} column={column({ messages })} />);
+        expect(document.querySelector(".pane-to-bottom")).toBeNull();
+    });
+
+    it("AC2：长列表虚拟滚动下选中态保持且 DOM 行数受控", () => {
+        mock_scroll_metrics(8000, 400);
+        const messages = Array.from({ length: 100 }, (_, i) =>
+            msg(`m${String(i)}`, i % 2 === 0 ? "user" : "assistant", `消息 ${String(i)}`, i * 100),
+        );
+
+        function Parent() {
+            const [selected, set_selected] = useState<Set<string>>(new Set());
+            const is_selected = useCallback((id: string) => selected.has(id), [selected]);
+            const on_toggle = useCallback((id: string, shift: boolean) => {
+                if (shift) return;
+                set_selected((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                });
+            }, []);
+            return (
+                <SessionPane
+                    {...PROPS}
+                    column={column({ messages })}
+                    is_selected={is_selected}
+                    on_toggle={on_toggle}
+                />
+            );
+        }
+
+        render(<Parent />);
+        // jsdom 下 VirtualMessageList clientHeight=400（mock）、estimateHeight=80 →
+        // 可见窗口 + overscan 渲染部分消息，DOM 行数远小于 100（虚拟化生效）。
+        const rendered_rows = document.querySelectorAll(".pane-msg-row");
+        expect(rendered_rows.length).toBeGreaterThan(0);
+        expect(rendered_rows.length).toBeLessThan(100);
+        // 勾选一条远端消息（m94，初始不可见）→ 滚动到含 m94 的窗口。
+        const container = document.querySelector(".pane-msgs");
+        if (!container) throw new Error("pane-msgs missing");
+        Object.defineProperty(container, "scrollTop", { value: 94 * 80, writable: true });
+        fireEvent.scroll(container);
+        const m94_check = screen
+            .getAllByRole("checkbox")
+            .find((c) => c.closest(".pane-msg-row")?.textContent.includes("消息 94"));
+        if (!m94_check) throw new Error("m94 checkbox missing");
+        fireEvent.click(m94_check);
+        expect(m94_check).toBeChecked();
+        // 滚动到中间 → 新窗口渲染（m94 虚拟化卸载）。
+        container.scrollTop = 2000;
+        fireEvent.scroll(container);
+        expect(document.querySelectorAll(".pane-msg-row").length).toBeLessThan(100);
+        expect(
+            screen
+                .queryAllByRole("checkbox")
+                .some((c) => c.closest(".pane-msg-row")?.textContent.includes("消息 94")),
+        ).toBe(false);
+        // 滚回 m94 窗口 → 重挂后仍选中（AC2 选中态保持回归）。
+        container.scrollTop = 94 * 80;
+        fireEvent.scroll(container);
+        const m94_again = screen
+            .getAllByRole("checkbox")
+            .find((c) => c.closest(".pane-msg-row")?.textContent.includes("消息 94"));
+        if (!m94_again) throw new Error("m94 checkbox missing after re-scroll");
+        expect(m94_again).toBeChecked();
     });
 });

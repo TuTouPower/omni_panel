@@ -31,9 +31,10 @@
 - `src/main/core/session-history/session-locator.ts`：`resolve_session_file` 三阶段——①进程内缓存（paths_key+mtime/size 校验）②持久索引（跨重启命中，stat 校验 + paths_key 校验）③扫描。命中返回免整目录递归扫描；失效回退扫描并修正索引。`effective_wsl_user` 探测结果进程内缓存 + 随索引跨重启缓存；探测失败（空串）不写负缓存，下次重探测自愈。
 - AC3 被动实现：新文件出现后 resolve miss → 回退扫描发现 → 回填索引；不依赖 collector 主动联动（utility 进程隔离）。
 - 写盘失败仅记日志跳过，回退扫描定位（`persist_index_entry` / `effective_wsl_user` 均 try/catch）。
+- t264 落盘批间合并：`persist_index_entry` 仅改内存索引，索引内容实际变化（set / delete 存在的 key）才置 dirty 并 debounce（50ms）flush；未命中且内容不变零写盘。`flush_session_index()` 显式同步落盘（退出路径 before-quit 调用，保证已 resolve 条目不丢）；切 index_dir 时先 flush 旧 dir 待落盘条目（保存脏 map 引用防覆盖丢失）。resolve 同步返回后索引未必已落盘，调用方不依赖「立即 existsSync」语义。
 
 ## 测试覆盖
 
-- `tests/unit/main/core/session-history/session-path-index.test.ts`：AC1 跨重启命中 readdir 计数=0、AC2 删除/移动回退 + 索引修正、AC3 新文件回填、AC4 反复定位不重复扫描 + WSL 探测一次、索引损坏重建、f001 负缓存重探测、f003 paths_key 跨配置隔离。
+- `tests/unit/main/core/session-history/session-path-index.test.ts`：AC1 跨重启命中 readdir 计数=0、AC2 删除/移动回退 + 索引修正、AC3 新文件回填、AC4 反复定位不重复扫描 + WSL 探测一次、索引损坏重建、f001 负缓存重探测、f003 paths_key 跨配置隔离；t264 新增单 miss 至多一次写盘 + 未命中零写、批量 N=50 resolve flush 后 1 次写盘含全部条目、单 miss 删失效+回填合并一次写盘、切 index_dir 先 flush 旧 dir 不丢失。
 - `tests/unit/main/core/session-history/session-locator.test.ts`：既有 10 例回归未动。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + `pnpm test:packaged`（打包形态下索引写盘正常）。

@@ -86,5 +86,22 @@ export function build_session_responses() {
     for (const [id, messages] of Object.entries(MESSAGES)) {
         out[`GET /v1/sessionHistory?id=${id}`] = { messages, next_cursor: null };
     }
+    // t266: 会话库统计（GET /v1/sessionStats 返回 {sessions,agents,tokens,source_counts}）。
+    // 与 SESSIONS 数据一致：9 会话、4 来源、tokens 求和。
+    out["GET /v1/sessionStats"] = {
+        sessions: SESSIONS.length,
+        agents: new Set(SESSIONS.map((s) => s.source)).size,
+        tokens: SESSIONS.reduce(
+            (sum, s) =>
+                sum + s.input_tokens + s.output_tokens + s.cache_read_tokens + s.cache_write_tokens,
+            0,
+        ),
+        source_counts: Object.fromEntries(
+            [...new Set(SESSIONS.map((s) => s.source))].map((source) => [
+                source,
+                SESSIONS.filter((s) => s.source === source).length,
+            ]),
+        ),
+    };
     return out;
 }

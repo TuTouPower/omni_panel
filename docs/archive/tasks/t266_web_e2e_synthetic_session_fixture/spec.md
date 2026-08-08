@@ -66,7 +66,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 会话库统计聚合的端点与响应形状（页面「统计不可用」的判定来源）：UNVERIFIED-SPIKE，执行期读码/实验确认。
+- 会话库统计聚合的端点与响应形状：已核实——`GET /v1/sessionStats` 返回 `{sessions, agents, tokens, source_counts}`（`token-stats-store.ts query_session_stats`，sessions=token_stats_sessions 全表 COUNT、agents=COUNT(DISTINCT source)、tokens=四类 token 求和、source_counts 按 source 分组计数）。页面「统计不可用」判定：`tokenStats.getSessionStats()` 请求失败或返回空。synthetic fixture 缺该端点 → mock 404 → 统计不可用。
 
 ### 风险与回退
 

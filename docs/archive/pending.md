@@ -497,6 +497,25 @@
 - 线索：`tests/e2e/fixtures/synthetic.json` 端点数 64，无 `/v1/sessionStats` 类统计端点；`scripts/e2e/session_fixture.mjs` 生成脚本亦无「大会话虚拟列表」。
 - 处理：t266
 
+### p090 web e2e session_panel 既有失败：搜索统计行 + virtual list 大会话卡片（2026-08-08）
+
+- 现象：`tests/e2e/web/session_panel.spec.ts` 搜索闭环用例断言 `9 个会话` 统计行未出现（fixture 无 `GET /v1/sessionStats`，统计显示「统计不可用」）；virtual list 三例（加载多页/向上翻页/大纲跳转）在会话库找不到「大会话虚拟列表」卡片。
+- 影响：web e2e 会话面板关键路径部分失败，AC 验收被阻塞。
+- 根因：`MOCK_FIXTURE=synthetic` 时 mock 全量 `/v1/*` 走 `synthetic.json`，fixture 缺会话库统计端点与虚拟列表会话标题；`page.route("**/v1/sessions")` Playwright glob 不匹配 query string，LARGE_SESSION 注入失效。
+- 测试缺口：synthetic fixture 未覆盖会话库统计端点；mock_server 对 `/v1/sessions` 不实现 search/sources/order_by/limit/offset 过滤。
+- 线索：`scripts/e2e/session_fixture.mjs` 生成脚本无「大会话虚拟列表」。
+- 处理：t266（session_fixture 补 sessionStats、mock_server 补会话库过滤语义、route glob 改 `**/v1/sessions*`）
+
+### p093 保存 CPA endpointOverrides 偶发不落盘（内存生效、config.json 未写）（2026-08-08）
+
+- 来源：t267 review f003（important）
+- 现象：`plugin_config.spec.ts` restart 用例保存 `https://cpa.example.test` 后，connector 已用新 endpoint 在内存生效并发起请求（onSaved → trigger_background_refresh），但 config.json 从未写盘。测试确定性等待 config.json 含目标 endpoint（poll 10s）超时失败。失败率 ~10-20%。
+- 影响：重启后配置丢失（读回默认 17863），用户编辑的 CPA 端点不持久。
+- 根因：双根因。①`CpaConnectorSettings` useEffect 依赖含 `config`，config 变化（保存 echo / 外部广播 / connector 刷新）时 `setEndpoint(config.endpointOverrides.default ?? metadata.default)` 覆盖用户编辑中的输入，值回退默认 17863，`configChanged` false 致保存被静默跳过。②React 受控 input 在 Playwright fill/pressSequentially 下偶发不触发 onChange，值未进 React state。
+- 测试缺口：e2e restart 用例依赖输入生效 + 保存落盘。
+- 线索：`CpaConnectorSettings.tsx:113-146` effect 依赖；`plugin_config.spec.ts` 输入方式。
+- 处理：t267（effect 去 config 依赖不重置表单；测试改 nativeInputValueSetter 可靠输入）
+
 ### p076 会话索引落盘 O(N²) 全量写（首开批量性能权衡）
 
 - 来源：t254 code review f002（minor）
