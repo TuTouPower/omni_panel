@@ -140,3 +140,17 @@
 - 替代：worker_threads（否决理由见上）；readonly 复用主进程连接（同进程，失去隔离意义）。
 - 落地：t193（query-worker.js + query-dispatcher + store readonly 支持 + IPC/local-api 路由 + packaged smoke AC6）。
 - 遗留：无。
+
+## 014 DESIGN.md 为设计真相源 + Tailwind v4 CSS-first token 层（2026-08-09）
+
+- 背景：全窗口统一设计语言，仓库根 DESIGN.md 定稿（Google design.md 格式）。此前三套色板/字体栈并存、手写 BEM 数千行。t268 建立 token 基础设施供后续窗口迁移（t270-273）。
+- 选项：token 同步 A) 手工维护 CSS 变量；B) `designmd export --format css-tailwind` 脚本生成 + drift check。
+- 结论：选 B。导出是唯一同步方式（脚本执行 + drift check 测试门禁，手工改动导出区即失败），禁止手工改写导出区。Tailwind v4 CSS-first：`@theme` 块承载全部 token，组件用工具类（`bg-surface` 等）消费。
+- 关键子决策：
+    - **明暗翻转**：`@custom-variant dark`（data-theme/.dark + 后代匹配）→ 语义变量 dark 下覆盖 -dark 值，组件无需写 `dark:` 变体。
+    - **accent 单变量派生**：`--accent` 单一变量，五档预设（blue/purple/teal/orange/red）+ 自定义 hex；strong/container/ring 经 `color-mix()` 派生；预设 hex→accent key、自定义→base、非法/缺失→blue。切换写同一组变量即时生效，重启从 config.accentColor 恢复（theme.ts apply_accent）。
+    - **兼容桥**：现存三套强调色入口（--blue/--primary/--ring 等）→ 统一 accent 变量，未迁移窗口随全局 accent 联动；桥接代码集中一处，删除归 t272/t273。
+    - **字体**：自带 Inter Variable + JetBrains Mono（woff2 + @font-face），CJK 回退系统栈。
+- 替代：手工 CSS 变量（无 drift 门禁，易失同步）；全量迁移窗口后再建 token（迁移无 token 可取）。
+- 落地：t268（designmd.ts + globals.css token 层 + theme.ts accent + 兼容桥 + 字体 + drift 门禁）。
+- 遗留：无。

@@ -75,7 +75,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- Inter Variable / JetBrains Mono 字体资产在 electron-vite 构建中的接入方式（@fontsource 或手动 woff2 + @font-face）：UNVERIFIED-SPIKE，执行期实验确定。
+- 字体接入方式：已验证采用手动 woff2 + @font-face——从 `@fontsource-variable/inter` / `@fontsource/jetbrains-mono` npm 包拷 latin subset woff2 到 `src/renderer/assets/fonts/`（inter-variable-latin[+-italic].woff2、jetbrains-mono-latin-{400,700}.woff2），CSS 内 @font-face 声明。避开 pnpm add @fontsource 触发 better-sqlite3 原生重建（实测超时）。验证方式：字体文件拷贝 + CSS @font-face + 构建产物含字体
 
 ### 风险与回退
 

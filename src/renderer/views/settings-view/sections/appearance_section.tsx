@@ -2,6 +2,7 @@ import type { AppConfiguration } from "../../../../shared/types/config";
 import { BarSchemeField } from "../../../components/settings/BarSchemeField";
 import { SetRow } from "../../../components/settings/SetRow";
 import { BAR_STYLE_LABELS, bar_style_label_to_value } from "../lib";
+import { apply_accent } from "../../../lib/theme";
 
 const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
 
@@ -67,12 +68,9 @@ export function AppearanceSection({
                             style={{ background: c, color: c }}
                             onClick={() => {
                                 void save_config({ ...config, accentColor: c });
-                                // Apply accent CSS variable immediately
-                                if (c === "#3d7afd") {
-                                    document.documentElement.style.removeProperty("--blue");
-                                } else {
-                                    document.documentElement.style.setProperty("--blue", c);
-                                }
+                                // t268: 写统一 --accent 变量（派生 strong/container/ring
+                                // 与兼容桥 --blue/--primary 随动），即时生效。
+                                apply_accent(c);
                             }}
                             type="button"
                         />

@@ -4,8 +4,40 @@ function apply_theme(is_dark: boolean) {
     document.documentElement.setAttribute("data-theme", is_dark ? "dark" : "light");
 }
 
+/**
+ * t268: 五档预设 accent 的 light/dark 值（DESIGN.md Colors 节）。
+ * 预设 hex → 对应 accent key；自定义 hex → base 色（派生 strong/container/ring 由
+ * color-mix 在 CSS 完成）；非法/缺失 → blue。
+ */
+const ACCENT_PRESETS: Record<string, string> = {
+    "#3d7afd": "blue",
+    "#6f5cf6": "purple",
+    "#0ea5a3": "teal",
+    "#f5772f": "orange",
+    "#e23744": "red",
+};
+
+export function apply_accent(accent_color: string | undefined) {
+    const root = document.documentElement;
+    const preset = accent_color ? ACCENT_PRESETS[accent_color.toLowerCase()] : undefined;
+    let accent_var: string;
+    if (preset !== undefined) {
+        accent_var = `var(--accent-${preset})`;
+    } else {
+        accent_var = accent_color ?? "var(--accent-blue)";
+    }
+    // 非法 hex 回落 blue（CSS var 无法校验，这里在 JS 端做格式校验）。
+    const is_valid_hex = /^#[0-9a-f]{6}$/i.test(accent_color ?? "");
+    const final_accent: string = preset
+        ? accent_var
+        : is_valid_hex
+          ? (accent_color ?? "var(--accent-blue)")
+          : "var(--accent-blue)";
+    root.style.setProperty("--accent", final_accent);
+}
+
 export function useTheme() {
-    // Apply saved theme immediately on mount so the first frame is correct
+    // Apply saved theme + accent immediately on mount so the first frame is correct
     useEffect(() => {
         void window.usageboard.config
             .get()
@@ -16,6 +48,7 @@ export function useTheme() {
                 } else {
                     apply_theme(mode === "dark");
                 }
+                apply_accent(config.accentColor);
             })
             .catch(() => {
                 // default to light
