@@ -48,9 +48,59 @@ export function create_mock_handler(responses) {
         if (req.method === "GET" && path === "/v1/trend") {
             return json(res, responses[`GET /v1/trend?${url.searchParams.toString()}`] ?? []);
         }
+        if (req.method === "GET" && path === "/v1/sessions") {
+            // t266: 会话库过滤/排序/分页（对齐真实 query_sessions 语义）。无参数时返回全集。
+            const sp = url.searchParams;
+            const all = responses["GET /v1/sessions"] ?? [];
+            let rows = [...all];
+            const search = sp.get("search");
+            if (search) {
+                const needle = search.toLowerCase();
+                rows = rows.filter((s) =>
+                    [s.title, s.directory, s.id]
+                        .filter(Boolean)
+                        .some((v) => String(v).toLowerCase().includes(needle)),
+                );
+            }
+            const sources = sp.get("sources");
+            if (sources) {
+                const set = new Set(sources.split(","));
+                rows = rows.filter((s) => set.has(s.source));
+            }
+            const order_by = sp.get("order_by");
+            const direction = sp.get("direction");
+            if (order_by && direction) {
+                const mul = direction === "asc" ? 1 : -1;
+                rows.sort((a, b) => {
+                    const av =
+                        order_by === "tokens"
+                            ? a.input_tokens +
+                              a.output_tokens +
+                              a.cache_read_tokens +
+                              a.cache_write_tokens
+                            : (a[order_by] ?? 0);
+                    const bv =
+                        order_by === "tokens"
+                            ? b.input_tokens +
+                              b.output_tokens +
+                              b.cache_read_tokens +
+                              b.cache_write_tokens
+                            : (b[order_by] ?? 0);
+                    return (av - bv) * mul;
+                });
+            }
+            const limit = Number(sp.get("limit"));
+            const offset = Number(sp.get("offset") ?? "0");
+            if (Number.isFinite(limit) && limit > 0) {
+                rows = rows.slice(offset, offset + limit);
+            } else if (offset > 0) {
+                rows = rows.slice(offset);
+            }
+            return json(res, rows);
+        }
         if (
             req.method === "GET" &&
-            ["/v1/records", "/v1/sessions", "/v1/buckets", "/v1/status", "/v1/rollup"].includes(
+            ["/v1/records", "/v1/sessionStats", "/v1/buckets", "/v1/status", "/v1/rollup"].includes(
                 path,
             )
         ) {

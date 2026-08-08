@@ -28,13 +28,10 @@
 - 内容：批量运行 `tests/unit/renderer/views/popup_view_height.test.tsx` 出现 2 条「update not wrapped in act」警告，测试仍通过但疑似掩盖时序问题（疑似假绿）。单文件运行是否复现未单独验证；根因暂未定位。
 - 处理：未开
 
-## p090 web e2e session_panel 既有失败：搜索统计行 + virtual list 大会话卡片（2026-08-08）
+## p091 synthetic.json 2-space 缩进脱离仓库 prettier 规范（2026-08-08）
 
-- 现象：`tests/e2e/web/session_panel.spec.ts` 搜索闭环用例断言 `9 个会话` 统计行未出现（fixture 无 `GET /v1/sessionStats`，统计显示「统计不可用」）；virtual list 三例（加载多页/向上翻页/大纲跳转）在会话库找不到「大会话虚拟列表」卡片。
-- 影响：web e2e 会话面板关键路径部分失败，AC 验收被阻塞。
-- 根因：未定位。t263 改动（web shim open 写 loc、searchContent signal、query source/env 400、服务端断连 abort）与这些用例数据流无交集；t263 主仓基线（无 t263 改动）同用例同样失败，确证既有问题。
-- 测试缺口：e2e 断言依赖 fixture 统计端点与「大会话」卡片注入（`setup_large_session_routes`），需要 fixture 或 mock 对齐。
-- 线索：fixture `synthetic.json` 无 `GET /v1/sessionStats`；virtual list 卡片依赖 `page.route("**/v1/sessions")` 合并 LARGE_SESSION，可能会话库 lazy load（t248）后加载时序或路由拦截变化。
+- 来源：t266 review f002 遗留
+- 内容：`tests/e2e/fixtures/synthetic.json` 由 `scripts/e2e/gen_synthetic.mjs` 以 `JSON.stringify(out, null, 2)` 生成（2-space），仓库 prettier 配置 tabWidth=4，`pnpm format:check` 对该文件恒 warn。锚点版本同样 warn，属既有状态非 t266 引入。改脚本生成缩进为 prettier 对齐会破坏「产物与脚本一致」的再生成约定，故不动。
 - 处理：未开
 
 ## 不办

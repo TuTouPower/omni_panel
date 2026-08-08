@@ -2086,5 +2086,16 @@
             }
         ],
         "next_cursor": null
+    },
+    "GET /v1/sessionStats": {
+        "sessions": 9,
+        "agents": 4,
+        "tokens": 12950,
+        "source_counts": {
+            "claude_code": 3,
+            "opencode": 3,
+            "grok": 2,
+            "kimi_code": 1
+        }
     }
 }

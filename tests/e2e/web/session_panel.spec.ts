@@ -33,7 +33,8 @@ function make_large_messages(total: number) {
 }
 
 async function setup_large_session_routes(page: Page): Promise<void> {
-    await page.route("**/v1/sessions", async (route) => {
+    // 会话库首屏请求带 query（?limit=&offset=），glob 须以 * 收尾匹配 query string（t266）。
+    await page.route("**/v1/sessions*", async (route) => {
         const sessions = [...((SYNTHETIC["GET /v1/sessions"] ?? []) as unknown[]), LARGE_SESSION];
         await route.fulfill({
             contentType: "application/json",
