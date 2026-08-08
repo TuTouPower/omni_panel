@@ -34,6 +34,16 @@
 - 内容：`tests/e2e/fixtures/synthetic.json` 由 `scripts/e2e/gen_synthetic.mjs` 以 `JSON.stringify(out, null, 2)` 生成（2-space），仓库 prettier 配置 tabWidth=4，`pnpm format:check` 对该文件恒 warn。锚点版本同样 warn，属既有状态非 t266 引入。改脚本生成缩进为 prettier 对齐会破坏「产物与脚本一致」的再生成约定，故不动。
 - 处理：未开
 
+## p092 local-api searchContent 断连测试未处理 AbortError（2026-08-08）
+
+- 来源：技术债自查（t267 全量单测发现；t263 断连测试引入，t264 review 已提示）
+- 现象：`tests/integration/local-api/server.test.ts`「POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)」触发 `AbortError: This operation was aborted`（undici），Vitest 报 1 unhandled error（PromiseRejectionHandledWarning），测试本身通过。
+- 影响：全量 `pnpm test` exit 1（vitest 把 unhandled error 记为失败），CI 门禁被触发。
+- 根因：t263 断连测试 abort fetch 后，undici 的 rejection 在测试结束后的微任务才触发，`req.catch(() => {})` 虽捕获但 timing 上 rejected promise 被 vitest 计为 unhandled。
+- 测试缺口：断连测试未在测试内 await 并稳定捕获 abort rejection。
+- 线索：`server.test.ts` 断连用例 `await req.catch(() => {})` 后需额外 flush 微任务或改用 `vi.waitFor` 后显式断言；或服务端 handler 对断连 abort 时不 reject 响应 promise。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。

@@ -110,12 +110,13 @@ export function CpaConnectorSettings({
     );
     const [confirmRemove, setConfirmRemove] = useState(false);
 
-    // Sync state when connector changes (e.g. parent refreshes connector data)
+    // Sync state when connector changes (e.g. parent refreshes connector data).
+    // t267: 不重置 endpoint 也不依赖 config——config 变化（保存 echo / 外部广播）若重置
+    // 表单会覆盖用户编辑中的输入（实测 fill/press 后 endpoint 被 config 旧值重置回
+    // 默认 17863，保存被静默跳过）。表单打开期间 config 变化应保留用户输入；卸载后
+    // 重开会用新 config。displayName 变化仍同步 alias，hasSecrets 变化同步密钥。
     useEffect(() => {
         setAlias(displayName);
-        setEndpoint(
-            config.endpointOverrides["default"] ?? connector.metadata?.endpoints?.["default"] ?? "",
-        );
         const values: Record<string, boolean> = {};
         for (const monitor of MONITORS) {
             values[monitor.name] = is_enabled_value(
@@ -143,7 +144,7 @@ export function CpaConnectorSettings({
             cancelled = true;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset on external data change, not every connector snapshot
-    }, [connector.instanceId, config, hasSecrets, displayName]);
+    }, [connector.instanceId, hasSecrets, displayName]);
 
     const status = get_status(connector);
     const isConnected = status === "已连接";
