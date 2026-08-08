@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import { createLogger } from "../../../shared/lib/logger";
+import { is_e2e_headless } from "../../e2e-headless";
 
 const log = createLogger("agent-window");
 
@@ -42,7 +43,8 @@ export function create_agent_window_controller(
 
     function open_or_focus(): AgentWindowLike {
         if (win && !win.isDestroyed()) {
-            win.show();
+            // t280: headless 下不弹屏（show 为 no-op）。
+            if (!is_e2e_headless()) win.show();
             win.focus();
             return win;
         }
@@ -54,7 +56,7 @@ export function create_agent_window_controller(
             }
         });
         win = target;
-        target.show();
+        if (!is_e2e_headless()) target.show();
         target.focus();
         return target;
     }

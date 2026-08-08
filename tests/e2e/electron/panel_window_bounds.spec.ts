@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/test";
+import { test, expect, is_e2e_headless, headless_skip_reason } from "../fixtures/test";
 import type { ElectronApplication } from "@playwright/test";
 
 /**
@@ -72,6 +72,8 @@ async function close_agent(app: ElectronApplication): Promise<void> {
 }
 
 test.describe("panel window bounds persist (t251)", () => {
+    // t280: headless 下窗口 show:false，bounds 保存/恢复与尺寸度量断言失效（仅 headed）。
+    test.skip(is_e2e_headless(), headless_skip_reason("bounds 保存/恢复与尺寸度量"));
     test("agent 窗口移动/调整大小后重开恢复 bounds", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         // 打开 agent 窗口。

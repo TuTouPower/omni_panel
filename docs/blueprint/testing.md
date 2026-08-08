@@ -65,3 +65,9 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - `tests/e2e/electron/cli_control.spec.ts`：`--cli serve` 起真实例后，瘦客户端（子进程 spawn，因 `app.exit` 快退 Playwright `electron.launch` 会 reject）跑各控制命令，断言实例侧可观察效果——refresh-all 经 `/v1/events` SSE 收到状态事件、restart 后 cli.json pid 更新 + 新端口 health、桌面实例（E2E=1 + `OMNI_PANEL_PORT` 固定端口）可被 `--port` 覆盖控制、实例未运行时非零退出 + stderr 可读错误。
 - 单测：`tests/unit/main/cli/client.test.ts`（实例发现 cli.json/`--port` 覆盖、post_control 端点、autostart Linux unsupported、错误文案）；`tests/integration/local-api/server.test.ts` 控制端点组（refresh-all/pause/resume/restart/quit POST 200、GET 405、未配置 control_deps 时 401 落认证门）。
 - 注意：restart 端点 `app.relaunch()` 出的新进程无 playwright 句柄，测试无法 close，跨 run 会堆积孤儿进程（见 p095）。
+
+### e2e headless 门控与 cli 项目（t280）
+
+- `E2E_HEADLESS=1` 门控：仅当 `E2E=1` 且 `E2E_HEADLESS=1` 同时存在时，app 侧窗口 `show:false`（窗口存在可测但不弹屏），playwright chromium 侧 `headless: true`。双条件之外代码路径零改动——正常启动/CI（不设 `E2E_HEADLESS`）行为与现状完全一致。
+- 依赖窗口可见性/焦点/尺寸度量的既有 electron spec 标「仅 headed」，headless 下跳过不计失败——`test.skip(is_e2e_headless(), reason)`（fixtures/test.ts 提供 helper）；清单见 t280 spec「仅 headed 清单」。
+- `cli` 项目：`pnpm test:e2e:cli`（playwright `--project=cli`）——`_electron.launch` 传 argv 起真实 `--cli serve` 无头实例（含 `--config` 导入），stdout 正则抓 URL，chromium 驱动 web UI 走核心链路（面板加载、dashboard、config），全程零窗口。跑前 `node scripts/ensure_sqlite_abi.mjs electron` + `pnpm build`。

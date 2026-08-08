@@ -67,6 +67,19 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 - 门控本体的验证即 AC1/AC2 两轮 e2e 实跑（headed 一轮回归、headless 一轮全绿）
 - triage 以实跑结果为准逐 spec 判定，不预判清单
 
+### 仅 headed 清单（triage 结论，AC5）
+
+headless（`E2E=1` + `E2E_HEADLESS=1`）下显式跳过并注明原因；headless 跳过不计入失败。
+
+| spec                          | 用例                                                    | 原因                                                                          |
+| ----------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| panel_window_bounds.spec.ts   | agent 窗口移动/调整大小后重开恢复 bounds                | 依赖可见窗口尺寸度量（getBounds 需窗口实际显示/WM 处理）                      |
+| panel_window_bounds.spec.ts   | history 窗口调整大小后重开恢复 bounds（t262）           | 同上                                                                          |
+| panel_window_controls.spec.ts | agent 窗口最小化/最大化按钮正确（AC3）                  | 依赖 isMinimized/isMaximized 真实状态（show:false 下不成立）                  |
+| tray_interaction.spec.ts      | reopening a hidden popup reuses the same window（t194） | 依赖 popup show/hide 可见性状态机（headless 下窗口恒不可见，toggle 语义失效） |
+
+其余 spec headless 下全绿（55 passed）。headed（无 E2E_HEADLESS）下门控不触发，窗口行为与现状一致；上述 3 条在 xvfb 无 WM 环境 headed 下同样失败（环境固有，非门控引入）。
+
 ### 未知契约清单
 
 尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
@@ -77,8 +90,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `show:false` 下哪些既有 spec 会失败（可见性/焦点/拖拽依赖面）：`UNVERIFIED-SPIKE`，Step 1 以 `E2E_HEADLESS=1` 全量实跑 electron 项目得出 triage 清单
-- playwright `_electron.launch` 传 argv 起 `--cli serve` 并捕获 stdout URL 的可行形态：`UNVERIFIED-SPIKE`，Step 1 实验核实
+- `show:false` 下既有 spec 失败面（triage 结论）：`E2E_HEADLESS=1` 全量实跑 electron 项目 55 passed / 3 failed / 4 skipped。失败集中在窗口 bounds 保存/恢复（panel_window_bounds 2 条）与最小化/最大化状态（panel_window_controls 1 条）——依赖可见窗口尺寸度量/isMaximized，headless 下 show:false 断言失效。已标「仅 headed」跳过（describe/test 内 `test.skip(is_e2e_headless(), reason)`），headless 下不计入失败。其余 spec 全绿。headed（无 E2E_HEADLESS）下这 3 条在 xvfb 无 WM 环境同样失败（环境固有，非门控引入）。验证方式：E2E_HEADLESS=1 全量实跑 + json reporter 统计
+- playwright `_electron.launch` 起 `--cli serve` 捕获 stdout URL：已验证可行——`tests/e2e/cli/cli_flow.spec.ts` electron.launch 传 argv（含 `--config`）起真实无头实例，stdout 正则抓 `listening on http://...`，chromium（headless）访问面板 + dashboard/config 端点 200，全程零窗口（winCount 0）。验证方式：cli 项目 e2e 2 passed
 
 ### 风险与回退
 

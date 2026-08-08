@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/test";
+import { test, expect, is_e2e_headless, headless_skip_reason } from "../fixtures/test";
 import type { ElectronApplication, Page } from "@playwright/test";
 
 /**
@@ -97,6 +97,10 @@ test.describe("panel window controls (t252)", () => {
     });
 
     test("agent 窗口最小化/最大化按钮正确（AC3）", async ({ omni }) => {
+        test.skip(
+            is_e2e_headless(),
+            headless_skip_reason("最小化/最大化状态（isMinimized/isMaximized）"),
+        );
         const page = await omni.app.firstWindow();
         await page.waitForSelector(".app-title", { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
