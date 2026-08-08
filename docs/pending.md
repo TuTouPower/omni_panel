@@ -43,6 +43,11 @@
 - 来源：t269 review Round 3 f009（minor）
 - 内容：t269 spec AC3 要求「全部组件明暗主题下无需 dark: 即渲染正确（黑盒抽查暗色渲染）」。ui 组件未被应用消费（t270 起迁移），app 级 e2e 无法渲染；jsdom 不解析构建产物 CSS 变量，单测 computed 不可行。待 t270 迁移消费后补黑盒暗色抽查。
 - 处理：未开
+
+## p100 .ctx-overlay/.ctx-menu 死选择器（2026-08-09）
+
+- 来源：t270 review Round 2 未进表提示
+- 内容：globals.css `.ctx-overlay`/`.ctx-menu` 为死选择器（无 DOM 引用，anchor 提交亦无引用）——迁移前已存在的旧死代码，非 t270 残留。可随后续 CSS 清理删除。
 - 处理：未开
 
 ## p096 cli e2e 项目继承全局 webServer（2026-08-09）

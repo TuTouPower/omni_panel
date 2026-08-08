@@ -7,6 +7,7 @@ import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/conf
 import type { AccountOverrides } from "../../shared/types/config";
 import { UsageBarList } from "./UsageBarList";
 import { AccountUsageRow } from "./UsageRows";
+import { Skeleton } from "./ui/Skeleton";
 import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 
 interface ProviderCardOverviewProps {
@@ -28,12 +29,12 @@ export function ProviderCardOverview({
         return (
             <div className="skeleton-bars">
                 <div className="skel-row">
-                    <div className="skel lbl" />
-                    <div className="skel" />
+                    <Skeleton className="h-3 w-10" />
+                    <Skeleton className="h-3 w-full" />
                 </div>
                 <div className="skel-row">
-                    <div className="skel lbl" />
-                    <div className="skel" />
+                    <Skeleton className="h-3 w-10" />
+                    <Skeleton className="h-3 w-full" />
                 </div>
             </div>
         );

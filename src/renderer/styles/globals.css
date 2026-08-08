@@ -1059,27 +1059,6 @@ html[data-window="tray"] #root {
     align-items: center;
     gap: 10px;
 }
-.skel {
-    height: 6px;
-    border-radius: 99px;
-    background: linear-gradient(
-        90deg,
-        var(--track) 25%,
-        color-mix(in srgb, var(--track) 50%, #fff) 50%,
-        var(--track) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.2s linear infinite;
-}
-.skel.lbl {
-    height: 9px;
-    width: 30px;
-}
-@keyframes shimmer {
-    to {
-        background-position: -200% 0;
-    }
-}
 
 /* ── token chart panel ── */
 .tokens {
@@ -1229,26 +1208,6 @@ html[data-window="tray"] #root {
     max-width: 240px;
     line-height: 1.5;
 }
-.btn-primary {
-    margin-top: 16px;
-    border: 0;
-    cursor: default;
-    font-family: inherit;
-    background: var(--blue);
-    color: #fff;
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 9px 18px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    box-shadow: 0 3px 10px color-mix(in srgb, var(--blue) 35%, transparent);
-}
-.btn-primary:hover {
-    background: color-mix(in srgb, var(--blue) 88%, #000);
-}
-
 /* network banner */
 .net-banner {
     display: flex;
@@ -1261,13 +1220,9 @@ html[data-window="tray"] #root {
     padding: 11px 14px;
     font-size: 13px;
 }
-.net-banner .nb-action {
-    margin-left: auto;
-    font-weight: 600;
-    color: var(--red);
-    cursor: default;
-}
+/* t270: .net-banner .nb-action 已随 NetBanner 迁移删除 */
 
+/* network banner（t270: 定义保留，SettingsView t271 仍用） */
 /* ── settings ── */
 .settings {
     flex: 1;
@@ -3644,65 +3599,6 @@ html[data-window="tray"] #root {
     padding: 6px;
     color: var(--text);
 }
-.ctx-item {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 8px 11px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    cursor: default;
-    color: var(--text);
-    position: relative;
-}
-.ctx-item .ci-ic {
-    width: 17px;
-    display: flex;
-    justify-content: center;
-    color: var(--text-2);
-    flex-shrink: 0;
-}
-.ctx-item:hover {
-    background: var(--blue);
-    color: #fff;
-}
-.ctx-item:hover .ci-ic {
-    color: #fff;
-}
-.ctx-item:hover .ci-meta,
-.ctx-item:hover .ci-check {
-    color: rgba(255, 255, 255, 0.85);
-}
-.ctx-item .ci-meta {
-    margin-left: 10px;
-    font-size: 12px;
-    color: var(--text-3);
-    font-variant-numeric: tabular-nums;
-}
-.ctx-item .ci-check {
-    margin-left: 8px;
-    color: var(--blue);
-    display: flex;
-}
-.ctx-item.danger {
-    color: var(--red);
-}
-.ctx-item.danger .ci-ic {
-    color: var(--red);
-}
-.ctx-item.danger:hover {
-    background: var(--red);
-    color: #fff;
-}
-.ctx-item.danger:hover .ci-ic {
-    color: #fff;
-}
-.ctx-sep {
-    height: 0.5px;
-    background: var(--menu-border);
-    margin: 5px 8px;
-}
-
 /* ---------- standalone tray window ---------- */
 .tray-window {
     width: max-content;
@@ -3737,10 +3633,6 @@ html[data-window="tray"] #root {
 
 .tray-menu-body {
     padding: 7px;
-}
-
-.tray-window .ctx-item {
-    white-space: nowrap;
 }
 
 /* ============ L2 segmented control + account detail drawer ============ */

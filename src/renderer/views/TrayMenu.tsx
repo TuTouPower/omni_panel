@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { Icon } from "../components/Icon";
+import { Menu, MenuItem } from "../components/ui/Menu";
 import logo from "../assets/logo.svg";
 import { useResizeObserver } from "../hooks/use-resize-observer";
 
@@ -195,35 +196,41 @@ export function TrayMenu() {
                 <span>OmniPanel</span>
             </div>
             <div className="tray-menu-body">
-                {items.map((item, i) => (
-                    <div key={i}>
-                        {item.separator_before && <div className="ctx-sep" />}
-                        <div
-                            className={`ctx-item${item.danger ? " danger" : ""}`}
-                            onClick={() => {
-                                window.usageboard.log({
-                                    level: "debug",
-                                    module: MODULE,
-                                    message: `tray action: ${item.icon}`,
-                                });
-                                item.action();
-                            }}
-                        >
-                            <span className="ci-ic">
-                                <Icon name={item.icon} size={16} strokeWidth={1.7} />
-                            </span>
-                            <span>{t(item.label_zh, item.label_en)}</span>
-                            {item.checked && (
-                                <span className="ci-check">
-                                    <Icon name="check" size={15} strokeWidth={2.2} />
+                <Menu>
+                    {items.map((item, i) => (
+                        <div key={i}>
+                            {item.separator_before && (
+                                <div className="my-1 border-t border-[var(--color-hairline)]" />
+                            )}
+                            <MenuItem
+                                danger={item.danger === true}
+                                onSelect={() => {
+                                    window.usageboard.log({
+                                        level: "debug",
+                                        module: MODULE,
+                                        message: `tray action: ${item.icon}`,
+                                    });
+                                    item.action();
+                                }}
+                            >
+                                <span className="flex w-4 items-center justify-center">
+                                    <Icon name={item.icon} size={16} strokeWidth={1.7} />
                                 </span>
-                            )}
-                            {item.meta && !item.checked && (
-                                <span className="ci-meta">{item.meta}</span>
-                            )}
+                                <span>{t(item.label_zh, item.label_en)}</span>
+                                {item.checked && (
+                                    <span className="ml-auto flex items-center text-[var(--color-accent)]">
+                                        <Icon name="check" size={15} strokeWidth={2.2} />
+                                    </span>
+                                )}
+                                {item.meta && !item.checked && (
+                                    <span className="ml-auto text-label-md text-[var(--color-on-surface-muted)] tabular-nums">
+                                        {item.meta}
+                                    </span>
+                                )}
+                            </MenuItem>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </Menu>
             </div>
         </div>
     );

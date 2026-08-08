@@ -32,7 +32,8 @@ export class PopupPage {
     }
 
     errorBanner() {
-        return this.live.locator(".net-banner");
+        // t270: NetBanner 迁移到语义类，定位其唯一文案（网络连接异常）。
+        return this.live.getByText("网络连接异常，部分数据可能不是最新");
     }
 
     async hasError() {
