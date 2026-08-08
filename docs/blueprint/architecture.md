@@ -48,6 +48,7 @@ src/
 │   │   ├── connector/             # script-cache（脚本 mtime 缓存，t195）+ runtime/net-client/manifest-loader
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
 │   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
+│   │   ├── cli/                   # CLI 模式（t275）：argv 解析 + --config 导入 + cli.json 实例发现
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
 │   │   ├── auth/grok_oauth_manager.ts          # Grok device-code OAuth + token rotation
@@ -70,6 +71,8 @@ tests/                             # unit / integration / e2e(specs/packaged) / 
 ```
 
 ## 3. 进程与安全边界
+
+CLI 模式（`--cli serve`，t275）是同一 Electron 进程的启动分支：跳过全部窗口/托盘创建，仅起 configStore/vault/observationStore/scheduler/refreshService/local-api 服务，stdout 打印面板 URL 并把实例发现信息（端口、URL、pid）写入 `<dataRoot>/cli.json` 供瘦客户端读取。`--config <path>` 在启动时把文件内容覆盖写入规范 config.json（走 `.bak` 原子写与 zod 校验），明文 secret 转存 vault，落盘配置只保留非 secret 参数。CLI 启动失败（含导入失败）向 stderr 写可读错误后非零退出，不弹 GUI 对话框。
 
 | 边界           | 规则                                                                                                                                                     |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -42,6 +42,7 @@
 | secret-vault                         | API           | 迁移自 omni_powers，t045，t195                                                                    | 2026-08-03   |
 | ui-views-web                         | Web           | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
 | ui-views-desktop                     | Desktop       | 拆自 ui-views（t037），t153                                                                       | 2026-07-27   |
+| cli-mode                             | Desktop       | t275                                                                                              | 2026-08-09   |
 | vendor-forms-oauth-weblogin          | Web           | t109                                                                                              | 2026-07-25   |
 | fix_add_account_wiring               | Desktop       | t110                                                                                              | 2026-07-25   |
 | web-panel                            | Web           | 迁移自 omni_powers，无                                                                            | 2026-07-05   |

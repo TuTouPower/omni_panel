@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+import { fileURLToPath } from "node:url";
 
 const ipc_main_mock = vi.hoisted(() => ({
     handle: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock("../../../src/main/core/session-history/session-locator", () => ({
     resolve_session_file: locator_mock.resolve_session_file,
 }));
 
-set_renderer_index_path("D:/app/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 const valid_sender = {
     senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
@@ -60,7 +61,7 @@ describe("session-history-ipc (t210)", () => {
         vi.clearAllMocks();
         vi.resetModules();
         const { set_renderer_index_path } = await import("../../../src/main/ipc/helpers");
-        set_renderer_index_path("D:/app/out/renderer/index.html");
+        set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
         locator_mock.resolve_session_file.mockReturnValue(null);
 

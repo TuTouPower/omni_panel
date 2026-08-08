@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { fileURLToPath } from "node:url";
 import type { ConnectorSnapshotDTO } from "../../../src/shared/types/ipc";
 import {
     ok,
@@ -11,8 +12,8 @@ import {
 
 describe("assert_valid_sender rendererIndexPath whitelist (t067)", () => {
     beforeEach(() => {
-        // 模拟生产：设置 renderer index path（Windows 绝对路径）
-        set_renderer_index_path("D:\\app\\out\\renderer\\index.html");
+        // 模拟生产：设置 renderer index path（Windows 绝对路径；fileURLToPath 往返保证跨平台 pathname 一致）
+        set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
     });
 
     afterEach(() => {
@@ -201,7 +202,7 @@ describe("assert_valid_sender", () => {
     it("rejects file:// sender whose path is not index.html (I15)", () => {
         delete process.env["ELECTRON_RENDERER_URL"];
         // 已初始化下精确 pathname 比对：非 index.html 路径拒绝
-        set_renderer_index_path("D:\\app\\out\\renderer\\index.html");
+        set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
         const event = {
             senderFrame: { url: "file:///evil/page.html" },
         } as unknown as Electron.IpcMainInvokeEvent;

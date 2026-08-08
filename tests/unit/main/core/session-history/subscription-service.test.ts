@@ -278,6 +278,9 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         // 同 key 返回同 id。
         expect(id1).toBe(id2);
 
+        // 等 watcher 基线 mtime 稳定后再追加：某些文件系统 mtime 量化到毫秒级，
+        // 订阅后立即 append 会落在与基线同一时间桶，mtime 轮询永不触发。
+        await new Promise((resolve) => setTimeout(resolve, 50));
         appendFileSync(file, JSON.stringify({ type: "assistant", content: "y" }) + "\n");
         await wait_for(() => call_count_b >= 1);
 
@@ -530,6 +533,8 @@ describe("SessionHistorySubscriptionService (t210)", () => {
 
         // 追加后推送增量，源文件仍只含测试自己写入的内容。
         const appended = JSON.stringify({ type: "assistant", content: "ok" }) + "\n";
+        // 等 watcher 基线 mtime 稳定后再追加（同「幂等 subscribe」测试的量化说明）。
+        await new Promise((resolve) => setTimeout(resolve, 50));
         appendFileSync(file, appended);
         await wait_for(() => received.length >= 1);
         expect(readFileSync(file, "utf-8")).toBe(first + appended);

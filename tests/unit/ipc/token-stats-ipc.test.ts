@@ -4,9 +4,10 @@ import type { TokenStatsManager } from "../../../src/main/core/token-stats/manag
 import type { TokenStatsQueryDispatcher } from "../../../src/main/core/token-stats/query-dispatcher";
 import type { TokenStatsDashboardDto } from "../../../src/shared/types/token-stats";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+import { fileURLToPath } from "node:url";
 
 // t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
-set_renderer_index_path("D:/app/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Ipc_handle = (channel: string, listener: Ipc_handler) => void;
@@ -69,7 +70,7 @@ describe("token-stats-ipc sender validation", () => {
         vi.resetModules();
         // resetModules 清空模块缓存后，重新初始化 renderer index path（模拟生产接线）。
         const { set_renderer_index_path } = await import("../../../src/main/ipc/helpers");
-        set_renderer_index_path("D:/app/out/renderer/index.html");
+        set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
     });
 
     it("TOKEN_STATS_BUCKETS rejects unknown sender", async () => {

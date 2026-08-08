@@ -92,6 +92,9 @@ import { create_agent_window_controller } from "./core/main-panel/agent-window-c
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { cleanup_temp_files } from "./core/storage/write-json";
+import { parse_cli_args, type CliArgs } from "./cli/args";
+import { import_config_file } from "./cli/import-config";
+import { write_cli_json } from "./cli/cli-json";
 
 const process_log = createLogger("process");
 
@@ -107,6 +110,17 @@ process.on("unhandledRejection", (reason: unknown) => {
         reason instanceof Error ? reason : String(reason),
     );
 });
+
+// CLI 模式 argv 解析（t275）。非法用法在启动初期以非零退出码终止（AC8）。
+let cli_args: CliArgs = { cli: false };
+try {
+    cli_args = parse_cli_args(process.argv);
+} catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`OmniPanel: ${message}\n`);
+    process.exit(1);
+}
+const cliMode = cli_args.cli;
 
 // Prevent white screen on systems where GPU process crashes
 app.disableHardwareAcceleration();
@@ -212,6 +226,17 @@ void app.whenReady().then(async () => {
         const vault = await create_file_vault_backend(dataRoot);
         const secretsStore = createSecretsStore(vault);
         const observationStore = create_observation_store(get_observations_db_path());
+
+        // CLI `--config <path>` 启动导入（t275）：需 definitions（secret 参数键）与
+        // vault（secret 转存）就绪后执行。覆盖写入 config.json 并返回剥离后的配置，
+        // 后续 build_secret_param_keys / orchestrator 用导入结果。
+        if (cliMode && cli_args.serve?.configPath) {
+            currentConfig = await import_config_file(
+                { configPath, configStore, secretsStore, definitions: allDefinitions },
+                cli_args.serve.configPath,
+            );
+            currentConfig = await configStore.prune_unhealthy_plugins();
+        }
 
         // Resolve system proxy for OAuth and connector HTTP requests.
         // If the user hasn't configured a proxy in settings, fall back to the
@@ -505,6 +530,8 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
+            // t275 AC6：`--cli serve --port` 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
+            ...(cliMode && cli_args.serve?.port !== undefined ? { port: cli_args.serve.port } : {}),
             config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
             connector_deps: {
                 configStore,
@@ -521,6 +548,24 @@ void app.whenReady().then(async () => {
         });
         await local_api.start();
         log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
+        // t275 AC2：CLI 模式启动成功后 stdout 打印面板地址，并把实例发现信息写入
+        // cli.json 供后续瘦客户端读取。cli.json 是辅助产物，写失败只降级 warn，
+        // 不阻断已成功启动的服务。
+        if (cliMode) {
+            const panel_url = `http://localhost:${String(local_api.get_port())}/`;
+            process.stdout.write(`OmniPanel CLI mode listening on ${panel_url}\n`);
+            await write_cli_json(dataRoot, {
+                port: local_api.get_port(),
+                url: panel_url,
+                userData: dataRoot,
+            }).catch((err: unknown) => {
+                log.warn(
+                    `Failed to write cli.json (instance discovery disabled): ${
+                        err instanceof Error ? err.message : String(err)
+                    }`,
+                );
+            });
+        }
         await registerLogIpc(dataRoot);
         registerBuildInfoIpc(() => app.getVersion());
         cleanupEventIpc = registerEventIpc({ runtimeStore });
@@ -754,13 +799,16 @@ void app.whenReady().then(async () => {
 
         // Open main panel BEFORE pre-warming settings so popup is the first window.
         // This matters for Playwright E2E tests which expect firstWindow() = popup.
-        main_panel_controller.open_or_focus();
+        // t275：CLI 模式跳过全部窗口创建（主面板/设置预热），仅起服务。
+        if (!cliMode) {
+            main_panel_controller.open_or_focus();
+        }
 
         // Pre-warm the settings window (hidden + loaded) so opening it later just
         // reveals an already-painted dark window, avoiding the fresh-window show
         // animation that flashes white on Windows.
         // Skip in E2E mode — tests expect settings.open() to emit a "window" event.
-        if (process.env["E2E"] !== "1") {
+        if (!cliMode && process.env["E2E"] !== "1") {
             ensure_settings_window();
         }
 
@@ -814,8 +862,8 @@ void app.whenReady().then(async () => {
             orchestrator.resume("system");
         });
 
-        // System tray — skip in E2E mode unless E2E_WITH_TRAY=1
-        if (process.env["E2E"] !== "1" || process.env["E2E_WITH_TRAY"] === "1") {
+        // System tray — skip in CLI and E2E modes unless E2E_WITH_TRAY=1
+        if (!cliMode && (process.env["E2E"] !== "1" || process.env["E2E_WITH_TRAY"] === "1")) {
             const trayIcon = nativeImage.createFromPath(get_tray_icon_path());
             if (trayIcon.isEmpty()) {
                 log.warn("Tray icon loaded as empty image");
@@ -1108,11 +1156,20 @@ void app.whenReady().then(async () => {
         // error to the user and exit explicitly.
         const logger = createLogger("main");
         logger.error("Startup failed - aborting", err);
+        const message = err instanceof Error ? err.message : String(err);
+        // t275 AC8：CLI 模式无窗口，dialog 不可见且在无头显示下会阻塞挂起（xvfb
+        // DISPLAY 下 showErrorBox 同步弹框等人点，进程不退出）；只向 stderr 写可读
+        // 错误后非零退出。生产下 console transport 不挂载，日志仅落文件。
+        if (cliMode) {
+            process.stderr.write(`OmniPanel: 启动失败：${message}\n`);
+            app.exit(1);
+            return;
+        }
         try {
             const { dialog } = await import("electron");
             dialog.showErrorBox(
                 "OmniPanel 启动失败",
-                `应用启动遇到错误：\n${err instanceof Error ? err.message : String(err)}\n\n请查看日志后重试。`,
+                `应用启动遇到错误：\n${message}\n\n请查看日志后重试。`,
             );
         } catch {
             // dialog not available — nothing more we can do

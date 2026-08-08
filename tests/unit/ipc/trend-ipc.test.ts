@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+import { fileURLToPath } from "node:url";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 
 const ipc_main_mock = vi.hoisted(() => ({
@@ -12,7 +13,7 @@ vi.mock("electron", () => ({
 }));
 
 // t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
-set_renderer_index_path("D:/app/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 // A valid sender frame (packaged app file:// origin) so assert_valid_sender passes.
 const valid_sender = { senderFrame: { url: "file:///D:/app/out/renderer/index.html" } };
@@ -28,7 +29,7 @@ describe("trend-ipc", () => {
         vi.clearAllMocks();
         vi.resetModules();
         const { set_renderer_index_path } = await import("../../../src/main/ipc/helpers");
-        set_renderer_index_path("D:/app/out/renderer/index.html");
+        set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
     });
 
     it("registers TREND_GET and TREND_GET_BULK handlers", async () => {

@@ -54,3 +54,8 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - 代理面板性能基线：`pnpm exec tsx scripts/token-stats-baseline.ts --records 600000 --output .scratch/t189/baseline.json`；固定 seed 生成脱敏临时 SQLite，覆盖 24h/7d/30d 与 agent/platform 组合，比较查询、payload 和 renderer 转换阶段。报告只作相对基线，不把绝对耗时设为 CI 门禁。
 
 黑盒失败处置见 `task-run` skill：`< max_verify_round` 回 Step 3 修复；`≥ max_verify_round`（默认 5）`block --reason blackbox`。
+
+### CLI 模式验证（t275）
+
+- CLI 模式 e2e：`tests/e2e/electron/cli_serve.spec.ts`（`--cli serve` 起真进程，断言无窗口、stdout URL、cli.json 端口、`--config` 导入 vault 往返、端口优先级、失败退出码）。跑前须 `node scripts/ensure_sqlite_abi.mjs electron`（Electron 主进程加载 better-sqlite3 需 electron ABI），并经 `pnpm build` 出 `out/main/index.js`。
+- 无显示环境（WSL 无 WSLg）：`xvfb-run` 包一层；`DISPLAY` 存在时 `dialog.showErrorBox` 会同步阻塞，CLI 模式启动失败只向 stderr 输出后退出，不弹框。
