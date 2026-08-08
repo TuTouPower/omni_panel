@@ -5,7 +5,7 @@ title: "手写 CSS 清零与图标统一 lucide + web 版一致性 + blueprint �
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "single"
+review_level: "full"
 diff_anchor: ""
 depends_on: "t273"
 conflicts_with: ""

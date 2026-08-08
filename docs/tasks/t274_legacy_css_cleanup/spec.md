@@ -13,8 +13,8 @@ reviewer 判 AC 时只看本区。
 ### 范围
 
 - 全局样式入口清零：仅保留 token 层、`@utility` 与极少量无法工具化的基础样式；残留手写组件类全部删除或收编，grep 可证。
-- 手绘 SVG 图标集整体替换为 lucide-react，删除旧图标实现；vendor logo 明暗双份切换统一到 `dark:` 变体/变量机制。
-- web 版（`src/web`）与桌面版同 token 渲染核对，修复样式加载差异。
+- 图标按三类收口：操作/导航图标整体替换为 lucide-react，删除手绘 SVG 图标集；vendor logo 与品牌 mark 保留资产文件（明暗双份切换封装进组件），不属于清零范围；图表/sparkline 等数据可视化 SVG 不属于图标，不动。
+- web 版（`src/web`）视觉与交互 parity 收口：同 token 渲染、样式加载差异修复；web bridge 中主题为 noop 的接口（主题三档、accent 切换与恢复）补齐真实实现或明确降级的用户可见行为，保证设置页切换主题/accent 在 web 版即时生效且刷新后保持。
 - 更新 `docs/blueprint/` 相关条目（样式架构、约定、测试命令受影响处）与 `AGENTS.md` 中受影响表述；DESIGN.md 与实现对齐修订（如有执行期偏差）。
 
 ### 非范围
@@ -29,16 +29,16 @@ reviewer 判 AC 时只看本区。
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
 - [ ] 全局样式入口中不再有业务组件级手写类（grep 白名单可证）；全部窗口渲染无样式缺失。
-- [ ] 界面图标全部来自 lucide-react，旧手绘图标实现已删除且无残留引用。
-- [ ] web 版与桌面版同窗口视觉一致（同 token、同组件），web 版无缺失样式。[deploy]
-- [ ] `pnpm test` 全绿；黑盒启动全部窗口正常。
+- [ ] 操作/导航图标全部来自 lucide-react，旧手绘图标实现已删除且无残留引用；vendor logo 与数据可视化 SVG 不受影响的证据保留。
+- [ ] web 版与桌面版同窗口视觉一致（同 token、同组件）；web 版设置页切换主题三档与五档 accent 即时生效、刷新后保持。[deploy]
+- [ ] 门禁全绿：`pnpm check`、`pnpm build`、`pnpm test`、web e2e、electron e2e、`pnpm test:packaged`；黑盒启动全部窗口正常。
 - [ ] blueprint 与 AGENTS.md 中样式相关表述与现状一致，无失效引用。
 
 ### 可测试性声明
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
-- AC 3：双端视觉一致属人工对照；其余可自动验证。
+- AC 3：双端视觉一致属人工对照；web 版主题/accent 即时生效与刷新保持经 web e2e 自动验证。
 
 ## 上下文区
 
@@ -54,7 +54,7 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
-- 清零用 grep 白名单（允许保留的类名清单）做断言；web 一致性用现有 web e2e。
+- 清零用 grep 白名单（允许保留的类名清单）做断言；web 一致性用现有 web e2e，并为 web 版主题三档/accent 五档的即时切换与刷新恢复新增 e2e 覆盖。
 
 ### 未知契约清单
 

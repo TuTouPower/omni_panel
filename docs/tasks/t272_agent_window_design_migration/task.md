@@ -5,7 +5,7 @@ title: "Agent 统计窗口迁移到统一设计规范（token-stats 体系退役
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "single"
+review_level: "full"
 diff_anchor: ""
 depends_on: "t271"
 conflicts_with: ""

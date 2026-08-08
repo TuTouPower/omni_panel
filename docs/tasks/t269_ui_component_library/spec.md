@@ -13,7 +13,7 @@ reviewer 判 AC 时只看本区。
 ### 范围
 
 - 先盘点 `src/renderer` 现存组件实现（按钮、卡片、徽章、分段控件、开关、菜单、对话框、输入、用量条、KPI、骨架屏、状态点、列表行、标题栏），产出「组件 × 现存变体」清单，作为本 task 形态覆盖基线。
-- 实现统一 ui 组件库：Button（primary/secondary/danger/ghost/icon 及现存尺寸档）、Card、Input、Switch、Segmented、Menu、Dialog、Progress（细线/胶囊双形态）、Badge（计数/来源标签双形态）、StatusDot、KPI 数字、Skeleton、PanelTitleBar。
+- 实现统一 ui 组件库，覆盖 DESIGN.md「Components」节全部形态：Button（primary/secondary/danger/ghost/icon + 标准/小号尺寸档 + disabled 态）、Card、Input、Select（自绘箭头）、Textarea、SecretInput（等宽脱敏）、Checkbox、Switch、Segmented、Menu、Dialog（372/420 双宽）、Progress（细线/胶囊双形态）、Badge（计数/来源标签双形态）、StatusDot、KPI 数字、Skeleton、PanelTitleBar、ListRow。
 - 复合模式沉淀为 `@utility`：毛玻璃菜单、KPI 数字、骨架屏、交互反馈过渡。
 - 组件只消费语义 token，不写 `dark:` 变体、不写散落于 token 外的字面量。
 
@@ -55,7 +55,7 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
-- 组件单测（jsdom/happy-dom）断言结构与类名；不断言具体色值。
+- 组件单测（jsdom/happy-dom）断言结构与类名；类名之外补充两层验证：Tailwind 构建产物 grep（组件用到的每个工具类确实生成）、代表性组件经 `getComputedStyle()` 在 light/dark 下断言解析值（在支持 computed style 的测试环境或黑盒中）。不断言硬编码色值。
 
 ### 未知契约清单
 

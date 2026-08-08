@@ -5,7 +5,7 @@ title: "会话历史窗口迁移到统一设计规范（session-shell 体系退�
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "single"
+review_level: "full"
 diff_anchor: ""
 depends_on: "t272"
 conflicts_with: ""

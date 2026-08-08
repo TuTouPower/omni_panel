@@ -21,7 +21,7 @@ reviewer 判 AC 时只看本区。
 
 - 不改面板功能逻辑、数据流、窗口控制（动态高度、bounds 持久化、置顶）行为。
 - 不动设置 / Agent / 会话窗口（后续 task）。
-- 不改 web 版（t274 统一核对）。
+- 不改 web bridge / local-api / web 专属业务逻辑；共享渲染层（App、组件、类名）的变更随动影响 web 属预期，对应 web e2e 必须保持通过。
 
 ### 验收标准
 
@@ -57,6 +57,8 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
 - 行为回归以现有用量面板测试为准；迁移失效的样式断言按新语义类名改写，逻辑断言不动。
+- 托盘现有测试补齐：全部菜单动作、checked 状态与尺寸上报在迁移后均有覆盖。
+- 门禁：`pnpm check`、`pnpm build`、`pnpm test`、对应 web e2e 与 electron e2e；涉及托盘/打包形态，加跑 `pnpm test:packaged`。
 
 ### 未知契约清单
 
