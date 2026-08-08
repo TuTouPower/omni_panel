@@ -600,6 +600,75 @@ describe("PopupView", () => {
         );
     });
 
+    it("sparklineWindowDays: config 无键时用户首次切换即写盘 (t261)", async () => {
+        // AC1：全新配置无 sparklineWindowDays 键 → 此前 has_sparkline_pref_ref 永不
+        // 置位，死锁不写盘；prev ref 模式后首次切换即写盘。
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // 默认 7 天激活。
+        const seven_day_btn = await screen.findByRole("button", { name: "7天" });
+        expect(seven_day_btn.getAttribute("aria-pressed")).toBe("true");
+
+        // 首次切换 7→1 → 防抖后写盘。
+        fireEvent.click(screen.getByRole("button", { name: "1天" }));
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({ sparklineWindowDays: 1 }),
+            );
+        });
+    });
+
+    it("sparklineWindowDays: config 有键且值=当前显示时首次切换仍写盘 (t261)", async () => {
+        // AC2：config.sparklineWindowDays=7 恰等于初始显示值 → 此前 apply_config
+        // 值相等不置位，首次切换被吞；prev ref 模式无条件同步后切换即写盘。
+        const config_get = vi.fn().mockResolvedValue({
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+                sparklineWindowDays: 7,
+            },
+            hasSecrets: {},
+        });
+        window.usageboard.config.get = config_get;
+        const config_save = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.config.save = config_save;
+
+        render(<PopupView />);
+
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+
+        // 初始 7 天激活（从 config 恢复）。
+        const seven_day_btn = await screen.findByRole("button", { name: "7天" });
+        expect(seven_day_btn.getAttribute("aria-pressed")).toBe("true");
+
+        // 首次切换 7→30 → 写盘。
+        fireEvent.click(screen.getByRole("button", { name: "30天" }));
+        await waitFor(() => {
+            expect(config_save).toHaveBeenCalledWith(
+                expect.objectContaining({ sparklineWindowDays: 30 }),
+            );
+        });
+    });
+
     it("saves providerOrder to config when user reorders provider tabs", async () => {
         plugin_list.mockResolvedValue([
             connectorInfo({

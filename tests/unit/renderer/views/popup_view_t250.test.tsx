@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PopupView } from "../../../../src/renderer/views/PopupView";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
@@ -19,9 +19,11 @@ import {
 /** 500ms 防抖（config-debounce 默认）。 */
 const DEBOUNCE_MS = 500;
 
-/** 等待防抖窗口过去（真实 timers）。 */
+/** 等待防抖窗口过去（fake timers 推进，避免真实计时器产生 React act 警告）。 */
 async function wait_debounce(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 100));
+    await act(async () => {
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 100);
+    });
 }
 
 function claude_plugin() {
@@ -66,8 +68,17 @@ function claude_plugin() {
  */
 describe("PopupView 持久化 (t250)", () => {
     beforeEach(() => {
+        // RTL waitFor/findBy 在 fake timers 下依赖全局 jest.advanceTimersByTime 推进
+        //（vitest 未提供 jest 全局），stub 为 vi 使其走 fake-timers 轮询分支。
+        vi.stubGlobal("jest", vi);
+        vi.useFakeTimers();
         install_popup_usageboard();
         plugin_list.mockResolvedValue([claude_plugin()]);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
     });
 
     it("AC2：config.activeUsageTab 指定页签时挂载后恢复该页签", async () => {
@@ -95,9 +106,11 @@ describe("PopupView 持久化 (t250)", () => {
         render(<PopupView />);
         await screen.findByText("总览");
 
-        // 点 claude 页签（ProviderNav data-tab 按钮）。
+        // 点 claude 页签（ProviderNav data-tab 按钮）。fake timers 下 plugin 数据
+        // 异步到达，改用 findByRole 等待按钮就绪。
+        const claude_btn = await screen.findByRole("button", { name: "Claude" });
         act(() => {
-            fireEvent.click(screen.getByRole("button", { name: "Claude" }));
+            fireEvent.click(claude_btn);
         });
         await wait_debounce();
 

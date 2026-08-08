@@ -77,8 +77,10 @@ export function PopupView() {
     >(undefined);
     // t222: sparkline 窗口偏好（全局共享，1/7/30 天），从 config 读、变更写回。
     const [sparkline_window_days, set_sparkline_window_days] = useState<number>(7);
-    // t222 f004：config 是否已含 sparklineWindowDays 字段（apply_config 读入时置位）。
-    const has_sparkline_pref_ref = useRef<boolean>(false);
+    // t261：sparkline 窗口偏好 prev ref（t153 范式）。apply_config 无条件同步，
+    // 仅用户切换时 prev≠state 触发写回；消除 t222 f004 has_sparkline_pref_ref
+    // 「配置无键/值相等时首次切换不写盘」死锁。
+    const prev_sparkline_window_ref = useRef<number>(7);
     const {
         main_panel_mode,
         usage_bar_color_scheme,
@@ -136,12 +138,16 @@ export function PopupView() {
             // t222 f001：函数式 setter + 值相等保留 state，依赖数组不含 state。
             // 否则窗口切换改 state → apply_config 重建 → mount effect 重跑 config.get()
             // 回读旧值（防抖 patch 未入缓存）→ 闪回并错误持久化旧偏好。
+            // t261：无条件同步 prev ref（无论值是否相等），config 广播回显不被误当
+            // 用户切换而回写；函数式 setter + 值相等保留 state（t222 f001 约束不变）。
+            if (typeof config.sparklineWindowDays === "number") {
+                prev_sparkline_window_ref.current = config.sparklineWindowDays;
+            }
             set_sparkline_window_days((current) => {
                 if (
                     typeof config.sparklineWindowDays === "number" &&
                     config.sparklineWindowDays !== current
                 ) {
-                    has_sparkline_pref_ref.current = true;
                     return config.sparklineWindowDays;
                 }
                 return current;
@@ -269,13 +275,14 @@ export function PopupView() {
         patchConfig({ accountOrders: account_orders });
     }, [account_orders, patchConfig]);
 
-    // t222: sparkline 窗口偏好变更写回 config（全局共享）。f004：config 未含该字段
-    // 时（apply_config 未读入）跳过，避免每启动 mount 无条件写默认值 7 的多余
-    // save/广播；用户切换后才写回（t153 防回显由 apply_config 值相等保留 state 保证）。
+    // t261: sparkline 窗口偏好变更写回 config（全局共享）。prev ref 无条件同步，
+    // 仅用户切换时 prev≠state 触发写回；无键配置首次切换亦写盘（t222 f004 死锁消除）。
     useEffect(() => {
-        if (has_sparkline_pref_ref.current) {
-            patchConfig({ sparklineWindowDays: sparkline_window_days });
+        if (prev_sparkline_window_ref.current === sparkline_window_days) {
+            return;
         }
+        prev_sparkline_window_ref.current = sparkline_window_days;
+        patchConfig({ sparklineWindowDays: sparkline_window_days });
     }, [sparkline_window_days, patchConfig]);
 
     // Persist collapsed/expanded state to config

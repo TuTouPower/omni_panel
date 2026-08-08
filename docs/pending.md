@@ -16,6 +16,18 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+## p088 typecheck TS4111：local-api/server.ts 索引签名属性需 bracket 访问（2026-08-08）
+
+- 来源：技术债自查（t261 实施期发现）
+- 内容：`src/main/core/local-api/server.ts:323-325` 三处对索引签名类型属性用点号访问 `source` / `env` / `session_id`，TS4111 要求 `['source']` 等 bracket 形式。主仓与 worktree 均复现，`pnpm typecheck` 失败；文件不在 t261 diff 内，锚点 commit 已存在。
+- 处理：未开
+
+## p089 popup_view_height.test.tsx 批量运行 2 条 act 警告（2026-08-08）
+
+- 来源：技术债自查（t261 实施期批量跑 popup_view 8 文件发现；锚点基线复跑确认 pre-existing）
+- 内容：批量运行 `tests/unit/renderer/views/popup_view_height.test.tsx` 出现 2 条「update not wrapped in act」警告，测试仍通过但疑似掩盖时序问题（疑似假绿）。单文件运行是否复现未单独验证；根因暂未定位。
+- 处理：未开
+
 ## 不办
 
 用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
