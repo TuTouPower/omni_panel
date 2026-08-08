@@ -247,3 +247,19 @@
 - 证据：t267 完整 electron e2e run 2 出现 `snapshot-cache.json` rename ENOENT（`writeJsonAtomic` 失败）——close 后子进程仍写已关闭 userData 目录。
 - 影响：electron e2e harness `closeApp` 需确保进程树退出；restart 类测试（stop→start）在完整套件串行下依赖此保证。
 - 现状：有效
+
+## d030 Electron app.relaunch() 在 CLI 模式保留原 argv（2026-08-09）
+
+- 来源：t276 SPIKE 1
+- 结论：`app.relaunch()` 重启的 Electron 进程保留原 argv（含 `--cli serve --port <n> --user-data-dir=<dir>`），新进程以相同参数重启并重写 cli.json（pid 更新、端口复用）。旧进程退出后新实例 health 恢复。
+- 证据：t276 实跑——restart 后 cli.json pid 从 2079198 → 2080615，端口 18803 保持，health 200；旧 pid 进程消失。
+- 影响：`restart` 控制端点可安全用 `app.relaunch()+app.quit()`；但 e2e 中 relaunch 出的新进程脱离 playwright 句柄，测试无法 close，跨 run 堆积孤儿进程（p095）。
+- 现状：有效
+
+## d031 同一 Electron 二进制区分 serve 常驻与瘦客户端需跳单实例锁（2026-08-09）
+
+- 来源：t276 SPIKE 2
+- 结论：serve 与瘦客户端共享 userData 时单实例锁域一致；瘦客户端持锁会自锁（无法连接自身实例）。瘦客户端须在 `requestSingleInstanceLock` 前检测并跳过，whenReady 早期执行控制请求后 `app.exit`。
+- 证据：t276 实跑——未跳锁时 refresh-all 卡死；跳锁后瘦客户端输出「refresh-all 已发送」exitCode 0（serve 持锁时仍能连）。
+- 影响：CLI 控制子命令实现需在锁逻辑前判定瘦客户端形态。
+- 现状：有效

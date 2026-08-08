@@ -16,6 +16,14 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）
+
+- 来源：t276 review Round 2 f005（minor）
+- 现象：`tests/e2e/electron/cli_control.spec.ts` AC3 restart 测试，restart 端点 `app.relaunch()` 出的新进程无句柄回收，`finally` 只关原始句柄；跨 run 在 18811 堆积孤儿进程，EADDRINUSE 致 waitHealth 偶发失败。
+- 影响：flaky 测试（非产品缺陷）；端口 18811 被孤儿进程占用。
+- 根因：relaunch 脱离 playwright ElectronApplication 句柄，测试无法 close。
+- 处理：未开
+
 ## p094 CLI 模式 import-config 回滚边界与 WSL apt 依赖清单（2026-08-09）
 
 - 来源：t275 review Round 2 code 非阻断备注

@@ -1176,3 +1176,103 @@ describe("local-api SSE events", () => {
         spy.mockRestore();
     });
 });
+
+describe("local-api 控制端点（t276）", () => {
+    let control_api: LocalAPIServer;
+    let control_calls: string[];
+    let control_obs: ObservationStore;
+    let control_ts: TokenStatsStore;
+
+    beforeEach(async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-control-"));
+        web_root = join(temp_dir, "web");
+        await mkdir(web_root, { recursive: true });
+        await writeFile(join(web_root, "index.html"), "<html>panel</html>");
+        sync_store = create_observation_store(join(temp_dir, "observations.sqlite"));
+        control_obs = sync_store;
+        token_stats_store = create_token_stats_store(join(temp_dir, "token.sqlite"));
+        control_ts = token_stats_store;
+        control_calls = [];
+        control_api = create_local_api_server(control_obs, {
+            port: 0,
+            token_stats_store: control_ts,
+            control_deps: {
+                refresh_all: () => {
+                    control_calls.push("refresh-all");
+                },
+                pause: () => {
+                    control_calls.push("pause");
+                },
+                resume: () => {
+                    control_calls.push("resume");
+                },
+                restart: () => {
+                    control_calls.push("restart");
+                },
+                quit: () => {
+                    control_calls.push("quit");
+                },
+            },
+            web_root,
+        });
+        await control_api.start();
+    });
+
+    afterEach(async () => {
+        await control_api.stop();
+        control_obs.close();
+        control_ts.close();
+        await rm(temp_dir, { recursive: true, force: true });
+    });
+
+    it("POST /v1/control/refresh-all 触发 refresh_all 免认证", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/refresh-all`,
+            { method: "POST" },
+        );
+        expect(res.status).toBe(200);
+        expect(control_calls).toEqual(["refresh-all"]);
+    });
+
+    it("POST /v1/control/pause/resume/restart/quit 均触发对应动作", async () => {
+        const base = `http://127.0.0.1:${String(control_api.get_port())}/v1/control`;
+        for (const action of ["pause", "resume", "restart", "quit"]) {
+            const res = await fetch(`${base}/${action}`, { method: "POST" });
+            expect(res.status).toBe(200);
+        }
+        expect(control_calls).toEqual(["pause", "resume", "restart", "quit"]);
+    });
+
+    it("GET 控制端点返回 405", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/pause`,
+        );
+        expect(res.status).toBe(405);
+    });
+
+    it("未知控制动作落入认证门返回 401（非已注册端点）", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/nonexistent`,
+            { method: "POST" },
+        );
+        expect(res.status).toBe(401);
+    });
+
+    it("未配置 control_deps 时控制端点 401（落入认证门，桌面/旧实例无控制面）", async () => {
+        const plain_api = create_local_api_server(control_obs, {
+            port: 0,
+            token_stats_store: control_ts,
+            web_root,
+        });
+        await plain_api.start();
+        try {
+            const res = await fetch(
+                `http://127.0.0.1:${String(plain_api.get_port())}/v1/control/pause`,
+                { method: "POST" },
+            );
+            expect(res.status).toBe(401);
+        } finally {
+            await plain_api.stop();
+        }
+    });
+});

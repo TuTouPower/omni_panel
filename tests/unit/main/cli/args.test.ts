@@ -9,7 +9,7 @@ describe("parse_cli_args", () => {
     it("--cli serve 合法：无附加参数", () => {
         expect(parse_cli_args(["electron", "index.js", "--cli", "serve"])).toEqual({
             cli: true,
-            serve: {},
+            command: { type: "serve", options: {} },
         });
     });
 
@@ -23,13 +23,16 @@ describe("parse_cli_args", () => {
                 "--config",
                 "/tmp/import.json",
             ]),
-        ).toEqual({ cli: true, serve: { configPath: "/tmp/import.json" } });
+        ).toEqual({
+            cli: true,
+            command: { type: "serve", options: { configPath: "/tmp/import.json" } },
+        });
     });
 
     it("--cli serve --port 12345 解析端口", () => {
         expect(
             parse_cli_args(["electron", "index.js", "--cli", "serve", "--port", "12345"]),
-        ).toEqual({ cli: true, serve: { port: 12345 } });
+        ).toEqual({ cli: true, command: { type: "serve", options: { port: 12345 } } });
     });
 
     it("--config 与 --port 组合", () => {
@@ -44,13 +47,16 @@ describe("parse_cli_args", () => {
                 "--port",
                 "9999",
             ]),
-        ).toEqual({ cli: true, serve: { configPath: "/tmp/import.json", port: 9999 } });
+        ).toEqual({
+            cli: true,
+            command: { type: "serve", options: { configPath: "/tmp/import.json", port: 9999 } },
+        });
     });
 
     it("Electron 自带 switch（--user-data-dir）不影响 --cli 解析", () => {
         expect(
             parse_cli_args(["electron", "index.js", "--user-data-dir=/tmp/data", "--cli", "serve"]),
-        ).toEqual({ cli: true, serve: {} });
+        ).toEqual({ cli: true, command: { type: "serve", options: {} } });
     });
 
     it("缺子命令抛 CliUsageError", () => {
@@ -58,7 +64,7 @@ describe("parse_cli_args", () => {
     });
 
     it("未知子命令抛 CliUsageError", () => {
-        expect(() => parse_cli_args(["electron", "index.js", "--cli", "refresh-all"])).toThrow(
+        expect(() => parse_cli_args(["electron", "index.js", "--cli", "deploy"])).toThrow(
             /未知的 --cli 子命令/,
         );
     });
@@ -84,11 +90,41 @@ describe("parse_cli_args", () => {
     it("未知 -- 开关忽略（Electron/Chromium 级参数）", () => {
         expect(
             parse_cli_args(["electron", "index.js", "--cli", "serve", "--user-data-dir=/tmp/d"]),
-        ).toEqual({ cli: true, serve: {} });
+        ).toEqual({ cli: true, command: { type: "serve", options: {} } });
     });
 
     it("位置参数抛 CliUsageError", () => {
         expect(() => parse_cli_args(["electron", "index.js", "--cli", "serve", "stray"])).toThrow(
+            /意外位置参数/,
+        );
+    });
+});
+
+describe("parse_cli_args 控制子命令（t276）", () => {
+    it.each(["open", "refresh-all", "pause", "resume", "restart", "quit", "autostart"] as const)(
+        "--cli %s 解析为控制命令",
+        (cmd) => {
+            expect(parse_cli_args(["electron", "index.js", "--cli", cmd])).toEqual({
+                cli: true,
+                command: { type: cmd, options: {} },
+            });
+        },
+    );
+
+    it("控制子命令支持 --port 覆盖", () => {
+        expect(
+            parse_cli_args(["electron", "index.js", "--cli", "refresh-all", "--port", "12345"]),
+        ).toEqual({ cli: true, command: { type: "refresh-all", options: { port: 12345 } } });
+    });
+
+    it("控制子命令拒绝 --config", () => {
+        expect(() =>
+            parse_cli_args(["electron", "index.js", "--cli", "quit", "--config", "/tmp/x.json"]),
+        ).toThrow(/意外位置参数/);
+    });
+
+    it("serve 不识别 --config 之外的未知位置参数", () => {
+        expect(() => parse_cli_args(["electron", "index.js", "--cli", "pause", "stray"])).toThrow(
             /意外位置参数/,
         );
     });

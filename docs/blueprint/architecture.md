@@ -74,6 +74,8 @@ tests/                             # unit / integration / e2e(specs/packaged) / 
 
 CLI 模式（`--cli serve`，t275）是同一 Electron 进程的启动分支：跳过全部窗口/托盘创建，仅起 configStore/vault/observationStore/scheduler/refreshService/local-api 服务，stdout 打印面板 URL 并把实例发现信息（端口、URL、pid）写入 `<dataRoot>/cli.json` 供瘦客户端读取。`--config <path>` 在启动时把文件内容覆盖写入规范 config.json（走 `.bak` 原子写与 zod 校验），明文 secret 转存 vault，落盘配置只保留非 secret 参数。CLI 启动失败（含导入失败）向 stderr 写可读错误后非零退出，不弹 GUI 对话框。
 
+CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli open|refresh-all|pause|resume|restart|quit|autostart`）：跳过单实例锁（否则与 serve 同 userData 时自锁无法连接），whenReady 早期读 `<dataRoot>/cli.json`（或 `--port` 覆盖）经 local-api 控制端点作用于运行中实例后 `app.exit`。控制端点组 `/v1/control/*`（POST，免认证）复用 main 侧 refreshService/orchestrator/app 能力，与 tray 纯 main 动作同一状态面；`restart` 用 `app.relaunch()` 保持原 argv（含 `--cli serve --port --user-data-dir`）重启。
+
 | 边界           | 规则                                                                                                                                                     |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Renderer       | `contextIsolation:true` `sandbox:true` `nodeIntegration:false` `webSecurity:true`；只调 preload 白名单；日常 `hasSecret`；设置窗可 `getSecrets` 回填明文 |

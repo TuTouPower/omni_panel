@@ -131,10 +131,16 @@ if (is_test_build()) {
     app.setName("OmniPanelTest");
 }
 
-// Single-instance lock — prevent duplicate app instances
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-    app.quit();
+// Single-instance lock — prevent duplicate app instances.
+// t276: CLI 控制子命令是瘦客户端，需访问运行中实例，不能持有锁（否则自锁
+// 无法连上自身）；跳过锁直接执行 HTTP 请求。
+const is_thin_client =
+    cliMode && cli_args.command !== undefined && cli_args.command.type !== "serve";
+if (!is_thin_client) {
+    const gotTheLock = app.requestSingleInstanceLock();
+    if (!gotTheLock) {
+        app.quit();
+    }
 }
 
 function getPreloadPath(): string {
@@ -155,6 +161,15 @@ let cleanupPopupIpc: (() => void) | null = null;
 
 void app.whenReady().then(async () => {
     try {
+        // t276: CLI 控制子命令 = 瘦客户端，不进服务初始化。执行完即退出。
+        if (cliMode && cli_args.command && cli_args.command.type !== "serve") {
+            const { run_control_command } = await import("./cli/client");
+            const cmd = cli_args.command;
+            const exitCode = await run_control_command(cmd.type, cmd.options);
+            app.exit(exitCode);
+            return;
+        }
+
         const dataRoot = getDataRoot();
         await cleanup_temp_files(dataRoot);
 
@@ -230,10 +245,10 @@ void app.whenReady().then(async () => {
         // CLI `--config <path>` 启动导入（t275）：需 definitions（secret 参数键）与
         // vault（secret 转存）就绪后执行。覆盖写入 config.json 并返回剥离后的配置，
         // 后续 build_secret_param_keys / orchestrator 用导入结果。
-        if (cliMode && cli_args.serve?.configPath) {
+        if (cliMode && cli_args.command?.type === "serve" && cli_args.command.options.configPath) {
             currentConfig = await import_config_file(
                 { configPath, configStore, secretsStore, definitions: allDefinitions },
-                cli_args.serve.configPath,
+                cli_args.command.options.configPath,
             );
             currentConfig = await configStore.prune_unhealthy_plugins();
         }
@@ -531,8 +546,37 @@ void app.whenReady().then(async () => {
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
             // t275 AC6：`--cli serve --port` 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
-            ...(cliMode && cli_args.serve?.port !== undefined ? { port: cli_args.serve.port } : {}),
+            ...(cliMode &&
+            cli_args.command?.type === "serve" &&
+            cli_args.command.options.port !== undefined
+                ? { port: cli_args.command.options.port }
+                : {}),
             config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
+            // t276: 控制端点复用 tray 纯 main 动作（refreshService / orchestrator / app）。
+            control_deps: {
+                refresh_all: () => {
+                    void refreshService.refreshAll().catch((err: unknown) => {
+                        log.error(
+                            `[control] refresh-all failed: ${
+                                err instanceof Error ? err.message : String(err)
+                            }`,
+                        );
+                    });
+                },
+                pause: () => {
+                    orchestrator.suspend("user");
+                },
+                resume: () => {
+                    orchestrator.resume("user");
+                },
+                restart: () => {
+                    app.relaunch();
+                    app.quit();
+                },
+                quit: () => {
+                    app.quit();
+                },
+            },
             connector_deps: {
                 configStore,
                 runtimeStore,
