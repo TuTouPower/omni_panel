@@ -1,5 +1,6 @@
 import { Icon } from "../../components/Icon";
 import { is_web } from "../../lib/is-web";
+import { Button } from "../../components/ui/Button";
 import logo from "../../assets/logo.svg";
 
 interface TitleBarProps {
@@ -44,23 +45,27 @@ export function TitleBar(props: TitleBarProps) {
                         {footerTime}
                     </span>
                 )}
-                <button
+                <Button
                     className={"icon-btn" + (refreshing ? " spinning" : "")}
+                    variant="icon"
+                    size="sm"
                     title="刷新全部"
                     aria-label="刷新"
                     onClick={is_live ? onRefreshAll : undefined}
                 >
                     <Icon name="refresh" size={18} />
-                </button>
-                <button
-                    className="icon-btn"
+                </Button>
+                <Button
+                    variant="icon"
+                    size="sm"
                     title="设置"
                     onClick={is_live ? onOpenSettings : undefined}
                 >
                     <Icon name="gear" size={18} />
-                </button>
-                <button
-                    className="icon-btn"
+                </Button>
+                <Button
+                    variant="icon"
+                    size="sm"
                     title="代理面板"
                     aria-label="代理面板"
                     onClick={() => {
@@ -68,32 +73,35 @@ export function TitleBar(props: TitleBarProps) {
                     }}
                 >
                     <Icon name="chart" size={18} />
-                </button>
+                </Button>
                 {!is_web() && (
-                    <button
-                        className="icon-btn"
+                    <Button
+                        variant="icon"
+                        size="sm"
                         title="会话历史"
                         aria-label="会话历史"
                         onClick={is_live ? onOpenHistory : undefined}
                     >
                         <Icon name="chat_square" size={18} />
-                    </button>
+                    </Button>
                 )}
                 {is_live && is_floating && (
-                    <button
-                        className="icon-btn floating-close-btn"
+                    <Button
+                        variant="icon"
+                        size="sm"
                         title="隐藏到托盘"
                         aria-label="隐藏用量面板"
                         type="button"
                         onClick={onHidePanel}
                     >
                         <Icon name="close" size={18} />
-                    </button>
+                    </Button>
                 )}
                 {!is_web() && !is_floating && (
                     <>
-                        <button
-                            className="icon-btn"
+                        <Button
+                            variant="icon"
+                            size="sm"
                             title="最小化"
                             aria-label="最小化"
                             onClick={() => {
@@ -101,9 +109,10 @@ export function TitleBar(props: TitleBarProps) {
                             }}
                         >
                             <Icon name="minus" size={18} />
-                        </button>
-                        <button
-                            className="icon-btn"
+                        </Button>
+                        <Button
+                            variant="icon"
+                            size="sm"
                             title="最大化/还原"
                             aria-label="最大化/还原"
                             onClick={() => {
@@ -111,9 +120,10 @@ export function TitleBar(props: TitleBarProps) {
                             }}
                         >
                             <Icon name="maximize" size={18} />
-                        </button>
-                        <button
-                            className="icon-btn"
+                        </Button>
+                        <Button
+                            variant="icon"
+                            size="sm"
                             title="关闭"
                             aria-label="关闭"
                             onClick={() => {
@@ -123,7 +133,7 @@ export function TitleBar(props: TitleBarProps) {
                             }}
                         >
                             <Icon name="close" size={18} />
-                        </button>
+                        </Button>
                     </>
                 )}
             </div>

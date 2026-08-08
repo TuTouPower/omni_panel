@@ -80,10 +80,9 @@ test.describe("tray menu actions", () => {
 
         await tray_page.waitForSelector(".tray-menu-body", { timeout: 10_000 });
 
-        // The quit item contains "退出" (zh) or "Quit" (en)
-        const quit_item = tray_page
-            .locator(".ctx-item.danger, .ctx-item:has-text('退出'), .ctx-item:has-text('Quit')")
-            .last();
+        // The quit item contains "退出" (zh) or "Quit" (en).
+        // t270: TrayMenu 迁移到 ui/Menu（MenuItem=button），选择器由 .ctx-item 改角色定位。
+        const quit_item = tray_page.getByRole("button", { name: /退出|Quit/ }).last();
         await trayExpect(quit_item).toBeVisible();
         const text = await quit_item.textContent();
         expect(text).toMatch(/退出|Quit/);

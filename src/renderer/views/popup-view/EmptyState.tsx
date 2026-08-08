@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { Button } from "../../components/ui/Button";
 
 interface EmptyStateProps {
     is_live: boolean;
@@ -16,10 +17,10 @@ export function EmptyState(props: EmptyStateProps) {
             <div className="empty-sub">
                 添加你的第一个 AI 服务账号，即可在这里实时查看用量限制与 Token 趋势。
             </div>
-            <button className="btn-primary" onClick={is_live ? onAddService : undefined}>
-                <Icon name="plus" size={15} color="#fff" />
+            <Button variant="primary" onClick={is_live ? onAddService : undefined}>
+                <Icon name="plus" size={15} />
                 添加服务
-            </button>
+            </Button>
         </div>
     );
 }
