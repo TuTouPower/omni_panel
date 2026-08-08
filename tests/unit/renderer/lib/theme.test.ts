@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useGlobalTheme, useTheme } from "../../../../src/renderer/lib/theme";
+import { useGlobalTheme, useTheme, apply_accent } from "../../../../src/renderer/lib/theme";
 
 /**
  * t252 AC6：代理面板主题跟随全局（弃用独立 usage-theme 存储）。
@@ -78,5 +78,68 @@ describe("theme hooks (t252 AC6)", () => {
             expect(result.current).toBe("dark");
         });
         window.matchMedia = matchMedia;
+    });
+});
+
+describe("apply_accent（t268）", () => {
+    afterEach(() => {
+        document.documentElement.style.removeProperty("--accent");
+    });
+
+    it("预设 hex → 对应 accent key（blue）", () => {
+        apply_accent("#3d7afd");
+        expect(document.documentElement.style.getPropertyValue("--accent")).toContain(
+            "--accent-blue",
+        );
+    });
+
+    it("预设 hex → 对应 accent key（red）", () => {
+        apply_accent("#e23744");
+        expect(document.documentElement.style.getPropertyValue("--accent")).toContain(
+            "--accent-red",
+        );
+    });
+
+    it("自定义 hex → 直接作为 base 色", () => {
+        apply_accent("#ff8800");
+        expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#ff8800");
+    });
+
+    it("非法 hex → 回落 blue", () => {
+        apply_accent("not-a-color");
+        expect(document.documentElement.style.getPropertyValue("--accent")).toContain(
+            "--accent-blue",
+        );
+    });
+
+    it("缺失 → 回落 blue", () => {
+        apply_accent(undefined);
+        expect(document.documentElement.style.getPropertyValue("--accent")).toContain(
+            "--accent-blue",
+        );
+    });
+
+    it("五档 accent × light/dark 矩阵：--accent 正确切换（AC3）", () => {
+        // light 下五档预设 → 对应 accent key
+        document.documentElement.setAttribute("data-theme", "light");
+        const cases: [string, string][] = [
+            ["#3d7afd", "--accent-blue"],
+            ["#6f5cf6", "--accent-purple"],
+            ["#0ea5a3", "--accent-teal"],
+            ["#f5772f", "--accent-orange"],
+            ["#e23744", "--accent-red"],
+        ];
+        for (const [hex, key] of cases) {
+            apply_accent(hex);
+            expect(document.documentElement.style.getPropertyValue("--accent")).toContain(key);
+        }
+        // dark 下预设 → 对应 dark accent key（apply_accent 用 var(--accent-key)，
+        // dark 值由 .dark 块 --accent-key 覆盖，此处断言变量引用不变）
+        document.documentElement.setAttribute("data-theme", "dark");
+        apply_accent("#3d7afd");
+        expect(document.documentElement.style.getPropertyValue("--accent")).toContain(
+            "--accent-blue",
+        );
+        document.documentElement.setAttribute("data-theme", "light");
     });
 });
