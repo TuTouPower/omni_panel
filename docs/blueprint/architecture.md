@@ -74,6 +74,10 @@ tests/                             # unit / integration / e2e(specs/packaged) / 
 
 仓库根 `DESIGN.md` 是设计真相源；`src/renderer/styles/globals.css` 是唯一全局样式入口，含 `@theme` 导出区（由 `scripts/designmd.ts` 生成，drift check 门禁）与 t268 语义层（accent 单变量派生、兼容桥、@font-face）。设计决策见 decisions 014。后续窗口迁移（t270-273）消费这些 token。
 
+### 组件层（t269）
+
+`src/renderer/components/ui/` 是统一 ui 组件库，覆盖 DESIGN.md「Components」节形态全集（Button/Card/Input/Textarea/Select/SecretInput/Checkbox/Switch/Segmented/Menu/Dialog/Progress/Badge/StatusDot/Kpi/Skeleton/PanelTitleBar/ListRow）。组件只消费语义 token（`--color-*` 等 @theme 变量 + 工具类），不写 `dark:` 变体、不散落字面量。复合模式沉淀为 `@utility`：`glass-menu`（毛玻璃）、`shimmer`（骨架屏）、`metric-num`（KPI 等宽数字）、`transition-feedback`（120ms 交互过渡）。现有手写组件保留至对应窗口迁移（t270-273）时替换。
+
 ## 3. 进程与安全边界
 
 CLI 模式（`--cli serve`，t275）是同一 Electron 进程的启动分支：跳过全部窗口/托盘创建，仅起 configStore/vault/observationStore/scheduler/refreshService/local-api 服务，stdout 打印面板 URL 并把实例发现信息（端口、URL、pid）写入 `<dataRoot>/cli.json` 供瘦客户端读取。`--config <path>` 在启动时把文件内容覆盖写入规范 config.json（走 `.bak` 原子写与 zod 校验），明文 secret 转存 vault，落盘配置只保留非 secret 参数。CLI 启动失败（含导入失败）向 stderr 写可读错误后非零退出，不弹 GUI 对话框。

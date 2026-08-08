@@ -24,6 +24,27 @@
 - 根因：relaunch 脱离 playwright ElectronApplication 句柄，测试无法 close。
 - 处理：未开
 
+## p097 web e2e webServer 自动启动偶发失败（2026-08-09）
+
+- 来源：t269 实施期 web e2e 冒烟
+- 现象：`pnpm test:e2e:web` 的 playwright `webServer`（vite preview 5174）自动启动偶发失败，`page.goto` 报 ERR_CONNECTION_REFUSED；手动 `pnpm exec vite preview` 200 正常。
+- 影响：web e2e flaky（非产品缺陷，t269 未改 web 代码/playwright config）。
+- 根因：疑似 webServer command `pnpm build:web && vite preview` 偶发超时或 strictPort 竞态；未深究。
+- 处理：未开
+
+## p098 ui 组件视觉细节人工对照（2026-08-09）
+
+- 来源：t269 review f006（minor，AC5 deploy）
+- 内容：ui 组件库若干视觉细节需人工对照 DESIGN.md：Switch 尺寸/on 色、Button 字重/圆角、Badge 配色、MenuItem hover、SecretInput 显隐图标（当前 emoji）、Progress 粗细、Dialog 入场动画。实现已对齐 DESIGN 主体，细节属像素级对照。
+- 处理：未开
+
+## p099 ui 组件 computed 明暗抽查未实现（2026-08-09）
+
+- 来源：t269 review Round 3 f009（minor）
+- 内容：t269 spec AC3 要求「全部组件明暗主题下无需 dark: 即渲染正确（黑盒抽查暗色渲染）」。ui 组件未被应用消费（t270 起迁移），app 级 e2e 无法渲染；jsdom 不解析构建产物 CSS 变量，单测 computed 不可行。待 t270 迁移消费后补黑盒暗色抽查。
+- 处理：未开
+- 处理：未开
+
 ## p096 cli e2e 项目继承全局 webServer（2026-08-09）
 
 - 来源：t280 review Round 1 f005（minor）

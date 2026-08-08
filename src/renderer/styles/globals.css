@@ -4107,3 +4107,49 @@ html[data-window="tray"] #root {
     align-items: center;
     justify-content: center;
 }
+
+/* ── t269 复合模式 @utility ── */
+
+/* 毛玻璃菜单（DESIGN.md menu-bg）。 */
+@utility glass-menu {
+    background-color: var(--color-menu-bg);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-menu);
+}
+
+/* 骨架屏 shimmer 高光扫动。 */
+@utility shimmer {
+    background-image: linear-gradient(
+        100deg,
+        transparent 20%,
+        var(--color-surface-window) 40%,
+        transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-move 1.4s infinite;
+}
+
+@keyframes shimmer-move {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* KPI 数字：等宽数字 + 表格数字对齐（DESIGN.md typography 必须）。 */
+@utility metric-num {
+    font-family: var(--font-display-num);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+/* 交互反馈过渡（DESIGN.md motion.feedback 120ms）。 */
+@utility transition-feedback {
+    transition:
+        background-color var(--motion-feedback) var(--motion-easing),
+        color var(--motion-feedback) var(--motion-easing),
+        border-color var(--motion-feedback) var(--motion-easing),
+        opacity var(--motion-feedback) var(--motion-easing);
+}
