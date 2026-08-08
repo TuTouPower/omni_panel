@@ -9,6 +9,7 @@ pnpm test                 # 单元 + 集成（vitest run）
 pnpm test:coverage        # 覆盖率
 pnpm test:e2e:web        # Playwright chromium 测 web SPA（日常, mock local-api）
 pnpm test:e2e:electron   # Playwright Electron 驱动（托盘/多窗口等专属, 手动跑）
+pnpm test:e2e:cli        # Playwright chromium 驱动真实 --cli serve 无头实例（全栈无弹窗）
 pnpm package              # 打包
 pnpm test:packaged        # 打包 smoke（CDP 连 exe）
 ./artifacts/win-unpacked/OmniPanel.exe   # 打包后真实启动
@@ -16,6 +17,8 @@ pnpm test:contract:live   # 连接器 live 契约测试（打真实上游）
 pnpm typecheck && pnpm lint && pnpm check
 python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 pnpm test）
 ```
+
+`E2E_HEADLESS=1 pnpm test:e2e:electron` 跑 headless：窗口 `show:false` 不弹屏，依赖可见窗口/焦点/尺寸的 spec 标「仅 headed」自动跳过（清单见 t280 spec）。
 
 调试入口：打包 smoke 以 `--remote-debugging-port=0` 启动 Electron，从隔离 user-data 目录的 `DevToolsActivePort` 读取动态 CDP 端口后连接；连接器脚本日志打 `connector-sandbox` logger。
 

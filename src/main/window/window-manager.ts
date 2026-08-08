@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeTheme, shell } from "electron";
 import { createLogger } from "../../shared/lib/logger";
+import { is_e2e_headless } from "../e2e-headless";
 
 const log = createLogger("window-manager");
 
@@ -148,7 +149,8 @@ export function createWindowManager(opts: {
             width: cfg.width,
             height: cfg.height,
             frame: cfg.frame ?? true,
-            show: cfg.show ?? true,
+            // t280: e2e headless 门控——E2E=1 且 E2E_HEADLESS=1 时窗口存在但不弹屏。
+            show: is_e2e_headless() ? false : (cfg.show ?? true),
             autoHideMenuBar: cfg.autoHideMenuBar ?? false,
             resizable: cfg.resizable ?? true,
             ...(cfg.minWidth !== undefined && { minWidth: cfg.minWidth }),
@@ -204,7 +206,8 @@ export function createWindowManager(opts: {
                     );
                 });
         }
-        if (cfg.showWhenReady && options.load !== false) {
+        // t280: e2e headless 门控下 showWhenReady 也跳过（否则 ready-to-show 会 show）。
+        if (cfg.showWhenReady && options.load !== false && !is_e2e_headless()) {
             win.once("ready-to-show", () => {
                 if (!win.isDestroyed()) win.show();
             });

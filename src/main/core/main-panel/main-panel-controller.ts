@@ -1,5 +1,6 @@
 import type { Rectangle } from "electron";
 import { createLogger } from "../../../shared/lib/logger";
+import { is_e2e_headless } from "../../e2e-headless";
 import type { AppConfiguration } from "../../../shared/types/config";
 import type { PopupContentHeightReport } from "../../../shared/types/ipc";
 import {
@@ -183,7 +184,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         if (mode === "popup") {
             position_popup(target);
         }
-        target.show();
+        // t280: headless 下不弹屏。
+        if (!is_e2e_headless()) target.show();
         target.focus();
     }
 
@@ -219,7 +221,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             if (next_mode !== mode) {
                 this.close_for_mode_switch();
                 const target = create_panel_window(next_mode);
-                target.show();
+                if (!is_e2e_headless()) target.show();
                 target.focus();
                 return;
             }

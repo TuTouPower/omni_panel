@@ -24,6 +24,15 @@ const config: PlaywrightTestConfig = {
             testDir: "./tests/e2e/electron",
         },
         {
+            // t280: CLI 全栈 e2e——chromium 驱动 web UI，后端为 --cli serve 真实无头实例。
+            name: "cli",
+            testDir: "./tests/e2e/cli",
+            use: {
+                viewport: { width: 1280, height: 800 },
+                headless: true,
+            },
+        },
+        {
             name: "packaged",
             testDir: "./tests/e2e/packaged",
             timeout: 60_000,

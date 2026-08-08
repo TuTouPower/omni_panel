@@ -3,6 +3,9 @@ import { join } from "node:path";
 import type { ElectronApplication, Page } from "@playwright/test";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 
+// t280: headless 下窗口恒不可见，popup show/hide 状态机断言失效（仅 headed）。
+const HEADLESS = process.env["E2E_HEADLESS"] === "1";
+
 const { test, expect } = createTestWithSetup({
     enableTray: true,
     setupPlugins: (userDataDir: string) => {
@@ -96,6 +99,7 @@ test.describe("tray interaction", () => {
     });
 
     test("reopening a hidden popup reuses the same window (t194 AC1/AC2)", async ({ omni }) => {
+        test.skip(HEADLESS, "仅 headed（依赖 popup show/hide 可见性状态机）");
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(

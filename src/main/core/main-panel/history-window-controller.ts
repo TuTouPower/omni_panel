@@ -6,6 +6,7 @@
  * 使此模块不直接 import Electron BrowserWindow。
  */
 import type { BrowserWindow } from "electron";
+import { is_e2e_headless } from "../../e2e-headless";
 import { createLogger } from "../../../shared/lib/logger";
 import { IPC_CHANNELS } from "../../../shared/types/ipc";
 import type { SessionLoc } from "../session-history/subscription-service";
@@ -56,7 +57,8 @@ export function create_history_window_controller(
 
     function open_or_focus(loc?: SessionLoc): HistoryWindowLike {
         if (win && !win.isDestroyed()) {
-            win.show();
+            // t280: headless 下不弹屏。
+            if (!is_e2e_headless()) win.show();
             win.focus();
             if (loc) {
                 send_focus(loc);
@@ -87,7 +89,7 @@ export function create_history_window_controller(
             }
         });
         win = target;
-        target.show();
+        if (!is_e2e_headless()) target.show();
         target.focus();
         return target;
     }

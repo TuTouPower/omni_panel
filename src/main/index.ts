@@ -95,6 +95,7 @@ import { cleanup_temp_files } from "./core/storage/write-json";
 import { parse_cli_args, type CliArgs } from "./cli/args";
 import { import_config_file } from "./cli/import-config";
 import { write_cli_json } from "./cli/cli-json";
+import { is_e2e_headless } from "./e2e-headless";
 
 const process_log = createLogger("process");
 
@@ -538,9 +539,12 @@ void app.whenReady().then(async () => {
         });
 
         // Local HTTP API: serves the web panel UI + observation ingest.
+        // dev：__dirname = out/main，web 产物在 out/web（electron-vite build 输出）。
+        // 不能用 app.getAppPath()——以 `out/main/index.js` 文件参数启动时返回
+        // out/main，web_root 会错指到 out/main/out/web（不存在，静态服务 401）。
         const web_root_path = app.isPackaged
             ? join(process.resourcesPath, "web")
-            : join(app.getAppPath(), "out", "web");
+            : resolve(__dirname, "..", "web");
         const local_api: LocalAPIServer = create_local_api_server(observationStore, {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
@@ -623,6 +627,8 @@ void app.whenReady().then(async () => {
                 return new BrowserWindow({
                     width: 520,
                     height: 720,
+                    // t280: headless 下登录窗不弹屏。
+                    show: !is_e2e_headless(),
                     webPreferences: {
                         contextIsolation: true,
                         nodeIntegration: false,
@@ -747,7 +753,8 @@ void app.whenReady().then(async () => {
                 apply_settings_bounds(win);
                 settings_bounds_applied = true;
             }
-            win.show();
+            // t280: headless 下 settings 打开不弹屏。
+            if (!is_e2e_headless()) win.show();
             win.focus();
             return { created: true };
         }
