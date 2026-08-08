@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { IpcMainInvokeEvent } from "electron";
 import type { GrokOAuthManager } from "../../../src/main/core/auth/grok_oauth_manager";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+import { fileURLToPath } from "node:url";
 
 // t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
-set_renderer_index_path("D:/Dev/Code/omni_panel/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/Dev/Code/omni_panel/out/renderer/index.html"));
 
 vi.mock("electron", () => ({
     ipcMain: {

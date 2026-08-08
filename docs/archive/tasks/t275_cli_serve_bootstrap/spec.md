@@ -80,8 +80,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- Electron 在无窗口分支下是否有隐式窗口依赖（如 settings 预热、OAuth manager 初始化触达 BrowserWindow）：`UNVERIFIED-SPIKE`，Step 1 以 `--cli serve` 实跑并枚举窗口核实
-- 明文 secret 在导入文件中的字段形态与现有 `config:saveSecrets` 入参的映射关系：`UNVERIFIED-SPIKE`，Step 1 读 config IPC 与 vault 接口核实后定导入格式
+- Electron 无窗口分支无隐式窗口依赖：已实跑验证——`--cli serve` 启动后 `BrowserWindow.getAllWindows()` 为空、local-api `/v1/health` 200、cli.json 写入正确、stdout 打印面板 URL（playwright `_electron.launch` attach 主进程枚举窗口，验证方式）
+- 明文 secret 导入形态：导入文件为规范 config.json 形态，secret 明文内嵌于 `plugins[].parameterValues`；导入时经 `build_secret_param_keys`（读 connector manifest `type:secret` 参数）识别明文密钥，按 `keyFor(instanceId, name)` 转存 vault（与 `config:saveSecrets` 同一 key 空间），落盘配置剥离明文（验证方式：config-ipc `keyFor` 接口 + import-config 单测覆盖）
 
 ### 风险与回退
 

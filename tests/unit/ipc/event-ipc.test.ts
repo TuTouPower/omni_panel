@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
+import { fileURLToPath } from "node:url";
 
 // t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
-set_renderer_index_path("D:/app/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 type Ipc_handler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Ipc_handle = (channel: string, listener: Ipc_handler) => void;

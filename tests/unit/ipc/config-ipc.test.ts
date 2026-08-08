@@ -1,13 +1,14 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 
 // t178: 移除未初始化 fallback 后，测试须显式初始化 renderer index path（模拟生产接线）。
-set_renderer_index_path("D:/app/out/renderer/index.html");
+set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 type Mutable_plugins_config = Omit<AppConfiguration, "plugins"> & {
     plugins: ConnectorConfiguration[];

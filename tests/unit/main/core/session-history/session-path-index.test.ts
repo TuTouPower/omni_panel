@@ -175,7 +175,12 @@ describe("session-locator 持久索引 (t254)", () => {
         expect(readdir_count()).toBe(scan_count);
     });
 
-    it("AC4：WSL 用户名探测在进程内只执行一次（空串时）", () => {
+    it.skipIf(
+        // WSL home UNC 仅在 Windows 宿主 + WSL 运行时可达；纯 Linux（WSL 内）不可
+        // 解析，探测失败走负缓存自愈分支（f001 覆盖），成功路径缓存语义只能在有
+        // WSL 挂载的环境验证。
+        !existsSync("\\\\wsl.localhost\\Ubuntu-22.04\\home"),
+    )("AC4：WSL 用户名探测在进程内只执行一次（空串时）", () => {
         const no_index_paths: LocatorPaths = {
             win_home: tmp_root,
             wsl_distro: "Ubuntu-22.04",
