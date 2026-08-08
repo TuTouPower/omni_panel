@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
     clear_resolution_cache,
+    flush_session_index,
     resolve_session_file,
     type LocatorPaths,
 } from "../../../../../src/main/core/session-history/session-locator";
@@ -90,6 +91,7 @@ describe("session-locator 持久索引 (t254)", () => {
         expect(resolve_session_file("claude_code", "win", "sess_persist", paths)?.file_path).toBe(
             file,
         );
+        flush_session_index();
         expect(existsSync(join(index_dir, SESSION_INDEX_FILE))).toBe(true);
 
         // 模拟重启：清内存缓存；磁盘索引仍在。
@@ -104,6 +106,7 @@ describe("session-locator 持久索引 (t254)", () => {
     it("AC2：索引中的文件被删除后回退扫描并修正索引（后续不再命中失效条目）", () => {
         make_claude_session("sess_gone");
         expect(resolve_session_file("claude_code", "win", "sess_gone", paths)).not.toBeNull();
+        flush_session_index(); // t264: 落盘合并，clear 前显式 flush。
         clear_resolution_cache();
 
         const file = join(tmp_root, ".claude", "projects", "proj", "sess_gone.jsonl");
@@ -112,6 +115,7 @@ describe("session-locator 持久索引 (t254)", () => {
         // 回退扫描后应返回 null（找不到）。
         expect(resolve_session_file("claude_code", "win", "sess_gone", paths)).toBeNull();
         // 索引已修正：文件中不再有该 key。
+        flush_session_index();
         expect(read_index(index_dir).entries?.["claude_code|win|sess_gone"]).toBeUndefined();
     });
 
@@ -120,6 +124,7 @@ describe("session-locator 持久索引 (t254)", () => {
         expect(resolve_session_file("claude_code", "win", "sess_moved", paths)?.file_path).toBe(
             file,
         );
+        flush_session_index(); // t264: 落盘合并，clear 前显式 flush。
         clear_resolution_cache();
 
         // 改名后文件名不再是 session_id，但首行 sessionId 字段可匹配。
@@ -128,18 +133,28 @@ describe("session-locator 持久索引 (t254)", () => {
 
         const result = resolve_session_file("claude_code", "win", "sess_moved", paths);
         expect(result?.file_path).toBe(moved);
+        flush_session_index();
         expect(read_index(index_dir).entries?.["claude_code|win|sess_moved"]?.file_path).toBe(
             moved,
         );
     });
 
     it("AC3：新会话文件出现后可定位并回填索引", () => {
+        // 先 resolve 一个存在的会话触发索引文件创建（未命中零写，不建文件）。
+        const seed = make_claude_session("sess_seed");
+        expect(resolve_session_file("claude_code", "win", "sess_seed", paths)?.file_path).toBe(
+            seed,
+        );
+        flush_session_index();
+        // 未命中会话不入索引。
         expect(resolve_session_file("claude_code", "win", "sess_new", paths)).toBeNull();
+        flush_session_index();
         expect(read_index(index_dir).entries?.["claude_code|win|sess_new"]).toBeUndefined();
 
         const file = make_claude_session("sess_new");
         const result = resolve_session_file("claude_code", "win", "sess_new", paths);
         expect(result?.file_path).toBe(file);
+        flush_session_index();
         expect(read_index(index_dir).entries?.["claude_code|win|sess_new"]?.file_path).toBe(file);
     });
 
@@ -183,6 +198,7 @@ describe("session-locator 持久索引 (t254)", () => {
     it("索引损坏时整体丢弃重建，不抛错", () => {
         make_claude_session("sess_corrupt");
         resolve_session_file("claude_code", "win", "sess_corrupt", paths);
+        flush_session_index(); // t264: 落盘合并，clear 前显式 flush。
         clear_resolution_cache();
 
         // 写坏索引文件。
@@ -193,6 +209,7 @@ describe("session-locator 持久索引 (t254)", () => {
         expect(result?.file_path).toBe(
             join(tmp_root, ".claude", "projects", "proj", "sess_corrupt.jsonl"),
         );
+        flush_session_index();
         expect(read_index(index_dir).entries?.["claude_code|win|sess_corrupt"]?.file_path).toBe(
             join(tmp_root, ".claude", "projects", "proj", "sess_corrupt.jsonl"),
         );
@@ -224,6 +241,7 @@ describe("session-locator 持久索引 (t254)", () => {
     it("f003：跨配置（paths_key 不同）不得命中旧条目，回退扫描更新", () => {
         const file = make_claude_session("sess_cfg");
         expect(resolve_session_file("claude_code", "win", "sess_cfg", paths)?.file_path).toBe(file);
+        flush_session_index(); // t264: 落盘合并，clear 前显式 flush。
         clear_resolution_cache();
 
         // 换 win_home 配置（paths_key 变）。
@@ -245,5 +263,139 @@ describe("session-locator 持久索引 (t254)", () => {
         // 旧条目仍指向原 home 文件，但 paths_key 不匹配 → 不得直接命中旧路径，应回退扫描定位到新 home。
         const result = resolve_session_file("claude_code", "win", "sess_cfg", other_paths);
         expect(result?.file_path).toBe(other_file);
+    });
+});
+
+describe("session-locator 落盘批间合并 (t264)", () => {
+    let tmp_root: string;
+    let index_dir: string;
+    let paths: LocatorPaths;
+    let save_spy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(async () => {
+        tmp_root = mkdtempSync(join(tmpdir(), "t264-loc-"));
+        index_dir = join(tmp_root, "index");
+        paths = { win_home: tmp_root, wsl_distro: "Ubuntu-22.04", wsl_user: "testuser", index_dir };
+        clear_resolution_cache();
+        const index_module =
+            await import("../../../../../src/main/core/session-history/session-path-index");
+        save_spy = vi.spyOn(index_module, "save_session_index");
+    });
+
+    afterEach(() => {
+        save_spy.mockRestore();
+        flush_session_index();
+        rmSync(tmp_root, { recursive: true, force: true });
+        clear_resolution_cache();
+    });
+
+    function make_claude_session(session_id: string): string {
+        const proj_dir = join(tmp_root, ".claude", "projects", "proj");
+        mkdirSync(proj_dir, { recursive: true });
+        const file = join(proj_dir, `${session_id}.jsonl`);
+        writeFileSync(
+            file,
+            JSON.stringify({ type: "user", sessionId: session_id, message: { content: "hi" } }) +
+                "\n",
+        );
+        return file;
+    }
+
+    it("AC1/2：单次 miss-resolve 至多一次写盘；未命中且内容不变时不写盘", () => {
+        // 冷会话：索引为空 → 扫描命中回填。
+        make_claude_session("sess_batch");
+        resolve_session_file("claude_code", "win", "sess_batch", paths);
+        flush_session_index();
+        expect(save_spy).toHaveBeenCalledTimes(1);
+
+        // 未命中且 key 不存在：内存索引无该 key，delete 不改变内容 → 不写盘。
+        save_spy.mockClear();
+        resolve_session_file("claude_code", "win", "does_not_exist", paths);
+        flush_session_index();
+        expect(save_spy).not.toHaveBeenCalled();
+    });
+
+    it("AC3：批量 resolve N 冷会话，flush 后写盘次数显著小于 N", () => {
+        const N = 50;
+        for (let i = 0; i < N; i++) make_claude_session(`sess_${String(i).padStart(3, "0")}`);
+        for (let i = 0; i < N; i++) {
+            resolve_session_file("claude_code", "win", `sess_${String(i).padStart(3, "0")}`, paths);
+        }
+        // debounce 窗口内 resolve 全部返回，未触发写盘。
+        expect(save_spy).toHaveBeenCalledTimes(0);
+        // flush 后一次写盘包含全部条目。
+        flush_session_index();
+        expect(save_spy).toHaveBeenCalledTimes(1);
+        const index = read_index(index_dir).entries ?? {};
+        expect(Object.keys(index)).toHaveLength(N);
+    });
+
+    it("AC3：单 miss 内「删失效 + 回填」合并为一次写盘", () => {
+        const file = make_claude_session("sess_miss");
+        resolve_session_file("claude_code", "win", "sess_miss", paths);
+        flush_session_index();
+        save_spy.mockClear();
+
+        // 清缓存后改文件（mtime 变）→ 索引失效 → 扫描命中回填。
+        clear_resolution_cache();
+        writeFileSync(file, "changed content\n");
+        const result = resolve_session_file("claude_code", "win", "sess_miss", paths);
+        expect(result).not.toBeNull();
+        flush_session_index();
+        // 删失效条目 + 回填新条目合并为一次写盘。
+        expect(save_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it("切 index_dir 时先 flush 旧 dir 待落盘条目，不丢失 (t264 f001)", () => {
+        const dir_a = join(tmp_root, "index-a");
+        const dir_b = join(tmp_root, "index-b");
+        const paths_a: LocatorPaths = { ...paths, index_dir: dir_a };
+        const paths_b: LocatorPaths = { ...paths, index_dir: dir_b };
+        const proj = join(tmp_root, ".claude", "projects", "proj");
+        mkdirSync(proj, { recursive: true });
+        const file_a = join(proj, "sess_a.jsonl");
+        writeFileSync(file_a, JSON.stringify({ sessionId: "sess_a" }) + "\n");
+        const file_b = join(proj, "sess_b.jsonl");
+        writeFileSync(file_b, JSON.stringify({ sessionId: "sess_b" }) + "\n");
+
+        // resolve A → dirty A；同一 debounce 窗口内 resolve B → 应先把 A 落盘再切 B。
+        resolve_session_file("claude_code", "win", "sess_a", paths_a);
+        resolve_session_file("claude_code", "win", "sess_b", paths_b);
+        flush_session_index();
+
+        // A 的条目已落盘到 dir_a，B 的到 dir_b。
+        expect(read_index(dir_a).entries?.["claude_code|win|sess_a"]?.file_path).toBe(file_a);
+        expect(read_index(dir_b).entries?.["claude_code|win|sess_b"]?.file_path).toBe(file_b);
+    });
+
+    it("命中早退路径后 flush 旧 dir 待落盘条目，不丢失 (t264 f002)", () => {
+        const dir_a = join(tmp_root, "index-a");
+        const dir_b = join(tmp_root, "index-b");
+        const paths_a: LocatorPaths = { ...paths, index_dir: dir_a };
+        const paths_b: LocatorPaths = { ...paths, index_dir: dir_b };
+        const proj = join(tmp_root, ".claude", "projects", "proj");
+        mkdirSync(proj, { recursive: true });
+        const file_a = join(proj, "sess_a.jsonl");
+        writeFileSync(file_a, JSON.stringify({ sessionId: "sess_a" }) + "\n");
+        const file_b = join(proj, "sess_b.jsonl");
+        writeFileSync(file_b, JSON.stringify({ sessionId: "sess_b" }) + "\n");
+
+        // 先让 A、B 都建立磁盘索引（各 flush 一次）。
+        resolve_session_file("claude_code", "win", "sess_a", paths_a);
+        flush_session_index();
+        resolve_session_file("claude_code", "win", "sess_b", paths_b);
+        flush_session_index();
+
+        // 模拟 A 再次产生 dirty（改文件 → resolve A 扫描回填置 dirty A，未 flush）。
+        writeFileSync(file_a, "changed\n");
+        clear_resolution_cache();
+        resolve_session_file("claude_code", "win", "sess_a", paths_a);
+        // A dirty 待落盘；此时 resolve B（磁盘索引早退，无 persist，守卫不触发）→ session_index 换为 B 的 map。
+        clear_resolution_cache();
+        const hit_b = resolve_session_file("claude_code", "win", "sess_b", paths_b);
+        expect(hit_b?.file_path).toBe(file_b);
+        // flush（timer/before-quit 路径）须用保存的 map 引用把 A 待落盘条目写盘。
+        flush_session_index();
+        expect(read_index(dir_a).entries?.["claude_code|win|sess_a"]?.file_path).toBe(file_a);
     });
 });

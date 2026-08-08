@@ -38,6 +38,15 @@ let session_index_loaded_dir: string | null = null;
 /** wsl 用户名探测缓存（distro → user），跨重启由持久索引恢复。 */
 let wsl_user_cache: Record<string, string> | null = null;
 
+// t264: 落盘批间合并——dirty 标记 + debounce flush。仅索引内容实际变化时置 dirty
+// 并 schedule 一次 flush；delete 不存在的 key（内容未变）不置 dirty，零写盘。
+// 批量冷会话解析窗口内多次 persist 合并为一次落盘。s024 spike 验证机制。
+const INDEX_FLUSH_DEBOUNCE_MS = 50;
+let index_dirty_dir: string | null = null;
+/** dirty 时对应 index_dir 的内存 map 引用；切 dir 后旧 map 仍可经此落盘。 */
+let index_dirty_map: Map<string, SessionIndexEntry> | null = null;
+let index_flush_timer: ReturnType<typeof setTimeout> | null = null;
+
 function locator_paths_key(paths: LocatorPaths): string {
     return `${paths.win_home}|${paths.wsl_distro}|${paths.wsl_user}`;
 }
@@ -57,6 +66,12 @@ export function clear_resolution_cache(): void {
     session_index = null;
     session_index_loaded_dir = null;
     wsl_user_cache = null;
+    index_dirty_dir = null;
+    index_dirty_map = null;
+    if (index_flush_timer !== null) {
+        clearTimeout(index_flush_timer);
+        index_flush_timer = null;
+    }
 }
 
 /** locator 支持的 source 集合（与 token-stats 四端对齐，kimi 带下划线）。 */
@@ -331,7 +346,47 @@ function ensure_session_index(
     return session_index;
 }
 
-/** 写入当前条目到磁盘索引并落盘；写失败仅记日志跳过，回退为扫描定位（t254 f005）。 */
+/** 标记索引脏并调度 debounce flush；仅索引内容实际变化时置 dirty（t264）。
+ * 同时保存 map 引用，切 index_dir 后旧 map 仍可经 flush_session_index 落盘。 */
+function schedule_index_flush(index_dir: string): void {
+    index_dirty_dir = index_dir;
+    index_dirty_map = session_index;
+    if (index_flush_timer !== null) return;
+    index_flush_timer = setTimeout(() => {
+        index_flush_timer = null;
+        try {
+            flush_session_index();
+        } catch (err) {
+            log.warn(`session index debounce flush failed: ${String(err)}`);
+        }
+    }, INDEX_FLUSH_DEBOUNCE_MS);
+}
+
+/**
+ * 同步落盘当前内存索引（若脏）。退出路径（before-quit）与测试在 resolve 后调用，
+ * 保证已 resolve 条目全部落盘（t264）。无参：flush 当前 dirty 的 index_dir。
+ * 用 schedule 时保存的 map 引用落盘（f002：命中早退路径切 dir 后 session_index
+ * 已被换成新 dir map，ensure_session_index 取不到旧 dir 待落盘条目）。
+ */
+export function flush_session_index(): void {
+    const index_dir = index_dirty_dir;
+    if (!index_dir) return;
+    if (index_flush_timer !== null) {
+        clearTimeout(index_flush_timer);
+        index_flush_timer = null;
+    }
+    const map = index_dirty_map;
+    index_dirty_dir = null;
+    index_dirty_map = null;
+    try {
+        if (!map) return;
+        save_session_index(index_dir, map, wsl_user_cache ?? load_wsl_user_cache(index_dir));
+    } catch (err) {
+        log.warn(`session index persist failed: ${String(err)}`);
+    }
+}
+
+/** 写入/删除当前条目到内存索引；置 dirty 后 debounce 落盘（t264 合并批间写）。 */
 function persist_index_entry(
     index_dir: string | undefined,
     key: string,
@@ -339,16 +394,21 @@ function persist_index_entry(
 ): void {
     if (!index_dir) return;
     try {
+        // 切换 index_dir 前先落盘旧 dir 待落盘条目（其内存 map 仍是当前 session_index）。
+        if (index_dirty_dir !== null && index_dirty_dir !== index_dir) {
+            flush_session_index();
+        }
         const index = ensure_session_index(index_dir);
         if (!index) return;
         if (entry) {
             index.set(key, entry);
         } else {
+            if (!index.has(key)) return; // 未命中且内容不变：不置 dirty，零写盘。
             index.delete(key);
         }
-        save_session_index(index_dir, index, wsl_user_cache ?? load_wsl_user_cache(index_dir));
+        schedule_index_flush(index_dir);
     } catch (err) {
-        log.warn(`session index persist failed (${key}): ${String(err)}`);
+        log.warn(`session index persist failed: ${String(err)}`);
     }
 }
 

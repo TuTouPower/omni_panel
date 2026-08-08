@@ -61,6 +61,7 @@ import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
 import { registerSessionHistoryIpc } from "./ipc/session-history-ipc";
+import { flush_session_index } from "./core/session-history/session-locator";
 import {
     SessionHistorySubscriptionService,
     type Env,
@@ -1067,6 +1068,7 @@ void app.whenReady().then(async () => {
             kimiOAuthManager.shutdown();
             void close_all_proxy_agents();
             void runtimeStore.flushPendingCache();
+            flush_session_index(); // t264: 会话索引脏条目退出前落盘。
             cleanupEventIpc?.();
             cleanupEventIpc = null;
             cleanupPopupIpc?.();
