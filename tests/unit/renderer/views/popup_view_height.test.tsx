@@ -196,9 +196,6 @@ describe("PopupView collapse + height report", () => {
             main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
             settings: {
                 open: vi.fn(),
-                minimize: vi.fn(),
-                maximize: vi.fn(),
-                close: vi.fn(),
                 openConnectorsDir: vi.fn(),
             },
             theme: { set: vi.fn() },
@@ -269,6 +266,11 @@ describe("PopupView collapse + height report", () => {
             log: vi.fn(),
             buildInfo: {
                 get: vi.fn().mockResolvedValue({ version: "1.1.0", branch: "dev", commit: "dev" }),
+            },
+            window: {
+                minimize: vi.fn(),
+                maximize: vi.fn(),
+                close: vi.fn(),
             },
         };
     });

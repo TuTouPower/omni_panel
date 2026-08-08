@@ -63,9 +63,11 @@ export const IPC_CHANNELS = {
 
     SETTINGS_OPEN: "settings:open",
     SETTINGS_NAVIGATE: "settings:navigate",
-    SETTINGS_MINIMIZE: "settings:minimize",
-    SETTINGS_MAXIMIZE: "settings:maximize",
-    SETTINGS_CLOSE: "settings:close",
+
+    /** t252: 通用窗口控制（四面板自绘控制区复用，按 event.sender 路由）。 */
+    WINDOW_MINIMIZE: "window:minimize",
+    WINDOW_MAXIMIZE: "window:maximize",
+    WINDOW_CLOSE: "window:close",
 
     /** Main panel shell actions. */
     MAIN_PANEL_HIDE: "mainPanel:hide",
@@ -556,14 +558,14 @@ export interface UsageboardApi {
     settings: {
         /** Open or focus the settings window, optionally with account context for navigation. */
         open(context?: SettingsOpenContext): void;
-        /** Minimize the settings window. */
-        minimize(): void;
-        /** Toggle maximize/restore on the settings window. */
-        maximize(): void;
-        /** Close the settings window. */
-        close(): void;
         /** Open the user connectors script directory in the OS file explorer. */
         openConnectorsDir(): void;
+    };
+    /** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
+    window: {
+        minimize(): void;
+        maximize(): void;
+        close(): void;
     };
     tray: {
         open_panel(): void;

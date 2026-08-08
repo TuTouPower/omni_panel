@@ -25,6 +25,10 @@ const UI_ICONS: Record<string, string> = {
     grip: '<circle cx="9" cy="6" r="1.1"/><circle cx="15" cy="6" r="1.1"/><circle cx="9" cy="12" r="1.1"/><circle cx="15" cy="12" r="1.1"/><circle cx="9" cy="18" r="1.1"/><circle cx="15" cy="18" r="1.1"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
     chev_down: '<path d="M6 9l6 6 6-6"/>',
+    dashboard:
+        '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+    minus: '<path d="M5 12h14"/>',
+    maximize: '<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 5v4a2 2 0 0 1-2 2H5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/>',

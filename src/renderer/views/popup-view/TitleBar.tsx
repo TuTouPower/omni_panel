@@ -37,7 +37,7 @@ export function TitleBar(props: TitleBarProps) {
                 height="30"
                 style={{ borderRadius: 9 }}
             />
-            <span className="app-title">OmniPanel</span>
+            <span className="app-title">Omni Panel - Usage</span>
             <div className="tb-actions">
                 {footerTime && (
                     <span className="tb-time" title="上次更新时间">
@@ -89,6 +89,42 @@ export function TitleBar(props: TitleBarProps) {
                     >
                         <Icon name="close" size={18} />
                     </button>
+                )}
+                {!is_web() && !is_floating && (
+                    <>
+                        <button
+                            className="icon-btn"
+                            title="最小化"
+                            aria-label="最小化"
+                            onClick={() => {
+                                window.usageboard.window.minimize();
+                            }}
+                        >
+                            <Icon name="minus" size={18} />
+                        </button>
+                        <button
+                            className="icon-btn"
+                            title="最大化/还原"
+                            aria-label="最大化/还原"
+                            onClick={() => {
+                                window.usageboard.window.maximize();
+                            }}
+                        >
+                            <Icon name="maximize" size={18} />
+                        </button>
+                        <button
+                            className="icon-btn"
+                            title="关闭"
+                            aria-label="关闭"
+                            onClick={() => {
+                                // t252 AC3: 用量面板关闭 = 隐藏到托盘（保留渲染进程与数据，
+                                // 非销毁窗口）。
+                                onHidePanel();
+                            }}
+                        >
+                            <Icon name="close" size={18} />
+                        </button>
+                    </>
                 )}
             </div>
         </div>

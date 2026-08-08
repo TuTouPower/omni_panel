@@ -1,7 +1,7 @@
 import { useState } from "react";
-import logo_svg from "../../assets/logo.svg";
-import { Icon } from "../Icon";
+import { PanelTitleBar } from "../PanelTitleBar";
 import { useTheme } from "../../lib/theme";
+import { use_panel_navigation } from "../../lib/panel-navigation";
 import { WorkspaceView } from "../workspace/WorkspaceView";
 import { SessionLibrary } from "../session-library/SessionLibrary";
 import "../../styles/session-shell.css";
@@ -13,15 +13,21 @@ type ShellTab = "workspace" | "library";
  *  两个页签面板均保持挂载，切换只改 CSS 显隐，不丢各页内部状态。 */
 export function SessionShell() {
     const [tab, set_tab] = useState<ShellTab>("workspace");
+    // t252: 标题栏刷新按钮递增 token，触发工作台槽位消息立即重拉（AC2）。
+    const [refresh_token, set_refresh_token] = useState(0);
     useTheme();
+    const navigate = use_panel_navigation();
 
     return (
         <div className="session-shell">
             <header className="shell-topbar">
-                <div className="shell-brand">
-                    <img className="shell-logo" src={logo_svg} alt="OmniPanel" />
-                    <span className="shell-title">OmniPanel</span>
-                </div>
+                <PanelTitleBar
+                    panel="Session"
+                    onNavigate={navigate}
+                    onRefresh={() => {
+                        set_refresh_token((k) => k + 1);
+                    }}
+                />
                 <nav className="shell-tabs" aria-label="面板页签">
                     <button
                         type="button"
@@ -44,32 +50,6 @@ export function SessionShell() {
                         会话库
                     </button>
                 </nav>
-                <div className="shell-actions">
-                    <button
-                        type="button"
-                        className="shell-action"
-                        data-testid="shell-open-usage"
-                        title="用量面板"
-                        aria-label="用量面板"
-                        onClick={() => {
-                            window.usageboard.tray.open_panel();
-                        }}
-                    >
-                        <Icon name="clock_forward" size={15} />
-                    </button>
-                    <button
-                        type="button"
-                        className="shell-action"
-                        data-testid="shell-open-token"
-                        title="代理面板"
-                        aria-label="代理面板"
-                        onClick={() => {
-                            window.usageboard.tokenStats.open();
-                        }}
-                    >
-                        <Icon name="chart" size={15} />
-                    </button>
-                </div>
             </header>
             <main className="shell-body">
                 <section
@@ -78,7 +58,7 @@ export function SessionShell() {
                     data-active={tab === "workspace"}
                     aria-hidden={tab !== "workspace"}
                 >
-                    <WorkspaceView />
+                    <WorkspaceView refresh_token={refresh_token} />
                 </section>
                 <section
                     className="shell-pane shell-library"

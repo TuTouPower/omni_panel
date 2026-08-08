@@ -15,7 +15,7 @@ test.describe("suspend and resume", () => {
         // App should still be responsive (no crash)
         await expect(popup.root().locator(".scroll")).toBeVisible({ timeout: 5_000 });
         const title = await popup.getTitle();
-        expect(title).toContain("OmniPanel");
+        expect(title).toContain("Omni Panel");
     });
 
     test("resume event restarts refreshes without crashing", async ({ omni }) => {

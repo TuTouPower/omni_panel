@@ -199,9 +199,6 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
         main_panel: { hide: vi.fn(), get_mode: vi.fn().mockResolvedValue("popup") },
         settings: {
             open: vi.fn(),
-            minimize: vi.fn(),
-            maximize: vi.fn(),
-            close: vi.fn(),
             openConnectorsDir: vi.fn(),
         },
         theme: { set: vi.fn() },
@@ -277,6 +274,11 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
                 commit: "abc1234",
                 subject: "feat: do thing",
             }),
+        },
+        window: {
+            minimize: vi.fn(),
+            maximize: vi.fn(),
+            close: vi.fn(),
         },
     };
 }

@@ -20,7 +20,8 @@ describe("Renderer smoke tests", () => {
         it("renders OmniPanel header", async () => {
             render(<App />);
             await waitFor(() => {
-                expect(screen.getByText("OmniPanel")).toBeInTheDocument();
+                // t252 AC8: 品牌标题统一为 `Omni Panel - <面板名>`。
+                expect(screen.getByText("Omni Panel - Usage")).toBeInTheDocument();
             });
         });
 
@@ -126,7 +127,8 @@ describe("Renderer smoke tests", () => {
         it("renders settings sidebar with plugin names", async () => {
             render(<SettingsView />);
             await waitFor(() => {
-                expect(screen.getByText("设置")).toBeInTheDocument();
+                // t252 AC8: 设置面板品牌标题。
+                expect(screen.getByText("Omni Panel - Settings")).toBeInTheDocument();
             });
             // nav items present
             expect(screen.getByText("常规")).toBeInTheDocument();

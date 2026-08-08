@@ -20,7 +20,7 @@ import { useWorkspaceColumns } from "./use-workspace-columns";
 import { loc_key, selection_key, type Loc } from "./workspace-view-helpers";
 import "../../styles/workspace.css";
 
-export function WorkspaceView() {
+export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}) {
     const {
         slots_state,
         columns,
@@ -31,6 +31,7 @@ export function WorkspaceView() {
         move_slot_ui,
         clear_all: hook_clear_all,
         load_older,
+        refresh_all,
     } = useWorkspaceColumns();
 
     const [layout, set_layout] = useState<LayoutCount>(3);
@@ -68,6 +69,12 @@ export function WorkspaceView() {
         set_focused_index(null);
         set_outline_index(null);
     }, [hook_clear_all]);
+
+    // t252: 标题栏刷新按钮递增 refresh_token，触发对全部 ready 槽位立即重拉。
+    useEffect(() => {
+        if (refresh_token === undefined) return;
+        refresh_all();
+    }, [refresh_token, refresh_all]);
 
     const confirm_recent = useCallback(
         (sessions: TokenStatsSession[]): void => {

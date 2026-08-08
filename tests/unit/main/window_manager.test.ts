@@ -6,6 +6,7 @@ type WindowOpenHandler = (details: { url: string }) => { action: "deny" };
 describe("createWindowManager", () => {
     const openExternal = vi.fn<typeof electronShell.openExternal>();
     const setWindowOpenHandler = vi.fn<(handler: WindowOpenHandler) => void>();
+    const setTitle = vi.fn();
 
     async function load_manager() {
         vi.doMock("electron", () => ({
@@ -14,6 +15,7 @@ describe("createWindowManager", () => {
                     ({
                         webContents: { setWindowOpenHandler },
                         setAppDetails: vi.fn(),
+                        setTitle,
                         setMenuBarVisibility: vi.fn(),
                         loadURL: vi.fn().mockResolvedValue(undefined),
                         once: vi.fn(),
@@ -82,5 +84,18 @@ describe("createWindowManager", () => {
         expect(url).toContain(`loc=${encodeURIComponent(loc)}`);
         // 原样 JSON 不得直接泄漏进 URL（含空格/& 等需编码）。
         expect(url).not.toContain(`loc=${loc}`);
+    });
+
+    it("按面板设置系统标题（AC9）", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("agent", { load: false });
+
+        expect(setTitle).toHaveBeenCalledWith("Omni Panel - Agent");
+    });
+
+    it("无面板标题的窗口不设置系统标题", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("tray_menu", { load: false });
+        expect(setTitle).not.toHaveBeenCalled();
     });
 });

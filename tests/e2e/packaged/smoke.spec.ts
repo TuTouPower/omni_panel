@@ -143,7 +143,7 @@ test.describe("packaged binary smoke", () => {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
 
-            await expect(app.page.locator(".app-title").first()).toContainText("OmniPanel", {
+            await expect(app.page.locator(".app-title").first()).toContainText("Omni Panel", {
                 timeout: 15_000,
             });
             expect(pageErrors).toEqual([]);
@@ -247,7 +247,7 @@ test.describe("packaged binary smoke", () => {
 
         const app = await launchPackagedApp();
         try {
-            await expect(app.page.locator(".app-title").first()).toContainText("OmniPanel", {
+            await expect(app.page.locator(".app-title").first()).toContainText("Omni Panel", {
                 timeout: 15_000,
             });
 

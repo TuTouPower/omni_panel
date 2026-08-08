@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
+import { PanelTitleBar } from "../components/PanelTitleBar";
+import { use_panel_navigation } from "../lib/panel-navigation";
 import { refresh_seconds_to_label } from "../lib/refresh-intervals";
 import {
     add_account_override,
@@ -12,7 +14,6 @@ import {
 import { accountKey } from "../lib/provider-usage";
 import { AccountDialog } from "../components/AccountDialog";
 import { CpaAddDialog } from "../components/CpaAddDialog";
-import { TitleBar } from "../components/TitleBar";
 import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
@@ -108,7 +109,8 @@ export function SettingsView() {
                 log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
             });
     }, []);
-    const { config, hasSecrets, loading, error, save, saveSecrets } = use_config();
+    const { config, hasSecrets, loading, error, save, saveSecrets, reload } = use_config();
+    const navigate = use_panel_navigation();
     const configRef = useRef(config);
     useEffect(() => {
         configRef.current = config;
@@ -384,7 +386,7 @@ export function SettingsView() {
     if (loading) {
         return (
             <div className="window" data-window="settings">
-                <TitleBar />
+                <PanelTitleBar panel="Settings" />
                 <div className="p-6 text-[var(--text-3)]">加载中...</div>
             </div>
         );
@@ -392,7 +394,7 @@ export function SettingsView() {
     if (error) {
         return (
             <div className="window" data-window="settings">
-                <TitleBar />
+                <PanelTitleBar panel="Settings" />
                 <div className="p-6">
                     <div className="net-banner">
                         <Icon name="cloud_off" size={18} />
@@ -406,15 +408,19 @@ export function SettingsView() {
 
     return (
         <div className="window" data-window="settings">
-            <TitleBar />
-
             <div className="settings">
+                <PanelTitleBar
+                    panel="Settings"
+                    onNavigate={navigate}
+                    onRefresh={() => {
+                        void reload();
+                    }}
+                />
                 {/* header */}
                 <div className="settings-head">
                     <button className="back-btn" onClick={goBack} type="button">
                         <Icon name="back" size={20} />
                     </button>
-                    <span className="sh-title">设置</span>
                 </div>
 
                 <div className="settings-body">

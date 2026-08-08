@@ -198,7 +198,7 @@ describe("web usageboard bridge", () => {
     it("native surfaces are no-ops", () => {
         const api = create_web_usageboard();
         expect(() => {
-            api.settings.close();
+            api.window.close();
         }).not.toThrow();
         expect(() => {
             api.tray.open_panel();

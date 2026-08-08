@@ -14,6 +14,8 @@ interface UseConfigResult {
     saveSecrets: (instanceId: string, secrets: Record<string, string>) => Promise<void>;
     getSecrets: (instanceId: string) => Promise<Record<string, string>>;
     duplicate: (instanceId: string) => Promise<{ instanceId: string }>;
+    /** t252: 手动重拉 config（设置面板标题栏刷新按钮）。 */
+    reload: () => Promise<void>;
 }
 
 export function use_config(): UseConfigResult {
@@ -144,6 +146,15 @@ export function use_config(): UseConfigResult {
         return created;
     }, []);
 
+    const reload = useCallback(async (): Promise<void> => {
+        const result = await window.usageboard.config.get();
+        config_ref.current = result.config;
+        setConfig(result.config);
+        setHasSecrets(result.hasSecrets);
+        setLoading(false);
+        setError(null);
+    }, []);
+
     return {
         config,
         hasSecrets,
@@ -154,5 +165,6 @@ export function use_config(): UseConfigResult {
         saveSecrets,
         getSecrets,
         duplicate,
+        reload,
     };
 }

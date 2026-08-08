@@ -406,17 +406,21 @@ const settings_methods = {
     open: (context?: { instanceId?: string; provider?: string; accountId?: string }) => {
         void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN, context);
     },
-    minimize: () => {
-        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_MINIMIZE);
-    },
-    maximize: () => {
-        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_MAXIMIZE);
-    },
-    close: () => {
-        void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLOSE);
-    },
     openConnectorsDir: () => {
         void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN_CONNECTORS_DIR);
+    },
+};
+
+/** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
+const window_methods = {
+    minimize: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE);
+    },
+    maximize: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MAXIMIZE);
+    },
+    close: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE);
     },
 };
 
@@ -542,6 +546,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_methods,
@@ -580,6 +585,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_disabled_methods,
@@ -617,6 +623,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_disabled_methods,
@@ -651,6 +658,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
                 session: session_disabled_methods,

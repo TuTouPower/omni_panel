@@ -206,36 +206,6 @@ html[data-theme="light"] .session-shell {
     background: var(--accent-lime);
 }
 
-.shell-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-}
-
-.shell-action {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border: 1px solid transparent;
-    background: transparent;
-    border-radius: 8px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition:
-        background 0.14s,
-        color 0.14s,
-        border-color 0.14s;
-}
-
-.shell-action:hover {
-    background: var(--bg-panel);
-    border-color: var(--border-subtle);
-    color: var(--text-secondary);
-}
-
 /* ---- 内容区：两个页签面板常驻挂载，CSS 显隐切换 ---- */
 .shell-body {
     flex: 1;

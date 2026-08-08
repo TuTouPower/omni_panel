@@ -48,7 +48,7 @@ reviewer 判 AC 时只看本区。
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
-- AC5 的拖拽与双击最大化：electron e2e 可断言双击行为；鼠标拖拽移动窗口在 Playwright 下不可真实模拟，以「拖拽区域已设置 `-webkit-app-region: drag`」的 DOM 断言 + 人工抽查替代。
+- AC5 的拖拽与双击最大化：鼠标拖拽移动窗口与双击最大化均由 OS 对 `-webkit-app-region: drag` 区域的原生拖拽机制处理，Playwright 无法模拟（DOM dblclick 不触发原生最大化）。以「拖拽区域已设置 `-webkit-app-region: drag`」的 DOM 断言 + 人工抽查替代。
 - 其余 AC 可自动测试（electron e2e 断言窗口 `menuBarVisible`/`frame` 属性、控制区渲染与 IPC 调用、窗口 title；组件测试断言标题栏与品牌文案）。
 
 ## 上下文区
@@ -79,7 +79,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 去掉原生菜单（含 Edit 角色）后 Chromium 输入框复制/粘贴快捷键的可用性：`UNVERIFIED-SPIKE`，执行期 Step 1 实验（去菜单窗口内输入框 Ctrl+C/V）；若失效则以 webContents `before-input-event` 或显式注册编辑命令补救。
+- 去掉原生菜单（含 Edit 角色）后 Chromium 输入框复制/粘贴快捷键的可用性：已由 spike s023 核实。全仓无 `Menu.setApplicationMenu`、无 `before-input-event` 补救；settings 窗口（frame:false 无菜单栏）长期可用证明 Chromium 内置处理编辑快捷键（copy/cut/paste/selectAll），不依赖 Electron Menu。agent/history 改 frame:false 后无需补救。AC7 由 e2e 验证兜底。
 
 ### 风险与回退
 

@@ -671,20 +671,26 @@ void app.whenReady().then(async () => {
             },
         );
 
-        // Settings window frameless controls
-        ipcMain.handle(IPC_CHANNELS.SETTINGS_MINIMIZE, () => {
-            if (settingsWin && !settingsWin.isDestroyed()) settingsWin.minimize();
+        // t252: 通用窗口控制——按 event.sender（发起 IPC 的 webContents）路由到所属窗口。
+        // 四面板自绘控制区复用（settings 专用 SETTINGS_MINIMIZE/MAXIMIZE/CLOSE 已删除）。
+        const window_from_sender = (event: Electron.IpcMainInvokeEvent): BrowserWindow | null => {
+            const win = BrowserWindow.fromWebContents(event.sender);
+            return win && !win.isDestroyed() ? win : null;
+        };
+        ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
+            window_from_sender(event)?.minimize();
         });
-        ipcMain.handle(IPC_CHANNELS.SETTINGS_MAXIMIZE, () => {
-            if (!settingsWin || settingsWin.isDestroyed()) return;
-            if (settingsWin.isMaximized()) {
-                settingsWin.unmaximize();
+        ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, (event) => {
+            const win = window_from_sender(event);
+            if (!win) return;
+            if (win.isMaximized()) {
+                win.unmaximize();
             } else {
-                settingsWin.maximize();
+                win.maximize();
             }
         });
-        ipcMain.handle(IPC_CHANNELS.SETTINGS_CLOSE, () => {
-            if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+        ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, (event) => {
+            window_from_sender(event)?.close();
         });
 
         ipcMain.handle(IPC_CHANNELS.MAIN_PANEL_HIDE, () => {

@@ -138,12 +138,13 @@ describe("SessionShell (t223)", () => {
         expect(localStorage.getItem(THEME_KEY)).toBe("dark");
     });
 
-    it("顶栏跳转按钮调用用量/代理面板 IPC", () => {
+    it("标题栏面板切换图标调用对应面板 open", () => {
         const ub = usageboard();
         render(<SessionShell />);
-        fireEvent.click(screen.getByTestId("shell-open-usage"));
+        // t252: 原 shell-actions 跳转按钮被统一控制区吸收；点击切换图标跳转目标面板。
+        fireEvent.click(screen.getByRole("button", { name: "Usage面板" }));
         expect(ub.tray.open_panel).toHaveBeenCalled();
-        fireEvent.click(screen.getByTestId("shell-open-token"));
+        fireEvent.click(screen.getByRole("button", { name: "Agent面板" }));
         expect(ub.tokenStats.open).toHaveBeenCalled();
     });
 

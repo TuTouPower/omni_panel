@@ -27,6 +27,8 @@ export interface UseWorkspaceColumnsReturn {
     readonly move_slot_ui: (from: number, to: number) => void;
     readonly clear_all: () => void;
     readonly load_older: (loc: Loc) => void;
+    /** t252: 手动刷新——对全部 ready 槽位立即重拉消息（标题栏刷新按钮）。 */
+    readonly refresh_all: () => void;
 }
 
 export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
@@ -285,6 +287,33 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
         selection_store.clear_all();
     }, [apply_slots]);
 
+    const refresh_all = useCallback((): void => {
+        const cols = columns_ref.current;
+        for (const col of Object.values(cols)) {
+            if (col.status !== "ready") continue;
+            void window.usageboard.sessionHistory
+                .query(col.loc.source, col.loc.env, col.loc.session_id, {
+                    limit: HISTORY_PAGE_SIZE,
+                })
+                .then((q) => {
+                    set_columns((prev) => {
+                        const cur = prev[loc_key(col.loc)];
+                        if (!cur) return prev;
+                        return {
+                            ...prev,
+                            [loc_key(col.loc)]: {
+                                ...cur,
+                                messages: merge_tail(cur.messages, q.messages),
+                            },
+                        };
+                    });
+                })
+                .catch(() => {
+                    // 兜底失败忽略；下个周期或推送接管。
+                });
+        }
+    }, []);
+
     useEffect(() => {
         const off_updated = window.usageboard.sessionHistory.onMessagesUpdated((payload) => {
             const key = loc_key(payload);
@@ -301,32 +330,7 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
             open_session(loc);
         });
 
-        const timer = window.setInterval(() => {
-            const cols = columns_ref.current;
-            for (const col of Object.values(cols)) {
-                if (col.status !== "ready") continue;
-                void window.usageboard.sessionHistory
-                    .query(col.loc.source, col.loc.env, col.loc.session_id, {
-                        limit: HISTORY_PAGE_SIZE,
-                    })
-                    .then((q) => {
-                        set_columns((prev) => {
-                            const cur = prev[loc_key(col.loc)];
-                            if (!cur) return prev;
-                            return {
-                                ...prev,
-                                [loc_key(col.loc)]: {
-                                    ...cur,
-                                    messages: merge_tail(cur.messages, q.messages),
-                                },
-                            };
-                        });
-                    })
-                    .catch(() => {
-                        // 兜底失败忽略；下个周期或推送接管。
-                    });
-            }
-        }, FALLBACK_MS);
+        const timer = window.setInterval(refresh_all, FALLBACK_MS);
 
         const initial = initial_loc();
         if (initial) open_session(initial);
@@ -336,7 +340,7 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
             off_focus();
             window.clearInterval(timer);
         };
-    }, [open_session]);
+    }, [open_session, refresh_all]);
 
     useEffect(() => {
         return () => {
@@ -362,5 +366,6 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
         move_slot_ui,
         clear_all,
         load_older,
+        refresh_all,
     };
 }

@@ -35,7 +35,9 @@ test.describe("main panel window modes", () => {
         test.skip(process.platform === "darwin", "macOS system mode uses popup");
         const page = await findMainPanelPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible();
+        await expect(
+            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
+        ).toBeVisible();
         await expect(page.getByRole("button", { name: "隐藏用量面板" })).toBeVisible();
     });
 

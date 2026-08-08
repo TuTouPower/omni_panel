@@ -12,14 +12,15 @@ import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
-import { Icon } from "../components/Icon";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
     create_token_stats_query_cache,
     type TokenStatsQueryKey,
 } from "../lib/token-stats/query-cache";
-import { is_web } from "../lib/is-web";
+import { PanelTitleBar } from "../components/PanelTitleBar";
+import { useGlobalTheme, useTheme } from "../lib/theme";
+import { use_panel_navigation } from "../lib/panel-navigation";
 import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
@@ -49,11 +50,6 @@ const RANGE_OPTIONS: { value: RangePreset; label: string }[] = [
     { value: "30d", label: "1 月" },
 ];
 
-const THEME_OPTIONS: { value: Theme; label: string }[] = [
-    { value: "dark", label: "🌙 深色" },
-    { value: "light", label: "☀️ 浅色" },
-];
-
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
     { value: "tokens", label: "Token" },
     { value: "sessions", label: "Session" },
@@ -81,24 +77,6 @@ function presetRange(preset: RangePreset): { start: number; end: number } {
     const end = Date.now();
     return { start: end - PRESET_MS[preset], end };
 }
-
-function readSavedTheme(): Theme {
-    try {
-        const raw = localStorage.getItem("usage-theme");
-        return raw === "light" ? "light" : "dark";
-    } catch {
-        return "dark";
-    }
-}
-
-function saveTheme(theme: Theme) {
-    try {
-        localStorage.setItem("usage-theme", theme);
-    } catch {
-        // ignore
-    }
-}
-
 interface TokenStatsPrefs {
     agent: AgentFilter;
     platform: PlatformFilter;
@@ -220,7 +198,12 @@ export function TokenStatsView() {
     const [xaxis, setXaxis] = useState<XAxis>(saved.xaxis ?? "time");
     const [gran, setGran] = useState<Granularity>(saved.gran ?? "day");
     const [model, setModel] = useState<string>(saved.model ?? "all");
-    const [theme, setTheme] = useState<Theme>(readSavedTheme());
+    // t252 AC6: 主题跟随全局（弃用独立 usage-theme 存储）。
+    const theme = useGlobalTheme();
+    // t252 AC6: 同步 data-theme 实时跟随全局（useGlobalTheme 只返回主题值喂图表，
+    // 不更新 documentElement[data-theme]，token-stats.css 依赖它切换明暗）。
+    useTheme();
+    const navigate = use_panel_navigation();
     const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
     const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
     const effective_xaxis = metric === "sessions" ? "time" : xaxis;
@@ -516,11 +499,6 @@ export function TokenStatsView() {
     }, [loadData, preset, query_cache]);
 
     useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
-        saveTheme(theme);
-    }, [theme]);
-
-    useEffect(() => {
         save_prefs({ agent, platform, preset, metric, xaxis, gran, model });
     }, [agent, platform, preset, metric, xaxis, gran, model]);
 
@@ -658,6 +636,14 @@ export function TokenStatsView() {
 
     return (
         <div className="token-stats">
+            <PanelTitleBar
+                panel="Agent"
+                refreshing={refreshing}
+                onRefresh={() => {
+                    void loadData(false);
+                }}
+                onNavigate={navigate}
+            />
             <header>
                 <div className="brand">
                     <h1>
@@ -713,53 +699,12 @@ export function TokenStatsView() {
                             handlePresetChange(v);
                         }}
                     />
-                    <Segmented
-                        options={THEME_OPTIONS}
-                        value={theme}
-                        onChange={(v) => {
-                            setTheme(v);
-                        }}
-                    />
                     <RangePicker
                         start={currentRange.start}
                         end={currentRange.end}
                         active={custom !== null}
                         onApply={handleCustomApply}
                     />
-                    <button
-                        className="ts-nav-btn ts-nav-icon"
-                        type="button"
-                        title="用量面板"
-                        aria-label="用量面板"
-                        onClick={() => {
-                            window.usageboard.tray.open_panel();
-                        }}
-                    >
-                        <Icon name="clock_forward" size={16} />
-                    </button>
-                    <button
-                        className="ts-nav-btn"
-                        type="button"
-                        onClick={() => {
-                            window.usageboard.settings.open();
-                        }}
-                    >
-                        设置
-                    </button>
-                    {!is_web() && (
-                        <button
-                            className="ts-nav-btn ts-nav-icon"
-                            type="button"
-                            title="到会话历史"
-                            aria-label="到会话历史"
-                            onClick={() => {
-                                // 纯跳转入口：无具体会话，开/聚焦空窗。
-                                void window.usageboard.sessionHistory.open("", "", "");
-                            }}
-                        >
-                            <Icon name="chat_square" size={16} />
-                        </button>
-                    )}
                 </div>
             </header>
 

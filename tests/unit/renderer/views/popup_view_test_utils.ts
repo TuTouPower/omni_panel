@@ -180,9 +180,6 @@ export function install_popup_usageboard() {
         main_panel: { hide: main_panel_hide, get_mode: main_panel_get_mode },
         settings: {
             open: vi.fn(),
-            minimize: vi.fn(),
-            maximize: vi.fn(),
-            close: vi.fn(),
             openConnectorsDir: vi.fn(),
         },
         theme: { set: vi.fn() },
@@ -253,6 +250,11 @@ export function install_popup_usageboard() {
         log: usage_log,
         buildInfo: {
             get: vi.fn().mockResolvedValue({ version: "1.1.0", branch: "dev", commit: "dev" }),
+        },
+        window: {
+            minimize: vi.fn(),
+            maximize: vi.fn(),
+            close: vi.fn(),
         },
     };
 }

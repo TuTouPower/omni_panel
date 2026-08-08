@@ -59,20 +59,32 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         route: "agent",
         width: 900,
         height: 700,
-        frame: true,
+        frame: false,
         show: false,
         showWhenReady: true,
+        titleBarStyle: "hidden",
+        titleBarOverlay: false,
         roundedCorners: true,
     },
     history: {
         route: "history",
         width: 1000,
         height: 720,
-        frame: true,
+        frame: false,
         show: false,
         showWhenReady: true,
+        titleBarStyle: "hidden",
+        titleBarOverlay: false,
         roundedCorners: true,
     },
+};
+
+/** t252 AC9: 各窗口系统标题（任务栏/Alt-Tab）与面板标题一致。 */
+const PANEL_TITLES: Record<string, string> = {
+    usage: "Omni Panel - Usage",
+    setting: "Omni Panel - Settings",
+    agent: "Omni Panel - Agent",
+    history: "Omni Panel - Session",
 };
 
 export interface WindowManager {
@@ -144,6 +156,18 @@ export function createWindowManager(opts: {
                 preload: opts.getPreloadPath(),
             },
         });
+
+        const panel_title = PANEL_TITLES[key];
+        if (panel_title) {
+            win.setTitle(panel_title);
+            // t252 AC9: 页面加载后 index.html <title> 会触发 page-title-updated 用
+            // document.title 覆盖 setTitle 的值。阻止之，并重设面板标题，保持
+            // 任务栏/Alt-Tab 标题恒等于面板标题。
+            win.on("page-title-updated", (event) => {
+                event.preventDefault();
+                if (!win.isDestroyed()) win.setTitle(panel_title);
+            });
+        }
 
         if (process.platform === "win32") {
             win.setAppDetails({ appId: "omni-panel" });

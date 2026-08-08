@@ -232,7 +232,7 @@ describe("TokenStatsView dashboard query", () => {
                 }),
             },
             config: { get: get_config },
-            event: { onConfigChange: vi.fn(() => vi.fn()) },
+            event: { onConfigChange: vi.fn(() => vi.fn()), onThemeChange: vi.fn(() => vi.fn()) },
             log: vi.fn(),
             sessionHistory: { open: open_history },
         } as unknown as typeof window.usageboard;
@@ -571,13 +571,16 @@ describe("TokenStatsView dashboard query", () => {
     it("loads aliases once and does not reread config when filters change", async () => {
         render(<TokenStatsView />);
         await screen.findByTestId("session-records");
-        expect(get_config).toHaveBeenCalledTimes(1);
+        // t252: useGlobalTheme 也在挂载时读一次 config（theme 跟随全局）；基准为挂载后次数。
+        const config_calls_at_mount = get_config.mock.calls.length;
+        expect(config_calls_at_mount).toBeGreaterThanOrEqual(1);
 
         await userEvent.setup().click(screen.getByRole("button", { name: "7 天" }));
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
-        expect(get_config).toHaveBeenCalledTimes(1);
+        // filters 变化不 reread config（aliases/theme 均不重读）。
+        expect(get_config.mock.calls.length).toBe(config_calls_at_mount);
     });
 
     it("renders KPI and deltas from the current and previous summaries", async () => {
@@ -799,21 +802,22 @@ describe("TokenStatsView dashboard query", () => {
         expect(request.model_aliases).toEqual([{ alias: "M", keys: ["sonnet"] }]);
     });
 
-    it("opens the session history window from the header nav button", async () => {
+    it("标题栏 Session 面板切换图标打开会话历史窗口（AC1）", async () => {
         render(<TokenStatsView />);
         await screen.findByTestId("session-records");
 
-        fireEvent.click(screen.getByRole("button", { name: /到会话历史/ }));
+        fireEvent.click(screen.getByRole("button", { name: "Session面板" }));
 
         expect(open_history).toHaveBeenCalledWith("", "", "");
     });
 
-    it("hides the session-history nav button in web mode (dead-button convention)", async () => {
+    it("web 模式标题栏不渲染窗口控制按钮（AC1 is_web 分支）", async () => {
         document.documentElement.dataset["web"] = "1";
         try {
             render(<TokenStatsView />);
             await screen.findByTestId("session-records");
-            expect(screen.queryByRole("button", { name: /到会话历史/ })).toBeNull();
+            expect(screen.queryByTitle("最小化")).toBeNull();
+            expect(screen.queryByTitle("关闭")).toBeNull();
         } finally {
             delete document.documentElement.dataset["web"];
         }
@@ -866,7 +870,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
                 onUpdated: vi.fn(() => vi.fn()),
             },
             config: { get: get_config },
-            event: { onConfigChange: vi.fn(() => vi.fn()) },
+            event: { onConfigChange: vi.fn(() => vi.fn()), onThemeChange: vi.fn(() => vi.fn()) },
             log: vi.fn(),
             sessionHistory: { open: vi.fn() },
         } as unknown as typeof window.usageboard;

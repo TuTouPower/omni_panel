@@ -70,7 +70,9 @@ test.describe("tray interaction", () => {
         // E2E_WITH_TRAY=1: tray created, popup auto-opens
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+        await expect(
+            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
+        ).toBeVisible({
             timeout: 10_000,
         });
     });
@@ -80,7 +82,9 @@ test.describe("tray interaction", () => {
     }) => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+        await expect(
+            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
+        ).toBeVisible({
             timeout: 10_000,
         });
 
@@ -94,7 +98,9 @@ test.describe("tray interaction", () => {
     test("reopening a hidden popup reuses the same window (t194 AC1/AC2)", async ({ omni }) => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
-        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+        await expect(
+            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
+        ).toBeVisible({
             timeout: 10_000,
         });
 
@@ -110,7 +116,9 @@ test.describe("tray interaction", () => {
         // 同一窗口复用：全程只有一个 popup BrowserWindow，且隐藏前的已渲染内容
         // 在重开后仍可见（AC2 数据保留的用户可观察证据）。
         expect(await popupWindowCount(omni.app)).toBe(1);
-        await expect(page.locator('[data-popup="live"]').getByText("OmniPanel")).toBeVisible({
+        await expect(
+            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
+        ).toBeVisible({
             timeout: 10_000,
         });
     });

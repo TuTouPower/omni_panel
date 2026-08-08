@@ -164,11 +164,6 @@ export function create_web_usageboard(): UsageboardApi {
             open: () => {
                 window.location.hash = "setting";
             },
-            minimize: noop,
-            maximize: noop,
-            close: () => {
-                window.location.hash = "usage";
-            },
             openConnectorsDir: noop,
         },
         tray: {
@@ -449,6 +444,12 @@ export function create_web_usageboard(): UsageboardApi {
                     commit: "web",
                     subject: "web",
                 }),
+        },
+        // t252: web 无独立窗口，窗口控制 no-op（四面板共享 UI 组件调用，web 静默）。
+        window: {
+            minimize: () => undefined,
+            maximize: () => undefined,
+            close: () => undefined,
         },
     };
     return api;
