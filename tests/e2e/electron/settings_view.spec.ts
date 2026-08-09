@@ -52,7 +52,7 @@ test.describe("settings view (electron 专属)", () => {
         // per-provider dialog inside the connector settings (24ae7d78).
         await sPage.locator('button[title="编辑数据标签映射"]').first().click();
 
-        const dialog = sPage.locator(".acct-dialog").first();
+        const dialog = sPage.getByRole("dialog", { name: "数据标签映射" });
         await expect(dialog).toBeVisible({ timeout: 10_000 });
         await expect(dialog.getByText("数据标签映射")).toBeVisible();
 

@@ -10,6 +10,11 @@ import {
 import { format_usage_period_label } from "../lib/provider-usage";
 import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
+import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
+import { Input } from "./ui/Input";
+import { Select } from "./ui/Select";
+import { Switch } from "./ui/Switch";
 import { DeviceLoginSection } from "./DeviceLoginSection";
 import { WebLoginSection } from "./WebLoginSection";
 import { SessionSection } from "./SessionSection";
@@ -300,20 +305,25 @@ export function SettingsForm({
     return (
         <form
             onSubmit={handle_submit}
-            className="ad-body-form"
+            className="flex flex-col gap-3"
             data-testid={`settings-form-${instanceId}`}
         >
-            <div className="ad-field">
-                <label className="ad-label" htmlFor="displayName">
-                    备注<span className="ad-opt">显示用</span>
+            <div className="flex flex-col gap-1.5">
+                <label
+                    className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                    htmlFor="displayName"
+                >
+                    备注
+                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                        显示用
+                    </span>
                 </label>
-                <input
+                <Input
                     type="text"
                     id="displayName"
                     name="displayName"
                     defaultValue={displayName ?? ""}
                     placeholder="例如：工作账号"
-                    className="ad-input"
                     spellCheck={false}
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -380,78 +390,77 @@ export function SettingsForm({
                 />
             )}
             {visible_parameters.map((param) => (
-                <div className="ad-field" key={param.name}>
-                    <label className="ad-label" htmlFor={param.name}>
+                <div className="flex flex-col gap-1.5" key={param.name}>
+                    <label
+                        className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                        htmlFor={param.name}
+                    >
                         {param["label@zh-Hans"] ?? param.label}
                     </label>
                     {param.type === "boolean" ? (
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             id={param.name}
                             name={param.name}
                             defaultChecked={values[param.name] === "true"}
-                            className="h-4 w-4"
                         />
                     ) : param.type === "choice" ? (
-                        <select
+                        <Select
                             id={param.name}
                             name={param.name}
                             defaultValue={values[param.name] ?? param.defaultValue ?? ""}
                             required={param.required}
-                            className="ad-input"
                         >
                             {param.options?.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                     ) : param.type === "secret" ? (
-                        <div className="ad-secret-row">
-                            <SecretInput
-                                id={param.name}
-                                name={param.name}
-                                value={secret_values[param.name] ?? ""}
-                                onChange={(v) => {
-                                    set_secret_values((prev) => ({ ...prev, [param.name]: v }));
-                                }}
-                                placeholder={
-                                    secrets_loaded
-                                        ? param.placeholder
-                                        : hasSecrets?.[param.name]
-                                          ? "加载中…"
-                                          : param.placeholder
-                                }
-                                required={param.required && !hasSecrets?.[param.name]}
-                                disabled={!secrets_loaded}
-                            />
-                        </div>
+                        <SecretInput
+                            id={param.name}
+                            name={param.name}
+                            value={secret_values[param.name] ?? ""}
+                            onChange={(v) => {
+                                set_secret_values((prev) => ({ ...prev, [param.name]: v }));
+                            }}
+                            placeholder={
+                                secrets_loaded
+                                    ? param.placeholder
+                                    : hasSecrets?.[param.name]
+                                      ? "加载中…"
+                                      : param.placeholder
+                            }
+                            required={param.required && !hasSecrets?.[param.name]}
+                            disabled={!secrets_loaded}
+                        />
                     ) : (
-                        <input
+                        <Input
                             type={param.type === "integer" ? "number" : "text"}
                             id={param.name}
                             name={param.name}
                             defaultValue={values[param.name] ?? param.defaultValue ?? ""}
                             placeholder={param.placeholder}
                             required={param.required}
-                            className="ad-input"
                             spellCheck={false}
                             autoCorrect="off"
                             autoCapitalize="off"
                         />
                     )}
                     {typeof param.description === "string" && (
-                        <p className="ad-hint">{param.description}</p>
+                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                            {param.description}
+                        </p>
                     )}
                 </div>
             ))}
             {providerId !== "grok" &&
                 Object.keys(endpoints ?? {}).map((endpointName) => (
-                    <div className="ad-field" key={endpointName}>
-                        <label className="ad-label">
+                    <div className="flex flex-col gap-1.5" key={endpointName}>
+                        <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
                             {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
                         </label>
-                        <input
+                        <Input
                             type="url"
                             name={`endpoint:${endpointName}`}
                             defaultValue={
@@ -466,49 +475,51 @@ export function SettingsForm({
                                     ? "接口地址"
                                     : `接口地址 (${endpointName})`
                             }
-                            className="ad-input"
                             spellCheck={false}
                             autoCorrect="off"
                             autoCapitalize="off"
                         />
                     </div>
                 ))}
-            <div className="ad-field">
-                <label className="ad-label">刷新</label>
+            <div className="flex flex-col gap-1.5">
+                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    刷新
+                </label>
                 {manualRefreshOnly ? (
-                    <p className="ad-hint" data-testid={`settings-manual-only-${instanceId}`}>
+                    <p
+                        className="text-body-sm text-[var(--color-on-surface-muted)]"
+                        data-testid={`settings-manual-only-${instanceId}`}
+                    >
                         仅手动刷新（刷新时会消耗一次 API 配额）
                     </p>
                 ) : (
                     <>
-                        <div
-                            style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}
-                        >
-                            <span style={{ fontSize: 13 }}>跟随全局自动刷新间隔</span>
-                            <button
-                                className="sw"
+                        <div className="mt-1 flex items-center gap-2">
+                            <span className="text-body-md text-[var(--color-on-surface)]">
+                                跟随全局自动刷新间隔
+                            </span>
+                            <Switch
+                                checked={followGlobal}
                                 data-on={followGlobal ? "1" : "0"}
                                 type="button"
-                                onClick={() => {
+                                onChange={() => {
                                     setFollowGlobal((v) => !v);
                                 }}
                                 data-testid={`settings-follow-global-${instanceId}`}
-                            >
-                                <i />
-                            </button>
+                                aria-label="跟随全局自动刷新间隔"
+                            />
                         </div>
                         {followGlobal ? (
                             <p
-                                className="ad-hint"
+                                className="text-body-sm text-[var(--color-on-surface-muted)]"
                                 data-testid={`settings-global-label-${instanceId}`}
                             >
                                 当前全局为「{globalIntervalLabel}」自动刷新
                             </p>
                         ) : (
-                            <div style={{ marginTop: 4 }}>
-                                <select
-                                    className="ad-input"
-                                    style={{ width: "auto", padding: "6px 10px" }}
+                            <div className="mt-1">
+                                <Select
+                                    className="w-auto"
                                     value={syncInterval}
                                     onChange={(e) => {
                                         setSyncInterval(
@@ -521,44 +532,53 @@ export function SettingsForm({
                                     {REFRESH_INTERVAL_OPTIONS.map((opt) => (
                                         <option key={opt.label}>{opt.label}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </div>
                         )}
                     </>
                 )}
             </div>
             {providerId && onForcePercentChange && (
-                <div className="ad-field">
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 13 }}>用量数字统一为百分比</span>
-                        <button
-                            className="sw"
+                <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                        <span className="text-body-md text-[var(--color-on-surface)]">
+                            用量数字统一为百分比
+                        </span>
+                        <Switch
+                            checked={force_percent_local}
                             data-on={force_percent_local ? "1" : "0"}
                             type="button"
-                            onClick={() => {
+                            onChange={() => {
                                 set_force_percent_local((v) => !v);
                             }}
                             data-testid={`settings-force-percent-${instanceId}`}
-                        >
-                            <i />
-                        </button>
+                            aria-label="用量数字统一为百分比"
+                        />
                     </div>
-                    <p className="ad-hint">该厂商下所有账号用量统一显示为百分比</p>
+                    <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                        该厂商下所有账号用量统一显示为百分比
+                    </p>
                 </div>
             )}
             {onSaveLabelMap && providerId && (
-                <div className="ad-field">
-                    <label className="ad-label">数据标签映射</label>
-                    <div style={{ marginTop: 8 }}>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                        数据标签映射
+                    </label>
+                    <div className="mt-2">
                         {labelLoading ? (
-                            <div className="text-sm text-[var(--text-3)]">加载标签数据…</div>
+                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
+                                加载标签数据…
+                            </div>
                         ) : labelRows.length === 0 ? (
-                            <div className="text-sm text-[var(--text-3)]">暂无可映射的数据标签</div>
+                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
+                                暂无可映射的数据标签
+                            </div>
                         ) : (
                             <>
-                                <div className="lm-cols">
-                                    <span>原始标签</span>
-                                    <span>显示名称</span>
+                                <div className="mb-2 flex items-center gap-3 px-0.5 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                                    <span className="min-w-0 flex-1">原始标签</span>
+                                    <span className="min-w-0 flex-1">显示名称</span>
                                 </div>
                                 {labelRows.map((r) => {
                                     const v = labelEdits[r.raw] ?? r.display;
@@ -567,13 +587,15 @@ export function SettingsForm({
                                         (k) => provider_watched?.[k]?.includes(r.raw) ?? false,
                                     );
                                     return (
-                                        <div className="lm-row" key={r.raw}>
-                                            <code className="lm-raw">{r.raw}</code>
-                                            <span className="lm-arrow">
+                                        <div className="flex items-center gap-2" key={r.raw}>
+                                            <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-variant)]">
+                                                {r.raw}
+                                            </code>
+                                            <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                                 <Icon name="chevron" size={14} />
                                             </span>
-                                            <input
-                                                className="lm-input"
+                                            <Input
+                                                className="h-8 min-w-0 flex-1 font-[var(--font-code-md)] text-label-md"
                                                 value={v}
                                                 placeholder={r.raw}
                                                 spellCheck={false}
@@ -584,12 +606,14 @@ export function SettingsForm({
                                                 }}
                                             />
                                             {onToggleWatched && (
-                                                <button
-                                                    type="button"
-                                                    className="lm-watch"
+                                                <Button
+                                                    variant="icon"
+                                                    size="sm"
+                                                    className="h-7 w-7 shrink-0 p-0"
                                                     title="监控该数据标签的即将重置"
                                                     aria-label="监控该数据标签的即将重置"
                                                     aria-pressed={watched}
+                                                    type="button"
                                                     onClick={() => {
                                                         onToggleWatched(r.raw);
                                                     }}
@@ -599,7 +623,7 @@ export function SettingsForm({
                                                         size={14}
                                                         style={{ opacity: watched ? 1 : 0.35 }}
                                                     />
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
                                     );
@@ -609,34 +633,34 @@ export function SettingsForm({
                     </div>
                 </div>
             )}
-            <div className="ad-foot">
-                <div className="ad-foot-r">
-                    {onDuplicate && (
-                        <button
-                            type="button"
-                            data-testid={`settings-duplicate-btn-${instanceId}`}
-                            onClick={() => {
-                                onDuplicate(instanceId);
-                            }}
-                            className="cf-secondary"
-                        >
-                            复制
-                        </button>
-                    )}
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        data-testid={`settings-save-btn-${instanceId}`}
-                        className={"ad-btn primary" + (saved ? " saved" : "")}
+            <div className="flex justify-end gap-2 border-t border-[var(--color-hairline)] pt-3">
+                {onDuplicate && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        data-testid={`settings-duplicate-btn-${instanceId}`}
+                        onClick={() => {
+                            onDuplicate(instanceId);
+                        }}
                     >
-                        {saving ? "保存中..." : saved ? "已保存" : "保存"}
-                    </button>
-                    {saveError ? (
-                        <span className="ad-error" role="alert">
-                            {saveError}
-                        </span>
-                    ) : null}
-                </div>
+                        复制
+                    </Button>
+                )}
+                <Button
+                    variant="primary"
+                    type="submit"
+                    disabled={saving}
+                    data-testid={`settings-save-btn-${instanceId}`}
+                    className={saved ? "bg-[var(--color-success)]" : undefined}
+                >
+                    {saving ? "保存中..." : saved ? "已保存" : "保存"}
+                </Button>
+                {saveError ? (
+                    <span className="text-body-sm text-[var(--color-error)]" role="alert">
+                        {saveError}
+                    </span>
+                ) : null}
             </div>
         </form>
     );

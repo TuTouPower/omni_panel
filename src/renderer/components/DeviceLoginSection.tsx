@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "./Icon";
+import { Button } from "./ui/Button";
 import { useDeviceLogin } from "../hooks/use-device-login";
 import { build_device_login_url } from "../lib/device-login-url";
 import type {
@@ -113,44 +114,74 @@ export function DeviceLoginSection({
 
     if (checking) {
         return (
-            <div className="ad-field" data-testid={`device-login-checking-${instance_id}`}>
-                <p className="ad-hint">检查登录状态...</p>
+            <div
+                className="flex flex-col gap-1.5"
+                data-testid={`device-login-checking-${instance_id}`}
+            >
+                <p className="text-body-sm text-[var(--color-on-surface-muted)]">检查登录状态...</p>
             </div>
         );
     }
 
     if (has_token && phase !== "error") {
         return (
-            <div className="ad-field" data-testid={`device-login-logged-in-${instance_id}`}>
-                <label className="ad-label">{vendor_label[vendor]} 授权</label>
-                <p className="ad-hint">{phase === "success" ? "登录成功" : "已授权"}</p>
+            <div
+                className="flex flex-col gap-1.5"
+                data-testid={`device-login-logged-in-${instance_id}`}
+            >
+                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    {vendor_label[vendor]} 授权
+                </label>
+                <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                    {phase === "success" ? "登录成功" : "已授权"}
+                </p>
                 {error && (
-                    <p className="ad-hint" data-testid={`device-login-error-${instance_id}`}>
+                    <p
+                        className="text-body-sm text-[var(--color-error)]"
+                        data-testid={`device-login-error-${instance_id}`}
+                    >
                         退出登录失败：{error}
                     </p>
                 )}
-                <button type="button" className="cf-secondary" onClick={() => void handle_logout()}>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => void handle_logout()}
+                >
                     退出登录
-                </button>
+                </Button>
             </div>
         );
     }
 
     return (
-        <div className="ad-field" data-testid={`device-login-section-${instance_id}`}>
-            <label className="ad-label">{vendor_label[vendor]} 授权</label>
+        <div className="flex flex-col gap-1.5" data-testid={`device-login-section-${instance_id}`}>
+            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                {vendor_label[vendor]} 授权
+            </label>
             {phase === "idle" && (
-                <button type="button" className="cf-secondary" onClick={() => void handle_start()}>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => void handle_start()}
+                >
                     {buttonLabel ?? `${vendor_label[vendor]} 登录`}
-                </button>
+                </Button>
             )}
-            {phase === "starting" && <p className="ad-hint">正在获取设备码...</p>}
+            {phase === "starting" && (
+                <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                    正在获取设备码...
+                </p>
+            )}
             {phase === "polling" && device_code && (
-                <div>
+                <div className="flex flex-col gap-1">
                     {device_code.user_code ? (
-                        <p className="ad-hint">
+                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
                             请访问{" "}
                             <a
+                                className="text-[var(--color-accent)] underline"
                                 href={build_device_login_url(device_code)}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -159,24 +190,36 @@ export function DeviceLoginSection({
                             </a>
                         </p>
                     ) : (
-                        <p className="ad-hint">
+                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
                             输入代码：<code>{device_code.user_code}</code>
                         </p>
                     )}
-                    <p className="ad-hint">等待授权完成...</p>
+                    <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                        等待授权完成...
+                    </p>
                 </div>
             )}
-            {phase === "success" && <p className="ad-hint">登录成功</p>}
+            {phase === "success" && (
+                <p className="text-body-sm text-[var(--color-success)]">登录成功</p>
+            )}
             {phase === "error" && (
-                <p className="ad-hint" data-testid={`device-login-error-${instance_id}`}>
+                <p
+                    className="flex items-center gap-1 text-body-sm text-[var(--color-error)]"
+                    data-testid={`device-login-error-${instance_id}`}
+                >
                     <Icon name="alert_circle" size={12} strokeWidth={1.8} />
                     登录失败：{error}
                 </p>
             )}
             {(phase === "error" || phase === "success") && (
-                <button type="button" className="cf-secondary" onClick={() => void handle_start()}>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => void handle_start()}
+                >
                     重新登录
-                </button>
+                </Button>
             )}
         </div>
     );

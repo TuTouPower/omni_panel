@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Icon } from "./Icon";
+import { Button } from "./ui/Button";
 
 export interface WebLoginSectionProps {
     readonly provider: string;
@@ -53,23 +54,29 @@ export function WebLoginSection({
     }, [instance_id, provider, login_url, secret_name, cookie_names, onSecrets]);
 
     return (
-        <div className="ad-field" data-testid={`web-login-section-${provider}`}>
-            <label className="ad-label">网页登录授权</label>
-            <button
+        <div className="flex flex-col gap-1.5" data-testid={`web-login-section-${provider}`}>
+            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                网页登录授权
+            </label>
+            <Button
+                variant="secondary"
+                size="sm"
                 type="button"
-                className="cf-secondary"
                 disabled={logging_in}
                 onClick={() => void handle_login()}
             >
                 {logging_in ? "正在打开登录窗口…" : (buttonLabel ?? "网页登录")}
-            </button>
+            </Button>
             {error && (
-                <p className="ad-hint" data-testid={`web-login-error-${provider}`}>
+                <p
+                    className="flex items-center gap-1 text-body-sm text-[var(--color-error)]"
+                    data-testid={`web-login-error-${provider}`}
+                >
                     <Icon name="alert_circle" size={12} strokeWidth={1.8} />
                     {error}
                 </p>
             )}
-            <p className="ad-hint">
+            <p className="flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]">
                 <Icon name="info" size={12} strokeWidth={1.8} />
                 点击后会在系统浏览器打开登录页，完成后自动保存 Cookie。
             </p>

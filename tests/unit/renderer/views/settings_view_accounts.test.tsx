@@ -84,8 +84,7 @@ describe("SettingsView", () => {
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
 
         // Find the DeepSeek toggle button and click it
-        const toggles = screen.getAllByRole("button").filter((btn) => btn.className.includes("sw"));
-        const deepseek_toggle = toggles[0];
+        const deepseek_toggle = screen.getAllByRole("switch", { name: "启用账号" })[0];
         if (!deepseek_toggle) throw new Error("toggle not found");
         await user.click(deepseek_toggle);
 
@@ -331,8 +330,35 @@ describe("SettingsView", () => {
             });
             // Check VendorMark is present in the dialog header
             const dialog = screen.getByRole("dialog");
-            const mark = dialog.querySelector(".ad-mark");
+            const mark = dialog.querySelector(".vicon");
             expect(mark).not.toBeNull();
+        }
+    });
+
+    it("uses semantic controls for account editing", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        const edit_button = (await screen.findAllByTitle("编辑"))[0];
+        if (!edit_button) throw new Error("missing edit button");
+        await user.click(edit_button);
+
+        const dialog = await screen.findByRole("dialog");
+        expect(within(dialog).getByLabelText("API 密钥")).not.toHaveClass("ad-input");
+        expect(within(dialog).getByTestId("settings-save-btn-deepseek-1")).not.toHaveClass(
+            "ad-btn",
+        );
+    });
+
+    it("renders account enable controls as semantic switches", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        const switches = await screen.findAllByRole("switch");
+        expect(switches.length).toBeGreaterThan(0);
+        for (const control of switches) {
+            expect(control).not.toHaveClass("sw");
         }
     });
 });

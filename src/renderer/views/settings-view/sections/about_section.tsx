@@ -1,3 +1,4 @@
+import { Button } from "../../../components/ui/Button";
 import { Icon } from "../../../components/Icon";
 import logo from "../../../assets/logo.svg";
 import package_json from "../../../../../package.json";
@@ -11,29 +12,39 @@ type BuildInfo = {
 export function AboutSection({ build_info }: { build_info: BuildInfo }) {
     const version = package_json.version;
     return (
-        <div className="about-wrap">
-            <div className="about-hero">
-                <div className="ah-logo-wrap">
-                    <img className="ah-logo" src={logo} alt="OmniPanel" width="96" height="96" />
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-col items-center text-center">
+                <div className="relative mb-3 flex h-24 w-24 items-center justify-center rounded-2xl bg-[var(--color-primary-container)]">
+                    <img src={logo} alt="OmniPanel" width="96" height="96" />
                 </div>
-                <div className="ah-name">OmniPanel</div>
-                <div className="ah-ver">版本 {version}</div>
-                <div className="ah-build">
+                <div className="text-title-lg font-bold">OmniPanel</div>
+                <div className="mt-1 text-body-md text-[var(--color-on-surface-variant)]">
+                    版本 {version}
+                </div>
+                <div
+                    data-testid="about-build"
+                    className="mt-1 max-w-full truncate font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-muted)]"
+                >
                     {build_info
                         ? `${build_info.branch}@${build_info.commit} ${build_info.subject}`
                         : ""}
                 </div>
-                <div className="ah-meta">
+                <div
+                    data-testid="about-platform"
+                    className="mt-1 text-body-sm text-[var(--color-on-surface-muted)]"
+                >
                     {window.usageboard.platform === "darwin" ? "macOS" : "Windows"} · x64
                 </div>
-                <hr className="ah-rule" />
-                <div className="ah-desc">
+                <hr className="my-4 w-full border-[var(--color-hairline)]" />
+                <div className="max-w-[520px] text-body-md leading-relaxed text-[var(--color-on-surface-variant)]">
                     跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex 等各服务的用量限制与 Token
                     趋势。
                 </div>
-                <div className="ah-copyright">© 2026 OmniPanel · 保留所有权利</div>
+                <div className="mt-3 text-body-sm text-[var(--color-on-surface-muted)]">
+                    © 2026 OmniPanel · 保留所有权利
+                </div>
             </div>
-            <div className="about-grid">
+            <div className="grid grid-cols-2 gap-3">
                 {(
                     [
                         {
@@ -94,10 +105,11 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                         },
                     ] as const
                 ).map((c) => (
-                    <button
+                    <Button
                         key={c.id}
-                        className={"ab-card" + (c.id === "update" ? " primary" : "")}
-                        style={{ ["--tint" as string]: c.tint }}
+                        variant={c.id === "update" ? "primary" : "secondary"}
+                        className="h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-normal"
+                        data-testid={`about-card-${c.id}`}
                         type="button"
                         onClick={() => {
                             const urls: Record<string, string> = {
@@ -116,7 +128,15 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             }
                         }}
                     >
-                        <span className="ab-tile">
+                        <span
+                            className="flex h-11 w-11 items-center justify-center rounded-xl"
+                            style={{
+                                background:
+                                    c.id === "update"
+                                        ? "rgba(255,255,255,0.2)"
+                                        : `color-mix(in srgb, ${c.tint} 12%, transparent)`,
+                            }}
+                        >
                             <Icon
                                 name={c.icon}
                                 size={23}
@@ -124,9 +144,17 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                                 color={c.id === "update" ? "#fff" : c.tint}
                             />
                         </span>
-                        <span className="ab-label">{c.label}</span>
-                        <span className="ab-sub">{c.sub}</span>
-                    </button>
+                        <span className="text-title-sm font-semibold">{c.label}</span>
+                        <span
+                            className={
+                                c.id === "update"
+                                    ? "text-body-sm opacity-80"
+                                    : "text-body-sm text-[var(--color-on-surface-muted)]"
+                            }
+                        >
+                            {c.sub}
+                        </span>
+                    </Button>
                 ))}
             </div>
         </div>

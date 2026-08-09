@@ -1,21 +1,22 @@
+import { Switch } from "../ui/Switch";
+
 export function Toggle({
     on,
     onClick,
     disabled,
 }: {
     on: boolean;
-    onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+    onClick?: () => void;
     disabled?: boolean;
 }) {
     return (
-        <button
-            className="sw"
-            data-on={on ? "1" : "0"}
+        <Switch
+            checked={on}
             disabled={disabled}
-            onClick={disabled ? undefined : onClick}
-            type="button"
-        >
-            <i />
-        </button>
+            data-on={on ? "1" : "0"}
+            onChange={() => {
+                onClick?.();
+            }}
+        />
     );
 }

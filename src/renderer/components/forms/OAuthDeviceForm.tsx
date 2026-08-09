@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { DeviceLoginSection, type OAuthDeviceVendor } from "../DeviceLoginSection";
 import type { AddAccountParams } from "../AddAccountDialog";
+import { Input } from "../ui/Input";
 
 export interface OAuthDeviceFormProps {
     readonly instance_id: string;
@@ -36,13 +37,15 @@ export function OAuthDeviceForm({
     );
 
     return (
-        <div data-secret-name={secret_name}>
-            <div className="ad-field">
-                <label className="ad-label">
-                    备注<span className="ad-opt">显示用</span>
+        <div className="flex flex-col gap-3" data-secret-name={secret_name}>
+            <div className="flex flex-col gap-1.5">
+                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    备注
+                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                        显示用
+                    </span>
                 </label>
-                <input
-                    className="ad-input"
+                <Input
                     spellCheck={false}
                     autoCorrect="off"
                     autoCapitalize="off"

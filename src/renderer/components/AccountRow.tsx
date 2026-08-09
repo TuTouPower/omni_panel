@@ -1,3 +1,5 @@
+import { Button } from "./ui/Button";
+import { Switch } from "./ui/Switch";
 import { Icon, VendorMark, type VendorId } from "./Icon";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
 
@@ -97,41 +99,77 @@ export function AccountRow({
             <div className="ar-actions">
                 {is_cpa_child ? (
                     is_removed ? (
-                        <button
-                            className="sub-clear"
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="text-[var(--color-error)]"
                             title="清除该来源已移除的账号"
                             onClick={on_clear}
                         >
                             清除
-                        </button>
+                        </Button>
                     ) : (
                         <>
-                            <button className="sp-ic" title="改备注" onClick={on_rename}>
-                                <Icon name="edit" size={15} />
-                            </button>
-                            <button
-                                className="sw"
-                                data-on={effective_on ? "1" : "0"}
-                                onClick={is_hidden ? on_unhide : on_hide}
+                            <Button
+                                variant="icon"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="改备注"
+                                aria-label="改备注"
+                                onClick={on_rename}
                             >
-                                <i />
-                            </button>
+                                <Icon name="edit" size={15} />
+                            </Button>
+                            <Switch
+                                checked={effective_on}
+                                data-on={effective_on ? "1" : "0"}
+                                aria-label="显示账号"
+                                onChange={() => {
+                                    (is_hidden ? on_unhide : on_hide)?.();
+                                }}
+                            />
                         </>
                     )
                 ) : (
                     <>
-                        <button className="sw" data-on={enabled ? "1" : "0"} onClick={on_toggle}>
-                            <i />
-                        </button>
-                        <button className="sp-ic" title="刷新" onClick={on_refresh}>
+                        <Switch
+                            checked={enabled}
+                            data-on={enabled ? "1" : "0"}
+                            aria-label="启用账号"
+                            onChange={() => {
+                                on_toggle?.();
+                            }}
+                        />
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            title="刷新"
+                            aria-label="刷新"
+                            onClick={on_refresh}
+                        >
                             <Icon name="refresh" size={15} />
-                        </button>
-                        <button className="sp-ic" title="编辑" onClick={on_edit}>
+                        </Button>
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            title="编辑"
+                            aria-label="编辑"
+                            onClick={on_edit}
+                        >
                             <Icon name="edit" size={15} />
-                        </button>
-                        <button className="sp-ic danger" title="删除账号" onClick={on_delete}>
+                        </Button>
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-[var(--color-error)]"
+                            title="删除账号"
+                            aria-label="删除账号"
+                            onClick={on_delete}
+                        >
                             <Icon name="trash" size={15} />
-                        </button>
+                        </Button>
                     </>
                 )}
             </div>

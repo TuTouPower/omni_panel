@@ -328,7 +328,7 @@ describe("SettingsView", () => {
         const cpa_vendor = await screen.findByText("CPA");
         const card = cpa_vendor.closest<HTMLElement>(".acc-card");
         if (!card) throw new Error("missing CPA card");
-        const toggle = card.querySelector<HTMLButtonElement>(".sw");
+        const toggle = card.querySelector<HTMLButtonElement>('[role="switch"]');
         if (!toggle) throw new Error("missing CPA toggle");
 
         await user.click(toggle);
@@ -356,10 +356,9 @@ describe("SettingsView", () => {
         // Should render CPA settings inline (not in a dialog overlay)
         expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
         // Should show breadcrumb
-        expect(document.querySelector(".sp-crumb")).toBeInTheDocument();
-        // Should NOT render inside an acct-dialog overlay
-        const dialog = document.querySelector(".acct-dialog");
-        expect(dialog).toBeNull();
+        expect(screen.getByRole("button", { name: "返回账号列表" })).toBeInTheDocument();
+        // Should NOT render inside a dialog overlay
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("returns to accounts list when breadcrumb back link is clicked", async () => {
@@ -377,8 +376,7 @@ describe("SettingsView", () => {
         expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
 
         // Click breadcrumb link to go back
-        const crumb_link = document.querySelector(".sp-crumb-link");
-        if (!crumb_link) throw new Error("missing breadcrumb link");
+        const crumb_link = screen.getByRole("button", { name: "返回账号列表" });
         await user.click(crumb_link);
 
         // Should be back to accounts list, no inline CPA settings
