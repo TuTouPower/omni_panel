@@ -8,9 +8,7 @@ interface MarkdownMessageProps {
     readonly onRender?: () => void;
 }
 
-/** t225 消息 Markdown 渲染：react-markdown + remark-gfm。
- *  不配 rehype-raw，原始 HTML 不解析（安全约束：会话内容不可信）。
- *  memo 化避免同列其它消息重渲染时重复解析 markdown。 */
+/** 消息 Markdown 渲染：react-markdown + remark-gfm。 */
 export const MarkdownMessage = memo(function MarkdownMessage({
     text,
     onRender,
@@ -18,7 +16,7 @@ export const MarkdownMessage = memo(function MarkdownMessage({
     onRender?.();
     if (!text.trim()) return null;
     return (
-        <div className="markdown-body">
+        <div className="markdown-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
     );

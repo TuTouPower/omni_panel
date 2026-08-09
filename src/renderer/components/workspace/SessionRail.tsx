@@ -1,6 +1,12 @@
-import { useState, type DragEvent } from "react";
+import { useState, type CSSProperties, type DragEvent } from "react";
 import { VendorMark } from "../Icon";
-import { format_tokens, vendor_id_for_source, type SlotsState } from "../../lib/workspace/slots";
+import {
+    agent_accent,
+    format_tokens,
+    vendor_id_for_source,
+    type SlotsState,
+} from "../../lib/workspace/slots";
+import { cn } from "../../lib/utils";
 
 interface SessionRailProps {
     readonly slots: SlotsState;
@@ -11,7 +17,7 @@ interface SessionRailProps {
     readonly on_move: (from: number, to: number) => void;
 }
 
-/** t224 左侧会话槽位 rail：占用槽位显示 agent 色左条 + 标题 + 轮数·tokens；空槽虚线占位。 */
+/** 左侧会话槽位栏：占用槽位显示 provider 标识与元数据，空槽提供装入入口。 */
 export function SessionRail({
     slots,
     collapsed,
@@ -29,23 +35,37 @@ export function SessionRail({
     }
 
     return (
-        <div className={"session-rail" + (collapsed ? " collapsed" : "")}>
+        <div
+            className={cn(
+                "history-rail flex w-[220px] shrink-0 flex-col border-r border-[var(--color-outline)] bg-[var(--color-surface)] transition-[width] duration-200",
+                collapsed && "collapsed w-11",
+            )}
+            data-collapsed={collapsed}
+        >
             <button
                 type="button"
-                className="rail-collapse"
+                className="history-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                 title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 onClick={on_toggle_collapse}
             >
                 {collapsed ? "»" : "«"}
             </button>
-            <div className="rail-scroll">
+            <div
+                className={cn(
+                    "history-rail-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
+                    collapsed && "px-1.5",
+                )}
+            >
                 {slots.map((slot, index) =>
                     slot === null ? (
                         <button
                             type="button"
                             key={`empty-${String(index)}`}
-                            className="rail-slot rail-slot-empty"
+                            className={cn(
+                                "history-slot history-slot-empty flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-body-sm font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                collapsed && "mx-auto min-h-9 w-9 rounded-lg p-0",
+                            )}
                             aria-label={`槽位 ${String(index + 1)}（空）`}
                             onClick={() => {
                                 on_pick(index);
@@ -56,7 +76,13 @@ export function SessionRail({
                     ) : (
                         <div
                             key={`${slot.loc.source}|${slot.loc.env}|${slot.loc.session_id}`}
-                            className="rail-slot"
+                            className={cn(
+                                "history-slot group flex min-h-12 cursor-grab items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-window)] px-2 py-1.5 text-left hover:border-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] active:cursor-grabbing",
+                                collapsed && "mx-auto min-h-9 w-9 justify-center rounded-lg p-0",
+                            )}
+                            style={
+                                { "--agent-accent": agent_accent(slot.loc.source) } as CSSProperties
+                            }
                             draggable
                             data-index={String(index)}
                             onDragStart={() => {
@@ -69,27 +95,35 @@ export function SessionRail({
                                 handle_drop(e, index);
                             }}
                         >
-                            <span className="rail-badge">
+                            <span className="history-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)] ring-1 ring-[var(--agent-accent)]">
                                 <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
-                            <div className="rail-body">
-                                <div className="rail-title" title={slot.title}>
-                                    {slot.title}
+                            {!collapsed && (
+                                <div className="history-slot-body flex min-w-0 flex-1 flex-col gap-0.5">
+                                    <div
+                                        className="history-slot-title truncate text-body-sm font-semibold text-[var(--color-on-surface)]"
+                                        title={slot.title}
+                                    >
+                                        {slot.title}
+                                    </div>
+                                    <div className="history-slot-meta whitespace-nowrap font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                                        {String(slot.calls)} 轮 · {format_tokens(slot.tokens)}{" "}
+                                        tokens
+                                    </div>
                                 </div>
-                                <div className="rail-sub">
-                                    {String(slot.calls)} 轮 · {format_tokens(slot.tokens)} tokens
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                className="rail-close"
-                                aria-label="关闭会话"
-                                onClick={() => {
-                                    on_close(index);
-                                }}
-                            >
-                                ×
-                            </button>
+                            )}
+                            {!collapsed && (
+                                <button
+                                    type="button"
+                                    className="history-slot-close flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                    aria-label="关闭会话"
+                                    onClick={() => {
+                                        on_close(index);
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            )}
                         </div>
                     ),
                 )}
