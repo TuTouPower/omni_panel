@@ -1,11 +1,11 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
+import { use_chart_palette } from "../../lib/echarts_token_resolver";
+import type { ChartPalette } from "../../lib/echarts_token_resolver";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
-import { paletteFor } from "../../lib/token-stats/palette";
 import { prepareHeatmapFromCells } from "../../lib/token-stats/chart-data";
 import type { Metric } from "../../lib/token-stats/types";
-import type { ChartPalette } from "../../lib/token-stats/palette";
 import type { TokenStatsHeatmapCell } from "../../../shared/types/token-stats";
 
 interface HeatmapProps {
@@ -37,7 +37,7 @@ export function buildHeatmapOption(
     // Band 0: (0, q0]; middle band i: (q[i-1], q[i]]; last band: (q[6], +inf).
     // quantiles holds 7 boundaries → 8 bands.
     const pieces = Array.from({ length: HEAT_BANDS }, (_, i) => {
-        const color = pal.heat[i] ?? "#7c6cf6";
+        const color = pal.heat[i] ?? pal.other;
         if (i === 0) return { gt: 0, lte: quantiles[0] ?? 0, color };
         if (i === HEAT_BANDS - 1) return { gt: quantiles[i - 1] ?? 0, color };
         return { gt: quantiles[i - 1] ?? 0, lte: quantiles[i] ?? 0, color };
@@ -47,7 +47,7 @@ export function buildHeatmapOption(
         tooltip: {
             backgroundColor: pal.tipBg,
             borderColor: pal.tipBorder,
-            textStyle: { color: pal.tipText, fontSize: 12, fontFamily: "Inter" },
+            textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
             extraCssText: pal.tipShadow,
             formatter: (params: unknown) => {
                 const p = params as { value: [number, number, number] };
@@ -63,7 +63,7 @@ export function buildHeatmapOption(
             axisTick: { show: false },
             axisLabel: {
                 color: pal.axis,
-                fontFamily: "JetBrains Mono",
+                fontFamily: pal.font_code,
                 fontSize: 10.5,
                 interval: 3,
                 formatter: (v: string | number) => `${String(v).padStart(2, "0")}:00`,
@@ -76,7 +76,7 @@ export function buildHeatmapOption(
             inverse: true,
             axisLine: { lineStyle: { color: pal.axisLine } },
             axisTick: { show: false },
-            axisLabel: { color: pal.axis, fontFamily: "Inter", fontSize: 11 },
+            axisLabel: { color: pal.axis, fontFamily: pal.font_body, fontSize: 11 },
             splitLine: { show: false },
         },
         visualMap: {
@@ -100,7 +100,7 @@ export function Heatmap({ cells, metric, theme }: HeatmapProps) {
         () => prepareHeatmapFromCells(cells, metric),
         [cells, metric],
     );
-    const pal = paletteFor(theme);
+    const { palette: pal } = use_chart_palette(theme);
 
     const option = useMemo(
         () => buildHeatmapOption(data, quantiles, metric, pal),
@@ -109,5 +109,5 @@ export function Heatmap({ cells, metric, theme }: HeatmapProps) {
 
     useECharts(containerRef, () => option, [option]);
 
-    return <div ref={containerRef} className="chart-heat" />;
+    return <div ref={containerRef} className="h-[410px] min-h-0 w-full" />;
 }

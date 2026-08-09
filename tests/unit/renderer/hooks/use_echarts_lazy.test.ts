@@ -1,6 +1,7 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { notify_chart_palette_change } from "../../../../src/renderer/lib/echarts_token_resolver";
 import { useECharts } from "../../../../src/renderer/hooks/use-echarts";
 
 /** t249 AC4：echarts 动态加载的卸载竞态。动态 import resolve 前组件已卸载时，
@@ -80,5 +81,24 @@ describe("useECharts 动态加载", () => {
         unmount();
         window.dispatchEvent(new Event("resize"));
         expect(chart.resize).not.toHaveBeenCalled();
+    });
+
+    it("主题 palette 变化后重绘已初始化图表", async () => {
+        const containerRef = make_container();
+        const chart = { setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() };
+        mocks.init.mockReturnValueOnce(chart);
+        const { unmount } = renderHook(() =>
+            useECharts(containerRef, () => ({ type: "pie", series: [] }), []),
+        );
+
+        await flush_promises();
+        expect(chart.setOption).toHaveBeenCalledTimes(1);
+
+        act(() => {
+            notify_chart_palette_change();
+        });
+        await flush_promises();
+        expect(chart.setOption).toHaveBeenCalledTimes(2);
+        unmount();
     });
 });

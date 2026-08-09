@@ -6,10 +6,16 @@ interface PanelTitleBarProps {
     /** 右侧动作区（关闭/最小化等）。 */
     actions?: ReactNode;
     className?: string;
+    "data-panel-titlebar"?: string;
 }
 
 /** t269: 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。 */
-export function PanelTitleBar({ title, actions, className }: PanelTitleBarProps) {
+export function PanelTitleBar({
+    title,
+    actions,
+    className,
+    "data-panel-titlebar": dataPanelTitlebar,
+}: PanelTitleBarProps) {
     return (
         <div
             className={cn(
@@ -18,9 +24,12 @@ export function PanelTitleBar({ title, actions, className }: PanelTitleBarProps)
                     "px-[var(--spacing-panel-padding)] text-body-md text-[var(--color-on-surface)]",
                 className,
             )}
+            data-panel-titlebar={dataPanelTitlebar}
         >
             <div className="truncate">{title}</div>
-            {actions !== undefined && <div className="flex items-center gap-1">{actions}</div>}
+            {actions !== undefined && (
+                <div className="panel-titlebar-actions flex items-center gap-1">{actions}</div>
+            )}
         </div>
     );
 }

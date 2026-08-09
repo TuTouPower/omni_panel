@@ -893,16 +893,25 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         await waitFor(() => {
             expect(last_dashboard_gran()).toBe("hour");
         });
-        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
-        expect(screen.getByRole("button", { name: "天" })).not.toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+        expect(screen.getByRole("button", { name: "天" })).toHaveAttribute("aria-pressed", "false");
 
         // Clicking day restores the day button. The day query for this preset is
         // cached, so no extra network request is required.
         await user.click(screen.getByRole("button", { name: "天" }));
         await waitFor(() => {
-            expect(screen.getByRole("button", { name: "天" })).toHaveClass("on");
+            expect(screen.getByRole("button", { name: "天" })).toHaveAttribute(
+                "aria-pressed",
+                "true",
+            );
         });
-        expect(screen.getByRole("button", { name: "小时" })).not.toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "false",
+        );
     });
 
     it("24h preset forces hour granularity and ignores day click", async () => {
@@ -914,11 +923,17 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         await waitFor(() => {
             expect(last_dashboard_gran()).toBe("hour");
         });
-        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
 
         await user.click(screen.getByRole("button", { name: "天" }));
-        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
-        expect(screen.getByRole("button", { name: "天" })).not.toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+        expect(screen.getByRole("button", { name: "天" })).toHaveAttribute("aria-pressed", "false");
         // No additional dashboard request should be fired because the effective
         // granularity does not change.
         expect(last_dashboard_gran()).toBe("hour");
@@ -942,14 +957,23 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         await waitFor(() => {
             expect(last_dashboard_gran()).toBe("hour");
         });
-        expect(screen.getByRole("button", { name: "小时" })).toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
 
         // Switch back to day: the day key is cached, so the UI updates without an
         // additional network request.
         await user.click(screen.getByRole("button", { name: "天" }));
         await waitFor(() => {
-            expect(screen.getByRole("button", { name: "天" })).toHaveClass("on");
+            expect(screen.getByRole("button", { name: "天" })).toHaveAttribute(
+                "aria-pressed",
+                "true",
+            );
         });
-        expect(screen.getByRole("button", { name: "小时" })).not.toHaveClass("on");
+        expect(screen.getByRole("button", { name: "小时" })).toHaveAttribute(
+            "aria-pressed",
+            "false",
+        );
     });
 });

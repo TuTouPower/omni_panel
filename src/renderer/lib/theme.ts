@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
+import { notify_chart_palette_change } from "./echarts_token_resolver";
 
 function apply_theme(is_dark: boolean) {
-    document.documentElement.setAttribute("data-theme", is_dark ? "dark" : "light");
+    const root = document.documentElement;
+    const next_theme = is_dark ? "dark" : "light";
+    if (root.getAttribute("data-theme") === next_theme) return;
+    root.setAttribute("data-theme", next_theme);
+    notify_chart_palette_change();
 }
 
 /**
@@ -33,7 +38,9 @@ export function apply_accent(accent_color: string | undefined) {
         : is_valid_hex
           ? (accent_color ?? "var(--accent-blue)")
           : "var(--accent-blue)";
+    if (root.style.getPropertyValue("--accent").trim() === final_accent) return;
     root.style.setProperty("--accent", final_accent);
+    notify_chart_palette_change();
 }
 
 export function useTheme() {
@@ -54,6 +61,14 @@ export function useTheme() {
                 // default to light
                 apply_theme(false);
             });
+    }, []);
+
+    // Listen for config changes broadcast by the main process.
+    useEffect(() => {
+        const unsubscribe = window.usageboard.event.onConfigChange?.((config) => {
+            apply_accent(config.accentColor);
+        });
+        return unsubscribe;
     }, []);
 
     // Listen for theme changes broadcast by the main process
