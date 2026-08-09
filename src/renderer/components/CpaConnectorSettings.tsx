@@ -1,4 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { Select } from "./ui/Select";
+import { Switch } from "./ui/Switch";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
 import { SecretInput } from "./SecretInput";
@@ -264,24 +268,21 @@ export function CpaConnectorSettings({
                         <div className="cr-title">启用</div>
                     </div>
                     <div className="cr-ctrl">
-                        <button
-                            className="sw"
+                        <Switch
+                            checked={enabled}
                             data-on={enabled ? "1" : "0"}
-                            type="button"
-                            onClick={() => {
+                            aria-label="启用"
+                            onChange={() => {
                                 onToggleEnabled(!enabled);
                             }}
-                        >
-                            <i />
-                        </button>
+                        />
                     </div>
                 </div>
                 <div className="cfg-sec">连接配置</div>
                 <div className="cfg-field">
                     <div className="cfg-label">备注</div>
-                    <input
+                    <Input
                         aria-label="备注"
-                        className="ad-input"
                         spellCheck={false}
                         autoCorrect="off"
                         autoCapitalize="off"
@@ -294,9 +295,8 @@ export function CpaConnectorSettings({
                 </div>
                 <div className="cfg-field">
                     <div className="cfg-label">CPA-Manager URL</div>
-                    <input
+                    <Input
                         aria-label="CPA-Manager URL"
-                        className="ad-input"
                         spellCheck={false}
                         autoCorrect="off"
                         autoCapitalize="off"
@@ -331,22 +331,20 @@ export function CpaConnectorSettings({
                         <div className="cr-title">跟随全局自动刷新间隔</div>
                     </div>
                     <div className="cr-ctrl">
-                        <button
-                            className="sw"
+                        <Switch
+                            checked={followGlobal}
                             data-on={followGlobal ? "1" : "0"}
-                            type="button"
-                            onClick={() => {
+                            aria-label="跟随全局自动刷新间隔"
+                            onChange={() => {
                                 setFollowGlobal((v) => !v);
                             }}
-                        >
-                            <i />
-                        </button>
+                        />
                     </div>
                 </div>
                 {followGlobal ? (
                     <div className="cfg-row">
                         <div className="cr-text">
-                            <div className="cr-note" style={{ color: "var(--text-3)" }}>
+                            <div className="cr-note text-body-sm text-[var(--color-on-surface-muted)]">
                                 当前全局为「{globalIntervalLabel}」自动刷新
                             </div>
                         </div>
@@ -357,12 +355,8 @@ export function CpaConnectorSettings({
                             <div className="cr-title">该数据源刷新频率</div>
                         </div>
                         <div className="cr-ctrl">
-                            <select
-                                className="ad-input"
-                                spellCheck={false}
-                                autoCorrect="off"
-                                autoCapitalize="off"
-                                style={{ width: "auto", padding: "6px 10px" }}
+                            <Select
+                                className="w-auto"
                                 value={syncInterval}
                                 onChange={(e) => {
                                     setSyncInterval(
@@ -374,31 +368,36 @@ export function CpaConnectorSettings({
                                 {REFRESH_INTERVAL_OPTIONS.map((opt) => (
                                     <option key={opt.label}>{opt.label}</option>
                                 ))}
-                            </select>
+                            </Select>
                         </div>
                     </div>
                 )}
 
                 {error && (
-                    <div className="text-xs" style={{ color: "var(--red)" }} role="alert">
+                    <div className="text-body-sm text-[var(--color-error)]" role="alert">
                         {error}
                     </div>
                 )}
 
                 <div className="cpa-foot">
-                    <button
-                        className="cf-save"
+                    <Button
+                        variant="primary"
                         data-testid="cpa-settings-save-btn"
                         disabled={saving}
                         type="submit"
                     >
-                        <Icon name="check" size={15} color="#fff" />
+                        <Icon name="check" size={15} />
                         {saving ? "保存中..." : "保存"}
-                    </button>
-                    <button className="cf-remove" type="button" onClick={handle_remove}>
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        className="text-[var(--color-error)]"
+                        type="button"
+                        onClick={handle_remove}
+                    >
                         <Icon name="trash" size={14} />
                         移除数据源
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -416,30 +415,31 @@ export function CpaConnectorSettings({
                         </span>
                         <div className="cr-ctrl">
                             {onEditLabelMap && (
-                                <button
-                                    className="sp-ic"
+                                <Button
+                                    variant="icon"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
                                     title="编辑数据标签映射"
+                                    aria-label="编辑数据标签映射"
                                     type="button"
                                     onClick={() => {
                                         onEditLabelMap(monitor.provider);
                                     }}
                                 >
                                     <Icon name="tag" size={14} />
-                                </button>
+                                </Button>
                             )}
-                            <button
-                                className="sw"
+                            <Switch
+                                checked={monitors[monitor.name] ?? false}
                                 data-on={monitors[monitor.name] ? "1" : "0"}
-                                type="button"
-                                onClick={() => {
+                                aria-label={`启用${PROVIDER_LABELS[monitor.provider] ?? monitor.provider}同步`}
+                                onChange={() => {
                                     setMonitors((prev) => ({
                                         ...prev,
                                         [monitor.name]: !prev[monitor.name],
                                     }));
                                 }}
-                            >
-                                <i />
-                            </button>
+                            />
                         </div>
                     </div>
                 ))}

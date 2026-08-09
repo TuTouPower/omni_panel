@@ -9,23 +9,38 @@ interface DialogProps {
     title?: ReactNode;
     children?: ReactNode;
     footer?: ReactNode;
+    role?: "dialog" | "alertdialog";
+    ariaLabel?: string;
+    backdropTestId?: string;
 }
 
 /**
  * t269: 统一 Dialog（372/420 双宽 + 遮罩）。只消费语义 token。
  */
-export function Dialog({ open, onClose, width = 372, title, children, footer }: DialogProps) {
+export function Dialog({
+    open,
+    onClose,
+    width = 372,
+    title,
+    children,
+    footer,
+    role = "dialog",
+    ariaLabel,
+    backdropTestId,
+}: DialogProps) {
     if (!open) return null;
     return (
         <div
             className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center"
-            role="dialog"
+            role={role}
             aria-modal="true"
+            aria-label={ariaLabel}
         >
             <div
                 className="absolute inset-0 bg-[color-mix(in_srgb,var(--color-on-surface)_40%,transparent)] backdrop-blur-[3px]"
                 onClick={onClose}
                 aria-hidden="true"
+                data-testid={backdropTestId}
             />
             <div
                 className={cn(

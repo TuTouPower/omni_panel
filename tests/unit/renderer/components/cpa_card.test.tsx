@@ -82,7 +82,7 @@ describe("CpaCard", () => {
         const child_rows = document.querySelectorAll<HTMLElement>(".acc-row:not(.ds-row)");
         const claude_row = child_rows[0];
         if (!claude_row) throw new Error("missing Claude child row");
-        const switches = claude_row.querySelectorAll(".sw");
+        const switches = claude_row.querySelectorAll('[role="switch"]');
         expect(switches.length).toBe(1);
     });
 
@@ -96,7 +96,7 @@ describe("CpaCard", () => {
         const on_hide = vi.fn();
         render_card({ on_hide });
         const claude_row = document.querySelector<HTMLElement>(".acc-row:not(.ds-row)");
-        const btn = claude_row?.querySelector(".sw");
+        const btn = claude_row?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
         expect(on_hide).toHaveBeenCalledWith({
@@ -111,7 +111,7 @@ describe("CpaCard", () => {
         render_card({ on_unhide });
         const child_rows = document.querySelectorAll<HTMLElement>(".acc-row:not(.ds-row)");
         const codex_row = child_rows[1];
-        const btn = codex_row?.querySelector(".sw");
+        const btn = codex_row?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
         expect(on_unhide).toHaveBeenCalledWith({

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { Button } from "./ui/Button";
+import { Switch } from "./ui/Switch";
 import { Icon, VendorMark, type VendorId } from "./Icon";
 import { AccountRow } from "./AccountRow";
 
@@ -86,18 +88,44 @@ export function CpaCard({
                     <span className={"ar-stat" + cpa_status.severity_class}>{cpa_status.text}</span>
                 </span>
                 <div className="ar-actions">
-                    <button className="sw" data-on={enabled ? "1" : "0"} onClick={on_toggle}>
-                        <i />
-                    </button>
-                    <button className="sp-ic" title="刷新" onClick={on_refresh}>
+                    <Switch
+                        checked={enabled}
+                        data-on={enabled ? "1" : "0"}
+                        aria-label="启用 CPA"
+                        onChange={() => {
+                            on_toggle();
+                        }}
+                    />
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="刷新"
+                        aria-label="刷新"
+                        onClick={on_refresh}
+                    >
                         <Icon name="refresh" size={15} />
-                    </button>
-                    <button className="sp-ic" title="编辑（连接设置）" onClick={on_edit}>
+                    </Button>
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="编辑（连接设置）"
+                        aria-label="编辑（连接设置）"
+                        onClick={on_edit}
+                    >
                         <Icon name="edit" size={15} />
-                    </button>
-                    <button className="sp-ic danger" title="移除数据源" onClick={on_delete}>
+                    </Button>
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-[var(--color-error)]"
+                        title="移除数据源"
+                        aria-label="移除数据源"
+                        onClick={on_delete}
+                    >
                         <Icon name="trash" size={15} />
-                    </button>
+                    </Button>
                 </div>
             </div>
             {unique_accounts.map((row) => (

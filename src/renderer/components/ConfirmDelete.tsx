@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { Button } from "./ui/Button";
+import { Dialog } from "./ui/Dialog";
 import { Icon } from "./Icon";
 
 interface ConfirmDeleteProps {
@@ -35,41 +37,40 @@ export function ConfirmDelete({
     }, []);
 
     return (
-        <div className="acct-dialog-scrim" onClick={onCancel} data-testid="confirm-delete-scrim">
-            <div
-                ref={containerRef}
-                className="acct-dialog confirm"
-                onClick={(e) => {
-                    e.stopPropagation();
-                }}
-                role="alertdialog"
-                aria-label={title}
-            >
-                <div className="ad-head">
-                    <span className="ad-mark danger">
+        <Dialog
+            open
+            onClose={onCancel}
+            role="alertdialog"
+            ariaLabel={title}
+            backdropTestId="confirm-delete-scrim"
+            title={
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] text-[var(--color-error)]">
                         <Icon name="trash" size={18} />
                     </span>
-                    <div className="ad-htext">
-                        <div className="ad-title">{title}</div>
-                        <div className="ad-sub">此操作无法撤销</div>
+                    <div className="min-w-0">
+                        <div className="text-title-sm font-semibold">{title}</div>
+                        <div className="mt-0.5 text-body-sm text-[var(--color-on-surface-muted)]">
+                            此操作无法撤销
+                        </div>
                     </div>
                 </div>
-                <div className="ad-body">
-                    <div className="confirm-msg">
-                        确定要删除账号 <b>{name}</b> 吗？删除后该账号的所有本地用量记录将一并移除。
-                    </div>
-                </div>
-                <div className="ad-foot">
-                    <div className="ad-foot-r">
-                        <button className="ad-btn ghost" type="button" onClick={onCancel}>
-                            取消
-                        </button>
-                        <button className="ad-btn danger" type="button" onClick={onConfirm}>
-                            {confirmLabel}
-                        </button>
-                    </div>
-                </div>
+            }
+            footer={
+                <>
+                    <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+                        取消
+                    </Button>
+                    <Button variant="danger" size="sm" type="button" onClick={onConfirm}>
+                        {confirmLabel}
+                    </Button>
+                </>
+            }
+        >
+            <div ref={containerRef} tabIndex={-1} className="text-body-md leading-relaxed">
+                确定要删除账号 <strong>{name}</strong>{" "}
+                吗？删除后该账号的所有本地用量记录将一并移除。
             </div>
-        </div>
+        </Dialog>
     );
 }

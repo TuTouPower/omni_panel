@@ -1,4 +1,5 @@
 import { Icon } from "./Icon";
+import { Textarea } from "./ui/Textarea";
 
 export interface SessionSectionProps {
     readonly secret_name: string;
@@ -8,10 +9,12 @@ export interface SessionSectionProps {
 
 export function SessionSection({ secret_name, value, onChange }: SessionSectionProps) {
     return (
-        <div className="ad-field" data-testid={`session-section-${secret_name}`}>
-            <label className="ad-label">Cookie 字符串</label>
-            <textarea
-                className="aa-textarea mono"
+        <div className="flex flex-col gap-1.5" data-testid={`session-section-${secret_name}`}>
+            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                Cookie 字符串
+            </label>
+            <Textarea
+                className="min-h-[72px] font-[var(--font-code-md)]"
                 spellCheck={false}
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -21,7 +24,7 @@ export function SessionSection({ secret_name, value, onChange }: SessionSectionP
                 }}
                 placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
             />
-            <div className="ad-hint" style={{ marginTop: 6 }}>
+            <div className="mt-1 flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]">
                 <Icon name="info" size={12} strokeWidth={1.8} />
                 保存后可在账号设置中使用网页登录自动捕获 Cookie
             </div>

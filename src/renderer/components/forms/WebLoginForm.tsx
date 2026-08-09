@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { AddAccountParams } from "../AddAccountDialog";
 import type { AddServiceId } from "../../lib/common-services";
 import { WebLoginSection } from "../WebLoginSection";
+import { Input } from "../ui/Input";
 
 export interface WebLoginFormProps {
     readonly provider: AddServiceId;
@@ -34,13 +35,15 @@ export function WebLoginForm({
     );
 
     return (
-        <div>
-            <div className="ad-field">
-                <label className="ad-label">
-                    备注<span className="ad-opt">显示用</span>
+        <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    备注
+                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                        显示用
+                    </span>
                 </label>
-                <input
-                    className="ad-input"
+                <Input
                     spellCheck={false}
                     autoCorrect="off"
                     autoCapitalize="off"

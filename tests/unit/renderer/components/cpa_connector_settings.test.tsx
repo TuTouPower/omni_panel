@@ -240,7 +240,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ onSave });
 
         const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
-        const btn = followRow?.querySelector(".sw");
+        const btn = followRow?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing follow-global toggle");
         await user.click(btn);
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -286,8 +286,8 @@ describe("CpaConnectorSettings", () => {
         if (!claudeRow || !antigravityRow) throw new Error("missing monitor rows");
 
         // Toggle monitor_claude off
-        const claudeBtn = claudeRow.querySelector(".sw");
-        const antigravityBtn = antigravityRow.querySelector(".sw");
+        const claudeBtn = claudeRow.querySelector('[role="switch"]');
+        const antigravityBtn = antigravityRow.querySelector('[role="switch"]');
         if (!claudeBtn || !antigravityBtn) throw new Error("missing toggle buttons");
         await user.click(claudeBtn);
         // Toggle monitor_antigravity on
@@ -387,7 +387,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ enabled: true, onToggleEnabled });
 
         const enabledRow = screen.getByText("启用").closest(".cfg-row");
-        const btn = enabledRow?.querySelector(".sw");
+        const btn = enabledRow?.querySelector('[role="switch"]');
         expect(btn).toBeTruthy();
         expect(btn).toHaveAttribute("data-on", "1");
 
@@ -400,7 +400,7 @@ describe("CpaConnectorSettings", () => {
         renderSettings({ enabled: false });
 
         const enabledRow = screen.getByText("启用").closest(".cfg-row");
-        const btn = enabledRow?.querySelector(".sw");
+        const btn = enabledRow?.querySelector('[role="switch"]');
         expect(btn).toHaveAttribute("data-on", "0");
     });
 
@@ -535,7 +535,7 @@ describe("CpaConnectorSettings", () => {
 
         // Toggle follow-global on
         const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
-        const btn = followRow?.querySelector(".sw");
+        const btn = followRow?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing follow-global toggle");
         await user.click(btn);
 

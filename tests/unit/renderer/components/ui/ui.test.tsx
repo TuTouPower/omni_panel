@@ -116,22 +116,25 @@ describe("ui 组件库（t269）", () => {
 
     it("Segmented 高亮选中项并回调", () => {
         let value = "a";
-        const { container } = render(
-            <Segmented
-                options={[
-                    { value: "a", label: "A" },
-                    { value: "b", label: "B" },
-                ]}
-                value={value}
-                onChange={(v) => (value = v)}
-            />,
+        const options = [
+            { value: "a", label: "A" },
+            { value: "b", label: "B" },
+        ];
+        const { container, rerender } = render(
+            <Segmented options={options} value={value} onChange={(v) => (value = v)} />,
         );
         const buttons = container.querySelectorAll("button");
+        expect(buttons[0]?.getAttribute("aria-pressed")).toBe("true");
+        expect(buttons[1]?.getAttribute("aria-pressed")).toBe("false");
         expect(buttons[0]?.className).toContain("bg-[var(--color-surface-window)]");
         const second = buttons[1];
         if (!second) throw new Error("second segment missing");
         fireEvent.click(second);
         expect(value).toBe("b");
+        // 父级以新 value 重渲染后，aria-pressed 与选中态同步
+        rerender(<Segmented options={options} value={value} onChange={(v) => (value = v)} />);
+        expect(second.getAttribute("aria-pressed")).toBe("true");
+        expect(buttons[0]?.getAttribute("aria-pressed")).toBe("false");
     });
 
     it("Menu + MenuItem 渲染，danger 项加 error 类", () => {

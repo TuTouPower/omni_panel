@@ -11,7 +11,10 @@ test.describe("settings provider accounts (web)", () => {
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-about").click();
 
-        const logo = settings.page.locator(".ah-logo");
+        // t271：About 页已迁移为语义 token + utility class，logo 不再有 .ah-logo。
+        // 标题栏与 About 页各有一个 alt="OmniPanel" 的 img；About 页 logo 固定
+        // width=96（about_section.tsx），以此区分标题栏 24px 小 logo。
+        const logo = settings.page.locator('img[alt="OmniPanel"][width="96"]');
         await expect(logo).toBeVisible();
     });
 
@@ -20,7 +23,9 @@ test.describe("settings provider accounts (web)", () => {
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-about").click();
 
-        await expect(settings.page.locator(".ah-ver")).toContainText("版本");
+        // t271：版本文本为 `版本 {version}`（about_section.tsx 语义定位），
+        // 不再有 .ah-ver；用文本前缀匹配版本行。
+        await expect(settings.page.getByText(/^版本 /)).toBeVisible();
     });
 
     test("accounts page lists connector rows", async ({ webPage }) => {

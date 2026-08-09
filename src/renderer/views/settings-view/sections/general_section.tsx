@@ -3,6 +3,7 @@ import { AliasEditor } from "../../../components/AliasEditor";
 import { Select } from "../../../components/settings/Select";
 import { SetRow } from "../../../components/settings/SetRow";
 import { Toggle } from "../../../components/settings/Toggle";
+import { Input } from "../../../components/ui/Input";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_label_to_seconds,
@@ -104,8 +105,8 @@ export function GeneralSection({
 
             <div className="set-group-label">网络</div>
             <SetRow title="代理地址" sub="HTTP/HTTPS/SOCKS 代理，留空直连">
-                <input
-                    className="ad-input mono"
+                <Input
+                    className="font-[var(--font-code-md)]"
                     value={config.proxy?.url ?? ""}
                     onChange={(e) => {
                         const val = e.target.value.trim();
@@ -251,11 +252,10 @@ export function GeneralSection({
                 title="即将重置提醒阈值"
                 sub="重置时间剩余占周期的百分之多少时在即将重置面板展示；留空表示不监控"
             >
-                <input
+                <Input
                     type="number"
                     min={0}
                     max={100}
-                    className="ad-input"
                     style={{ width: 80 }}
                     value={
                         config.upcomingResetThresholdPercent === null ||

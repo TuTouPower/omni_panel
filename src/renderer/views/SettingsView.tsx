@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { PanelTitleBar } from "../components/PanelTitleBar";
+import { Button } from "../components/ui/Button";
 import { use_panel_navigation } from "../lib/panel-navigation";
 import { refresh_seconds_to_label } from "../lib/refresh-intervals";
 import {
@@ -418,9 +419,9 @@ export function SettingsView() {
                 />
                 {/* header */}
                 <div className="settings-head">
-                    <button className="back-btn" onClick={goBack} type="button">
+                    <Button variant="ghost" size="sm" onClick={goBack} aria-label="返回">
                         <Icon name="back" size={20} />
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="settings-body">
@@ -429,7 +430,13 @@ export function SettingsView() {
                         {NAV_ITEMS.map((n) => (
                             <button
                                 key={n.id}
-                                className={`set-nav-item${section === n.id ? " on" : ""}`}
+                                aria-current={section === n.id ? "page" : undefined}
+                                className={
+                                    "set-nav-item" +
+                                    (section === n.id
+                                        ? " bg-[var(--color-primary-container)] text-[var(--accent)]"
+                                        : " text-[var(--color-on-surface-variant)]")
+                                }
                                 onClick={() => {
                                     setSection(n.id);
                                     setEditingCpaId(null);
@@ -437,7 +444,14 @@ export function SettingsView() {
                                 data-testid={`settings-plugin-nav-${n.id}`}
                                 type="button"
                             >
-                                <span className="sn-ic">
+                                <span
+                                    className={
+                                        "sn-ic" +
+                                        (section === n.id
+                                            ? " text-[var(--accent)]"
+                                            : " text-[var(--color-on-surface-muted)]")
+                                    }
+                                >
                                     <Icon name={n.icon} size={16} strokeWidth={1.7} />
                                 </span>
                                 {n.label}

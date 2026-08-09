@@ -33,8 +33,9 @@ test.describe("settings view (web)", () => {
         await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toBeVisible();
 
         await sPage.getByRole("button", { name: /彩色区分：九色循环/ }).click();
-        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toHaveClass(
-            /\bon\b/,
+        await expect(sPage.getByRole("button", { name: /彩色区分：九色循环/ })).toHaveAttribute(
+            "aria-pressed",
+            "true",
         );
     });
 
@@ -56,6 +57,67 @@ test.describe("settings view (web)", () => {
         await expect(styleField.getByRole("button", { name: "细线型" })).toBeVisible();
         await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toBeVisible();
         await styleField.getByRole("button", { name: "粗胶囊型" }).click();
-        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toHaveClass(/\bon\b/);
+        await expect(styleField.getByRole("button", { name: "粗胶囊型" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+    });
+
+    test("highlights current section with primary-container bg and accent text/icon", async ({
+        webPage,
+    }) => {
+        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        const settings = await SettingsPage.open_via_hash(webPage);
+        const sPage = settings.page;
+
+        const general = sPage.locator('[data-testid="settings-plugin-nav-general"]');
+        const accounts = sPage.locator('[data-testid="settings-plugin-nav-accounts"]');
+        const appearance = sPage.locator('[data-testid="settings-plugin-nav-appearance"]');
+
+        // Resolve token vars to the same rgb()/rgba() strings getComputedStyle
+        // returns, so the assertions hold under whichever theme is active.
+        const tokenColor = (name: string) =>
+            sPage.evaluate((varName) => {
+                const raw = getComputedStyle(document.documentElement)
+                    .getPropertyValue(varName)
+                    .trim();
+                const probe = document.createElement("span");
+                probe.style.color = raw;
+                document.body.appendChild(probe);
+                const resolved = getComputedStyle(probe).color;
+                probe.remove();
+                return resolved;
+            }, name);
+
+        const navStyle = (item: ReturnType<typeof sPage.locator>) =>
+            item.evaluate((el) => {
+                const cs = getComputedStyle(el);
+                const icon = el.querySelector(".sn-ic");
+                return {
+                    bg: cs.backgroundColor,
+                    color: cs.color,
+                    iconColor: icon ? getComputedStyle(icon).color : "",
+                };
+            });
+
+        const selected = {
+            bg: await tokenColor("--color-primary-container"),
+            color: await tokenColor("--accent"),
+            iconColor: await tokenColor("--accent"),
+        };
+        const unselected = {
+            bg: "rgba(0, 0, 0, 0)", // transparent — only the current section carries the container bg
+            color: await tokenColor("--color-on-surface-variant"),
+            iconColor: await tokenColor("--color-on-surface-muted"),
+        };
+
+        // Default section: General is the highlighted one.
+        expect(await navStyle(general)).toEqual(selected);
+        expect(await navStyle(accounts)).toEqual(unselected);
+
+        // Switching sections moves the highlight onto Appearance.
+        await appearance.click();
+        expect(await navStyle(appearance)).toEqual(selected);
+        expect(await navStyle(general)).toEqual(unselected);
     });
 });

@@ -1,6 +1,7 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
 import { BarSchemeField } from "../../../components/settings/BarSchemeField";
 import { SetRow } from "../../../components/settings/SetRow";
+import { Segmented } from "../../../components/ui/Segmented";
 import { BAR_STYLE_LABELS, bar_style_label_to_value } from "../lib";
 import { apply_accent } from "../../../lib/theme";
 
@@ -22,88 +23,72 @@ export function AppearanceSection({
         <>
             <div className="set-group-label">主题</div>
             <SetRow title="配色方案">
-                <div className="set-seg">
-                    {(
-                        [
-                            ["light", "浅色"],
-                            ["dark", "深色"],
-                            ["system", "跟随系统"],
-                        ] as const
-                    ).map(([k, lb]) => (
-                        <button
-                            key={k}
-                            className={
-                                (
-                                    k === "system"
-                                        ? themeMode ===
-                                          (window.matchMedia("(prefers-color-scheme: dark)").matches
-                                              ? "dark"
-                                              : "light")
-                                        : themeMode === k
-                                )
-                                    ? "on"
-                                    : ""
-                            }
-                            onClick={() => {
-                                const newTheme = k;
-                                void save_config({
-                                    ...config,
-                                    theme: newTheme,
-                                });
-                                window.usageboard.theme.set(newTheme);
-                            }}
-                            type="button"
-                        >
-                            {lb}
-                        </button>
-                    ))}
-                </div>
+                <Segmented
+                    value={themeMode}
+                    options={[
+                        { value: "light", label: "浅色" },
+                        { value: "dark", label: "深色" },
+                        { value: "system", label: "跟随系统" },
+                    ]}
+                    onChange={(newTheme) => {
+                        void save_config({
+                            ...config,
+                            theme: newTheme,
+                        });
+                        window.usageboard.theme.set(newTheme);
+                    }}
+                />
             </SetRow>
             <SetRow title="强调色" sub="用于选中状态、进度条与主要操作">
-                <div className="accent-row">
-                    {ACCENTS.map((c) => (
-                        <button
-                            key={c}
-                            className={`accent-sw${accentColor === c ? " on" : ""}`}
-                            style={{ background: c, color: c }}
-                            onClick={() => {
-                                void save_config({ ...config, accentColor: c });
-                                // t268: 写统一 --accent 变量（派生 strong/container/ring
-                                // 与兼容桥 --blue/--primary 随动），即时生效。
-                                apply_accent(c);
-                            }}
-                            type="button"
-                        />
-                    ))}
-                </div>
-            </SetRow>
-            <div className="set-group-label">用量条</div>
-            <SetRow title="用量条样式" sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。">
-                <div className="set-seg" aria-label="用量条样式">
-                    {BAR_STYLE_LABELS.map((label) => {
-                        const value = bar_style_label_to_value(label);
+                <div className="flex items-center gap-2">
+                    {ACCENTS.map((c) => {
+                        const selected = accentColor === c;
                         return (
                             <button
-                                key={label}
-                                className={usageBarStyle === value ? "on" : ""}
+                                key={c}
+                                className={
+                                    "h-6 w-6 rounded-full border-2 border-transparent transition-transform " +
+                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] " +
+                                    (selected ? "scale-110 border-[var(--color-on-surface)]" : "")
+                                }
+                                style={{ background: c }}
+                                aria-label={`强调色 ${c}`}
+                                aria-pressed={selected}
                                 onClick={() => {
-                                    void save_config({
-                                        ...config,
-                                        usageBarStyle: value,
-                                    });
+                                    void save_config({ ...config, accentColor: c });
+                                    // t268: 写统一 --accent 变量（派生 strong/container/ring
+                                    // 与兼容桥 --blue/--primary 随动），即时生效。
+                                    apply_accent(c);
                                 }}
                                 type="button"
-                            >
-                                {label}
-                            </button>
+                            />
                         );
                     })}
                 </div>
             </SetRow>
-            <div className="set-row set-row-stack">
-                <div className="sr-text">
-                    <div className="sr-title">用量条颜色方案</div>
-                    <div className="sr-sub">
+            <div className="set-group-label">用量条</div>
+            <SetRow title="用量条样式" sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。">
+                <Segmented
+                    aria-label="用量条样式"
+                    value={usageBarStyle}
+                    options={BAR_STYLE_LABELS.map((label) => ({
+                        value: bar_style_label_to_value(label),
+                        label,
+                    }))}
+                    onChange={(value) => {
+                        void save_config({
+                            ...config,
+                            usageBarStyle: value,
+                        });
+                    }}
+                />
+            </SetRow>
+            <div className="flex flex-col gap-3 border-b border-[var(--color-hairline)] py-3">
+                <div>
+                    <div className="text-body-md font-medium text-[var(--color-on-surface)]">
+                        用量条颜色方案
+                    </div>
+                    <div className="mt-0.5 text-body-sm text-[var(--color-on-surface-muted)]">
                         控制所有用量条的取色方式。默认按当前用量显示风险色。
                     </div>
                 </div>

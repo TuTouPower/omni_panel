@@ -1,6 +1,7 @@
 import { VendorMark, Icon } from "../Icon";
 import { ADD_COMMON_SERVICES } from "../../lib/common-services";
 import type { AddServiceId } from "../../lib/common-services";
+import { Button } from "../ui/Button";
 
 export interface VendorPickerProps {
     readonly plugin_infos: unknown[];
@@ -13,16 +14,17 @@ export function VendorPicker({ on_select }: VendorPickerProps) {
     const can_add = () => true;
 
     return (
-        <div className="pick-body">
-            <div className="set-group-label" style={{ marginTop: 0 }}>
+        <div className="flex flex-col gap-2">
+            <div className="text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 常用服务
             </div>
-            <div className="pick-grid">
+            <div className="grid grid-cols-3 gap-2.5">
                 {ADD_COMMON_SERVICES.map((s) => {
                     const available = can_add();
                     return (
-                        <button
-                            className={"pick-card" + (available ? "" : " disabled")}
+                        <Button
+                            variant="secondary"
+                            className="h-auto flex-col gap-2 rounded-xl p-4 text-[var(--color-on-surface)]"
                             key={s.id}
                             type="button"
                             disabled={!available}
@@ -31,25 +33,23 @@ export function VendorPicker({ on_select }: VendorPickerProps) {
                             }}
                         >
                             <VendorMark id={s.id} size={28} />
-                            <span className="pick-label">{s.label}</span>
-                        </button>
+                            <span>{s.label}</span>
+                        </Button>
                     );
                 })}
             </div>
-            <div
-                className="set-group-label"
-                style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}
-            >
+            <div className="mt-1 flex items-center gap-2 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 <Icon name="folder" size={13} strokeWidth={1.8} />
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     type="button"
-                    className="ad-test"
                     onClick={() => {
                         window.usageboard.settings.openConnectorsDir();
                     }}
                 >
                     打开脚本目录
-                </button>
+                </Button>
             </div>
         </div>
     );

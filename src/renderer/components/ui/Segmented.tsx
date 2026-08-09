@@ -6,6 +6,7 @@ interface SegmentedProps<T extends string> {
     value: T;
     onChange: (value: T) => void;
     className?: string;
+    "aria-label"?: string;
 }
 
 /** t269: 统一 Segmented（分段控件）。只消费语义 token。 */
@@ -14,9 +15,12 @@ export function Segmented<T extends string>({
     value,
     onChange,
     className,
+    "aria-label": ariaLabel,
 }: SegmentedProps<T>) {
     return (
         <div
+            role="group"
+            aria-label={ariaLabel}
             className={cn(
                 "inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5",
                 className,
@@ -26,6 +30,7 @@ export function Segmented<T extends string>({
                 <button
                     key={opt.value}
                     type="button"
+                    aria-pressed={value === opt.value}
                     className={cn(
                         "rounded px-3 py-1 text-label-md transition-feedback " +
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { SettingsForm } from "./SettingsForm";
 import { AddAccountDialog } from "./AddAccountDialog";
 import type { AddAccountParams } from "./AddAccountDialog";
+import { Button } from "./ui/Button";
+import { Dialog } from "./ui/Dialog";
 import { Icon, VendorMark } from "./Icon";
 import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration, AccountOverrides } from "../../shared/types/config";
@@ -70,99 +72,94 @@ export function AccountDialog({
         };
     }, [onClose]);
 
-    return (
-        <div className="acct-dialog-scrim" onMouseDown={onClose}>
-            <div
-                className="acct-dialog"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                }}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="acct-dialog-title"
-            >
-                {mode === "add" && !instanceId ? (
-                    <AddAccountDialog
-                        plugin_infos={pluginInfos}
-                        catalog={catalog}
-                        on_close={onClose}
-                        on_save={onAddAccount}
-                    />
-                ) : (
-                    <>
-                        <div className="ad-head">
-                            {isEdit && pluginInfo && (
-                                <span className="ad-mark">
-                                    <VendorMark
-                                        id={pluginInfo.activeProviders[0] ?? "overview"}
-                                        size={24}
-                                    />
-                                </span>
-                            )}
-                            <div className="ad-htext">
-                                <div className="ad-title" id="acct-dialog-title">
-                                    {isEdit ? "编辑账号" : "添加账号"}
-                                </div>
-                                <div className="ad-sub">
-                                    {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
-                                </div>
-                            </div>
-                            <button
-                                className="ad-close"
-                                onClick={onClose}
-                                title="关闭"
-                                type="button"
-                            >
-                                <Icon name="close" size={17} strokeWidth={2} />
-                            </button>
-                        </div>
+    if (mode === "add" && !instanceId) {
+        return (
+            <AddAccountDialog
+                plugin_infos={pluginInfos}
+                catalog={catalog}
+                on_close={onClose}
+                on_save={onAddAccount}
+            />
+        );
+    }
 
-                        <div className="ad-body">
-                            {instanceId && pluginInfo && pluginConfig ? (
-                                <SettingsForm
-                                    instanceId={instanceId}
-                                    displayName={pluginConfig.displayName}
-                                    parameters={pluginInfo.metadata?.parameters ?? []}
-                                    values={Object.fromEntries(
-                                        Object.entries(pluginConfig.parameterValues).map(
-                                            ([k, v]) => [k, String(v)],
-                                        ),
-                                    )}
-                                    hasSecrets={hasSecrets ?? {}}
-                                    endpoints={pluginInfo.metadata?.endpoints ?? {}}
-                                    endpointValues={pluginConfig.endpointOverrides}
-                                    refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
-                                    globalIntervalLabel={globalIntervalLabel}
-                                    authMethod={resolve_auth_method(pluginInfo)}
-                                    authDescriptor={resolve_auth_descriptor(pluginInfo)}
-                                    {...(pluginConfig.manualRefreshOnly
-                                        ? { manualRefreshOnly: true }
-                                        : {})}
-                                    {...(pluginInfo.activeProviders[0]
-                                        ? { providerId: pluginInfo.activeProviders[0] }
-                                        : {})}
-                                    onSave={async (...args) => {
-                                        await onSave(...args);
-                                        onClose();
-                                    }}
-                                    existingLabelMap={existingLabelMap}
-                                    onSaveLabelMap={onSaveLabelMap}
-                                    forcePercent={forcePercent}
-                                    onForcePercentChange={onForcePercentChange}
-                                    watchedMetrics={watchedMetrics}
-                                    onToggleWatched={onToggleWatched}
-                                />
-                            ) : mode === "edit" ? (
-                                <div className="text-sm text-[var(--text-3)]">加载中...</div>
-                            ) : (
-                                <div className="text-sm text-[var(--text-3)]">
-                                    暂不支持在此添加新账号
-                                </div>
-                            )}
+    return (
+        <Dialog open onClose={onClose} ariaLabel={isEdit ? "编辑账号" : "添加账号"}>
+            <>
+                <div className="flex min-w-0 items-center gap-3">
+                    {isEdit && pluginInfo && (
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary-container)]">
+                            <VendorMark
+                                id={pluginInfo.activeProviders[0] ?? "overview"}
+                                size={24}
+                            />
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <div className="text-title-sm font-semibold">
+                            {isEdit ? "编辑账号" : "添加账号"}
                         </div>
-                    </>
-                )}
-            </div>
-        </div>
+                        <div className="mt-0.5 truncate text-body-sm text-[var(--color-on-surface-muted)]">
+                            {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
+                        </div>
+                    </div>
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="ml-auto h-8 w-8 shrink-0 p-0"
+                        onClick={onClose}
+                        title="关闭"
+                        aria-label="关闭"
+                    >
+                        <Icon name="close" size={17} strokeWidth={2} />
+                    </Button>
+                </div>
+
+                <div className="mt-4">
+                    {instanceId && pluginInfo && pluginConfig ? (
+                        <SettingsForm
+                            instanceId={instanceId}
+                            displayName={pluginConfig.displayName}
+                            parameters={pluginInfo.metadata?.parameters ?? []}
+                            values={Object.fromEntries(
+                                Object.entries(pluginConfig.parameterValues).map(([k, v]) => [
+                                    k,
+                                    String(v),
+                                ]),
+                            )}
+                            hasSecrets={hasSecrets ?? {}}
+                            endpoints={pluginInfo.metadata?.endpoints ?? {}}
+                            endpointValues={pluginConfig.endpointOverrides}
+                            refreshIntervalSeconds={pluginConfig.refreshIntervalSeconds}
+                            globalIntervalLabel={globalIntervalLabel}
+                            authMethod={resolve_auth_method(pluginInfo)}
+                            authDescriptor={resolve_auth_descriptor(pluginInfo)}
+                            {...(pluginConfig.manualRefreshOnly ? { manualRefreshOnly: true } : {})}
+                            {...(pluginInfo.activeProviders[0]
+                                ? { providerId: pluginInfo.activeProviders[0] }
+                                : {})}
+                            onSave={async (...args) => {
+                                await onSave(...args);
+                                onClose();
+                            }}
+                            existingLabelMap={existingLabelMap}
+                            onSaveLabelMap={onSaveLabelMap}
+                            forcePercent={forcePercent}
+                            onForcePercentChange={onForcePercentChange}
+                            watchedMetrics={watchedMetrics}
+                            onToggleWatched={onToggleWatched}
+                        />
+                    ) : mode === "edit" ? (
+                        <div className="text-body-md text-[var(--color-on-surface-muted)]">
+                            加载中...
+                        </div>
+                    ) : (
+                        <div className="text-body-md text-[var(--color-on-surface-muted)]">
+                            暂不支持在此添加新账号
+                        </div>
+                    )}
+                </div>
+            </>
+        </Dialog>
     );
 }

@@ -1,4 +1,5 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
+import { Button } from "../../../components/ui/Button";
 import { SetRow } from "../../../components/settings/SetRow";
 import { Select } from "../../../components/settings/Select";
 
@@ -39,67 +40,56 @@ export function DataSection({
                 />
             </SetRow>
             <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB（暂未开放）">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
-                    disabled
-                >
+                <Button variant="secondary" size="sm" disabled>
                     暂未开放
-                </button>
+                </Button>
             </SetRow>
             <div className="set-group-label">数据</div>
             <SetRow title="导出设置" sub="导出全部配置与账号密钥到 JSON 文件">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                         void handle_export();
                     }}
                 >
                     {data_msg === "设置已导出" ? "已导出" : "导出"}
-                </button>
+                </Button>
             </SetRow>
             <SetRow title="导入设置" sub="从 JSON 文件恢复配置与账号密钥">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                         void handle_import();
                     }}
                 >
                     {data_msg === "导入失败" ? "失败" : "导入"}
-                </button>
+                </Button>
             </SetRow>
             <SetRow title="导出运行日志" sub="导出当前运行日志文件">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                         void handle_export_logs();
                     }}
                 >
                     {data_msg === "日志已导出" ? "已导出" : "导出日志"}
-                </button>
+                </Button>
             </SetRow>
             <div className="set-group-label" style={{ color: "var(--red)" }}>
                 危险区域
             </div>
             <SetRow title="重置应用" sub="清除全部账号、设置与缓存（暂未开放）">
-                <button
-                    className="set-select"
-                    style={{
-                        color: "var(--red)",
-                        borderColor: "color-mix(in srgb,var(--red) 35%,transparent)",
-                    }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="text-[var(--color-error)]"
                     disabled
                 >
                     暂未开放
-                </button>
+                </Button>
             </SetRow>
         </>
     );

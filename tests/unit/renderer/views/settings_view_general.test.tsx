@@ -117,8 +117,8 @@ describe("SettingsView", () => {
         const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
         const user = userEvent.setup();
         render(<SettingsView />);
-        const backBtn = document.querySelector<HTMLButtonElement>(".back-btn");
-        if (!backBtn) throw new Error("back button not found");
+        // t271: back-btn 迁移到 ui/Button，定位改 aria-label。
+        const backBtn = screen.getByLabelText("返回");
         await user.click(backBtn);
         expect(closeSpy).toHaveBeenCalled();
         closeSpy.mockRestore();
@@ -193,7 +193,10 @@ describe("SettingsView", () => {
         ).toBe(true);
 
         const style_field = screen.getByLabelText("用量条样式");
-        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass("on");
+        // t271: set-seg 迁移到 ui/Segmented，选中态由 .on class 改为语义类。
+        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
+            "bg-[var(--color-surface-window)]",
+        );
         await user.click(within(style_field).getByRole("button", { name: "粗胶囊型" }));
 
         expect(save).toHaveBeenCalledWith({
@@ -312,7 +315,7 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
-        const cards = document.querySelectorAll(".ab-card");
+        const cards = document.querySelectorAll('[data-testid^="about-card-"]');
         expect(cards).toHaveLength(8);
     });
 
@@ -321,9 +324,9 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
-        const meta = document.querySelector(".ah-meta");
-        expect(meta).not.toBeNull();
-        expect(meta?.textContent).toMatch(/Windows.*x64/);
+        const meta = screen.getByTestId("about-platform");
+        expect(meta).toBeInTheDocument();
+        expect(meta.textContent).toMatch(/Windows.*x64/);
     });
 
     it("shows build info branch@commit subject in about section", async () => {
@@ -332,8 +335,9 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
         await waitFor(() => {
-            const build = document.querySelector(".ah-build");
-            expect(build?.textContent).toBe("t030_test@abc1234 feat: do thing");
+            expect(screen.getByTestId("about-build")).toHaveTextContent(
+                "t030_test@abc1234 feat: do thing",
+            );
         });
     });
 
@@ -371,5 +375,43 @@ describe("SettingsView", () => {
             save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
         )?.[0];
         expect(saved_config?.proxy).toBeUndefined();
+    });
+
+    it("uses semantic UI controls for data actions", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-data"));
+
+        for (const label of ["导出", "导入", "导出日志", "暂未开放"]) {
+            const buttons = screen.getAllByRole("button", { name: label });
+            expect(buttons.length).toBeGreaterThan(0);
+            for (const button of buttons) {
+                expect(button.className).not.toContain("set-select");
+            }
+        }
+    });
+
+    it("removes migrated settings control CSS selectors", async () => {
+        const css = await readFile(
+            join(
+                dirname(fileURLToPath(import.meta.url)),
+                "../../../../src/renderer/styles/globals.css",
+            ),
+            "utf8",
+        );
+        for (const selector of [
+            ".set-select",
+            ".set-seg",
+            ".ad-input",
+            ".ad-btn",
+            ".acct-dialog",
+            ".acct-dialog-scrim",
+            ".sp-action",
+            ".accent-sw",
+            ".bsf-opt",
+        ]) {
+            const escaped = selector.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+            expect(css).not.toMatch(new RegExp(`${escaped}\\s*\\{`));
+        }
     });
 });
