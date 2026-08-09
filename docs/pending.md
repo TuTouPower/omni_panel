@@ -16,6 +16,18 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+### p102 t273 会话字号测试依赖源文本正则（2026-08-09）
+
+- 来源：t273 test review Round 2 `t273_test_f001`（minor）
+- 内容：`tests/unit/renderer/styles/session_typography.test.ts` 通过源文件文本正则验证 utility 类名，类名拆分或 utility 生成规则变化时存在假阳/假阴边界。
+- 处理：未开
+
+### p103 t273 compact 默认分支缺少直接回归断言（2026-08-09）
+
+- 来源：t273 test review Round 2 `t273_test_f002`（minor）
+- 内容：`PaneMessageRow` compact 迁移测试只验证紧凑分支的 `inline-flex` 与无底距，未直接锚定默认分支的 `flex` 与 `mb-0.5`。
+- 处理：未开
+
 ## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）
 
 - 来源：t276 review Round 2 f005（minor）

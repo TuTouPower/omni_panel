@@ -118,21 +118,34 @@ describe("PaneMessageRow 单行折叠 (t257)", () => {
         mock_content_size(80, 20);
         render(<PaneMessageRow {...base} message={msg("m1", "user", "x".repeat(200))} />);
         // 默认折叠。
-        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
-            true,
-        );
+        expect(
+            document
+                .querySelector(".conversation-message-content")
+                ?.classList.contains("single-line"),
+        ).toBe(true);
 
         // 点击展开 → 移除折叠 class。
         fireEvent.click(screen.getByLabelText("展开消息"));
-        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
-            false,
-        );
+        expect(
+            document
+                .querySelector(".conversation-message-content")
+                ?.classList.contains("single-line"),
+        ).toBe(false);
 
         // 再点 → 恢复折叠。
         fireEvent.click(screen.getByLabelText("折叠消息"));
-        expect(document.querySelector(".pane-msg-content")?.classList.contains("single-line")).toBe(
-            true,
-        );
+        expect(
+            document
+                .querySelector(".conversation-message-content")
+                ?.classList.contains("single-line"),
+        ).toBe(true);
+    });
+
+    it("紧凑模式保留消息元信息的内联布局", () => {
+        render(<PaneMessageRow {...base} compact message={msg("m1", "user", "short")} />);
+        const meta = document.querySelector(".conversation-message-meta");
+        expect(meta?.classList.contains("inline-flex")).toBe(true);
+        expect(meta?.classList.contains("mb-0.5")).toBe(false);
     });
 
     it("AC11：展开/折叠不改变选中态（checkbox 保持）", () => {

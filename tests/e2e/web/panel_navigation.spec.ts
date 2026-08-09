@@ -15,7 +15,7 @@ test.describe("web panel navigation (t259)", () => {
 
         // Agent → Session（history 路由）。
         await page.getByRole("button", { name: "Session面板" }).click();
-        await expect(page.locator(".session-shell").first()).toBeVisible();
+        await expect(page.locator(".history-shell").first()).toBeVisible();
         await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe("#history");
 
         // Session → Settings。
@@ -61,7 +61,7 @@ test.describe("web panel navigation (t259)", () => {
     test("history 路由渲染会话面板（AC1）", async ({ webPage }) => {
         const page = webPage;
         await page.goto("/#history");
-        await expect(page.locator(".session-shell").first()).toBeVisible();
+        await expect(page.locator(".history-shell").first()).toBeVisible();
         await expect(page.getByRole("button", { name: "工作台", exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "会话库", exact: true })).toBeVisible();
     });

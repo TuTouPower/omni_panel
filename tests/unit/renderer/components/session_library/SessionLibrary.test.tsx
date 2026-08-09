@@ -309,15 +309,15 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("会话 b")).toBeTruthy();
             expect(screen.queryByText("会话 a")).toBeNull();
         });
-        const card = document.querySelector(".lib-card");
+        const card = document.querySelector(".library-card");
         expect(card).toBeTruthy();
-        expect(card?.querySelector(".lib-card-accent")).toBeTruthy();
-        expect(card?.querySelector(".lib-card-badge")?.textContent).toBe("OC");
-        expect(card?.querySelector(".lib-card-title")?.textContent).toContain("会话 b");
-        expect(card?.querySelector(".lib-card-summary")).toBeTruthy();
-        expect(card?.querySelector(".lib-card-meta")?.textContent).toContain("2 轮");
-        expect(card?.querySelector(".lib-card-meta")?.textContent).toContain("375 tokens");
-        expect(card?.querySelector(".lib-card-dir")?.textContent).toContain("/proj/b");
+        expect(card?.querySelector(".library-card-accent")).toBeTruthy();
+        expect(card?.querySelector(".library-card-badge")?.textContent).toBe("OC");
+        expect(card?.querySelector(".library-card-title")?.textContent).toContain("会话 b");
+        expect(card?.querySelector(".library-card-summary")).toBeTruthy();
+        expect(card?.querySelector(".library-card-meta")?.textContent).toContain("2 轮");
+        expect(card?.querySelector(".library-card-meta")?.textContent).toContain("375 tokens");
+        expect(card?.querySelector(".library-card-dir")?.textContent).toContain("/proj/b");
     });
 
     it("卡片与行摘要取首条用户消息内容（f008）", async () => {
@@ -329,12 +329,12 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         await waitFor(() => {
-            const card_summary = document.querySelector(".lib-card-summary")?.textContent;
+            const card_summary = document.querySelector(".library-card-summary")?.textContent;
             expect(card_summary).toContain("真正要显示的用户消息");
         });
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
-            const row_summary = document.querySelector(".lib-row-summary")?.textContent;
+            const row_summary = document.querySelector(".library-row-summary")?.textContent;
             expect(row_summary).toContain("真正要显示的用户消息");
         });
     });
@@ -369,17 +369,17 @@ describe("SessionLibrary (t227)", () => {
         // 排序：calls desc → c 在前
         fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "calls" } });
         await waitFor(() => {
-            const first_card = document.querySelector(".lib-card-title");
+            const first_card = document.querySelector(".library-card-title");
             expect(first_card?.textContent).toContain("会话 c");
         });
         // 列表视图
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
-        expect(document.querySelector(".lib-list")).toBeTruthy();
-        const row = document.querySelector(".lib-row");
-        expect(row?.querySelector(".lib-row-title")?.textContent).toContain("会话 c");
-        expect(row?.querySelector(".lib-row-badge")?.textContent).toBe("G");
-        expect(row?.querySelector(".lib-row-meta")?.textContent).toContain("9 轮");
-        expect(row?.querySelector(".lib-row-dir")?.textContent).toContain("/proj/c");
+        expect(document.querySelector(".library-list")).toBeTruthy();
+        const row = document.querySelector(".library-row");
+        expect(row?.querySelector(".library-row-title")?.textContent).toContain("会话 c");
+        expect(row?.querySelector(".library-row-badge")?.textContent).toBe("G");
+        expect(row?.querySelector(".library-row-meta")?.textContent).toContain("9 轮");
+        expect(row?.querySelector(".library-row-dir")?.textContent).toContain("/proj/c");
     });
 
     it("普通分页切换 tokens/calls 时传递排序参数并展示后端顺序", async () => {
@@ -401,7 +401,10 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 low"));
 
         const card_titles = (): (string | null)[] =>
-            Array.from(document.querySelectorAll(".lib-card-title"), (node) => node.textContent);
+            Array.from(
+                document.querySelectorAll(".library-card-title"),
+                (node) => node.textContent,
+            );
         fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
@@ -514,11 +517,11 @@ describe("SessionLibrary (t227)", () => {
         fireEvent.click(preview_btn);
         // 预览抽屉显示前 5 条消息（断言抽屉内 DOM；卡片摘要可能同文本）。
         await waitFor(() => {
-            expect(document.querySelectorAll(".lib-preview-msg").length).toBe(5);
+            expect(document.querySelectorAll(".preview-message").length).toBe(5);
         });
-        expect(document.querySelectorAll(".lib-preview-msg")[4]?.textContent).toContain("消息五");
+        expect(document.querySelectorAll(".preview-message")[4]?.textContent).toContain("消息五");
         fireEvent.keyDown(window, { key: "Escape" });
-        expect(document.querySelector(".lib-preview")).toBeNull();
+        expect(document.querySelector(".preview-panel")).toBeNull();
     });
 
     it("SelectionDock 并排打开写入工作台槽位并切页签", async () => {
@@ -601,7 +604,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("会话 p51")).toBeTruthy();
             expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
         });
-        expect(document.querySelectorAll(".lib-card").length).toBe(52);
+        expect(document.querySelectorAll(".library-card").length).toBe(52);
         expect(
             ub.tokenStats.getSessions.mock.calls.filter(
                 (call) => (call[0] as { offset?: number }).offset === 50,
@@ -618,13 +621,13 @@ describe("SessionLibrary (t227)", () => {
             .mockRejectedValueOnce(new Error("boom"));
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 p0"));
-        expect(document.querySelectorAll(".lib-card").length).toBe(50);
+        expect(document.querySelectorAll(".library-card").length).toBe(50);
 
         fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
         await waitFor(() => {
             expect(screen.getByText("会话列表加载中断，已显示部分数据")).toBeTruthy();
         });
-        expect(document.querySelectorAll(".lib-card").length).toBe(50);
+        expect(document.querySelectorAll(".library-card").length).toBe(50);
     });
 
     it("筛选切换期间旧分页请求不会释放新列表的并发锁", async () => {
@@ -732,7 +735,10 @@ describe("SessionLibrary (t227)", () => {
         });
 
         const card_titles = (): (string | null)[] =>
-            Array.from(document.querySelectorAll(".lib-card-title"), (node) => node.textContent);
+            Array.from(
+                document.querySelectorAll(".library-card-title"),
+                (node) => node.textContent,
+            );
         fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
@@ -754,7 +760,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("统计不可用")).toBeTruthy();
         });
         expect(screen.queryByText(/1 个会话/)).toBeNull();
-        expect(document.querySelectorAll(".lib-agent-chip")).toHaveLength(1);
+        expect(document.querySelectorAll(".library-agent-chip")).toHaveLength(1);
         expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
     });
     it("内容搜索防抖：快速输入两次只触发一次 searchContent（t239）", async () => {
@@ -928,7 +934,9 @@ describe("SessionLibrary (t227)", () => {
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();
         await waitFor(() => {
-            expect(document.querySelector(".lib-card-summary")?.textContent).toContain("摘要 a");
+            expect(document.querySelector(".library-card-summary")?.textContent).toContain(
+                "摘要 a",
+            );
         });
     });
 
@@ -940,10 +948,10 @@ describe("SessionLibrary (t227)", () => {
             .mockResolvedValueOnce(many.slice(50));
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
-        expect(document.querySelectorAll(".lib-card").length).toBe(50);
+        expect(document.querySelectorAll(".library-card").length).toBe(50);
         fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
         await waitFor(() => {
-            expect(document.querySelectorAll(".lib-card").length).toBe(60);
+            expect(document.querySelectorAll(".library-card").length).toBe(60);
         });
     });
 
@@ -962,9 +970,9 @@ describe("SessionLibrary (t227)", () => {
         if (!preview_btn) throw new Error("preview button missing");
         fireEvent.click(preview_btn);
         await waitFor(() => {
-            expect(document.querySelectorAll(".lib-preview-msg").length).toBe(1);
+            expect(document.querySelectorAll(".preview-message").length).toBe(1);
         });
-        const preview_foot = document.querySelector(".lib-preview-foot");
+        const preview_foot = document.querySelector(".preview-footer");
         const open_btn = preview_foot?.querySelector<HTMLButtonElement>("button");
         if (!open_btn) throw new Error("preview open button missing");
         fireEvent.click(open_btn);
@@ -986,7 +994,7 @@ describe("SessionLibrary (t227)", () => {
         if (!preview_btn) throw new Error("preview button missing");
         fireEvent.click(preview_btn);
         await waitFor(() => {
-            expect(document.querySelectorAll(".lib-preview-msg").length).toBe(1);
+            expect(document.querySelectorAll(".preview-message").length).toBe(1);
         });
         const add_btn = screen.getByRole("button", { name: "加入选择" });
         fireEvent.click(add_btn);

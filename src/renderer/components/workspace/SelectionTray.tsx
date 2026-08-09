@@ -1,6 +1,10 @@
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { agent_accent } from "../../lib/workspace/slots";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { estimate_tokens, format_entries, type CopyFormat } from "../../lib/workspace/copy-format";
+import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
+import { Select } from "../ui/Select";
 
 const TRAY_MIN_H = 40;
 const TRAY_MAX_H = 320;
@@ -83,44 +87,59 @@ export function SelectionTray() {
 
     return (
         <div
-            className={"selection-tray" + (expanded ? " expanded" : "")}
+            className={cn(
+                "selection-tray relative flex min-h-10 shrink-0 flex-col overflow-hidden border-t border-[var(--color-outline)] bg-[var(--color-surface-window)]",
+                expanded && "expanded",
+            )}
             style={{ height: effective_height }}
         >
-            <div className="tray-drag-handle" onMouseDown={start_drag} />
+            <div
+                className="selection-tray-handle h-1.5 shrink-0 cursor-ns-resize bg-transparent hover:bg-[var(--color-primary-container)]"
+                onMouseDown={start_drag}
+            />
             {!expanded ? (
-                <div className="tray-collapsed">摘选托盘（空）</div>
+                <div className="selection-tray-collapsed px-3.5 py-2 text-body-sm text-[var(--color-on-surface-muted)]">
+                    摘选托盘（空）
+                </div>
             ) : (
                 <>
-                    <div className="tray-scroll">
+                    <div className="selection-tray-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
                         {[...groups.values()].map((g) => (
                             <div
-                                className="tray-group"
+                                className="selection-tray-group"
                                 key={`${g.loc.source}|${g.loc.env}|${g.loc.session_id}`}
                             >
-                                <div className="tray-group-head">{g.title || g.loc.session_id}</div>
-                                <div className="tray-group-chips">
+                                <div className="selection-tray-group-head mb-1 text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                                    {g.title || g.loc.session_id}
+                                </div>
+                                <div className="selection-tray-group-chips flex flex-wrap gap-1.5">
                                     {g.items.map((item) => (
                                         <div
-                                            className="tray-chip"
+                                            className="selection-chip inline-flex max-w-[320px] items-center gap-1.5 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-label-md text-[var(--color-on-surface-variant)]"
                                             key={item.key}
                                             title={item.message.text}
+                                            style={
+                                                {
+                                                    "--agent-accent": agent_accent(item.loc.source),
+                                                } as CSSProperties
+                                            }
                                         >
-                                            <span className="tray-chip-agent">
+                                            <span className="selection-chip-agent flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]">
                                                 {agent_abbrev(item.loc.source)}
                                             </span>
-                                            <span className="tray-chip-label">
+                                            <span className="selection-chip-label shrink-0 font-bold tabular-nums text-[var(--color-on-surface-muted)]">
                                                 {item.message.role === "user" ? "U" : "A"}
                                                 {String(item.role_index)}
                                             </span>
-                                            <span className="tray-chip-summary">
+                                            <span className="selection-chip-summary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--color-on-surface)]">
                                                 {item.message.text.slice(0, 40) || "(空)"}
                                             </span>
-                                            <span className="tray-chip-tokens">
+                                            <span className="selection-chip-tokens shrink-0 tabular-nums text-[var(--color-on-surface-muted)]">
                                                 {String(estimate_tokens(item.message.text))}
                                             </span>
                                             <button
                                                 type="button"
-                                                className="tray-chip-remove"
+                                                className="selection-chip-remove flex h-4 w-4 shrink-0 items-center justify-center rounded text-body-sm leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                                 aria-label={`移除片段 ${item.key}`}
                                                 onClick={() => {
                                                     selection_store.toggle(item);
@@ -134,42 +153,42 @@ export function SelectionTray() {
                             </div>
                         ))}
                     </div>
-                    <div className="tray-foot">
-                        <span className="tray-count">
+                    <div className="selection-tray-footer flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-1.5">
+                        <span className="selection-tray-count text-body-sm tabular-nums text-[var(--color-on-surface-variant)]">
                             {String(items.length)} 片段 · {String(total_tokens)} tokens
                         </span>
-                        <div className="tray-format-wrap">
-                            <select
-                                className="tray-format"
-                                aria-label="复制格式"
-                                value={format}
-                                onChange={(e) => {
-                                    set_format(e.target.value as CopyFormat);
-                                }}
-                            >
-                                <option value="markdown">Markdown</option>
-                                <option value="plain">纯文本</option>
-                                <option value="grouped">按会话分组</option>
-                            </select>
-                        </div>
-                        <button
-                            type="button"
-                            className="tray-btn"
+                        <Select
+                            className="selection-tray-format w-auto min-w-[130px]"
+                            aria-label="复制格式"
+                            value={format}
+                            onChange={(e) => {
+                                set_format(e.target.value as CopyFormat);
+                            }}
+                        >
+                            <option value="markdown">Markdown</option>
+                            <option value="plain">纯文本</option>
+                            <option value="grouped">按会话分组</option>
+                        </Select>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="selection-tray-button"
                             onClick={copy}
                             disabled={items.length === 0}
                         >
                             {copied ? "已复制 ✓" : "复制"}
-                        </button>
-                        <button
-                            type="button"
-                            className="tray-btn tray-btn-clear"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="selection-tray-button selection-tray-clear"
                             aria-label="清空摘选"
                             onClick={() => {
                                 selection_store.clear_all();
                             }}
                         >
                             清空
-                        </button>
+                        </Button>
                     </div>
                 </>
             )}

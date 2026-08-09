@@ -42,6 +42,7 @@
 | secret-vault                         | API           | 迁移自 omni_powers，t045，t195                                                                    | 2026-08-03   |
 | settings_design_migration            | Web+Desktop   | 设置窗口统一设计系统、组件与语义状态                                                              | 2026-08-09   |
 | agent_window_design_migration        | Web+Desktop   | Agent 统计窗口统一设计系统、组件与语义 token                                                      | 2026-08-09   |
+| session_window_design_migration      | Web+Desktop   | 会话历史窗口统一设计系统、组件与语义 token                                                        | 2026-08-09   |
 | ui-views-web                         | Web           | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
 | design-tokens-foundation             | Desktop       | t268                                                                                              | 2026-08-09   |
 | ui-component-library                 | Desktop       | t269                                                                                              | 2026-08-09   |
