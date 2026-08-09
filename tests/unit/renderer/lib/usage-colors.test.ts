@@ -45,7 +45,7 @@ describe("usage_window_elapsed", () => {
 
     it("lets projected risk colors use elapsed", () => {
         expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 })).toBe(
-            "var(--risk-yellow)",
+            "var(--color-risk-mid)",
         );
     });
 });
@@ -65,11 +65,11 @@ describe("usage color debug logs", () => {
             const color = bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 });
 
             const joined = lines.join("\n");
-            expect(color).toBe("var(--risk-yellow)");
+            expect(color).toBe("var(--color-risk-mid)");
             expect(joined).toContain("bar fill color raw");
             expect(joined).toContain("risk-projected");
             expect(joined).toContain('"elapsed":0.6');
-            expect(joined).toContain('"result":"var(--risk-yellow)"');
+            expect(joined).toContain('"result":"var(--color-risk-mid)"');
         } finally {
             remove_transport();
             setLogLevel("debug");

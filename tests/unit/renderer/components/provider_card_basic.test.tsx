@@ -18,7 +18,7 @@ describe("ProviderCard - basic", () => {
         expect(screen.queryByText("正常")).not.toBeInTheDocument();
         expect(screen.queryByText("预警")).not.toBeInTheDocument();
         // rel-time element should exist
-        expect(document.querySelector(".rel-time")).toBeInTheDocument();
+        expect(document.querySelector('[data-testid="rel-time"]')).toBeInTheDocument();
     });
 
     it("shows stale badge without source badge or 观测 prefix", () => {
@@ -32,8 +32,10 @@ describe("ProviderCard - basic", () => {
         expect(screen.queryByText("API_KEY")).not.toBeInTheDocument();
         expect(screen.queryByText(/观测/)).not.toBeInTheDocument();
         expect(document.querySelector(".source-badge")).not.toBeInTheDocument();
-        expect(document.querySelector(".stale-badge")).toBeInTheDocument();
-        expect(document.querySelector(".card.stale")).not.toBeInTheDocument();
+        expect(document.querySelector('[data-testid="stale-badge"]')).toBeInTheDocument();
+        expect(
+            document.querySelector('[data-testid="collapsible-card"][data-status="stale"]'),
+        ).not.toBeInTheDocument();
     });
 
     it("does not render disabled card state", () => {

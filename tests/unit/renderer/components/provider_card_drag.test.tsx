@@ -16,7 +16,9 @@ describe("ProviderCard - drag", () => {
         const { container } = render(
             <ProviderCard provider="deepseek" group={makeGroup()} dragging />,
         );
-        expect(container.querySelector(".card.dragging")).toBeInTheDocument();
+        expect(
+            container.querySelector('[data-testid="collapsible-card"].opacity-45'),
+        ).toBeInTheDocument();
     });
 
     it("renders grip handle when onDragStart is provided", () => {

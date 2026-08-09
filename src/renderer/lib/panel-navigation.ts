@@ -1,4 +1,5 @@
-import type { PanelName } from "../components/PanelTitleBar";
+/** t252: 四面板名（用量/代理/会话/设置）。 */
+export type PanelName = "Usage" | "Agent" | "Session" | "Settings";
 
 /** t252: 四面板互跳。桌面走各窗口 open（开/聚焦目标面板窗口）；
  *  web 端对应 open 方法内部已 hash 切页（usageboard-web）。 */

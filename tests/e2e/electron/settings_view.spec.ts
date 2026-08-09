@@ -5,7 +5,7 @@ import { SettingsPage } from "../pages/settings_page";
 
 /**
  * Electron 专属 settings case：
- * - accounts 页 config forms（依赖 `.acc-row`/`.acc-card` DOM，web SPA 无）
+ * - accounts 页 config forms（依赖 `[data-testid="account-row"]`/`account-card` DOM，web SPA 无）
  * - CPA 连接设置内 per-provider 数据标签映射对话框（web SPA 无）
  * 其余 sidebar / appearance 颜色样式 case 已迁 web/settings_view.spec.ts。
  */
@@ -16,13 +16,16 @@ test.describe("settings view (electron 专属)", () => {
 
     test("plugins with parameters show config forms in account edit dialog", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await navigateToSettings(omni.app, page);
         const sPage = settings.page;
 
         await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
         // Find the CPA connector row (e.g. "CPA · Claude"), not the provider groups
-        const cpaRow = sPage.locator(".acc-row").filter({ hasText: "CPA" }).first();
+        const cpaRow = sPage
+            .locator('[data-testid="account-row"]')
+            .filter({ hasText: "CPA" })
+            .first();
         await expect(cpaRow).toBeVisible();
         await cpaRow.locator('button[title^="编辑"]').first().click();
 
@@ -36,12 +39,15 @@ test.describe("settings view (electron 专属)", () => {
 
     test("renders empty label-map dialog from CPA settings", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await navigateToSettings(omni.app, page);
         const sPage = settings.page;
 
         await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-        const cpaRow = sPage.locator(".acc-row").filter({ hasText: "CPA" }).first();
+        const cpaRow = sPage
+            .locator('[data-testid="account-row"]')
+            .filter({ hasText: "CPA" })
+            .first();
         await expect(cpaRow).toBeVisible();
         await cpaRow.locator('button[title^="编辑"]').first().click();
         await expect(sPage.locator('[data-testid="cpa-connector-settings"]')).toBeVisible({

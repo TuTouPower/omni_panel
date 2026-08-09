@@ -6,11 +6,22 @@ function mock_response(body: unknown): Response {
     return { ok: true, json: () => Promise.resolve(body) } as Response;
 }
 
+/** jsdom 无 matchMedia 实现；桩成固定返回值供 system 模式解析。 */
+function stub_match_media(dark: boolean): void {
+    vi.stubGlobal(
+        "matchMedia",
+        vi.fn(() => ({ matches: dark }) as unknown as MediaQueryList),
+    );
+}
+
 describe("web usageboard bridge", () => {
     beforeEach(() => {
         vi.unstubAllGlobals();
         // 重置 URL，避免 history.replaceState 写入的 loc 参数跨测试污染。
         window.history.replaceState(null, "", "/");
+        // 重置 DOM 主题状态，避免 theme.set 用例互相污染。
+        document.documentElement.removeAttribute("data-theme");
+        document.documentElement.style.removeProperty("--accent");
     });
 
     it("tokenStats.getRecords fetches /v1/records", async () => {
@@ -359,5 +370,98 @@ describe("web usageboard bridge", () => {
             expect.stringContaining("/v1/sessionHistory/summaries"),
             expect.objectContaining({ method: "POST" }),
         );
+    });
+
+    it("theme.set('dark')/'light' 更新 data-theme 并通知 onThemeChange (t274)", () => {
+        const api = create_web_usageboard();
+        const received: boolean[] = [];
+        api.event.onThemeChange((dark) => received.push(dark));
+
+        api.theme.set("dark");
+        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+        expect(received).toEqual([true]);
+
+        api.theme.set("light");
+        expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+        expect(received).toEqual([true, false]);
+    });
+
+    it("theme.set('system') 按 matchMedia 解析 data-theme (t274)", () => {
+        const api = create_web_usageboard();
+
+        stub_match_media(true);
+        api.theme.set("system");
+        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+
+        stub_match_media(false);
+        api.theme.set("system");
+        expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    });
+
+    it("theme.set 相同值不重复通知（对齐 nativeTheme updated 语义）(t274)", () => {
+        const api = create_web_usageboard();
+        api.theme.set("dark");
+        const received: boolean[] = [];
+        api.event.onThemeChange((dark) => received.push(dark));
+
+        api.theme.set("dark");
+        expect(received).toEqual([]);
+
+        api.theme.set("light");
+        expect(received).toEqual([false]);
+    });
+
+    it("onThemeChange 返回可退订函数 (t274)", () => {
+        const api = create_web_usageboard();
+        const received: boolean[] = [];
+        const unsubscribe = api.event.onThemeChange((dark) => received.push(dark));
+
+        api.theme.set("dark");
+        unsubscribe();
+        api.theme.set("light");
+        expect(received).toEqual([true]);
+    });
+
+    it("config.save 成功后通知 onConfigChange 订阅者 (t274)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ ok: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const received: unknown[] = [];
+        const unsubscribe = api.event.onConfigChange?.((cfg) => received.push(cfg));
+        expect(typeof unsubscribe).toBe("function");
+
+        const saved = { schemaVersion: 1, theme: "dark" } as never;
+        await api.config.save(saved);
+        expect(received).toEqual([saved]);
+    });
+
+    it("config.save 失败不通知 onConfigChange (t274)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockRejectedValue(new Error("network down"));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const received: unknown[] = [];
+        const unsubscribe = api.event.onConfigChange?.((cfg) => received.push(cfg));
+        expect(typeof unsubscribe).toBe("function");
+
+        await expect(api.config.save({ schemaVersion: 1 } as never)).rejects.toThrow(
+            "network down",
+        );
+        expect(received).toEqual([]);
+    });
+
+    it("onConfigChange 返回可退订函数 (t274)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ ok: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const received: unknown[] = [];
+        const unsubscribe = api.event.onConfigChange?.((cfg) => received.push(cfg));
+        expect(typeof unsubscribe).toBe("function");
+        unsubscribe?.();
+
+        await api.config.save({ schemaVersion: 1 } as never);
+        expect(received).toEqual([]);
     });
 });

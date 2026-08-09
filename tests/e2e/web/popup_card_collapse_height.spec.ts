@@ -14,13 +14,15 @@ test.describe("popup card collapse height (web)", () => {
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
         // 等 card 完整渲染（trend sparkline 等）
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const count = await collapse_buttons.count();
         expect(count).toBeGreaterThan(0);
 
-        const content = live.locator(".scroll-inner");
+        const content = live.locator('[data-testid="popup-scroll-inner"]');
         const height_before = await content.evaluate((node) => node.scrollHeight);
 
         const first_label = await collapse_buttons.first().getAttribute("aria-label");
@@ -42,7 +44,9 @@ test.describe("popup card collapse height (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const first_label = await collapse_buttons.first().getAttribute("aria-label");
@@ -50,7 +54,7 @@ test.describe("popup card collapse height (web)", () => {
         const account_label = (first_label ?? "").replace(/^折叠\s+/, "");
 
         await collapse_buttons.first().click();
-        const content = live.locator(".scroll-inner");
+        const content = live.locator('[data-testid="popup-scroll-inner"]');
         const height_collapsed = await content.evaluate((node) => node.scrollHeight);
 
         const expand_btn = live.getByRole("button", { name: `展开 ${account_label}`, exact: true });
@@ -69,7 +73,9 @@ test.describe("popup card collapse height (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const count = await collapse_buttons.count();
@@ -82,9 +88,9 @@ test.describe("popup card collapse height (web)", () => {
             await webPage.waitForTimeout(100);
         }
 
-        await expect(live.locator(".scroll")).toBeVisible();
+        await expect(live.locator('[data-testid="popup-scroll"]')).toBeVisible();
         const space = await live.evaluate((node) => {
-            const scroll = node.querySelector(".scroll");
+            const scroll = node.querySelector('[data-testid="popup-scroll"]');
             if (!(scroll instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
             return node.getBoundingClientRect().bottom - scroll.getBoundingClientRect().bottom;
         });
@@ -97,7 +103,9 @@ test.describe("popup card collapse height (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const first_label = await collapse_buttons.first().getAttribute("aria-label");

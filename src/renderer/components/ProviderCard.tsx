@@ -14,6 +14,7 @@ import type {
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
+import { Button } from "./ui/Button";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
@@ -32,9 +33,7 @@ interface ProviderCardProps {
     l2Open?: boolean | undefined;
     onToggleL2Open?: ((provider: string) => void) | undefined;
     dragging?: boolean | undefined;
-    dragOver?: boolean | undefined;
     onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;
-    onDragEnter?: ((provider: string) => void) | undefined;
     onDragOver?:
         | ((provider: string, clientX: number, clientY: number, rect: DOMRect) => void)
         | undefined;
@@ -74,9 +73,7 @@ export const ProviderCard = memo(function ProviderCard({
     l2Open = false,
     onToggleL2Open,
     dragging,
-    dragOver,
     onDragStart,
-    onDragEnter,
     onDragOver,
     onDragEnd,
     refreshing: is_refreshing = false,
@@ -107,7 +104,7 @@ export const ProviderCard = memo(function ProviderCard({
           : hasUsage
             ? "ready"
             : "empty";
-    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
+    const card_class = dragging ? " opacity-45" : "";
 
     // t250: l2open 由父级受控（l2Open props + onToggleL2Open 回调）持久化。
     // 展开状态变化时父级负责把 collapsed 卡片强制回概览。
@@ -160,14 +157,29 @@ export const ProviderCard = memo(function ProviderCard({
         <>
             {onDragStart && <DragGrip iconSize={18} />}
             <VendorMark id={provider} size={26} />
-            <span className="card-name">{label}</span>
+            <span
+                className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                data-testid="card-name"
+            >
+                {label}
+            </span>
             {accountCount > 1 && expanded === false && (
-                <span className="count-badge">{String(accountCount)}账号</span>
+                <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-label-md font-semibold leading-normal text-[var(--color-accent)]">
+                    {String(accountCount)}账号
+                </span>
             )}
             {accountCount > 1 && expanded !== false && (
-                <span className="l2seg" role="tablist">
+                <span
+                    className="ml-px inline-flex shrink-0 items-center gap-0.5 rounded-[9px] bg-[var(--color-surface-raised)] p-0.5"
+                    role="tablist"
+                >
                     <button
-                        className={l2Open ? "" : "on"}
+                        className={
+                            "rounded-[7px] border-0 px-[9px] py-[3px] text-label-md font-semibold leading-normal whitespace-nowrap " +
+                            (l2Open
+                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-[0_1px_2px_rgba(20,24,38,0.07)]"
+                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
+                        }
                         title="概览"
                         type="button"
                         onClick={() => {
@@ -177,7 +189,12 @@ export const ProviderCard = memo(function ProviderCard({
                         概览
                     </button>
                     <button
-                        className={l2Open ? "on" : ""}
+                        className={
+                            "rounded-[7px] border-0 px-[9px] py-[3px] text-label-md font-semibold leading-normal whitespace-nowrap " +
+                            (l2Open
+                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-[0_1px_2px_rgba(20,24,38,0.07)]"
+                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
+                        }
                         title="账号明细"
                         type="button"
                         onClick={() => {
@@ -188,11 +205,30 @@ export const ProviderCard = memo(function ProviderCard({
                     </button>
                 </span>
             )}
-            {is_refreshing && <span className="rel-time">刷新中…</span>}
-            {!is_refreshing && hasUsage && <span className="rel-time">{updated_text}</span>}
+            {is_refreshing && (
+                <span
+                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    data-testid="rel-time"
+                >
+                    刷新中…
+                </span>
+            )}
+            {!is_refreshing && hasUsage && (
+                <span
+                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    data-testid="rel-time"
+                >
+                    {updated_text}
+                </span>
+            )}
             {!is_refreshing && hasUsage && group && group.stale && (
-                <span className="freshness-meta">
-                    <span className="stale-badge">已过期</span>
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-[var(--color-on-surface-muted)]">
+                    <span
+                        className="ml-1.5 font-[650] text-[var(--color-warning)]"
+                        data-testid="stale-badge"
+                    >
+                        已过期
+                    </span>
                 </span>
             )}
         </>
@@ -201,8 +237,10 @@ export const ProviderCard = memo(function ProviderCard({
     const tools = (
         <>
             {onRefresh !== undefined && (
-                <button
-                    className={"icon-btn" + (is_refreshing ? " spinning" : "")}
+                <Button
+                    className="h-8 w-8 p-0"
+                    variant="icon"
+                    size="sm"
                     title={`刷新 ${label}`}
                     aria-label={`刷新 ${label}`}
                     onClick={(e) => {
@@ -210,8 +248,12 @@ export const ProviderCard = memo(function ProviderCard({
                         onRefresh(provider);
                     }}
                 >
-                    <Icon name="refresh" size={16} />
-                </button>
+                    <Icon
+                        name="refresh"
+                        size={16}
+                        {...(is_refreshing ? { className: "animate-spin" } : {})}
+                    />
+                </Button>
             )}
         </>
     );
@@ -222,11 +264,6 @@ export const ProviderCard = memo(function ProviderCard({
               onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
                   onDragStart(provider, e.currentTarget.getBoundingClientRect());
               },
-              onDragEnter: onDragEnter
-                  ? () => {
-                        onDragEnter(provider);
-                    }
-                  : undefined,
               onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
                   e.preventDefault();
                   if (onDragOver) {

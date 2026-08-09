@@ -68,7 +68,7 @@ describe("SessionRail provider 徽标", () => {
             { fallback: true },
         ] as const;
         badges.forEach((badge, index) => {
-            expect(badge.querySelector(".vicon")).toBeTruthy();
+            expect(badge.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
             const expected_logo = expected[index];
             if (!expected_logo || "fallback" in expected_logo) {
                 expect(badge.querySelector("svg")).toBeTruthy();

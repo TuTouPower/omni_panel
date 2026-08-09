@@ -7,7 +7,7 @@ import { SettingsPage } from "../pages/settings_page";
  */
 test.describe("settings provider accounts (web)", () => {
     test("about page shows real logo", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-about").click();
 
@@ -19,7 +19,7 @@ test.describe("settings provider accounts (web)", () => {
     });
 
     test("about page shows version text", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-about").click();
 
@@ -29,14 +29,16 @@ test.describe("settings provider accounts (web)", () => {
     });
 
     test("accounts page lists connector rows", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-accounts").click();
 
         // 已添加连接列表（VendorCard 行），synthetic/real 均含 connector。
         // 注意：.accent-row 是外观页强调色 swatch，不属于 accounts 页；accounts
-        // 页行结构为 .acct-list > .acc-card。
-        const rows = settings.page.locator(".acct-list .acc-card");
+        // 页行结构为 accounts-list > account-card。
+        const rows = settings.page.locator(
+            '[data-testid="accounts-list"] [data-testid="account-card"]',
+        );
         await expect(rows.first()).toBeVisible({ timeout: 10_000 });
         expect(await rows.count()).toBeGreaterThanOrEqual(1);
     });

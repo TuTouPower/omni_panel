@@ -15,15 +15,15 @@ describe("Button", () => {
         render(<Button variant="ghost">ghost</Button>);
         const btn = screen.getByRole("button", { name: "ghost" });
         expect(btn).toBeInTheDocument();
-        expect(btn.className).toContain("hover:bg-[var(--muted)]");
-        expect(btn.className).toContain("hover:text-[var(--foreground)]");
+        expect(btn.className).toContain("hover:bg-[var(--color-surface-raised)]");
+        expect(btn.className).toContain("hover:text-[var(--color-on-surface)]");
     });
 
     it("renders outline variant", () => {
         render(<Button variant="outline">outline</Button>);
         const btn = screen.getByRole("button", { name: "outline" });
         expect(btn).toBeInTheDocument();
-        expect(btn.className).toContain("border-[var(--border)]");
+        expect(btn.className).toContain("border-[var(--color-outline)]");
         expect(btn.className).toContain("bg-transparent");
     });
 

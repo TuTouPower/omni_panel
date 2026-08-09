@@ -70,11 +70,11 @@ describe("ProviderAccountList", () => {
             />,
         );
 
-        const row = screen.getByText("5小时").closest(".bar-row");
+        const row = screen.getByText("5小时").closest('[data-testid="bar-row"]');
         expect(row).toBeInstanceOf(HTMLElement);
-        const fill = (row as HTMLElement).querySelector<HTMLElement>(".fill");
+        const fill = (row as HTMLElement).querySelector<HTMLElement>('[data-testid="bar-fill"]');
         if (!fill) throw new Error("missing fill");
-        expect(fill.style.background).toBe("var(--risk-yellow)");
+        expect(fill.style.background).toBe("var(--color-risk-mid)");
     });
 
     it("uses account label maps keyed by connector instance id", () => {
@@ -147,11 +147,11 @@ describe("ProviderAccountList", () => {
             accounts: [mk_account("a", "A"), mk_account("b", "B"), mk_account("c", "C")],
         };
         const { container } = render(<ProviderAccountList group={group} />);
-        const list = container.querySelector(".provider-account-list");
+        const list = container.querySelector('[data-testid="provider-account-list"]');
         expect(list).not.toBeNull();
         if (!list) throw new Error("no list");
         // 子项为各账号 card，顺序保持 fixture 顺序
-        const cards = list.querySelectorAll(":scope > .card");
+        const cards = list.querySelectorAll(':scope > [data-testid="collapsible-card"]');
         expect(cards).toHaveLength(3);
     });
 });

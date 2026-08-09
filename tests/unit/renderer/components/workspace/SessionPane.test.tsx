@@ -135,7 +135,7 @@ describe("SessionPane (t225)", () => {
                 />,
             );
             const badge = document.querySelector(".conversation-agent-badge");
-            expect(badge?.querySelector(".vicon")).toBeTruthy();
+            expect(badge?.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
             if (assets.length === 0) {
                 expect(badge?.querySelector("svg")).toBeTruthy();
             } else {

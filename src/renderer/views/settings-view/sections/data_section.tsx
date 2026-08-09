@@ -1,6 +1,6 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
 import { Button } from "../../../components/ui/Button";
-import { SetRow } from "../../../components/settings/SetRow";
+import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Select } from "../../../components/settings/Select";
 
 export function DataSection({
@@ -22,7 +22,7 @@ export function DataSection({
 
     return (
         <>
-            <div className="set-group-label">存储</div>
+            <SetGroupLabel>存储</SetGroupLabel>
             <SetRow title="本地缓存上限" sub="历史趋势数据占用的最大空间，超出后自动清理最旧记录">
                 <Select
                     value={cacheMaxMb === 0 ? "不限制" : `${String(cacheMaxMb)} MB`}
@@ -44,7 +44,7 @@ export function DataSection({
                     暂未开放
                 </Button>
             </SetRow>
-            <div className="set-group-label">数据</div>
+            <SetGroupLabel>数据</SetGroupLabel>
             <SetRow title="导出设置" sub="导出全部配置与账号密钥到 JSON 文件">
                 <Button
                     variant="secondary"
@@ -78,9 +78,7 @@ export function DataSection({
                     {data_msg === "日志已导出" ? "已导出" : "导出日志"}
                 </Button>
             </SetRow>
-            <div className="set-group-label" style={{ color: "var(--red)" }}>
-                危险区域
-            </div>
+            <SetGroupLabel className="text-[var(--color-error)]">危险区域</SetGroupLabel>
             <SetRow title="重置应用" sub="清除全部账号、设置与缓存（暂未开放）">
                 <Button
                     variant="secondary"

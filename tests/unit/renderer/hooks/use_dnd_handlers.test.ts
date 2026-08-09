@@ -55,9 +55,7 @@ describe("use_dnd_handlers", () => {
     it("initial drag state is null", () => {
         const { result } = render_dnd(["claude", "codex"], undefined, "overview");
         expect(result.current.handlers.drag_id).toBeNull();
-        expect(result.current.handlers.over_id).toBeNull();
         expect(result.current.handlers.account_drag_id).toBeNull();
-        expect(result.current.handlers.account_over_id).toBeNull();
     });
 
     it("handle_drag_start sets drag_id and rect", () => {
@@ -69,28 +67,6 @@ describe("use_dnd_handlers", () => {
         expect(result.current.handlers.drag_id).toBe("claude");
     });
 
-    it("handle_drag_enter sets over_id for different provider", () => {
-        const { result } = render_dnd(["claude", "codex"], undefined, "overview");
-        act(() => {
-            result.current.handlers.handle_drag_start("claude");
-        });
-        act(() => {
-            result.current.handlers.handle_drag_enter("codex");
-        });
-        expect(result.current.handlers.over_id).toBe("codex");
-    });
-
-    it("handle_drag_enter ignores same provider", () => {
-        const { result } = render_dnd(["claude", "codex"], undefined, "overview");
-        act(() => {
-            result.current.handlers.handle_drag_start("claude");
-        });
-        act(() => {
-            result.current.handlers.handle_drag_enter("claude");
-        });
-        expect(result.current.handlers.over_id).toBeNull();
-    });
-
     it("handle_drag_end clears drag state", () => {
         const { result } = render_dnd(["claude", "codex"], undefined, "overview");
         act(() => {
@@ -100,7 +76,6 @@ describe("use_dnd_handlers", () => {
             result.current.handlers.handle_drag_end();
         });
         expect(result.current.handlers.drag_id).toBeNull();
-        expect(result.current.handlers.over_id).toBeNull();
     });
 
     it("handle_drag_over reorders provider on x-axis same-row drag past midpoint", () => {
@@ -116,7 +91,6 @@ describe("use_dnd_handlers", () => {
             result.current.handlers.handle_drag_over("codex", 80, 50, over_rect);
         });
         expect(result.current.provider_order).toEqual(["codex", "claude"]);
-        expect(result.current.handlers.over_id).toBe("codex");
     });
 
     it("handle_drag_over reorders the upcoming reset card with providers on the x-axis", () => {
@@ -206,10 +180,9 @@ describe("use_dnd_handlers", () => {
         // baseIds = [a1, a2, a3]; move a1 (index 0) to a3 position (index 2)
         // splice(0,1) -> [a2, a3]; splice(2,0,"a1") -> [a2, a3, a1]
         expect(result.current.account_orders).toEqual({ claude: ["a2", "a3", "a1"] });
-        expect(result.current.handlers.account_over_id).toBe("a3");
     });
 
-    it("account drag enter without activeGroup only sets over_id", () => {
+    it("account drag enter without activeGroup does not reorder", () => {
         const { result } = render_dnd(["claude"], undefined, "overview");
         act(() => {
             result.current.handlers.handle_account_drag_start("a1");
@@ -218,7 +191,6 @@ describe("use_dnd_handlers", () => {
             result.current.handlers.handle_account_drag_enter("a3");
         });
         expect(result.current.account_orders).toEqual({});
-        expect(result.current.handlers.account_over_id).toBe("a3");
     });
 
     it("account drag end clears account drag state", () => {
@@ -230,6 +202,5 @@ describe("use_dnd_handlers", () => {
             result.current.handlers.handle_account_drag_end();
         });
         expect(result.current.handlers.account_drag_id).toBeNull();
-        expect(result.current.handlers.account_over_id).toBeNull();
     });
 });

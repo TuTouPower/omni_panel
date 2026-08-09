@@ -38,12 +38,16 @@ interface CpaStatus {
 
 function get_cpa_status(status: CpaCardProps["status"], enabled: boolean): CpaStatus {
     if (!enabled || status === "disabled") {
-        return { color: "var(--text-3)", text: "已关闭", severity_class: "" };
+        return { color: "var(--color-on-surface-muted)", text: "已关闭", severity_class: "" };
     }
     if (status === "partial" || status === "error") {
-        return { color: "var(--risk-red)", text: "采集失败", severity_class: " err" };
+        return {
+            color: "var(--color-risk-critical)",
+            text: "采集失败",
+            severity_class: " err",
+        };
     }
-    return { color: "var(--green)", text: "正常", severity_class: "" };
+    return { color: "var(--color-success)", text: "正常", severity_class: "" };
 }
 
 export function CpaCard({
@@ -76,18 +80,55 @@ export function CpaCard({
     }, [rows]);
 
     return (
-        <div className={"acc-card" + (enabled ? "" : " off")}>
-            <div className="acc-row ds-row">
+        <div
+            className={
+                "overflow-hidden rounded-[14px] border-[0.5px] border-[var(--color-outline)] " +
+                "bg-[var(--color-surface-card)] shadow-card transition-[opacity,box-shadow] duration-[0.16s]" +
+                (enabled ? "" : " opacity-[0.56]")
+            }
+            data-testid="account-card"
+        >
+            <div
+                className={
+                    "flex items-center gap-3 border-t-[0.5px] border-[var(--color-hairline)] " +
+                    "bg-[color-mix(in_srgb,var(--color-surface)_4%,var(--color-surface-card))] " +
+                    "px-[14px] py-3 transition-[opacity,background-color] duration-[0.16s] first:border-t-0"
+                }
+                data-testid="account-row"
+                data-mode="cpa-source"
+            >
                 <VendorMark id="cpa" size={24} />
-                <span className="ar-id">
-                    <span className="ar-vendor">CPA</span>
-                    {note && note !== "CPA" && <span className="ar-note">· {note}</span>}
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span
+                        className="shrink-0 whitespace-nowrap text-[14px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        data-testid="account-vendor"
+                    >
+                        CPA
+                    </span>
+                    {note && note !== "CPA" && (
+                        <span className="truncate text-[13.5px] font-[550] text-[var(--color-on-surface-muted)]">
+                            · {note}
+                        </span>
+                    )}
                 </span>
-                <span className="ar-status">
-                    <span className="ar-dot" style={{ background: cpa_status.color }} />
-                    <span className={"ar-stat" + cpa_status.severity_class}>{cpa_status.text}</span>
+                <span
+                    className="flex w-[72px] shrink-0 items-center gap-2"
+                    data-testid="account-status"
+                >
+                    <span
+                        className="h-[7px] w-[7px] shrink-0 rounded-full"
+                        style={{ background: cpa_status.color }}
+                    />
+                    <span
+                        className={
+                            "whitespace-nowrap text-[11.5px] font-semibold text-[var(--color-on-surface-muted)]" +
+                            (cpa_status.severity_class ? " text-[var(--color-risk-critical)]" : "")
+                        }
+                    >
+                        {cpa_status.text}
+                    </span>
                 </span>
-                <div className="ar-actions">
+                <div className="ml-auto flex shrink-0 items-center gap-[3px]">
                     <Switch
                         checked={enabled}
                         data-on={enabled ? "1" : "0"}

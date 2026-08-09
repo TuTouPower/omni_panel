@@ -22,7 +22,9 @@ test.describe("opencode go usage (web)", () => {
         await tab.click({ timeout: 15_000 });
 
         // 进入 tab 后应有多个账号 card（real fixture 8 workspace）
-        const account_cards = live.locator(".card .card-name");
+        const account_cards = live.locator(
+            '[data-testid="collapsible-card"] [data-testid="card-name"]',
+        );
         await expect(account_cards.first()).toBeVisible({ timeout: 10_000 });
         expect(await account_cards.count()).toBeGreaterThan(1);
 

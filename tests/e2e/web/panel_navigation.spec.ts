@@ -21,7 +21,7 @@ test.describe("web panel navigation (t259)", () => {
         // Session → Settings。
         await page.getByRole("button", { name: "Settings面板" }).click();
         // 设置面板先过 loading（标题栏无 onNavigate），等待真实设置内容挂载。
-        await expect(page.locator(".settings").first()).toBeVisible();
+        await expect(page.locator('[data-window="settings"]').first()).toBeVisible();
         await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe("#setting");
 
         // Settings → Usage。

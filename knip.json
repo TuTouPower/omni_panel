@@ -17,7 +17,6 @@
         "eslint-plugin-unicorn",
         "lodash",
         "tailwindcss",
-        "lucide-react",
         "tslib"
     ]
 }

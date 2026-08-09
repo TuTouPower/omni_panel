@@ -75,7 +75,10 @@ test("CPA label-map bell toggles every account for one raw label", async ({ omni
     const settings_page = settings.page;
 
     await settings_page.getByTestId("settings-plugin-nav-accounts").click();
-    const cpa_card = settings_page.locator(".acc-card").filter({ hasText: "CPA" }).first();
+    const cpa_card = settings_page
+        .locator('[data-testid="account-card"]')
+        .filter({ hasText: "CPA" })
+        .first();
     await expect(cpa_card).toBeVisible();
     await cpa_card.getByTitle("编辑（连接设置）").click();
     await settings_page.getByTitle("编辑数据标签映射").first().click();

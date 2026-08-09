@@ -260,14 +260,23 @@ export function CpaConnectorSettings({
     }, [onRemove]);
 
     return (
-        <form className="cpa-detail" data-testid="cpa-connector-settings" onSubmit={handle_submit}>
+        <form
+            className="flex min-h-0 flex-1"
+            data-testid="cpa-connector-settings"
+            onSubmit={handle_submit}
+        >
             {/* left column: config */}
-            <div className="cpa-cfg">
-                <div className="cfg-row" style={{ marginTop: 0 }}>
-                    <div className="cr-text">
-                        <div className="cr-title">启用</div>
+            <div className="w-1/2 shrink-0 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] pb-4 pr-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
+                <div
+                    className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
+                    data-testid="cfg-row"
+                >
+                    <div className="min-w-0">
+                        <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                            启用
+                        </div>
                     </div>
-                    <div className="cr-ctrl">
+                    <div className="ml-auto flex shrink-0 items-center">
                         <Switch
                             checked={enabled}
                             data-on={enabled ? "1" : "0"}
@@ -278,9 +287,13 @@ export function CpaConnectorSettings({
                         />
                     </div>
                 </div>
-                <div className="cfg-sec">连接配置</div>
-                <div className="cfg-field">
-                    <div className="cfg-label">备注</div>
+                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                    连接配置
+                </div>
+                <div className="mb-[13px] last:mb-0">
+                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                        备注
+                    </div>
                     <Input
                         aria-label="备注"
                         spellCheck={false}
@@ -293,8 +306,10 @@ export function CpaConnectorSettings({
                         value={alias}
                     />
                 </div>
-                <div className="cfg-field">
-                    <div className="cfg-label">CPA-Manager URL</div>
+                <div className="mb-[13px] last:mb-0">
+                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                        CPA-Manager URL
+                    </div>
                     <Input
                         aria-label="CPA-Manager URL"
                         spellCheck={false}
@@ -308,8 +323,10 @@ export function CpaConnectorSettings({
                         value={endpoint}
                     />
                 </div>
-                <div className="cfg-field">
-                    <div className="cfg-label">API 密钥</div>
+                <div className="mb-[13px] last:mb-0">
+                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                        API 密钥
+                    </div>
                     <SecretInput
                         name="cpa_mgmt_key"
                         aria-label="管理密钥"
@@ -318,19 +335,46 @@ export function CpaConnectorSettings({
                     />
                 </div>
 
-                <div className="cfg-sec">连接状态</div>
-                <div className="cfg-status">
-                    <span className={`csd${isConnected ? "" : " off"}`} />
-                    <span className={isConnected ? "cs-ok" : "cs-err"}>{status}</span>
-                    <span className="cs-sync">上次同步：{lastSync}</span>
+                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                    连接状态
+                </div>
+                <div className="flex items-center gap-2 rounded-[10px] bg-[var(--color-field-bg)] px-3 py-[10px]">
+                    <span
+                        className={
+                            "h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-success)_16%,transparent)] " +
+                            (isConnected
+                                ? "bg-[var(--color-success)]"
+                                : "bg-[var(--color-on-surface-muted)] shadow-none")
+                        }
+                    />
+                    <span
+                        className={
+                            "text-[13px] font-semibold " +
+                            (isConnected
+                                ? "text-[var(--color-success)]"
+                                : "text-[var(--color-error)]")
+                        }
+                    >
+                        {status}
+                    </span>
+                    <span className="ml-auto text-[12px] text-[var(--color-on-surface-muted)]">
+                        上次同步：{lastSync}
+                    </span>
                 </div>
 
-                <div className="cfg-sec">刷新</div>
-                <div className="cfg-row">
-                    <div className="cr-text">
-                        <div className="cr-title">跟随全局自动刷新间隔</div>
+                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                    刷新
+                </div>
+                <div
+                    className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
+                    data-testid="cfg-row"
+                >
+                    <div className="min-w-0">
+                        <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                            跟随全局自动刷新间隔
+                        </div>
                     </div>
-                    <div className="cr-ctrl">
+                    <div className="ml-auto flex shrink-0 items-center">
                         <Switch
                             checked={followGlobal}
                             data-on={followGlobal ? "1" : "0"}
@@ -342,19 +386,27 @@ export function CpaConnectorSettings({
                     </div>
                 </div>
                 {followGlobal ? (
-                    <div className="cfg-row">
-                        <div className="cr-text">
-                            <div className="cr-note text-body-sm text-[var(--color-on-surface-muted)]">
+                    <div
+                        className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
+                        data-testid="cfg-row"
+                    >
+                        <div className="min-w-0">
+                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
                                 当前全局为「{globalIntervalLabel}」自动刷新
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="cfg-row">
-                        <div className="cr-text">
-                            <div className="cr-title">该数据源刷新频率</div>
+                    <div
+                        className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
+                        data-testid="cfg-row"
+                    >
+                        <div className="min-w-0">
+                            <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                                该数据源刷新频率
+                            </div>
                         </div>
-                        <div className="cr-ctrl">
+                        <div className="ml-auto flex shrink-0 items-center">
                             <Select
                                 className="w-auto"
                                 value={syncInterval}
@@ -379,7 +431,7 @@ export function CpaConnectorSettings({
                     </div>
                 )}
 
-                <div className="cpa-foot">
+                <div className="mt-[22px] flex items-center gap-[10px]">
                     <Button
                         variant="primary"
                         data-testid="cpa-settings-save-btn"
@@ -402,18 +454,27 @@ export function CpaConnectorSettings({
             </div>
 
             {/* right column: sync scope */}
-            <div className="cpa-scope">
-                <div className="cfg-sec" style={{ marginTop: 0 }}>
+            <div className="min-w-0 flex-1 overflow-y-auto pb-4 pl-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
+                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] first:mt-0 [&:not(:first-child)]:mt-[22px]">
                     同步范围
                 </div>
-                <div className="disc-desc">选择要同步的服务商，开启后将自动采集对应账号用量。</div>
+                <div className="mb-[14px] text-[12.5px] leading-[1.5] text-[var(--color-on-surface-muted)]">
+                    选择要同步的服务商，开启后将自动采集对应账号用量。
+                </div>
                 {MONITORS.map((monitor) => (
-                    <div className="cfg-row cfg-scope-row" key={monitor.name}>
-                        <span className="cr-vendor">
+                    <div
+                        className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
+                        data-testid="cfg-scope-row"
+                        key={monitor.name}
+                    >
+                        <span
+                            className="flex items-center gap-[9px] text-[13.5px] font-[550] text-[var(--color-on-surface)]"
+                            data-testid="cfg-vendor"
+                        >
                             <VendorMark id={monitor.provider} size={20} />
                             {PROVIDER_LABELS[monitor.provider]}
                         </span>
-                        <div className="cr-ctrl">
+                        <div className="ml-auto flex shrink-0 items-center">
                             {onEditLabelMap && (
                                 <Button
                                     variant="icon"

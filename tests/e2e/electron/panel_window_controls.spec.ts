@@ -61,7 +61,7 @@ async function open_agent_page(omni: ElectronApplication, popup: Page): Promise<
 test.describe("panel window controls (t252)", () => {
     test("agent 窗口系统标题为面板标题、无原生菜单栏（AC9/AC4）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
         await agent_page.waitForSelector(".token-stats", { timeout: 15_000 });
 
@@ -74,10 +74,11 @@ test.describe("panel window controls (t252)", () => {
 
     test("标题栏为拖拽区（AC5 DOM 断言）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const region = await page.evaluate(() => {
             const el =
-                document.querySelector(".panel-titlebar") ?? document.querySelector(".titlebar");
+                document.querySelector("[data-panel-titlebar]") ??
+                document.querySelector('[data-testid="popup-titlebar"]');
             if (!el) return null;
             return getComputedStyle(el).getPropertyValue("-webkit-app-region");
         });
@@ -86,7 +87,7 @@ test.describe("panel window controls (t252)", () => {
 
     test("用量面板隐藏按钮隐藏窗口而非销毁（AC3）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         // e2e fixture 默认 floating：显示「隐藏用量面板」（AC3 用量关闭=隐藏到托盘）。
         await page.getByRole("button", { name: "隐藏用量面板" }).click();
 
@@ -102,7 +103,7 @@ test.describe("panel window controls (t252)", () => {
             headless_skip_reason("最小化/最大化状态（isMinimized/isMaximized）"),
         );
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
         await agent_page.waitForSelector(".token-stats", { timeout: 15_000 });
 
@@ -130,7 +131,7 @@ test.describe("panel window controls (t252)", () => {
 
     test("agent 窗口关闭按钮销毁窗口（AC3）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
         await agent_page.waitForSelector(".token-stats", { timeout: 15_000 });
 
@@ -152,7 +153,7 @@ test.describe("panel window controls (t252)", () => {
 
     test("agent 窗口内编辑快捷键 copy/paste 可用（AC7）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
         await agent_page.waitForSelector(".token-stats", { timeout: 15_000 });
 

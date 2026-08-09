@@ -13,7 +13,9 @@ test.describe("popup refresh state reset (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const first_label = await collapse_buttons.first().getAttribute("aria-label");
@@ -37,7 +39,9 @@ test.describe("popup refresh state reset (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const first_label = await collapse_buttons.first().getAttribute("aria-label");
@@ -61,7 +65,9 @@ test.describe("popup refresh state reset (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         await live.getByTitle("刷新全部").click();
 

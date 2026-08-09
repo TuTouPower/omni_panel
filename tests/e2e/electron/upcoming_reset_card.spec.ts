@@ -81,7 +81,7 @@ test("upcoming reset card is reordered, expanded, and restored after restart", a
     const reset_card = live1.locator(`[data-card-id="${upcoming_reset_card_id}"]`);
     const grid_card_ids = () =>
         live1
-            .locator(".overview-grid > [data-card-id]")
+            .locator('[data-testid="overview-grid"] > [data-card-id]')
             .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-card-id")));
 
     await expect(reset_card).toHaveAttribute("draggable", "true");
@@ -104,7 +104,9 @@ test("upcoming reset card is reordered, expanded, and restored after restart", a
             ({ card_id: id, type: event_type }) => {
                 const root = document.querySelector('[data-popup="live"]');
                 if (!root) throw new Error("live popup root missing");
-                const card = root.querySelector(`.overview-grid > [data-card-id="${id}"]`);
+                const card = root.querySelector(
+                    `[data-testid="overview-grid"] > [data-card-id="${id}"]`,
+                );
                 if (!card) throw new Error(`card ${id} missing`);
                 const box = card.getBoundingClientRect();
                 card.dispatchEvent(
@@ -152,7 +154,7 @@ test("upcoming reset card is reordered, expanded, and restored after restart", a
     const reset_row = live1.getByRole("button", { name: /切换到 claude/i });
     await expect(reset_row).toBeVisible();
     await reset_row.click();
-    await expect(live1.locator('[data-tab="claude"]')).toHaveClass(/active/);
+    await expect(live1.locator('[data-tab="claude"]')).toHaveAttribute("data-active", "true");
 
     // Both writes must reach disk before the app is torn down, otherwise the
     // restart assertions below would race the renderer's async save queue.
@@ -181,7 +183,7 @@ test("upcoming reset card is reordered, expanded, and restored after restart", a
         .poll(async () =>
             (
                 await live2
-                    .locator(".overview-grid > [data-card-id]")
+                    .locator('[data-testid="overview-grid"] > [data-card-id]')
                     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-card-id")))
             ).slice(0, 2),
         )

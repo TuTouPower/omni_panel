@@ -140,7 +140,9 @@ describe("PopupView", () => {
 
         await screen.findByRole("button", { name: /^Claude$/ });
 
-        const live_grid = document.querySelector(".window:not(.popup-mirror) .overview-grid");
+        const live_grid = document.querySelector(
+            '[data-popup="live"] [data-testid="overview-grid"]',
+        );
         await waitFor(() => {
             expect(live_grid?.querySelector('[data-card-id="__upcoming_reset__"]')).not.toBeNull();
         });
@@ -286,7 +288,9 @@ describe("PopupView", () => {
         render(<PopupView />);
 
         const collapse_button = await screen.findByLabelText("展开即将重置");
-        const live_grid = document.querySelector(".window:not(.popup-mirror) .overview-grid");
+        const live_grid = document.querySelector(
+            '[data-popup="live"] [data-testid="overview-grid"]',
+        );
         // Every overview card carries data-card-id, and the persisted order
         // drives the DOM order — the reserved card sits first here.
         expect(
@@ -360,7 +364,9 @@ describe("PopupView", () => {
         await screen.findByRole("button", { name: /^Claude$/ });
 
         // Threshold null leaves the provider overview grid unchanged but omits the reset card.
-        expect(document.querySelectorAll(".overview-grid").length).toBeGreaterThan(0);
+        expect(document.querySelectorAll('[data-testid="overview-grid"]').length).toBeGreaterThan(
+            0,
+        );
         expect(document.querySelectorAll('[data-card-id="__upcoming_reset__"]')).toHaveLength(0);
         expect(screen.queryByText(/即将重置/)).toBeNull();
     });

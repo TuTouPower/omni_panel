@@ -512,8 +512,8 @@ describe("PopupView", () => {
             expect(screen.getByText("Account B")).toBeInTheDocument();
         });
 
-        const account_a = screen.getByText("Account A").closest(".card");
-        const account_b = screen.getByText("Account B").closest(".card");
+        const account_a = screen.getByText("Account A").closest('[data-testid="collapsible-card"]');
+        const account_b = screen.getByText("Account B").closest('[data-testid="collapsible-card"]');
         if (!account_a || !account_b) throw new Error("account cards not found");
 
         fireEvent.dragStart(account_b);
@@ -699,10 +699,10 @@ describe("PopupView", () => {
             DOMRect.fromRect({ x: 130, y: 0, width: 62, height: 48 }),
         );
 
-        const deepseek_icon = deepseek_tab.querySelector(".tab-ic");
-        const claude_icon = claude_tab.querySelector(".tab-ic");
+        const deepseek_icon = deepseek_tab.querySelector('[data-testid="tab-icon"]');
+        const claude_icon = claude_tab.querySelector('[data-testid="tab-icon"]');
         if (deepseek_icon === null || claude_icon === null) {
-            throw new Error("missing .tab-ic");
+            throw new Error("missing tab-icon");
         }
 
         fireEvent.dragStart(deepseek_icon);

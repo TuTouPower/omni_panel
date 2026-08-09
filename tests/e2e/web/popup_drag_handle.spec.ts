@@ -10,15 +10,15 @@ test.describe("popup drag handle (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        await expect(popup.root().locator(".card-grip").first()).toBeVisible();
-        expect(await popup.root().locator(".card-grip").count()).toBeGreaterThan(0);
+        await expect(popup.root().locator('[data-testid="card-grip"]').first()).toBeVisible();
+        expect(await popup.root().locator('[data-testid="card-grip"]').count()).toBeGreaterThan(0);
     });
 
     test("dragging a card grip applies drag state to its card", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const grip = popup.root().locator(".card-grip").first();
+        const grip = popup.root().locator('[data-testid="card-grip"]').first();
         const box = await grip.boundingBox();
         if (!box) throw new Error("missing card grip bounds");
 
@@ -29,10 +29,8 @@ test.describe("popup drag handle (web)", () => {
         // native dragstart 需 mouse 在按住状态下移动若干像素（headless 时序敏感，多步 + 显式等待）
         await webPage.mouse.move(cx + 25, cy + 25, { steps: 15 });
 
-        const card = grip.locator(
-            "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' card ')][1]",
-        );
-        await expect(card).toHaveClass(/dragging/, { timeout: 5_000 });
+        const card = grip.locator('xpath=ancestor::*[@data-testid="collapsible-card"][1]');
+        await expect(card).toHaveClass(/opacity-45/, { timeout: 5_000 });
 
         await webPage.mouse.up();
     });

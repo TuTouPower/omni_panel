@@ -54,7 +54,10 @@ test.describe("add account dialog", () => {
 
         await expect(settings_page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 10_000 });
         await expect(
-            settings_page.locator(".acc-row").filter({ hasText: "Exa E2E" }).first(),
+            settings_page
+                .locator('[data-testid="account-row"]')
+                .filter({ hasText: "Exa E2E" })
+                .first(),
         ).toBeVisible({
             timeout: 10_000,
         });
@@ -75,7 +78,10 @@ test.describe("add account dialog", () => {
 
         await expect(settings_page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 10_000 });
         await expect(
-            settings_page.locator(".acc-row").filter({ hasText: "CPA E2E" }).first(),
+            settings_page
+                .locator('[data-testid="account-row"]')
+                .filter({ hasText: "CPA E2E" })
+                .first(),
         ).toBeVisible({ timeout: 10_000 });
     });
 });

@@ -239,7 +239,9 @@ describe("CpaConnectorSettings", () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         renderSettings({ onSave });
 
-        const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
+        const followRow = screen
+            .getByText("跟随全局自动刷新间隔")
+            .closest('[data-testid="cfg-row"]');
         const btn = followRow?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing follow-global toggle");
         await user.click(btn);
@@ -274,15 +276,15 @@ describe("CpaConnectorSettings", () => {
 
         // Find monitor toggle buttons by their row text
         const claude_matches = screen.getAllByText("Claude");
-        const claude_vendor = claude_matches.find((el) => el.classList.contains("cr-vendor"));
+        const claude_vendor = claude_matches.find((el) => el.closest('[data-testid="cfg-vendor"]'));
         if (!claude_vendor) throw new Error("missing Claude scope row");
-        const claudeRow = claude_vendor.closest(".cfg-scope-row");
+        const claudeRow = claude_vendor.closest('[data-testid="cfg-scope-row"]');
         const antigravity_matches = screen.getAllByText("Antigravity");
         const antigravity_vendor = antigravity_matches.find((el) =>
-            el.classList.contains("cr-vendor"),
+            el.closest('[data-testid="cfg-vendor"]'),
         );
         if (!antigravity_vendor) throw new Error("missing Antigravity scope row");
-        const antigravityRow = antigravity_vendor.closest(".cfg-scope-row");
+        const antigravityRow = antigravity_vendor.closest('[data-testid="cfg-scope-row"]');
         if (!claudeRow || !antigravityRow) throw new Error("missing monitor rows");
 
         // Toggle monitor_claude off
@@ -386,7 +388,7 @@ describe("CpaConnectorSettings", () => {
         const onToggleEnabled = vi.fn();
         renderSettings({ enabled: true, onToggleEnabled });
 
-        const enabledRow = screen.getByText("启用").closest(".cfg-row");
+        const enabledRow = screen.getByText("启用").closest('[data-testid="cfg-row"]');
         const btn = enabledRow?.querySelector('[role="switch"]');
         expect(btn).toBeTruthy();
         expect(btn).toHaveAttribute("data-on", "1");
@@ -399,7 +401,7 @@ describe("CpaConnectorSettings", () => {
     it("renders enabled switch as off when disabled", () => {
         renderSettings({ enabled: false });
 
-        const enabledRow = screen.getByText("启用").closest(".cfg-row");
+        const enabledRow = screen.getByText("启用").closest('[data-testid="cfg-row"]');
         const btn = enabledRow?.querySelector('[role="switch"]');
         expect(btn).toHaveAttribute("data-on", "0");
     });
@@ -534,7 +536,9 @@ describe("CpaConnectorSettings", () => {
         });
 
         // Toggle follow-global on
-        const followRow = screen.getByText("跟随全局自动刷新间隔").closest(".cfg-row");
+        const followRow = screen
+            .getByText("跟随全局自动刷新间隔")
+            .closest('[data-testid="cfg-row"]');
         const btn = followRow?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing follow-global toggle");
         await user.click(btn);

@@ -187,9 +187,11 @@ export function AccountsSection({
                 已添加
             </div>
             {config.plugins.length === 0 ? (
-                <div className="text-sm text-[var(--text-3)] py-4">暂无已添加连接</div>
+                <div className="py-4 text-sm text-[var(--color-on-surface-muted)]">
+                    暂无已添加连接
+                </div>
             ) : plugin_infos.length === 0 ? (
-                <div className="text-sm text-[var(--text-3)] py-4">加载中...</div>
+                <div className="py-4 text-sm text-[var(--color-on-surface-muted)]">加载中...</div>
             ) : (
                 <AccountsList
                     config={config}

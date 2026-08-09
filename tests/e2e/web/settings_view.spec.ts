@@ -3,25 +3,25 @@ import { SettingsPage } from "../pages/settings_page";
 
 /**
  * Web e2e：settings 视图（sidebar / appearance 颜色与样式）。
- * case 5（accounts config forms，依赖 .acct-row DOM）+ case 6（用量标签映射字段）
+ * case 5（accounts config forms，依赖 account-row DOM）+ case 6（用量标签映射字段）
  * web SPA 无对应 UI，留 electron/settings_view.spec.ts。
  */
 test.describe("settings view (web)", () => {
     test("shows sidebar navigation", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         await expect(settings.page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
     });
 
     test("shows plugin navigation items", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         const sidebar = settings.page.locator('[data-testid="settings-sidebar"]');
         await expect(sidebar).toBeVisible();
     });
 
     test("changes usage bar color scheme from appearance settings", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         const sPage = settings.page;
 
@@ -40,7 +40,7 @@ test.describe("settings view (web)", () => {
     });
 
     test("shows usage bar style buttons above color scheme", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         const sPage = settings.page;
 
@@ -66,7 +66,7 @@ test.describe("settings view (web)", () => {
     test("highlights current section with primary-container bg and accent text/icon", async ({
         webPage,
     }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         const sPage = settings.page;
 
@@ -92,7 +92,7 @@ test.describe("settings view (web)", () => {
         const navStyle = (item: ReturnType<typeof sPage.locator>) =>
             item.evaluate((el) => {
                 const cs = getComputedStyle(el);
-                const icon = el.querySelector(".sn-ic");
+                const icon = el.querySelector("svg");
                 return {
                     bg: cs.backgroundColor,
                     color: cs.color,

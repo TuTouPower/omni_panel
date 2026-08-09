@@ -81,7 +81,7 @@ export function AccountsList({
     }
 
     return (
-        <div className="acct-list">
+        <div className="flex flex-col gap-[10px]" data-testid="accounts-list">
             {Array.from(direct_groups.entries()).map(([provider_id, group]) => (
                 <VendorCard
                     key={provider_id}

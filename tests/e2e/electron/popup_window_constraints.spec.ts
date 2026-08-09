@@ -29,7 +29,7 @@ test.describe("popup window constraints", () => {
         await popup.waitReady();
 
         // The scroll area should always exist in the popup layout
-        const scroll_el = page.locator(".scroll").first();
+        const scroll_el = page.locator('[data-testid="popup-scroll"]').first();
         await expect(scroll_el).toBeVisible();
     });
 
@@ -48,9 +48,9 @@ test.describe("popup window constraints", () => {
 
         // Scroll area should fill the window with minimal gap
         const gap = await page.evaluate(() => {
-            const scroll = document.querySelector(".scroll");
+            const scroll = document.querySelector('[data-testid="popup-scroll"]');
             if (!(scroll instanceof HTMLElement)) return -1;
-            const root = document.querySelector(".window");
+            const root = document.querySelector('[data-popup="live"]');
             if (!(root instanceof HTMLElement)) return -1;
             const root_rect = root.getBoundingClientRect();
             const scroll_rect = scroll.getBoundingClientRect();

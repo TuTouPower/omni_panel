@@ -23,10 +23,55 @@ export function create_mock_handler(responses) {
         res.end(JSON.stringify(body ?? null));
     }
     const empty_ipc = () => ({ ok: true, data: {} });
+    // t274: /v1/config 进程内可变状态——GET 返回最近一次 POST 的 config，
+    // 使「设置页切换主题/accent → 刷新保持」在 web e2e 可验证。
+    const initial_config = responses["GET /v1/config"] ?? empty_ipc();
+    let config_state = initial_config;
     return (req, res) => {
         const url = new URL(req.url, "http://localhost");
         const path = url.pathname;
         const exact = `${req.method} ${url.pathname}${url.search}`;
+        // t274: /v1/config 是进程内可变状态，必须先于录制快照 exact 匹配处理，
+        // 否则 fixture 里的 "GET /v1/config" 会让 GET 永远返回录制值，
+        // POST 的更新无法被读回（刷新保持无从验证）。
+        if (path === "/v1/config" && req.method === "GET") {
+            return json(res, config_state);
+        }
+        // t274: 测试隔离——popup 偏好写回（activeUsageTab/expandedProviders 等）会
+        // 经 config.save 持久化到 mock，污染后续 spec 初始状态；test_web fixture
+        // 每用例开跑前 POST 此端点把 config 复位到录制 fixture。
+        if (path === "/v1/config/reset" && req.method === "POST") {
+            config_state = initial_config;
+            return json(res, empty_ipc());
+        }
+        if (path === "/v1/config" && req.method === "POST") {
+            // 读取并消费 body 后更新进程内 config；无效 JSON 返回 400 且不改状态。
+            if (typeof req.on !== "function") {
+                // 桩调用（单测无 body 流）：按空 body 同步处理，保持 handler 同步契约。
+                config_state = { ...config_state, config: null };
+                return json(res, empty_ipc());
+            }
+            let body = "";
+            req.setEncoding?.("utf8");
+            req.on("data", (chunk) => {
+                body += typeof chunk === "string" ? chunk : String(chunk);
+            });
+            req.on("end", () => {
+                try {
+                    // 与真实后端 read_json_body 同语义：空 body / 非 JSON 均 400，
+                    // 状态不变——空 POST（如弹窗 patcher 偶发空写）不得把 config 清成 {}。
+                    const parsed = JSON.parse(body);
+                    config_state = { ...config_state, config: parsed };
+                    json(res, empty_ipc());
+                } catch {
+                    json(res, { ok: false, error: "Invalid JSON" }, 400);
+                }
+            });
+            req.on("error", () => {
+                if (!res.writableEnded) json(res, { ok: false, error: "request error" }, 400);
+            });
+            return;
+        }
         if (responses[exact] !== undefined) return json(res, responses[exact]);
 
         if (path === "/v1/health") return json(res, { ok: true });
@@ -36,9 +81,6 @@ export function create_mock_handler(responses) {
         if (req.method === "GET" && /^\/v1\/connectors\/[^/]+\/state$/.test(path)) {
             const id = decodeURIComponent(path.split("/")[3] ?? "");
             return json(res, responses[`GET /v1/connectors/${id}/state`] ?? empty_ipc());
-        }
-        if (req.method === "GET" && path === "/v1/config") {
-            return json(res, responses["GET /v1/config"] ?? empty_ipc());
         }
         if (req.method === "GET" && path === "/v1/secrets") {
             const id = url.searchParams.get("instanceId");
