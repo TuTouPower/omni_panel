@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useGlobalTheme, useTheme, apply_accent } from "../../../../src/renderer/lib/theme";
+import { get_chart_palette_revision } from "../../../../src/renderer/lib/echarts_token_resolver";
 
 /**
  * t252 AC6：代理面板主题跟随全局（弃用独立 usage-theme 存储）。
@@ -29,6 +30,7 @@ describe("theme hooks (t252 AC6)", () => {
 
     beforeEach(() => {
         document.documentElement.removeAttribute("data-theme");
+        document.documentElement.style.removeProperty("--accent");
     });
 
     it("useGlobalTheme 读 config.theme 返回主题值", async () => {
@@ -63,6 +65,24 @@ describe("theme hooks (t252 AC6)", () => {
             theme_cb?.(false);
         });
         expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    });
+
+    it("真实主题入口切换时递增图表 palette revision", async () => {
+        install("light");
+        const before_initial_apply = get_chart_palette_revision();
+        renderHook(() => {
+            useTheme();
+        });
+        await waitFor(() => {
+            expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+        });
+        expect(get_chart_palette_revision()).toBeGreaterThan(before_initial_apply);
+
+        const before_theme_change = get_chart_palette_revision();
+        act(() => {
+            theme_cb?.(true);
+        });
+        expect(get_chart_palette_revision()).toBe(before_theme_change + 1);
     });
 
     it("config.theme=system 时按 prefers-color-scheme 解析", async () => {
@@ -103,6 +123,12 @@ describe("apply_accent（t268）", () => {
     it("自定义 hex → 直接作为 base 色", () => {
         apply_accent("#ff8800");
         expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#ff8800");
+    });
+
+    it("真实 accent 入口切换时递增图表 palette revision", () => {
+        const before = get_chart_palette_revision();
+        apply_accent("#ff8800");
+        expect(get_chart_palette_revision()).toBe(before + 1);
     });
 
     it("非法 hex → 回落 blue", () => {

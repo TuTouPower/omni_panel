@@ -1,16 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { Segmented } from "../../../../../src/renderer/components/token-stats/Segmented";
+import { Segmented } from "../../../../../src/renderer/components/ui/Segmented";
 
 describe("Segmented", () => {
-    it("renders options and marks the selected value", () => {
+    it("renders options and marks the selected value with aria-pressed", () => {
         const options = [
             { value: "a", label: "A" },
             { value: "b", label: "B" },
         ];
         render(<Segmented options={options} value="a" onChange={() => undefined} />);
-        expect(screen.getByText("A")).toHaveClass("on");
-        expect(screen.getByText("B")).not.toHaveClass("on");
+        expect(screen.getByRole("button", { name: "A" })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("button", { name: "B" })).toHaveAttribute("aria-pressed", "false");
     });
 
     it("calls onChange when a different option is clicked", () => {
@@ -20,7 +20,7 @@ describe("Segmented", () => {
         ];
         const onChange = vi.fn();
         render(<Segmented options={options} value="a" onChange={onChange} />);
-        fireEvent.click(screen.getByText("B"));
+        fireEvent.click(screen.getByRole("button", { name: "B" }));
         expect(onChange).toHaveBeenCalledWith("b");
     });
 
@@ -31,7 +31,8 @@ describe("Segmented", () => {
         ];
         const onChange = vi.fn();
         render(<Segmented options={options} value="a" onChange={onChange} />);
-        fireEvent.click(screen.getByText("B"));
+        expect(screen.getByRole("button", { name: "B" })).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: "B" }));
         expect(onChange).not.toHaveBeenCalled();
     });
 });

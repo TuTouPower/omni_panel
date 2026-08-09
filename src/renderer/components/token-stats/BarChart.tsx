@@ -1,8 +1,8 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
+import { use_chart_palette } from "../../lib/echarts_token_resolver";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
-import { paletteFor } from "../../lib/token-stats/palette";
 import {
     prepareBarData,
     prepareBarDataFromBuckets,
@@ -110,7 +110,9 @@ export function BarChart({
     chartData,
 }: BarChartProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const { palette: pal, revision: palette_revision } = use_chart_palette(theme);
     const { labels, bucketStarts, series, otherDetails } = useMemo(() => {
+        void palette_revision;
         if (chartData) {
             const derived = prepareBarDataFromDashboardChartData(
                 chartData,
@@ -167,9 +169,9 @@ export function BarChart({
         dirAliases,
         modelAliases,
         chartData,
+        palette_revision,
     ]);
     const fmtV = metric === "tokens" ? fmtTok : fmtInt;
-    const pal = paletteFor(theme);
 
     const option = useMemo<EChartsOption>(() => {
         const nCat = labels.length;
@@ -186,7 +188,7 @@ export function BarChart({
             tooltip: {
                 backgroundColor: pal.tipBg,
                 borderColor: pal.tipBorder,
-                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: "Inter" },
+                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
                 extraCssText: pal.tipShadow,
                 trigger: "axis",
                 axisPointer: { type: "shadow" },
@@ -206,7 +208,7 @@ export function BarChart({
                 axisTick: { show: false },
                 axisLabel: {
                     color: pal.axis,
-                    fontFamily: "JetBrains Mono",
+                    fontFamily: pal.font_code,
                     fontSize: 10.5,
                     rotate,
                     interval: hourMode
@@ -245,7 +247,7 @@ export function BarChart({
                 axisTick: { show: false },
                 axisLabel: {
                     color: pal.axis,
-                    fontFamily: "JetBrains Mono",
+                    fontFamily: pal.font_code,
                     fontSize: 10.5,
                     formatter: (v: number) => (metric === "tokens" ? fmtTok(v) : String(v)),
                 },
@@ -262,13 +264,13 @@ export function BarChart({
                               bottom: 8,
                               borderColor: "transparent",
                               backgroundColor: pal.dzBg,
-                              fillerColor: "rgba(124,108,246,.18)",
-                              handleStyle: { color: "#7c6cf6", borderColor: "#7c6cf6" },
-                              moveHandleStyle: { color: "#7c6cf6" },
+                              fillerColor: pal.dzSelArea,
+                              handleStyle: { color: pal.dzSelLine, borderColor: pal.dzSelLine },
+                              moveHandleStyle: { color: pal.dzSelLine },
                               textStyle: {
                                   color: pal.dzText,
                                   fontSize: 10,
-                                  fontFamily: "JetBrains Mono",
+                                  fontFamily: pal.font_code,
                               },
                               dataBackground: {
                                   lineStyle: { color: pal.dzDataLine },
@@ -294,5 +296,5 @@ export function BarChart({
 
     useECharts(containerRef, () => option, [option]);
 
-    return <div ref={containerRef} className="chart-bar" />;
+    return <div ref={containerRef} className="h-[410px] min-h-0 w-full" />;
 }
