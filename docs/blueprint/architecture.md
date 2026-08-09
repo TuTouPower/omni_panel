@@ -72,11 +72,11 @@ tests/                             # unit / integration / e2e(specs/packaged) / 
 
 ### 设计 token 层（t268）
 
-仓库根 `DESIGN.md` 是设计真相源；`src/renderer/styles/globals.css` 是唯一全局样式入口，含 `@theme` 导出区（由 `scripts/designmd.ts` 生成，drift check 门禁）与 t268 语义层（accent 单变量派生、兼容桥、@font-face）。设计决策见 decisions 014。后续窗口迁移（t270-273）消费这些 token。
+仓库根 `DESIGN.md` 是设计真相源；`src/renderer/styles/globals.css` 是唯一全局样式入口，只保留 token 层、基础规则、必要 `@keyframes` 与 `@utility`：`@theme` 导出区（由 `scripts/designmd.ts` 生成，drift check 门禁）、accent 单变量派生语义层（`--accent-*`/`--color-*` 翻转）、自带字体 `@font-face`、基础样式（`*` 盒模型、`html/body` 字体与底色、tray 窗口 `html[data-window="tray"]` 尺寸规则）、菜单/抽屉动画 `@keyframes`、复合模式 `@utility`（glass-menu/shimmer/metric-num/transition-feedback）。设计决策见 decisions 014。全部窗口（t270-274）已迁移完成，legacy 变量兼容桥已清除，无残留业务手写选择器。
 
 ### 组件层（t269）
 
-`src/renderer/components/ui/` 是统一 ui 组件库，覆盖 DESIGN.md「Components」节形态全集（Button/Card/Input/Textarea/Select/SecretInput/Checkbox/Switch/Segmented/Menu/Dialog/Progress/Badge/StatusDot/Kpi/Skeleton/PanelTitleBar/ListRow）。组件只消费语义 token（`--color-*` 等 @theme 变量 + 工具类），不写 `dark:` 变体、不散落字面量。复合模式沉淀为 `@utility`：`glass-menu`（毛玻璃）、`shimmer`（骨架屏）、`metric-num`（KPI 等宽数字）、`transition-feedback`（120ms 交互过渡）。现有手写组件保留至对应窗口迁移（t270-273）时替换。
+`src/renderer/components/ui/` 是统一 ui 组件库，覆盖 DESIGN.md「Components」节形态全集（Button/Card/Input/Textarea/Select/SecretInput/Checkbox/Switch/Segmented/Menu/Dialog/Progress/Badge/StatusDot/Kpi/Skeleton/PanelTitleBar/ListRow）。组件只消费语义 token（`--color-*` 等 @theme 变量 + 工具类），不写 `dark:` 变体、不散落字面量。复合模式沉淀为 `@utility`：`glass-menu`（毛玻璃）、`shimmer`（骨架屏）、`metric-num`（KPI 等宽数字）、`transition-feedback`（120ms 交互过渡）。全部窗口已迁移到组件层与 Tailwind utility，无保留的手写组件类。
 
 ## 3. 进程与安全边界
 

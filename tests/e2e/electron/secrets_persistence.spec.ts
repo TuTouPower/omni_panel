@@ -80,7 +80,10 @@ async function openSettings(app: ElectronApplication, page: Page): Promise<Page>
 
 async function openSecretForm(sPage: Page) {
     await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
-    const group = sPage.locator(".acc-card").filter({ hasText: "SecretTest" }).first();
+    const group = sPage
+        .locator('[data-testid="account-card"]')
+        .filter({ hasText: "SecretTest" })
+        .first();
     await expect(group).toBeVisible();
     await group.locator('button[title="编辑"]').first().click();
     const form = sPage.locator(`[data-testid="settings-form-${INSTANCE_ID}"]`);
@@ -91,7 +94,7 @@ async function openSecretForm(sPage: Page) {
 test.describe("secrets persistence", () => {
     test("secret survives app restart", async ({ omni }) => {
         let page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         let sPage = await openSettings(omni.app, page);
 
         let form = await openSecretForm(sPage);
@@ -104,7 +107,7 @@ test.describe("secrets persistence", () => {
         await omni.start();
 
         page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         sPage = await openSettings(omni.app, page);
 
         form = await openSecretForm(sPage);
@@ -116,7 +119,7 @@ test.describe("secrets persistence", () => {
 
     test("saved secret is passed to the plugin subprocess on refresh", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const sPage = await openSettings(omni.app, page);
 
         const form = await openSecretForm(sPage);
@@ -137,7 +140,7 @@ test.describe("secrets persistence", () => {
     // instrumenting the plugin host.
     test("saved secret reloads as vault plaintext under password mask", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const sPage = await openSettings(omni.app, page);
 
         let form = await openSecretForm(sPage);

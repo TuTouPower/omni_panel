@@ -12,8 +12,6 @@ import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { RangePicker } from "../components/token-stats/RangePicker";
 import { Button, Card, PanelTitleBar, Segmented, Select } from "../components/ui";
-import { Icon } from "../components/Icon";
-import logo from "../assets/logo.svg";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
@@ -22,7 +20,6 @@ import {
 } from "../lib/token-stats/query-cache";
 import { useGlobalTheme, useTheme } from "../lib/theme";
 import { use_chart_palette, type ChartPalette } from "../lib/echarts_token_resolver";
-import { is_web } from "../lib/is-web";
 import { use_panel_navigation } from "../lib/panel-navigation";
 
 const MODULE = "TokenStatsView";
@@ -643,110 +640,13 @@ export function TokenStatsView() {
     return (
         <div className="token-stats flex min-h-full flex-col gap-4 bg-[var(--color-surface-window)] p-4 text-[var(--color-on-surface)] md:p-6">
             <PanelTitleBar
-                className="panel-titlebar"
+                panel="Agent"
                 data-panel-titlebar="Agent"
-                title={
-                    <div className="flex min-w-0 items-center gap-2">
-                        <img src={logo} alt="OmniPanel" className="app-logo h-6 w-6 shrink-0" />
-                        <span className="app-title truncate">Omni Panel - Agent</span>
-                    </div>
-                }
-                actions={
-                    <>
-                        <Button
-                            variant="icon"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="刷新当前面板"
-                            aria-label="刷新"
-                            onClick={() => {
-                                void loadData(false);
-                            }}
-                        >
-                            <Icon
-                                name="refresh"
-                                size={16}
-                                {...(refreshing ? { className: "animate-spin" } : {})}
-                            />
-                        </Button>
-                        <Button
-                            variant="icon"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="Usage面板"
-                            aria-label="Usage面板"
-                            onClick={() => {
-                                navigate("Usage");
-                            }}
-                        >
-                            <Icon name="dashboard" size={16} />
-                        </Button>
-                        <Button
-                            variant="icon"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="Session面板"
-                            aria-label="Session面板"
-                            onClick={() => {
-                                navigate("Session");
-                            }}
-                        >
-                            <Icon name="chat_square" size={16} />
-                        </Button>
-                        <Button
-                            variant="icon"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="Settings面板"
-                            aria-label="Settings面板"
-                            onClick={() => {
-                                navigate("Settings");
-                            }}
-                        >
-                            <Icon name="gear" size={16} />
-                        </Button>
-                        {!is_web() && (
-                            <>
-                                <Button
-                                    variant="icon"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    title="最小化"
-                                    aria-label="最小化"
-                                    onClick={() => {
-                                        window.usageboard.window.minimize();
-                                    }}
-                                >
-                                    <Icon name="minus" size={16} />
-                                </Button>
-                                <Button
-                                    variant="icon"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    title="最大化/还原"
-                                    aria-label="最大化/还原"
-                                    onClick={() => {
-                                        window.usageboard.window.maximize();
-                                    }}
-                                >
-                                    <Icon name="maximize" size={16} />
-                                </Button>
-                                <Button
-                                    variant="icon"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    title="关闭"
-                                    aria-label="关闭"
-                                    onClick={() => {
-                                        window.usageboard.window.close();
-                                    }}
-                                >
-                                    <Icon name="close" size={16} />
-                                </Button>
-                            </>
-                        )}
-                    </>
-                }
+                refreshing={refreshing}
+                onRefresh={() => {
+                    void loadData(false);
+                }}
+                onNavigate={navigate}
             />
             <header className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-2">

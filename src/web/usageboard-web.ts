@@ -4,6 +4,11 @@
  * local-api on 0.0.0.0). Electron builds keep using preload's ipcRenderer
  * bridge. Native-only surfaces (tray, window controls) are no-ops; the
  * renderer hides their buttons in web mode (see is_web flag).
+ *
+ * Theme/accent (t274) are real in web mode too: there is no main-process
+ * nativeTheme, so the bridge applies the theme locally (data-theme + chart
+ * palette notify) and broadcasts theme/config changes to the same
+ * onThemeChange/onConfigChange subscribers the desktop preload serves.
  */
 import type {
     UsageboardApi,
@@ -14,6 +19,7 @@ import type {
     SessionHistorySearchContentRequest,
     SessionHistorySearchContentResponse,
 } from "../shared/types/ipc";
+import type { AppConfiguration } from "../shared/types/config";
 import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
@@ -23,6 +29,7 @@ import type {
     TokenStatsSession,
     TokenStatsSessionFilters,
 } from "../shared/types/token-stats";
+import { notify_chart_palette_change } from "../renderer/lib/echarts_token_resolver";
 
 const POLL_MS = 10_000;
 
@@ -45,6 +52,18 @@ async function post_json(path: string, body: unknown, signal?: AbortSignal): Pro
 
 const noop = (): void => undefined;
 const return_noop = (): (() => void) => noop;
+
+/**
+ * t274: web 端无主进程 nativeTheme，本地应用 data-theme 并同步图表调色板，
+ * 与 renderer/lib/theme.ts 的 apply_theme 同语义（幂等：同值不重复写入）。
+ */
+function apply_theme_dom(is_dark: boolean): void {
+    const root = document.documentElement;
+    const next_theme = is_dark ? "dark" : "light";
+    if (root.getAttribute("data-theme") === next_theme) return;
+    root.setAttribute("data-theme", next_theme);
+    notify_chart_palette_change();
+}
 const noop_promise_void = (): Promise<void> => Promise.resolve();
 const noop_promise_logged_out = (): Promise<{ logged_out: boolean }> =>
     Promise.resolve({ logged_out: false });
@@ -74,6 +93,10 @@ export function create_web_usageboard(): UsageboardApi {
     const session_focus_listeners = new Set<
         (loc: { source: string; env: string; session_id: string }) => void
     >();
+    // t274: web 无主进程广播，theme/config 变更由 bridge 本地分发，
+    // 对齐桌面 CONFIG_CHANGED / EVENT_THEME_CHANGE 广播语义。
+    const config_change_callbacks = new Set<(config: AppConfiguration) => void>();
+    const theme_change_callbacks = new Set<(isDark: boolean) => void>();
     setInterval(() => {
         // Web build has no push channel for committed data versions; polled
         // dashboards carry their own data_version, so events pass 0 (no-op
@@ -134,7 +157,10 @@ export function create_web_usageboard(): UsageboardApi {
         config: {
             get: () => get_json("/v1/config"),
             save: async (config: unknown) => {
+                // t274: web 无主进程广播；POST 成功后本地通知订阅者，
+                // 对齐桌面 handleConfigSave → CONFIG_CHANGED 广播，accent/主题跨组件即时同步。
                 await post_json("/v1/config", config);
+                for (const cb of config_change_callbacks) cb(config as AppConfiguration);
             },
             getSecrets: (instanceId: string) =>
                 get_json(`/v1/secrets?instanceId=${encodeURIComponent(instanceId)}`),
@@ -154,13 +180,37 @@ export function create_web_usageboard(): UsageboardApi {
                     state_change_cbs.delete(cb);
                 };
             },
-            onConfigChange: return_noop,
-            onThemeChange: return_noop,
+            onConfigChange: (cb: (config: AppConfiguration) => void) => {
+                config_change_callbacks.add(cb);
+                return () => {
+                    config_change_callbacks.delete(cb);
+                };
+            },
+            onThemeChange: (cb: (isDark: boolean) => void) => {
+                theme_change_callbacks.add(cb);
+                return () => {
+                    theme_change_callbacks.delete(cb);
+                };
+            },
             onSettingsNavigate: return_noop,
         },
         popup: { report_content_height: noop },
         main_panel: { hide: noop, get_mode: () => Promise.resolve("popup" as const) },
-        theme: { set: noop },
+        theme: {
+            // t274: web 端本地应用主题（无主进程 nativeTheme）。system 走
+            // matchMedia 解析；data-theme 实际变更后通知 onThemeChange 订阅者，
+            // 与桌面 nativeTheme "updated" 的「仅有效变更才广播」语义一致。
+            set: (mode: "light" | "dark" | "system") => {
+                const dark =
+                    mode === "system"
+                        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                        : mode === "dark";
+                const root = document.documentElement;
+                if (root.getAttribute("data-theme") === (dark ? "dark" : "light")) return;
+                apply_theme_dom(dark);
+                for (const cb of theme_change_callbacks) cb(dark);
+            },
+        },
         settings: {
             open: () => {
                 window.location.hash = "setting";

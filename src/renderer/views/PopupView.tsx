@@ -629,11 +629,8 @@ export function PopupView() {
 
     const {
         drag_id,
-        over_id,
         account_drag_id,
-        account_over_id,
         handle_drag_start,
-        handle_drag_enter,
         handle_drag_over,
         handle_drag_end,
         handle_account_drag_start,
@@ -684,9 +681,9 @@ export function PopupView() {
 
     // Phase 20.5: titlebar drag is platform-dependent.
     // macOS popups are anchored to the tray icon and must not be user-draggable.
-    // Win/Linux popups stay draggable via the existing CSS rule.
+    // Win/Linux popups stay draggable via the [-webkit-app-region:drag] utility.
     const platform = window.usageboard.platform;
-    const titlebar_class = "titlebar" + (platform === "darwin" ? " titlebar-no-drag" : "");
+    const titlebar_no_drag = platform === "darwin";
 
     // Set of provider ids currently refreshing; passed to the provider card for
     // spin-state. Computed before render_body so the function is declared before
@@ -709,7 +706,7 @@ export function PopupView() {
                     footerTime={footerTime}
                     refreshing={refreshing}
                     is_live={is_live}
-                    titlebar_class={titlebar_class}
+                    no_drag={titlebar_no_drag}
                     onRefreshAll={handleRefreshAll}
                     onOpenSettings={goToSettings}
                     is_floating={main_panel_mode === "floating"}
@@ -724,7 +721,8 @@ export function PopupView() {
 
                 {/* tab strip */}
                 <div
-                    className={"tabs-wrap" + (is_live ? "" : " tabs-wrap-mirror")}
+                    className="relative flex shrink-0 items-start pl-3"
+                    data-testid="popup-tabs-wrap"
                     ref={is_live ? tabsRef : undefined}
                 >
                     <ProviderNav
@@ -740,11 +738,15 @@ export function PopupView() {
                         onDragEnd={is_live ? handle_tab_drag_end : undefined}
                     />
                 </div>
-                <div className="titlebar-divider" />
+                <div className="h-px shrink-0 bg-[var(--color-hairline)]" />
 
                 {/* scroll body */}
-                <div className="scroll" ref={scroll_ref}>
-                    <div className="scroll-inner">
+                <div
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-2 pt-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    data-testid="popup-scroll"
+                    ref={scroll_ref}
+                >
+                    <div className="flex flex-col gap-3" data-testid="popup-scroll-inner">
                         {error && <NetBanner is_live={is_live} onRefreshAll={handleRefreshAll} />}
 
                         {loading && plugins.length === 0 && <SkeletonCard />}
@@ -773,16 +775,12 @@ export function PopupView() {
                                                 expanded_providers[UPCOMING_RESET_CARD_ID] ?? false
                                             }
                                             drag_id={drag_id}
-                                            over_id={over_id}
                                             onSelectProvider={select_provider_from_upcoming}
                                             onToggleExpand={() => {
                                                 toggle_expand_provider(UPCOMING_RESET_CARD_ID);
                                             }}
                                             onDragStart={(rect) => {
                                                 handle_drag_start(UPCOMING_RESET_CARD_ID, rect);
-                                            }}
-                                            onDragEnter={() => {
-                                                handle_drag_enter(UPCOMING_RESET_CARD_ID);
                                             }}
                                             onDragOver={(clientX, clientY, rect) => {
                                                 handle_drag_over(
@@ -812,9 +810,7 @@ export function PopupView() {
                                         : undefined
                                 }
                                 draggingProvider={is_live ? drag_id : null}
-                                overProvider={is_live ? over_id : null}
                                 onDragStart={is_live ? handle_drag_start : undefined}
-                                onDragEnter={is_live ? handle_drag_enter : undefined}
                                 onDragOver={is_live ? handle_drag_over : undefined}
                                 onDragEnd={is_live ? handle_drag_end : undefined}
                                 refreshingProviders={is_live ? refresh_providers : undefined}
@@ -839,7 +835,6 @@ export function PopupView() {
                                     collapsedAccounts={collapsed_map}
                                     onToggleAccount={toggle_handler}
                                     draggingId={is_live ? account_drag_id : null}
-                                    overId={is_live ? account_over_id : null}
                                     onDragStart={is_live ? handle_account_drag_start : undefined}
                                     onDragEnter={is_live ? handle_account_drag_enter : undefined}
                                     onDragEnd={is_live ? handle_account_drag_end : undefined}
@@ -878,8 +873,8 @@ export function PopupView() {
                             plugins.length > 0 &&
                             activeTab !== "overview" &&
                             !activeGroup && (
-                                <div className="empty">
-                                    <div className="empty-title">
+                                <div className="flex flex-col items-center justify-center gap-[5px] px-8 py-[70px] text-center">
+                                    <div className="text-[15px] font-semibold text-[var(--color-on-surface)]">
                                         该服务暂无账号。请到设置添加数据来源。
                                     </div>
                                 </div>
@@ -888,7 +883,11 @@ export function PopupView() {
                         {/* Token panel — disabled until backend token persistence is ready */}
                         {token_panel_enabled && !loading && plugins.length > 0 && (
                             <CollapsibleCard
-                                header={<span className="card-name">Total Tokens</span>}
+                                header={
+                                    <span className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]">
+                                        Total Tokens
+                                    </span>
+                                }
                                 collapsed={is_live ? token_panel_collapsed : false}
                                 collapsible={is_live}
                                 onToggle={
@@ -915,7 +914,10 @@ export function PopupView() {
 
     return (
         <>
-            <div className="window" data-popup="live">
+            <div
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
+                data-popup="live"
+            >
                 {render_body(true, false)}
             </div>
             {should_render_mirrors && (
@@ -929,9 +931,10 @@ export function PopupView() {
                         Mirrors must not bind live refs or interactive handlers. */}
                     <div
                         ref={content_mirror_ref}
-                        className="window popup-mirror"
+                        className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
                         aria-hidden="true"
                         inert
+                        data-popup="mirror"
                         data-measuring={mirror_collapse_all ? "true" : "false"}
                         style={popup_mirror_style}
                     >

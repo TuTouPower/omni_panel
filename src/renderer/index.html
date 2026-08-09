@@ -11,9 +11,10 @@
                prefers-color-scheme fallback below cover the first paint even
                if the preload lands slightly late in packaged builds.
                IMPORTANT: body and #root are themed here too — globals.css
-               sets body { background: var(--win-bg) }, and --win-bg defaults
-               to white at :root. Without these rules, body would paint white
-               over the dark html until globals.css resolves --win-bg. */
+               sets body { background: var(--color-surface-window) }, and the
+               light value defaults to white at :root. Without these rules,
+               body would paint white over the dark html until globals.css
+               resolves the semantic var. */
             html,
             body,
             #root {

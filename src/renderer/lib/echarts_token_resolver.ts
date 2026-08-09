@@ -302,16 +302,8 @@ export function resolve_chart_palette(
 ): ChartPalette {
     ensure_observer();
     const fallback = FALLBACK_PALETTES[theme];
-    const surface_card = resolved_token(
-        root,
-        ["--color-surface-card", "--card-bg"],
-        fallback.sliceBorder,
-    );
-    const accent = resolved_token(
-        root,
-        ["--color-accent", "--accent", "--color-primary", "--primary"],
-        fallback.accent,
-    );
+    const surface_card = resolved_token(root, ["--color-surface-card"], fallback.sliceBorder);
+    const accent = resolved_token(root, ["--color-accent", "--accent"], fallback.accent);
     const series = TOP_SERIES_TOKENS.map((name, index) =>
         resolved_token(root, [name], fallback.series[index] ?? fallback.accent),
     );
@@ -349,41 +341,41 @@ export function resolve_chart_palette(
         input: resolved_token(root, ["--color-usage-1"], fallback.composition["input"] ?? accent),
         cache_write: resolved_token(
             root,
-            ["--color-warning", "--amber"],
+            ["--color-warning"],
             fallback.composition["cache_write"] ?? accent,
         ),
         output: resolved_token(root, ["--color-usage-2"], fallback.composition["output"] ?? accent),
     };
     const tip_bg = resolved_token(
         root,
-        ["--color-menu-bg", "--color-surface-window", "--win-bg"],
+        ["--color-menu-bg", "--color-surface-window"],
         fallback.tipBg,
     );
     return {
         accent,
-        axis: resolved_token(root, ["--color-on-surface-variant", "--text-2"], fallback.axis),
-        axisLine: resolved_token(root, ["--color-outline", "--card-border"], fallback.axisLine),
-        split: resolved_token(root, ["--color-hairline", "--hairline"], fallback.split),
+        axis: resolved_token(root, ["--color-on-surface-variant"], fallback.axis),
+        axisLine: resolved_token(root, ["--color-outline"], fallback.axisLine),
+        split: resolved_token(root, ["--color-hairline"], fallback.split),
         tipBg: tip_bg,
-        tipBorder: resolved_token(root, ["--color-outline", "--card-border"], fallback.tipBorder),
-        tipText: resolved_token(root, ["--color-on-surface", "--text"], fallback.tipText),
+        tipBorder: resolved_token(root, ["--color-outline"], fallback.tipBorder),
+        tipText: resolved_token(root, ["--color-on-surface"], fallback.tipText),
         font_body: resolved_token(root, ["--font-body-md"], fallback.font_body),
         font_code: resolved_token(root, ["--font-code-md"], fallback.font_code),
         tipShadow: fallback.tipShadow,
-        centerV: resolved_token(root, ["--color-on-surface", "--text"], fallback.centerV),
-        centerL: resolved_token(root, ["--color-on-surface-muted", "--text-3"], fallback.centerL),
+        centerV: resolved_token(root, ["--color-on-surface"], fallback.centerV),
+        centerL: resolved_token(root, ["--color-on-surface-muted"], fallback.centerL),
         sliceBorder: surface_card,
         heat,
         series,
         agents,
         composition,
-        dzBg: resolved_token(root, ["--color-surface-raised", "--track"], fallback.dzBg),
-        dzDataLine: resolved_token(root, ["--color-outline", "--card-border"], fallback.dzDataLine),
-        dzDataArea: resolved_token(root, ["--color-hairline", "--hairline"], fallback.dzDataArea),
+        dzBg: resolved_token(root, ["--color-surface-raised"], fallback.dzBg),
+        dzDataLine: resolved_token(root, ["--color-outline"], fallback.dzDataLine),
+        dzDataArea: resolved_token(root, ["--color-hairline"], fallback.dzDataArea),
         dzSelLine: accent,
         dzSelArea: color_with_alpha(accent, theme === "dark" ? 0.2 : 0.16),
-        dzText: resolved_token(root, ["--color-on-surface-muted", "--text-3"], fallback.dzText),
-        other: resolved_token(root, ["--color-on-surface-muted", "--text-3"], fallback.other),
+        dzText: resolved_token(root, ["--color-on-surface-muted"], fallback.dzText),
+        other: resolved_token(root, ["--color-on-surface-muted"], fallback.other),
     };
 }
 

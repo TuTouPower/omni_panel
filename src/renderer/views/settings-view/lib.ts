@@ -23,10 +23,10 @@ export const BAR_COLOR_SCHEMES: {
         badge: "默认",
         sub: "只看当前用量比例判断颜色，不依赖重置时间。",
         swatch: [
-            "var(--risk-green)",
-            "var(--risk-yellow)",
-            "var(--risk-orange)",
-            "var(--risk-red)",
+            "var(--color-success)",
+            "var(--color-risk-mid)",
+            "var(--color-risk-high)",
+            "var(--color-risk-critical)",
         ],
     },
     {
@@ -34,10 +34,10 @@ export const BAR_COLOR_SCHEMES: {
         title: "风险色：带投影预测",
         sub: "按当前速度预测窗口结束用量；无法预测时回退到仅当前用量。",
         swatch: [
-            "var(--risk-green)",
-            "var(--risk-yellow)",
-            "var(--risk-orange)",
-            "var(--risk-red)",
+            "var(--color-success)",
+            "var(--color-risk-mid)",
+            "var(--color-risk-high)",
+            "var(--color-risk-critical)",
         ],
     },
     {

@@ -21,7 +21,6 @@ interface ProviderAccountRowProps {
     collapsed?: boolean | undefined;
     onToggleCollapsed?: (() => void) | undefined;
     dragging?: boolean | undefined;
-    dragOver?: boolean | undefined;
     onDragStart?: (() => void) | undefined;
     onDragEnter?: (() => void) | undefined;
     onDragEnd?: (() => void) | undefined;
@@ -57,7 +56,6 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     collapsed = false,
     onToggleCollapsed,
     dragging,
-    dragOver,
     onDragStart,
     onDragEnter,
     onDragEnd,
@@ -171,8 +169,18 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {onDragStart && <DragGrip />}
             <div>
-                {display_label ? <div className="card-name">{display_label}</div> : null}
-                <div className="rel-time">
+                {display_label ? (
+                    <div
+                        className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        data-testid="card-name"
+                    >
+                        {display_label}
+                    </div>
+                ) : null}
+                <div
+                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    data-testid="rel-time"
+                >
                     {/* t174: stale 副本保留原数据时间后，相对时间取 per-账号
                         observedAt（数据真实年龄）而非 connector 级 updatedAt
                         （部分失败下会被成功账号拉高）；placeholder 无
@@ -182,9 +190,17 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                         : account.updatedAt
                           ? relative_time(account.updatedAt)
                           : ""}
-                    {account.stale && <span className="stale-badge">已过期</span>}
+                    {account.stale && (
+                        <span className="ml-1.5 font-[650] text-[var(--color-warning)]">
+                            已过期
+                        </span>
+                    )}
                     {_error && (
-                        <span className="error-badge" title={_error}>
+                        <span
+                            className="ml-1.5 font-[650] text-[var(--color-error)]"
+                            title={_error}
+                            data-testid="error-badge"
+                        >
                             采集失败
                         </span>
                     )}
@@ -193,7 +209,8 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
             {show_relogin_button && (
                 <button
                     type="button"
-                    className="row-relogin-btn"
+                    className="ml-auto cursor-pointer rounded-lg border-0 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-[var(--color-accent)] hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]"
+                    data-testid="row-relogin-btn"
                     onClick={() => {
                         _onReLogin(account.sourceInstanceId, account.accountId, provider);
                     }}
@@ -204,7 +221,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
         </div>
     );
 
-    const card_class = (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "");
+    const card_class = dragging ? " opacity-45" : "";
 
     const drag_root_props = onDragStart
         ? {
@@ -230,6 +247,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 collapsed ? `展开 ${display_label || "账号"}` : `折叠 ${display_label || "账号"}`
             }
             className={card_class || undefined}
+            dataStatus={account.status}
             rootProps={drag_root_props}
         >
             <UsageBarList
@@ -242,13 +260,20 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 on_toggle_watched={on_toggle_watched}
             />
             {!collapsed && account.periods.length > 0 && (
-                <div className="trend-window-picker" role="group" aria-label="趋势窗口">
+                <div className="mt-2.5 flex gap-1" role="group" aria-label="趋势窗口">
                     {[1, 7, 30].map((d) => (
                         <button
                             key={d}
                             type="button"
-                            className={"trend-window-btn" + (trend_days === d ? " active" : "")}
+                            className={
+                                "cursor-pointer rounded-md border-[0.5px] bg-transparent px-2 py-0.5 text-[11px] text-[var(--color-on-surface-variant)] " +
+                                "transition-feedback hover:bg-[var(--color-surface-raised)] " +
+                                (trend_days === d
+                                    ? " border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-surface-card)]"
+                                    : " border-[var(--color-outline)]")
+                            }
                             aria-pressed={trend_days === d}
+                            data-testid="trend-window-btn"
                             onClick={() => {
                                 handle_window_change(d);
                             }}

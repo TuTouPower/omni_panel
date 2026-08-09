@@ -47,7 +47,9 @@ function RouteLoading() {
                 height: "100%",
             }}
         >
-            <span style={{ color: "var(--text-dim, #888)", fontSize: "13px" }}>加载中…</span>
+            <span style={{ color: "var(--color-on-surface-muted)", fontSize: "13px" }}>
+                加载中…
+            </span>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PanelTitleBar } from "../PanelTitleBar";
+import { PanelTitleBar } from "../ui/PanelTitleBar";
 import { useTheme } from "../../lib/theme";
 import { use_panel_navigation } from "../../lib/panel-navigation";
 import { cn } from "../../lib/utils";

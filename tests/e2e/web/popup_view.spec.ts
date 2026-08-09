@@ -26,8 +26,8 @@ test.describe("popup view (web)", () => {
         await popup.waitReady();
 
         const layout = await webPage.evaluate(() => {
-            const root = document.querySelector(".window");
-            const scroll = document.querySelector(".scroll");
+            const root = document.querySelector('[data-popup="live"]');
+            const scroll = document.querySelector('[data-testid="popup-scroll"]');
             if (!(root instanceof HTMLElement)) throw new Error("Popup root not found");
             if (!(scroll instanceof HTMLElement)) throw new Error("Popup scroll area not found");
             const root_rect = root.getBoundingClientRect();
@@ -47,9 +47,9 @@ test.describe("popup view (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
         const live = webPage.locator('[data-popup="live"]');
-        const providerNav = live.locator(".tabs-wrap");
+        const providerNav = live.locator('[data-testid="popup-tabs-wrap"]');
         await expect(live).toBeVisible();
-        await expect(live.locator(".scroll")).toBeVisible();
+        await expect(live.locator('[data-testid="popup-scroll"]')).toBeVisible();
         // 总览 tab 是静态 UI，断言其存在
         await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible();
         // provider tabs 数量来自实际 fixture，断言 > 0 而非具体名

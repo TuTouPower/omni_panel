@@ -330,7 +330,7 @@ describe("SettingsView", () => {
             });
             // Check VendorMark is present in the dialog header
             const dialog = screen.getByRole("dialog");
-            const mark = dialog.querySelector(".vicon");
+            const mark = dialog.querySelector('[data-testid="vendor-mark"]');
             expect(mark).not.toBeNull();
         }
     });

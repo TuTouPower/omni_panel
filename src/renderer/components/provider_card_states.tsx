@@ -19,6 +19,13 @@ interface ProviderCardStateProps {
     onRefresh?: ((provider: string) => void) | undefined;
 }
 
+const STATE_BASE =
+    "mt-[11px] flex items-center gap-[9px] text-[13px] text-[var(--color-on-surface-variant)]";
+
+const ACTION_CLS =
+    "ml-auto cursor-pointer rounded-lg px-2.5 py-1 text-[12.5px] font-semibold " +
+    "text-[var(--color-accent)] hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]";
+
 export function ProviderCardState({
     provider,
     connectorError,
@@ -37,13 +44,14 @@ export function ProviderCardState({
             // instanceIds when multiple connectors share this provider.
             const first_instance_id = connectorError.instanceIds[0] ?? "";
             return (
-                <div className="card-state auth">
-                    <span className="cs-ic">
+                <div className={STATE_BASE} data-testid="card-state" data-variant="auth">
+                    <span className="flex shrink-0 text-[var(--color-warning)]">
                         <Icon name="lock" size={15} />
                     </span>
                     <span>{auth_label}</span>
                     <span
-                        className="cs-action"
+                        className={ACTION_CLS}
+                        data-testid="cs-action"
                         onClick={() => {
                             if (onReLogin) {
                                 onReLogin(provider, first_instance_id);
@@ -60,14 +68,19 @@ export function ProviderCardState({
             );
         }
         return (
-            <div className="card-state err">
-                <span className="cs-ic">
+            <div
+                className={STATE_BASE + " text-[var(--color-error)]"}
+                data-testid="card-state"
+                data-variant="err"
+            >
+                <span className="flex shrink-0">
                     <Icon name="cloud_off" size={15} />
                 </span>
                 <span>{connectorError.error}</span>
                 {onRefresh && (
                     <span
-                        className="cs-action"
+                        className={ACTION_CLS}
+                        data-testid="cs-action"
                         onClick={(e) => {
                             e.stopPropagation();
                             onRefresh(provider);
@@ -80,7 +93,15 @@ export function ProviderCardState({
         );
     }
     if (!hasUsage) {
-        return <div className="card-state off">暂无账号。请到设置添加数据来源。</div>;
+        return (
+            <div
+                className={STATE_BASE + " text-[var(--color-on-surface-muted)]"}
+                data-testid="card-state"
+                data-variant="off"
+            >
+                暂无账号。请到设置添加数据来源。
+            </div>
+        );
     }
     return null;
 }
@@ -100,14 +121,19 @@ export function ProviderCardErrorBanner({
 }: ProviderCardErrorBannerProps) {
     if (!connectorError) return null;
     return (
-        <div className="card-state err">
-            <span className="cs-ic">
+        <div
+            className={STATE_BASE + " text-[var(--color-error)]"}
+            data-testid="card-state"
+            data-variant="err"
+        >
+            <span className="flex shrink-0">
                 <Icon name="cloud_off" size={15} />
             </span>
             <span>采集失败：{connectorError.error}</span>
             {onRefresh && (
                 <span
-                    className="cs-action"
+                    className={ACTION_CLS}
+                    data-testid="cs-action"
                     onClick={(e) => {
                         e.stopPropagation();
                         onRefresh(provider);

@@ -256,6 +256,7 @@ export function AddAccountDialog({
             onClose={on_close}
             width={wide ? 420 : 372}
             ariaLabel={title}
+            backdropTestId="add-account-dialog-backdrop"
             title={
                 <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary-container)]">

@@ -206,10 +206,12 @@ describe("PopupView", () => {
 
         // Failed GroK Old row shows per-row 重新登录 button.
         await waitFor(() => {
-            expect(document.querySelectorAll(".row-relogin-btn").length).toBeGreaterThanOrEqual(1);
+            expect(
+                document.querySelectorAll('[data-testid="row-relogin-btn"]').length,
+            ).toBeGreaterThanOrEqual(1);
         });
 
-        const rowButtons = document.querySelectorAll(".row-relogin-btn");
+        const rowButtons = document.querySelectorAll('[data-testid="row-relogin-btn"]');
         const rowRelogin = rowButtons[0];
         if (!rowRelogin) throw new Error("no row-level 重新登录 button found");
         fireEvent.click(rowRelogin);

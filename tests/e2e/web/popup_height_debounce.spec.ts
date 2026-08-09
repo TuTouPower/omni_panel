@@ -13,7 +13,9 @@ test.describe("popup height debounce (web)", () => {
 
         const live = popup.root();
         await live.getByRole("button", { name: /^Codex$/ }).click();
-        await expect(live.locator(".bar-row").first()).toBeVisible({ timeout: 15_000 });
+        await expect(live.locator('[data-testid="bar-row"]').first()).toBeVisible({
+            timeout: 15_000,
+        });
 
         const collapse_buttons = live.getByRole("button", { name: /^折叠 .+/ });
         const total = await collapse_buttons.count();
@@ -27,8 +29,8 @@ test.describe("popup height debounce (web)", () => {
             labels.push((aria ?? "").replace(/^折叠\s+/, ""));
         }
 
-        // web 下 viewport 固定，测 .scroll-inner 的内容高度（随折叠态变化）
-        const content = live.locator(".scroll-inner");
+        // web 下 viewport 固定，测 popup-scroll-inner 的内容高度（随折叠态变化）
+        const content = live.locator('[data-testid="popup-scroll-inner"]');
 
         for (const label of labels) {
             const height_before = await content.evaluate((node) => node.scrollHeight);
@@ -46,8 +48,8 @@ test.describe("popup height debounce (web)", () => {
             expect(height_expanded).toBeGreaterThan(height_collapsed);
         }
 
-        await expect(live.locator(".card-name").first()).toBeVisible();
-        await expect(live.locator(".titlebar")).toBeVisible();
+        await expect(live.locator('[data-testid="card-name"]').first()).toBeVisible();
+        await expect(live.locator('[data-testid="popup-titlebar"]')).toBeVisible();
     });
 
     test("live popup is measurable while no visible mirror trees", async ({ webPage }) => {

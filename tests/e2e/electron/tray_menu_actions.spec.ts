@@ -24,13 +24,13 @@ test.describe("tray menu actions", () => {
         await popup.waitReady();
 
         // The popup should be visible (opened by test harness or tray click)
-        const title = page.locator(".app-title").first();
+        const title = page.locator('[data-testid="app-title"]').first();
         await expect(title).toBeVisible();
     });
 
     test("settings opens as independent window via IPC", async ({ omni }) => {
         const page = await omni.app.firstWindow();
-        await page.waitForSelector(".app-title", { timeout: 10_000 });
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
 
         const settings = await SettingsPage.openViaIpc(omni.app, page);
         const sPage = settings.page;
@@ -39,7 +39,7 @@ test.describe("tray menu actions", () => {
         await expect(sPage.locator('[data-testid="settings-sidebar"]')).toBeVisible();
 
         // Popup should still be open (scoped to popup's live container)
-        await expect(page.locator('[data-popup="live"] .app-title')).toBeVisible();
+        await expect(page.locator('[data-popup="live"] [data-testid="app-title"]')).toBeVisible();
     });
 
     test("refresh triggers connector refresh", async ({ omni }) => {
@@ -64,7 +64,7 @@ test.describe("tray menu actions", () => {
             for (const win of omni.app.windows()) {
                 if (win.isClosed()) continue;
                 const has_body = await win
-                    .locator(".tray-menu-body")
+                    .locator('[data-testid="tray-menu-body"]')
                     .count()
                     .catch(() => 0);
                 if (has_body > 0) {
@@ -78,7 +78,7 @@ test.describe("tray menu actions", () => {
         }
         tray_page ??= await omni.app.firstWindow();
 
-        await tray_page.waitForSelector(".tray-menu-body", { timeout: 10_000 });
+        await tray_page.waitForSelector('[data-testid="tray-menu-body"]', { timeout: 10_000 });
 
         // The quit item contains "退出" (zh) or "Quit" (en).
         // t270: TrayMenu 迁移到 ui/Menu（MenuItem=button），选择器由 .ctx-item 改角色定位。

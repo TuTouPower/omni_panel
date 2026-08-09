@@ -196,9 +196,11 @@ describe("ProviderCard - overview", () => {
             />,
         );
 
-        const bars = document.querySelector(".bars");
+        const bars = document.querySelector('[data-testid="usage-bars"]');
         expect(bars).toBeInTheDocument();
-        expect(bars?.querySelectorAll(".bar-row.capsule")).toHaveLength(2);
+        expect(
+            bars?.querySelectorAll('[data-testid="bar-row"][data-variant="capsule"]'),
+        ).toHaveLength(2);
     });
 
     it("renders null usage as an empty bar", () => {
@@ -241,14 +243,14 @@ describe("ProviderCard - overview", () => {
             <ProviderCard provider="deepseek" group={group} expanded onToggleExpand={vi.fn()} />,
         );
 
-        const row = screen.getByText("5小时").closest(".bar-row");
+        const row = screen.getByText("5小时").closest('[data-testid="bar-row"]');
         expect(row).toBeInstanceOf(HTMLElement);
         const bar_row = row as HTMLElement;
-        const fill = bar_row.querySelector(".fill");
+        const fill = bar_row.querySelector('[data-testid="bar-fill"]');
         expect(fill).toBeInstanceOf(HTMLElement);
         expect((fill as HTMLElement).style.width).toBe("0%");
-        expect(bar_row.querySelector(".bar-pct")).toBeEmptyDOMElement();
-        expect(bar_row.querySelector(".bar-reset")).toBeEmptyDOMElement();
+        expect(bar_row.querySelector('[data-testid="bar-pct"]')).toBeEmptyDOMElement();
+        expect(bar_row.querySelector('[data-testid="bar-reset"]')).toBeEmptyDOMElement();
         expect(within(bar_row).queryByText("0%")).not.toBeInTheDocument();
         expect(within(bar_row).queryByText("--")).not.toBeInTheDocument();
     });

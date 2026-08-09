@@ -28,7 +28,10 @@ export function VendorCard({
     desensitizeRemarks = false,
 }: VendorCardProps) {
     return (
-        <div className="acc-card">
+        <div
+            className="overflow-hidden rounded-[14px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] shadow-card transition-[opacity,box-shadow] duration-[0.16s]"
+            data-testid="account-card"
+        >
             {rows.map((row) => (
                 <AccountRow
                     key={row.instance_id}

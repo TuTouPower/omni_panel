@@ -16,7 +16,9 @@ test.describe("multi-account display (web)", () => {
         await popup.waitReady();
 
         const live = popup.root();
-        const card_names = live.locator(".card .card-name");
+        const card_names = live.locator(
+            '[data-testid="collapsible-card"] [data-testid="card-name"]',
+        );
         await expect(card_names.first()).toBeVisible({ timeout: 15_000 });
 
         const names: string[] = [];
@@ -36,7 +38,10 @@ test.describe("multi-account display (web)", () => {
         // 不产生，重跑 e2e:gen-synthetic 会覆盖，见 docs/pending.md p021）；
         // real fixture 3 个 KIMI enabled connector 合并 3→1，验证同语义
         // （仅断"无重复"无法捕获"未来误改每 connector 一张但名字各异"的退化）。
-        const kimi_cards = live.locator(".card .card-name", { hasText: "Kimi" });
+        const kimi_cards = live.locator(
+            '[data-testid="collapsible-card"] [data-testid="card-name"]',
+            { hasText: "Kimi" },
+        );
         await expect(kimi_cards).toHaveCount(1);
     });
 
@@ -45,12 +50,12 @@ test.describe("multi-account display (web)", () => {
         await popup.waitReady();
 
         const live = popup.root();
-        const nav = live.locator(".tabs-wrap");
+        const nav = live.locator('[data-testid="popup-tabs-wrap"]');
         // Antigravity provider 含 Gemini Models + Claude/GPT 两个 item（real/synthetic 均有）
         await nav.getByRole("button", { name: /Antigravity/ }).click();
         await webPage.waitForTimeout(500);
 
-        const bars = live.locator(".bar-row");
+        const bars = live.locator('[data-testid="bar-row"]');
         expect(await bars.count()).toBeGreaterThanOrEqual(1);
     });
 });

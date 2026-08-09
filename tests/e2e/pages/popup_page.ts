@@ -8,11 +8,11 @@ export class PopupPage {
     }
 
     async waitReady() {
-        await this.live.locator(".app-title").waitFor({ timeout: 10_000 });
+        await this.live.locator('[data-testid="app-title"]').waitFor({ timeout: 10_000 });
     }
 
     async getTitle() {
-        return this.live.locator(".app-title").first().textContent();
+        return this.live.locator('[data-testid="app-title"]').first().textContent();
     }
 
     async clickRefresh() {

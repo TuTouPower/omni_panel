@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
-import { PanelTitleBar } from "../components/PanelTitleBar";
+import { PanelTitleBar } from "../components/ui/PanelTitleBar";
 import { Button } from "../components/ui/Button";
 import { use_panel_navigation } from "../lib/panel-navigation";
 import { refresh_seconds_to_label } from "../lib/refresh-intervals";
@@ -386,18 +386,24 @@ export function SettingsView() {
 
     if (loading) {
         return (
-            <div className="window" data-window="settings">
+            <div
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                data-window="settings"
+            >
                 <PanelTitleBar panel="Settings" />
-                <div className="p-6 text-[var(--text-3)]">加载中...</div>
+                <div className="p-6 text-[var(--color-on-surface-muted)]">加载中...</div>
             </div>
         );
     }
     if (error) {
         return (
-            <div className="window" data-window="settings">
+            <div
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                data-window="settings"
+            >
                 <PanelTitleBar panel="Settings" />
                 <div className="p-6">
-                    <div className="net-banner">
+                    <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)] px-3.5 py-[11px] text-[13px] text-[var(--color-error)]">
                         <Icon name="cloud_off" size={18} />
                         <span>{error}</span>
                     </div>
@@ -408,8 +414,11 @@ export function SettingsView() {
     if (!config) return null;
 
     return (
-        <div className="window" data-window="settings">
-            <div className="settings">
+        <div
+            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+            data-window="settings"
+        >
+            <div className="relative flex min-h-0 flex-1 flex-col">
                 <PanelTitleBar
                     panel="Settings"
                     onNavigate={navigate}
@@ -418,24 +427,27 @@ export function SettingsView() {
                     }}
                 />
                 {/* header */}
-                <div className="settings-head">
+                <div className="flex shrink-0 items-center gap-[10px] px-[14px] pb-3 pt-[14px]">
                     <Button variant="ghost" size="sm" onClick={goBack} aria-label="返回">
                         <Icon name="back" size={20} />
                     </Button>
                 </div>
 
-                <div className="settings-body">
+                <div className="flex min-h-0 flex-1">
                     {/* left nav */}
-                    <div className="set-nav" data-testid="settings-sidebar">
+                    <div
+                        className="flex w-[176px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] px-3 py-[14px]"
+                        data-testid="settings-sidebar"
+                    >
                         {NAV_ITEMS.map((n) => (
                             <button
                                 key={n.id}
                                 aria-current={section === n.id ? "page" : undefined}
                                 className={
-                                    "set-nav-item" +
+                                    "flex w-full cursor-pointer items-center gap-[10px] rounded-[9px] border-0 px-[10px] py-2 text-left text-[13.5px] font-medium [font-family:inherit]" +
                                     (section === n.id
                                         ? " bg-[var(--color-primary-container)] text-[var(--accent)]"
-                                        : " text-[var(--color-on-surface-variant)]")
+                                        : " text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)]")
                                 }
                                 onClick={() => {
                                     setSection(n.id);
@@ -446,7 +458,7 @@ export function SettingsView() {
                             >
                                 <span
                                     className={
-                                        "sn-ic" +
+                                        "flex" +
                                         (section === n.id
                                             ? " text-[var(--accent)]"
                                             : " text-[var(--color-on-surface-muted)]")
@@ -460,7 +472,7 @@ export function SettingsView() {
                     </div>
 
                     {/* right content */}
-                    <div className="set-content">
+                    <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6 pt-[14px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.35)_transparent]">
                         {/* ── General ── */}
                         {section === "general" && (
                             <GeneralSection

@@ -37,7 +37,7 @@ describe("ProviderNav", () => {
 
         const tabs = screen.getAllByRole("button").slice(1);
         for (const tab of tabs) {
-            const icon = tab.querySelector(".tab-ic");
+            const icon = tab.querySelector('[data-testid="tab-icon"]');
             expect(icon).toHaveAttribute("draggable", "true");
             expect(tab).not.toHaveAttribute("draggable", "true");
         }
@@ -59,7 +59,7 @@ describe("ProviderNav", () => {
 
         const tabs = screen.getAllByRole("button").slice(1);
         for (const tab of tabs) {
-            const label = tab.querySelector(".tab-lbl");
+            const label = tab.querySelector('[data-testid="tab-label"]');
             expect(label).not.toHaveAttribute("draggable", "true");
         }
     });
@@ -81,8 +81,8 @@ describe("ProviderNav", () => {
         );
 
         const kimi_tab = screen.getByRole("button", { name: /^Kimi$/ });
-        const icon = kimi_tab.querySelector(".tab-ic");
-        if (icon === null) throw new Error("missing .tab-ic");
+        const icon = kimi_tab.querySelector('[data-testid="tab-icon"]');
+        if (icon === null) throw new Error("missing tab-icon");
         fireEvent.dragStart(icon);
         expect(on_drag_start).toHaveBeenCalledWith("kimi");
 
@@ -106,8 +106,8 @@ describe("ProviderNav", () => {
         );
 
         const kimi_tab = screen.getByRole("button", { name: /^Kimi$/ });
-        const kimi_icon = kimi_tab.querySelector(".tab-ic");
-        if (kimi_icon === null) throw new Error("missing .tab-ic");
+        const kimi_icon = kimi_tab.querySelector('[data-testid="tab-icon"]');
+        if (kimi_icon === null) throw new Error("missing tab-icon");
         fireEvent.dragStart(kimi_icon);
 
         const tavily_tab = screen.getByRole("button", { name: /^Tavily$/ });
@@ -165,8 +165,8 @@ describe("ProviderNav", () => {
         );
 
         const kimi_tab = screen.getByRole("button", { name: /^Kimi$/ });
-        const kimi_icon = kimi_tab.querySelector(".tab-ic");
-        if (kimi_icon === null) throw new Error("missing .tab-ic");
+        const kimi_icon = kimi_tab.querySelector('[data-testid="tab-icon"]');
+        if (kimi_icon === null) throw new Error("missing tab-icon");
         fireEvent.dragStart(kimi_icon);
         fireEvent.dragEnd(kimi_icon);
         fireEvent.click(kimi_tab);
@@ -193,7 +193,7 @@ describe("ProviderNav", () => {
         const kimi_tab = screen.getByRole("button", { name: /^Kimi$/ });
         const tavily_tab = screen.getByRole("button", { name: /^Tavily$/ });
 
-        expect(kimi_tab.classList.contains("dragging")).toBe(true);
-        expect(tavily_tab.classList.contains("drag-over")).toBe(true);
+        expect(kimi_tab.classList.contains("opacity-45")).toBe(true);
+        expect(tavily_tab.classList.contains("outline-dashed")).toBe(true);
     });
 });

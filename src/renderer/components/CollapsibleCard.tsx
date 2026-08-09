@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import { Button } from "./ui/Button";
 
 interface CollapsibleCardProps {
     header: ReactNode;
@@ -12,7 +13,7 @@ interface CollapsibleCardProps {
     /** When false, the card cannot collapse — no toggle chevron is rendered. */
     collapsible?: boolean | undefined;
     dataStatus?: string | undefined;
-    /** Extra props forwarded to the root .card div (e.g. draggable, onDragStart). */
+    /** Extra props forwarded to the root card div (e.g. draggable, onDragStart). */
     rootProps?: React.HTMLAttributes<HTMLDivElement> | undefined;
 }
 
@@ -34,21 +35,27 @@ export function CollapsibleCard({
     return (
         <div
             className={
-                "card" + (collapsed ? " collapsed" : "") + (className ? ` ${className}` : "")
+                "rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] " +
+                "bg-[var(--color-surface-card)] px-4 py-3.5 text-[var(--color-on-surface)] " +
+                "shadow-card dark:shadow-card-dark" +
+                (className ? ` ${className}` : "")
             }
+            data-testid="collapsible-card"
             data-collapsed={collapsed ? "true" : "false"}
             data-status={dataStatus}
             {...rootProps}
         >
-            <div className="card-head">
+            <div className="flex items-center gap-[9px]">
                 {header}
                 {(tools !== undefined || has_details) && (
-                    <div className="card-tools">
+                    <div className="ml-auto flex items-center gap-px">
                         {tools}
                         {has_details && collapsible && (
-                            <button
+                            <Button
                                 type="button"
-                                className="icon-btn"
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
                                 aria-label={aria_label}
                                 aria-expanded={collapsed ? "false" : "true"}
                                 title={aria_label}
@@ -63,7 +70,7 @@ export function CollapsibleCard({
                                             : { transform: "rotate(180deg)" }
                                     }
                                 />
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}

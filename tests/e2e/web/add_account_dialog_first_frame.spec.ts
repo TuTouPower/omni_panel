@@ -15,7 +15,7 @@ import { SettingsPage } from "../pages/settings_page";
  */
 test.describe("AddAccountDialog first frame", () => {
     test("unified Dialog is visible with dialog semantics on first frame", async ({ webPage }) => {
-        await webPage.waitForSelector(".app-title", { timeout: 10_000 });
+        await webPage.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const settings = await SettingsPage.open_via_hash(webPage);
         await settings.page.getByTestId("settings-plugin-nav-accounts").click();
         await settings.page.getByRole("button", { name: /^添加$/ }).click();
@@ -27,7 +27,7 @@ test.describe("AddAccountDialog first frame", () => {
 
         // 遮罩（backdrop）铺满 dialog wrapper（wrapper 为 fixed inset-0 全屏；
         // config use.viewport=null，viewportSize() 为 null，故与 wrapper 比较）。
-        const backdrop = dialog.locator('[aria-hidden="true"]');
+        const backdrop = settings.page.getByTestId("add-account-dialog-backdrop");
         await expect(backdrop).toBeVisible();
         const dialogBox = await dialog.boundingBox();
         const backdropBox = await backdrop.boundingBox();

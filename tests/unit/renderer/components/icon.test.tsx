@@ -5,6 +5,8 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { Icon, VendorMark } from "../../../../src/renderer/components/Icon";
 
+const ICON_SOURCE = readFileSync(join(process.cwd(), "src/renderer/components/Icon.tsx"), "utf8");
+
 describe("Icon", () => {
     it("renders an SVG element", () => {
         const { container } = render(<Icon name="refresh" />);
@@ -50,36 +52,73 @@ describe("Icon", () => {
     });
 });
 
+describe("Icon 来源守卫（t274 AC2）", () => {
+    it("UI_ICONS 映射值全部来自 lucide-react import", () => {
+        // 以首个符号 `type LucideIcon` 锚定 lucide 导入块，避免误吞 react import。
+        const lucide_import =
+            /import\s*\{\s*type\s+LucideIcon,?([\s\S]*?)\}\s*from\s*["']lucide-react["']/.exec(
+                ICON_SOURCE,
+            );
+        expect(lucide_import, "lucide-react import 缺失").not.toBeNull();
+        const imported = new Set(
+            ["type LucideIcon", ...(lucide_import?.[1] ?? "").split(",")]
+                .map((s) => s.trim())
+                .map((s) => (s.startsWith("type ") ? s.slice(5) : s))
+                .filter((s) => s.length > 0),
+        );
+        expect(imported.has("LucideIcon")).toBe(true);
+
+        const map_body =
+            /const UI_ICONS:\s*Record<string,\s*LucideIcon>\s*=\s*\{([\s\S]*?)\n\};/.exec(
+                ICON_SOURCE,
+            );
+        expect(map_body, "UI_ICONS 映射块缺失").not.toBeNull();
+        // 映射块内引用的大写标识符（lucide 组件名；注释中的小写词不匹配）。
+        const rhs_identifiers = (map_body?.[1] ?? "").match(/\b[A-Z][A-Za-z0-9_]*\b/g) ?? [];
+        expect(rhs_identifiers.length).toBeGreaterThan(0);
+        const not_from_lucide = rhs_identifiers.filter((id) => !imported.has(id));
+        expect(not_from_lucide).toEqual([]);
+    });
+
+    it("不再引用 src/renderer/assets/ui 旧手绘图标素材", () => {
+        // vendor logo 资产（assets/vendor_logos）与数据可视化 SVG 不在禁列，
+        // 此处只断言操作/导航图标不再回退旧手绘素材目录。
+        expect(ICON_SOURCE).not.toContain("assets/ui");
+        expect(ICON_SOURCE).not.toContain("clock-fast-forward");
+        expect(ICON_SOURCE).not.toContain("message-chat-square");
+    });
+});
+
 describe("VendorMark", () => {
-    it("renders a span with vicon class", () => {
+    it("renders a span with vendor-mark testid", () => {
         const { container } = render(<VendorMark id="claude" />);
-        const span = container.querySelector("span.vicon");
+        const span = container.querySelector('[data-testid="vendor-mark"]');
         expect(span).toBeInTheDocument();
     });
 
     it("renders an official logo image for known vendor", () => {
         const { container } = render(<VendorMark id="deepseek" />);
-        const image = container.querySelector("span.vicon img");
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
         expect(image).toBeInTheDocument();
         expect(image?.getAttribute("src")).toContain("deepseek");
     });
 
     it("fits image logos inside a square transparent canvas", () => {
         const { container } = render(<VendorMark id="deepseek" size={26} />);
-        const span = container.querySelector("span.vicon");
-        const image = container.querySelector("span.vicon img");
+        const span = container.querySelector('[data-testid="vendor-mark"]');
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
 
         expect(span?.getAttribute("style")).toContain("width: 26px");
         expect(span?.getAttribute("style")).toContain("height: 26px");
-        expect(image).toHaveClass("vendor-logo-img");
+        expect(image).toHaveClass("object-contain");
         expect(image).not.toHaveAttribute("width");
         expect(image).not.toHaveAttribute("height");
     });
 
     it("renders MiMo as inline SVG so currentColor can inherit", () => {
         const { container } = render(<VendorMark id="mimo" />);
-        const svg = container.querySelector("span.vicon svg");
-        const image = container.querySelector("span.vicon img");
+        const svg = container.querySelector('[data-testid="vendor-mark"] svg');
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
 
         expect(svg).toBeInTheDocument();
         expect(image).not.toBeInTheDocument();
@@ -102,22 +141,26 @@ describe("VendorMark", () => {
 
     it("renders the official Firecrawl logo asset", () => {
         const { container } = render(<VendorMark id="firecrawl" />);
-        const image = container.querySelector("span.vicon img");
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
         const svg = readFileSync(
             join(process.cwd(), "src/renderer/assets/vendor_logos/firecrawl.svg"),
             "utf8",
         );
 
         expect(image).toBeInTheDocument();
-        expect(image).toHaveClass("vendor-logo-img");
+        expect(image).toHaveClass("object-contain");
         expect(image?.getAttribute("src")).toContain("firecrawl");
         expect(svg).toContain("Firecrawl");
     });
 
     it("renders official opencode logos for both themes", () => {
         const { container } = render(<VendorMark id="opencode_go" />);
-        const light_image = container.querySelector("span.vicon img.vendor-logo-light");
-        const dark_image = container.querySelector("span.vicon img.vendor-logo-dark");
+        const light_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="opencode_go_light"]',
+        );
+        const dark_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="opencode_go_dark"]',
+        );
         const light_svg = readFileSync(
             join(process.cwd(), "src/renderer/assets/vendor_logos/opencode_go_light.svg"),
             "utf8",
@@ -129,8 +172,8 @@ describe("VendorMark", () => {
 
         expect(light_image).toBeInTheDocument();
         expect(dark_image).toBeInTheDocument();
-        expect(light_image).toHaveClass("vendor-logo-img");
-        expect(dark_image).toHaveClass("vendor-logo-img");
+        expect(light_image).toHaveClass("object-contain");
+        expect(dark_image).toHaveClass("object-contain");
         expect(light_image).not.toHaveAttribute("width");
         expect(light_image).not.toHaveAttribute("height");
         expect(dark_image).not.toHaveAttribute("width");
@@ -143,8 +186,12 @@ describe("VendorMark", () => {
 
     it("renders official Grok logos for both themes", () => {
         const { container } = render(<VendorMark id="grok" />);
-        const light_image = container.querySelector("span.vicon img.vendor-logo-light");
-        const dark_image = container.querySelector("span.vicon img.vendor-logo-dark");
+        const light_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="grok_light"]',
+        );
+        const dark_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="grok_dark"]',
+        );
         const light_svg = readFileSync(
             join(process.cwd(), "src/renderer/assets/vendor_logos/grok_light.svg"),
             "utf8",
@@ -162,7 +209,7 @@ describe("VendorMark", () => {
 
         expect(light_image?.getAttribute("src")).toContain("grok_light");
         expect(dark_image?.getAttribute("src")).toContain("grok_dark");
-        expect(container.querySelector("span.vicon svg")).not.toBeInTheDocument();
+        expect(container.querySelector('[data-testid="vendor-mark"] svg')).not.toBeInTheDocument();
         expect(light_hash).toBe(official_light_hash);
         expect(dark_svg).toContain("<title>Grok</title>");
         expect(dark_svg).toContain('fill="#fff"');
@@ -171,18 +218,19 @@ describe("VendorMark", () => {
         );
     });
 
-    it("switches opencode logo visibility with the app theme", () => {
-        const css = readFileSync(join(process.cwd(), "src/renderer/styles/globals.css"), "utf8");
-
-        const normalized_css = css.replace(/\s+/g, " ");
-
-        expect(normalized_css).toContain(".vicon .vendor-logo-dark { display: none; }");
-        expect(normalized_css).toContain(
-            '[data-theme="dark"] .vicon .vendor-logo-light { display: none; }',
+    it("encapsulates theme logo switching in the component (light hidden in dark)", () => {
+        const { container } = render(<VendorMark id="opencode_go" />);
+        const light_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="opencode_go_light"]',
         );
-        expect(normalized_css).toContain(
-            '[data-theme="dark"] .vicon .vendor-logo-dark { display: block; }',
+        const dark_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="opencode_go_dark"]',
         );
+        // 明暗切换由组件内 dark: 变体 utility 封装（t268 @custom-variant），
+        // globals.css 不再有 .vicon/.vendor-logo-* 业务选择器。
+        expect(light_image).toHaveClass("dark:hidden");
+        expect(dark_image).toHaveClass("hidden");
+        expect(dark_image).toHaveClass("dark:block");
     });
 
     it("stores the official Zhipu logo asset for glm", () => {
@@ -198,7 +246,7 @@ describe("VendorMark", () => {
 
     it("renders cpa as img logo (CLIProxyAPI, t093)", () => {
         const { container } = render(<VendorMark id="cpa" color="red" />);
-        const img = container.querySelector("span.vicon img.vendor-logo-img");
+        const img = container.querySelector('[data-testid="vendor-mark"] img');
         expect(img).toBeTruthy();
         if (!img) return;
         expect(img.getAttribute("src")).toContain("cpa");
@@ -206,13 +254,13 @@ describe("VendorMark", () => {
 
     it("renders overview SVG as default for overview id", () => {
         const { container } = render(<VendorMark id="overview" />);
-        const inner = container.querySelector("span.vicon svg");
+        const inner = container.querySelector('[data-testid="vendor-mark"] svg');
         expect(inner).toBeInTheDocument();
     });
 
     it("accepts custom size", () => {
         const { container } = render(<VendorMark id="claude" size={40} />);
-        const span = container.querySelector("span.vicon");
+        const span = container.querySelector('[data-testid="vendor-mark"]');
         expect(span).not.toBeNull();
         expect(span?.getAttribute("style")).toContain("width: 40px");
         expect(span?.getAttribute("style")).toContain("height: 40px");

@@ -81,19 +81,20 @@ describe("Renderer smoke tests", () => {
             render(<App />);
 
             const button = await screen.findByTitle("刷新全部");
-            expect(button).not.toHaveClass("spinning");
+            const spinner = () => button.querySelector("svg");
+            expect(spinner()).not.toHaveClass("animate-spin");
 
             await user.click(button);
 
             expect(api.plugin.refreshAll).toHaveBeenCalledTimes(1);
-            expect(button).toHaveClass("spinning");
+            expect(spinner()).toHaveClass("animate-spin");
             await Promise.resolve();
-            expect(button).toHaveClass("spinning");
+            expect(spinner()).toHaveClass("animate-spin");
 
             refresh_all_deferred.resolve(undefined);
 
             await waitFor(() => {
-                expect(button).not.toHaveClass("spinning");
+                expect(spinner()).not.toHaveClass("animate-spin");
             });
         });
 
@@ -106,19 +107,20 @@ describe("Renderer smoke tests", () => {
             render(<App />);
 
             const button = await screen.findByRole("button", { name: "刷新 DeepSeek" });
-            expect(button).not.toHaveClass("spinning");
+            const spinner = () => button.querySelector("svg");
+            expect(spinner()).not.toHaveClass("animate-spin");
 
             await user.click(button);
 
             expect(api.plugin.refresh).toHaveBeenCalledWith("deepseek");
-            expect(button).toHaveClass("spinning");
+            expect(spinner()).toHaveClass("animate-spin");
             await Promise.resolve();
-            expect(button).toHaveClass("spinning");
+            expect(spinner()).toHaveClass("animate-spin");
 
             provider_refresh_deferred.resolve(undefined);
 
             await waitFor(() => {
-                expect(button).not.toHaveClass("spinning");
+                expect(spinner()).not.toHaveClass("animate-spin");
             });
         });
     });
@@ -149,10 +151,10 @@ describe("Renderer smoke tests", () => {
             render(<SettingsView />);
 
             await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
-            const deepseek_vendors = await screen.findAllByText("DeepSeek");
+            const deepseek_vendors = await screen.findAllByTestId("account-vendor");
             const deepseek_row = deepseek_vendors
-                .find((el) => el.classList.contains("ar-vendor"))
-                ?.closest(".acc-card");
+                .find((el) => el.textContent === "DeepSeek")
+                ?.closest('[data-testid="account-card"]');
             if (!deepseek_row) throw new Error("DeepSeek card not found");
             const edit_button =
                 deepseek_row.querySelector<HTMLButtonElement>('button[title="编辑"]');

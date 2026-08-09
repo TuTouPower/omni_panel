@@ -22,10 +22,10 @@
 - 内容：`tests/unit/renderer/styles/session_typography.test.ts` 通过源文件文本正则验证 utility 类名，类名拆分或 utility 生成规则变化时存在假阳/假阴边界。
 - 处理：未开
 
-### p103 t273 compact 默认分支缺少直接回归断言（2026-08-09）
+### p104 Linux packaged smoke 启动脚本使用 macOS 路径（2026-08-09）
 
-- 来源：t273 test review Round 2 `t273_test_f002`（minor）
-- 内容：`PaneMessageRow` compact 迁移测试只验证紧凑分支的 `inline-flex` 与无底距，未直接锚定默认分支的 `flex` 与 `mb-0.5`。
+- 来源：t274 打包验证
+- 内容：Linux 上 `pnpm package` 已生成 `artifacts/linux-unpacked/omni_panel`，但 `scripts/package-and-run.ts` 的非 Windows 分支固定拼接 macOS `OmniPanel.app` 路径，导致包装启动阶段返回 `ENOENT`；直接使用 Linux 产物运行 `pnpm test:packaged` 可通过。
 - 处理：未开
 
 ## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）

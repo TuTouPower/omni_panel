@@ -1,6 +1,6 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
 import { BarSchemeField } from "../../../components/settings/BarSchemeField";
-import { SetRow } from "../../../components/settings/SetRow";
+import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Segmented } from "../../../components/ui/Segmented";
 import { BAR_STYLE_LABELS, bar_style_label_to_value } from "../lib";
 import { apply_accent } from "../../../lib/theme";
@@ -21,7 +21,7 @@ export function AppearanceSection({
 
     return (
         <>
-            <div className="set-group-label">主题</div>
+            <SetGroupLabel>主题</SetGroupLabel>
             <SetRow title="配色方案">
                 <Segmented
                     value={themeMode}
@@ -56,8 +56,8 @@ export function AppearanceSection({
                                 aria-pressed={selected}
                                 onClick={() => {
                                     void save_config({ ...config, accentColor: c });
-                                    // t268: 写统一 --accent 变量（派生 strong/container/ring
-                                    // 与兼容桥 --blue/--primary 随动），即时生效。
+                                    // t268: 写统一 --accent 变量（strong/container/ring
+                                    // 由 color-mix 在 CSS 派生），即时生效。
                                     apply_accent(c);
                                 }}
                                 type="button"
@@ -66,7 +66,7 @@ export function AppearanceSection({
                     })}
                 </div>
             </SetRow>
-            <div className="set-group-label">用量条</div>
+            <SetGroupLabel>用量条</SetGroupLabel>
             <SetRow title="用量条样式" sub="细线型保持紧凑；粗胶囊型把数值放进进度条内。">
                 <Segmented
                     aria-label="用量条样式"

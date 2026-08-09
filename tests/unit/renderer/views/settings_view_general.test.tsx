@@ -250,22 +250,26 @@ describe("SettingsView", () => {
     });
 
     it("right-aligns account action buttons via margin-left: auto", async () => {
-        // The .ao-actions element must have margin-left: auto to push
-        // toggle/action buttons to the right edge of the flex row.
-        // JSDOM doesn't load external CSS, so we verify the rule exists in the source.
-        const css = await readFile(
+        // t274: 动作列手写规则（.ao-actions margin-left:auto）已迁为
+        // AccountRow/CpaCard 内 ml-auto utility。JSDOM 不加载 Tailwind 产物，
+        // 沿用本文件既有策略：在组件源码断言 actions 容器带 ml-auto。
+        const row_src = await readFile(
             join(
                 dirname(fileURLToPath(import.meta.url)),
-                "../../../../src/renderer/styles/globals.css",
+                "../../../../src/renderer/components/AccountRow.tsx",
             ),
             "utf8",
         );
-
-        // .ao-actions block must include margin-left: auto
-        const match = /\.ao-actions\s*\{([^}]+)\}/.exec(css);
-        if (!match) throw new Error(".ao-actions rule not found in globals.css");
-        expect(match[1]).toContain("margin-left");
-        expect(match[1]).toContain("auto");
+        const cpa_src = await readFile(
+            join(
+                dirname(fileURLToPath(import.meta.url)),
+                "../../../../src/renderer/components/CpaCard.tsx",
+            ),
+            "utf8",
+        );
+        const actions_class = /className="([^"]*ml-auto[^"]*)"/.exec(row_src)?.[1];
+        expect(actions_class).toContain("ml-auto");
+        expect(cpa_src).toContain("ml-auto");
     });
 
     it("shows label map sync behavior in general section", async () => {
@@ -273,7 +277,9 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(screen.getByText("同一厂商的数据标签映射同步")).toBeInTheDocument();
         });
-        const syncRow = screen.getByText("同一厂商的数据标签映射同步").closest(".set-row");
+        const syncRow = screen
+            .getByText("同一厂商的数据标签映射同步")
+            .closest('[data-testid="set-row"]');
         if (!syncRow) throw new Error("sync row not found");
         expect(within(syncRow as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
     });
