@@ -83,6 +83,18 @@ describe("createWindowManager", () => {
         expect(result).toEqual({ action: "deny" });
     });
 
+    it("blocks malformed URLs from window-open without throwing (p125)", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("setting", { load: false });
+
+        const handler = setWindowOpenHandler.mock.calls[0]?.[0];
+        if (!handler) throw new Error("handler not registered");
+
+        const result = handler({ url: "not a url" });
+        expect(openExternal).not.toHaveBeenCalled();
+        expect(result).toEqual({ action: "deny" });
+    });
+
     it("getRendererUrl 附带 route_query 参数并 URL 编码（t210 OPEN 初始定位）", async () => {
         const manager = await load_manager();
         const loc = JSON.stringify({

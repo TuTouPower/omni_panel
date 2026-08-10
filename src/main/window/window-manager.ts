@@ -183,9 +183,15 @@ export function createWindowManager(opts: {
             win.setAppDetails({ appId: "omni-panel" });
         }
         // Open external http(s) links in the system default browser instead of
-        // spawning a new Electron window (t156).
+        // spawning a new Electron window (t156). 畸形 url 拒绝（p125）。
         win.webContents.setWindowOpenHandler(({ url }) => {
-            const parsed = new URL(url);
+            let parsed: URL;
+            try {
+                parsed = new URL(url);
+            } catch {
+                log.warn(`Blocked window-open for malformed URL: ${url}`);
+                return { action: "deny" };
+            }
             if (parsed.protocol === "http:" || parsed.protocol === "https:") {
                 void shell.openExternal(url);
             } else {

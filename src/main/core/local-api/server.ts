@@ -673,6 +673,14 @@ function serve_static(url: URL, res: ServerResponse, web_root: string): void {
             // appear on refresh instead of a stale bundle.
             if (file_path.endsWith(".html")) {
                 headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+                // Web panel CSP（p124）：浏览器面板不走 Electron CSP，须自行声明。
+                // script 严格 self；style 允许内联（React style 属性 + 组件内联）；
+                // 数据源同源（SSE），拒绝 frame 嵌套。
+                headers["Content-Security-Policy"] =
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+                    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; " +
+                    "frame-ancestors 'none'; base-uri 'self'";
+                headers["X-Content-Type-Options"] = "nosniff";
             }
             res.writeHead(200, headers);
             res.end(data);
@@ -689,7 +697,11 @@ function check_auth(req: IncomingMessage, token: string): boolean {
 }
 
 function json_response(res: ServerResponse, status: number, data: unknown): void {
-    res.writeHead(status, { "Content-Type": "application/json" });
+    // p124：JSON 响应加 nosniff 防 MIME 嗅探。
+    res.writeHead(status, {
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+    });
     res.end(JSON.stringify(data));
 }
 

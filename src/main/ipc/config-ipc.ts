@@ -678,6 +678,7 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_SECRETS, (e, payload: unknown) => {
         assert_valid_sender(e);
+        assert_setting_route(e);
         return logged(IPC_CHANNELS.CONFIG_SAVE_SECRETS, [payload], () =>
             handleConfigSaveSecrets(deps, payload),
         );
