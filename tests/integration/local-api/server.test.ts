@@ -1453,6 +1453,21 @@ describe("local-api web read endpoints", () => {
         expect(await res.text()).toContain("web panel");
     });
 
+    it("GET / HTML 响应带 CSP 与 nosniff（p124）", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/`);
+        expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
+        expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+        expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    });
+
+    it("GET /v1/connectors JSON 响应带 nosniff（p124）", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    });
+
     it("GET /v1/connectors returns list without auth", async () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);

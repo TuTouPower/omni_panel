@@ -928,6 +928,25 @@ describe("config-ipc", () => {
         ).toThrow("only allowed from setting route");
     });
 
+    it("rejects CONFIG_SAVE_SECRETS from non-setting route (p120)", async () => {
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:saveSecrets",
+        )?.[1];
+        if (!handler) throw new Error("missing config:saveSecrets handler");
+        // 非设置路由（如 #usage）不应写 vault 密钥（防御纵深，与 GET_SECRETS 对齐）
+        expect(() =>
+            handler(
+                {
+                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
+                } as Electron.IpcMainInvokeEvent,
+                {},
+            ),
+        ).toThrow("only allowed from setting route");
+    });
+
     // P1-3: 用户可见文案统一用「连接器」而非「插件」（domain.md §5）
     describe("user-facing messages use 连接器 wording", () => {
         it("handleConfigSave unknown instanceId message says 连接器 not 插件", async () => {
