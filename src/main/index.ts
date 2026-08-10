@@ -663,6 +663,7 @@ void app.whenReady().then(async () => {
                 refreshService,
                 definitions: allDefinitions,
             },
+            user_data_path: dataRoot,
             session_history_deps: {
                 service: session_history_service,
                 sessions_provider: session_history_sessions_provider,

@@ -16,7 +16,7 @@ import {
     tokenStatsDashboardSessionsQuerySchema,
     type TokenStatsSessionFilters,
 } from "../../../shared/types/token-stats";
-import { is_test_build } from "../paths";
+import { is_test_build, get_logs_dir } from "../paths";
 import {
     handleConfigGet,
     handleConfigGetSecrets,
@@ -118,6 +118,37 @@ export interface SessionHistoryDeps {
     readonly sessions_provider: SessionsProvider;
     readonly locator_paths?: LocatorPaths;
 }
+
+/** t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
+ * 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
+ * SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
+ * service.unsubscribe 双删保持一致。 */
+interface WebSessionSub {
+    readonly source: string;
+    readonly env: Env;
+    readonly session_id: string;
+    readonly client: ServerResponse;
+}
+
+/**
+ * t279 f005：SSE 连接 cleanup 的竞态防护。旧连接 close 可能晚于新连接（同
+ * subscriber_id 重连）注册到达：此时订阅表与 SSE 映射都已指向新 res，旧 res 的
+ * cleanup 必须放弃注销，否则会把新注册的订阅误删或把重挂中的订阅注销。
+ * 返回 true 表示应当继续注销（映射仍指向 closing res）。
+ */
+export function sse_cleanup_should_unsubscribe(
+    subscriber_id: string,
+    closing_res: ServerResponse,
+    subs: ReadonlyMap<string, WebSessionSub>,
+    sse_clients_by_sub: ReadonlyMap<string, ServerResponse>,
+): boolean {
+    if (sse_clients_by_sub.get(subscriber_id) !== closing_res) return false;
+    const sub = subs.get(subscriber_id);
+    if (sub && sub.client !== closing_res) return false;
+    return true;
+}
+
+/** web 订阅方身份：t279 用自增 id 区分同一页面的多个会话订阅（无窗口 webContents 可借）。 */
 
 /**
  * t276: 控制端点依赖（映射 tray 纯 main 动作）。瘦客户端经 local-api 触发，
@@ -470,18 +501,128 @@ async function handle_session_history_summaries(
     json_response(res, 200, result);
 }
 
-/** t259: 会话历史 HTTP 端点（GET query + POST searchContent/summaries）。 */
+/** t279: web 会话实时订阅——复用 subscription-service watcher，经持有订阅的 SSE 客户端推 `messagesUpdated`。 */
+async function handle_web_session_history_subscribe(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    ctx: {
+        readonly subs: Map<string, WebSessionSub>;
+        readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly write_event: (
+            client: ServerResponse,
+            event: string | undefined,
+            data: unknown,
+        ) => void;
+    },
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const source = body["source"];
+    const env = body["env"];
+    const session_id = body["session_id"];
+    const subscriber_id = body["subscriber_id"];
+    if (
+        typeof source !== "string" ||
+        typeof env !== "string" ||
+        typeof session_id !== "string" ||
+        typeof subscriber_id !== "string" ||
+        !subscriber_id
+    ) {
+        json_response(res, 400, { error: "source, env, session_id and subscriber_id required" });
+        return;
+    }
+    const resolved = resolve_session_file(
+        source as HistorySource,
+        env as Env,
+        session_id,
+        deps.locator_paths,
+    );
+    if (!resolved) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    // 订阅必须挂在真实 SSE 客户端上：on_update 只发给该 client，
+    // client 断开（SSE close）时统一注销，杜绝 watcher 泄漏。
+    const sse_client = ctx.sse_clients_by_sub.get(subscriber_id);
+    if (!sse_client) {
+        json_response(res, 409, { error: "subscriber_id not connected via /v1/events" });
+        return;
+    }
+    const loc = { source, env: env as Env, session_id };
+    ctx.subs.set(subscriber_id, { ...loc, client: sse_client });
+    deps.service.subscribe({
+        ...loc,
+        file_path: resolved.file_path,
+        extractor_kind: resolved.extractor_kind,
+        subscriber_id,
+        on_update: (messages) => {
+            const sub = ctx.subs.get(subscriber_id);
+            if (!sub) return;
+            ctx.write_event(sub.client, "messagesUpdated", {
+                source: loc.source,
+                env: loc.env,
+                session_id: loc.session_id,
+                messages,
+            });
+        },
+    });
+    json_response(res, 200, { subscribed: true, subscriber_id });
+}
+
+/** t279: web 会话订阅注销（按 subscriber_id，只移除该订阅方）。 */
+async function handle_web_session_history_unsubscribe(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    subs: Map<string, WebSessionSub>,
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const subscriber_id = body["subscriber_id"];
+    if (typeof subscriber_id !== "string" || !subscriber_id) {
+        json_response(res, 400, { error: "subscriber_id required" });
+        return;
+    }
+    const sub = subs.get(subscriber_id);
+    subs.delete(subscriber_id);
+    if (sub) {
+        deps.service.unsubscribe(sub.source, sub.env, sub.session_id, subscriber_id);
+    }
+    json_response(res, 200, { unsubscribed: true });
+}
+
+/** t259: 会话历史 HTTP 端点（GET query + POST searchContent/summaries + t279 subscribe/unsubscribe）。 */
 async function handle_web_session_history(
     req: IncomingMessage,
     res: ServerResponse,
     url: URL,
     deps: SessionHistoryDeps,
+    ctx: {
+        readonly subs: Map<string, WebSessionSub>;
+        readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly write_event: (
+            client: ServerResponse,
+            event: string | undefined,
+            data: unknown,
+        ) => void;
+    },
 ): Promise<boolean> {
     if (url.pathname === "/v1/sessionHistory" && req.method === "GET") {
         handle_session_history_query(res, deps, url.searchParams);
         return true;
     }
     if (req.method !== "POST") return false;
+    if (url.pathname === "/v1/sessionHistory/subscribe") {
+        await handle_web_session_history_subscribe(req, res, deps, ctx);
+        return true;
+    }
+    if (url.pathname === "/v1/sessionHistory/unsubscribe") {
+        await handle_web_session_history_unsubscribe(req, res, deps, ctx.subs);
+        return true;
+    }
     if (url.pathname === "/v1/sessionHistory/searchContent") {
         const parsed = await read_json_body(req, res);
         if (!parsed.ok) return true;
@@ -577,6 +718,8 @@ export function create_local_api_server(
         control_deps?: ControlDeps;
         auth_deps?: AuthDeps;
         web_root?: string;
+        /** t279: web 日志导出取当前活跃日志段（对齐桌面 exportCurrentLog 的 userDataPath）。 */
+        user_data_path?: string;
     },
 ): LocalAPIServer {
     const token = generate_token();
@@ -589,12 +732,19 @@ export function create_local_api_server(
     const control_deps = options?.control_deps;
     const auth_deps = options?.auth_deps;
     const web_root = options?.web_root;
+    const user_data_path = options?.user_data_path;
     const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
     let port =
         options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);
     let server: ReturnType<typeof createServer> | null = null;
     const sse_clients = new Set<ServerResponse>();
+    // t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
+    // 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
+    // SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
+    // service.unsubscribe 双删保持一致。
+    const web_session_subs = new Map<string, WebSessionSub>();
+    const sse_client_sub_ids = new Map<string, ServerResponse>();
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
         let parsed: unknown;
@@ -783,6 +933,47 @@ export function create_local_api_server(
         return false;
     }
 
+    /**
+     * t279: GET /v1/logs/export —— web 日志导出。流式输出当前活跃日志段
+     * （对齐桌面 handleLogExport 的 exportCurrentLog：只导出当天 app-<date>.log），
+     * Content-Disposition 触发浏览器下载；文件不存在输出空文件（桌面复制失败同样
+     * 不改变导出语义，返回 200 空档）。
+     */
+    function handle_logs_export(res: ServerResponse): void {
+        if (!user_data_path) {
+            json_response(res, 503, { error: "logs export unavailable" });
+            return;
+        }
+        const log_dir = get_logs_dir(user_data_path);
+        const date = new Date().toISOString().slice(0, 10);
+        const log_file = path.join(log_dir, `app-${date}.log`);
+        const download_name = `omni-panel-log-${date}.log`;
+        fs.stat(log_file, (stat_err, s) => {
+            if (stat_err || !s.isFile()) {
+                // 桌面语义：日志文件不存在也给出空导出（copyFile 会抛错，但此处
+                // web 下载保持 200 空档，浏览器得到空文件不弹错误）。
+                res.writeHead(200, {
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "Content-Disposition": `attachment; filename="${download_name}"`,
+                    "Content-Length": "0",
+                });
+                res.end();
+                return;
+            }
+            // t279 f006：活跃日志段边写边增长，stat 时刻长度不可靠；用 chunked
+            // 传输（不带 Content-Length），避免长度不符导致浏览器截断或报错。
+            res.writeHead(200, {
+                "Content-Type": "text/plain; charset=utf-8",
+                "Content-Disposition": `attachment; filename="${download_name}"`,
+            });
+            const stream = fs.createReadStream(log_file);
+            stream.on("error", () => {
+                res.destroy();
+            });
+            stream.pipe(res);
+        });
+    }
+
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
         void (async () => {
             const url = new URL(req.url ?? "/", "http://local");
@@ -819,7 +1010,11 @@ export function create_local_api_server(
             }
             if (
                 session_history_deps &&
-                (await handle_web_session_history(req, res, url, session_history_deps))
+                (await handle_web_session_history(req, res, url, session_history_deps, {
+                    subs: web_session_subs,
+                    sse_clients_by_sub: sse_client_sub_ids,
+                    write_event: write_sse_event,
+                }))
             ) {
                 return;
             }
@@ -832,6 +1027,11 @@ export function create_local_api_server(
 
             if (url.pathname === "/v1/events" && is_get) {
                 handle_sse(req, res);
+                return;
+            }
+
+            if (url.pathname === "/v1/logs/export" && is_get) {
+                handle_logs_export(res);
                 return;
             }
 
@@ -1261,6 +1461,11 @@ export function create_local_api_server(
             json_response(res, 503, { error: "events unavailable" });
             return;
         }
+        // t279: web 会话订阅经 SSE 连接注册——浏览器以 subscriber_id 查询参数打开
+        // 专属事件流，服务端把订阅挂到该连接；连接关闭即逐条注销，防 watcher 泄漏。
+        const subscriber_id = new URL(req.url ?? "/", "http://local").searchParams.get(
+            "subscriberId",
+        );
         res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
@@ -1268,6 +1473,9 @@ export function create_local_api_server(
         });
         res.flushHeaders();
         sse_clients.add(res);
+        if (subscriber_id) {
+            sse_client_sub_ids.set(subscriber_id, res);
+        }
         const unsub = store.subscribe({
             onStateChange(instanceId: string, state: ConnectorSnapshotState): void {
                 write_sse_event(res, undefined, {
@@ -1282,6 +1490,33 @@ export function create_local_api_server(
             cleaned = true;
             sse_clients.delete(res);
             unsub();
+            // 该 SSE 连接关闭时清理其持有的全部会话订阅（不依赖 unload 信号）。
+            // t279 f005：重连竞态防护——旧连接 cleanup 可能晚于新连接注册到达，
+            // 必须校验当前映射仍指向本 res（订阅表与 SSE 映射），否则会误删新注册
+            // 的订阅或把重挂中的订阅注销，导致实时推送永久丢失。
+            if (subscriber_id) {
+                if (
+                    !sse_cleanup_should_unsubscribe(
+                        subscriber_id,
+                        res,
+                        web_session_subs,
+                        sse_client_sub_ids,
+                    )
+                ) {
+                    return;
+                }
+                const sub = web_session_subs.get(subscriber_id);
+                web_session_subs.delete(subscriber_id);
+                sse_client_sub_ids.delete(subscriber_id);
+                if (sub) {
+                    session_history_deps?.service.unsubscribe(
+                        sub.source,
+                        sub.env,
+                        sub.session_id,
+                        subscriber_id,
+                    );
+                }
+            }
         };
         req.on("close", cleanup);
         res.on("close", cleanup);

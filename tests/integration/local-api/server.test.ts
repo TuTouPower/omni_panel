@@ -16,6 +16,7 @@ import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type {
+    Env,
     QueryResult,
     SessionHistorySubscriptionService,
     SessionRow,
@@ -1567,6 +1568,22 @@ describe("local-api session history endpoints (t259)", () => {
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
             >(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
             summaries: vi.fn(() => Promise.resolve({ "claude_code|win|sess-1": "hello world" })),
+            // t279: web 订阅。测试捕获 on_update 以便触发增量推送。
+            subscribe: vi.fn(
+                (params: {
+                    source: string;
+                    env: Env;
+                    session_id: string;
+                    file_path: string;
+                    extractor_kind: string;
+                    subscriber_id?: string;
+                    on_update: (messages: unknown[]) => void;
+                }) => {
+                    void params;
+                    return "claude_code|win|sess-1";
+                },
+            ),
+            unsubscribe: vi.fn(),
         };
     }
 
@@ -1873,6 +1890,367 @@ describe("local-api session history endpoints (t259)", () => {
         expect(service.summaries).toHaveBeenCalledWith([
             expect.objectContaining({ session_id: "sess-1" }),
         ]);
+    });
+
+    it("POST /v1/sessionHistory/subscribe 未先经 /v1/events 注册返回 409 (t279)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/subscribe`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-unconnected",
+                }),
+            },
+        );
+        expect(res.status).toBe(409);
+        expect(service.subscribe).not.toHaveBeenCalled();
+    });
+
+    it("POST /v1/sessionHistory/subscribe 挂 SSE 连接，on_update 增量经 SSE 推 messagesUpdated (t279 AC1)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?subscriberId=web-sse-1`);
+            expect(sse_res.status).toBe(200);
+            expect(sse_res.headers.get("content-type")).toContain("text/event-stream");
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+
+            const sub_res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-sse-1",
+                }),
+            });
+            expect(sub_res.status).toBe(200);
+            const sub_body = (await sub_res.json()) as { subscribed: boolean };
+            expect(sub_body.subscribed).toBe(true);
+            expect(service.subscribe).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-sse-1",
+                }),
+            );
+
+            // 触发 watcher 增量：service 捕获的 on_update 收到新消息后应推给 SSE 客户端。
+            const params = service.subscribe.mock.calls[0]?.[0] as {
+                on_update: (messages: unknown[]) => void;
+            };
+            expect(params).toBeDefined();
+            params.on_update([{ id: "m2", role: "assistant", text: "world", timestamp: 200 }]);
+
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await reader.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("messagesUpdated")) break;
+            }
+            expect(raw).toContain("event: messagesUpdated");
+            expect(raw).toContain('"session_id":"sess-1"');
+            expect(raw).toContain('"text":"world"');
+            await reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("POST /v1/sessionHistory/unsubscribe 只注销目标订阅方，不误伤同 loc 其他订阅方 (t279 AC1)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            // 两个独立 SSE 连接各自订阅同一 loc：注销其一不得触发另一连接注销。
+            const sse_a = await fetch(`${base}/v1/events?subscriberId=web-sub-a`);
+            const reader_a = sse_a.body?.getReader();
+            if (!reader_a) throw new Error("no sse body");
+            const sse_b = await fetch(`${base}/v1/events?subscriberId=web-sub-b`);
+            const reader_b = sse_b.body?.getReader();
+            if (!reader_b) throw new Error("no sse body");
+            for (const subscriber_id of ["web-sub-a", "web-sub-b"]) {
+                const res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "win",
+                        session_id: "sess-1",
+                        subscriber_id,
+                    }),
+                });
+                expect(res.status).toBe(200);
+            }
+
+            const unsub = await fetch(`${base}/v1/sessionHistory/unsubscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subscriber_id: "web-sub-b" }),
+            });
+            expect(unsub.status).toBe(200);
+            // 注销只触达目标订阅方；web-sub-a 的连接未关，其订阅仍在。
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-sub-b",
+            );
+            await reader_a.cancel();
+            await reader_b.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("SSE 连接关闭时自动注销其持有的会话订阅，防 watcher 泄漏 (t279 f004)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?subscriberId=web-leak-1`);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+            const sub_res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-leak-1",
+                }),
+            });
+            expect(sub_res.status).toBe(200);
+            expect(service.unsubscribe).not.toHaveBeenCalled();
+
+            await reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            // close 触发 cleanup → 注销该订阅（不依赖显式 unsubscribe）。
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-leak-1",
+            );
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("SSE 断连 cleanup 注销旧订阅，新连接重挂后独立活跃 (t279 f005)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            // 旧连接注册订阅。
+            const old_sse = await fetch(`${base}/v1/events?subscriberId=web-race-1`);
+            const old_reader = old_sse.body?.getReader();
+            if (!old_reader) throw new Error("no sse body");
+            const sub1 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-race-1",
+                }),
+            });
+            expect(sub1.status).toBe(200);
+
+            // 断连：旧连接 close → 服务端 cleanup 注销该订阅（防泄漏）。
+            await old_reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-race-1",
+            );
+
+            // 重连：新连接用同 subscriber_id 重挂，重新建立订阅。
+            const new_sse = await fetch(`${base}/v1/events?subscriberId=web-race-1`);
+            const new_reader = new_sse.body?.getReader();
+            if (!new_reader) throw new Error("no sse body");
+            const sub2 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-race-1",
+                }),
+            });
+            expect(sub2.status).toBe(200);
+
+            // 新连接关闭前订阅保持活跃（无额外注销）。
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            await new_reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            // 新连接关闭才再次注销（重挂后独立生命周期）。
+            expect(service.unsubscribe).toHaveBeenCalledTimes(2);
+        } finally {
+            await sub_api.stop();
+        }
+    });
+});
+
+describe("local-api logs export (t279)", () => {
+    it("GET /v1/logs/export 流式返回当前活跃日志段并带下载头", async () => {
+        const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-"));
+        try {
+            const date = new Date().toISOString().slice(0, 10);
+            // get_logs_dir(base) = <base>/logs，与桌面 exportCurrentLog 同路径语义。
+            await mkdir(join(logs_home, "logs"), { recursive: true });
+            await writeFile(join(logs_home, "logs", `app-${date}.log`), "export-sentinel-line\n");
+            const export_api = create_local_api_server(store, {
+                port: 0,
+                token_stats_store,
+                connector_deps,
+                user_data_path: logs_home,
+            });
+            await export_api.start();
+            try {
+                const res = await fetch(
+                    `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
+                );
+                expect(res.status).toBe(200);
+                expect(res.headers.get("content-disposition")).toContain(
+                    `omni-panel-log-${date}.log`,
+                );
+                expect(await res.text()).toBe("export-sentinel-line\n");
+            } finally {
+                await export_api.stop();
+            }
+        } finally {
+            await rm(logs_home, { recursive: true, force: true });
+        }
+    });
+
+    it("GET /v1/logs/export 日志文件缺失时返回 200 空下载", async () => {
+        const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-missing-"));
+        try {
+            const export_api = create_local_api_server(store, {
+                port: 0,
+                token_stats_store,
+                connector_deps,
+                user_data_path: logs_home,
+            });
+            await export_api.start();
+            try {
+                const res = await fetch(
+                    `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
+                );
+                expect(res.status).toBe(200);
+                expect(res.headers.get("content-disposition")).toContain(".log");
+                expect(await res.text()).toBe("");
+            } finally {
+                await export_api.stop();
+            }
+        } finally {
+            await rm(logs_home, { recursive: true, force: true });
+        }
+    });
+
+    it("未配置 user_data_path 时 /v1/logs/export 返回 503", async () => {
+        const plain_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+        });
+        await plain_api.start();
+        try {
+            const res = await fetch(
+                `http://127.0.0.1:${String(plain_api.get_port())}/v1/logs/export`,
+            );
+            expect(res.status).toBe(503);
+        } finally {
+            await plain_api.stop();
+        }
     });
 });
 
