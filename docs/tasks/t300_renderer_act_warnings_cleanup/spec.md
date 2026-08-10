@@ -2,19 +2,19 @@
 
 ## 背景
 
-来源：Grok 全仓评审（2026-08-11）Issue 3。`src/main/core/connector/net-client.ts` 请求 URL 由 `new URL(options.path, base)` 构造；`path` 为绝对或 protocol-relative URL（`https://evil.example/...` / `//evil.example/...`）时 URL API 以之替换 manifest endpoint origin。`apply_request_auth` 在 URL 构造后注入 vault 凭据（apikey/cookie），hostile/被攻陷的 connector 脚本（用户 `connectors/` 目录经 `manifest-loader` 加载）或构造的 poll path 可把 vault 注入的 auth 发往任意主机。`assert_safe_connector_host` 只拦云 metadata 主机，不拦任意公网主机。
+来源：p119（t290 顺手发现，2026-08-11 登记）。全量 `pnpm test` 约 80 条「not wrapped in act」警告，来自 settings_form / cpa_connector_settings / provider_card_label_map / label_map_dialog 等 renderer 测试文件；单文件运行无警告、全量并行出现，疑似跨用例状态/定时器污染。测试通过但警告掩盖 act 外更新（假绿风险）。t290 已按「act 包裹等待」修 popup_view_height，本 task 清理其余存量。
 
 ## 契约区
 
 ### 范围
 
-- URL 构造后强制 `url.origin` 等于解析后的 endpoint base origin（或只允许 `/` 开头相对路径），拒绝绝对 URL 与 `//` protocol-relative path
-- 同一检查应用到 poll/probe executor 的请求路径
+- 全量测试中报告的 act 警告文件逐个消除警告（act 包裹等待 / vi.waitFor / fake timers 推进，按 t290 已验证方式）
+- 若发现污染源为跨用例共享状态/定时器（非单文件等待方式），定位并修复根因
 
 ### 非范围
 
-- connector 信任模型重构（架构已声明用户 connector 为受信代码，见 architecture.md）
-- 其他网络能力调整
+- 生产组件逻辑调整（如警告源为组件缺陷，先在本 task 说明再定）
+- 测试断言弱化（消除警告不得删/弱断言）
 
 ### 验收标准
 
@@ -36,9 +36,9 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：`path` 为绝对 URL 或 `//` protocol-relative 时请求被拒绝（抛错），不发起网络请求
-- [ ] AC-002：合法相对路径（`/` 开头）请求行为不变，auth 注入与请求成功（既有 connector 测试全绿）
-- [ ] AC-003：poll/probe executor 与主请求路径同样拒绝越界 origin（单测覆盖）
+- [ ] AC-001：全量 `pnpm test` stderr 无「not wrapped in act」警告（0 条）
+- [ ] AC-002：涉及文件单文件运行仍全绿，断言未弱化（用例数与断言数不减少）
+- [ ] AC-003：全量 `pnpm test` 通过
 
 ### 可测试性声明
 
@@ -48,11 +48,11 @@
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试：单测构造绝对/protocol-relative path 断言拒绝 + 相对路径回归。
+- 全部 AC 可自动测试：全量运行输出断言（stderr 计数）+ 用例数对比。
 
 ## 上下文区
 
-- 来源：Grok 全仓评审 Issue 3（net-client.ts:199）
+- 来源：p119
 
 ### 有意不测
 
@@ -64,6 +64,8 @@
 
 - 无
 
+- 参照：t290（popup_view_height act 警告消除方式：等待包 act，真实等待保持）
+
 ### 测试策略
 
 <!-- 规范（门禁必留，不得删除） -->
@@ -72,8 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 单测：net-client URL 构造用例（绝对/protocol-relative/相对路径）+ poll/probe executor 同检查
-- 回归：既有 connector 请求测试保持全绿
+- 先跑全量收集警告清单（文件×用例），逐文件按 t290 方式修，再全量复验 0 警告
+- 断言不弱化：修改前后用例数/断言数对比
 
 ### 未知契约清单
 

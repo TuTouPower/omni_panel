@@ -2,19 +2,25 @@
 
 ## 背景
 
-来源：Grok 全仓评审（2026-08-11）Issue 3。`src/main/core/connector/net-client.ts` 请求 URL 由 `new URL(options.path, base)` 构造；`path` 为绝对或 protocol-relative URL（`https://evil.example/...` / `//evil.example/...`）时 URL API 以之替换 manifest endpoint origin。`apply_request_auth` 在 URL 构造后注入 vault 凭据（apikey/cookie），hostile/被攻陷的 connector 脚本（用户 `connectors/` 目录经 `manifest-loader` 加载）或构造的 poll path 可把 vault 注入的 auth 发往任意主机。`assert_safe_connector_host` 只拦云 metadata 主机，不拦任意公网主机。
+来源：p114（t283 顺手发现，2026-08-11 核实仍在）。`pnpm lint` 全量报 3 个 Parsing error：
+
+- `scripts/repo_template/repo_task/view_static/board.js`
+- `scripts/repo_template/repo_task/view_static/chain_plan.js`
+- `tests/repo_template/test_chain_plan_cases.js`
+
+「not found by the project service」。repo_template sync（5229b98e）引入这些 JS 文件未纳入 tsconfig include / allowDefaultProject，lint 门禁因此全量失败（主仓与 worktree 均复现）。
 
 ## 契约区
 
 ### 范围
 
-- URL 构造后强制 `url.origin` 等于解析后的 endpoint base origin（或只允许 `/` 开头相对路径），拒绝绝对 URL 与 `//` protocol-relative path
-- 同一检查应用到 poll/probe executor 的请求路径
+- 3 个 JS 文件收编进 eslint 可解析范围（tsconfig allowDefaultProject 白名单或 eslint 配置排除/收编）
+- lint 全量恢复绿（零 warning 零 error）
 
 ### 非范围
 
-- connector 信任模型重构（架构已声明用户 connector 为受信代码，见 architecture.md）
-- 其他网络能力调整
+- repo_template 工具链代码本身重构
+- 其它 lint 配置调整
 
 ### 验收标准
 
@@ -36,9 +42,9 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：`path` 为绝对 URL 或 `//` protocol-relative 时请求被拒绝（抛错），不发起网络请求
-- [ ] AC-002：合法相对路径（`/` 开头）请求行为不变，auth 注入与请求成功（既有 connector 测试全绿）
-- [ ] AC-003：poll/probe executor 与主请求路径同样拒绝越界 origin（单测覆盖）
+- [ ] AC-001：`pnpm lint` 全量退出 0，无 Parsing error（3 个文件不再报 not found）
+- [ ] AC-002：`pnpm typecheck` 仍通过（收编方式不破坏类型检查范围）
+- [ ] AC-003：repo_template 相关既有测试不受影响（全量 `pnpm test` 通过）
 
 ### 可测试性声明
 
@@ -48,11 +54,11 @@
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试：单测构造绝对/protocol-relative path 断言拒绝 + 相对路径回归。
+- 全部 AC 可自动测试：lint/typecheck/test 命令直接验证。
 
 ## 上下文区
 
-- 来源：Grok 全仓评审 Issue 3（net-client.ts:199）
+- 来源：p114
 
 ### 有意不测
 
@@ -72,8 +78,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 单测：net-client URL 构造用例（绝对/protocol-relative/相对路径）+ poll/probe executor 同检查
-- 回归：既有 connector 请求测试保持全绿
+- 命令验证：`pnpm lint` / `pnpm typecheck` / `pnpm test` 全量绿
 
 ### 未知契约清单
 
