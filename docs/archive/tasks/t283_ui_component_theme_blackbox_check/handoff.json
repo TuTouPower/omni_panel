@@ -1,0 +1,29 @@
+{
+    "tid": "t283",
+    "attempt": 1,
+    "execution_id": "23d69bc2f1f8442faa5606f73aa6beb8",
+    "status": "done",
+    "branch": "t283_ui_component_theme_blackbox_check",
+    "base_sha": "db02c7118c8403acadcb7114856220225f79d3f3",
+    "tests": "pnpm test：2833 passed, 9 skipped (253 files)；pnpm typecheck 通过；变更文件 eslint 干净；designmd:check drift passed",
+    "blackbox": "MOCK_FIXTURE=synthetic pnpm test:e2e:web：74 passed（含新增 ui_component_theme 4 例明暗两态对比度断言）；实测 sm 主按钮暗色白字 on #5b8dff = 3.13 ≥ 3.0",
+    "review": "Round 1 general FAIL（f001 important + f002/f003 minor）→ Round 2 general PASS（3/3 处置复核成立，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/e2e/web/ui_component_theme.spec.ts：light/dark 两态对 Switch/Select/Input/Checkbox/Button primary+secondary/Segmented/Dialog 取样 getComputedStyle 算 WCAG 对比度，阈值正文 4.5 / 按钮与 Segmented 3.0",
+            "全量 web e2e 74 passed 无回归"
+        ],
+        "AC-002": [
+            "spec 参数化 for 循环覆盖明暗两态；page_background_luminance 断言 dark < 0.05 / light > 0.5 证明主题真实切换",
+            "Switch 开/关两态 track 底色不同断言"
+        ],
+        "AC-003": [
+            "[deploy] task.md 收尾报告 AC-003 对照清单：18 项 DESIGN components 规格逐项对照（Button/Switch/Badge/Menu/SecretInput/Progress/Dialog/Input 等），差异项 9 条登记 pending p110-p118"
+        ],
+        "AC-004": [
+            "[deploy] 已修复项：Button sm 字号类（on-primary 恢复，暗色主按钮 3.13 ≥ 3.0）、.dark 硬编码五档 hex 改 token 引用；标注不修项 7 条（p110-p113/p116-p118）附原因"
+        ]
+    },
+    "pending": ["p110", "p111", "p112", "p113", "p114", "p115", "p116", "p117", "p118"],
+    "findings": ["d032"]
+}
