@@ -2,5 +2,81 @@
     "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t293",
+            "slug": "config_save_conflict_cache_stale",
+            "title": "修复 config 并发 save 冲突检测被内存缓存击败（lost update）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "Grok 2026-08-11 全仓评审 Issue 2：configStore.load 服务内存缓存直到 save 完成，重叠 CONFIG_SAVE/POST /v1/config 双写后写覆盖先写；需单调 generation/内容 hash 或锁内重读",
+            "dir": "docs/tasks/t293_config_save_conflict_cache_stale"
+        },
+        {
+            "tid": "t294",
+            "slug": "net_client_absolute_url_auth_exfil",
+            "title": "net-client 绝对路径 URL 可外泄 vault 注入 auth",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "Grok Issue 3：new URL(path, base) 对绝对/protocol-relative path 替换 manifest origin，apply_request_auth 后 auth 可发往攻击者主机；需限制 url.origin == base origin",
+            "dir": "docs/tasks/t294_net_client_absolute_url_auth_exfil"
+        },
+        {
+            "tid": "t295",
+            "slug": "net_client_response_body_log",
+            "title": "net-client JSON 解析失败日志打全响应体（凭据泄漏）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "Grok Issue 4：JSON parse 失败 log  全 body；错误页/拦截页可含凭据；改记 status/origin/content-type/长度",
+            "dir": "docs/tasks/t295_net_client_response_body_log"
+        },
+        {
+            "tid": "t296",
+            "slug": "vault_bak_file_permissions",
+            "title": "vault .bak 无 0600 权限硬化",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "Grok Issue 5：主 vault 文件 chmod 0600，.bak 用裸 writeFile 依 umask 可能 world-readable；与主文件同硬化",
+            "dir": "docs/tasks/t296_vault_bak_file_permissions"
+        },
+        {
+            "tid": "t297",
+            "slug": "markdown_link_scheme_allowlist",
+            "title": "MarkdownMessage 链接 scheme 白名单 + 面板 will-navigate 守卫",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "Grok Issue 6：会话历史 markdown 渲染 a href 无 scheme 白名单/rel 加固，内容不可信；panel 窗口无 will-navigate 守卫；仅允许 http/https",
+            "dir": "docs/tasks/t297_markdown_link_scheme_allowlist"
+        }
+    ]
 }
