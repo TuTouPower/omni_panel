@@ -52,6 +52,10 @@ function createMockConfigStore(config: AppConfiguration): AppConfigStore & { cal
             calls.push("save");
             return Promise.resolve();
         },
+        saveIfBaseMatches: () => {
+            calls.push("save");
+            return Promise.resolve("saved" as const);
+        },
         scheduleSave: () => {
             calls.push("scheduleSave");
         },
