@@ -1,0 +1,20 @@
+{
+    "tid": "t300",
+    "attempt": 1,
+    "execution_id": "af19c09c00b54212bfdf6ef1c67e84be",
+    "status": "done",
+    "branch": "t300_renderer_act_warnings_cleanup",
+    "base_sha": "db4f25c5c15cab206dc8dc83ae7e9e29b8b0dc3c",
+    "tests": "pnpm test：254 files / 2857 passed，0 failed，stderr 0 条 act 警告",
+    "blackbox": "全量 pnpm test stderr 0 条 not wrapped in act；typecheck + lint 全绿",
+    "review": "Round 1 general PASS，零 finding",
+    "ac_evidence": {
+        "AC-001": ["全量 pnpm test stderr grep 'not wrapped in act' = 0"],
+        "AC-002": [
+            "4 文件 it/expect 计数与 base 完全一致，diff 逐条比对 IDENTICAL 无删 expect（reviewer 独立验证）"
+        ],
+        "AC-003": ["全量 pnpm test 254 files / 2857 passed 0 failed"]
+    },
+    "pending": [],
+    "findings": []
+}
