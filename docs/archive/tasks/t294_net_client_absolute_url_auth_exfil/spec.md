@@ -8,7 +8,7 @@
 
 ### 范围
 
-- URL 构造后强制 `url.origin` 等于解析后的 endpoint base origin（或只允许 `/` 开头相对路径），拒绝绝对 URL 与 `//` protocol-relative path
+- URL 构造后强制 `url.origin` 等于解析后的 endpoint base origin，拒绝不同 origin 的绝对 URL 与 `//` protocol-relative path
 - 同一检查应用到 poll/probe executor 的请求路径
 
 ### 非范围
@@ -36,7 +36,7 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：`path` 为绝对 URL 或 `//` protocol-relative 时请求被拒绝（抛错），不发起网络请求
+- [ ] AC-001：`path` 为不同 origin 的绝对 URL 或 `//` protocol-relative 时请求被拒绝（抛错），不发起网络请求
 - [ ] AC-002：合法相对路径（`/` 开头）请求行为不变，auth 注入与请求成功（既有 connector 测试全绿）
 - [ ] AC-003：poll/probe executor 与主请求路径同样拒绝越界 origin（单测覆盖）
 

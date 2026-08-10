@@ -197,6 +197,16 @@ export async function build_request_context(
 ): Promise<RequestContext> {
     const base = resolve_endpoint_base(manifest, endpoint_name, options.endpoint_overrides);
     const url = new URL(options.path, base);
+    // 拒绝绝对 URL / protocol-relative path 越界到其它 origin：否则
+    // `new URL` 会用 path 替换 endpoint base 的主机，把后面注入的 vault
+    // 凭据（apikey/cookie）发往任意公网主机。
+    const base_url = new URL(base);
+    if (url.origin !== base_url.origin) {
+        throw new Error(
+            `Refusing connector request to origin outside endpoint: ${url.origin}` +
+                ` (endpoint origin ${base_url.origin})`,
+        );
+    }
     assert_safe_connector_host(url);
 
     const headers: Record<string, string> = { ...(options.initial_headers ?? {}) };

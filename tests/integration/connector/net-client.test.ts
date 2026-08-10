@@ -186,6 +186,34 @@ describe("net-client", () => {
         expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
     });
 
+    it("rejects an absolute URL path so vault auth cannot be exfiltrated (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("default", "https://evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects a protocol-relative path so vault auth cannot be exfiltrated (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("default", "//evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects an out-of-origin path from get_raw too (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_raw("default", "https://evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects an out-of-origin protocol-relative path from post_json (poll channel) (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(
+            ctx.http.post_json("default", "//evil.example/steal", { hello: "world" }),
+        ).rejects.toThrow(/Refusing connector request to origin outside endpoint/);
+    });
+
     it("posts JSON body", async () => {
         const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
         await ctx.http.post_json("default", "/usage", { hello: "world" });
