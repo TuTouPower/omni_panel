@@ -2,11 +2,11 @@
 tid: "t288"
 slug: "cli_control_restart_relaunch_reap"
 title: "CLI 控制 restart e2e 回收 relaunch 进程"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t288_cli_control_restart_relaunch_reap"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "d7cdbb7b87fc4aff81e7698e1bd6f19454298499"
 depends_on: ""
 conflicts_with: "t281,t283,t292"
 schedule_status: "scheduled"
@@ -23,7 +23,10 @@ note: "p095：CLI restart e2e relaunch 进程泄漏"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 环境坑（worktree 复用）：`path.txt` 若以 `printf` 写入会带换行，electron `index.js` 不 trim，`dist/electron\n` 存在性检查失败触发重复下载导致 `ensure_sqlite_abi` verify FAILED；须无换行写入。
+- 泄漏复现：AC3 restart 用例跑后 18811 被 relaunch 新进程（pid 变化）持续监听，`closeServe` 只关原句柄——复现 p095。
+- 修复：`reap_user_data_dir_processes` 按 `--user-data-dir`（mkdtemp 唯一串）pgrep 定位 → SIGTERM → 3s 轮询 → 超时 SIGKILL 兜底；win32 显式守卫。
+- 验证：AC3 单跑后 18811 无监听、无 electron 残留；`cli_control.spec.ts` 三轮串行 8 passed ×3 无 EADDRINUSE；全量单测 2841 passed。
 
 ## Review 处置
 
@@ -45,14 +48,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-10 23:55 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                                                            | fix_ref                                   |
+| ------------- | -------- | ------ | -------------------------------------------------------------------- | ----------------------------------------- |
+| t288_gen_f001 | minor    | 已修   | reap 超时残留 SIGKILL 兜底 + 循环轮询剩余 pid                        | tests/e2e/electron/cli_control.spec.ts:84 |
+| t288_gen_f002 | minor    | 已修   | win32 平台守卫显式 no-op（cli e2e 本就 Linux-only，防 Windows 假绿） | tests/e2e/electron/cli_control.spec.ts:72 |
 
 ## 收尾报告
 
@@ -61,8 +62,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 teardown 后端口无监听 + 进程无残留（实测复现→修复闭环）；AC-003 三轮串行 8 passed ×3 无 EADDRINUSE。详见 handoff ac_evidence。
 
 ### Reviewer verdict
 
@@ -70,15 +71,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（2 minor：f001 SIGKILL 兜底、f002 win32 守卫）
+- Round 2 general：PASS（2/2 处置复核成立，0 新 finding）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- cli_control AC3 restart teardown 加固（user-data-dir 定位回收 relaunch 进程树），三轮串行 8 passed 无泄漏；全量单测 2841 passed；testing.md p095 引用闭环。

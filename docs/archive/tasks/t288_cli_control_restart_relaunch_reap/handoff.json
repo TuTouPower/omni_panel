@@ -1,0 +1,22 @@
+{
+    "tid": "t288",
+    "attempt": 1,
+    "execution_id": "b755b6fff00f41b7b421a2e521b2b83e",
+    "status": "done",
+    "branch": "t288_cli_control_restart_relaunch_reap",
+    "base_sha": "d7cdbb7b87fc4aff81e7698e1bd6f19454298499",
+    "tests": "pnpm test：2841 passed, 2 skipped (254 files)；pnpm typecheck 通过；变更文件 eslint 干净",
+    "blackbox": "cli_control.spec.ts 三轮串行 8 passed ×3 无 EADDRINUSE；AC3 后 ss 18811 无监听、pgrep 无 electron 残留；单测 2841 passed",
+    "review": "Round 1 general PASS（2 minor）→ Round 2 general PASS（2/2 处置复核成立，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "AC3 restart 用例 teardown 后 ss -tlnp 18811 无监听（修复前 pid 残留、修复后无，实测复现闭环）"
+        ],
+        "AC-002": [
+            "teardown 后 pgrep -f user-data-dir 无 electron 进程残留；reap 超时 SIGKILL 兜底"
+        ],
+        "AC-003": ["cli_control.spec.ts 三轮串行 8 passed ×3，无 EADDRINUSE / waitHealth 超时"]
+    },
+    "pending": [],
+    "findings": []
+}

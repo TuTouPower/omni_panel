@@ -65,7 +65,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 
 - `tests/e2e/electron/cli_control.spec.ts`：`--cli serve` 起真实例后，瘦客户端（子进程 spawn，因 `app.exit` 快退 Playwright `electron.launch` 会 reject）跑各控制命令，断言实例侧可观察效果——refresh-all 经 `/v1/events` SSE 收到状态事件、restart 后 cli.json pid 更新 + 新端口 health、桌面实例（E2E=1 + `OMNI_PANEL_PORT` 固定端口）可被 `--port` 覆盖控制、实例未运行时非零退出 + stderr 可读错误。
 - 单测：`tests/unit/main/cli/client.test.ts`（实例发现 cli.json/`--port` 覆盖、post_control 端点、autostart Linux unsupported、错误文案）；`tests/integration/local-api/server.test.ts` 控制端点组（refresh-all/pause/resume/restart/quit POST 200、GET 405、未配置 control_deps 时 401 落认证门）。
-- 注意：restart 端点 `app.relaunch()` 出的新进程无 playwright 句柄，测试无法 close，跨 run 会堆积孤儿进程（见 p095）。
+- restart 用例 teardown（t288）：`app.relaunch()` 出的新进程脱离 playwright 句柄，`closeServe` 管不到；`reap_user_data_dir_processes` 按 `--user-data-dir` 唯一定位后 SIGTERM（超时 SIGKILL）整树回收，避免孤儿进程跨 run 堆积阻塞端口。
 
 ### e2e headless 门控与 cli 项目（t280）
 
