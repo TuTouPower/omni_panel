@@ -28,7 +28,7 @@
 | connector-cpa-ui                     | Web                 | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
 | connector-direct                     | API                 | 迁移自 omni_powers，t039, t159, t160                                                              | 2026-07-29   |
 | connector-runtime                    | API                 | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
-| connector-session                    | Desktop             | 迁移自 omni_powers，t098                                                                          | 2026-07-24   |
+| connector-session                    | Desktop             | 迁移自 omni_powers，t098，t282                                                                    | 2026-08-10   |
 | connector-user-scripts-entry         | Desktop             | t094                                                                                              | 2026-07-24   |
 | connector-user-scripts               | Desktop             | t095                                                                                              | 2026-07-24   |
 | ipc-api                              | API                 | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
@@ -75,5 +75,6 @@
 | panel-window-bounds-persist          | Desktop             | t251, t262                                                                                        | 2026-08-08   |
 | session-pane-display-adjust          | Web+Desktop         | t257                                                                                              | 2026-08-08   |
 | e2e_synthetic_fixture                | Web                 | t281                                                                                              | 2026-08-10   |
+| web_cookie_login_anon_poll_parity    | Web + Desktop       | t282                                                                                              | 2026-08-10   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。
