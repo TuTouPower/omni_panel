@@ -72,3 +72,6 @@ docs/reviews/review_*/_meta/
 report
 PixPin_*.png
 *.tmp
+
+# 运行时控制面（attempt 账本/goal 队列，仅主仓、不入库）
+docs/runtime/
