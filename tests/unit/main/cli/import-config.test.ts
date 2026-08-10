@@ -61,7 +61,7 @@ function makeDeps() {
         return Promise.resolve();
     });
     const secretsStore: SecretsStore = {
-        get: vi.fn().mockResolvedValue(null),
+        get: vi.fn().mockImplementation((k: string) => Promise.resolve(secrets[k] ?? null)),
         set: vi.fn().mockImplementation((k: string, v: string) => {
             secrets[k] = v;
             return Promise.resolve();
@@ -263,5 +263,62 @@ describe("import_config_file", () => {
         // 本次转存的 secret 已回滚删除，vault 无残留
         expect(secrets["claude-1:API_KEY"]).toBeUndefined();
         expect(deleteMock).toHaveBeenCalledWith("claude-1:API_KEY");
+    });
+
+    it("重复导入且 save 失败时回滚保留导入前已存在的 vault 值（p094 回滚边界）", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "import.json");
+        const config = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [
+                {
+                    instanceId: "claude-1",
+                    stateId: "claude-1",
+                    name: "Claude",
+                    enabled: true,
+                    executablePath: "/plugins/claude.py",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: { API_KEY: "sk-live-secret" },
+                    endpointOverrides: {},
+                },
+            ],
+            launchAtLogin: false,
+        };
+        writeFileSync(importFile, JSON.stringify(config));
+        const { configStore, secretsStore, secrets, deleteMock } = makeDeps();
+
+        // 首轮成功导入：vault 写入 claude-1:API_KEY = sk-live-secret
+        await import_config_file(
+            { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+            importFile,
+        );
+        expect(secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
+
+        // 二轮重复导入同一 key、不同值，config save 失败 → 回滚须恢复首轮旧值
+        const importFile2 = join(dir, "import2.json");
+        const plugin0 = config.plugins[0];
+        if (!plugin0) throw new Error("fixture 缺 plugin");
+        writeFileSync(
+            importFile2,
+            JSON.stringify({
+                ...config,
+                plugins: [{ ...plugin0, parameterValues: { API_KEY: "sk-second-secret" } }],
+            }),
+        );
+        (configStore.save as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+            new Error("disk full"),
+        );
+        await expect(
+            import_config_file(
+                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+                importFile2,
+            ),
+        ).rejects.toThrow("disk full");
+
+        // 回滚只撤销本次覆盖：vault 恢复首轮旧值，不误删也不残留二轮新值
+        expect(secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
+        expect(deleteMock).not.toHaveBeenCalledWith("claude-1:API_KEY");
     });
 });
