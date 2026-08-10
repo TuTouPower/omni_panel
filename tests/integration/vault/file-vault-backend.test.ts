@@ -76,6 +76,18 @@ describe("file-vault-backend", () => {
         expect(await vault2.get("persist")).toBe("hello");
     });
 
+    it("writes .bak with user-only permissions matching the main vault (t296)", async () => {
+        if (process.platform === "win32") {
+            // Windows 无 POSIX mode；icacls ACL 由 set_file_permissions 处理，跳过。
+            return;
+        }
+        const { stat } = await import("node:fs/promises");
+        await vault.set("perm-key", "perm-value");
+        const bak_stat = await stat(join(temp_dir, "secrets.vault.bak"));
+        // 0600 = user read/write；不随 umask 放宽为 group/other 可读
+        expect(bak_stat.mode & 0o777).toBe(0o600);
+    });
+
     it("vault.key file exists with correct size", async () => {
         const { stat } = await import("node:fs/promises");
         const key_stat = await stat(join(temp_dir, "vault.key"));

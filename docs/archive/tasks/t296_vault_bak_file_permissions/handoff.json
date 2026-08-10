@@ -1,0 +1,19 @@
+{
+    "tid": "t296",
+    "attempt": 1,
+    "execution_id": "ecba9c28922945f1b426b60d88f5bf49",
+    "status": "done",
+    "branch": "t296_vault_bak_file_permissions",
+    "base_sha": "af1710e3cb2fd4d22ea66aba3920885b5a2af467",
+    "tests": "pnpm test：254 files / 2848 passed，0 failed",
+    "blackbox": "pnpm test 全绿（含 vault 集成测试真实文件系统 + stat mode 断言）",
+    "review": "Round 2 general PASS，2 条 minor 全已修",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/vault/file-vault-backend.test.ts::writes .bak with user-only permissions 断言非 win32 下 bak mode & 0o777 === 0o600"
+        ],
+        "AC-002": ["既有 vault 32 用例回归全绿 + pnpm test 全量 2848 passed 0 failed"]
+    },
+    "pending": [],
+    "findings": []
+}

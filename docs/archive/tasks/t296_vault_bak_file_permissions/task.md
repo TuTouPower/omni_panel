@@ -2,11 +2,11 @@
 tid: "t296"
 slug: "vault_bak_file_permissions"
 title: "vault .bak 无 0600 权限硬化"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t296_vault_bak_file_permissions"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "af1710e3cb2fd4d22ea66aba3920885b5a2af467"
 depends_on: ""
 conflicts_with: ""
 note: "Grok Issue 5：主 vault 文件 chmod 0600，.bak 用裸 writeFile 依 umask 可能 world-readable；与主文件同硬化"
@@ -22,7 +22,19 @@ note: "Grok Issue 5：主 vault 文件 chmod 0600，.bak 用裸 writeFile 依 um
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+## 根因
+
+`write_vault` 主文件写 `writeJsonAtomic(chmod 0o600)` + `set_file_permissions`；`.bak` 副本用裸 `writeFile`（无 mode），多用户 Unix 下依 umask 可能 world-readable，弱于主文件。
+
+## 方案
+
+`.bak` 写入后补 `set_file_permissions(${vault_path}.bak)`（win32 icacls / 其它 chmod 0600），与主文件一致。原有 try/catch 保留（best-effort）。
+
+## 验证记录
+
+- RED：新用例断言 `.bak` mode 0600 失败（实际非 0600）。
+- GREEN：vault 33 测试全过。
+- typecheck：`tsc --noEmit` 0 错误。
 
 ## Review 处置
 
@@ -44,14 +56,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-11 03:25 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                                         | fix_ref    |
+| ------------- | -------- | ------ | ------------------------------------------------- | ---------- |
+| t296_gen_f001 | minor    | 已修   | spec 范围「原子路径」与实现不符，改为权限硬化措辞 | spec.md:11 |
+| t296_gen_f002 | minor    | 已修   | task.md 遗留孤立「无」占位行，删除                | task.md    |
 
 ## 收尾报告
 
@@ -60,24 +70,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 由 `tests/integration/vault/file-vault-backend.test.ts` 新用例断言 `.bak` mode `& 0o777 === 0o600`；AC-002 由既有 vault 32 用例回归 + 全量 `pnpm test` 2848 passed
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（2 minor）
+- Round 2 general：PASS（f001/f002 已修）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+`write_vault` 的 `.bak` 写入后补 `set_file_permissions`（win32 icacls / 其它 chmod 0600），与主文件一致，备份密文不再随 umask 放宽为 group/other 可读。全量测试 2848 passed + typecheck 绿。
