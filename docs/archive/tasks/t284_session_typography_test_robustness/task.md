@@ -2,11 +2,11 @@
 tid: "t284"
 slug: "session_typography_test_robustness"
 title: "会话字号测试摆脱源文本正则依赖"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t284_session_typography_test_robustness"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "5e29bdae00f09862cfb9bd207531e056289c6f3b"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -45,14 +45,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-10 23:00 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                                                           | fix_ref                                                    |
+| ------------- | -------- | ------ | ------------------------------------------------------------------- | ---------------------------------------------------------- |
+| t284_gen_f001 | minor    | 已修   | 面板用例补精确断言 toBe(11)/toBe(13)，与 rail 用例对称              | tests/unit/renderer/styles/session_typography.test.tsx:115 |
+| t284_gen_f002 | minor    | 已修   | font_px 语义表精简为被断言触达的两条目，数值与 globals.css 锚定一致 | tests/unit/renderer/styles/session_typography.test.tsx:63  |
 
 ## 收尾报告
 
@@ -61,8 +59,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC-001：`session_typography.test.ts`（源文本正则）删除，`session_typography.test.tsx` 改渲染断言——仅剩 globals.css 读取用于字号 token 值断言（@theme 导出产物，designmd:check drift 守护，属「构建产物参与断言」）。
+    - AC-002：原层级语义等价保留且更强——面板 title 11px < meta 13px（精确断言 + 层级）、rail title body-sm(12.5) > meta label-md(11.5)，均对真实渲染 DOM 元素断言（require_el 找不到即抛错）。
+    - AC-003：`pnpm test` 全量 2833 passed、9 skipped（含改造后 3 用例）；typecheck / eslint 干净。
 
 ### Reviewer verdict
 
@@ -70,15 +71,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（2 minor：f001 面板精确断言、f002 font_px 表精简）
+- Round 2 general：PASS（2/2 minor 处置复核成立，0 新 finding）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话字号测试摆脱源文件文本正则，改渲染输出断言（元素级 + 字号精确值与层级），全量 2833 passed 无回归；纯测试改动。
