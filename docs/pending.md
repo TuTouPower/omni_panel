@@ -16,12 +16,6 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-## p088 typecheck TS4111：local-api/server.ts 索引签名属性需 bracket 访问（2026-08-08）
-
-- 来源：技术债自查（t261 实施期发现）
-- 内容：`src/main/core/local-api/server.ts:323-325` 三处对索引签名类型属性用点号访问 `source` / `env` / `session_id`，TS4111 要求 `['source']` 等 bracket 形式。主仓与 worktree 均复现，`pnpm typecheck` 失败；文件不在 t261 diff 内，锚点 commit 已存在。
-- 处理：未开
-
 ## p089 popup_view_height.test.tsx 批量运行 2 条 act 警告（2026-08-08）
 
 - 来源：技术债自查（t261 实施期批量跑 popup_view 8 文件发现；锚点基线复跑确认 pre-existing）
@@ -44,24 +38,12 @@
 - 线索：`server.test.ts` 断连用例 `await req.catch(() => {})` 后需额外 flush 微任务或改用 `vi.waitFor` 后显式断言；或服务端 handler 对断连 abort 时不 reject 响应 promise。
 - 处理：未开
 
-## p094 CLI 模式 import-config 回滚边界与 WSL apt 依赖清单（2026-08-09）
-
-- 来源：t275 review Round 2 code 非阻断备注
-- 内容：两处小项。(1) `import_config_file` 重复导入同一 plugin/param 且 config save 失败时，回滚会连旧 vault 值一并删除（概率极低，两态皆半初始化）；(2) `docs/guides/cli-mode.md` 未逐包枚举 Electron GUI 依赖（libgtk/libnss3 等），建议后续补 apt 包清单。
-- 处理：未开
-
 ## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）
 
 - 来源：t276 review Round 2 f005（minor）
 - 现象：`tests/e2e/electron/cli_control.spec.ts` AC3 restart 测试，restart 端点 `app.relaunch()` 出的新进程无句柄回收，`finally` 只关原始句柄；跨 run 在 18811 堆积孤儿进程，EADDRINUSE 致 waitHealth 偶发失败。
 - 影响：flaky 测试（非产品缺陷）；端口 18811 被孤儿进程占用。
 - 根因：relaunch 脱离 playwright ElectronApplication 句柄，测试无法 close。
-- 处理：未开
-
-## p096 cli e2e 项目继承全局 webServer（2026-08-09）
-
-- 来源：t280 review Round 1 f005（minor）
-- 内容：`tests/e2e/cli/cli_flow.spec.ts` 所在 cli 项目继承 playwright.config 全局 `webServer`（5174 vite preview mock），cli 测试自起 `--cli serve` 真实实例，不依赖 webServer；playwright 无按 project 关闭 webServer 的机制，vite preview 闲置启动（无害但多余）。future: playwright 支持 project 级 webServer 后可优化。
 - 处理：未开
 
 ## p097 web e2e webServer 自动启动偶发失败（2026-08-09）
@@ -72,66 +54,8 @@
 - 根因：疑似 webServer command `pnpm build:web && vite preview` 偶发超时或 strictPort 竞态；未深究。
 - 处理：未开
 
-## p098 ui 组件视觉细节人工对照（2026-08-09）
-
-- 来源：t269 review f006（minor，AC5 deploy）
-- 内容：ui 组件库若干视觉细节需人工对照 DESIGN.md：Switch 尺寸/on 色、Button 字重/圆角、Badge 配色、MenuItem hover、SecretInput 显隐图标（当前 emoji）、Progress 粗细、Dialog 入场动画。实现已对齐 DESIGN 主体，细节属像素级对照。
-- 处理：未开
-
-## p099 ui 组件 computed 明暗抽查未实现（2026-08-09）
-
-- 来源：t269 review Round 3 f009（minor）
-- 内容：t269 spec AC3 要求「全部组件明暗主题下无需 dark: 即渲染正确（黑盒抽查暗色渲染）」。ui 组件未被应用消费（t270 起迁移），app 级 e2e 无法渲染；jsdom 不解析构建产物 CSS 变量，单测 computed 不可行。待 t270 迁移消费后补黑盒暗色抽查。
-- 处理：未开
-
-## p100 .ctx-overlay/.ctx-menu 死选择器（2026-08-09）
-
-- 来源：t270 review Round 2 未进表提示
-- 内容：globals.css `.ctx-overlay`/`.ctx-menu` 为死选择器（无 DOM 引用，anchor 提交亦无引用）——迁移前已存在的旧死代码，非 t270 残留。可随后续 CSS 清理删除。
-- 处理：未开
-
 ## p101 electron e2e 全量串行首窗口启动超时（2026-08-09）
 
 - 来源：t272 test review Round 2 未进表提示
 - 内容：完整 Electron 无头套件串行运行时，`popup_multi_display` 首用例与 `popup_collapse_persistence` 重启后首用例偶发 `electronApplication.firstWindow` 30s 超时；两文件隔离复跑通过。影响全量 e2e 稳定性，尚未定位根因，非当前 Agent 窗口 diff 路径。
 - 处理：未开
-
-## p102 t273 会话字号测试依赖源文本正则（2026-08-09）
-
-- 来源：t273 test review Round 2 `t273_test_f001`（minor）
-- 内容：`tests/unit/renderer/styles/session_typography.test.ts` 通过源文件文本正则验证 utility 类名，类名拆分或 utility 生成规则变化时存在假阳/假阴边界。
-- 处理：未开
-
-## p104 Linux packaged smoke 启动脚本使用 macOS 路径（2026-08-09）
-
-- 来源：t274 打包验证
-- 内容：Linux 上 `pnpm package` 已生成 `artifacts/linux-unpacked/omni_panel`，但 `scripts/package-and-run.ts` 的非 Windows 分支固定拼接 macOS `OmniPanel.app` 路径，导致包装启动阶段返回 `ENOENT`；直接使用 Linux 产物运行 `pnpm test:packaged` 可通过。
-- 处理：未开
-
-## p105 web e2e synthetic fixture 重建丢失手工 connector 条目（2026-08-10）
-
-- 来源：t277 实施期全量 Web E2E；t277/t278 黑盒复测补充
-- 内容：`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目（`synthetic-opencode-go` 无对应配置 plugin）；`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时，这两类无 config 匹配的 synthetic connector 会被丢弃。后果：`tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 在 `MOCK_FIXTURE=synthetic` 下稳定失败（基线问题，非 t277/t278 引入，主仓同失败）。关联历史：`gen_synthetic.mjs` 重生成覆盖手工条目曾在 p021 登记；修法候选：让 mock 的 config 重建保留 synthetic-only connector，或 sync 时跳过无 config 匹配的 synthetic connector，或补充 fixture 生成脚本产出。
-- 处理：未开
-
-## p106 web 认证 web 添加账号 cookie 登录阻塞式、轮询逻辑重复与覆盖缺口（2026-08-10）
-
-- 来源：t278 review Round 3 f006/f007（code，minor）与 f007/f008（test，minor）
-- 内容：四项。(1) web 面板添加 cookie 类账号（无 `instance_id`）时「网页登录」仍走阻塞式 `session.login`，无状态轮询；窗口打开期间刷新/断请求会丢失捕获结果，且与编辑实例路径行为分叉（`WebLoginSection.tsx` web+instance_id 分支已轮询）。可后续改为先建临时会话接入 `cookieLogin`/`cookieLoginStatus`，或仅在 web 登录指引提示「登录期间勿刷新，失败后手动粘贴 Cookie」。(2) `SettingsForm.handle_session_login` 与 `WebLoginSection` web 分支的 250ms/120s 轮询逻辑逐字重复，后续可抽共享 hook。(3) `startCookieLogin` 并发冲突（CONFLICT）分支无测试——在 `tests/unit/ipc/auth-ipc.test.ts` 令 `is_login_in_progress` 返回 true，断言返回 CONFLICT 且不触发 `sessionManager.start_login`。(4) `SettingsForm`/`WebLoginSection` 轮询 120s 超时分支无测试——mock `cookieLoginStatus` 恒 `in_progress:true`，`vi.useFakeTimers()` 推进超 `COOKIE_LOGIN_POLL_TIMEOUT_MS`，断言「网页登录超时，请重试」。
-- 处理：未开
-
-## 不办
-
-用户已显式确认暂搁的条目——「以后再说」，不是闭环。`task-from-pending` / `task-bug` 不自动捞本节；`repo-hygiene` 不迁 archive。
-
-字段复用上方普通 / bug 模板，追加必填项：
-
-- `- 暂搁：YYYY-MM-DD 决定不办的理由`：写清为什么现在不动（风险可控、排期靠后、等外部依赖等）。
-- `- 处理` 固定写「不办」。
-
-以下 9 条自 `docs/legacy_backlog.md`「暂不建 task（附理由）」节迁入（2026-07-31 对齐模板时迁移）；2026-08-01 复核后 8 条复活回「待办」节，1 条（p008）保留，2026-08-07 用户要求归档迁出。
-
-统一几个面板的设计语言，主题色 强调色 背景色 辅助色 字体等等。
-
-改成 tailwind css
-有什么应该用框架但是没用的
