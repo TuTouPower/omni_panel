@@ -53,6 +53,8 @@ export const pluginMetadataSchema = z
         endpoints: pluginEndpointsSchema.optional(),
         supportedProviders: z.array(connectorProviderSchema).optional(),
         defaultSource: usageSourceSchema.optional(),
+        login_url: z.string().url().optional(),
+        cookie_names: z.array(z.string().min(1)).optional(),
         auth: authDescriptorSchema.optional(),
         // localization fields
         "name@zh-Hans": z.string().optional(),

@@ -207,6 +207,495 @@ describe("local-api", () => {
         expect(res.status).toBe(404);
     });
 
+    it("routes web OAuth and session authentication calls to their existing handlers", async () => {
+        const grok_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "device-code",
+                user_code: "USER-CODE",
+                verification_uri: "https://auth.example/device",
+                verification_uri_complete: null,
+                expires_in: 600,
+                interval: 5,
+            }),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: null,
+                can_refresh: false,
+            }),
+        };
+        const session_manager = {
+            start_login: vi.fn().mockResolvedValue({ saved: true }),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: {} as never,
+                session: { sessionManager: session_manager },
+                grok: { manager: grok_manager } as never,
+                kimi: { manager: grok_manager } as never,
+            },
+        });
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const start = await fetch(`${base}/v1/auth/grok/loginStart`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        expect(start.status).toBe(200);
+        await expect(start.json()).resolves.toMatchObject({ user_code: "USER-CODE" });
+        expect(grok_manager.start_device_login).toHaveBeenCalledTimes(1);
+
+        const status = await fetch(`${base}/v1/auth/grok/loginStatus?instanceId=grok-1`);
+        expect(status.status).toBe(200);
+        await expect(status.json()).resolves.toEqual({
+            has_token: true,
+            expires_at: null,
+            can_refresh: false,
+        });
+        expect(grok_manager.get_login_status).toHaveBeenCalledWith("grok-1");
+
+        const login_request = {
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        };
+        const session = await fetch(`${base}/v1/session/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(login_request),
+        });
+        expect(session.status).toBe(200);
+        await expect(session.json()).resolves.toEqual({ saved: true });
+        expect(session_manager.start_login).toHaveBeenCalledWith(login_request);
+    });
+
+    it("routes cookie login status and the complete Grok/Kimi OAuth lifecycle", async () => {
+        let resolve_cookie_login!: (result: { saved: boolean }) => void;
+        const cookie_manager = {
+            start_login: vi.fn().mockImplementation(
+                () =>
+                    new Promise<{ saved: boolean }>((resolve) => {
+                        resolve_cookie_login = resolve;
+                    }),
+            ),
+            is_login_in_progress: vi.fn().mockReturnValue(false),
+        };
+        const cookie_definition = {
+            executablePath: "/plugins/mimo",
+            manifest: {
+                provider: "mimo",
+                endpoints: {
+                    default: "https://platform.xiaomimimo.com",
+                    login: "https://platform.xiaomimimo.com/console/plan-manage",
+                },
+                loginDomains: ["platform.xiaomimimo.com"],
+                cookieNames: ["SESSION_COOKIE"],
+            },
+        } as unknown as ConnectorDefinition;
+        const cookie_deps = {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    plugins: [{ instanceId: "mimo-1", executablePath: "/plugins/mimo" }],
+                }),
+            },
+            secretsStore: {
+                get: vi.fn().mockResolvedValue("SESSION_COOKIE=secret-cookie"),
+            },
+            definitions: [cookie_definition],
+            sessionManager: cookie_manager,
+        } as never;
+        const grok_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "grok-device-code",
+                user_code: "GROK-CODE",
+                verification_uri: "https://auth.grok.example/device",
+                verification_uri_complete: null,
+                expires_in: 600,
+                interval: 5,
+            }),
+            await_completion: vi.fn().mockResolvedValue({ saved: true, token: "grok-token" }),
+            cancel_device_login: vi.fn(),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: "grok-expiry",
+                can_refresh: true,
+            }),
+            logout: vi.fn().mockResolvedValue(undefined),
+            refresh_now: vi.fn().mockResolvedValue({ success: true, source: "grok" }),
+        };
+        const kimi_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "kimi-device-code",
+                user_code: "KIMI-CODE",
+                verification_uri: "https://auth.kimi.example/device",
+                verification_uri_complete: null,
+                expires_in: 900,
+                interval: 7,
+            }),
+            await_completion: vi.fn().mockResolvedValue({ saved: true, token: "kimi-token" }),
+            cancel_device_login: vi.fn(),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: "kimi-expiry",
+                can_refresh: true,
+            }),
+            logout: vi.fn().mockResolvedValue(undefined),
+            refresh_now: vi.fn().mockResolvedValue({ success: true, source: "kimi" }),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: cookie_deps,
+                session: { sessionManager: { start_login: vi.fn() } },
+                grok: { manager: grok_manager } as never,
+                kimi: { manager: kimi_manager } as never,
+            },
+        });
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const cookie_login = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instanceId: "mimo-1" }),
+        });
+        expect(cookie_login.status).toBe(200);
+        await expect(cookie_login.json()).resolves.toEqual({ started: true });
+        await vi.waitFor(() => {
+            expect(cookie_manager.start_login).toHaveBeenCalledWith({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["SESSION_COOKIE"],
+                auto_close_ms: 1500,
+            });
+        });
+
+        const cookie_status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-1`);
+        expect(cookie_status.status).toBe(200);
+        const cookie_status_body = (await cookie_status.json()) as {
+            in_progress: boolean;
+            saved: boolean;
+        };
+        expect(cookie_status_body).toEqual({ in_progress: true, saved: true });
+        expect(JSON.stringify(cookie_status_body)).not.toContain("secret-cookie");
+        resolve_cookie_login({ saved: true });
+
+        for (const namespace of ["grok", "kimi"] as const) {
+            const manager = namespace === "grok" ? grok_manager : kimi_manager;
+            const other_manager = namespace === "grok" ? kimi_manager : grok_manager;
+            const device_code = `${namespace}-device-code`;
+            const token = `${namespace}-token`;
+            const user_code = `${namespace.toUpperCase()}-CODE`;
+            const expires_at = `${namespace}-expiry`;
+            const other_start_calls = other_manager.start_device_login.mock.calls.length;
+
+            const start = await fetch(`${base}/v1/auth/${namespace}/loginStart`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            expect(start.status).toBe(200);
+            await expect(start.json()).resolves.toMatchObject({ user_code });
+            expect(manager.start_device_login).toHaveBeenCalledTimes(1);
+            expect(other_manager.start_device_login.mock.calls).toHaveLength(other_start_calls);
+
+            const other_poll_calls = other_manager.await_completion.mock.calls.length;
+            const poll = await fetch(`${base}/v1/auth/${namespace}/loginPoll`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    instance_id: `${namespace}-1`,
+                    device_code,
+                    interval: namespace === "grok" ? 5 : 7,
+                    expires_at_epoch_ms: Date.now() + 600_000,
+                }),
+            });
+            expect(poll.status).toBe(200);
+            await expect(poll.json()).resolves.toEqual({ saved: true, token });
+            expect(manager.await_completion).toHaveBeenCalledWith(
+                device_code,
+                namespace === "grok" ? 5 : 7,
+                expect.any(Number),
+                `${namespace}-1`,
+            );
+            expect(other_manager.await_completion.mock.calls).toHaveLength(other_poll_calls);
+
+            const cancel = await fetch(`${base}/v1/auth/${namespace}/loginCancel`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(cancel.status).toBe(200);
+            await expect(cancel.json()).resolves.toEqual({});
+            expect(manager.cancel_device_login).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const status = await fetch(
+                `${base}/v1/auth/${namespace}/loginStatus?instanceId=${namespace}-1`,
+            );
+            expect(status.status).toBe(200);
+            await expect(status.json()).resolves.toEqual({
+                has_token: true,
+                expires_at,
+                can_refresh: true,
+            });
+            expect(manager.get_login_status).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const logout = await fetch(`${base}/v1/auth/${namespace}/logout`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(logout.status).toBe(200);
+            await expect(logout.json()).resolves.toEqual({ logged_out: true });
+            expect(manager.logout).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const refresh = await fetch(`${base}/v1/auth/${namespace}/refresh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(refresh.status).toBe(200);
+            await expect(refresh.json()).resolves.toEqual({ success: true, source: namespace });
+            expect(manager.refresh_now).toHaveBeenCalledWith(`${namespace}-1`);
+        }
+
+        const malformed_cookie = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        expect(malformed_cookie.status).toBe(400);
+
+        const malformed_poll = await fetch(`${base}/v1/auth/grok/loginPoll`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                instance_id: "grok-1",
+                device_code: "grok-device-code",
+                interval: "5",
+                expires_at_epoch_ms: Date.now() + 600_000,
+            }),
+        });
+        expect(malformed_poll.status).toBe(400);
+    });
+
+    it("captures a local login-station cookie into the vault and reports no-display errors", async () => {
+        const { create_session_manager } =
+            await import("../../../src/main/core/session/session-manager");
+        const login_station = createServer((req, res) => {
+            if (req.url === "/login") {
+                res.setHeader("Set-Cookie", "SESSION_COOKIE=local-cookie-sentinel; Path=/");
+                res.end("login station");
+                return;
+            }
+            res.statusCode = 404;
+            res.end();
+        });
+        const login_port = await new Promise<number>((resolve) => {
+            login_station.listen(0, "127.0.0.1", () => {
+                const address = login_station.address();
+                if (address && typeof address === "object") resolve(address.port);
+            });
+        });
+        const login_url = `http://127.0.0.1:${String(login_port)}/login`;
+
+        function create_memory_vault() {
+            const values = new Map<string, string>();
+            return {
+                values,
+                get: (key: string) => Promise.resolve(values.get(key) ?? null),
+                set: (key: string, value: string) => {
+                    values.set(key, value);
+                    return Promise.resolve();
+                },
+                delete: (key: string) => {
+                    values.delete(key);
+                    return Promise.resolve();
+                },
+                has: (key: string) => Promise.resolve(values.has(key)),
+                list_keys: (prefix?: string) =>
+                    Promise.resolve(
+                        [...values.keys()].filter((key) =>
+                            prefix ? key.startsWith(prefix) : true,
+                        ),
+                    ),
+                replaceAll: (entries: Record<string, string>) => {
+                    values.clear();
+                    for (const [key, value] of Object.entries(entries)) values.set(key, value);
+                    return Promise.resolve();
+                },
+            };
+        }
+
+        const definition = {
+            executablePath: "/plugins/mimo",
+            manifest: {
+                provider: "mimo",
+                endpoints: { login: login_url },
+                loginDomains: ["127.0.0.1"],
+                cookieNames: ["SESSION_COOKIE"],
+            },
+        } as unknown as ConnectorDefinition;
+        const config_store = {
+            load: vi.fn().mockResolvedValue({
+                plugins: [{ instanceId: "mimo-real", executablePath: "/plugins/mimo" }],
+            }),
+        };
+
+        function create_cookie_deps(session_manager: unknown, secrets_store: unknown) {
+            return {
+                configStore: config_store,
+                secretsStore: secrets_store,
+                definitions: [definition],
+                sessionManager: session_manager,
+            } as never;
+        }
+
+        const vault = create_memory_vault();
+        let before_send_headers:
+            | ((details: {
+                  url: string;
+                  requestHeaders: Record<string, string>;
+                  resource_type: string;
+              }) => void)
+            | undefined;
+        let closed_listener: (() => void) | undefined;
+        let window_closed = false;
+        const login_window = {
+            async loadURL(url: string): Promise<void> {
+                const response = await fetch(url);
+                expect(response.headers.get("set-cookie")).toContain(
+                    "SESSION_COOKIE=local-cookie-sentinel",
+                );
+                before_send_headers?.({
+                    url,
+                    requestHeaders: { Cookie: "SESSION_COOKIE=local-cookie-sentinel" },
+                    resource_type: "mainFrame",
+                });
+                login_window.close();
+            },
+            close(): void {
+                if (window_closed) return;
+                window_closed = true;
+                closed_listener?.();
+            },
+            isDestroyed(): boolean {
+                return window_closed;
+            },
+            on(_event: "closed", listener: () => void) {
+                closed_listener = listener;
+                return this;
+            },
+        };
+        const session_controller = {
+            on_before_send_headers(handler: typeof before_send_headers): void {
+                before_send_headers = handler;
+            },
+            get_cookies: vi.fn().mockResolvedValue([]),
+        };
+        const session_manager = create_session_manager({
+            vault,
+            has_display: () => true,
+            create_window: () => login_window,
+            create_session: () => session_controller,
+        });
+        const cookie_deps = create_cookie_deps(session_manager, vault);
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: cookie_deps,
+                session: { sessionManager: { start_login: vi.fn() } },
+                grok: { manager: {} } as never,
+                kimi: { manager: {} } as never,
+            },
+        });
+        const { addTransport, getLogLevel, setLogLevel } =
+            await import("../../../src/shared/lib/logger");
+        const previous_log_level = getLogLevel();
+        const log_lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                log_lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            await api.start();
+            const base = `http://127.0.0.1:${String(api.get_port())}`;
+            const start = await fetch(`${base}/v1/auth/cookieLogin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "mimo-real" }),
+            });
+            expect(start.status).toBe(200);
+            expect(await start.json()).toEqual({ started: true });
+
+            await vi.waitFor(async () => {
+                await expect(vault.get("mimo-real:SESSION_COOKIE")).resolves.toBe(
+                    "SESSION_COOKIE=local-cookie-sentinel",
+                );
+            });
+            const status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-real`);
+            expect(await status.json()).toEqual({ in_progress: false, saved: true });
+            expect(log_lines.join("\n")).not.toContain("local-cookie-sentinel");
+
+            await api.stop();
+            const no_display_vault = create_memory_vault();
+            const no_display_window = vi.fn();
+            const no_display_manager = create_session_manager({
+                vault: no_display_vault,
+                has_display: () => false,
+                create_window: no_display_window,
+                create_session: vi.fn(),
+            });
+            api = create_local_api_server(store, {
+                port: 0,
+                auth_deps: {
+                    cookie: create_cookie_deps(no_display_manager, no_display_vault),
+                    session: { sessionManager: { start_login: vi.fn() } },
+                    grok: { manager: {} } as never,
+                    kimi: { manager: {} } as never,
+                },
+            });
+            await api.start();
+            const no_display_base = `http://127.0.0.1:${String(api.get_port())}`;
+            const no_display_start = await fetch(`${no_display_base}/v1/auth/cookieLogin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "mimo-real" }),
+            });
+            expect(await no_display_start.json()).toEqual({ started: true });
+            await vi.waitFor(async () => {
+                const response = await fetch(
+                    `${no_display_base}/v1/auth/cookieLogin/status?instanceId=mimo-real`,
+                );
+                const body = (await response.json()) as {
+                    in_progress: boolean;
+                    saved: boolean;
+                    error?: string;
+                };
+                expect(body.in_progress).toBe(false);
+                expect(body.saved).toBe(false);
+                expect(body.error).toContain("graphical display");
+            });
+            expect(no_display_window).not.toHaveBeenCalled();
+        } finally {
+            remove_transport();
+            setLogLevel(previous_log_level);
+            await new Promise<void>((resolve, reject) => {
+                login_station.close((error) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+        }
+    });
+
     it("falls back to random port when requested port is occupied", async () => {
         const occupied = createServer((_, res) => {
             res.end("occupied");

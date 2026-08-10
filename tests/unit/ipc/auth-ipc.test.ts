@@ -330,6 +330,39 @@ describe("handleCookieLogin", () => {
             expect(result.error.code).toBe("INTERNAL_ERROR");
         }
     });
+
+    it("returns only boolean login status and never exposes the saved cookie", async () => {
+        const sm = {
+            ...create_mock_session_manager(),
+            is_login_in_progress: vi.fn().mockReturnValue(true),
+        };
+        const deps = build_deps("mimo-test-1", sm);
+        secrets_store["mimo-test-1:SESSION_COOKIE"] = "session=secret-cookie";
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+
+        const result = await mod.handleCookieLoginStatus(deps, "mimo-test-1");
+
+        expect(result).toEqual({
+            ok: true,
+            data: { in_progress: true, saved: true },
+        });
+        expect(JSON.stringify(result)).not.toContain("secret-cookie");
+        expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1");
+    });
+
+    it("reports an idle login without a saved cookie", async () => {
+        const sm = {
+            ...create_mock_session_manager(),
+            is_login_in_progress: vi.fn().mockReturnValue(false),
+        };
+        const deps = build_deps("mimo-test-1", sm);
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+
+        await expect(mod.handleCookieLoginStatus(deps, "mimo-test-1")).resolves.toEqual({
+            ok: true,
+            data: { in_progress: false, saved: false },
+        });
+    });
 });
 
 describe("trySilentCookieRefresh", () => {

@@ -28,6 +28,26 @@ import {
     handleConfigImportData,
 } from "../../ipc/config-ipc";
 import type { ConfigIpcDeps } from "../../ipc/config-ipc";
+import { handleCookieLoginStatus, startCookieLogin, type AuthIpcDeps } from "../../ipc/auth-ipc";
+import { handleSessionLogin, type SessionIpcDeps } from "../../ipc/session-ipc";
+import {
+    handle_grok_login_cancel,
+    handle_grok_login_poll,
+    handle_grok_login_start,
+    handle_grok_login_status,
+    handle_grok_logout,
+    handle_grok_refresh,
+    type GrokAuthIpcDeps,
+} from "../../ipc/grok_auth_ipc";
+import {
+    handle_kimi_login_cancel,
+    handle_kimi_login_poll,
+    handle_kimi_login_start,
+    handle_kimi_login_status,
+    handle_kimi_logout,
+    handle_kimi_refresh,
+    type KimiAuthIpcDeps,
+} from "../../ipc/kimi_auth_ipc";
 import {
     handleConnectorGetState,
     handleConnectorList,
@@ -37,7 +57,7 @@ import {
 import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
 import type { ConnectorSnapshotState } from "../scheduler/types";
-import type { IpcResult } from "../../../shared/types/ipc";
+import type { IpcResult, SessionLoginRequest } from "../../../shared/types/ipc";
 import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
@@ -111,6 +131,14 @@ export interface ControlDeps {
     readonly quit: () => void;
 }
 
+/** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
+export interface AuthDeps {
+    readonly cookie: AuthIpcDeps;
+    readonly session: SessionIpcDeps;
+    readonly grok: GrokAuthIpcDeps;
+    readonly kimi: KimiAuthIpcDeps;
+}
+
 /** 会话历史批量内容搜索请求（新 `{filters,keyword}` + legacy `{locs,keyword}`）。 */
 type SessionHistorySearchRequest =
     | SessionHistorySearchContentRequest
@@ -162,7 +190,7 @@ async function read_json_body(req: IncomingMessage, res: ServerResponse): Promis
 
 function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
     if (result.ok) {
-        json_response(res, 200, result.data);
+        json_response(res, 200, result.data ?? {});
     } else {
         json_response(res, 400, result.error);
     }
@@ -547,6 +575,7 @@ export function create_local_api_server(
         connector_deps?: ConnectorIpcDeps;
         session_history_deps?: SessionHistoryDeps;
         control_deps?: ControlDeps;
+        auth_deps?: AuthDeps;
         web_root?: string;
     },
 ): LocalAPIServer {
@@ -558,6 +587,7 @@ export function create_local_api_server(
     const connector_deps = options?.connector_deps;
     const session_history_deps = options?.session_history_deps;
     const control_deps = options?.control_deps;
+    const auth_deps = options?.auth_deps;
     const web_root = options?.web_root;
     const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
@@ -593,6 +623,164 @@ export function create_local_api_server(
         };
         observation_store.insert(observation);
         json_response(res, 200, { status: "ok" });
+    }
+
+    async function handle_web_auth(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: AuthDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/auth/cookieLogin") {
+            if (req.method !== "POST") return false;
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const instance_id = is_record(parsed.value) ? parsed.value["instanceId"] : undefined;
+            if (typeof instance_id !== "string" || !instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            send_result(res, startCookieLogin(deps.cookie, instance_id));
+            return true;
+        }
+
+        if (url.pathname === "/v1/auth/cookieLogin/status") {
+            if (req.method !== "GET") return false;
+            const instance_id = url.searchParams.get("instanceId");
+            if (!instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            send_result(res, await handleCookieLoginStatus(deps.cookie, instance_id));
+            return true;
+        }
+
+        if (
+            (url.pathname === "/v1/session/login" || url.pathname === "/v1/session/refresh") &&
+            req.method === "POST"
+        ) {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            if (!is_record(parsed.value)) {
+                json_response(res, 400, { error: "Invalid session login request" });
+                return true;
+            }
+            const request = parsed.value as unknown as SessionLoginRequest;
+            send_result(res, await handleSessionLogin(deps.session, request));
+            return true;
+        }
+
+        const oauth_match =
+            /^\/v1\/auth\/(grok|kimi)\/(loginStart|loginPoll|loginCancel|loginStatus|logout|refresh)$/.exec(
+                url.pathname,
+            );
+        if (!oauth_match) return false;
+        const namespace = oauth_match[1];
+        const action = oauth_match[2];
+
+        if (action === "loginStatus" && req.method === "GET") {
+            const instance_id = url.searchParams.get("instanceId");
+            if (!instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_status(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_login_status(deps.kimi, instance_id));
+            }
+            return true;
+        }
+
+        if (req.method !== "POST") return false;
+        const parsed = await read_json_body(req, res);
+        if (!parsed.ok) return true;
+        if (!is_record(parsed.value)) {
+            json_response(res, 400, { error: "Invalid OAuth request" });
+            return true;
+        }
+        const body = parsed.value;
+
+        if (action === "loginStart") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_start(deps.grok));
+            } else {
+                send_result(res, await handle_kimi_login_start(deps.kimi));
+            }
+            return true;
+        }
+
+        const instance_id = body["instance_id"];
+        if (typeof instance_id !== "string" || !instance_id) {
+            json_response(res, 400, { error: "instance_id required" });
+            return true;
+        }
+
+        if (action === "loginPoll") {
+            const device_code = body["device_code"];
+            const interval = body["interval"];
+            const expires_at_epoch_ms = body["expires_at_epoch_ms"];
+            if (
+                typeof device_code !== "string" ||
+                typeof interval !== "number" ||
+                !Number.isFinite(interval) ||
+                typeof expires_at_epoch_ms !== "number" ||
+                !Number.isFinite(expires_at_epoch_ms)
+            ) {
+                json_response(res, 400, { error: "Invalid OAuth poll request" });
+                return true;
+            }
+            if (namespace === "grok") {
+                send_result(
+                    res,
+                    await handle_grok_login_poll(
+                        deps.grok,
+                        instance_id,
+                        device_code,
+                        interval,
+                        expires_at_epoch_ms,
+                    ),
+                );
+            } else {
+                send_result(
+                    res,
+                    await handle_kimi_login_poll(
+                        deps.kimi,
+                        instance_id,
+                        device_code,
+                        interval,
+                        expires_at_epoch_ms,
+                    ),
+                );
+            }
+            return true;
+        }
+
+        if (action === "loginCancel") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_cancel(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_login_cancel(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        if (action === "logout") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_logout(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_logout(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        if (action === "refresh") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_refresh(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_refresh(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        return false;
     }
 
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
@@ -636,6 +824,9 @@ export function create_local_api_server(
                 return;
             }
             if (control_deps && handle_web_control(req, res, url, control_deps)) {
+                return;
+            }
+            if (auth_deps && (await handle_web_auth(req, res, url, auth_deps))) {
                 return;
             }
 

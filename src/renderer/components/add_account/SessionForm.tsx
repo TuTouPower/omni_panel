@@ -1,14 +1,27 @@
 import { useState, useEffect } from "react";
 import { SessionSection } from "../SessionSection";
+import { WebLoginSection } from "../WebLoginSection";
 import { Input } from "../ui/Input";
 
 export interface SessionFormProps {
+    readonly provider: string;
+    readonly secret_name: string;
+    readonly login_url?: string | undefined;
+    readonly cookie_names?: string[] | undefined;
     readonly account_name: string;
     readonly set_account_name: (v: string) => void;
     readonly form_ref: React.RefObject<{ cookie: string }>;
 }
 
-export function SessionForm({ account_name, set_account_name, form_ref }: SessionFormProps) {
+export function SessionForm({
+    provider,
+    secret_name,
+    login_url,
+    cookie_names,
+    account_name,
+    set_account_name,
+    form_ref,
+}: SessionFormProps) {
     const [cookie, set_cookie] = useState("");
 
     useEffect(() => {
@@ -35,7 +48,22 @@ export function SessionForm({ account_name, set_account_name, form_ref }: Sessio
                     placeholder="例如：工作账号"
                 />
             </div>
-            <SessionSection secret_name="SESSION_COOKIE" value={cookie} onChange={set_cookie} />
+            {login_url ? (
+                <WebLoginSection
+                    provider={provider}
+                    login_url={login_url}
+                    secret_name={secret_name}
+                    value={cookie}
+                    onChange={set_cookie}
+                    cookie_names={cookie_names}
+                    onSecrets={(secrets) => {
+                        const captured = secrets[secret_name];
+                        if (captured) set_cookie(captured);
+                    }}
+                />
+            ) : (
+                <SessionSection secret_name={secret_name} value={cookie} onChange={set_cookie} />
+            )}
         </div>
     );
 }

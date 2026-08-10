@@ -55,6 +55,12 @@ OmniPanel CLI mode listening on http://localhost:18263/
 
 浏览器打开 stdout 打印的 URL 即可看到用量面板。local-api 监听 `0.0.0.0`，WSL 内可从 Windows 宿主以 `http://localhost:<port>/` 访问。
 
+### 网页登录与 Cookie 回退
+
+- 认证交互（grok/kimi device-code OAuth、cookie 类连接器网页登录）在 web 设置页内完成；grok/kimi 在页面内展示授权 URL 与码，cookie 类连接器（mimo、opencode_go）点击「网页登录」会在桌面侧弹出可见登录窗，捕获成功后密钥落 vault 并自动刷新。
+- 无图形显示环境（如无 WSLg 的 WSL）捕获无法发起，会给出可读错误；此时在设置页「Cookie 字符串」输入框手动粘贴浏览器登录后复制的完整 Cookie 再保存即可，两种方式共用同一保存链路。
+- 已知降级：web/headless 下无静默 cookie 续期，Cookie 过期后需重新登录或重新粘贴；登录窗口打开期间勿刷新页面（未落 vault 的捕获结果会丢失）。
+
 ## 控制子命令（t276）
 
 CLI 进程常驻。控制子命令（瘦客户端）经 local-api 作用于运行中实例，执行完即退出：

@@ -94,6 +94,7 @@ export const IPC_CHANNELS = {
     SETTINGS_OPEN_CONNECTORS_DIR: "settings:openConnectorsDir",
 
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
+    AUTH_COOKIE_LOGIN_STATUS: "auth:cookieLoginStatus",
 
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
@@ -263,6 +264,17 @@ export interface SessionLoginRequest {
 export interface SessionLoginResult {
     readonly saved: boolean;
     readonly cookie?: string;
+}
+
+export interface CookieLoginResult {
+    readonly saved?: boolean;
+    readonly started?: boolean;
+}
+
+export interface CookieLoginStatus {
+    readonly in_progress: boolean;
+    readonly saved: boolean;
+    readonly error?: string;
 }
 
 export interface GrokDeviceCodeStart {
@@ -592,7 +604,8 @@ export interface UsageboardApi {
         on_autostart_state(callback: (enabled: boolean) => void): () => void;
     };
     auth: {
-        cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
+        cookieLogin(instanceId: string): Promise<CookieLoginResult>;
+        cookieLoginStatus(instanceId: string): Promise<CookieLoginStatus>;
     };
     session: {
         login(request: SessionLoginRequest): Promise<SessionLoginResult>;

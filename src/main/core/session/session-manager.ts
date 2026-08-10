@@ -35,6 +35,8 @@ export interface SessionController {
 
 export interface SessionManagerDeps {
     readonly vault: VaultBackend;
+    /** Linux 无 DISPLAY/WAYLAND_DISPLAY 时阻止 Electron 在 app ready 前崩溃。 */
+    readonly has_display?: () => boolean;
     create_window(partition: string): SessionWindow;
     create_session(partition: string): SessionController;
 }
@@ -54,6 +56,7 @@ export interface LoginResult {
 
 export interface SessionManager {
     start_login(request: LoginRequest): Promise<LoginResult>;
+    is_login_in_progress?(instance_id: string): boolean;
 }
 
 export function create_session_manager(
@@ -72,6 +75,13 @@ export function create_session_manager(
                 login_origin = new URL(request.login_url).origin;
             } catch {
                 return Promise.reject(new Error("Invalid login URL"));
+            }
+            if (deps.has_display && !deps.has_display()) {
+                return Promise.reject(
+                    new Error(
+                        "Interactive login requires a graphical display; set DISPLAY/WAYLAND_DISPLAY or paste the cookie manually.",
+                    ),
+                );
             }
             log.info(`start_login: ${login_id}`);
             if (in_progress.has(login_id)) {
@@ -204,6 +214,9 @@ export function create_session_manager(
                     finish_with_error(to_error(error));
                 });
             });
+        },
+        is_login_in_progress(instance_id: string): boolean {
+            return in_progress.has(instance_id);
         },
     };
 }

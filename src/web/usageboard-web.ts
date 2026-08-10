@@ -12,6 +12,13 @@
  */
 import type {
     UsageboardApi,
+    CookieLoginResult,
+    CookieLoginStatus,
+    GrokDeviceCodeStart,
+    GrokLoginResult,
+    GrokLoginStatus,
+    GrokRefreshResult,
+    GrokSettingsApi,
     ConfigExportOptions,
     ConnectorSnapshotDTO,
     HistoryMessageLike,
@@ -77,6 +84,38 @@ async function post_json(path: string, body: unknown, signal?: AbortSignal): Pro
 const noop = (): void => undefined;
 const return_noop = (): (() => void) => noop;
 
+type WebOAuthNamespace = "grok" | "kimi";
+
+function create_web_oauth_api(namespace: WebOAuthNamespace): GrokSettingsApi {
+    const base = `/v1/auth/${namespace}`;
+    return {
+        login_start: () => post_json(`${base}/loginStart`, {}) as Promise<GrokDeviceCodeStart>,
+        login_poll: (
+            instance_id: string,
+            device_code: string,
+            interval: number,
+            expires_at_epoch_ms: number,
+        ) =>
+            post_json(`${base}/loginPoll`, {
+                instance_id,
+                device_code,
+                interval,
+                expires_at_epoch_ms,
+            }) as Promise<GrokLoginResult>,
+        login_cancel: async (instance_id: string) => {
+            await post_json(`${base}/loginCancel`, { instance_id });
+        },
+        login_status: (instance_id: string) =>
+            get_json<GrokLoginStatus>(
+                `${base}/loginStatus?instanceId=${encodeURIComponent(instance_id)}`,
+            ),
+        logout: (instance_id: string) =>
+            post_json(`${base}/logout`, { instance_id }) as Promise<{ logged_out: boolean }>,
+        refresh: (instance_id: string) =>
+            post_json(`${base}/refresh`, { instance_id }) as Promise<GrokRefreshResult>,
+    };
+}
+
 /**
  * t274: web 端无主进程 nativeTheme，本地应用 data-theme 并同步图表调色板，
  * 与 renderer/lib/theme.ts 的 apply_theme 同语义（幂等：同值不重复写入）。
@@ -88,27 +127,6 @@ function apply_theme_dom(is_dark: boolean): void {
     root.setAttribute("data-theme", next_theme);
     notify_chart_palette_change();
 }
-const noop_promise_void = (): Promise<void> => Promise.resolve();
-const noop_promise_logged_out = (): Promise<{ logged_out: boolean }> =>
-    Promise.resolve({ logged_out: false });
-const noop_promise_refresh_result = (): Promise<{ success: boolean; error?: string }> =>
-    Promise.resolve({ success: false });
-const noop_promise_device_start = (): Promise<{
-    device_code: string;
-    user_code: string;
-    verification_uri: string;
-    verification_uri_complete: string | null;
-    expires_in: number;
-    interval: number;
-}> =>
-    Promise.resolve({
-        device_code: "",
-        user_code: "",
-        verification_uri: "",
-        verification_uri_complete: null,
-        expires_in: 0,
-        interval: 0,
-    });
 
 function download_json_file(data: unknown, filename: string): void {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -356,29 +374,30 @@ export function create_web_usageboard(): UsageboardApi {
             on_pause_state: return_noop,
             on_autostart_state: return_noop,
         },
-        auth: { cookieLogin: () => Promise.resolve({ saved: false }) },
+        auth: {
+            cookieLogin: (instanceId: string) =>
+                post_json("/v1/auth/cookieLogin", { instanceId }) as Promise<CookieLoginResult>,
+            cookieLoginStatus: (instanceId: string) =>
+                get_json<CookieLoginStatus>(
+                    `/v1/auth/cookieLogin/status?instanceId=${encodeURIComponent(instanceId)}`,
+                ),
+        },
         session: {
-            login: () => Promise.resolve({ saved: false }),
-            refresh: () => Promise.resolve({ saved: false }),
+            login: (request: Parameters<UsageboardApi["session"]["login"]>[0]) =>
+                post_json("/v1/session/login", request) as Promise<
+                    ReturnType<UsageboardApi["session"]["login"]> extends Promise<infer T>
+                        ? T
+                        : never
+                >,
+            refresh: (request: Parameters<UsageboardApi["session"]["refresh"]>[0]) =>
+                post_json("/v1/session/refresh", request) as Promise<
+                    ReturnType<UsageboardApi["session"]["refresh"]> extends Promise<infer T>
+                        ? T
+                        : never
+                >,
         },
-        grok: {
-            login_start: noop_promise_device_start,
-            login_poll: () => Promise.resolve({ saved: false }),
-            login_cancel: noop_promise_void,
-            login_status: () =>
-                Promise.resolve({ has_token: false, expires_at: null, can_refresh: false }),
-            logout: noop_promise_logged_out,
-            refresh: noop_promise_refresh_result,
-        },
-        kimi: {
-            login_start: noop_promise_device_start,
-            login_poll: () => Promise.resolve({ saved: false }),
-            login_cancel: noop_promise_void,
-            login_status: () =>
-                Promise.resolve({ has_token: false, expires_at: null, can_refresh: false }),
-            logout: noop_promise_logged_out,
-            refresh: noop_promise_refresh_result,
-        },
+        grok: create_web_oauth_api("grok"),
+        kimi: create_web_oauth_api("kimi"),
         logs: { export: () => Promise.resolve({ saved: false }) },
         log: (payload: RendererLogPayload) => {
             console.debug("[usageboard]", payload);

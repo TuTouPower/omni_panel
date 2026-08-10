@@ -13,6 +13,8 @@ import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
     ConfigExportOptions,
+    CookieLoginResult,
+    CookieLoginStatus,
     HistoryMessageLike,
     RendererLogPayload,
     RendererPlatform,
@@ -466,7 +468,9 @@ const tray_methods = {
 
 const auth_methods = {
     cookieLogin: (instanceId: string) =>
-        invoke<{ saved: boolean }>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
+        invoke<CookieLoginResult>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
+    cookieLoginStatus: (instanceId: string) =>
+        invoke<CookieLoginStatus>(IPC_CHANNELS.AUTH_COOKIE_LOGIN_STATUS, instanceId),
 };
 
 const session_methods = {

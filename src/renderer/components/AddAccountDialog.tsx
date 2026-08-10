@@ -346,6 +346,17 @@ export function AddAccountDialog({
                     )}
                     {auth_method === "session" && (
                         <SessionForm
+                            provider={vendor_id}
+                            secret_name={
+                                auth_descriptor?.secret_name ??
+                                fallback_secret_name(selected_connector)
+                            }
+                            login_url={
+                                selected_connector?.metadata?.login_url ??
+                                selected_connector?.metadata?.endpoints?.["login"] ??
+                                undefined
+                            }
+                            cookie_names={selected_connector?.metadata?.cookie_names}
                             account_name={account_name}
                             set_account_name={set_account_name}
                             form_ref={session_form_ref}

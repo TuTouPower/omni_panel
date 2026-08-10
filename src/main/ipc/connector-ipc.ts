@@ -60,6 +60,8 @@ function metadata_from_definition(
     definition: ConnectorDefinition | undefined,
 ): PluginMetadata | null {
     if (!definition) return null;
+    const login_url = definition.manifest.endpoints?.["login"];
+    const cookie_names = definition.manifest.cookieNames;
     return {
         name: definition.manifest.id,
         parameters: definition.manifest.parameters.map((param) => ({
@@ -79,6 +81,8 @@ function metadata_from_definition(
         ),
         supportedProviders: [...supported_providers(definition)],
         defaultSource: source_from_definition(definition),
+        ...(login_url ? { login_url } : {}),
+        ...(cookie_names ? { cookie_names: [...cookie_names] } : {}),
         auth: definition.manifest.auth,
     };
 }

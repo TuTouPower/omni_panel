@@ -555,6 +555,47 @@ void app.whenReady().then(async () => {
             definitions: allDefinitions,
         });
 
+        // Session manager — controlled login window + credential capture
+        const sessionManager = create_session_manager({
+            vault,
+            has_display: () =>
+                process.platform !== "linux" ||
+                Boolean(process.env["DISPLAY"] ?? process.env["WAYLAND_DISPLAY"]),
+            create_window: (partition) => {
+                return new BrowserWindow({
+                    width: 520,
+                    height: 720,
+                    // t280: headless 下登录窗不弹屏。
+                    show: !is_e2e_headless(),
+                    webPreferences: {
+                        contextIsolation: true,
+                        nodeIntegration: false,
+                        sandbox: true,
+                        partition,
+                    },
+                });
+            },
+            create_session: (partition) => {
+                const ses = session.fromPartition(partition);
+                return {
+                    on_before_send_headers(handler) {
+                        ses.webRequest.onBeforeSendHeaders((details, callback) => {
+                            handler({
+                                url: details.url,
+                                requestHeaders: details.requestHeaders,
+                                resource_type: details.resourceType,
+                            });
+                            callback({ requestHeaders: details.requestHeaders });
+                        });
+                    },
+                    async get_cookies(url: string) {
+                        const cookies = await ses.cookies.get({ url });
+                        return cookies.map((c) => ({ name: c.name, value: c.value }));
+                    },
+                };
+            },
+        });
+
         // Local HTTP API: serves the web panel UI + observation ingest.
         // dev：__dirname = out/main，web 产物在 out/web（electron-vite build 输出）。
         // 不能用 app.getAppPath()——以 `out/main/index.js` 文件参数启动时返回
@@ -579,6 +620,17 @@ void app.whenReady().then(async () => {
                 onConfigSaved,
                 onConfigImported,
                 definitions: allDefinitions,
+            },
+            auth_deps: {
+                cookie: {
+                    configStore,
+                    secretsStore,
+                    definitions: allDefinitions,
+                    sessionManager,
+                },
+                session: { sessionManager },
+                grok: { manager: grokOAuthManager },
+                kimi: { manager: kimiOAuthManager },
             },
             // t276: 控制端点复用 tray 纯 main 动作（refreshService / orchestrator / app）。
             control_deps: {
@@ -647,43 +699,6 @@ void app.whenReady().then(async () => {
         registerGrokAuthIpc({ manager: grokOAuthManager });
         registerKimiAuthIpc({ manager: kimiOAuthManager });
 
-        // Session manager — controlled login window + credential capture
-        const sessionManager = create_session_manager({
-            vault,
-            create_window: (partition) => {
-                return new BrowserWindow({
-                    width: 520,
-                    height: 720,
-                    // t280: headless 下登录窗不弹屏。
-                    show: !is_e2e_headless(),
-                    webPreferences: {
-                        contextIsolation: true,
-                        nodeIntegration: false,
-                        sandbox: true,
-                        partition,
-                    },
-                });
-            },
-            create_session: (partition) => {
-                const ses = session.fromPartition(partition);
-                return {
-                    on_before_send_headers(handler) {
-                        ses.webRequest.onBeforeSendHeaders((details, callback) => {
-                            handler({
-                                url: details.url,
-                                requestHeaders: details.requestHeaders,
-                                resource_type: details.resourceType,
-                            });
-                            callback({ requestHeaders: details.requestHeaders });
-                        });
-                    },
-                    async get_cookies(url: string) {
-                        const cookies = await ses.cookies.get({ url });
-                        return cookies.map((c) => ({ name: c.name, value: c.value }));
-                    },
-                };
-            },
-        });
         await registerSessionIpc({ sessionManager });
         registerAuthIpc({
             configStore,
