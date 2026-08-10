@@ -185,16 +185,81 @@ describe("web usageboard bridge", () => {
         );
     });
 
-    it("session.login returns { saved: false }", async () => {
+    it("session.login POSTs the session request to local-api", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ saved: true, cookie: "captured-cookie" }));
+        vi.stubGlobal("fetch", fetch_mock);
+
         const api = create_web_usageboard();
-        const result = await api.session.login({ provider: "kimi" } as never);
-        expect(result).toEqual({ saved: false });
+        const request = {
+            provider: "mimo",
+            login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+            cookie_names: ["api-platform_serviceToken"],
+        } as const;
+        await expect(api.session.login(request)).resolves.toEqual({
+            saved: true,
+            cookie: "captured-cookie",
+        });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/session/login",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify(request),
+            }),
+        );
     });
 
-    it("session.refresh returns { saved: false }", async () => {
+    it("session.refresh POSTs the session request to local-api", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ saved: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
         const api = create_web_usageboard();
-        const result = await api.session.refresh({ provider: "kimi" } as never);
-        expect(result).toEqual({ saved: false });
+        const request = {
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+            cookie_names: ["api-platform_serviceToken"],
+        } as const;
+        await expect(api.session.refresh(request)).resolves.toEqual({ saved: true });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/session/refresh",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify(request),
+            }),
+        );
+    });
+
+    it("auth.cookieLogin POSTs the instance id to local-api", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ started: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.auth.cookieLogin("mimo-1")).resolves.toEqual({ started: true });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/auth/cookieLogin",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ instanceId: "mimo-1" }),
+            }),
+        );
+    });
+
+    it("auth.cookieLoginStatus GETs the local-api status endpoint", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ in_progress: false, saved: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.auth.cookieLoginStatus("mimo/1")).resolves.toEqual({
+            in_progress: false,
+            saved: true,
+        });
+        expect(fetch_mock).toHaveBeenCalledWith("/v1/auth/cookieLogin/status?instanceId=mimo%2F1");
     });
 
     it("connector.catalog fetches /v1/catalog", async () => {
@@ -266,7 +331,7 @@ describe("web usageboard bridge", () => {
         create_element.mockImplementation(((tag_name: string, options?: ElementCreationOptions) => {
             if (tag_name === "input") return input;
             return original_create_element.call(document, tag_name, options);
-        }) as (tag_name: string, options?: ElementCreationOptions) => HTMLElement);
+        }) as never);
 
         const api = create_web_usageboard();
         await expect(api.config.import()).rejects.toThrow("导入文件 JSON 无效");
@@ -291,7 +356,7 @@ describe("web usageboard bridge", () => {
         create_element.mockImplementation(((tag_name: string, options?: ElementCreationOptions) => {
             if (tag_name === "input") return input;
             return original_create_element.call(document, tag_name, options);
-        }) as (tag_name: string, options?: ElementCreationOptions) => HTMLElement);
+        }) as never);
         const fetch_mock = vi.fn<typeof fetch>();
         vi.stubGlobal("fetch", fetch_mock);
 
@@ -349,10 +414,51 @@ describe("web usageboard bridge", () => {
         }).not.toThrow();
     });
 
-    it("kimi surface is present and returns safe defaults", async () => {
+    it("grok and kimi OAuth surfaces call the local-api endpoints", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(
+                mock_response({
+                    device_code: "kimi-device",
+                    user_code: "KIMI-CODE",
+                    verification_uri: "https://auth.kimi.com/device",
+                    verification_uri_complete: null,
+                    expires_in: 600,
+                    interval: 5,
+                }),
+            )
+            .mockResolvedValueOnce(mock_response({ saved: true, token: "kimi-token" }))
+            .mockResolvedValueOnce(mock_response(undefined))
+            .mockResolvedValueOnce(
+                mock_response({ has_token: true, expires_at: null, can_refresh: true }),
+            )
+            .mockResolvedValueOnce(mock_response({ logged_out: true }))
+            .mockResolvedValueOnce(mock_response({ success: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
         const api = create_web_usageboard();
-        const status = await api.kimi.login_status("inst-1");
-        expect(status).toEqual({ has_token: false, expires_at: null, can_refresh: false });
+        if (!("login_start" in api.kimi)) throw new Error("Kimi settings API unavailable");
+        const start = await api.kimi.login_start();
+        expect(start.user_code).toBe("KIMI-CODE");
+        await expect(
+            api.kimi.login_poll("kimi-1", "kimi-device", 5, Date.now() + 600_000),
+        ).resolves.toEqual({ saved: true, token: "kimi-token" });
+        await expect(api.kimi.login_cancel("kimi-1")).resolves.toBeUndefined();
+        await expect(api.kimi.login_status("kimi-1")).resolves.toEqual({
+            has_token: true,
+            expires_at: null,
+            can_refresh: true,
+        });
+        await expect(api.kimi.logout("kimi-1")).resolves.toEqual({ logged_out: true });
+        await expect(api.kimi.refresh("kimi-1")).resolves.toEqual({ success: true });
+
+        const urls = fetch_mock.mock.calls.map((call) => call[0] as string);
+        expect(urls[0]).toBe("/v1/auth/kimi/loginStart");
+        expect(urls[1]).toBe("/v1/auth/kimi/loginPoll");
+        expect(urls[2]).toBe("/v1/auth/kimi/loginCancel");
+        expect(urls[3]).toBe("/v1/auth/kimi/loginStatus?instanceId=kimi-1");
+        expect(urls[4]).toBe("/v1/auth/kimi/logout");
+        expect(urls[5]).toBe("/v1/auth/kimi/refresh");
     });
 
     it("buildInfo.get returns web stub", async () => {

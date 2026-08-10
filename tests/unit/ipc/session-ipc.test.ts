@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method */
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 import type { SessionManager } from "../../../src/main/core/session/session-manager";
+
+set_renderer_index_path(fileURLToPath("file:///D:/Kar/Code/omni_panel/out/renderer/index.html"));
 
 vi.mock("electron", () => ({
     ipcMain: {
@@ -224,6 +228,64 @@ describe("handleSessionLogin", () => {
         expect(result.ok).toBe(false);
         if (!result.ok) {
             expect(result.error.code).toBe("INTERNAL_ERROR");
+        }
+    });
+
+    it("redacts session cookies and error bodies from development IPC logs", async () => {
+        const previous_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "development";
+        const { addTransport, setLogLevel } = await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            const { ipcMain } = await import("electron");
+            const manager = {
+                start_login: vi.fn().mockResolvedValue({
+                    saved: true,
+                    cookie: "session-development-cookie-sentinel",
+                }),
+            } as unknown as SessionManager;
+            const mod = await import("../../../src/main/ipc/session-ipc");
+            await mod.registerSessionIpc({ sessionManager: manager });
+
+            const calls = (ipcMain.handle as ReturnType<typeof vi.fn>).mock.calls as [
+                string,
+                (event: unknown, request: unknown) => Promise<unknown>,
+            ][];
+            const login_handler = calls.find(([channel]) => channel === "session:login")?.[1];
+            if (!login_handler) throw new Error("session:login handler was not registered");
+            const event = {
+                senderFrame: { url: "file:///D:/Kar/Code/omni_panel/out/renderer/index.html" },
+            };
+            const request = {
+                instance_id: "test-instance",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["SESSION"],
+            };
+
+            await login_handler(event, request);
+            vi.mocked(manager.start_login).mockRejectedValue(
+                new Error(
+                    "OAuth response contained access-token-sentinel refresh-token-sentinel and session-development-cookie-sentinel",
+                ),
+            );
+            await login_handler(event, request);
+
+            const output = lines.join("\n");
+            expect(output).not.toContain("access-token-sentinel");
+            expect(output).not.toContain("refresh-token-sentinel");
+            expect(output).not.toContain("session-development-cookie-sentinel");
+        } finally {
+            remove_transport();
+            if (previous_node_env === undefined) delete process.env["NODE_ENV"];
+            else process.env["NODE_ENV"] = previous_node_env;
         }
     });
 });

@@ -1,5 +1,6 @@
 import { ipcMain, session } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
+import type { CookieLoginStatus } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
@@ -17,6 +18,29 @@ export interface AuthIpcDeps {
     secretsStore: SecretsStore;
     definitions: readonly ConnectorDefinition[];
     sessionManager: SessionManager;
+}
+
+interface CookieLoginState {
+    in_progress: boolean;
+    error?: string;
+}
+
+const cookie_login_states = new WeakMap<AuthIpcDeps, Map<string, CookieLoginState>>();
+
+function get_cookie_login_states(deps: AuthIpcDeps): Map<string, CookieLoginState> {
+    const existing = cookie_login_states.get(deps);
+    if (existing) return existing;
+    const created = new Map<string, CookieLoginState>();
+    cookie_login_states.set(deps, created);
+    return created;
+}
+
+function safe_cookie_login_error(message: string): string {
+    if (message.includes("graphical display")) return message;
+    if (/timed out/i.test(message)) return "网页登录超时，请重试";
+    if (/already in progress/i.test(message)) return "已有登录正在进行中，请等待当前登录完成";
+    if (message.includes("未捕获到 Cookie")) return message;
+    return "网页登录失败，请重试";
 }
 
 export async function handleCookieLogin(
@@ -61,8 +85,60 @@ export async function handleCookieLogin(
         });
         return ok(result);
     } catch (err: unknown) {
-        log.error(`Cookie login failed for ${instanceId}`, err);
+        log.error(`Cookie login failed for ${instanceId}`);
         return fail("INTERNAL_ERROR", err instanceof Error ? err.message : String(err));
+    }
+}
+
+export function startCookieLogin(
+    deps: AuthIpcDeps,
+    instanceId: string,
+): IpcResult<{ started: true }> {
+    const states = get_cookie_login_states(deps);
+    const current = states.get(instanceId);
+    if (current?.in_progress || deps.sessionManager.is_login_in_progress?.(instanceId)) {
+        return fail("CONFLICT", "已有登录正在进行中，请等待当前登录完成");
+    }
+
+    const state: CookieLoginState = { in_progress: true };
+    states.set(instanceId, state);
+    void handleCookieLogin(deps, instanceId).then(
+        (result) => {
+            state.in_progress = false;
+            if (result.ok && result.data.saved) {
+                delete state.error;
+            } else if (result.ok) {
+                state.error = "未捕获到 Cookie，请完成登录后再关闭窗口";
+            } else {
+                state.error = safe_cookie_login_error(result.error.message);
+            }
+        },
+        (error: unknown) => {
+            state.in_progress = false;
+            state.error = safe_cookie_login_error(
+                error instanceof Error ? error.message : String(error),
+            );
+        },
+    );
+    return ok({ started: true });
+}
+
+export async function handleCookieLoginStatus(
+    deps: AuthIpcDeps,
+    instanceId: string,
+): Promise<IpcResult<CookieLoginStatus>> {
+    try {
+        const saved = (await deps.secretsStore.get(keyFor(instanceId, "SESSION_COOKIE"))) !== null;
+        const state = get_cookie_login_states(deps).get(instanceId);
+        const manager_in_progress = deps.sessionManager.is_login_in_progress?.(instanceId) ?? false;
+        return ok({
+            in_progress: state?.in_progress ?? manager_in_progress,
+            saved,
+            ...(state?.error ? { error: state.error } : {}),
+        });
+    } catch {
+        log.error(`Cookie login status failed for ${instanceId}`);
+        return fail("INTERNAL_ERROR", "读取登录状态失败");
     }
 }
 
@@ -122,6 +198,13 @@ export function registerAuthIpc(deps: AuthIpcDeps): void {
         (e, instanceId: string): Promise<IpcResult<{ saved: boolean }>> => {
             assert_valid_sender(e);
             return handleCookieLogin(deps, instanceId);
+        },
+    );
+    ipcMain.handle(
+        IPC_CHANNELS.AUTH_COOKIE_LOGIN_STATUS,
+        (e, instanceId: string): Promise<IpcResult<CookieLoginStatus>> => {
+            assert_valid_sender(e);
+            return handleCookieLoginStatus(deps, instanceId);
         },
     );
 }

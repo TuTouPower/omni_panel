@@ -9,6 +9,24 @@ export interface SessionIpcDeps {
     sessionManager: SessionManager;
 }
 
+function redact_session_result(result: unknown): unknown {
+    if (typeof result !== "object" || result === null) return result;
+    const record = result as Record<string, unknown>;
+    if (record["ok"] === true && typeof record["data"] === "object" && record["data"] !== null) {
+        const data = record["data"] as Record<string, unknown>;
+        if (typeof data["cookie"] === "string") {
+            return { ...record, data: { ...data, cookie: "[redacted]" } };
+        }
+    }
+    if (record["ok"] === false && typeof record["error"] === "object" && record["error"] !== null) {
+        const error = record["error"] as Record<string, unknown>;
+        if (typeof error["message"] === "string") {
+            return { ...record, error: { ...error, message: "[redacted]" } };
+        }
+    }
+    return result;
+}
+
 export async function handleSessionLogin(
     deps: SessionIpcDeps,
     request: SessionLoginRequest,
@@ -49,7 +67,7 @@ export async function handleSessionLogin(
 export async function registerSessionIpc(deps: SessionIpcDeps): Promise<void> {
     const { ipcMain } = await import("electron");
     const log = createLogger("ipc:session");
-    const logged = createLoggedIpcHandler(log);
+    const logged = createLoggedIpcHandler(log, { redactResult: redact_session_result });
 
     ipcMain.handle(IPC_CHANNELS.SESSION_LOGIN, (e, request: SessionLoginRequest) =>
         logged(IPC_CHANNELS.SESSION_LOGIN, [request.instance_id], () => {

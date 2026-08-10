@@ -641,4 +641,21 @@ describe("session-manager", () => {
             vi.useRealTimers();
         }
     });
+
+    it("rejects interactive login before creating a window when no display is available", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager({ ...deps, has_display: () => false });
+
+        await expect(
+            manager.start_login({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["token"],
+            }),
+        ).rejects.toThrow(/display/i);
+
+        expect(deps.partitions).toEqual([]);
+        expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
+    });
 });

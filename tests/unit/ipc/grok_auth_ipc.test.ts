@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { IpcMainInvokeEvent } from "electron";
+import { addTransport, setLogLevel } from "../../../src/shared/lib/logger";
 import type { GrokOAuthManager } from "../../../src/main/core/auth/grok_oauth_manager";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 import { fileURLToPath } from "node:url";
@@ -121,6 +122,58 @@ describe("grok_auth_ipc handlers", () => {
         expect(result.ok).toBe(false);
         if (!result.ok) {
             expect(result.error.code).toBe("OAUTH_ERROR");
+        }
+    });
+
+    it("does not emit OAuth credential sentinels through Grok or Kimi logs", async () => {
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+        const access_token = "oauth-access-log-sentinel";
+        const refresh_token = "oauth-refresh-log-sentinel";
+        const cookie = "oauth-cookie-log-sentinel";
+
+        try {
+            const grok_manager = create_manager_mock();
+            grok_manager.await_completion.mockRejectedValue(
+                new Error(
+                    `access_token=${access_token}; refresh_token=${refresh_token}; Cookie=${cookie}`,
+                ),
+            );
+            const grok = await import("../../../src/main/ipc/grok_auth_ipc");
+            await grok.handle_grok_login_poll(
+                { manager: grok_manager },
+                "grok-log-test",
+                "grok-device",
+                5,
+                Date.now() + 60_000,
+            );
+
+            const kimi_manager = create_manager_mock();
+            kimi_manager.await_completion.mockRejectedValue(
+                new Error(
+                    `access_token=${access_token}; refresh_token=${refresh_token}; Cookie=${cookie}`,
+                ),
+            );
+            const kimi = await import("../../../src/main/ipc/kimi_auth_ipc");
+            await kimi.handle_kimi_login_poll(
+                { manager: kimi_manager },
+                "kimi-log-test",
+                "kimi-device",
+                5,
+                Date.now() + 60_000,
+            );
+
+            const output = lines.join("\n");
+            expect(output).not.toContain(access_token);
+            expect(output).not.toContain(refresh_token);
+            expect(output).not.toContain(cookie);
+        } finally {
+            remove_transport();
         }
     });
 

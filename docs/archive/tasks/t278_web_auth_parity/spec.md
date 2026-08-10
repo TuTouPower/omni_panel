@@ -83,8 +83,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 既有 session-manager 捕获流程在无窗口 CLI 模式下打开可见 BrowserWindow 是否可直接复用（partition、拦截钩子与主面板窗口的耦合度）：`UNVERIFIED-SPIKE`，Step 1 实跑核实
-- grok/kimi OAuth manager 对 Electron 窗口/回调的依赖面（能否纯 main 侧驱动）：`UNVERIFIED-SPIKE`，Step 1 读 oauth manager 与 auth-ipc 核实
+- 已核实：既有 session-manager 捕获流程可复用可见 BrowserWindow。`src/main/core/session/session-manager.ts` 只依赖注入的 `create_window` / `create_session`，cookie 捕获通过 partition 级 webRequest origin 过滤完成，与主面板窗口零耦合；`src/main/index.ts` 的 CLI 分支仍装配同一 sessionLogin 路径，窗口仅在触发登录时创建。无 display 实测：清除 `DISPLAY` 与 `WAYLAND_DISPLAY` 后直接启动 Electron，平台在 `app.whenReady` 前报「Missing X server or $DISPLAY」并以 SIGSEGV 退出，`start_login` 无法靠内部 try/catch 捕获；使用 `E2E=1 E2E_HEADLESS=1 xvfb-run -a` 启动同一窗口 probe 可成功创建窗口。因此 AC4 必须在调用 BrowserWindow 前检查 display 并返回可读错误；有 display 时可复用现有 partition/捕获链路（验证方式：源码、既有 session-manager 单测、无 display 失败 probe 与 Xvfb 正向 probe）。
+- 已核实：grok/kimi OAuth manager 对 Electron 窗口/回调零依赖，可纯 main 侧驱动。`src/main/core/auth/grok_oauth_manager.ts` 与 `kimi_oauth_manager.ts` 只依赖 vault、代理解析和可注入 HTTP 传输（kimi 另读设备 ID），轮询经 main 侧定时器完成；`src/main/ipc/{grok,kimi}_auth_ipc.ts` 是窗口无关的薄封装，CLI/桌面共用注册路径。现有 manager 单测与 OAuth 生命周期集成测试不导入 Electron（验证方式：源码、manager 单测与 OAuth 生命周期集成测试）。
 
 ### 风险与回退
 

@@ -157,6 +157,52 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(saved.source_instance_id).toBe("mimo-1");
     });
 
+    it("uses manifest session metadata for the controlled login window", async () => {
+        const session = {
+            login: vi.fn().mockResolvedValue({ saved: true, cookie: "mimo-cookie" }),
+            refresh: vi.fn().mockResolvedValue({ saved: true, cookie: "" }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = { session };
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "mimo-1",
+            name: "MiMo",
+            displayName: "MiMo",
+            source: "session",
+            supportedProviders: ["mimo"],
+            activeProviders: ["mimo"],
+            metadata: {
+                name: "mimo",
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["api-platform_serviceToken", "userId"],
+                parameters: [
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Session Cookie",
+                        type: "secret",
+                        required: true,
+                    },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("MiMo"));
+        await user.click(screen.getByText("网页登录"));
+        await waitFor(() => {
+            expect(session.login).toHaveBeenCalledWith({
+                provider: "mimo",
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["api-platform_serviceToken", "userId"],
+            });
+        });
+        await user.click(screen.getByText("添加账号"));
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).secrets).toEqual({ SESSION_COOKIE: "mimo-cookie" });
+    });
+
     it("renders OAuth device form for grok and saves after polling succeeds", async () => {
         const grok = {
             login_start: vi.fn().mockResolvedValue({

@@ -136,6 +136,11 @@ export function AccountDialog({
                             globalIntervalLabel={globalIntervalLabel}
                             authMethod={resolve_auth_method(pluginInfo)}
                             authDescriptor={resolve_auth_descriptor(pluginInfo)}
+                            loginUrl={
+                                pluginInfo.metadata?.login_url ??
+                                pluginInfo.metadata?.endpoints?.["login"] ??
+                                undefined
+                            }
                             {...(pluginConfig.manualRefreshOnly ? { manualRefreshOnly: true } : {})}
                             {...(pluginInfo.activeProviders[0]
                                 ? { providerId: pluginInfo.activeProviders[0] }

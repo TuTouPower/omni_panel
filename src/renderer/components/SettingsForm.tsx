@@ -22,6 +22,9 @@ import { SecretInput } from "./SecretInput";
 import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
 import type { AuthDescriptor } from "../../shared/schemas/auth";
 
+const COOKIE_LOGIN_POLL_INTERVAL_MS = 250;
+const COOKIE_LOGIN_POLL_TIMEOUT_MS = 120_000;
+
 interface SettingsFormProps {
     instanceId: string;
     parameters: PluginParameterMetadata[];
@@ -36,6 +39,8 @@ interface SettingsFormProps {
     authMethod?: ResolvedAuthMethod | undefined;
     /** t157: manifest auth descriptor used to render dedicated auth sections. */
     authDescriptor?: AuthDescriptor | null | undefined;
+    /** Session login metadata from the manifest, when no auth descriptor exists. */
+    loginUrl?: string | undefined;
     displayName?: string | undefined;
     onSave: (
         instanceId: string,
@@ -71,6 +76,7 @@ export function SettingsForm({
     providerId,
     authMethod,
     authDescriptor,
+    loginUrl,
     displayName,
     onSave,
     onDuplicate,
@@ -228,6 +234,34 @@ export function SettingsForm({
         ],
     );
 
+    const handle_session_login = useCallback(async () => {
+        const result = await window.usageboard.auth.cookieLogin(instanceId);
+        if (result.started) {
+            const deadline = Date.now() + COOKIE_LOGIN_POLL_TIMEOUT_MS;
+            let status = await window.usageboard.auth.cookieLoginStatus(instanceId);
+            while (status.in_progress) {
+                if (Date.now() >= deadline) {
+                    throw new Error("网页登录超时，请重试");
+                }
+                await new Promise<void>((resolve) => {
+                    setTimeout(resolve, COOKIE_LOGIN_POLL_INTERVAL_MS);
+                });
+                status = await window.usageboard.auth.cookieLoginStatus(instanceId);
+            }
+            if (status.error) throw new Error(status.error);
+            if (!status.saved) {
+                throw new Error("未捕获到 Cookie，请完成登录后再关闭窗口");
+            }
+        } else if (!result.saved) {
+            throw new Error("未捕获到 Cookie，请完成登录后再关闭窗口");
+        }
+        const loaded = await window.usageboard.config.getSecrets(instanceId);
+        if (!mounted_ref.current) return;
+        set_loaded_secrets(loaded);
+        set_secret_values(loaded);
+        void window.usageboard.connector.refresh(instanceId);
+    }, [instanceId]);
+
     const handle_submit = useCallback(
         (e: React.SyntheticEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -360,6 +394,10 @@ export function SettingsForm({
                     provider={providerId ?? ""}
                     login_url={web_login_url}
                     secret_name={auth_secret_name}
+                    value={secret_values[auth_secret_name] ?? ""}
+                    onChange={(value) => {
+                        set_secret_values((prev) => ({ ...prev, [auth_secret_name]: value }));
+                    }}
                     instance_id={instanceId}
                     onSecrets={async (secrets) => {
                         const ok = await perform_save(
@@ -379,6 +417,16 @@ export function SettingsForm({
                             set_secret_values(loaded);
                         }
                     }}
+                    onSaved={async () => {
+                        const loaded = await window.usageboard.config
+                            .getSecrets(instanceId)
+                            .catch(() => ({}));
+                        if (mounted_ref.current) {
+                            set_loaded_secrets(loaded);
+                            set_secret_values(loaded);
+                        }
+                        void window.usageboard.connector.refresh(instanceId);
+                    }}
                 />
             )}
             {supports_session_section && (
@@ -388,6 +436,7 @@ export function SettingsForm({
                     onChange={(v) => {
                         set_secret_values((prev) => ({ ...prev, [auth_secret_name]: v }));
                     }}
+                    onLogin={loginUrl ? handle_session_login : undefined}
                 />
             )}
             {visible_parameters.map((param) => (
