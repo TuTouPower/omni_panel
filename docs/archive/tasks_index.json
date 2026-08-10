@@ -4204,6 +4204,81 @@
             "dir": "docs/archive/tasks/t280_e2e_headless_gate"
         },
         {
+            "tid": "t281",
+            "slug": "e2e_synthetic_fixture_connector_rebuild",
+            "title": "synthetic fixture 重建保留 connector 与 gen 产物 prettier 对齐",
+            "status": "done",
+            "branch": "t281_e2e_synthetic_fixture_connector_rebuild",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "cec08dd25058dc99fed8c15b6c53d0bdcf13cd5b",
+            "depends_on": "",
+            "conflicts_with": "t283,t288,t292",
+            "schedule_status": "scheduled",
+            "note": "p105：account_error_badge/opencode_go_usage 在 synthetic 下稳定失败; merged from t291",
+            "dir": "docs/archive/tasks/t281_e2e_synthetic_fixture_connector_rebuild"
+        },
+        {
+            "tid": "t282",
+            "slug": "web_cookie_login_anon_poll_parity",
+            "title": "web 添加账号 cookie 登录轮询对齐与轮询逻辑去重",
+            "status": "done",
+            "branch": "t282_web_cookie_login_anon_poll_parity",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "e0ccad3ec41005bb92a3dcb781bf2c6ea054da6b",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "scheduled",
+            "note": "p106：t278 Round 3 遗留四项；认证面 full",
+            "dir": "docs/archive/tasks/t282_web_cookie_login_anon_poll_parity"
+        },
+        {
+            "tid": "t283",
+            "slug": "ui_component_theme_blackbox_check",
+            "title": "ui 组件明暗主题抽查与 DESIGN 视觉对照",
+            "status": "done",
+            "branch": "t283_ui_component_theme_blackbox_check",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "db02c7118c8403acadcb7114856220225f79d3f3",
+            "depends_on": "",
+            "conflicts_with": "t281,t288,t292",
+            "schedule_status": "scheduled",
+            "note": "p099：组件已消费，补暗色渲染抽查; merged from t286",
+            "dir": "docs/archive/tasks/t283_ui_component_theme_blackbox_check"
+        },
+        {
+            "tid": "t284",
+            "slug": "session_typography_test_robustness",
+            "title": "会话字号测试摆脱源文本正则依赖",
+            "status": "done",
+            "branch": "t284_session_typography_test_robustness",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "5e29bdae00f09862cfb9bd207531e056289c6f3b",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "scheduled",
+            "note": "p102：t273 review f001 测试健壮性",
+            "dir": "docs/archive/tasks/t284_session_typography_test_robustness"
+        },
+        {
+            "tid": "t285",
+            "slug": "cli_import_rollback_guard",
+            "title": "CLI import-config 回滚边界加固与 apt 依赖清单",
+            "status": "done",
+            "branch": "t285_cli_import_rollback_guard",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "43d55051af9ca47bf541f7e745f52f75886097f2",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "scheduled",
+            "note": "p094：回滚删 vault 值风险；full（数据面）",
+            "dir": "docs/archive/tasks/t285_cli_import_rollback_guard"
+        },
+        {
             "tid": "t286",
             "slug": "ui_component_visual_audit",
             "title": "ui 组件视觉细节人工对照",
@@ -4234,6 +4309,21 @@
             "dir": "docs/archive/tasks/t287_cli_e2e_webserver_isolate"
         },
         {
+            "tid": "t288",
+            "slug": "cli_control_restart_relaunch_reap",
+            "title": "CLI 控制 restart e2e 回收 relaunch 进程",
+            "status": "done",
+            "branch": "t288_cli_control_restart_relaunch_reap",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "d7cdbb7b87fc4aff81e7698e1bd6f19454298499",
+            "depends_on": "",
+            "conflicts_with": "t281,t283,t292",
+            "schedule_status": "scheduled",
+            "note": "p095：CLI restart e2e relaunch 进程泄漏",
+            "dir": "docs/archive/tasks/t288_cli_control_restart_relaunch_reap"
+        },
+        {
             "tid": "t289",
             "slug": "web_e2e_webserver_proxy_isolation",
             "title": "web e2e webServer 探测隔离代理环境变量",
@@ -4249,6 +4339,21 @@
             "dir": "docs/archive/tasks/t289_web_e2e_webserver_proxy_isolation"
         },
         {
+            "tid": "t290",
+            "slug": "popup_view_height_act_wrap",
+            "title": "popup_view_height act 警告消除与假绿分析",
+            "status": "done",
+            "branch": "t290_popup_view_height_act_wrap",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "51c3801aac14e4dc5bd53874507948d14ea3dd37",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "scheduled",
+            "note": "p089：popup_view_height act 警告（单文件复现）",
+            "dir": "docs/archive/tasks/t290_popup_view_height_act_wrap"
+        },
+        {
             "tid": "t291",
             "slug": "gen_synthetic_prettier_indent",
             "title": "gen_synthetic 产物缩进对齐 prettier 与再生成一致",
@@ -4262,6 +4367,21 @@
             "schedule_status": "",
             "note": "p091：gen_synthetic 产物缩进对齐 prettier; dropped: merged into t281",
             "dir": "docs/archive/tasks/t291_gen_synthetic_prettier_indent"
+        },
+        {
+            "tid": "t292",
+            "slug": "e2e_webserver_isolation",
+            "title": "e2e webServer 隔离：cli 不启闲置 + web 代理探测直连",
+            "status": "done",
+            "branch": "t292_e2e_webserver_isolation",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "fe46d0b7aff70b5cba35a735cadb76242b6d8261",
+            "depends_on": "",
+            "conflicts_with": "t281,t283,t288",
+            "schedule_status": "scheduled",
+            "note": "merged from t287,t289",
+            "dir": "docs/archive/tasks/t292_e2e_webserver_isolation"
         }
     ]
 }
