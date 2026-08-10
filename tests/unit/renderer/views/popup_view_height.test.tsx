@@ -494,7 +494,11 @@ describe("PopupView collapse + height report", () => {
             await new Promise((resolve) => setTimeout(resolve, 0)); // flush rAF → snapshot loading
         });
         // 超过 500ms 下限后仍 spinning（真实 pending 驱动，非固定时长）。
-        await new Promise((resolve) => setTimeout(resolve, 700));
+        // act 包裹：等待期内 refreshAll 异步完成 / 500ms 周期求值的状态更新
+        // 落在 act 内，避免「not wrapped in act」警告（p089；非组件缺陷）。
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+        });
         expect(
             document.querySelector(
                 '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',

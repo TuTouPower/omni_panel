@@ -2,11 +2,11 @@
 tid: "t290"
 slug: "popup_view_height_act_wrap"
 title: "popup_view_height act 警告消除与假绿分析"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t290_popup_view_height_act_wrap"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "51c3801aac14e4dc5bd53874507948d14ea3dd37"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -23,7 +23,9 @@ note: "p089：popup_view_height act 警告（单文件复现）"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- SPIKE：警告源定位——PopupView spinner 自排程 `setTimeout(check, 500ms)` 周期求值 + `refreshAll()` 异步完成后的 plugins 快照更新，落在 t196 f003 用例裸 `setTimeout(700ms)` 等待期（act 外）。非组件缺陷（生产代码零改动），属测试等待方式问题。
+- 修复：700ms 等待改 `await act(async () => { await new Promise(r => setTimeout(r, 700)); })`——真实等待保持（非 fake timers），断言语义不变；单文件 0 警告 9 passed。
+- 顺手发现：全量跑有约 80 条存量 act 警告（settings_form/cpa_connector_settings 等文件，单文件不现、全量并行出现），非本 task 引入，登记 p119。
 
 ## Review 处置
 
@@ -45,14 +47,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-11 00:15 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+Round 1 零 finding（clean review），未进处置表。
 
 ## 收尾报告
 
@@ -61,8 +58,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 单文件 0 act 警告 + 9 passed；AC-002 700ms 真实等待保持、spinner 由真实 pending 驱动（生产组件零改动）；AC-003 全量 2834 passed。
 
 ### Reviewer verdict
 
@@ -70,15 +67,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（clean review，0 finding）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- t196 f003 裸等待改 act 包裹，消除 2 条 act 警告且断言语义不变（非组件缺陷，SPIKE 结论入 spec）；全量 2834 passed；存量 act 警告登记 p119。

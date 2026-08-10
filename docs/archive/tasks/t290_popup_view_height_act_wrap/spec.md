@@ -82,7 +82,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 警告的具体状态更新源（PopupView 内部 pending 驱动 setState 的精确位置）：`UNVERIFIED-SPIKE`，执行期以断点/日志定位后改为结论。
+- 警告的具体状态更新源：**验证结论**（2026-08-11 复现定位）——`PopupView` spinner 自排程 `setTimeout(check, 500ms)` 周期求值 + `refreshAll()` 异步完成后的 plugins 快照更新，落在用例裸 `setTimeout(700ms)` 等待期（act 外）。属测试等待方式问题，非组件缺陷；修复为 act 包裹等待（验证方式：修复后单文件 0 警告 + 9 passed）。
 
 ### 风险与回退
 
