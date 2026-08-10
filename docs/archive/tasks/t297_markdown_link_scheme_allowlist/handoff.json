@@ -1,0 +1,25 @@
+{
+    "tid": "t297",
+    "attempt": 1,
+    "execution_id": "a416b8232325421e96fbe6de6027c6d8",
+    "status": "done",
+    "branch": "t297_markdown_link_scheme_allowlist",
+    "base_sha": "3c7707ba7f885ed9be6d5e215966e7e7b71acb58",
+    "tests": "pnpm test：254 files / 2854 passed，0 failed",
+    "blackbox": "pnpm test 全绿（含 window_manager will-navigate 单测 + MarkdownMessage 渲染单测）；code reviewer 用真实 Electron 实测 file:// reload 恢复",
+    "review": "Round 2 code PASS + test PASS；Round 1 code important f001 已修（file:// reload 放行）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/MarkdownMessage.test.tsx::javascript:/file:/custom-scheme 用例断言无 <a href>",
+            "同文件 http/https 用例断言保留链接"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/workspace/MarkdownMessage.test.tsx::https/http 用例断言 rel=noopener noreferrer + target=_blank"
+        ],
+        "AC-003": [
+            "tests/unit/main/window_manager.test.ts::will-navigate 用例断言 javascript:/data: preventDefault、http(s)/file:// 放行"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

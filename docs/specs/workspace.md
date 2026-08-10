@@ -51,6 +51,7 @@
 - 对会话源文件全程只读；槽位操作只作用于前端状态与主进程订阅/watcher 状态。
 - 不落地拖文件导入与 ⌘K 命令面板入口；无 6 栏超位弹窗（`HistoryOverflowModal` 已删）。
 - Markdown 渲染安全硬约束：会话文本不可信，禁止 `dangerouslySetInnerHTML` 直渲、不安装 rehype-raw（react-markdown 默认丢弃原始 HTML）。
+- **链接 scheme 白名单（t297）**：MarkdownMessage 链接仅允许 `http:`/`https:`（渲染为 `<a target="_blank" rel="noopener noreferrer">`），`javascript:`/`file:`/未知 scheme 渲染为纯文本。
 
 ## 会话库视图（SessionLibrary，t227，t248）
 

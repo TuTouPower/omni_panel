@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { BrowserWindow, shell as electronShell } from "electron";
 
 type WindowOpenHandler = (details: { url: string }) => { action: "deny" };
+type NavigateListener = (event: { preventDefault: () => void }, url: string) => void;
 
 describe("createWindowManager", () => {
     const openExternal = vi.fn<typeof electronShell.openExternal>();
     const setWindowOpenHandler = vi.fn<(handler: WindowOpenHandler) => void>();
+    const willNavigateListeners: NavigateListener[] = [];
     const setTitle = vi.fn();
     const created_args: Record<string, unknown>[] = [];
 
@@ -14,7 +16,12 @@ describe("createWindowManager", () => {
             BrowserWindow: vi.fn().mockImplementation((opts: Record<string, unknown>) => {
                 created_args.push(opts);
                 return {
-                    webContents: { setWindowOpenHandler },
+                    webContents: {
+                        setWindowOpenHandler,
+                        on: vi.fn((event: string, listener: NavigateListener) => {
+                            if (event === "will-navigate") willNavigateListeners.push(listener);
+                        }),
+                    },
                     setAppDetails: vi.fn(),
                     setTitle,
                     setMenuBarVisibility: vi.fn(),
@@ -43,6 +50,7 @@ describe("createWindowManager", () => {
         vi.clearAllMocks();
         vi.resetModules();
         created_args.length = 0;
+        willNavigateListeners.length = 0;
     });
 
     it("setting/agent/history 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {
@@ -93,6 +101,40 @@ describe("createWindowManager", () => {
         const result = handler({ url: "not a url" });
         expect(openExternal).not.toHaveBeenCalled();
         expect(result).toEqual({ action: "deny" });
+    });
+
+    it("registers a will-navigate guard that blocks non-whitelist navigation (t297)", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("setting", { load: false });
+
+        expect(willNavigateListeners).toHaveLength(1);
+        const listener = willNavigateListeners[0];
+        if (!listener) throw new Error("will-navigate handler not registered");
+
+        const prevented = vi.fn();
+        listener({ preventDefault: prevented }, "javascript:alert(1)");
+        expect(prevented).toHaveBeenCalledTimes(1);
+
+        const prevented2 = vi.fn();
+        listener({ preventDefault: prevented2 }, "data:text/html,<h1>x</h1>");
+        expect(prevented2).toHaveBeenCalledTimes(1);
+    });
+
+    it("will-navigate guard allows http(s) and file:// (reload) navigation (t297)", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("setting", { load: false });
+
+        const listener = willNavigateListeners[0];
+        if (!listener) throw new Error("will-navigate handler not registered");
+
+        const prevented = vi.fn();
+        listener({ preventDefault: prevented }, "https://example.com/usage");
+        expect(prevented).not.toHaveBeenCalled();
+
+        // file:// 渲染入口 reload（SettingsView 导入后 location.reload()）不得被拦。
+        const prevented2 = vi.fn();
+        listener({ preventDefault: prevented2 }, "file:///renderer/index.html?route#setting");
+        expect(prevented2).not.toHaveBeenCalled();
     });
 
     it("getRendererUrl 附带 route_query 参数并 URL 编码（t210 OPEN 初始定位）", async () => {
