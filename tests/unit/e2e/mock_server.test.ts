@@ -198,6 +198,165 @@ describe("create_mock_handler", () => {
         const r = call(handler, "DELETE", "/v1/unknown");
         expect(r.status).toBe(404);
     });
+
+    /**
+     * t281：fixture 中无对应 config.plugins 的 synthetic-only connector
+     *（如 synthetic-kimi-failed / synthetic-opencode-go）在 sync_connectors 重建后仍保留。
+     * create_mock_handler 入口与 POST /v1/config/reset 都会触发 sync。
+     */
+    it("sync_connectors keeps synthetic-only connectors not present in config plugins (t281)", () => {
+        const responses = {
+            "GET /v1/connectors": [
+                {
+                    instanceId: "real-cpa",
+                    name: "CPA",
+                    displayName: "CPA",
+                    enabled: true,
+                    snapshot: { status: "ready", items: [] },
+                },
+                {
+                    instanceId: "synthetic-kimi-failed",
+                    name: "KIMI",
+                    displayName: "KIMI (failed)",
+                    enabled: true,
+                    snapshot: {
+                        status: "failed",
+                        error: "HTTP 401",
+                        items: [{ id: "x", error: "HTTP 401" }],
+                    },
+                },
+                {
+                    instanceId: "synthetic-opencode-go",
+                    name: "opencode_go",
+                    displayName: "opencode_go",
+                    enabled: true,
+                    snapshot: { status: "ready", items: [{ id: "y", provider: "opencode_go" }] },
+                },
+            ],
+            "GET /v1/config": {
+                config: {
+                    schemaVersion: 1,
+                    plugins: [
+                        {
+                            instanceId: "real-cpa",
+                            name: "CPA",
+                            displayName: "CPA",
+                            enabled: true,
+                            stateId: "real-cpa",
+                        },
+                    ],
+                },
+                hasSecrets: {},
+            },
+        };
+        const h = create_mock_handler(responses);
+
+        // 初始化即 sync 一次：synthetic-only 不得因 config 重建被丢弃
+        const init = call(h, "GET", "/v1/connectors");
+        expect(init.status).toBe(200);
+        const init_ids = (JSON.parse(init.body) as { instanceId: string }[]).map(
+            (c) => c.instanceId,
+        );
+        expect(init_ids).toContain("real-cpa");
+        expect(init_ids).toContain("synthetic-kimi-failed");
+        expect(init_ids).toContain("synthetic-opencode-go");
+
+        // config/reset 再次 sync：仍保留
+        call(h, "POST", "/v1/config/reset");
+        const after_reset = call(h, "GET", "/v1/connectors");
+        const reset_ids = (JSON.parse(after_reset.body) as { instanceId: string }[]).map(
+            (c) => c.instanceId,
+        );
+        expect(reset_ids).toContain("synthetic-kimi-failed");
+        expect(reset_ids).toContain("synthetic-opencode-go");
+
+        // 写回仅含 real plugin 的 config：synthetic-only 仍保留（不依赖 config 匹配）
+        call_post(
+            h,
+            "POST",
+            "/v1/config",
+            JSON.stringify({
+                schemaVersion: 1,
+                plugins: [
+                    {
+                        instanceId: "real-cpa",
+                        name: "CPA",
+                        displayName: "CPA",
+                        enabled: true,
+                        stateId: "real-cpa",
+                    },
+                ],
+            }),
+        );
+        const after_save = call(h, "GET", "/v1/connectors");
+        const save_ids = (JSON.parse(after_save.body) as { instanceId: string }[]).map(
+            (c) => c.instanceId,
+        );
+        expect(save_ids).toContain("real-cpa");
+        expect(save_ids).toContain("synthetic-kimi-failed");
+        expect(save_ids).toContain("synthetic-opencode-go");
+    });
+
+    it("sync_connectors does not re-add config-managed connectors after plugin removal (t281)", () => {
+        // 有意不测反例的扩展：仅守护「删除 config 中真实 plugin 后不再从 initial 复活」
+        const responses = {
+            "GET /v1/connectors": [
+                {
+                    instanceId: "real-a",
+                    name: "CPA",
+                    enabled: true,
+                    snapshot: { status: "ready" },
+                },
+                {
+                    instanceId: "real-b",
+                    name: "KIMI",
+                    enabled: true,
+                    snapshot: { status: "ready" },
+                },
+            ],
+            "GET /v1/config": {
+                config: {
+                    schemaVersion: 1,
+                    plugins: [
+                        {
+                            instanceId: "real-a",
+                            name: "CPA",
+                            enabled: true,
+                            stateId: "real-a",
+                        },
+                        {
+                            instanceId: "real-b",
+                            name: "KIMI",
+                            enabled: true,
+                            stateId: "real-b",
+                        },
+                    ],
+                },
+            },
+        };
+        const h = create_mock_handler(responses);
+        call_post(
+            h,
+            "POST",
+            "/v1/config",
+            JSON.stringify({
+                schemaVersion: 1,
+                plugins: [
+                    {
+                        instanceId: "real-a",
+                        name: "CPA",
+                        enabled: true,
+                        stateId: "real-a",
+                    },
+                ],
+            }),
+        );
+        const ids = (
+            JSON.parse(call(h, "GET", "/v1/connectors").body) as { instanceId: string }[]
+        ).map((c) => c.instanceId);
+        expect(ids).toContain("real-a");
+        expect(ids).not.toContain("real-b");
+    });
 });
 
 /** 流式 POST 桩：先收 data 再收 end，同步触发 handler 的 body 处理。 */
