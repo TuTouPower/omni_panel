@@ -1,6 +1,6 @@
 import { expect, test } from "../fixtures/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { join, resolve } from "node:path";
@@ -74,6 +74,53 @@ async function closeServe(app: ElectronApplication): Promise<void> {
             });
             setTimeout(resolveExit, 3500);
         });
+    }
+}
+
+/**
+ * 回收 restart 产生的 relaunch 新进程（p095）：relaunch 进程脱离 playwright
+ * ElectronApplication 句柄，closeServe 管不到；按 --user-data-dir 唯一定位后
+ * SIGTERM 整树回收并等其退出，避免孤儿进程持续监听端口跨 run 堆积。
+ * 仅 Linux（pgrep 依赖 /proc）；cli e2e 本就 Linux-only（ELECTRON 无 .exe）。
+ */
+async function reap_user_data_dir_processes(userDataDir: string): Promise<void> {
+    if (process.platform === "win32") return;
+    const pids = (): number[] => {
+        try {
+            const out = execFileSync("pgrep", ["-f", userDataDir], {
+                encoding: "utf8",
+                stdio: ["ignore", "pipe", "ignore"],
+            });
+            return out
+                .trim()
+                .split("\n")
+                .filter(Boolean)
+                .map(Number)
+                .filter((n) => Number.isFinite(n));
+        } catch {
+            return [];
+        }
+    };
+    for (const pid of pids()) {
+        try {
+            process.kill(pid, "SIGTERM");
+        } catch {
+            // 已退出
+        }
+    }
+    // 等进程退出（SIGTERM 优雅退出，最多 3s）；超时未退出的 SIGKILL 兜底，不留孤儿。
+    const deadline = Date.now() + 3000;
+    let remaining = pids();
+    while (Date.now() < deadline && remaining.length > 0) {
+        await new Promise((r) => setTimeout(r, 200));
+        remaining = pids();
+    }
+    for (const pid of remaining) {
+        try {
+            process.kill(pid, "SIGKILL");
+        } catch {
+            // 已退出
+        }
     }
 }
 
@@ -180,6 +227,7 @@ test.describe("CLI 控制子命令（t276）", () => {
             expect(after.status).toBe(0);
         } finally {
             await closeServe(app).catch(() => undefined);
+            await reap_user_data_dir_processes(userDataDir);
             rmSync(userDataDir, { recursive: true, force: true });
         }
     });
@@ -212,6 +260,8 @@ test.describe("CLI 控制子命令（t276）", () => {
             expect(after.pid).not.toBe(beforePid);
         } finally {
             await closeServe(app).catch(() => undefined);
+            // restart 产生的 relaunch 新进程脱离 playwright 句柄，须按 user-data-dir 回收。
+            await reap_user_data_dir_processes(userDataDir);
             rmSync(userDataDir, { recursive: true, force: true });
         }
     });

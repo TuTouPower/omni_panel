@@ -50,6 +50,8 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - 涉及打包 / 托盘 / 多窗口 / 真实 Electron 行为：`pnpm package` 后真实启动 `artifacts/win-unpacked/OmniPanel.exe`，跑 `pnpm test:packaged`（CDP 连 exe 的 smoke）。
 - 涉及连接器 live 契约：`pnpm test:contract:live`（打真实上游，需凭据）。
 - 涉及 web SPA：`pnpm test:e2e:web`（Playwright chromium，mock local-api）。会话面板关键路径由 `tests/e2e/web/session_panel.spec.ts` 覆盖（双页签状态保留 / 打开会话装槽与消息渲染 / 槽满 toast / 摘选三格式复制 / 会话库搜索筛选排序预览并排打开闭环），数据来自 synthetic fixture（`scripts/e2e/session_fixture.mjs` → `tests/e2e/fixtures/synthetic.json`）；本地与 CI 均须 `MOCK_FIXTURE=synthetic` 运行（`playwright.config.ts` webServer 固定 `--host 127.0.0.1` 供 Windows IPv4 可达）。
+- webServer 环境隔离（t292）：playwright.config 加载期删除代理 env 变体（http_proxy/https_proxy 等 6 个），防探测被代理 400 误判「已可用」→ 不启动 → ECONNREFUSED；本机有代理环境也无需手工 unset。cli 项目（`pnpm test:e2e:cli`）自起 `--cli serve`，脚本注入 `E2E_NO_WEBSERVER=1` 关闭闲置 vite preview。
+- synthetic fixture 约定：`pnpm e2e:gen-synthetic` 从 real `responses.json` 脱敏子集写入 `tests/e2e/fixtures/synthetic.json`，并固化注入 `synthetic-kimi-failed` / `synthetic-opencode-go`（无对应 config plugin 的 e2e 锚点 connector）；写出经仓库 prettier 格式化（tabWidth=4，短数组折叠），保证再生成幂等且 `format:check` 无 warn。mock `sync_connectors()` 在按 `config.plugins` 重建时保留 fixture 中初始 config 未收录的 synthetic-only connector，且不把已从 config 删除的真实 plugin 从 initial 复活。
 - 涉及测试实例隔离验证：`pnpm start:test`（黄图标、沙盒数据、17864 端口），见 `docs/guides/testing.md`「测试实例」。
 - 代理面板性能基线：`pnpm exec tsx scripts/token-stats-baseline.ts --records 600000 --output .scratch/t189/baseline.json`；固定 seed 生成脱敏临时 SQLite，覆盖 24h/7d/30d 与 agent/platform 组合，比较查询、payload 和 renderer 转换阶段。报告只作相对基线，不把绝对耗时设为 CI 门禁。
 
@@ -64,7 +66,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 
 - `tests/e2e/electron/cli_control.spec.ts`：`--cli serve` 起真实例后，瘦客户端（子进程 spawn，因 `app.exit` 快退 Playwright `electron.launch` 会 reject）跑各控制命令，断言实例侧可观察效果——refresh-all 经 `/v1/events` SSE 收到状态事件、restart 后 cli.json pid 更新 + 新端口 health、桌面实例（E2E=1 + `OMNI_PANEL_PORT` 固定端口）可被 `--port` 覆盖控制、实例未运行时非零退出 + stderr 可读错误。
 - 单测：`tests/unit/main/cli/client.test.ts`（实例发现 cli.json/`--port` 覆盖、post_control 端点、autostart Linux unsupported、错误文案）；`tests/integration/local-api/server.test.ts` 控制端点组（refresh-all/pause/resume/restart/quit POST 200、GET 405、未配置 control_deps 时 401 落认证门）。
-- 注意：restart 端点 `app.relaunch()` 出的新进程无 playwright 句柄，测试无法 close，跨 run 会堆积孤儿进程（见 p095）。
+- restart 用例 teardown（t288）：`app.relaunch()` 出的新进程脱离 playwright 句柄，`closeServe` 管不到；`reap_user_data_dir_processes` 按 `--user-data-dir` 唯一定位后 SIGTERM（超时 SIGKILL）整树回收，避免孤儿进程跨 run 堆积阻塞端口。
 
 ### e2e headless 门控与 cli 项目（t280）
 

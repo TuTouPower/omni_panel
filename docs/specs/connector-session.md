@@ -8,9 +8,9 @@ session 能力的连接器（MiMo / OpenCode Go / Kimi）需要用户在受控�
 
 ## IPC（`src/shared/types/ipc.ts`）
 
-- `SESSION_LOGIN` / `session.login(request)` — `request: SessionLoginRequest = { instance_id?, provider, login_url, cookie_names[] }`。添加账号阶段可不传 `instance_id`：匿名会话捕获 Cookie 后仅在 IPC result 返回，不写 Vault；用户确认添加账号时沿既有 secret 保存链路写入正式实例。
+- `SESSION_LOGIN` / `session.login(request)` — `request: SessionLoginRequest = { instance_id?, provider, login_url, cookie_names[] }`。添加账号阶段可不传 `instance_id`：匿名会话捕获 Cookie 后仅在 IPC result 返回，不写 Vault；用户确认添加账号时沿既有 secret 保存链路写入正式实例。web 添加账号（无 instance）保留此阻塞路径，并展示「勿刷新 + 手动粘贴」降级指引。
 - `SESSION_REFRESH` / `session.refresh(request)` — 必须传 `instance_id`，重新打开实例受控登录窗（无后台定时续期）。
-- `AUTH_COOKIE_LOGIN` / `auth.cookieLogin(instanceId)` — 通用 cookie 登录（兼容旧路径，由 auth-ipc 注入固定 `auto_close_ms`）。
+- `AUTH_COOKIE_LOGIN` / `auth.cookieLogin(instanceId)` + `auth.cookieLoginStatus(instanceId)` — 实例 cookie 登录异步触发与状态轮询（需已存在 config 实例）。渲染层共享实现 `src/renderer/lib/cookie_login_poll.ts`（250ms/120s、中文冲突/超时文案），`SettingsForm` 与 `WebLoginSection`（web+instance_id）复用。
 
 `SessionLoginRequest` 的 `instance_id` 可选；内部 `LoginRequest`（`session-manager.ts`）额外含可选 `auto_close_ms`，由宿主层注入，不暴露给渲染进程。
 

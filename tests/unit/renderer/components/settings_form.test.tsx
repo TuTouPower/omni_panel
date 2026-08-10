@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act, waitFor } from "@testing-library/react";
+import { render, screen, act, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsForm } from "../../../../src/renderer/components/SettingsForm";
 import type { PluginParameterMetadata } from "../../../../src/shared/schemas/plugin-metadata";
@@ -774,6 +774,99 @@ describe("SettingsForm session editing (t157)", () => {
         );
         expect(cookie_login).toHaveBeenCalledWith("mimo-1");
         expect(cookie_login_status).toHaveBeenCalledWith("mimo-1");
+    });
+
+    it("shows Chinese timeout when cookie login poll exceeds 120s (t282)", async () => {
+        vi.useFakeTimers();
+        try {
+            const cookie_login = vi.fn().mockResolvedValue({ started: true });
+            const cookie_login_status = vi
+                .fn()
+                .mockResolvedValue({ in_progress: true, saved: false });
+            window.usageboard.auth = {
+                cookieLogin: cookie_login,
+                cookieLoginStatus: cookie_login_status,
+            };
+
+            render(
+                <SettingsForm
+                    instanceId="mimo-1"
+                    authMethod="session"
+                    loginUrl="https://platform.xiaomimimo.com/console/plan-manage"
+                    parameters={[
+                        {
+                            name: "SESSION_COOKIE",
+                            label: "Cookie",
+                            type: "secret" as const,
+                            required: true,
+                        },
+                    ]}
+                    values={{}}
+                    hasSecrets={{}}
+                    refreshIntervalSeconds={300}
+                    globalIntervalLabel="5 分钟"
+                    onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                />,
+            );
+
+            // Real timers for initial mount (getSecrets); then fake for poll.
+            await act(async () => {
+                await Promise.resolve();
+            });
+            fireEvent.click(screen.getByTestId("session-login-SESSION_COOKIE"));
+            await act(async () => {
+                await Promise.resolve();
+                await Promise.resolve();
+            });
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(120_000 + 1000);
+            });
+            await act(async () => {
+                await Promise.resolve();
+                await Promise.resolve();
+            });
+
+            expect(screen.getByRole("alert")).toHaveTextContent("网页登录超时，请重试");
+            expect(cookie_login).toHaveBeenCalledWith("mimo-1");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("shows Chinese conflict when cookieLogin rejects CONFLICT (t282)", async () => {
+        window.usageboard.auth = {
+            cookieLogin: vi
+                .fn()
+                .mockRejectedValue(new Error("[CONFLICT] Login already in progress")),
+            cookieLoginStatus: vi.fn(),
+        };
+
+        render(
+            <SettingsForm
+                instanceId="mimo-1"
+                authMethod="session"
+                loginUrl="https://platform.xiaomimimo.com/console/plan-manage"
+                parameters={[
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Cookie",
+                        type: "secret" as const,
+                        required: true,
+                    },
+                ]}
+                values={{}}
+                hasSecrets={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+
+        const user = userEvent.setup();
+        await user.click(await screen.findByTestId("session-login-SESSION_COOKIE"));
+        const alert = await screen.findByRole("alert");
+        expect(alert).toHaveTextContent("已有登录正在进行中，请等待当前登录完成");
+        expect(alert.textContent).not.toMatch(/already in progress/i);
     });
 
     it("uses label@zh-Hans when available", () => {

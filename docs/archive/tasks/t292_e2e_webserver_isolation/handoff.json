@@ -1,0 +1,26 @@
+{
+    "tid": "t292",
+    "attempt": 1,
+    "execution_id": "fc71fe72871849a8b4ab06105f7bdc5d",
+    "status": "done",
+    "branch": "t292_e2e_webserver_isolation",
+    "base_sha": "fe46d0b7aff70b5cba35a735cadb76242b6d8261",
+    "tests": "pnpm test：2841 passed, 2 skipped (254 files)；pnpm typecheck 通过；变更文件 eslint 干净",
+    "blackbox": "AC-003 带代理（http_proxy 等 6 变体指向 7890）web spec 3 passed；AC-004 无代理 3 passed；AC-001 cli 脚本 4 passed + 5174 无监听（E2E_NO_WEBSERVER=1）",
+    "review": "Round 1 general FAIL（f001 important 动态 delete lint）→ Round 2 general PASS（处置复核成立，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "pnpm test:e2e:cli（E2E_NO_WEBSERVER=1）运行后 ss 5174 无监听、无 vite preview 进程"
+        ],
+        "AC-002": ["pnpm test:e2e:cli 全量 4 passed"],
+        "AC-003": [
+            "设置 http_proxy/https_proxy 等指向 7890 时 MOCK_FIXTURE=synthetic pnpm test:e2e:web appearance_theme 3 passed；config 加载期删除代理 env 变体"
+        ],
+        "AC-004": ["env -u 全部代理时同一 web spec 3 passed"],
+        "AC-005": [
+            "git status 仅 4 个预期文件（playwright.config.ts/package.json/spec.md/task.md），无凭据文件改动"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

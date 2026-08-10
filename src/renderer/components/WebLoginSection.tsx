@@ -3,9 +3,11 @@ import { Icon } from "./Icon";
 import { Button } from "./ui/Button";
 import { Textarea } from "./ui/Textarea";
 import { is_web } from "../lib/is-web";
-
-const COOKIE_LOGIN_POLL_INTERVAL_MS = 250;
-const COOKIE_LOGIN_POLL_TIMEOUT_MS = 120_000;
+import {
+    COOKIE_LOGIN_MESSAGES,
+    format_cookie_login_error,
+    poll_cookie_login,
+} from "../lib/cookie_login_poll";
 
 export interface WebLoginSectionProps {
     readonly provider: string;
@@ -34,38 +36,22 @@ export function WebLoginSection({
 }: WebLoginSectionProps) {
     const [logging_in, set_logging_in] = useState(false);
     const [error, set_error] = useState<string | null>(null);
+    const web_anon = is_web() && !instance_id;
 
     const handle_login = useCallback(async () => {
         set_error(null);
         set_logging_in(true);
         try {
+            // Web edit-instance: vault-backed start + shared poll (same as SettingsForm).
             if (is_web() && instance_id) {
-                const result = await window.usageboard.auth.cookieLogin(instance_id);
-                if (result.started) {
-                    const deadline = Date.now() + COOKIE_LOGIN_POLL_TIMEOUT_MS;
-                    let status = await window.usageboard.auth.cookieLoginStatus(instance_id);
-                    while (status.in_progress) {
-                        if (Date.now() >= deadline) {
-                            throw new Error("网页登录超时，请重试");
-                        }
-                        await new Promise<void>((resolve) => {
-                            setTimeout(resolve, COOKIE_LOGIN_POLL_INTERVAL_MS);
-                        });
-                        status = await window.usageboard.auth.cookieLoginStatus(instance_id);
-                    }
-                    if (status.error) throw new Error(status.error);
-                    if (!status.saved) {
-                        set_error("未捕获到 Cookie，请完成登录后再关闭窗口");
-                        return;
-                    }
-                } else if (!result.saved) {
-                    set_error("未捕获到 Cookie，请完成登录后再关闭窗口");
-                    return;
-                }
+                await poll_cookie_login(instance_id);
                 await onSaved?.();
                 return;
             }
 
+            // Desktop (any path) and web add-account (no instance_id): blocking session.login.
+            // Web add path cannot use cookieLogin (needs config instance); capture returns in
+            // response only — AC-001 degrade guide warns not to refresh; manual paste recovers.
             const result = await window.usageboard.session.login({
                 provider,
                 login_url,
@@ -73,7 +59,7 @@ export function WebLoginSection({
                 ...(instance_id ? { instance_id } : {}),
             });
             if (!result.saved) {
-                set_error("未捕获到 Cookie，请完成登录后再关闭窗口");
+                set_error(COOKIE_LOGIN_MESSAGES.no_cookie);
                 return;
             }
             if (result.cookie) {
@@ -82,7 +68,7 @@ export function WebLoginSection({
                 await onSaved();
             }
         } catch (login_error) {
-            set_error(login_error instanceof Error ? login_error.message : "网页登录失败，请重试");
+            set_error(format_cookie_login_error(login_error));
         } finally {
             set_logging_in(false);
         }
@@ -109,6 +95,15 @@ export function WebLoginSection({
                 >
                     <Icon name="alert_circle" size={12} strokeWidth={1.8} />
                     {error}
+                </p>
+            )}
+            {web_anon && (
+                <p
+                    className="flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]"
+                    data-testid={`web-login-anon-guide-${provider}`}
+                >
+                    <Icon name="info" size={12} strokeWidth={1.8} />
+                    {COOKIE_LOGIN_MESSAGES.anon_web_guide}
                 </p>
             )}
             <label

@@ -80,7 +80,7 @@ web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后�
 2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
 3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
 
-**synthetic seed fixture（入库，CI 用）**：`pnpm e2e:gen-synthetic` 从真实 responses 取 3 instance 脱敏子集（`demo_*@example.com`）→ `tests/e2e/fixtures/synthetic.json`（入库）。CI 用 `MOCK_FIXTURE=synthetic pnpm test:e2e:web` 跑 smoke；本地开发用 real（默认）。connector 清单变化后重跑 gen-synthetic 刷新入库版。
+**synthetic seed fixture（入库，CI 用）**：`pnpm e2e:gen-synthetic` 从真实 responses 取 3 instance 脱敏子集（`demo_*@example.com`）→ `tests/e2e/fixtures/synthetic.json`（入库）；脚本额外固化注入 `synthetic-kimi-failed` / `synthetic-opencode-go`，写出对齐仓库 prettier（tabWidth=4）。mock local-api 在 `sync_connectors()` 时保留这两类无 config 匹配的 synthetic-only connector。CI 用 `MOCK_FIXTURE=synthetic pnpm test:e2e:web` 跑 smoke；本地开发用 real（默认）。connector 清单变化后重跑 gen-synthetic 刷新入库版。
 
 ### CI 策略
 

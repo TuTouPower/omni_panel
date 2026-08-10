@@ -26,7 +26,9 @@ const variants: Record<ButtonVariant, string> = {
 
 const sizes: Record<ButtonSize, string> = {
     standard: "h-9 px-[18px]",
-    sm: "h-8 px-3 text-label-md",
+    // text-[length:...] 显式字号：避免 tailwind-merge 把自定义字号 token（--text-label-md）
+    // 误判为颜色类，吞掉 primary/danger 的 text-[var(--color-on-primary)]（t283 实测）。
+    sm: "h-8 px-3 text-[length:var(--text-label-md)]",
 };
 
 /** t269: 统一 Button（DESIGN.md button-* 形态全集）。只消费语义 token。 */

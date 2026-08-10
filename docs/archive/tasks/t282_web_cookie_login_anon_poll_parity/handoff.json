@@ -1,0 +1,33 @@
+{
+    "tid": "t282",
+    "attempt": 1,
+    "execution_id": "37937112f73349c092f37c428b1e5fdb",
+    "status": "done",
+    "branch": "t282_web_cookie_login_anon_poll_parity",
+    "base_sha": "e0ccad3ec41005bb92a3dcb781bf2c6ea054da6b",
+    "tests": "pnpm test：2833 passed, 9 skipped (254 files); typecheck pass; eslint on changed files pass",
+    "blackbox": "pnpm test 全绿；AC-001~004 renderer/ipc 单测；AC-005 桌面 session.login 单元回归（electron e2e 未跑，build 成本）",
+    "review": "Round 1 code PASS + test PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/web_login_section.test.tsx：web 无 instance 展示 anon_web_guide + 手动粘贴入口",
+            "WebLoginSection 降级指引文案 COOKIE_LOGIN_MESSAGES.anon_web_guide"
+        ],
+        "AC-002": [
+            "src/renderer/lib/cookie_login_poll.ts 被 SettingsForm 与 WebLoginSection 共用",
+            "tests/unit/renderer/lib/cookie_login_poll.test.ts + settings_form/web_login_section 轮询用例"
+        ],
+        "AC-003": [
+            "tests/unit/ipc/auth-ipc.test.ts startCookieLogin CONFLICT 中文",
+            "web_login_section/settings_form CONFLICT UI 无英文 already in progress"
+        ],
+        "AC-004": [
+            "poll_cookie_login 与 WebLoginSection/SettingsForm fakeTimers 120s 断言「网页登录超时，请重试」"
+        ],
+        "AC-005": [
+            "web_login_section.test.tsx desktop path 仍 session.login、不调 cookieLogin"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
