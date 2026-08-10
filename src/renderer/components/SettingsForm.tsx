@@ -21,9 +21,7 @@ import { SessionSection } from "./SessionSection";
 import { SecretInput } from "./SecretInput";
 import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
 import type { AuthDescriptor } from "../../shared/schemas/auth";
-
-const COOKIE_LOGIN_POLL_INTERVAL_MS = 250;
-const COOKIE_LOGIN_POLL_TIMEOUT_MS = 120_000;
+import { format_cookie_login_error, poll_cookie_login } from "../lib/cookie_login_poll";
 
 interface SettingsFormProps {
     instanceId: string;
@@ -235,25 +233,10 @@ export function SettingsForm({
     );
 
     const handle_session_login = useCallback(async () => {
-        const result = await window.usageboard.auth.cookieLogin(instanceId);
-        if (result.started) {
-            const deadline = Date.now() + COOKIE_LOGIN_POLL_TIMEOUT_MS;
-            let status = await window.usageboard.auth.cookieLoginStatus(instanceId);
-            while (status.in_progress) {
-                if (Date.now() >= deadline) {
-                    throw new Error("网页登录超时，请重试");
-                }
-                await new Promise<void>((resolve) => {
-                    setTimeout(resolve, COOKIE_LOGIN_POLL_INTERVAL_MS);
-                });
-                status = await window.usageboard.auth.cookieLoginStatus(instanceId);
-            }
-            if (status.error) throw new Error(status.error);
-            if (!status.saved) {
-                throw new Error("未捕获到 Cookie，请完成登录后再关闭窗口");
-            }
-        } else if (!result.saved) {
-            throw new Error("未捕获到 Cookie，请完成登录后再关闭窗口");
+        try {
+            await poll_cookie_login(instanceId);
+        } catch (error: unknown) {
+            throw new Error(format_cookie_login_error(error));
         }
         const loaded = await window.usageboard.config.getSecrets(instanceId);
         if (!mounted_ref.current) return;
