@@ -16,6 +16,18 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
+## p105 web e2e synthetic fixture 重建丢失手工 connector 条目（2026-08-10）
+
+- 来源：t277/t278 实施期 web e2e 黑盒复测
+- 内容：`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目；`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时，synthetic fixture 中没有对应 config plugin 的这两类 connector 会被丢弃。后果：`tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 在 `MOCK_FIXTURE=synthetic` 下稳定失败（基线问题，非 t277/t278 引入，主仓同失败）。关联历史：`gen_synthetic.mjs` 重生成覆盖手工条目曾在 p021 登记；修法候选：让 mock 的 config 重建保留 synthetic-only connector，或 sync 时跳过无 config 匹配的 synthetic connector，或补充 fixture 生成脚本产出。
+- 处理：未开
+
+## p106 web 认证 web 添加账号 cookie 登录阻塞式、轮询逻辑重复与覆盖缺口（2026-08-10）
+
+- 来源：t278 review Round 3 f006/f007（code，minor）与 f007/f008（test，minor）
+- 内容：四项。(1) web 面板添加 cookie 类账号（无 `instance_id`）时「网页登录」仍走阻塞式 `session.login`，无状态轮询；窗口打开期间刷新/断请求会丢失捕获结果，且与编辑实例路径行为分叉（`WebLoginSection.tsx` web+instance_id 分支已轮询）。可后续改为先建临时会话接入 `cookieLogin`/`cookieLoginStatus`，或仅在 web 登录指引提示「登录期间勿刷新，失败后手动粘贴 Cookie」。(2) `SettingsForm.handle_session_login` 与 `WebLoginSection` web 分支的 250ms/120s 轮询逻辑逐字重复，后续可抽共享 hook。(3) `startCookieLogin` 并发冲突（CONFLICT）分支无测试——在 `tests/unit/ipc/auth-ipc.test.ts` 令 `is_login_in_progress` 返回 true，断言返回 CONFLICT 且不触发 `sessionManager.start_login`。(4) `SettingsForm`/`WebLoginSection` 轮询 120s 超时分支无测试——mock `cookieLoginStatus` 恒 `in_progress:true`，`vi.useFakeTimers()` 推进超 `COOKIE_LOGIN_POLL_TIMEOUT_MS`，断言「网页登录超时，请重试」。
+- 处理：未开
+
 ## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）
 
 - 来源：t276 review Round 2 f005（minor）
