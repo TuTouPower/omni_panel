@@ -117,8 +117,10 @@ export function make_default_http_post(): HttpPost {
         try {
             return JSON.parse(text) as unknown;
         } catch {
-            // Some OAuth error responses may be non-JSON; surface the raw text.
-            throw new Error(`Non-JSON response from ${url}: ${text.slice(0, 200)}`);
+            // Never include the response body: an upstream error body may contain tokens.
+            throw new Error(
+                `OAuth endpoint returned a non-JSON response (status ${String(response.statusCode)})`,
+            );
         }
     };
 }

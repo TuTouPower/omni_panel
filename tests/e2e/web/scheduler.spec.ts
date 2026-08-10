@@ -11,7 +11,7 @@ test.describe("scheduler (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const pluginCards = popup.root().locator(".card");
+        const pluginCards = popup.root().locator('[data-testid="collapsible-card"]');
         const count = await pluginCards.count();
         expect(count).toBeGreaterThan(0);
     });
@@ -20,7 +20,7 @@ test.describe("scheduler (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const pluginCards = popup.root().locator(".card[data-status]");
+        const pluginCards = popup.root().locator('[data-testid="collapsible-card"][data-status]');
         await expect(pluginCards.first()).toBeVisible({ timeout: 30_000 });
 
         const count = await pluginCards.count();
@@ -29,7 +29,9 @@ test.describe("scheduler (web)", () => {
         const terminalCards = popup
             .root()
             .locator(
-                '.card[data-status="ready"], .card[data-status="failed"], .card[data-status="empty"]',
+                '[data-testid="collapsible-card"][data-status="ready"], ' +
+                    '[data-testid="collapsible-card"][data-status="failed"], ' +
+                    '[data-testid="collapsible-card"][data-status="empty"]',
             );
         await expect(terminalCards.first()).toBeVisible({ timeout: 30_000 });
     });
@@ -40,14 +42,16 @@ test.describe("scheduler (web)", () => {
 
         await popup.clickRefresh();
 
-        // 等刷新完成：刷新按钮的 .spinning class 由 refreshing state 驱动，
-        // 复位于 refreshAll().finally()；刷新挂起时它真实等待到消失，
-        // mock 即时刷新下立即通过（无固定时长死等）。
-        const refresh_btn = popup.refresh_all_button();
-        await expect(refresh_btn).not.toHaveClass(/spinning/, { timeout: 15_000 });
+        // 等刷新完成：刷新按钮内部 svg 的 animate-spin 由 refreshing state
+        // 驱动，复位于 refreshAll().finally()。先等 spin 出现（确认进入刷新态），
+        // 再等其消失（刷新完成）；mock 即时刷新下短暂出现后立即通过（无固定
+        // 时长死等）。
+        const spin_icon = popup.refresh_all_button().locator("svg");
+        await expect(spin_icon).toHaveClass(/animate-spin/, { timeout: 15_000 });
+        await expect(spin_icon).not.toHaveClass(/animate-spin/, { timeout: 15_000 });
 
         // 刷新后页面仍可用
-        await expect(popup.root().locator(".scroll")).toBeVisible();
+        await expect(popup.root().locator('[data-testid="popup-scroll"]')).toBeVisible();
     });
 
     test("settings shows plugin list with enabled state", async ({ webPage }) => {

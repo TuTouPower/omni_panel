@@ -41,18 +41,18 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         expect(card).not.toHaveTextContent("1 账号");
         expect(card).not.toHaveTextContent("1 服务商");
 
-        const parent_row = card.querySelector<HTMLElement>(".ds-row");
+        const parent_row = card.querySelector<HTMLElement>('[data-mode="cpa-source"]');
         if (!parent_row) throw new Error("missing CPA parent row");
         expect(parent_row).toHaveTextContent("正常");
-        expect(parent_row.querySelector(".ar-status")).toBeInTheDocument();
+        expect(parent_row.querySelector('[data-testid="account-status"]')).toBeInTheDocument();
 
         // CPA child rows never expose collection status. The card has only its parent status slot.
-        expect(card.querySelectorAll(".ar-status")).toHaveLength(1);
+        expect(card.querySelectorAll('[data-testid="account-status"]')).toHaveLength(1);
     });
 
     it("renders CPA connector settings page from accounts", async () => {
@@ -122,7 +122,9 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
-        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(".acc-card");
+        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(
+            '[data-testid="account-card"]',
+        );
         const edit_button =
             cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_button) throw new Error("missing CPA edit button");
@@ -194,7 +196,9 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
-        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(".acc-card");
+        const cpa_card = (await screen.findByText("CPA")).closest<HTMLElement>(
+            '[data-testid="account-card"]',
+        );
         const edit_button =
             cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_button) throw new Error("missing CPA edit button");
@@ -225,7 +229,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_btn) throw new Error("missing CPA edit button");
@@ -272,7 +276,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_btn) throw new Error("missing CPA edit button");
@@ -299,7 +303,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_btn) throw new Error("missing CPA edit button");
@@ -326,9 +330,9 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
-        const toggle = card.querySelector<HTMLButtonElement>(".sw");
+        const toggle = card.querySelector<HTMLButtonElement>('[role="switch"]');
         if (!toggle) throw new Error("missing CPA toggle");
 
         await user.click(toggle);
@@ -346,7 +350,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_btn) throw new Error("missing CPA edit button");
@@ -356,10 +360,9 @@ describe("SettingsView", () => {
         // Should render CPA settings inline (not in a dialog overlay)
         expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
         // Should show breadcrumb
-        expect(document.querySelector(".sp-crumb")).toBeInTheDocument();
-        // Should NOT render inside an acct-dialog overlay
-        const dialog = document.querySelector(".acct-dialog");
-        expect(dialog).toBeNull();
+        expect(screen.getByRole("button", { name: "返回账号列表" })).toBeInTheDocument();
+        // Should NOT render inside a dialog overlay
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("returns to accounts list when breadcrumb back link is clicked", async () => {
@@ -368,7 +371,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const cpa_vendor = await screen.findByText("CPA");
-        const card = cpa_vendor.closest<HTMLElement>(".acc-card");
+        const card = cpa_vendor.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing CPA card");
         const edit_btn = card.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_btn) throw new Error("missing CPA edit button");
@@ -377,8 +380,7 @@ describe("SettingsView", () => {
         expect(screen.getByTestId("cpa-connector-settings")).toBeInTheDocument();
 
         // Click breadcrumb link to go back
-        const crumb_link = document.querySelector(".sp-crumb-link");
-        if (!crumb_link) throw new Error("missing breadcrumb link");
+        const crumb_link = screen.getByRole("button", { name: "返回账号列表" });
         await user.click(crumb_link);
 
         // Should be back to accounts list, no inline CPA settings
@@ -446,7 +448,11 @@ describe("SettingsView", () => {
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
 
         await waitFor(() => {
-            expect(document.querySelectorAll(".acc-card .acc-row").length).toBeGreaterThan(1);
+            expect(
+                document.querySelectorAll(
+                    '[data-testid="account-card"] [data-testid="account-row"]',
+                ).length,
+            ).toBeGreaterThan(1);
         });
 
         // CPA child rows never expose collection status.

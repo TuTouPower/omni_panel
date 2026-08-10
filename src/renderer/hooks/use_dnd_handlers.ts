@@ -15,11 +15,8 @@ export interface UseDndHandlersParams {
 
 export interface UseDndHandlersResult {
     drag_id: string | null;
-    over_id: string | null;
     account_drag_id: string | null;
-    account_over_id: string | null;
     handle_drag_start: (provider: string, rect?: DOMRect) => void;
-    handle_drag_enter: (provider: string) => void;
     handle_drag_over: (provider: string, clientX: number, clientY: number, rect: DOMRect) => void;
     handle_drag_end: () => void;
     handle_account_drag_start: (accountId: string) => void;
@@ -41,23 +38,13 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
     // Drag-card rect captured on dragStart; picks reorder axis (same row →
     // "x" horizontal guard, else "y" vertical guard) for T004 D2=B.
     const [drag_rect, set_drag_rect] = useState<DOMRect | null>(null);
-    const [over_id, set_over_id] = useState<string | null>(null);
     const [account_drag_id, set_account_drag_id] = useState<string | null>(null);
-    const [account_over_id, set_account_over_id] = useState<string | null>(null);
 
     // Drag-and-drop handlers for provider card reordering
     const handle_drag_start = useCallback((provider: string, rect?: DOMRect) => {
         set_drag_id(provider);
         set_drag_rect(rect ?? null);
     }, []);
-
-    const handle_drag_enter = useCallback(
-        (provider: string) => {
-            if (!drag_id || drag_id === provider) return;
-            set_over_id(provider);
-        },
-        [drag_id],
-    );
 
     // Reorder uses a direction-aware midpoint guard (see compute_drag_reorder).
     // Axis is picked from drag-card vs over-card rects: same row (top close)
@@ -66,7 +53,6 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
     const handle_drag_over = useCallback(
         (provider: string, clientX: number, clientY: number, rect: DOMRect) => {
             if (!drag_id || drag_id === provider) return;
-            set_over_id(provider);
             set_provider_order((prev) => {
                 const base = build_reorder_base(prev, orderedProviders);
                 const same_row =
@@ -94,7 +80,6 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
 
     const handle_drag_end = useCallback(() => {
         set_drag_id(null);
-        set_over_id(null);
         set_drag_rect(null);
     }, []);
 
@@ -106,7 +91,6 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
     const handle_account_drag_enter = useCallback(
         (accountId: string) => {
             if (!account_drag_id || account_drag_id === accountId) return;
-            set_account_over_id(accountId);
             if (!activeGroup) return;
             const tabKey = activeTab;
             set_account_orders((prev) => {
@@ -127,16 +111,12 @@ export function use_dnd_handlers(params: UseDndHandlersParams): UseDndHandlersRe
 
     const handle_account_drag_end = useCallback(() => {
         set_account_drag_id(null);
-        set_account_over_id(null);
     }, []);
 
     return {
         drag_id,
-        over_id,
         account_drag_id,
-        account_over_id,
         handle_drag_start,
-        handle_drag_enter,
         handle_drag_over,
         handle_drag_end,
         handle_account_drag_start,

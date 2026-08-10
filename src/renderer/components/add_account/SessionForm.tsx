@@ -1,13 +1,27 @@
 import { useState, useEffect } from "react";
 import { SessionSection } from "../SessionSection";
+import { WebLoginSection } from "../WebLoginSection";
+import { Input } from "../ui/Input";
 
 export interface SessionFormProps {
+    readonly provider: string;
+    readonly secret_name: string;
+    readonly login_url?: string | undefined;
+    readonly cookie_names?: string[] | undefined;
     readonly account_name: string;
     readonly set_account_name: (v: string) => void;
     readonly form_ref: React.RefObject<{ cookie: string }>;
 }
 
-export function SessionForm({ account_name, set_account_name, form_ref }: SessionFormProps) {
+export function SessionForm({
+    provider,
+    secret_name,
+    login_url,
+    cookie_names,
+    account_name,
+    set_account_name,
+    form_ref,
+}: SessionFormProps) {
     const [cookie, set_cookie] = useState("");
 
     useEffect(() => {
@@ -15,13 +29,15 @@ export function SessionForm({ account_name, set_account_name, form_ref }: Sessio
     }, [cookie, form_ref]);
 
     return (
-        <>
-            <div className="ad-field">
-                <label className="ad-label">
-                    备注<span className="ad-opt">显示用</span>
+        <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    备注
+                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                        显示用
+                    </span>
                 </label>
-                <input
-                    className="ad-input"
+                <Input
                     spellCheck={false}
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -32,7 +48,22 @@ export function SessionForm({ account_name, set_account_name, form_ref }: Sessio
                     placeholder="例如：工作账号"
                 />
             </div>
-            <SessionSection secret_name="SESSION_COOKIE" value={cookie} onChange={set_cookie} />
-        </>
+            {login_url ? (
+                <WebLoginSection
+                    provider={provider}
+                    login_url={login_url}
+                    secret_name={secret_name}
+                    value={cookie}
+                    onChange={set_cookie}
+                    cookie_names={cookie_names}
+                    onSecrets={(secrets) => {
+                        const captured = secrets[secret_name];
+                        if (captured) set_cookie(captured);
+                    }}
+                />
+            ) : (
+                <SessionSection secret_name={secret_name} value={cookie} onChange={set_cookie} />
+            )}
+        </div>
     );
 }

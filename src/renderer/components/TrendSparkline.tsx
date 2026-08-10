@@ -18,7 +18,8 @@ const DEFAULT_HEIGHT = 150;
  * - viewBox 560×150,左侧 34px 留刻度,底部 24px 留日期
  * - 0/50/100% 三条网格线 + 左侧刻度
  * - 渐变面积 + 折线 + 数据点圆点
- * - 配色用 `--blue` / `--track` CSS 变量(主题切换自动跟随)
+ * - 配色用语义 token（`--color-accent` / `--color-outline` / `--color-on-surface-muted`，
+ *   主题切换自动跟随）
  * - `<2` 个有效点显示占位文案,避免画一条点误导用户
  *
  * 参考 `data/index.html` 的 `trendSVG` 绘图结构,不照搬配色。
@@ -41,12 +42,13 @@ export const TrendSparkline = memo(function TrendSparkline({
     if (valid_points.length < 2) {
         return (
             <div
-                className="trend-sparkline trend-sparkline-empty"
+                className="mt-2.5 flex w-full items-center"
+                data-testid="trend-sparkline-empty"
                 style={{ minHeight: `${String(height)}px` }}
                 role="img"
                 aria-label={label ? `${label} 趋势数据不足` : "趋势数据不足"}
             >
-                <span className="trend-sparkline-placeholder">
+                <span className="px-0.5 py-1.5 text-[11px] text-[var(--color-on-surface-muted)]">
                     {label ? `${label}:` : ""}近 7 天数据不足
                 </span>
             </div>
@@ -90,9 +92,14 @@ export const TrendSparkline = memo(function TrendSparkline({
     const should_label = (i: number) => data[i] !== null && label_indices.includes(i);
 
     return (
-        <div className="trend-sparkline" style={{ minHeight: `${String(height)}px` }}>
+        <div
+            className="mt-2.5 flex w-full items-center"
+            data-testid="trend-sparkline"
+            style={{ minHeight: `${String(height)}px` }}
+        >
             <svg
-                className="trend-svg"
+                className="block h-auto w-full"
+                data-testid="trend-svg"
                 viewBox={`0 0 ${String(width)} ${String(height)}`}
                 width="100%"
                 height={height}
@@ -102,8 +109,8 @@ export const TrendSparkline = memo(function TrendSparkline({
             >
                 <defs>
                     <linearGradient id="trend-sparkline-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--blue)" stopOpacity="0.28" />
-                        <stop offset="100%" stopColor="var(--blue)" stopOpacity="0.02" />
+                        <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.02" />
                     </linearGradient>
                 </defs>
                 {grid_values.map((g) => (
@@ -113,13 +120,13 @@ export const TrendSparkline = memo(function TrendSparkline({
                             y1={y_at(g)}
                             x2={width - pad_right}
                             y2={y_at(g)}
-                            stroke="var(--track)"
+                            stroke="var(--color-outline)"
                             strokeWidth={1}
                         />
                         <text
                             x={pad_left - 6}
                             y={y_at(g) + 3.5}
-                            fill="var(--text-3)"
+                            fill="var(--color-on-surface-muted)"
                             fontSize={9.5}
                             textAnchor="end"
                         >
@@ -134,7 +141,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                             key={`d${String(i)}`}
                             x={x_at(i)}
                             y={height - 8}
-                            fill="var(--text-3)"
+                            fill="var(--color-on-surface-muted)"
                             fontSize={9.5}
                             textAnchor="middle"
                         >
@@ -146,7 +153,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                 <polyline
                     points={line}
                     fill="none"
-                    stroke="var(--blue)"
+                    stroke="var(--color-accent)"
                     strokeWidth={2}
                     strokeLinejoin="round"
                     strokeLinecap="round"
@@ -157,8 +164,8 @@ export const TrendSparkline = memo(function TrendSparkline({
                         cx={p.x}
                         cy={p.y}
                         r={2.6}
-                        fill="var(--blue)"
-                        stroke="var(--card-bg)"
+                        fill="var(--color-accent)"
+                        stroke="var(--color-surface-card)"
                         strokeWidth={1.2}
                     />
                 ))}

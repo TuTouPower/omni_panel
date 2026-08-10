@@ -200,7 +200,7 @@ export function install_popup_usageboard() {
             on_pause_state: vi.fn(() => vi.fn()),
             on_autostart_state: vi.fn(() => vi.fn()),
         },
-        auth: { cookieLogin: vi.fn() },
+        auth: { cookieLogin: vi.fn(), cookieLoginStatus: vi.fn() },
         session: { login: vi.fn(), refresh: vi.fn() },
         grok: {
             login_start: vi.fn(),

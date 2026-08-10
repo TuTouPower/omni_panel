@@ -25,7 +25,7 @@ test.describe("app lifecycle (web)", () => {
     test("popup main content renders", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
-        await expect(popup.root().locator(".scroll")).toBeVisible();
+        await expect(popup.root().locator('[data-testid="popup-scroll"]')).toBeVisible();
     });
 
     test("settings opens via hash route from popup", async ({ webPage }) => {

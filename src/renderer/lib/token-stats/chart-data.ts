@@ -1,7 +1,8 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
 import { fmtTok, shortDir } from "./format";
-import { TOP5_COLORS, colorForTopModel, colorForTopProject, paletteFor } from "./palette";
+import { agent_color, palette_for, top_category_color } from "../echarts_token_resolver";
+import type { ChartTheme } from "../echarts_token_resolver";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
 import type {
     TokenStatsBucket,
@@ -37,13 +38,7 @@ export function build_resolver(
     return (key) => map[key] ?? key;
 }
 
-/** Fixed display colors/labels for the four agents (matches SessionTable chips). */
-const AGENT_COLORS: Record<string, string> = {
-    "claude-code": "#ffb78a",
-    "kimi-code": "#7ee8b0",
-    opencode: "#8ad8ff",
-    grok: "#b687f0",
-};
+/** Fixed display labels for the four agents (matches SessionTable chips). */
 const AGENT_LABELS: Record<string, string> = {
     "claude-code": "Claude Code",
     "kimi-code": "Kimi Code",
@@ -52,7 +47,10 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 /** Donut segments comparing token usage across the four agents. */
-export function agentSegments(records: AgentSessionUsage[]): DonutSegment[] {
+export function agentSegments(
+    records: AgentSessionUsage[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
     const totals: Record<string, number> = {
         "claude-code": 0,
         "kimi-code": 0,
@@ -67,18 +65,16 @@ export function agentSegments(records: AgentSessionUsage[]): DonutSegment[] {
         .map((a) => ({
             name: AGENT_LABELS[a] ?? a,
             value: totals[a] ?? 0,
-            itemStyle: { color: AGENT_COLORS[a] ?? "#6b7890" },
+            itemStyle: { color: agent_color(a, theme) },
         }));
 }
 
 /** Segments for the cache-hit-rate donut (cache_read / input / cache_write / output). */
-export function compositionSegments(records: AgentSessionUsage[]): DonutSegment[] {
-    const colors: Record<string, string> = {
-        cache_read: "#3ddc97",
-        input: "#4cc2ff",
-        cache_write: "#ffb454",
-        output: "#7c6cf6",
-    };
+export function compositionSegments(
+    records: AgentSessionUsage[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
+    const palette = palette_for(theme);
     const totals = {
         cache_read: records.reduce((s, r) => s + r.cache_read_tokens, 0),
         input: records.reduce((s, r) => s + r.input_tokens, 0),
@@ -90,7 +86,7 @@ export function compositionSegments(records: AgentSessionUsage[]): DonutSegment[
         .map((k) => ({
             name: k,
             value: totals[k],
-            itemStyle: { color: colors[k] ?? "#6b7890" },
+            itemStyle: { color: palette.composition[k] ?? palette.other },
         }));
 }
 
@@ -110,11 +106,11 @@ export function modelSegments(
         totals[model] = rs.reduce((sum, r) => sum + valFn(r), 0);
     }
     const { top, rest } = topGroups(totals, 5);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const segs: DonutSegment[] = top.map((m, i) => ({
         name: m,
         value: totals[m] ?? 0,
-        itemStyle: { color: colorForTopModel(m, i, theme) },
+        itemStyle: { color: top_category_color(i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -153,11 +149,11 @@ export function projectSegments(
         totals[dir] = new Set(rs.map((r) => r.session_id)).size;
     }
     const { top, rest } = topGroups(totals, 5);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const segs: DonutSegment[] = top.map((dir, i) => ({
         name: shortDir(dir),
         value: totals[dir] ?? 0,
-        itemStyle: { color: colorForTopProject(dir, i, theme) },
+        itemStyle: { color: top_category_color(i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -277,7 +273,7 @@ export function prepareBarData(
     });
     const { top, rest } = topGroups(totals, 5);
     const restSet = new Set(rest);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const seriesNames = rest.length ? [...top, "其他"] : top;
     const otherDetails: [string, number][][] = cells.map((m) =>
         Object.entries(m)
@@ -290,8 +286,8 @@ export function prepareBarData(
         k === "其他"
             ? palette.other
             : colorDim === "model"
-              ? colorForTopModel(k, index, theme)
-              : colorForTopProject(k, index, theme);
+              ? top_category_color(index, theme)
+              : top_category_color(index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,
@@ -420,7 +416,7 @@ function cells_to_bar_data(
     });
     const { top, rest } = topGroups(totals, 5);
     const restSet = new Set(rest);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const seriesNames = rest.length ? [...top, "其他"] : top;
     const otherDetails: [string, number][][] = cells.map((c) =>
         Object.entries(c)
@@ -429,7 +425,7 @@ function cells_to_bar_data(
             .slice(0, 20),
     );
     const colorOf = (k: string, index: number) =>
-        k === "其他" ? palette.other : colorForTopModel(k, index, theme);
+        k === "其他" ? palette.other : top_category_color(index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,
@@ -466,9 +462,8 @@ export function modelColorMap(
     }
     const { top } = topGroups(totals, 5);
     const map = new Map<string, string>();
-    const fallback = paletteFor(theme).other;
     top.forEach((m, i) => {
-        map.set(m, TOP5_COLORS[i] ?? fallback);
+        map.set(m, top_category_color(i, theme));
     });
     return map;
 }
@@ -593,13 +588,7 @@ function bucket_tokens(b: TokenStatsBucket): number {
     return b.input_tokens + b.output_tokens + b.cache_read_tokens + b.cache_write_tokens;
 }
 
-/** Fixed source → agent label/color mapping (mirrors records' AGENT_* maps). */
-const BUCKET_AGENT_COLORS: Record<string, string> = {
-    claude_code: "#ffb78a",
-    opencode: "#8ad8ff",
-    kimi_code: "#7ee8b0",
-    grok: "#b687f0",
-};
+/** Fixed source → agent label mapping (mirrors records' AGENT_* maps). */
 const BUCKET_AGENT_LABELS: Record<string, string> = {
     claude_code: "Claude Code",
     opencode: "OpenCode",
@@ -608,7 +597,10 @@ const BUCKET_AGENT_LABELS: Record<string, string> = {
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
-export function agentSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegment[] {
+export function agentSegmentsFromBuckets(
+    buckets: TokenStatsBucket[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
     const totals: Record<string, number> = {
         claude_code: 0,
         opencode: 0,
@@ -623,18 +615,16 @@ export function agentSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegm
         .map((s) => ({
             name: BUCKET_AGENT_LABELS[s] ?? s,
             value: totals[s] ?? 0,
-            itemStyle: { color: BUCKET_AGENT_COLORS[s] ?? "#6b7890" },
+            itemStyle: { color: agent_color(s, theme) },
         }));
 }
 
 /** Segments for the cache-hit-rate donut, summed across all buckets. */
-export function compositionSegmentsFromBuckets(buckets: TokenStatsBucket[]): DonutSegment[] {
-    const colors: Record<string, string> = {
-        cache_read: "#3ddc97",
-        input: "#4cc2ff",
-        cache_write: "#ffb454",
-        output: "#7c6cf6",
-    };
+export function compositionSegmentsFromBuckets(
+    buckets: TokenStatsBucket[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
+    const palette = palette_for(theme);
     const totals = {
         cache_read: buckets.reduce((s, b) => s + b.cache_read_tokens, 0),
         input: buckets.reduce((s, b) => s + b.input_tokens, 0),
@@ -646,7 +636,7 @@ export function compositionSegmentsFromBuckets(buckets: TokenStatsBucket[]): Don
         .map((k) => ({
             name: k,
             value: totals[k],
-            itemStyle: { color: colors[k] ?? "#6b7890" },
+            itemStyle: { color: palette.composition[k] ?? palette.other },
         }));
 }
 
@@ -665,11 +655,11 @@ export function modelSegmentsFromBuckets(
         totals[b.model] = (totals[b.model] ?? 0) + valFn(b);
     }
     const { top, rest } = topGroups(totals, 5);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const segs: DonutSegment[] = top.map((m, i) => ({
         name: m,
         value: totals[m] ?? 0,
-        itemStyle: { color: colorForTopModel(m, i, theme) },
+        itemStyle: { color: top_category_color(i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -731,9 +721,8 @@ export function modelColorMapFromBuckets(
     }
     const { top } = topGroups(totals, 5);
     const map = new Map<string, string>();
-    const fallback = paletteFor(theme).other;
     top.forEach((m, i) => {
-        map.set(m, TOP5_COLORS[i] ?? fallback);
+        map.set(m, top_category_color(i, theme));
     });
     return map;
 }
@@ -759,11 +748,11 @@ export function projectSegmentsFromSessions(
         totals[dir] = set.size;
     }
     const { top, rest } = topGroups(totals, 5);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const segs: DonutSegment[] = top.map((dir, i) => ({
         name: shortDir(dir),
         value: totals[dir] ?? 0,
-        itemStyle: { color: colorForTopProject(dir, i, theme) },
+        itemStyle: { color: top_category_color(i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -827,13 +816,7 @@ function rollup_group_metric(rows: TokenStatsRollupRow[], metric: Metric): numbe
     return new Set(rows.map((r) => rollup_session_key(r))).size;
 }
 
-/** Fixed source → agent label/color mapping (mirrors BUCKET_AGENT_*). */
-const ROLLUP_AGENT_COLORS: Record<string, string> = {
-    claude_code: "#ffb78a",
-    opencode: "#8ad8ff",
-    kimi_code: "#7ee8b0",
-    grok: "#b687f0",
-};
+/** Fixed source → agent label mapping (mirrors BUCKET_AGENT_*). */
 const ROLLUP_AGENT_LABELS: Record<string, string> = {
     claude_code: "Claude Code",
     opencode: "OpenCode",
@@ -842,7 +825,10 @@ const ROLLUP_AGENT_LABELS: Record<string, string> = {
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
-export function agentSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegment[] {
+export function agentSegmentsFromRollup(
+    rows: TokenStatsRollupRow[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
     const totals: Record<string, number> = {
         claude_code: 0,
         opencode: 0,
@@ -857,18 +843,16 @@ export function agentSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegme
         .map((s) => ({
             name: ROLLUP_AGENT_LABELS[s] ?? s,
             value: totals[s] ?? 0,
-            itemStyle: { color: ROLLUP_AGENT_COLORS[s] ?? "#6b7890" },
+            itemStyle: { color: agent_color(s, theme) },
         }));
 }
 
 /** Segments for the cache-hit-rate donut, summed across all rollup rows. */
-export function compositionSegmentsFromRollup(rows: TokenStatsRollupRow[]): DonutSegment[] {
-    const colors: Record<string, string> = {
-        cache_read: "#3ddc97",
-        input: "#4cc2ff",
-        cache_write: "#ffb454",
-        output: "#7c6cf6",
-    };
+export function compositionSegmentsFromRollup(
+    rows: TokenStatsRollupRow[],
+    theme: ChartTheme = "dark",
+): DonutSegment[] {
+    const palette = palette_for(theme);
     const totals = {
         cache_read: rows.reduce((s, r) => s + r.cache_read_tokens, 0),
         input: rows.reduce((s, r) => s + r.input_tokens, 0),
@@ -880,7 +864,7 @@ export function compositionSegmentsFromRollup(rows: TokenStatsRollupRow[]): Donu
         .map((k) => ({
             name: k,
             value: totals[k],
-            itemStyle: { color: colors[k] ?? "#6b7890" },
+            itemStyle: { color: palette.composition[k] ?? palette.other },
         }));
 }
 
@@ -896,11 +880,11 @@ export function modelSegmentsFromRollup(
         totals[r.model] = (totals[r.model] ?? 0) + valFn(r);
     }
     const { top, rest } = topGroups(totals, 5);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const segs: DonutSegment[] = top.map((m, i) => ({
         name: m,
         value: totals[m] ?? 0,
-        itemStyle: { color: colorForTopModel(m, i, theme) },
+        itemStyle: { color: top_category_color(i, theme) },
     }));
     if (rest.length) {
         const restItems = rest
@@ -1038,7 +1022,7 @@ export function prepareBarDataFromRollup(
     });
     const { top, rest } = topGroups(totals, 5);
     const restSet = new Set(rest);
-    const palette = paletteFor(theme);
+    const palette = palette_for(theme);
     const seriesNames = rest.length ? [...top, "其他"] : top;
     const otherDetails: [string, number][][] = cells.map((m) =>
         Object.entries(m)
@@ -1050,8 +1034,8 @@ export function prepareBarDataFromRollup(
         k === "其他"
             ? palette.other
             : colorDim === "model"
-              ? colorForTopModel(k, index, theme)
-              : colorForTopProject(k, index, theme);
+              ? top_category_color(index, theme)
+              : top_category_color(index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,

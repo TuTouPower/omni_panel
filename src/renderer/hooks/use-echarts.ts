@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ECharts, EChartsInitOpts, EChartsOption, EChartsType } from "echarts";
+import { use_chart_palette_revision } from "../lib/echarts_token_resolver";
 
 interface EChartsModule {
     init: (
@@ -61,6 +62,7 @@ export function useECharts(
 ): React.RefObject<ECharts | null> {
     const chartRef = useRef<ECharts | null>(null);
     const getOptionRef = useRef(getOption);
+    const palette_revision = use_chart_palette_revision();
     getOptionRef.current = getOption;
 
     useEffect(() => {
@@ -95,6 +97,10 @@ export function useECharts(
             return undefined;
         };
     }, [containerRef]);
+
+    useEffect(() => {
+        chartRef.current?.setOption(getOptionRef.current(), true);
+    }, [palette_revision]);
 
     useEffect(() => {
         chartRef.current?.setOption(getOptionRef.current(), true);

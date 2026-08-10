@@ -16,17 +16,17 @@ function renderConfirmDelete(overrides: Partial<React.ComponentProps<typeof Conf
 describe("ConfirmDelete", () => {
     it("renders dialog with account name", () => {
         renderConfirmDelete({ name: "My DeepSeek" });
-        expect(screen.getByText("删除账号", { selector: ".ad-title" })).toBeInTheDocument();
+        expect(screen.getByRole("alertdialog", { name: "删除账号" })).toBeInTheDocument();
         expect(screen.getByText("此操作无法撤销")).toBeInTheDocument();
         expect(screen.getByText("My DeepSeek")).toBeInTheDocument();
         expect(screen.getByText("取消")).toBeInTheDocument();
-        expect(screen.getByText("删除账号", { selector: ".ad-btn" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "删除账号" })).toBeInTheDocument();
     });
 
     it("calls onConfirm when clicking confirm button", async () => {
         const user = userEvent.setup();
         const { onConfirm } = renderConfirmDelete();
-        await user.click(screen.getByText("删除账号", { selector: ".ad-btn" }));
+        await user.click(screen.getByRole("button", { name: "删除账号" }));
         expect(onConfirm).toHaveBeenCalledTimes(1);
     });
 
@@ -40,9 +40,8 @@ describe("ConfirmDelete", () => {
     it("calls onCancel when clicking scrim overlay", async () => {
         const user = userEvent.setup();
         const { onCancel } = renderConfirmDelete();
-        const scrim = document.querySelector(".acct-dialog-scrim");
+        const scrim = screen.getByTestId("confirm-delete-scrim");
         expect(scrim).toBeInTheDocument();
-        if (!scrim) return;
         await user.click(scrim);
         expect(onCancel).toHaveBeenCalledTimes(1);
     });
@@ -72,6 +71,6 @@ describe("ConfirmDelete", () => {
             />,
         );
         expect(screen.getByText("Remove Source")).toBeInTheDocument();
-        expect(screen.getByText("Remove", { selector: ".ad-btn" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
     });
 });

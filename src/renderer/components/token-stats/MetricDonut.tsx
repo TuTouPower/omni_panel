@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
-import { paletteFor } from "../../lib/token-stats/palette";
+import { use_chart_palette } from "../../lib/echarts_token_resolver";
 import { escapeHtml } from "../../lib/token-stats/chart-data";
 import type { DonutSegment } from "../../lib/token-stats/chart-data";
 
@@ -30,14 +30,14 @@ export function build_donut_tooltip_html(params: unknown, format: (n: number) =>
 
 export function MetricDonut({ centerValue, segments, format, theme }: MetricDonutProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const { palette: pal } = use_chart_palette(theme);
 
     const option = useMemo<EChartsOption>(() => {
-        const pal = paletteFor(theme);
         return {
             tooltip: {
                 backgroundColor: pal.tipBg,
                 borderColor: pal.tipBorder,
-                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: "Inter" },
+                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
                 extraCssText: pal.tipShadow,
                 formatter: (params: unknown) => build_donut_tooltip_html(params, format),
             },
@@ -55,13 +55,13 @@ export function MetricDonut({ centerValue, segments, format, theme }: MetricDonu
                                 color: pal.centerV,
                                 fontSize: 21,
                                 fontWeight: 700,
-                                fontFamily: "JetBrains Mono",
+                                fontFamily: pal.font_code,
                                 lineHeight: 27,
                             },
                             l: {
                                 color: pal.centerL,
                                 fontSize: 11,
-                                fontFamily: "Inter",
+                                fontFamily: pal.font_body,
                             },
                         },
                     },
@@ -71,9 +71,9 @@ export function MetricDonut({ centerValue, segments, format, theme }: MetricDonu
                 },
             ],
         };
-    }, [centerValue, segments, format, theme]);
+    }, [centerValue, segments, format, pal]);
 
     useECharts(containerRef, () => option, [option]);
 
-    return <div ref={containerRef} className="donut" />;
+    return <div ref={containerRef} className="h-[210px] min-h-0 w-full" />;
 }

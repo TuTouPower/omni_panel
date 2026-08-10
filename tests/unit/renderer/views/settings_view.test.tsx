@@ -80,7 +80,7 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
         const grok_label = await screen.findByText("Grok");
-        const card = grok_label.closest<HTMLElement>(".acc-card");
+        const card = grok_label.closest<HTMLElement>('[data-testid="account-card"]');
         if (!card) throw new Error("missing Grok card");
         const edit_button = within(card).getByTitle("编辑");
         await user.click(edit_button);

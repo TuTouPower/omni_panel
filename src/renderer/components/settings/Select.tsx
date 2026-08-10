@@ -1,3 +1,8 @@
+import { Select as UiSelect } from "../ui/Select";
+
+/**
+ * 设置窗口下拉（t271：复用统一 ui/Select，保留 value/onChange/options API）。
+ */
 export function Select({
     value,
     onChange,
@@ -10,9 +15,8 @@ export function Select({
     ariaLabel?: string;
 }) {
     return (
-        <select
+        <UiSelect
             aria-label={ariaLabel}
-            className="set-select"
             value={value}
             onChange={(e) => {
                 onChange(e.target.value);
@@ -23,6 +27,6 @@ export function Select({
                     {o}
                 </option>
             ))}
-        </select>
+        </UiSelect>
     );
 }

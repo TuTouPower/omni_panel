@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 import { toLocalInput } from "../../lib/token-stats/format";
 
 interface RangePickerProps {
@@ -41,10 +43,15 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
     };
 
     return (
-        <div className="calwrap" ref={wrapRef}>
-            <button
-                type="button"
-                className={`calbtn ${active ? "on" : ""}`}
+        <div className="relative" ref={wrapRef}>
+            <Button
+                variant="secondary"
+                size="sm"
+                className={
+                    active
+                        ? "border-[var(--color-accent)] bg-[var(--color-primary-container)]"
+                        : undefined
+                }
                 title="自定义时间范围"
                 onClick={(e) => {
                     e.stopPropagation();
@@ -52,46 +59,48 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
                 }}
             >
                 📅 自定义
-            </button>
+            </Button>
             {open && (
                 <div
-                    className="calpop"
+                    className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)] p-3 shadow-lg"
                     onClick={(e) => {
                         e.stopPropagation();
                     }}
                 >
-                    <div className="calrow">
-                        <span>开始</span>
-                        <input
-                            type="datetime-local"
-                            className="dt"
-                            value={localStart}
-                            onChange={(e) => {
-                                setLocalStart(e.target.value);
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-label-md text-[var(--color-on-surface-variant)]">
+                            开始
+                            <Input
+                                type="datetime-local"
+                                className="mt-1"
+                                value={localStart}
+                                onChange={(e) => {
+                                    setLocalStart(e.target.value);
+                                }}
+                            />
+                        </label>
+                        <label className="text-label-md text-[var(--color-on-surface-variant)]">
+                            结束
+                            <Input
+                                type="datetime-local"
+                                className="mt-1"
+                                value={localEnd}
+                                onChange={(e) => {
+                                    setLocalEnd(e.target.value);
+                                }}
+                            />
+                        </label>
+                        <Button
+                            size="sm"
+                            className="mt-1 self-end"
+                            onClick={() => {
+                                apply();
+                                setOpen(false);
                             }}
-                        />
+                        >
+                            应用
+                        </Button>
                     </div>
-                    <div className="calrow">
-                        <span>结束</span>
-                        <input
-                            type="datetime-local"
-                            className="dt"
-                            value={localEnd}
-                            onChange={(e) => {
-                                setLocalEnd(e.target.value);
-                            }}
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        className="calapply"
-                        onClick={() => {
-                            apply();
-                            setOpen(false);
-                        }}
-                    >
-                        应用
-                    </button>
                 </div>
             )}
         </div>

@@ -39,9 +39,7 @@ interface ProviderOverviewProps {
      */
     onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
     draggingProvider?: string | null | undefined;
-    overProvider?: string | null | undefined;
     onDragStart?: ((provider: string, rect?: DOMRect) => void) | undefined;
-    onDragEnter?: ((provider: string) => void) | undefined;
     onDragOver?:
         | ((provider: string, clientX: number, clientY: number, rect: DOMRect) => void)
         | undefined;
@@ -76,9 +74,7 @@ export function ProviderOverview({
     onToggleL2Open,
     onReLogin,
     draggingProvider,
-    overProvider,
     onDragStart,
-    onDragEnter,
     onDragOver,
     onDragEnd,
     refreshingProviders,
@@ -98,7 +94,10 @@ export function ProviderOverview({
     const visible_provider_set = new Set(visibleProviders);
 
     return (
-        <div className="overview-grid">
+        <div
+            className="grid items-stretch gap-3 [grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]"
+            data-testid="overview-grid"
+        >
             {card_order.map((card_id) => {
                 if (visible_provider_set.has(card_id)) {
                     const provider = card_id;
@@ -121,9 +120,7 @@ export function ProviderOverview({
                             onToggleL2Open={onToggleL2Open}
                             onReLogin={onReLogin}
                             dragging={draggingProvider === provider}
-                            dragOver={overProvider === provider && draggingProvider !== provider}
                             onDragStart={onDragStart}
-                            onDragEnter={onDragEnter}
                             onDragOver={onDragOver}
                             onDragEnd={onDragEnd}
                             refreshing={refreshingProviders?.has(provider)}

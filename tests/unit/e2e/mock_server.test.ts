@@ -111,8 +111,114 @@ describe("create_mock_handler", () => {
         expect(JSON.parse(r.body)).toEqual({ ok: true, data: {} });
     });
 
+    it("POST /v1/config consumes body and GET reflects the saved config (t274)", () => {
+        const h = create_mock_handler(fake_responses());
+        // fake_responses 无 GET /v1/config key → 初始回落 empty_ipc。
+        const before = call(h, "GET", "/v1/config");
+        expect(JSON.parse(before.body)).toEqual({ ok: true, data: {} });
+
+        const r = call_post(
+            h,
+            "POST",
+            "/v1/config",
+            JSON.stringify({ schemaVersion: 1, theme: "dark", accentColor: "#e23744" }),
+        );
+        expect(r.status).toBe(200);
+        expect(JSON.parse(r.body)).toEqual({ ok: true, data: {} });
+
+        const after = call(h, "GET", "/v1/config");
+        expect(JSON.parse(after.body)).toMatchObject({
+            config: { theme: "dark", accentColor: "#e23744" },
+        });
+    });
+
+    it("POST /v1/config with existing fixture keeps hasSecrets (t274)", () => {
+        const h = create_mock_handler({
+            ...fake_responses(),
+            "GET /v1/config": {
+                config: { schemaVersion: 1, theme: "system" },
+                hasSecrets: { a: { k: true } },
+            },
+        });
+        call_post(h, "POST", "/v1/config", JSON.stringify({ schemaVersion: 1, theme: "light" }));
+        const after = call(h, "GET", "/v1/config");
+        expect(JSON.parse(after.body)).toEqual({
+            config: { schemaVersion: 1, theme: "light" },
+            hasSecrets: { a: { k: true } },
+        });
+    });
+
+    it("POST /v1/config invalid JSON returns 400 and keeps state (t274)", () => {
+        const h = create_mock_handler(fake_responses());
+        const r = call_post(h, "POST", "/v1/config", "{not-json");
+        expect(r.status).toBe(400);
+        expect(JSON.parse(r.body)).toEqual({ ok: false, error: "Invalid JSON" });
+        const g = call(h, "GET", "/v1/config");
+        expect(JSON.parse(g.body)).toEqual({ ok: true, data: {} });
+    });
+
+    it("POST /v1/config empty body returns 400 and keeps state (t274)", () => {
+        const h = create_mock_handler(fake_responses());
+        const r = call_post(h, "POST", "/v1/config", "");
+        expect(r.status).toBe(400);
+        expect(JSON.parse(r.body)).toEqual({ ok: false, error: "Invalid JSON" });
+        const g = call(h, "GET", "/v1/config");
+        expect(JSON.parse(g.body)).toEqual({ ok: true, data: {} });
+    });
+
+    it("POST /v1/config/reset 恢复录制 fixture 并丢弃后续写回 (t274)", () => {
+        const h = create_mock_handler({
+            ...fake_responses(),
+            "GET /v1/config": {
+                config: { schemaVersion: 1, theme: "system" },
+                hasSecrets: { a: { k: true } },
+            },
+        });
+        call_post(h, "POST", "/v1/config", JSON.stringify({ schemaVersion: 1, theme: "light" }));
+        const after_write = call(h, "GET", "/v1/config");
+        expect((JSON.parse(after_write.body) as { config: { theme?: string } }).config.theme).toBe(
+            "light",
+        );
+
+        const r = call(h, "POST", "/v1/config/reset");
+        expect(JSON.parse(r.body)).toEqual({ ok: true, data: {} });
+        const after_reset = call(h, "GET", "/v1/config");
+        expect(JSON.parse(after_reset.body)).toEqual({
+            config: { schemaVersion: 1, theme: "system" },
+            hasSecrets: { a: { k: true } },
+        });
+    });
+
+    it("POST /v1/secrets still falls back to generic empty_ipc (t274)", () => {
+        const r = call(handler, "POST", "/v1/secrets");
+        expect(JSON.parse(r.body)).toEqual({ ok: true, data: {} });
+    });
+
     it("unmatched DELETE returns 404", () => {
         const r = call(handler, "DELETE", "/v1/unknown");
         expect(r.status).toBe(404);
     });
 });
+
+/** 流式 POST 桩：先收 data 再收 end，同步触发 handler 的 body 处理。 */
+function call_post(
+    handler: (req: IncomingMessage, res: ServerResponse) => void,
+    method: string,
+    url: string,
+    body: string,
+) {
+    const { state, res } = stub_res();
+    const listeners: Record<string, ((chunk?: unknown) => void)[]> = {};
+    const req = {
+        method,
+        url,
+        on(evt: string, cb: (chunk?: unknown) => void): void {
+            const list = (listeners[evt] ??= []);
+            list.push(cb);
+        },
+    };
+    handler(req as unknown as IncomingMessage, res);
+    for (const cb of listeners["data"] ?? []) cb(body);
+    for (const cb of listeners["end"] ?? []) cb();
+    return { status: state.statusCode, body: state.body };
+}

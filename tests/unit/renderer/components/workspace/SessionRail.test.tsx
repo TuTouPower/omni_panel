@@ -58,7 +58,7 @@ describe("SessionRail provider 徽标", () => {
             />,
         );
 
-        const badges = Array.from(document.querySelectorAll(".rail-badge"));
+        const badges = Array.from(document.querySelectorAll(".history-badge"));
         expect(badges).toHaveLength(5);
         const expected = [
             { light: "claude" },
@@ -68,7 +68,7 @@ describe("SessionRail provider 徽标", () => {
             { fallback: true },
         ] as const;
         badges.forEach((badge, index) => {
-            expect(badge.querySelector(".vicon")).toBeTruthy();
+            expect(badge.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
             const expected_logo = expected[index];
             if (!expected_logo || "fallback" in expected_logo) {
                 expect(badge.querySelector("svg")).toBeTruthy();
@@ -95,15 +95,15 @@ describe("SessionRail t257 展示调整", () => {
         on_move: () => undefined,
     };
 
-    it("AC5：槽位不渲染 provider 颜色条（rail-accent）", () => {
+    it("AC5：槽位不渲染 provider 颜色条（history-slot-accent）", () => {
         render(<SessionRail {...base} />);
-        expect(document.querySelector(".rail-accent")).toBeNull();
+        expect(document.querySelector(".history-slot-accent")).toBeNull();
     });
 
     it("AC6：折叠态空槽只显示「+」；AC7：底部无「添加会话」按钮", () => {
         render(<SessionRail {...base} collapsed={false} />);
         // AC7：底部添加按钮移除。
-        expect(document.querySelector(".rail-add")).toBeNull();
+        expect(document.querySelector(".history-slot-add")).toBeNull();
 
         // AC6：折叠态空槽按钮文案为「+」。
         const { container } = render(
@@ -117,7 +117,7 @@ describe("SessionRail t257 展示调整", () => {
                 on_move={() => undefined}
             />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".rail-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll(".history-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+");
@@ -136,7 +136,7 @@ describe("SessionRail t257 展示调整", () => {
                 on_move={() => undefined}
             />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".rail-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll(".history-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+ 添加会话");

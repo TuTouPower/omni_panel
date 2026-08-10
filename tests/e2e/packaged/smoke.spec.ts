@@ -27,7 +27,7 @@ for (const key of [
 const EXE_BY_PLATFORM: Record<string, string> = {
     win32: resolve(ROOT, "artifacts/win-unpacked/OmniPanel.exe"),
     darwin: resolve(ROOT, "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel"),
-    linux: resolve(ROOT, "artifacts/linux-unpacked/omni-panel"),
+    linux: resolve(ROOT, "artifacts/linux-unpacked/omni_panel"),
 };
 const PACKAGED_EXE = EXE_BY_PLATFORM[process.platform];
 
@@ -143,9 +143,12 @@ test.describe("packaged binary smoke", () => {
             const pageErrors: Error[] = [];
             app.page.on("pageerror", (err) => pageErrors.push(err));
 
-            await expect(app.page.locator(".app-title").first()).toContainText("Omni Panel", {
-                timeout: 15_000,
-            });
+            await expect(app.page.locator('[data-testid="app-title"]').first()).toContainText(
+                "Omni Panel",
+                {
+                    timeout: 15_000,
+                },
+            );
             expect(pageErrors).toEqual([]);
         } finally {
             await closePackagedApp(app);
@@ -157,7 +160,7 @@ test.describe("packaged binary smoke", () => {
 
         const app = await launchPackagedApp();
         try {
-            const providerNav = app.page.locator(".tabs-wrap");
+            const providerNav = app.page.locator('[data-testid="popup-tabs-wrap"]');
             await expect(providerNav.getByRole("button", { name: /总览/ })).toBeVisible({
                 timeout: 15_000,
             });
@@ -247,13 +250,16 @@ test.describe("packaged binary smoke", () => {
 
         const app = await launchPackagedApp();
         try {
-            await expect(app.page.locator(".app-title").first()).toContainText("Omni Panel", {
-                timeout: 15_000,
-            });
+            await expect(app.page.locator('[data-testid="app-title"]').first()).toContainText(
+                "Omni Panel",
+                {
+                    timeout: 15_000,
+                },
+            );
 
             const layout = await app.page.evaluate(() => {
-                const root = document.querySelector(".window");
-                const scroll = document.querySelector(".scroll");
+                const root = document.querySelector('[data-popup="live"]');
+                const scroll = document.querySelector('[data-testid="popup-scroll"]');
                 if (!(root instanceof HTMLElement)) throw new Error("Popup root not found");
                 if (!(scroll instanceof HTMLElement))
                     throw new Error("Popup scroll area not found");

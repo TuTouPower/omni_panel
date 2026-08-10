@@ -26,7 +26,6 @@ function make_item(overrides: Partial<UpcomingResetItem> = {}): UpcomingResetIte
 describe("UpcomingResetCard", () => {
     it("renders in the overview-card identity with a draggable grip", () => {
         const on_drag_start = vi.fn();
-        const on_drag_enter = vi.fn();
         const on_drag_over = vi.fn();
         const on_drag_end = vi.fn();
         const { container } = render(
@@ -35,7 +34,6 @@ describe("UpcomingResetCard", () => {
                 onSelectProvider={vi.fn()}
                 expanded
                 onDragStart={on_drag_start}
-                onDragEnter={on_drag_enter}
                 onDragOver={on_drag_over}
                 onDragEnd={on_drag_end}
             />,
@@ -54,7 +52,6 @@ describe("UpcomingResetCard", () => {
         fireEvent.dragEnd(card);
 
         expect(on_drag_start).toHaveBeenCalledTimes(1);
-        expect(on_drag_enter).toHaveBeenCalledTimes(1);
         expect(on_drag_over).toHaveBeenCalledTimes(1);
         expect(on_drag_end).toHaveBeenCalledTimes(1);
     });
@@ -109,8 +106,14 @@ describe("UpcomingResetCard", () => {
         const row = screen.getByRole("button", { name: /切换到 deepseek/i });
         expect(row).toBeInTheDocument();
         // UpcomingResetRow renders the provider mark and status dot.
-        expect(container.querySelector(".ur-row .vicon")).not.toBeNull();
-        expect(container.querySelector('.ur-row .dot[data-status="warning"]')).not.toBeNull();
+        expect(
+            container.querySelector('[data-testid="ur-row"] [data-testid="vendor-mark"]'),
+        ).not.toBeNull();
+        expect(
+            container.querySelector(
+                '[data-testid="ur-row"] [data-testid="status-dot"][data-status="warning"]',
+            ),
+        ).not.toBeNull();
         // Account label and metric label are both visible.
         expect(screen.getByText(item.accountLabel)).toBeInTheDocument();
         expect(screen.getByText(item.metricLabel)).toBeInTheDocument();
@@ -133,15 +136,16 @@ describe("UpcomingResetCard", () => {
             />,
         );
 
-        const dots = container.querySelectorAll(".ur-row .dot");
+        const dots = container.querySelectorAll(
+            '[data-testid="ur-row"] [data-testid="status-dot"]',
+        );
         expect(dots).toHaveLength(4);
-        expect(dots[0]?.classList.contains("red")).toBe(true);
-        expect(dots[1]?.classList.contains("amber")).toBe(true);
-        expect(dots[2]?.classList.contains("green")).toBe(true);
-        // unknown → bare .dot, no color class
-        expect(dots[3]?.classList.contains("red")).toBe(false);
-        expect(dots[3]?.classList.contains("amber")).toBe(false);
-        expect(dots[3]?.classList.contains("green")).toBe(false);
+        expect(dots[0]?.getAttribute("data-status")).toBe("critical");
+        expect(dots[1]?.getAttribute("data-status")).toBe("warning");
+        expect(dots[2]?.getAttribute("data-status")).toBe("normal");
+        // unknown → neutral 点，无风险色
+        expect(dots[3]?.getAttribute("data-status")).toBe("unknown");
+        expect(dots[3]?.className).toContain("bg-[var(--color-on-surface-muted)]");
     });
 
     it("hides account label when desensitizeRemarks is on", () => {

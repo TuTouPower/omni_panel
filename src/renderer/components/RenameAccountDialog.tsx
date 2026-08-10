@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Button } from "./ui/Button";
+import { Dialog } from "./ui/Dialog";
+import { Input } from "./ui/Input";
 import { Icon } from "./Icon";
 
 interface RenameAccountDialogProps {
@@ -30,62 +33,72 @@ export function RenameAccountDialog({
     const changed = trimmed !== current_label.trim();
 
     return (
-        <div className="acct-dialog-scrim" onMouseDown={on_close}>
-            <div
-                className="acct-dialog"
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                }}
-                role="dialog"
-                aria-modal="true"
-            >
-                <div className="ad-head">
-                    <div className="ad-htext">
-                        <div className="ad-title">编辑备注</div>
-                        <div className="ad-sub mono">{account_id}</div>
+        <Dialog
+            open
+            onClose={on_close}
+            ariaLabel="编辑备注"
+            title={
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="min-w-0">
+                        <div className="text-title-sm font-semibold">编辑备注</div>
+                        <div className="mt-0.5 truncate font-[var(--font-code-md)] text-body-sm text-[var(--color-on-surface-muted)]">
+                            {account_id}
+                        </div>
                     </div>
-                    <button className="ad-close" onClick={on_close} title="关闭" type="button">
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="ml-auto h-8 w-8 shrink-0 p-0"
+                        onClick={on_close}
+                        title="关闭"
+                        aria-label="关闭"
+                    >
                         <Icon name="close" size={17} strokeWidth={2} />
-                    </button>
+                    </Button>
                 </div>
-                <div className="ad-body">
-                    <div className="ad-field">
-                        <label className="ad-label" htmlFor="rename-input">
-                            备注<span className="ad-opt">显示用</span>
-                        </label>
-                        <input
-                            id="rename-input"
-                            className="ad-input"
-                            spellCheck={false}
-                            autoCorrect="off"
-                            autoCapitalize="off"
-                            value={value}
-                            autoFocus
-                            onChange={(e) => {
-                                set_value(e.target.value);
-                            }}
-                            placeholder="例如：工作账号"
-                        />
-                    </div>
-                </div>
-                <div className="ad-foot">
-                    <div className="ad-foot-r">
-                        <button className="ad-btn ghost" type="button" onClick={on_close}>
-                            取消
-                        </button>
-                        <button
-                            className={"ad-btn primary" + (changed ? "" : " disabled")}
-                            type="button"
-                            disabled={!changed}
-                            onClick={() => {
-                                on_save(trimmed);
-                            }}
-                        >
-                            保存
-                        </button>
-                    </div>
-                </div>
+            }
+            footer={
+                <>
+                    <Button variant="ghost" size="sm" type="button" onClick={on_close}>
+                        取消
+                    </Button>
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                        disabled={!changed}
+                        onClick={() => {
+                            on_save(trimmed);
+                        }}
+                    >
+                        保存
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-1.5">
+                <label
+                    className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                    htmlFor="rename-input"
+                >
+                    备注
+                    <span className="ml-1 font-normal text-[var(--color-on-surface-muted)]">
+                        显示用
+                    </span>
+                </label>
+                <Input
+                    id="rename-input"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    value={value}
+                    autoFocus
+                    onChange={(e) => {
+                        set_value(e.target.value);
+                    }}
+                    placeholder="例如：工作账号"
+                />
             </div>
-        </div>
+        </Dialog>
     );
 }

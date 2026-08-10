@@ -42,9 +42,9 @@ describe("PopupView", () => {
         render(<PopupView />);
 
         await waitFor(() => {
-            expect(document.querySelector(".tb-time")).not.toBeNull();
+            expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
-        expect(document.querySelector(".tb-time")?.textContent).toBeTruthy();
+        expect(document.querySelector('[data-testid="popup-time"]')?.textContent).toBeTruthy();
         expect(document.querySelector(".statusbar")).toBeNull();
     });
 
@@ -341,7 +341,7 @@ describe("PopupView", () => {
         session_history_open.mockClear();
         render(<PopupView />);
         await waitFor(() => {
-            expect(document.querySelector(".tb-time")).not.toBeNull();
+            expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
         const btn = screen.getByRole("button", { name: "会话历史" });
         fireEvent.click(btn);
@@ -352,7 +352,7 @@ describe("PopupView", () => {
         token_stats_open.mockClear();
         render(<PopupView />);
         await waitFor(() => {
-            expect(document.querySelector(".tb-time")).not.toBeNull();
+            expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
         const btn = screen.getByRole("button", { name: "代理面板" });
         fireEvent.click(btn);
@@ -364,7 +364,7 @@ describe("PopupView", () => {
         try {
             render(<PopupView />);
             await waitFor(() => {
-                expect(document.querySelector(".tb-time")).not.toBeNull();
+                expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
             });
             expect(screen.queryByRole("button", { name: "会话历史" })).toBeNull();
         } finally {

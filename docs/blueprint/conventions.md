@@ -176,6 +176,12 @@ note: ""
 - 连接器脚本沙箱内无 `fetch/require/fs/process/timer`，只能用注入的 `ctx.http` / `ctx.files` / `ctx.params` / `ctx.log`。
 - 渲染进程无 `fs/child_process/ipcRenderer` 直连，只调 `window.usageboard.*` 白名单。
 
+### SSE 事件命名
+
+- LocalAPI 的事件流统一使用 `/v1/events`。
+- 未命名的 `message` 事件保留给既有 runtime 状态消息；跨模块新增事件使用小写命名事件，不把事件类型塞入 payload 字段替代事件名。
+- `config` 事件携带 JSON 配置快照，`theme` 事件携带 JSON 布尔值；事件 payload 必须保持可独立解析，bridge 对格式错误帧忽略并继续维持连接。
+
 ## 写一个新连接器（适配器步骤）
 
 1. 建 `connectors/{id}/manifest.json`，按 `src/shared/schemas/manifest.ts` 的 `manifest_schema`（`.strict()`）填：`id` / `provider`（必须在 `connectorProviderSchema` 白名单）/ `capabilities` / `parameters` / `endpoints` / 能力配置（`poll`/`local`/`session`/`observe`）。

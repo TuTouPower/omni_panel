@@ -154,8 +154,7 @@ export function format_tokens(n: number): string {
     return String(n);
 }
 
-/** source → rail agent 色左条的 CSS 变量名。agent_id 归一到 demo 变量名
- *  （claude_code→claude、kimi_code→kimi），与 markdown.agent_slug 展示口径一致。 */
+/** source → VendorMark id。agent_id 归一到展示口径。 */
 export function vendor_id_for_source(source: string): string {
     if (source === "claude_code") return "claude";
     if (source === "kimi_code") return "kimi";
@@ -165,12 +164,14 @@ export function vendor_id_for_source(source: string): string {
 }
 
 const AGENT_COLOR_VAR: Record<string, string> = {
-    claude_code: "--agent-claude",
-    opencode: "--agent-opencode",
-    kimi_code: "--agent-kimi",
-    grok: "--agent-grok",
+    claude_code: "--color-agent-claude",
+    opencode: "--color-agent-opencode",
+    kimi_code: "--color-agent-kimi",
+    grok: "--color-agent-grok",
 };
 
+/** 返回当前主题下 agent 识别色；未知来源回退到全局 primary。 */
 export function agent_accent(source: string): string {
-    return `var(${AGENT_COLOR_VAR[source] ?? "--agent-opencode"}, var(--accent-lime))`;
+    const color_var = AGENT_COLOR_VAR[source];
+    return color_var === undefined ? "var(--color-primary)" : `var(${color_var})`;
 }

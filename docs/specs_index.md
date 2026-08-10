@@ -14,60 +14,65 @@
 
 ## spec 清单
 
-| slug                                 | 验证方式      | task 清单                                                                                         | 最后固化时间 |
-| ------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------- | ------------ |
-| add-account-catalog                  | API           | t121                                                                                              | 2026-07-26   |
-| ai-cli-token-stats-api               | API           | 拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204                   | 2026-08-04   |
-| ai-cli-token-stats-desktop           | Desktop       | 拆自 ai-cli-token-stats（t037），t114，t165，t166，t167                                           | 2026-07-31   |
-| ai-cli-token-stats-ui                | Web           | 拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230 | 2026-08-06   |
-| tokenstats-performance-baseline      | API           | t189                                                                                              | 2026-08-02   |
-| config-store                         | API           | 迁移自 omni_powers，t038/t041/t105/t111，t195                                                     | 2026-08-03   |
-| config_fallback_p0_protection        | API           | t111                                                                                              | 2026-07-25   |
-| connector-auth                       | API           | t107, t112, t159                                                                                  | 2026-07-28   |
-| connector-cpa-runtime                | API           | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
-| connector-cpa-ui                     | Web           | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
-| connector-direct                     | API           | 迁移自 omni_powers，t039, t159, t160                                                              | 2026-07-29   |
-| connector-runtime                    | API           | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
-| connector-session                    | Desktop       | 迁移自 omni_powers，t098                                                                          | 2026-07-24   |
-| connector-user-scripts-entry         | Desktop       | t094                                                                                              | 2026-07-24   |
-| connector-user-scripts               | Desktop       | t095                                                                                              | 2026-07-24   |
-| ipc-api                              | API           | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
-| ipc-electron                         | Desktop       | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
-| log_rotation                         | Desktop       | t154                                                                                              | 2026-07-27   |
-| observation-store                    | API           | 迁移自 omni_powers，t096，t174，t207，t214，t208                                                  | 2026-08-05   |
-| opencode_go_html_scrape              | API           | t115                                                                                              | 2026-07-26   |
-| platform-services-api                | API           | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
-| platform-services-electron           | Desktop       | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
-| scheduler                            | API           | 迁移自 omni_powers，t039，t155                                                                    | 2026-07-27   |
-| secret-vault                         | API           | 迁移自 omni_powers，t045，t195                                                                    | 2026-08-03   |
-| ui-views-web                         | Web           | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
-| design-tokens-foundation             | Desktop       | t268                                                                                              | 2026-08-09   |
-| ui-component-library                 | Desktop       | t269                                                                                              | 2026-08-09   |
-| ui-views-desktop                     | Desktop       | 拆自 ui-views（t037），t153                                                                       | 2026-07-27   |
-| cli-mode                             | Desktop       | t275                                                                                              | 2026-08-09   |
-| vendor-forms-oauth-weblogin          | Web           | t109                                                                                              | 2026-07-25   |
-| fix_add_account_wiring               | Desktop       | t110                                                                                              | 2026-07-25   |
-| web-panel                            | Web           | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
-| window-management                    | Desktop       | 迁移自 omni_powers，t099，t194                                                                    | 2026-08-03   |
-| device_login_full_url                | Desktop       | t156                                                                                              | 2026-07-27   |
-| move_session_meta_to_lib             | Web           | t124                                                                                              | 2026-07-26   |
-| extract_oauth_helpers                | API           | t127                                                                                              | 2026-07-26   |
-| fix_grok_oauth_binding_billing_parse | API + Desktop | t159                                                                                              | 2026-07-29   |
-| fix_grok_zero_percent_omission       | API + Desktop | t160                                                                                              | 2026-07-29   |
-| relogin-instance-routing             | Web           | t158                                                                                              | 2026-07-27   |
-| classify_collect_failure             | API           | t172                                                                                              | 2026-07-31   |
-| kimi_oauth_concurrency               | API           | t150                                                                                              | 2026-07-26   |
-| unify_account_auth_forms             | Web           | t157                                                                                              | 2026-07-27   |
-| session-history-window               | Desktop       | t211，t212，t213                                                                                  | 2026-08-05   |
-| session-shell                        | Desktop       | t223，t224，t245                                                                                  | 2026-08-07   |
-| workspace                            | Desktop       | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263                                  | 2026-08-08   |
-| draggable_provider_tabs              | Web           | t242                                                                                              | 2026-08-07   |
-| renderer-bundle-code-split           | Web+Desktop   | t249                                                                                              | 2026-08-07   |
-| session-path-index                   | Desktop       | t254，t264                                                                                        | 2026-08-08   |
-| session-summary-head-read            | Desktop       | t255                                                                                              | 2026-08-07   |
-| session-first-open-main-unblock      | Desktop       | t256                                                                                              | 2026-08-08   |
-| usage-panel-selection-persist        | Web+Desktop   | t250                                                                                              | 2026-08-08   |
-| panel-window-bounds-persist          | Desktop       | t251, t262                                                                                        | 2026-08-08   |
-| session-pane-display-adjust          | Web+Desktop   | t257                                                                                              | 2026-08-08   |
+| slug                                 | 验证方式            | task 清单                                                                                         | 最后固化时间 |
+| ------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------- | ------------ |
+| add-account-catalog                  | API                 | t121                                                                                              | 2026-07-26   |
+| ai-cli-token-stats-api               | API                 | 拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204                   | 2026-08-04   |
+| ai-cli-token-stats-desktop           | Desktop             | 拆自 ai-cli-token-stats（t037），t114，t165，t166，t167                                           | 2026-07-31   |
+| ai-cli-token-stats-ui                | Web                 | 拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230 | 2026-08-06   |
+| tokenstats-performance-baseline      | API                 | t189                                                                                              | 2026-08-02   |
+| config-store                         | API                 | 迁移自 omni_powers，t038/t041/t105/t111，t195                                                     | 2026-08-03   |
+| config_fallback_p0_protection        | API                 | t111                                                                                              | 2026-07-25   |
+| connector-auth                       | API                 | t107, t112, t159                                                                                  | 2026-07-28   |
+| connector-cpa-runtime                | API                 | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
+| connector-cpa-ui                     | Web                 | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
+| connector-direct                     | API                 | 迁移自 omni_powers，t039, t159, t160                                                              | 2026-07-29   |
+| connector-runtime                    | API                 | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
+| connector-session                    | Desktop             | 迁移自 omni_powers，t098                                                                          | 2026-07-24   |
+| connector-user-scripts-entry         | Desktop             | t094                                                                                              | 2026-07-24   |
+| connector-user-scripts               | Desktop             | t095                                                                                              | 2026-07-24   |
+| ipc-api                              | API                 | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
+| ipc-electron                         | Desktop             | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
+| log_rotation                         | Desktop             | t154                                                                                              | 2026-07-27   |
+| observation-store                    | API                 | 迁移自 omni_powers，t096，t174，t207，t214，t208                                                  | 2026-08-05   |
+| opencode_go_html_scrape              | API                 | t115                                                                                              | 2026-07-26   |
+| platform-services-api                | API                 | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
+| platform-services-electron           | Desktop             | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
+| scheduler                            | API                 | 迁移自 omni_powers，t039，t155                                                                    | 2026-07-27   |
+| secret-vault                         | API                 | 迁移自 omni_powers，t045，t195                                                                    | 2026-08-03   |
+| settings_design_migration            | Web+Desktop         | 设置窗口统一设计系统、组件与语义状态                                                              | 2026-08-09   |
+| agent_window_design_migration        | Web+Desktop         | Agent 统计窗口统一设计系统、组件与语义 token                                                      | 2026-08-09   |
+| session_window_design_migration      | Web+Desktop         | 会话历史窗口统一设计系统、组件与语义 token                                                        | 2026-08-09   |
+| ui-views-web                         | Web                 | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
+| design-tokens-foundation             | Desktop             | t268                                                                                              | 2026-08-09   |
+| ui-component-library                 | Desktop             | t269                                                                                              | 2026-08-09   |
+| legacy_css_cleanup                   | Web+Desktop         | t274                                                                                              | 2026-08-09   |
+| ui-views-desktop                     | Desktop             | 拆自 ui-views（t037），t153                                                                       | 2026-07-27   |
+| cli-mode                             | Desktop             | t275                                                                                              | 2026-08-09   |
+| vendor-forms-oauth-weblogin          | Web                 | t109                                                                                              | 2026-07-25   |
+| fix_add_account_wiring               | Desktop             | t110                                                                                              | 2026-07-25   |
+| web-panel                            | Web                 | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
+| web_config_parity                    | API + Web + Desktop | t277                                                                                              | 2026-08-10   |
+| window-management                    | Desktop             | 迁移自 omni_powers，t099，t194                                                                    | 2026-08-03   |
+| device_login_full_url                | Desktop             | t156                                                                                              | 2026-07-27   |
+| move_session_meta_to_lib             | Web                 | t124                                                                                              | 2026-07-26   |
+| extract_oauth_helpers                | API                 | t127                                                                                              | 2026-07-26   |
+| fix_grok_oauth_binding_billing_parse | API + Desktop       | t159                                                                                              | 2026-07-29   |
+| fix_grok_zero_percent_omission       | API + Desktop       | t160                                                                                              | 2026-07-29   |
+| relogin-instance-routing             | Web                 | t158                                                                                              | 2026-07-27   |
+| classify_collect_failure             | API                 | t172                                                                                              | 2026-07-31   |
+| kimi_oauth_concurrency               | API                 | t150                                                                                              | 2026-07-26   |
+| unify_account_auth_forms             | Web                 | t157                                                                                              | 2026-07-27   |
+| session-history-window               | Desktop             | t211，t212，t213                                                                                  | 2026-08-05   |
+| session-shell                        | Desktop             | t223，t224，t245                                                                                  | 2026-08-07   |
+| workspace                            | Desktop             | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263                                  | 2026-08-08   |
+| draggable_provider_tabs              | Web                 | t242                                                                                              | 2026-08-07   |
+| renderer-bundle-code-split           | Web+Desktop         | t249                                                                                              | 2026-08-07   |
+| session-path-index                   | Desktop             | t254，t264                                                                                        | 2026-08-08   |
+| session-summary-head-read            | Desktop             | t255                                                                                              | 2026-08-07   |
+| session-first-open-main-unblock      | Desktop             | t256                                                                                              | 2026-08-08   |
+| usage-panel-selection-persist        | Web+Desktop         | t250                                                                                              | 2026-08-08   |
+| panel-window-bounds-persist          | Desktop             | t251, t262                                                                                        | 2026-08-08   |
+| session-pane-display-adjust          | Web+Desktop         | t257                                                                                              | 2026-08-08   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

@@ -55,6 +55,12 @@ function percent(used: number, limit: number | null): number {
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
+const GRID_THIN = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-1.5";
+const GRID_CAPSULE = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-1.5";
+
+const META_CLS =
+    "min-w-0 whitespace-nowrap text-right text-[12px] tabular-nums text-[var(--color-on-surface-muted)]";
+
 export const UsageBarRow = memo(function UsageBarRow({
     period,
     index,
@@ -95,27 +101,51 @@ export const UsageBarRow = memo(function UsageBarRow({
     const reset_time =
         !has_value || is_ratio || !period.resetAt ? "" : format_reset_time(period.resetAt);
     const { date, clock } = split_reset_time(reset_time);
+    const is_capsule = barStyle === "capsule";
 
     return (
         <div
-            className={`bar-row ${is_ratio ? "frac" : ""} ${barStyle === "capsule" ? "capsule" : ""}`}
+            className={is_capsule ? GRID_CAPSULE : GRID_THIN}
+            data-testid="bar-row"
+            data-variant={is_capsule ? "capsule" : "thin"}
+            data-ratio={is_ratio ? "true" : undefined}
         >
-            <span className="bar-lbl" title={label}>
+            <span
+                className="min-w-0 truncate text-[12.5px] text-[var(--color-on-surface-variant)]"
+                title={label}
+                data-testid="bar-lbl"
+            >
                 {label}
             </span>
-            <div className="track" style={track_style}>
+            <div
+                className={
+                    "relative overflow-hidden rounded-full " +
+                    (is_capsule
+                        ? "h-[22px] bg-[color-mix(in_srgb,var(--bar-fill)_16%,transparent)] isolate"
+                        : "h-1.5 bg-[var(--color-surface-raised)]")
+                }
+                data-testid="bar-track"
+                style={track_style}
+            >
                 <div
-                    className="fill"
+                    className="h-full rounded-full transition-[width] duration-[500ms] ease-[cubic-bezier(0.3,0.8,0.4,1)]"
+                    data-testid="bar-fill"
                     style={{
                         width: `${String(pct)}%`,
                         background: fill_color,
                     }}
                 />
-                {barStyle === "capsule" && (
+                {is_capsule && (
                     <>
-                        <span className="bar-capsule-value bar-capsule-value-dark">{value}</span>
                         <span
-                            className="bar-capsule-value bar-capsule-value-light"
+                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-bold tabular-nums text-[var(--color-on-surface)]"
+                            data-testid="bar-capsule-value-dark"
+                        >
+                            {value}
+                        </span>
+                        <span
+                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-bold tabular-nums text-white"
+                            data-testid="bar-capsule-value-light"
                             style={{ clipPath: `inset(0 ${String(100 - pct)}% 0 0)` }}
                         >
                             {value}
@@ -123,15 +153,27 @@ export const UsageBarRow = memo(function UsageBarRow({
                     </>
                 )}
             </div>
-            {barStyle === "thin" && <span className="bar-pct">{value}</span>}
-            <span className="bar-reset">{date}</span>
-            <span className="bar-clock">{clock}</span>
+            {!is_capsule && (
+                <span
+                    className="min-w-0 whitespace-nowrap text-right text-[12.5px] font-semibold tabular-nums text-[var(--color-on-surface)]"
+                    data-testid="bar-pct"
+                >
+                    {value}
+                </span>
+            )}
+            <span className={META_CLS} data-testid="bar-reset">
+                {date}
+            </span>
+            <span className={META_CLS} data-testid="bar-clock">
+                {clock}
+            </span>
             {on_toggle_watched && (
                 <button
-                    className="sp-ic bar-watch"
+                    className="inline-flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-[var(--color-on-surface-muted)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)]"
                     title="监控该数据标签的即将重置"
                     aria-label="监控该数据标签的即将重置"
                     aria-pressed={watched}
+                    data-testid="bar-watch"
                     onClick={on_toggle_watched}
                 >
                     <Icon name="bell" size={15} style={{ opacity: watched ? 1 : 0.5 }} />
@@ -170,12 +212,19 @@ export function AccountUsageRow({
 }: AccountUsageRowProps) {
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
     return (
-        <div className="acct-item">
-            <div className="ai-head">
+        <div className="border-t-[0.5px] border-t-[var(--color-hairline)] pb-1 pt-3.5 first:border-t-0 first:pt-0">
+            <div className="mb-2.5 flex items-center gap-2">
                 {beforeName}
-                <span className="ai-dot" />
-                {display_label ? <span className="ai-name">{display_label}</span> : null}
-                <span className="ai-time">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-success)_16%,transparent)]" />
+                {display_label ? (
+                    <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--color-on-surface)]">
+                        {display_label}
+                    </span>
+                ) : null}
+                <span
+                    className="ml-auto shrink-0 text-[11.5px] text-[var(--color-on-surface-muted)]"
+                    data-testid="ai-time"
+                >
                     {/* t174: 同 ProviderAccountRow——相对时间取 per-账号 observedAt */}
                     {account.observedAt
                         ? relative_time(account.observedAt)
@@ -185,7 +234,7 @@ export function AccountUsageRow({
                 </span>
                 {afterHeader}
             </div>
-            <div className="ai-bars">
+            <div className={"flex flex-col " + (barStyle === "capsule" ? "gap-[7px]" : "gap-2")}>
                 {account.periods.map((period, index) => (
                     <UsageBarRow
                         key={period.id}

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { agent_friendly, agent_slug, format_date } from "../../lib/session-history/markdown";
 import { format_tokens } from "../../lib/workspace/slots";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
+import { Input } from "../ui/Input";
 
 interface SessionPickerModalProps {
     readonly target_index: number;
@@ -67,100 +70,107 @@ export function SessionPickerModal({
     );
 
     return (
-        <div className="ws-modal-scrim" onClick={on_close}>
-            <div
-                className="ws-modal"
-                role="dialog"
-                aria-label="选择会话"
-                onClick={(e) => {
-                    e.stopPropagation();
-                }}
-            >
-                <div className="ws-modal-head">
-                    <span className="ws-modal-title">选择会话装入槽位 {target_index + 1}</span>
-                    <button
-                        type="button"
-                        className="ws-modal-close"
+        <Dialog
+            open
+            onClose={on_close}
+            width={420}
+            ariaLabel="选择会话"
+            title={
+                <div className="history-modal-title flex items-center justify-between gap-2">
+                    <span>选择会话装入槽位 {target_index + 1}</span>
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="!h-7 !w-7 !p-0 text-title-sm"
                         aria-label="关闭"
                         onClick={on_close}
                     >
                         ×
-                    </button>
+                    </Button>
                 </div>
-                <div className="ws-picker-body">
-                    <input
-                        className="ws-picker-search"
-                        placeholder="搜索标题 / 路径 / 会话 ID"
-                        value={search}
-                        onChange={(e) => {
-                            set_search(e.target.value);
+            }
+        >
+            <div className="history-picker-body flex max-h-[calc(76vh-110px)] min-h-0 flex-col gap-2.5">
+                <Input
+                    className="history-picker-search"
+                    placeholder="搜索标题 / 路径 / 会话 ID"
+                    value={search}
+                    onChange={(e) => {
+                        set_search(e.target.value);
+                    }}
+                />
+                <div className="history-picker-filters flex flex-wrap gap-1.5">
+                    <Button
+                        variant={agent === null ? "primary" : "secondary"}
+                        size="sm"
+                        className="history-picker-filter !h-7 !rounded-full !px-2.5"
+                        onClick={() => {
+                            set_agent(null);
                         }}
-                    />
-                    <div className="ws-picker-agents">
-                        <button
-                            type="button"
-                            className={"ws-picker-agent" + (agent === null ? " on" : "")}
+                    >
+                        全部 {String(sessions.length)}
+                    </Button>
+                    {sources.map(([source, count]) => (
+                        <Button
+                            variant={agent === source ? "primary" : "secondary"}
+                            size="sm"
+                            className="history-picker-filter !h-7 !rounded-full !px-2.5"
+                            key={source}
                             onClick={() => {
-                                set_agent(null);
+                                set_agent(source);
                             }}
                         >
-                            全部 {String(sessions.length)}
-                        </button>
-                        {sources.map(([source, count]) => (
+                            {agent_friendly(source)} {String(count)}
+                        </Button>
+                    ))}
+                </div>
+                <div className="history-picker-list flex min-h-[200px] max-h-[46vh] min-w-0 flex-col gap-1 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                        <div className="history-picker-empty px-4 py-8 text-center text-body-md text-[var(--color-on-surface-muted)]">
+                            没有匹配的会话
+                        </div>
+                    ) : (
+                        filtered.map((s) => (
                             <button
                                 type="button"
-                                key={source}
-                                className={"ws-picker-agent" + (agent === source ? " on" : "")}
+                                key={`${s.source}|${s.env}|${s.id}`}
+                                className="history-picker-row flex min-w-0 flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                 onClick={() => {
-                                    set_agent(source);
+                                    open(s);
                                 }}
                             >
-                                {agent_friendly(source)} {String(count)}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="ws-picker-list">
-                        {filtered.length === 0 ? (
-                            <div className="ws-picker-empty">没有匹配的会话</div>
-                        ) : (
-                            filtered.map((s) => (
-                                <button
-                                    type="button"
-                                    key={`${s.source}|${s.env}|${s.id}`}
-                                    className="ws-picker-row"
-                                    onClick={() => {
-                                        open(s);
-                                    }}
-                                >
-                                    <span className="ws-picker-title">
-                                        {s.title ?? s.id}
-                                        {open_session_ids.has(s.id) && (
-                                            <span className="ws-picker-open">已打开</span>
+                                <span className="history-picker-row-title flex min-w-0 items-center gap-2 truncate text-body-md font-medium text-[var(--color-on-surface)]">
+                                    <span className="min-w-0 truncate">{s.title ?? s.id}</span>
+                                    {open_session_ids.has(s.id) && (
+                                        <span className="history-picker-open shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-label-caps font-semibold text-[var(--color-primary)]">
+                                            已打开
+                                        </span>
+                                    )}
+                                </span>
+                                <span className="history-picker-meta flex min-w-0 items-center gap-2.5 text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <span className="history-picker-source shrink-0">
+                                        {agent_slug(s.source)}
+                                    </span>
+                                    <span className="history-picker-dir min-w-0 truncate">
+                                        {s.directory ?? "—"}
+                                    </span>
+                                    <span className="history-picker-date shrink-0">
+                                        {format_date(s.ended_at)}
+                                    </span>
+                                    <span className="history-picker-tokens ml-auto shrink-0">
+                                        {format_tokens(
+                                            s.input_tokens +
+                                                s.output_tokens +
+                                                s.cache_read_tokens +
+                                                s.cache_write_tokens,
                                         )}
                                     </span>
-                                    <span className="ws-picker-meta">
-                                        <span className="ws-picker-agent">
-                                            {agent_slug(s.source)}
-                                        </span>
-                                        <span className="ws-picker-dir">{s.directory ?? "—"}</span>
-                                        <span className="ws-picker-date">
-                                            {format_date(s.ended_at)}
-                                        </span>
-                                        <span className="ws-picker-tokens">
-                                            {format_tokens(
-                                                s.input_tokens +
-                                                    s.output_tokens +
-                                                    s.cache_read_tokens +
-                                                    s.cache_write_tokens,
-                                            )}
-                                        </span>
-                                    </span>
-                                </button>
-                            ))
-                        )}
-                    </div>
+                                </span>
+                            </button>
+                        ))
+                    )}
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

@@ -1,5 +1,0 @@
-/* t224 工作台（槽位模型）样式。token 继承自 .session-shell（demo 体系）。 */
-@import "./workspace/workspace-base.css";
-@import "./workspace/workspace-rail.css";
-@import "./workspace/workspace-grid.css";
-@import "./workspace/workspace-modal.css";

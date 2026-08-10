@@ -16,14 +16,38 @@ import {
     tokenStatsDashboardSessionsQuerySchema,
     type TokenStatsSessionFilters,
 } from "../../../shared/types/token-stats";
-import { is_test_build } from "../paths";
+import { is_test_build, get_logs_dir } from "../paths";
 import {
     handleConfigGet,
     handleConfigGetSecrets,
     handleConfigSave,
     handleConfigSaveSecrets,
+    handleConfigDuplicate,
+    handleConfigCreateInstance,
+    handleConfigExportData,
+    handleConfigImportData,
 } from "../../ipc/config-ipc";
 import type { ConfigIpcDeps } from "../../ipc/config-ipc";
+import { handleCookieLoginStatus, startCookieLogin, type AuthIpcDeps } from "../../ipc/auth-ipc";
+import { handleSessionLogin, type SessionIpcDeps } from "../../ipc/session-ipc";
+import {
+    handle_grok_login_cancel,
+    handle_grok_login_poll,
+    handle_grok_login_start,
+    handle_grok_login_status,
+    handle_grok_logout,
+    handle_grok_refresh,
+    type GrokAuthIpcDeps,
+} from "../../ipc/grok_auth_ipc";
+import {
+    handle_kimi_login_cancel,
+    handle_kimi_login_poll,
+    handle_kimi_login_start,
+    handle_kimi_login_status,
+    handle_kimi_logout,
+    handle_kimi_refresh,
+    type KimiAuthIpcDeps,
+} from "../../ipc/kimi_auth_ipc";
 import {
     handleConnectorGetState,
     handleConnectorList,
@@ -33,7 +57,8 @@ import {
 import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
 import type { ConnectorSnapshotState } from "../scheduler/types";
-import type { IpcResult } from "../../../shared/types/ipc";
+import type { IpcResult, SessionLoginRequest } from "../../../shared/types/ipc";
+import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
 import type {
@@ -82,6 +107,8 @@ export interface LocalAPIServer {
     stop(): Promise<void>;
     get_port(): number;
     get_token(): string;
+    publish_config_change(config: AppConfiguration): void;
+    publish_theme_change(is_dark: boolean): void;
 }
 
 /** t259: 会话历史 HTTP 桥依赖（映射桌面 session-history-ipc 的 deps）。 */
@@ -91,6 +118,37 @@ export interface SessionHistoryDeps {
     readonly sessions_provider: SessionsProvider;
     readonly locator_paths?: LocatorPaths;
 }
+
+/** t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
+ * 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
+ * SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
+ * service.unsubscribe 双删保持一致。 */
+interface WebSessionSub {
+    readonly source: string;
+    readonly env: Env;
+    readonly session_id: string;
+    readonly client: ServerResponse;
+}
+
+/**
+ * t279 f005：SSE 连接 cleanup 的竞态防护。旧连接 close 可能晚于新连接（同
+ * subscriber_id 重连）注册到达：此时订阅表与 SSE 映射都已指向新 res，旧 res 的
+ * cleanup 必须放弃注销，否则会把新注册的订阅误删或把重挂中的订阅注销。
+ * 返回 true 表示应当继续注销（映射仍指向 closing res）。
+ */
+export function sse_cleanup_should_unsubscribe(
+    subscriber_id: string,
+    closing_res: ServerResponse,
+    subs: ReadonlyMap<string, WebSessionSub>,
+    sse_clients_by_sub: ReadonlyMap<string, ServerResponse>,
+): boolean {
+    if (sse_clients_by_sub.get(subscriber_id) !== closing_res) return false;
+    const sub = subs.get(subscriber_id);
+    if (sub && sub.client !== closing_res) return false;
+    return true;
+}
+
+/** web 订阅方身份：t279 用自增 id 区分同一页面的多个会话订阅（无窗口 webContents 可借）。 */
 
 /**
  * t276: 控制端点依赖（映射 tray 纯 main 动作）。瘦客户端经 local-api 触发，
@@ -102,6 +160,14 @@ export interface ControlDeps {
     readonly resume: () => void;
     readonly restart: () => void;
     readonly quit: () => void;
+}
+
+/** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
+export interface AuthDeps {
+    readonly cookie: AuthIpcDeps;
+    readonly session: SessionIpcDeps;
+    readonly grok: GrokAuthIpcDeps;
+    readonly kimi: KimiAuthIpcDeps;
 }
 
 /** 会话历史批量内容搜索请求（新 `{filters,keyword}` + legacy `{locs,keyword}`）。 */
@@ -138,22 +204,24 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
     });
 }
 
-async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<unknown> {
+type JsonBodyResult = { ok: true; value: unknown } | { ok: false };
+
+async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<JsonBodyResult> {
     try {
-        return JSON.parse((await parse_body(req)).toString("utf8"));
+        return { ok: true, value: JSON.parse((await parse_body(req)).toString("utf8")) };
     } catch (err) {
         if (err instanceof RequestBodyTooLargeError) {
             json_response(res, 413, { error: "Request body too large" });
         } else {
             json_response(res, 400, { error: "Invalid JSON" });
         }
-        return null;
+        return { ok: false };
     }
 }
 
 function send_result<T>(res: ServerResponse, result: IpcResult<T>): void {
     if (result.ok) {
-        json_response(res, 200, result.data);
+        json_response(res, 200, result.data ?? {});
     } else {
         json_response(res, 400, result.error);
     }
@@ -433,28 +501,138 @@ async function handle_session_history_summaries(
     json_response(res, 200, result);
 }
 
-/** t259: 会话历史 HTTP 端点（GET query + POST searchContent/summaries）。 */
+/** t279: web 会话实时订阅——复用 subscription-service watcher，经持有订阅的 SSE 客户端推 `messagesUpdated`。 */
+async function handle_web_session_history_subscribe(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    ctx: {
+        readonly subs: Map<string, WebSessionSub>;
+        readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly write_event: (
+            client: ServerResponse,
+            event: string | undefined,
+            data: unknown,
+        ) => void;
+    },
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const source = body["source"];
+    const env = body["env"];
+    const session_id = body["session_id"];
+    const subscriber_id = body["subscriber_id"];
+    if (
+        typeof source !== "string" ||
+        typeof env !== "string" ||
+        typeof session_id !== "string" ||
+        typeof subscriber_id !== "string" ||
+        !subscriber_id
+    ) {
+        json_response(res, 400, { error: "source, env, session_id and subscriber_id required" });
+        return;
+    }
+    const resolved = resolve_session_file(
+        source as HistorySource,
+        env as Env,
+        session_id,
+        deps.locator_paths,
+    );
+    if (!resolved) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    // 订阅必须挂在真实 SSE 客户端上：on_update 只发给该 client，
+    // client 断开（SSE close）时统一注销，杜绝 watcher 泄漏。
+    const sse_client = ctx.sse_clients_by_sub.get(subscriber_id);
+    if (!sse_client) {
+        json_response(res, 409, { error: "subscriber_id not connected via /v1/events" });
+        return;
+    }
+    const loc = { source, env: env as Env, session_id };
+    ctx.subs.set(subscriber_id, { ...loc, client: sse_client });
+    deps.service.subscribe({
+        ...loc,
+        file_path: resolved.file_path,
+        extractor_kind: resolved.extractor_kind,
+        subscriber_id,
+        on_update: (messages) => {
+            const sub = ctx.subs.get(subscriber_id);
+            if (!sub) return;
+            ctx.write_event(sub.client, "messagesUpdated", {
+                source: loc.source,
+                env: loc.env,
+                session_id: loc.session_id,
+                messages,
+            });
+        },
+    });
+    json_response(res, 200, { subscribed: true, subscriber_id });
+}
+
+/** t279: web 会话订阅注销（按 subscriber_id，只移除该订阅方）。 */
+async function handle_web_session_history_unsubscribe(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    subs: Map<string, WebSessionSub>,
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const subscriber_id = body["subscriber_id"];
+    if (typeof subscriber_id !== "string" || !subscriber_id) {
+        json_response(res, 400, { error: "subscriber_id required" });
+        return;
+    }
+    const sub = subs.get(subscriber_id);
+    subs.delete(subscriber_id);
+    if (sub) {
+        deps.service.unsubscribe(sub.source, sub.env, sub.session_id, subscriber_id);
+    }
+    json_response(res, 200, { unsubscribed: true });
+}
+
+/** t259: 会话历史 HTTP 端点（GET query + POST searchContent/summaries + t279 subscribe/unsubscribe）。 */
 async function handle_web_session_history(
     req: IncomingMessage,
     res: ServerResponse,
     url: URL,
     deps: SessionHistoryDeps,
+    ctx: {
+        readonly subs: Map<string, WebSessionSub>;
+        readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly write_event: (
+            client: ServerResponse,
+            event: string | undefined,
+            data: unknown,
+        ) => void;
+    },
 ): Promise<boolean> {
     if (url.pathname === "/v1/sessionHistory" && req.method === "GET") {
         handle_session_history_query(res, deps, url.searchParams);
         return true;
     }
     if (req.method !== "POST") return false;
+    if (url.pathname === "/v1/sessionHistory/subscribe") {
+        await handle_web_session_history_subscribe(req, res, deps, ctx);
+        return true;
+    }
+    if (url.pathname === "/v1/sessionHistory/unsubscribe") {
+        await handle_web_session_history_unsubscribe(req, res, deps, ctx.subs);
+        return true;
+    }
     if (url.pathname === "/v1/sessionHistory/searchContent") {
         const parsed = await read_json_body(req, res);
-        if (parsed === null) return true;
-        await handle_session_history_search_content(res, deps, parsed);
+        if (!parsed.ok) return true;
+        await handle_session_history_search_content(res, deps, parsed.value);
         return true;
     }
     if (url.pathname === "/v1/sessionHistory/summaries") {
         const parsed = await read_json_body(req, res);
-        if (parsed === null) return true;
-        await handle_session_history_summaries(res, deps, parsed);
+        if (!parsed.ok) return true;
+        await handle_session_history_summaries(res, deps, parsed.value);
         return true;
     }
     return false;
@@ -538,7 +716,10 @@ export function create_local_api_server(
         connector_deps?: ConnectorIpcDeps;
         session_history_deps?: SessionHistoryDeps;
         control_deps?: ControlDeps;
+        auth_deps?: AuthDeps;
         web_root?: string;
+        /** t279: web 日志导出取当前活跃日志段（对齐桌面 exportCurrentLog 的 userDataPath）。 */
+        user_data_path?: string;
     },
 ): LocalAPIServer {
     const token = generate_token();
@@ -549,12 +730,21 @@ export function create_local_api_server(
     const connector_deps = options?.connector_deps;
     const session_history_deps = options?.session_history_deps;
     const control_deps = options?.control_deps;
+    const auth_deps = options?.auth_deps;
     const web_root = options?.web_root;
+    const user_data_path = options?.user_data_path;
     const env_port = Number(process.env["OMNI_PANEL_PORT"] ?? "");
     const default_port = is_test_build() ? TEST_DEFAULT_PORT : DEFAULT_PORT;
     let port =
         options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);
     let server: ReturnType<typeof createServer> | null = null;
+    const sse_clients = new Set<ServerResponse>();
+    // t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
+    // 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
+    // SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
+    // service.unsubscribe 双删保持一致。
+    const web_session_subs = new Map<string, WebSessionSub>();
+    const sse_client_sub_ids = new Map<string, ServerResponse>();
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
         let parsed: unknown;
@@ -583,6 +773,205 @@ export function create_local_api_server(
         };
         observation_store.insert(observation);
         json_response(res, 200, { status: "ok" });
+    }
+
+    async function handle_web_auth(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: AuthDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/auth/cookieLogin") {
+            if (req.method !== "POST") return false;
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const instance_id = is_record(parsed.value) ? parsed.value["instanceId"] : undefined;
+            if (typeof instance_id !== "string" || !instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            send_result(res, startCookieLogin(deps.cookie, instance_id));
+            return true;
+        }
+
+        if (url.pathname === "/v1/auth/cookieLogin/status") {
+            if (req.method !== "GET") return false;
+            const instance_id = url.searchParams.get("instanceId");
+            if (!instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            send_result(res, await handleCookieLoginStatus(deps.cookie, instance_id));
+            return true;
+        }
+
+        if (
+            (url.pathname === "/v1/session/login" || url.pathname === "/v1/session/refresh") &&
+            req.method === "POST"
+        ) {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            if (!is_record(parsed.value)) {
+                json_response(res, 400, { error: "Invalid session login request" });
+                return true;
+            }
+            const request = parsed.value as unknown as SessionLoginRequest;
+            send_result(res, await handleSessionLogin(deps.session, request));
+            return true;
+        }
+
+        const oauth_match =
+            /^\/v1\/auth\/(grok|kimi)\/(loginStart|loginPoll|loginCancel|loginStatus|logout|refresh)$/.exec(
+                url.pathname,
+            );
+        if (!oauth_match) return false;
+        const namespace = oauth_match[1];
+        const action = oauth_match[2];
+
+        if (action === "loginStatus" && req.method === "GET") {
+            const instance_id = url.searchParams.get("instanceId");
+            if (!instance_id) {
+                json_response(res, 400, { error: "instanceId required" });
+                return true;
+            }
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_status(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_login_status(deps.kimi, instance_id));
+            }
+            return true;
+        }
+
+        if (req.method !== "POST") return false;
+        const parsed = await read_json_body(req, res);
+        if (!parsed.ok) return true;
+        if (!is_record(parsed.value)) {
+            json_response(res, 400, { error: "Invalid OAuth request" });
+            return true;
+        }
+        const body = parsed.value;
+
+        if (action === "loginStart") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_start(deps.grok));
+            } else {
+                send_result(res, await handle_kimi_login_start(deps.kimi));
+            }
+            return true;
+        }
+
+        const instance_id = body["instance_id"];
+        if (typeof instance_id !== "string" || !instance_id) {
+            json_response(res, 400, { error: "instance_id required" });
+            return true;
+        }
+
+        if (action === "loginPoll") {
+            const device_code = body["device_code"];
+            const interval = body["interval"];
+            const expires_at_epoch_ms = body["expires_at_epoch_ms"];
+            if (
+                typeof device_code !== "string" ||
+                typeof interval !== "number" ||
+                !Number.isFinite(interval) ||
+                typeof expires_at_epoch_ms !== "number" ||
+                !Number.isFinite(expires_at_epoch_ms)
+            ) {
+                json_response(res, 400, { error: "Invalid OAuth poll request" });
+                return true;
+            }
+            if (namespace === "grok") {
+                send_result(
+                    res,
+                    await handle_grok_login_poll(
+                        deps.grok,
+                        instance_id,
+                        device_code,
+                        interval,
+                        expires_at_epoch_ms,
+                    ),
+                );
+            } else {
+                send_result(
+                    res,
+                    await handle_kimi_login_poll(
+                        deps.kimi,
+                        instance_id,
+                        device_code,
+                        interval,
+                        expires_at_epoch_ms,
+                    ),
+                );
+            }
+            return true;
+        }
+
+        if (action === "loginCancel") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_login_cancel(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_login_cancel(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        if (action === "logout") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_logout(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_logout(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        if (action === "refresh") {
+            if (namespace === "grok") {
+                send_result(res, await handle_grok_refresh(deps.grok, instance_id));
+            } else {
+                send_result(res, await handle_kimi_refresh(deps.kimi, instance_id));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * t279: GET /v1/logs/export —— web 日志导出。流式输出当前活跃日志段
+     * （对齐桌面 handleLogExport 的 exportCurrentLog：只导出当天 app-<date>.log），
+     * Content-Disposition 触发浏览器下载；文件不存在输出空文件（桌面复制失败同样
+     * 不改变导出语义，返回 200 空档）。
+     */
+    function handle_logs_export(res: ServerResponse): void {
+        if (!user_data_path) {
+            json_response(res, 503, { error: "logs export unavailable" });
+            return;
+        }
+        const log_dir = get_logs_dir(user_data_path);
+        const date = new Date().toISOString().slice(0, 10);
+        const log_file = path.join(log_dir, `app-${date}.log`);
+        const download_name = `omni-panel-log-${date}.log`;
+        fs.stat(log_file, (stat_err, s) => {
+            if (stat_err || !s.isFile()) {
+                // 桌面语义：日志文件不存在也给出空导出（copyFile 会抛错，但此处
+                // web 下载保持 200 空档，浏览器得到空文件不弹错误）。
+                res.writeHead(200, {
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "Content-Disposition": `attachment; filename="${download_name}"`,
+                    "Content-Length": "0",
+                });
+                res.end();
+                return;
+            }
+            // t279 f006：活跃日志段边写边增长，stat 时刻长度不可靠；用 chunked
+            // 传输（不带 Content-Length），避免长度不符导致浏览器截断或报错。
+            res.writeHead(200, {
+                "Content-Type": "text/plain; charset=utf-8",
+                "Content-Disposition": `attachment; filename="${download_name}"`,
+            });
+            const stream = fs.createReadStream(log_file);
+            stream.on("error", () => {
+                res.destroy();
+            });
+            stream.pipe(res);
+        });
     }
 
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
@@ -621,16 +1010,28 @@ export function create_local_api_server(
             }
             if (
                 session_history_deps &&
-                (await handle_web_session_history(req, res, url, session_history_deps))
+                (await handle_web_session_history(req, res, url, session_history_deps, {
+                    subs: web_session_subs,
+                    sse_clients_by_sub: sse_client_sub_ids,
+                    write_event: write_sse_event,
+                }))
             ) {
                 return;
             }
             if (control_deps && handle_web_control(req, res, url, control_deps)) {
                 return;
             }
+            if (auth_deps && (await handle_web_auth(req, res, url, auth_deps))) {
+                return;
+            }
 
             if (url.pathname === "/v1/events" && is_get) {
                 handle_sse(req, res);
+                return;
+            }
+
+            if (url.pathname === "/v1/logs/export" && is_get) {
+                handle_logs_export(res);
                 return;
             }
 
@@ -892,6 +1293,40 @@ export function create_local_api_server(
         url: URL,
         deps: ConfigIpcDeps,
     ): Promise<boolean> {
+        if (url.pathname === "/v1/config/duplicate" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const instance_id = is_record(parsed.value) ? parsed.value["instanceId"] : undefined;
+            send_result(res, await handleConfigDuplicate(deps, instance_id));
+            return true;
+        }
+        if (url.pathname === "/v1/config/createInstance" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const manifest_id = is_record(parsed.value) ? parsed.value["manifestId"] : undefined;
+            send_result(res, await handleConfigCreateInstance(deps, manifest_id));
+            return true;
+        }
+        if (url.pathname === "/v1/config/export" && req.method === "GET") {
+            send_result(
+                res,
+                await handleConfigExportData(deps, {
+                    includeSecrets: url.searchParams.get("includeSecrets") === "true",
+                }),
+            );
+            return true;
+        }
+        if (url.pathname === "/v1/config/import" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            send_result(
+                res,
+                await handleConfigImportData(deps, parsed.value, {
+                    allowEndpointOverrides: false,
+                }),
+            );
+            return true;
+        }
         if (url.pathname === "/v1/config") {
             if (req.method === "GET") {
                 send_result(res, await handleConfigGet(deps));
@@ -899,8 +1334,8 @@ export function create_local_api_server(
             }
             if (req.method === "POST") {
                 const parsed = await read_json_body(req, res);
-                if (parsed === null) return true;
-                send_result(res, await handleConfigSave(deps, parsed));
+                if (!parsed.ok) return true;
+                send_result(res, await handleConfigSave(deps, parsed.value));
                 return true;
             }
             return false;
@@ -917,8 +1352,8 @@ export function create_local_api_server(
             }
             if (req.method === "POST") {
                 const parsed = await read_json_body(req, res);
-                if (parsed === null) return true;
-                send_result(res, await handleConfigSaveSecrets(deps, parsed));
+                if (!parsed.ok) return true;
+                send_result(res, await handleConfigSaveSecrets(deps, parsed.value));
                 return true;
             }
             return false;
@@ -1008,27 +1443,80 @@ export function create_local_api_server(
         }
     }
 
+    function write_sse_event(res: ServerResponse, event: string | undefined, data: unknown): void {
+        if (res.destroyed || res.writableEnded) return;
+        const event_line = event ? `event: ${event}\n` : "";
+        res.write(`${event_line}data: ${JSON.stringify(data)}\n\n`);
+    }
+
+    function publish_sse_event(event: string, data: unknown): void {
+        for (const client of sse_clients) {
+            write_sse_event(client, event, data);
+        }
+    }
+
     function handle_sse(req: IncomingMessage, res: ServerResponse): void {
         const store = connector_deps?.runtimeStore;
         if (!store) {
             json_response(res, 503, { error: "events unavailable" });
             return;
         }
+        // t279: web 会话订阅经 SSE 连接注册——浏览器以 subscriber_id 查询参数打开
+        // 专属事件流，服务端把订阅挂到该连接；连接关闭即逐条注销，防 watcher 泄漏。
+        const subscriber_id = new URL(req.url ?? "/", "http://local").searchParams.get(
+            "subscriberId",
+        );
         res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
         });
         res.flushHeaders();
+        sse_clients.add(res);
+        if (subscriber_id) {
+            sse_client_sub_ids.set(subscriber_id, res);
+        }
         const unsub = store.subscribe({
             onStateChange(instanceId: string, state: ConnectorSnapshotState): void {
-                if (res.destroyed || res.writableEnded) return;
-                const dto = state_to_snapshot_dto(state);
-                res.write(`data: ${JSON.stringify({ instanceId, state: dto })}\n\n`);
+                write_sse_event(res, undefined, {
+                    instanceId,
+                    state: state_to_snapshot_dto(state),
+                });
             },
         });
+        let cleaned = false;
         const cleanup = (): void => {
+            if (cleaned) return;
+            cleaned = true;
+            sse_clients.delete(res);
             unsub();
+            // 该 SSE 连接关闭时清理其持有的全部会话订阅（不依赖 unload 信号）。
+            // t279 f005：重连竞态防护——旧连接 cleanup 可能晚于新连接注册到达，
+            // 必须校验当前映射仍指向本 res（订阅表与 SSE 映射），否则会误删新注册
+            // 的订阅或把重挂中的订阅注销，导致实时推送永久丢失。
+            if (subscriber_id) {
+                if (
+                    !sse_cleanup_should_unsubscribe(
+                        subscriber_id,
+                        res,
+                        web_session_subs,
+                        sse_client_sub_ids,
+                    )
+                ) {
+                    return;
+                }
+                const sub = web_session_subs.get(subscriber_id);
+                web_session_subs.delete(subscriber_id);
+                sse_client_sub_ids.delete(subscriber_id);
+                if (sub) {
+                    session_history_deps?.service.unsubscribe(
+                        sub.source,
+                        sub.env,
+                        sub.session_id,
+                        subscriber_id,
+                    );
+                }
+            }
         };
         req.on("close", cleanup);
         res.on("close", cleanup);
@@ -1075,6 +1563,8 @@ export function create_local_api_server(
         async stop() {
             const active_server = server;
             if (!active_server) return;
+            for (const client of sse_clients) client.end();
+            sse_clients.clear();
             await new Promise<void>((resolve, reject) => {
                 active_server.close((error?: Error) => {
                     if (error) {
@@ -1096,6 +1586,14 @@ export function create_local_api_server(
         // redact before logging or persisting.
         get_token() {
             return token;
+        },
+
+        publish_config_change(config) {
+            publish_sse_event("config", config);
+        },
+
+        publish_theme_change(is_dark) {
+            publish_sse_event("theme", is_dark);
         },
     };
 }

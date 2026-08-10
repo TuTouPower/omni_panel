@@ -94,6 +94,7 @@ export const IPC_CHANNELS = {
     SETTINGS_OPEN_CONNECTORS_DIR: "settings:openConnectorsDir",
 
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
+    AUTH_COOKIE_LOGIN_STATUS: "auth:cookieLoginStatus",
 
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
@@ -236,6 +237,10 @@ export interface ConfigSaveSecretsPayload {
     secrets: Record<string, string>;
 }
 
+export interface ConfigExportOptions {
+    readonly includeSecrets?: boolean;
+}
+
 export interface ConfigExportData {
     readonly formatVersion: 1;
     readonly exportedAt: string;
@@ -259,6 +264,17 @@ export interface SessionLoginRequest {
 export interface SessionLoginResult {
     readonly saved: boolean;
     readonly cookie?: string;
+}
+
+export interface CookieLoginResult {
+    readonly saved?: boolean;
+    readonly started?: boolean;
+}
+
+export interface CookieLoginStatus {
+    readonly in_progress: boolean;
+    readonly saved: boolean;
+    readonly error?: string;
 }
 
 export interface GrokDeviceCodeStart {
@@ -531,7 +547,7 @@ export interface UsageboardApi {
         duplicate(instanceId: string): Promise<{ instanceId: string }>;
         /** t121: create a new instance directly from a manifest id (clears tombstone). */
         createInstance(manifestId: string): Promise<{ instanceId: string }>;
-        export(): Promise<{ saved: boolean }>;
+        export(options?: ConfigExportOptions): Promise<{ saved: boolean }>;
         import(): Promise<{ imported: boolean }>;
     };
     event: {
@@ -588,7 +604,8 @@ export interface UsageboardApi {
         on_autostart_state(callback: (enabled: boolean) => void): () => void;
     };
     auth: {
-        cookieLogin(instanceId: string): Promise<{ saved: boolean }>;
+        cookieLogin(instanceId: string): Promise<CookieLoginResult>;
+        cookieLoginStatus(instanceId: string): Promise<CookieLoginStatus>;
     };
     session: {
         login(request: SessionLoginRequest): Promise<SessionLoginResult>;

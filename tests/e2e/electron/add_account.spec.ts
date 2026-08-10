@@ -35,7 +35,8 @@ test.describe("add account dialog", () => {
 
         await settings_page.getByRole("button", { name: "OpenCode Go" }).click();
         await expect(settings_page.getByRole("button", { name: "网页登录" })).toBeVisible();
-        await expect(settings_page.locator("textarea")).toHaveCount(0);
+        await expect(settings_page.locator('textarea[aria-label="网页登录 Cookie"]')).toBeVisible();
+        await expect(settings_page.getByTestId("web-login-manual-save")).toBeVisible();
     });
 
     test("exa uses service-key + api-key-id form and saves account", async ({ omni }) => {
@@ -54,7 +55,10 @@ test.describe("add account dialog", () => {
 
         await expect(settings_page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 10_000 });
         await expect(
-            settings_page.locator(".acc-row").filter({ hasText: "Exa E2E" }).first(),
+            settings_page
+                .locator('[data-testid="account-row"]')
+                .filter({ hasText: "Exa E2E" })
+                .first(),
         ).toBeVisible({
             timeout: 10_000,
         });
@@ -75,7 +79,10 @@ test.describe("add account dialog", () => {
 
         await expect(settings_page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 10_000 });
         await expect(
-            settings_page.locator(".acc-row").filter({ hasText: "CPA E2E" }).first(),
+            settings_page
+                .locator('[data-testid="account-row"]')
+                .filter({ hasText: "CPA E2E" })
+                .first(),
         ).toBeVisible({ timeout: 10_000 });
     });
 });

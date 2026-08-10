@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
 import { count_stats, sort_sessions, type LibrarySort } from "../../lib/session-library/filter";
+import { cn } from "../../lib/utils";
 import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
+import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
+import { Input } from "../ui/Input";
+import { Select } from "../ui/Select";
 import { format_tokens, key_of } from "./session-library-utils";
-import "../../styles/session-library.css";
 
 interface SessionLibraryProps {
     readonly on_switch_workspace: () => void;
@@ -370,43 +374,47 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
               ? "统计加载中…"
               : "统计不可用";
     return (
-        <div className="session-library">
-            <header className="lib-head">
-                <span className="lib-title">会话库</span>
-                <span className="lib-stats">{stats_text}</span>
+        <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface)] text-[var(--color-on-surface)]">
+            <header className="library-header flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
+                <span className="library-title text-title-lg font-bold tracking-tight">会话库</span>
+                <span className="library-stats font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                    {stats_text}
+                </span>
             </header>
 
-            <div className="lib-toolbar">
-                <input
-                    className="lib-search"
+            <div className="library-toolbar flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+                <Input
+                    className="library-search min-w-[200px] flex-1"
                     placeholder="搜索标题 / 路径 / 会话 ID"
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
                     }}
                 />
-                <label className="lib-content-search">
-                    <input
-                        type="checkbox"
+                <label className="library-content-search inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-body-sm text-[var(--color-on-surface-variant)]">
+                    <Checkbox
                         checked={search_content}
+                        aria-label="包含消息内容"
                         onChange={(e) => {
                             set_search_content(e.target.checked);
                         }}
                     />
                     包含消息内容
                 </label>
-                <div className="lib-date-range">
-                    <input
+                <div className="library-date-range flex items-center gap-1.5">
+                    <Input
                         type="date"
+                        className="w-auto min-w-[130px]"
                         aria-label="起始日期"
                         value={start_date}
                         onChange={(e) => {
                             set_start_date(e.target.value);
                         }}
                     />
-                    <span>—</span>
-                    <input
+                    <span className="text-[var(--color-on-surface-muted)]">—</span>
+                    <Input
                         type="date"
+                        className="w-auto min-w-[130px]"
                         aria-label="结束日期"
                         value={end_date}
                         onChange={(e) => {
@@ -414,8 +422,8 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         }}
                     />
                 </div>
-                <select
-                    className="lib-sort"
+                <Select
+                    className="library-sort w-auto min-w-[120px]"
                     aria-label="排序方式"
                     value={sort}
                     onChange={(e) => {
@@ -426,12 +434,17 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <option value="tokens">Token 最多</option>
                     <option value="calls">轮次最多</option>
                     <option value="earliest">最早创建</option>
-                </select>
-                <div className="lib-view-switch">
+                </Select>
+                <div className="library-view-switch inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5">
                     <button
                         type="button"
-                        className={view_mode === "grid" ? "on" : ""}
+                        className={cn(
+                            "rounded px-2.5 py-1 text-label-md text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            view_mode === "grid" &&
+                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
+                        )}
                         aria-label="网格视图"
+                        aria-pressed={view_mode === "grid"}
                         onClick={() => {
                             set_view_mode("grid");
                         }}
@@ -440,8 +453,13 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     </button>
                     <button
                         type="button"
-                        className={view_mode === "list" ? "on" : ""}
+                        className={cn(
+                            "rounded px-2.5 py-1 text-label-md text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            view_mode === "list" &&
+                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
+                        )}
                         aria-label="列表视图"
+                        aria-pressed={view_mode === "list"}
                         onClick={() => {
                             set_view_mode("list");
                         }}
@@ -459,19 +477,29 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 }}
             />
 
-            {content_searching && <div className="lib-content-searching">搜索消息内容中…</div>}
-            {content_search_error && <div className="lib-load-interrupted">消息内容搜索失败</div>}
+            {content_searching && (
+                <div className="library-content-searching px-[18px] py-2 text-body-sm text-[var(--color-on-surface-muted)]">
+                    搜索消息内容中…
+                </div>
+            )}
+            {content_search_error && (
+                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-body-sm text-[var(--color-error)]">
+                    消息内容搜索失败
+                </div>
+            )}
 
             {load_error && visible_sessions.length > 0 && (
-                <div className="lib-load-interrupted">会话列表加载中断，已显示部分数据</div>
+                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-body-sm text-[var(--color-error)]">
+                    会话列表加载中断，已显示部分数据
+                </div>
             )}
 
             {visible_sessions.length === 0 ? (
-                <div className="lib-empty">
+                <div className="library-empty flex flex-1 flex-col items-center justify-center gap-3 text-body-md text-[var(--color-on-surface-muted)]">
                     <p>{empty_text}</p>
                     {show_clear && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="secondary"
                             onClick={() => {
                                 set_search("");
                                 set_search_content(false);
@@ -481,7 +509,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                             }}
                         >
                             清除筛选
-                        </button>
+                        </Button>
                     )}
                 </div>
             ) : (
@@ -497,14 +525,14 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             )}
 
             {can_load_more && (
-                <button
-                    type="button"
-                    className="lib-load-more"
+                <Button
+                    variant="secondary"
+                    className="library-load-more mx-auto my-1 shrink-0"
                     disabled={loading_more}
                     onClick={load_more}
                 >
                     加载更多
-                </button>
+                </Button>
             )}
 
             {preview && (
@@ -533,7 +561,11 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     on_switch_workspace();
                 }}
             />
-            {toast !== null && <div className="lib-toast">{toast}</div>}
+            {toast !== null && (
+                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-body-md font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                    {toast}
+                </div>
+            )}
         </div>
     );
 }

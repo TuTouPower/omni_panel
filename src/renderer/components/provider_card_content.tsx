@@ -27,19 +27,24 @@ export function ProviderCardOverview({
 }: ProviderCardOverviewProps) {
     if (isRefreshing && !overviewPeriods.length) {
         return (
-            <div className="skeleton-bars">
-                <div className="skel-row">
+            <div className="mt-[11px] flex flex-col gap-[9px]">
+                <div className="grid grid-cols-[42px_1fr] items-center gap-2.5">
                     <Skeleton className="h-3 w-10" />
                     <Skeleton className="h-3 w-full" />
                 </div>
-                <div className="skel-row">
+                <div className="grid grid-cols-[42px_1fr] items-center gap-2.5">
                     <Skeleton className="h-3 w-10" />
                     <Skeleton className="h-3 w-full" />
                 </div>
             </div>
         );
     }
-    if (!overviewPeriods.length) return <div className="card-state off">暂无有效用量数据</div>;
+    if (!overviewPeriods.length)
+        return (
+            <div className="mt-[11px] flex items-center gap-[9px] text-[13px] text-[var(--color-on-surface-muted)]">
+                暂无有效用量数据
+            </div>
+        );
     return (
         <UsageBarList
             periods={overviewPeriods}
@@ -76,7 +81,10 @@ export function ProviderCardAccountDetail({
     onToggleWatched,
 }: ProviderCardAccountDetailProps) {
     return (
-        <div className="acct-detail">
+        <div
+            className="mt-[14px] flex flex-col motion-safe:animate-[maDrawer_0.22s_cubic-bezier(0.2,0.8,0.3,1)]"
+            data-testid="acct-detail"
+        >
             {group.accounts.map((account) => (
                 <AccountUsageRow
                     key={account.id}

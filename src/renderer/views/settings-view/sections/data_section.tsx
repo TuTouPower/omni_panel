@@ -1,5 +1,7 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
-import { SetRow } from "../../../components/settings/SetRow";
+import { Button } from "../../../components/ui/Button";
+import { Checkbox } from "../../../components/ui/Checkbox";
+import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Select } from "../../../components/settings/Select";
 
 export function DataSection({
@@ -9,6 +11,9 @@ export function DataSection({
     handle_export_logs,
     handle_import,
     save_config,
+    show_secret_option,
+    include_secrets,
+    on_include_secrets_change,
 }: {
     config: AppConfiguration;
     data_msg: string | null;
@@ -16,12 +21,15 @@ export function DataSection({
     handle_export_logs: () => Promise<void>;
     handle_import: () => Promise<void>;
     save_config: (payload: AppConfiguration) => Promise<void>;
+    show_secret_option: boolean;
+    include_secrets: boolean;
+    on_include_secrets_change: (value: boolean) => void;
 }) {
     const cacheMaxMb = config.cacheMaxMb ?? 100;
 
     return (
         <>
-            <div className="set-group-label">存储</div>
+            <SetGroupLabel>存储</SetGroupLabel>
             <SetRow title="本地缓存上限" sub="历史趋势数据占用的最大空间，超出后自动清理最旧记录">
                 <Select
                     value={cacheMaxMb === 0 ? "不限制" : `${String(cacheMaxMb)} MB`}
@@ -39,67 +47,90 @@ export function DataSection({
                 />
             </SetRow>
             <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB（暂未开放）">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
-                    disabled
-                >
+                <Button variant="secondary" size="sm" disabled>
                     暂未开放
-                </button>
+                </Button>
             </SetRow>
-            <div className="set-group-label">数据</div>
-            <SetRow title="导出设置" sub="导出全部配置与账号密钥到 JSON 文件">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
-                    onClick={() => {
-                        void handle_export();
-                    }}
-                >
-                    {data_msg === "设置已导出" ? "已导出" : "导出"}
-                </button>
+            <SetGroupLabel>数据</SetGroupLabel>
+            <SetRow
+                title="导出设置"
+                sub={
+                    show_secret_option
+                        ? "导出配置；默认不含明文密钥"
+                        : "导出全部配置与账号密钥到 JSON 文件"
+                }
+            >
+                <div className="flex items-center gap-3">
+                    {show_secret_option && (
+                        <label className="flex items-center gap-1.5 text-[12px] text-[var(--color-on-surface-variant)]">
+                            <Checkbox
+                                aria-label="包含明文密钥"
+                                checked={include_secrets}
+                                onChange={(event) => {
+                                    on_include_secrets_change(event.target.checked);
+                                }}
+                            />
+                            <span>包含明文密钥</span>
+                        </label>
+                    )}
+                    {show_secret_option && include_secrets && (
+                        <span className="text-[11px] text-[var(--color-error)]">
+                            文件含明文密钥，请妥善保管
+                        </span>
+                    )}
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            void handle_export();
+                        }}
+                    >
+                        {data_msg === "设置已导出" ? "已导出" : "导出"}
+                    </Button>
+                </div>
             </SetRow>
             <SetRow title="导入设置" sub="从 JSON 文件恢复配置与账号密钥">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
-                    onClick={() => {
-                        void handle_import();
-                    }}
-                >
-                    {data_msg === "导入失败" ? "失败" : "导入"}
-                </button>
+                <div className="flex flex-col items-end gap-1">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            void handle_import();
+                        }}
+                    >
+                        {data_msg?.startsWith("导入失败") ? "失败" : "导入"}
+                    </Button>
+                    {data_msg?.startsWith("导入失败") && (
+                        <div
+                            role="alert"
+                            className="max-w-[360px] text-right text-[11px] text-[var(--color-error)]"
+                        >
+                            {data_msg}
+                        </div>
+                    )}
+                </div>
             </SetRow>
             <SetRow title="导出运行日志" sub="导出当前运行日志文件">
-                <button
-                    className="set-select"
-                    style={{ background: "var(--field-bg)" }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                         void handle_export_logs();
                     }}
                 >
                     {data_msg === "日志已导出" ? "已导出" : "导出日志"}
-                </button>
+                </Button>
             </SetRow>
-            <div className="set-group-label" style={{ color: "var(--red)" }}>
-                危险区域
-            </div>
+            <SetGroupLabel className="text-[var(--color-error)]">危险区域</SetGroupLabel>
             <SetRow title="重置应用" sub="清除全部账号、设置与缓存（暂未开放）">
-                <button
-                    className="set-select"
-                    style={{
-                        color: "var(--red)",
-                        borderColor: "color-mix(in srgb,var(--red) 35%,transparent)",
-                    }}
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="text-[var(--color-error)]"
                     disabled
                 >
                     暂未开放
-                </button>
+                </Button>
             </SetRow>
         </>
     );

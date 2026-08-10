@@ -13,7 +13,10 @@ import type { ObservationStore } from "../../../src/main/core/observation/observ
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
 import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
+import type { AppConfiguration } from "../../../src/shared/types/config";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type {
+    Env,
     QueryResult,
     SessionHistorySubscriptionService,
     SessionRow,
@@ -205,6 +208,495 @@ describe("local-api", () => {
         expect(res.status).toBe(404);
     });
 
+    it("routes web OAuth and session authentication calls to their existing handlers", async () => {
+        const grok_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "device-code",
+                user_code: "USER-CODE",
+                verification_uri: "https://auth.example/device",
+                verification_uri_complete: null,
+                expires_in: 600,
+                interval: 5,
+            }),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: null,
+                can_refresh: false,
+            }),
+        };
+        const session_manager = {
+            start_login: vi.fn().mockResolvedValue({ saved: true }),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: {} as never,
+                session: { sessionManager: session_manager },
+                grok: { manager: grok_manager } as never,
+                kimi: { manager: grok_manager } as never,
+            },
+        });
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const start = await fetch(`${base}/v1/auth/grok/loginStart`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        expect(start.status).toBe(200);
+        await expect(start.json()).resolves.toMatchObject({ user_code: "USER-CODE" });
+        expect(grok_manager.start_device_login).toHaveBeenCalledTimes(1);
+
+        const status = await fetch(`${base}/v1/auth/grok/loginStatus?instanceId=grok-1`);
+        expect(status.status).toBe(200);
+        await expect(status.json()).resolves.toEqual({
+            has_token: true,
+            expires_at: null,
+            can_refresh: false,
+        });
+        expect(grok_manager.get_login_status).toHaveBeenCalledWith("grok-1");
+
+        const login_request = {
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        };
+        const session = await fetch(`${base}/v1/session/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(login_request),
+        });
+        expect(session.status).toBe(200);
+        await expect(session.json()).resolves.toEqual({ saved: true });
+        expect(session_manager.start_login).toHaveBeenCalledWith(login_request);
+    });
+
+    it("routes cookie login status and the complete Grok/Kimi OAuth lifecycle", async () => {
+        let resolve_cookie_login!: (result: { saved: boolean }) => void;
+        const cookie_manager = {
+            start_login: vi.fn().mockImplementation(
+                () =>
+                    new Promise<{ saved: boolean }>((resolve) => {
+                        resolve_cookie_login = resolve;
+                    }),
+            ),
+            is_login_in_progress: vi.fn().mockReturnValue(false),
+        };
+        const cookie_definition = {
+            executablePath: "/plugins/mimo",
+            manifest: {
+                provider: "mimo",
+                endpoints: {
+                    default: "https://platform.xiaomimimo.com",
+                    login: "https://platform.xiaomimimo.com/console/plan-manage",
+                },
+                loginDomains: ["platform.xiaomimimo.com"],
+                cookieNames: ["SESSION_COOKIE"],
+            },
+        } as unknown as ConnectorDefinition;
+        const cookie_deps = {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    plugins: [{ instanceId: "mimo-1", executablePath: "/plugins/mimo" }],
+                }),
+            },
+            secretsStore: {
+                get: vi.fn().mockResolvedValue("SESSION_COOKIE=secret-cookie"),
+            },
+            definitions: [cookie_definition],
+            sessionManager: cookie_manager,
+        } as never;
+        const grok_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "grok-device-code",
+                user_code: "GROK-CODE",
+                verification_uri: "https://auth.grok.example/device",
+                verification_uri_complete: null,
+                expires_in: 600,
+                interval: 5,
+            }),
+            await_completion: vi.fn().mockResolvedValue({ saved: true, token: "grok-token" }),
+            cancel_device_login: vi.fn(),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: "grok-expiry",
+                can_refresh: true,
+            }),
+            logout: vi.fn().mockResolvedValue(undefined),
+            refresh_now: vi.fn().mockResolvedValue({ success: true, source: "grok" }),
+        };
+        const kimi_manager = {
+            start_device_login: vi.fn().mockResolvedValue({
+                device_code: "kimi-device-code",
+                user_code: "KIMI-CODE",
+                verification_uri: "https://auth.kimi.example/device",
+                verification_uri_complete: null,
+                expires_in: 900,
+                interval: 7,
+            }),
+            await_completion: vi.fn().mockResolvedValue({ saved: true, token: "kimi-token" }),
+            cancel_device_login: vi.fn(),
+            get_login_status: vi.fn().mockResolvedValue({
+                has_token: true,
+                expires_at: "kimi-expiry",
+                can_refresh: true,
+            }),
+            logout: vi.fn().mockResolvedValue(undefined),
+            refresh_now: vi.fn().mockResolvedValue({ success: true, source: "kimi" }),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: cookie_deps,
+                session: { sessionManager: { start_login: vi.fn() } },
+                grok: { manager: grok_manager } as never,
+                kimi: { manager: kimi_manager } as never,
+            },
+        });
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const cookie_login = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instanceId: "mimo-1" }),
+        });
+        expect(cookie_login.status).toBe(200);
+        await expect(cookie_login.json()).resolves.toEqual({ started: true });
+        await vi.waitFor(() => {
+            expect(cookie_manager.start_login).toHaveBeenCalledWith({
+                instance_id: "mimo-1",
+                provider: "mimo",
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["SESSION_COOKIE"],
+                auto_close_ms: 1500,
+            });
+        });
+
+        const cookie_status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-1`);
+        expect(cookie_status.status).toBe(200);
+        const cookie_status_body = (await cookie_status.json()) as {
+            in_progress: boolean;
+            saved: boolean;
+        };
+        expect(cookie_status_body).toEqual({ in_progress: true, saved: true });
+        expect(JSON.stringify(cookie_status_body)).not.toContain("secret-cookie");
+        resolve_cookie_login({ saved: true });
+
+        for (const namespace of ["grok", "kimi"] as const) {
+            const manager = namespace === "grok" ? grok_manager : kimi_manager;
+            const other_manager = namespace === "grok" ? kimi_manager : grok_manager;
+            const device_code = `${namespace}-device-code`;
+            const token = `${namespace}-token`;
+            const user_code = `${namespace.toUpperCase()}-CODE`;
+            const expires_at = `${namespace}-expiry`;
+            const other_start_calls = other_manager.start_device_login.mock.calls.length;
+
+            const start = await fetch(`${base}/v1/auth/${namespace}/loginStart`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            expect(start.status).toBe(200);
+            await expect(start.json()).resolves.toMatchObject({ user_code });
+            expect(manager.start_device_login).toHaveBeenCalledTimes(1);
+            expect(other_manager.start_device_login.mock.calls).toHaveLength(other_start_calls);
+
+            const other_poll_calls = other_manager.await_completion.mock.calls.length;
+            const poll = await fetch(`${base}/v1/auth/${namespace}/loginPoll`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    instance_id: `${namespace}-1`,
+                    device_code,
+                    interval: namespace === "grok" ? 5 : 7,
+                    expires_at_epoch_ms: Date.now() + 600_000,
+                }),
+            });
+            expect(poll.status).toBe(200);
+            await expect(poll.json()).resolves.toEqual({ saved: true, token });
+            expect(manager.await_completion).toHaveBeenCalledWith(
+                device_code,
+                namespace === "grok" ? 5 : 7,
+                expect.any(Number),
+                `${namespace}-1`,
+            );
+            expect(other_manager.await_completion.mock.calls).toHaveLength(other_poll_calls);
+
+            const cancel = await fetch(`${base}/v1/auth/${namespace}/loginCancel`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(cancel.status).toBe(200);
+            await expect(cancel.json()).resolves.toEqual({});
+            expect(manager.cancel_device_login).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const status = await fetch(
+                `${base}/v1/auth/${namespace}/loginStatus?instanceId=${namespace}-1`,
+            );
+            expect(status.status).toBe(200);
+            await expect(status.json()).resolves.toEqual({
+                has_token: true,
+                expires_at,
+                can_refresh: true,
+            });
+            expect(manager.get_login_status).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const logout = await fetch(`${base}/v1/auth/${namespace}/logout`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(logout.status).toBe(200);
+            await expect(logout.json()).resolves.toEqual({ logged_out: true });
+            expect(manager.logout).toHaveBeenCalledWith(`${namespace}-1`);
+
+            const refresh = await fetch(`${base}/v1/auth/${namespace}/refresh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance_id: `${namespace}-1` }),
+            });
+            expect(refresh.status).toBe(200);
+            await expect(refresh.json()).resolves.toEqual({ success: true, source: namespace });
+            expect(manager.refresh_now).toHaveBeenCalledWith(`${namespace}-1`);
+        }
+
+        const malformed_cookie = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        expect(malformed_cookie.status).toBe(400);
+
+        const malformed_poll = await fetch(`${base}/v1/auth/grok/loginPoll`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                instance_id: "grok-1",
+                device_code: "grok-device-code",
+                interval: "5",
+                expires_at_epoch_ms: Date.now() + 600_000,
+            }),
+        });
+        expect(malformed_poll.status).toBe(400);
+    });
+
+    it("captures a local login-station cookie into the vault and reports no-display errors", async () => {
+        const { create_session_manager } =
+            await import("../../../src/main/core/session/session-manager");
+        const login_station = createServer((req, res) => {
+            if (req.url === "/login") {
+                res.setHeader("Set-Cookie", "SESSION_COOKIE=local-cookie-sentinel; Path=/");
+                res.end("login station");
+                return;
+            }
+            res.statusCode = 404;
+            res.end();
+        });
+        const login_port = await new Promise<number>((resolve) => {
+            login_station.listen(0, "127.0.0.1", () => {
+                const address = login_station.address();
+                if (address && typeof address === "object") resolve(address.port);
+            });
+        });
+        const login_url = `http://127.0.0.1:${String(login_port)}/login`;
+
+        function create_memory_vault() {
+            const values = new Map<string, string>();
+            return {
+                values,
+                get: (key: string) => Promise.resolve(values.get(key) ?? null),
+                set: (key: string, value: string) => {
+                    values.set(key, value);
+                    return Promise.resolve();
+                },
+                delete: (key: string) => {
+                    values.delete(key);
+                    return Promise.resolve();
+                },
+                has: (key: string) => Promise.resolve(values.has(key)),
+                list_keys: (prefix?: string) =>
+                    Promise.resolve(
+                        [...values.keys()].filter((key) =>
+                            prefix ? key.startsWith(prefix) : true,
+                        ),
+                    ),
+                replaceAll: (entries: Record<string, string>) => {
+                    values.clear();
+                    for (const [key, value] of Object.entries(entries)) values.set(key, value);
+                    return Promise.resolve();
+                },
+            };
+        }
+
+        const definition = {
+            executablePath: "/plugins/mimo",
+            manifest: {
+                provider: "mimo",
+                endpoints: { login: login_url },
+                loginDomains: ["127.0.0.1"],
+                cookieNames: ["SESSION_COOKIE"],
+            },
+        } as unknown as ConnectorDefinition;
+        const config_store = {
+            load: vi.fn().mockResolvedValue({
+                plugins: [{ instanceId: "mimo-real", executablePath: "/plugins/mimo" }],
+            }),
+        };
+
+        function create_cookie_deps(session_manager: unknown, secrets_store: unknown) {
+            return {
+                configStore: config_store,
+                secretsStore: secrets_store,
+                definitions: [definition],
+                sessionManager: session_manager,
+            } as never;
+        }
+
+        const vault = create_memory_vault();
+        let before_send_headers:
+            | ((details: {
+                  url: string;
+                  requestHeaders: Record<string, string>;
+                  resource_type: string;
+              }) => void)
+            | undefined;
+        let closed_listener: (() => void) | undefined;
+        let window_closed = false;
+        const login_window = {
+            async loadURL(url: string): Promise<void> {
+                const response = await fetch(url);
+                expect(response.headers.get("set-cookie")).toContain(
+                    "SESSION_COOKIE=local-cookie-sentinel",
+                );
+                before_send_headers?.({
+                    url,
+                    requestHeaders: { Cookie: "SESSION_COOKIE=local-cookie-sentinel" },
+                    resource_type: "mainFrame",
+                });
+                login_window.close();
+            },
+            close(): void {
+                if (window_closed) return;
+                window_closed = true;
+                closed_listener?.();
+            },
+            isDestroyed(): boolean {
+                return window_closed;
+            },
+            on(_event: "closed", listener: () => void) {
+                closed_listener = listener;
+                return this;
+            },
+        };
+        const session_controller = {
+            on_before_send_headers(handler: typeof before_send_headers): void {
+                before_send_headers = handler;
+            },
+            get_cookies: vi.fn().mockResolvedValue([]),
+        };
+        const session_manager = create_session_manager({
+            vault,
+            has_display: () => true,
+            create_window: () => login_window,
+            create_session: () => session_controller,
+        });
+        const cookie_deps = create_cookie_deps(session_manager, vault);
+        api = create_local_api_server(store, {
+            port: 0,
+            auth_deps: {
+                cookie: cookie_deps,
+                session: { sessionManager: { start_login: vi.fn() } },
+                grok: { manager: {} } as never,
+                kimi: { manager: {} } as never,
+            },
+        });
+        const { addTransport, getLogLevel, setLogLevel } =
+            await import("../../../src/shared/lib/logger");
+        const previous_log_level = getLogLevel();
+        const log_lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                log_lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            await api.start();
+            const base = `http://127.0.0.1:${String(api.get_port())}`;
+            const start = await fetch(`${base}/v1/auth/cookieLogin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "mimo-real" }),
+            });
+            expect(start.status).toBe(200);
+            expect(await start.json()).toEqual({ started: true });
+
+            await vi.waitFor(async () => {
+                await expect(vault.get("mimo-real:SESSION_COOKIE")).resolves.toBe(
+                    "SESSION_COOKIE=local-cookie-sentinel",
+                );
+            });
+            const status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-real`);
+            expect(await status.json()).toEqual({ in_progress: false, saved: true });
+            expect(log_lines.join("\n")).not.toContain("local-cookie-sentinel");
+
+            await api.stop();
+            const no_display_vault = create_memory_vault();
+            const no_display_window = vi.fn();
+            const no_display_manager = create_session_manager({
+                vault: no_display_vault,
+                has_display: () => false,
+                create_window: no_display_window,
+                create_session: vi.fn(),
+            });
+            api = create_local_api_server(store, {
+                port: 0,
+                auth_deps: {
+                    cookie: create_cookie_deps(no_display_manager, no_display_vault),
+                    session: { sessionManager: { start_login: vi.fn() } },
+                    grok: { manager: {} } as never,
+                    kimi: { manager: {} } as never,
+                },
+            });
+            await api.start();
+            const no_display_base = `http://127.0.0.1:${String(api.get_port())}`;
+            const no_display_start = await fetch(`${no_display_base}/v1/auth/cookieLogin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "mimo-real" }),
+            });
+            expect(await no_display_start.json()).toEqual({ started: true });
+            await vi.waitFor(async () => {
+                const response = await fetch(
+                    `${no_display_base}/v1/auth/cookieLogin/status?instanceId=mimo-real`,
+                );
+                const body = (await response.json()) as {
+                    in_progress: boolean;
+                    saved: boolean;
+                    error?: string;
+                };
+                expect(body.in_progress).toBe(false);
+                expect(body.saved).toBe(false);
+                expect(body.error).toContain("graphical display");
+            });
+            expect(no_display_window).not.toHaveBeenCalled();
+        } finally {
+            remove_transport();
+            setLogLevel(previous_log_level);
+            await new Promise<void>((resolve, reject) => {
+                login_station.close((error) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+        }
+    });
+
     it("falls back to random port when requested port is occupied", async () => {
         const occupied = createServer((_, res) => {
             res.end("occupied");
@@ -227,6 +719,266 @@ describe("local-api", () => {
                 resolve();
             });
         });
+    });
+});
+
+describe("local-api config management", () => {
+    let managed_config: AppConfiguration;
+    let managed_deps: ConfigIpcDeps;
+    const definition = {
+        directory: "/plugins/claude",
+        executablePath: "/plugins/claude.py",
+        manifest: {
+            id: "claude",
+            provider: "claude",
+            capabilities: ["poll"],
+            parameters: [{ name: "API_KEY", type: "secret", required: true }],
+            poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+        },
+    } as unknown as ConnectorDefinition;
+
+    beforeEach(() => {
+        managed_config = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [
+                {
+                    instanceId: "managed-1",
+                    stateId: "managed-1",
+                    name: "Claude",
+                    enabled: true,
+                    executablePath: "/plugins/claude.py",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const config_store = {
+            load: vi.fn(() => Promise.resolve(structuredClone(managed_config))),
+            save: vi.fn((next: AppConfiguration) => {
+                managed_config = structuredClone(next);
+                return Promise.resolve();
+            }),
+            scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn().mockReturnValue(false),
+            prune_unhealthy_plugins: vi.fn(() => Promise.resolve(structuredClone(managed_config))),
+        };
+        managed_deps = {
+            configStore: config_store,
+            secretsStore: {
+                get: vi.fn().mockResolvedValue("sk-managed"),
+                set: vi.fn().mockResolvedValue(undefined),
+                delete: vi.fn().mockResolvedValue(undefined),
+                exportAll: vi.fn().mockResolvedValue({ "managed-1:API_KEY": "sk-managed" }),
+                importAll: vi.fn().mockResolvedValue(undefined),
+            },
+            secretParamKeys: new Map([["managed-1", new Set(["API_KEY"])]]),
+            definitions: [definition],
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            config_deps: managed_deps,
+            connector_deps,
+            web_root,
+        });
+        managed_deps.onConfigSaved = (config) => {
+            api.publish_config_change(config);
+        };
+    });
+
+    it("POST duplicate/createInstance persists new config instances", async () => {
+        await api.start();
+        const duplicate = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/duplicate`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "managed-1" }),
+            },
+        );
+        expect(duplicate.status).toBe(200);
+        const duplicate_body = (await duplicate.json()) as { instanceId: string };
+        expect(duplicate_body.instanceId).not.toBe("managed-1");
+        expect(managed_config.plugins.some((p) => p.instanceId === duplicate_body.instanceId)).toBe(
+            true,
+        );
+
+        const created = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/createInstance`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ manifestId: "claude" }),
+            },
+        );
+        expect(created.status).toBe(200);
+        const created_body = (await created.json()) as { instanceId: string };
+        expect(created_body.instanceId).toEqual(expect.any(String));
+        expect(managed_config.plugins.some((p) => p.instanceId === created_body.instanceId)).toBe(
+            true,
+        );
+    });
+
+    it("export returns native config without secrets by default and with secrets explicitly", async () => {
+        await api.start();
+        const plain = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config/export`);
+        expect(plain.status).toBe(200);
+        const plain_body = (await plain.json()) as {
+            plugins: { parameterValues: Record<string, unknown> }[];
+        };
+        expect(plain_body.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+
+        const with_secrets = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/export?includeSecrets=true`,
+        );
+        expect(with_secrets.status).toBe(200);
+        const with_secrets_body = (await with_secrets.json()) as {
+            plugins: { parameterValues: Record<string, unknown> }[];
+        };
+        expect(with_secrets_body.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-managed");
+    });
+
+    it("import validates malformed/schema-invalid JSON without changing config", async () => {
+        await api.start();
+        const incoming = {
+            ...structuredClone(managed_config),
+            plugins: managed_config.plugins.map((plugin) => ({
+                ...plugin,
+                parameterValues: { API_KEY: "sk-from-http" },
+            })),
+        };
+        const imported = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(incoming),
+            },
+        );
+        expect(imported.status).toBe(200);
+        const imported_body = (await imported.json()) as { imported: boolean };
+        expect(imported_body.imported).toBe(true);
+        const after_valid_import = structuredClone(managed_config);
+
+        const malformed = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{",
+            },
+        );
+        expect(malformed.status).toBe(400);
+        const malformed_body = (await malformed.json()) as { error: string };
+        expect(malformed_body.error).toContain("Invalid JSON");
+        expect(managed_config).toEqual(after_valid_import);
+
+        const null_body = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "null",
+            },
+        );
+        expect(null_body.status).toBe(400);
+        const null_response = (await null_body.json()) as { message: string };
+        expect(null_response.message).toContain("导入的配置格式无效");
+        expect(managed_config).toEqual(after_valid_import);
+
+        const schema_invalid = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...incoming, launchAtLogin: "not-a-boolean" }),
+            },
+        );
+        expect(schema_invalid.status).toBe(400);
+        const schema_invalid_body = (await schema_invalid.json()) as { message: string };
+        expect(schema_invalid_body.message).toContain("导入的配置格式无效");
+        expect(managed_config).toEqual(after_valid_import);
+    });
+
+    it("importing a redacted config preserves the existing secret vault", async () => {
+        await api.start();
+        const redacted = structuredClone(managed_config);
+        const imported = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(redacted),
+            },
+        );
+        expect(imported.status).toBe(200);
+        expect(
+            (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls,
+        ).toHaveLength(0);
+        expect(managed_config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+    });
+
+    it("web import rejects endpoint overrides before persisting config or secrets", async () => {
+        await api.start();
+        const before = structuredClone(managed_config);
+        const incoming = {
+            ...structuredClone(managed_config),
+            plugins: managed_config.plugins.map((plugin) => ({
+                ...plugin,
+                parameterValues: { API_KEY: "sk-untrusted" },
+                endpointOverrides: { default: "https://untrusted.example" },
+            })),
+        };
+        const response = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(incoming),
+            },
+        );
+        expect(response.status).toBe(400);
+        const body = (await response.json()) as { message: string };
+        expect(body.message).toContain("自定义端点");
+        expect(managed_config).toEqual(before);
+        expect(
+            (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls,
+        ).toHaveLength(0);
+    });
+
+    it("config save publishes named SSE events to two subscribed clients", async () => {
+        await api.start();
+        const [first_response, second_response] = await Promise.all([
+            fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`),
+            fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`),
+        ]);
+        const first_reader = first_response.body?.getReader();
+        const second_reader = second_response.body?.getReader();
+        if (!first_reader || !second_reader) throw new Error("missing SSE response body");
+
+        const next_config = { ...managed_config, theme: "dark" as const };
+        const saved = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next_config),
+        });
+        expect(saved.status).toBe(200);
+
+        const frames = await Promise.all([first_reader.read(), second_reader.read()]);
+        for (const frame of frames) {
+            const text = new TextDecoder().decode(frame.value);
+            expect(text).toContain("event: config");
+            expect(text).toContain('"theme":"dark"');
+        }
+        await Promise.all([first_reader.cancel(), second_reader.cancel()]);
     });
 });
 
@@ -816,6 +1568,22 @@ describe("local-api session history endpoints (t259)", () => {
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
             >(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
             summaries: vi.fn(() => Promise.resolve({ "claude_code|win|sess-1": "hello world" })),
+            // t279: web 订阅。测试捕获 on_update 以便触发增量推送。
+            subscribe: vi.fn(
+                (params: {
+                    source: string;
+                    env: Env;
+                    session_id: string;
+                    file_path: string;
+                    extractor_kind: string;
+                    subscriber_id?: string;
+                    on_update: (messages: unknown[]) => void;
+                }) => {
+                    void params;
+                    return "claude_code|win|sess-1";
+                },
+            ),
+            unsubscribe: vi.fn(),
         };
     }
 
@@ -1122,6 +1890,367 @@ describe("local-api session history endpoints (t259)", () => {
         expect(service.summaries).toHaveBeenCalledWith([
             expect.objectContaining({ session_id: "sess-1" }),
         ]);
+    });
+
+    it("POST /v1/sessionHistory/subscribe 未先经 /v1/events 注册返回 409 (t279)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/subscribe`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-unconnected",
+                }),
+            },
+        );
+        expect(res.status).toBe(409);
+        expect(service.subscribe).not.toHaveBeenCalled();
+    });
+
+    it("POST /v1/sessionHistory/subscribe 挂 SSE 连接，on_update 增量经 SSE 推 messagesUpdated (t279 AC1)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?subscriberId=web-sse-1`);
+            expect(sse_res.status).toBe(200);
+            expect(sse_res.headers.get("content-type")).toContain("text/event-stream");
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+
+            const sub_res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-sse-1",
+                }),
+            });
+            expect(sub_res.status).toBe(200);
+            const sub_body = (await sub_res.json()) as { subscribed: boolean };
+            expect(sub_body.subscribed).toBe(true);
+            expect(service.subscribe).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-sse-1",
+                }),
+            );
+
+            // 触发 watcher 增量：service 捕获的 on_update 收到新消息后应推给 SSE 客户端。
+            const params = service.subscribe.mock.calls[0]?.[0] as {
+                on_update: (messages: unknown[]) => void;
+            };
+            expect(params).toBeDefined();
+            params.on_update([{ id: "m2", role: "assistant", text: "world", timestamp: 200 }]);
+
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await reader.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("messagesUpdated")) break;
+            }
+            expect(raw).toContain("event: messagesUpdated");
+            expect(raw).toContain('"session_id":"sess-1"');
+            expect(raw).toContain('"text":"world"');
+            await reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("POST /v1/sessionHistory/unsubscribe 只注销目标订阅方，不误伤同 loc 其他订阅方 (t279 AC1)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            // 两个独立 SSE 连接各自订阅同一 loc：注销其一不得触发另一连接注销。
+            const sse_a = await fetch(`${base}/v1/events?subscriberId=web-sub-a`);
+            const reader_a = sse_a.body?.getReader();
+            if (!reader_a) throw new Error("no sse body");
+            const sse_b = await fetch(`${base}/v1/events?subscriberId=web-sub-b`);
+            const reader_b = sse_b.body?.getReader();
+            if (!reader_b) throw new Error("no sse body");
+            for (const subscriber_id of ["web-sub-a", "web-sub-b"]) {
+                const res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "win",
+                        session_id: "sess-1",
+                        subscriber_id,
+                    }),
+                });
+                expect(res.status).toBe(200);
+            }
+
+            const unsub = await fetch(`${base}/v1/sessionHistory/unsubscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subscriber_id: "web-sub-b" }),
+            });
+            expect(unsub.status).toBe(200);
+            // 注销只触达目标订阅方；web-sub-a 的连接未关，其订阅仍在。
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-sub-b",
+            );
+            await reader_a.cancel();
+            await reader_b.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("SSE 连接关闭时自动注销其持有的会话订阅，防 watcher 泄漏 (t279 f004)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?subscriberId=web-leak-1`);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+            const sub_res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-leak-1",
+                }),
+            });
+            expect(sub_res.status).toBe(200);
+            expect(service.unsubscribe).not.toHaveBeenCalled();
+
+            await reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            // close 触发 cleanup → 注销该订阅（不依赖显式 unsubscribe）。
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-leak-1",
+            );
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("SSE 断连 cleanup 注销旧订阅，新连接重挂后独立活跃 (t279 f005)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            // 旧连接注册订阅。
+            const old_sse = await fetch(`${base}/v1/events?subscriberId=web-race-1`);
+            const old_reader = old_sse.body?.getReader();
+            if (!old_reader) throw new Error("no sse body");
+            const sub1 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-race-1",
+                }),
+            });
+            expect(sub1.status).toBe(200);
+
+            // 断连：旧连接 close → 服务端 cleanup 注销该订阅（防泄漏）。
+            await old_reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "win",
+                "sess-1",
+                "web-race-1",
+            );
+
+            // 重连：新连接用同 subscriber_id 重挂，重新建立订阅。
+            const new_sse = await fetch(`${base}/v1/events?subscriberId=web-race-1`);
+            const new_reader = new_sse.body?.getReader();
+            if (!new_reader) throw new Error("no sse body");
+            const sub2 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-race-1",
+                }),
+            });
+            expect(sub2.status).toBe(200);
+
+            // 新连接关闭前订阅保持活跃（无额外注销）。
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            await new_reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            // 新连接关闭才再次注销（重挂后独立生命周期）。
+            expect(service.unsubscribe).toHaveBeenCalledTimes(2);
+        } finally {
+            await sub_api.stop();
+        }
+    });
+});
+
+describe("local-api logs export (t279)", () => {
+    it("GET /v1/logs/export 流式返回当前活跃日志段并带下载头", async () => {
+        const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-"));
+        try {
+            const date = new Date().toISOString().slice(0, 10);
+            // get_logs_dir(base) = <base>/logs，与桌面 exportCurrentLog 同路径语义。
+            await mkdir(join(logs_home, "logs"), { recursive: true });
+            await writeFile(join(logs_home, "logs", `app-${date}.log`), "export-sentinel-line\n");
+            const export_api = create_local_api_server(store, {
+                port: 0,
+                token_stats_store,
+                connector_deps,
+                user_data_path: logs_home,
+            });
+            await export_api.start();
+            try {
+                const res = await fetch(
+                    `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
+                );
+                expect(res.status).toBe(200);
+                expect(res.headers.get("content-disposition")).toContain(
+                    `omni-panel-log-${date}.log`,
+                );
+                expect(await res.text()).toBe("export-sentinel-line\n");
+            } finally {
+                await export_api.stop();
+            }
+        } finally {
+            await rm(logs_home, { recursive: true, force: true });
+        }
+    });
+
+    it("GET /v1/logs/export 日志文件缺失时返回 200 空下载", async () => {
+        const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-missing-"));
+        try {
+            const export_api = create_local_api_server(store, {
+                port: 0,
+                token_stats_store,
+                connector_deps,
+                user_data_path: logs_home,
+            });
+            await export_api.start();
+            try {
+                const res = await fetch(
+                    `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
+                );
+                expect(res.status).toBe(200);
+                expect(res.headers.get("content-disposition")).toContain(".log");
+                expect(await res.text()).toBe("");
+            } finally {
+                await export_api.stop();
+            }
+        } finally {
+            await rm(logs_home, { recursive: true, force: true });
+        }
+    });
+
+    it("未配置 user_data_path 时 /v1/logs/export 返回 503", async () => {
+        const plain_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+        });
+        await plain_api.start();
+        try {
+            const res = await fetch(
+                `http://127.0.0.1:${String(plain_api.get_port())}/v1/logs/export`,
+            );
+            expect(res.status).toBe(503);
+        } finally {
+            await plain_api.stop();
+        }
     });
 });
 

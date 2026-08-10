@@ -67,7 +67,7 @@ describe("CpaCard", () => {
 
     it("renders status only for the CPA parent row", () => {
         const { container } = render_card();
-        expect(container.querySelectorAll(".ar-status")).toHaveLength(1);
+        expect(container.querySelectorAll('[data-testid="account-status"]')).toHaveLength(1);
     });
 
     it("shows '来源已移除' for removed child rows", () => {
@@ -79,10 +79,12 @@ describe("CpaCard", () => {
         const on_hide = vi.fn();
         render_card({ on_hide });
         // Normal child row should have a toggle switch
-        const child_rows = document.querySelectorAll<HTMLElement>(".acc-row:not(.ds-row)");
+        const child_rows = document.querySelectorAll<HTMLElement>(
+            '[data-testid="account-row"][data-mode="cpa-child"]',
+        );
         const claude_row = child_rows[0];
         if (!claude_row) throw new Error("missing Claude child row");
-        const switches = claude_row.querySelectorAll(".sw");
+        const switches = claude_row.querySelectorAll('[role="switch"]');
         expect(switches.length).toBe(1);
     });
 
@@ -95,8 +97,10 @@ describe("CpaCard", () => {
         const user = userEvent.setup();
         const on_hide = vi.fn();
         render_card({ on_hide });
-        const claude_row = document.querySelector<HTMLElement>(".acc-row:not(.ds-row)");
-        const btn = claude_row?.querySelector(".sw");
+        const claude_row = document.querySelector<HTMLElement>(
+            '[data-testid="account-row"][data-mode="cpa-child"]',
+        );
+        const btn = claude_row?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
         expect(on_hide).toHaveBeenCalledWith({
@@ -109,9 +113,11 @@ describe("CpaCard", () => {
         const user = userEvent.setup();
         const on_unhide = vi.fn();
         render_card({ on_unhide });
-        const child_rows = document.querySelectorAll<HTMLElement>(".acc-row:not(.ds-row)");
+        const child_rows = document.querySelectorAll<HTMLElement>(
+            '[data-testid="account-row"][data-mode="cpa-child"]',
+        );
         const codex_row = child_rows[1];
-        const btn = codex_row?.querySelector(".sw");
+        const btn = codex_row?.querySelector('[role="switch"]');
         if (!btn) throw new Error("missing toggle");
         await user.click(btn);
         expect(on_unhide).toHaveBeenCalledWith({

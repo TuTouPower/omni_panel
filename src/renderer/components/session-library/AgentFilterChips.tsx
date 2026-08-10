@@ -1,4 +1,8 @@
+import type { CSSProperties } from "react";
+import { Button } from "../ui/Button";
+import { agent_accent } from "../../lib/workspace/slots";
 import { agent_friendly } from "../../lib/session-history/markdown";
+import { cn } from "../../lib/utils";
 
 interface AgentFilterChipsProps {
     readonly agents: readonly string[];
@@ -8,21 +12,32 @@ interface AgentFilterChipsProps {
 
 export function AgentFilterChips({ agents, counts, on_change }: AgentFilterChipsProps) {
     return (
-        <div className="lib-agents">
-            <button
-                type="button"
-                className={"lib-agent-chip" + (agents.length === 0 ? " on" : "")}
+        <div className="library-agent-filters flex shrink-0 flex-wrap gap-1.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+            <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                    "library-agent-chip rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
+                    agents.length === 0 &&
+                        "border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)]",
+                )}
                 onClick={() => {
                     on_change([]);
                 }}
             >
                 全部
-            </button>
+            </Button>
             {counts.map(([source, count]) => (
-                <button
-                    type="button"
+                <Button
+                    variant="ghost"
+                    size="sm"
                     key={source}
-                    className={"lib-agent-chip" + (agents.includes(source) ? " on" : "")}
+                    className={cn(
+                        "library-agent-chip rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
+                        agents.includes(source) &&
+                            "bg-[var(--color-primary-container)] text-[var(--agent-accent)]",
+                    )}
+                    style={{ "--agent-accent": agent_accent(source) } as CSSProperties}
                     onClick={() => {
                         on_change(
                             agents.includes(source)
@@ -31,9 +46,12 @@ export function AgentFilterChips({ agents, counts, on_change }: AgentFilterChips
                         );
                     }}
                 >
-                    <span className="lib-agent-dot" />
+                    <span
+                        className="h-2 w-2 rounded-full bg-[var(--agent-accent)]"
+                        aria-hidden="true"
+                    />
                     {agent_friendly(source)} {String(count)}
-                </button>
+                </Button>
             ))}
         </div>
     );

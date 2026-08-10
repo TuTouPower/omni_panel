@@ -28,3 +28,17 @@ export function build_secret_param_keys(
 
     return keys_by_instance;
 }
+
+export function find_unknown_executable_paths(
+    config: AppConfiguration,
+    definitions: readonly ConnectorDefinition[],
+): string[] {
+    const known_paths = new Set(definitions.map((definition) => definition.executablePath));
+    return [
+        ...new Set(
+            config.plugins
+                .map((plugin) => plugin.executablePath)
+                .filter((executable_path) => !known_paths.has(executable_path)),
+        ),
+    ];
+}

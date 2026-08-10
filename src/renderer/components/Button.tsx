@@ -15,14 +15,15 @@ export function Button({
     return (
         <button
             className={cn(
-                "inline-flex items-center justify-center rounded-[var(--radius)] text-sm font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+                "inline-flex items-center justify-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                 "disabled:pointer-events-none disabled:opacity-50",
                 variant === "default" &&
-                    "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)]/90",
-                variant === "ghost" && "hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+                    "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary)]/90",
+                variant === "ghost" &&
+                    "hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]",
                 variant === "outline" &&
-                    "border border-[var(--border)] bg-transparent hover:bg-[var(--muted)]",
+                    "border border-[var(--color-outline)] bg-transparent hover:bg-[var(--color-surface-raised)]",
                 size === "default" && "h-9 px-4 py-2",
                 size === "sm" && "h-8 px-3 text-xs",
                 size === "icon" && "h-9 w-9",

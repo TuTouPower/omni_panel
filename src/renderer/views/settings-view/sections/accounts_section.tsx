@@ -2,6 +2,7 @@ import type { AppConfiguration } from "../../../../shared/types/config";
 import type { ConnectorInfo } from "../../../../shared/types/ipc";
 import type { MetricRecord, UsageProvider } from "../../../../shared/schemas/plugin-output";
 import { CpaConnectorSettings } from "../../../components/CpaConnectorSettings";
+import { Button } from "../../../components/ui/Button";
 import { Icon } from "../../../components/Icon";
 import { PROVIDER_LABELS } from "../../../lib/provider-usage";
 import type { SavePluginSettings } from "../../../hooks/use_connector_catalog";
@@ -75,23 +76,24 @@ export function AccountsSection({
         const editingPluginConfig = editingPlugin;
         return (
             <>
-                <div className="sp-head">
-                    <div className="sp-crumb">
-                        <span
-                            className="sp-crumb-link"
-                            onClick={() => {
-                                set_editing_cpa_id(null);
-                            }}
-                        >
-                            账号
-                        </span>
-                        <span className="cc-sep">
-                            <Icon name="chevron" size={15} />
-                        </span>
-                        <span className="cc-cur">{editingInfo.displayName}</span>
-                    </div>
+                <div className="mb-4 flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 text-[var(--color-on-surface-variant)]"
+                        onClick={() => {
+                            set_editing_cpa_id(null);
+                        }}
+                        aria-label="返回账号列表"
+                    >
+                        账号
+                    </Button>
+                    <span className="flex text-[var(--color-on-surface-muted)]" aria-hidden="true">
+                        <Icon name="chevron" size={15} />
+                    </span>
+                    <span className="text-title-sm font-semibold">{editingInfo.displayName}</span>
                 </div>
-                <div style={{ display: "flex", flex: 1 }}>
+                <div className="flex flex-1">
                     <CpaConnectorSettings
                         connector={editingInfo}
                         config={{
@@ -163,10 +165,11 @@ export function AccountsSection({
 
     return (
         <>
-            <div className="sp-head">
-                <span className="sp-title">已添加</span>
-                <button
-                    className="sp-action"
+            <div className="mb-4 flex items-center justify-between">
+                <span className="text-title-sm font-semibold">已添加</span>
+                <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => {
                         set_dialog({
                             mode: "add",
@@ -178,15 +181,17 @@ export function AccountsSection({
                 >
                     <Icon name="plus" size={15} strokeWidth={2} />
                     添加
-                </button>
+                </Button>
             </div>
-            <div className="set-group-label" style={{ marginTop: 16 }}>
+            <div className="mb-2 mt-4 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 已添加
             </div>
             {config.plugins.length === 0 ? (
-                <div className="text-sm text-[var(--text-3)] py-4">暂无已添加连接</div>
+                <div className="py-4 text-sm text-[var(--color-on-surface-muted)]">
+                    暂无已添加连接
+                </div>
             ) : plugin_infos.length === 0 ? (
-                <div className="text-sm text-[var(--text-3)] py-4">加载中...</div>
+                <div className="py-4 text-sm text-[var(--color-on-surface-muted)]">加载中...</div>
             ) : (
                 <AccountsList
                     config={config}

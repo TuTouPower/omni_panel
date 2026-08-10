@@ -50,17 +50,28 @@ describe("UsageBarRow", () => {
             <UsageBarRow period={make_period()} index={0} barStyle="capsule" />,
         );
 
-        expect(container.querySelector(".bar-row.capsule")).toBeInTheDocument();
-        expect(container.querySelector(".bar-pct")).not.toBeInTheDocument();
-        expect(container.querySelectorAll(".bar-capsule-value")).toHaveLength(2);
-        expect(container.querySelector(".bar-capsule-value-dark")?.textContent).toBe("10%");
+        expect(
+            container.querySelector('[data-testid="bar-row"][data-variant="capsule"]'),
+        ).toBeInTheDocument();
+        expect(container.querySelector('[data-testid="bar-pct"]')).not.toBeInTheDocument();
+        expect(
+            container.querySelectorAll(
+                '[data-testid="bar-capsule-value-dark"], [data-testid="bar-capsule-value-light"]',
+            ),
+        ).toHaveLength(2);
+        expect(container.querySelector('[data-testid="bar-capsule-value-dark"]')?.textContent).toBe(
+            "10%",
+        );
         // used=10/limit=100 → pct=10 → clipPath = inset(0 {100-10}% 0 0)
         const expectedPct = Math.round((10 / 100) * 100);
         expect(
-            container.querySelector<HTMLElement>(".bar-capsule-value-light")?.style.clipPath,
+            container.querySelector<HTMLElement>('[data-testid="bar-capsule-value-light"]')?.style
+                .clipPath,
         ).toBe(`inset(0 ${String(100 - expectedPct)}% 0 0)`);
         expect(
-            container.querySelector<HTMLElement>(".track")?.style.getPropertyValue("--bar-fill"),
+            container
+                .querySelector<HTMLElement>('[data-testid="bar-track"]')
+                ?.style.getPropertyValue("--bar-fill"),
         ).not.toBe("");
     });
 
@@ -69,8 +80,10 @@ describe("UsageBarRow", () => {
             <UsageBarRow period={make_period({ used: null })} index={0} barStyle="thin" />,
         );
 
-        expect(container.querySelector(".bar-pct")?.textContent).toBe("");
-        expect(container.querySelector<HTMLElement>(".fill")?.style.width).toBe("0%");
+        expect(container.querySelector('[data-testid="bar-pct"]')?.textContent).toBe("");
+        expect(container.querySelector<HTMLElement>('[data-testid="bar-fill"]')?.style.width).toBe(
+            "0%",
+        );
     });
 
     it("renders empty capsule values and zero fill when used is null (capsule style)", () => {
@@ -78,9 +91,15 @@ describe("UsageBarRow", () => {
             <UsageBarRow period={make_period({ used: null })} index={0} barStyle="capsule" />,
         );
 
-        expect(container.querySelector(".bar-capsule-value-dark")?.textContent).toBe("");
-        expect(container.querySelector(".bar-capsule-value-light")?.textContent).toBe("");
-        expect(container.querySelector<HTMLElement>(".fill")?.style.width).toBe("0%");
+        expect(container.querySelector('[data-testid="bar-capsule-value-dark"]')?.textContent).toBe(
+            "",
+        );
+        expect(
+            container.querySelector('[data-testid="bar-capsule-value-light"]')?.textContent,
+        ).toBe("");
+        expect(container.querySelector<HTMLElement>('[data-testid="bar-fill"]')?.style.width).toBe(
+            "0%",
+        );
     });
 
     it("uses custom label map before built-in labels", () => {
@@ -103,8 +122,10 @@ describe("UsageBarRow", () => {
                 barStyle="thin"
             />,
         );
-        expect(container.querySelector(".bar-pct")?.textContent).toBe("3/10");
-        expect(container.querySelector(".bar-row.frac")).toBeInTheDocument();
+        expect(container.querySelector('[data-testid="bar-pct"]')?.textContent).toBe("3/10");
+        expect(
+            container.querySelector('[data-testid="bar-row"][data-ratio="true"]'),
+        ).toBeInTheDocument();
     });
 
     it("forcePercent converts ratio periods to percent display", () => {
@@ -116,8 +137,10 @@ describe("UsageBarRow", () => {
                 forcePercent
             />,
         );
-        expect(container.querySelector(".bar-pct")?.textContent).toBe("30%");
-        expect(container.querySelector(".bar-row.frac")).not.toBeInTheDocument();
+        expect(container.querySelector('[data-testid="bar-pct"]')?.textContent).toBe("30%");
+        expect(
+            container.querySelector('[data-testid="bar-row"][data-ratio="true"]'),
+        ).not.toBeInTheDocument();
     });
 });
 
@@ -131,7 +154,7 @@ describe("UsageBarRow upcoming-reset watch toggle (t043)", () => {
 
     it("does not render bell button when on_toggle_watched is missing", () => {
         const { container } = render(<UsageBarRow period={make_period()} index={0} />);
-        expect(container.querySelector(".bar-watch")).not.toBeInTheDocument();
+        expect(container.querySelector('[data-testid="bar-watch"]')).not.toBeInTheDocument();
     });
 
     it("reflects watched=false via aria-pressed=false and dimmed icon by default", () => {
@@ -198,7 +221,7 @@ describe("AccountUsageRow upcoming-reset watch toggle (t046)", () => {
         const { container } = render(
             <AccountUsageRow account={make_account()} watched_labels={new Set(["glm-4-plus"])} />,
         );
-        expect(container.querySelectorAll(".bar-watch")).toHaveLength(0);
+        expect(container.querySelectorAll('[data-testid="bar-watch"]')).toHaveLength(0);
     });
 
     it("reflects watched state per raw_label via aria-pressed", () => {
@@ -268,7 +291,7 @@ describe("AccountUsageRow observedAt relative-time path (t186)", () => {
         // observedAt = 12:00:00, now = 12:30:00 → 30 分钟前
         const account = make_account({ observedAt: new Date("2026-05-18T12:00:00Z").getTime() });
         const { container } = render(<AccountUsageRow account={account} />);
-        const time_el = container.querySelector(".ai-time");
+        const time_el = container.querySelector('[data-testid="ai-time"]');
         expect(time_el?.textContent).toBe(relative_time(account.observedAt));
         expect(time_el?.textContent).toBe("30 分钟前");
     });
@@ -276,7 +299,7 @@ describe("AccountUsageRow observedAt relative-time path (t186)", () => {
     it("falls back to updatedAt when observedAt is missing", () => {
         const account = make_account({ observedAt: null as unknown as number });
         const { container } = render(<AccountUsageRow account={account} />);
-        const time_el = container.querySelector(".ai-time");
+        const time_el = container.querySelector('[data-testid="ai-time"]');
         expect(time_el?.textContent).toBe(relative_time(account.updatedAt));
         expect(time_el?.textContent).not.toBe("");
     });
@@ -287,7 +310,7 @@ describe("AccountUsageRow observedAt relative-time path (t186)", () => {
             updatedAt: null as unknown as string,
         });
         const { container } = render(<AccountUsageRow account={account} />);
-        const time_el = container.querySelector(".ai-time");
+        const time_el = container.querySelector('[data-testid="ai-time"]');
         expect(time_el?.textContent).toBe("");
     });
 });

@@ -33,7 +33,7 @@ test.describe("popup token panel", () => {
         const popup = new PopupPage(page);
         await popup.waitReady();
 
-        const token_card = page.locator(".token-card").first();
+        const token_card = page.locator('[data-testid="token-panel"]').first();
         await expect(token_card).toBeVisible();
 
         const today = token_card.getByRole("button", { name: "今天" });
