@@ -1,14 +1,10 @@
 # Task spec
 
-契约区执行期原则上不再改动；确需调整须经用户确认（渲染 review prompt 时脚本会附契约区相对 diff_anchor 的 drift diff 供 reviewer 核对）。上下文区执行期可补。
-
 ## 背景
 
-来源：`docs/pending.md` p106（t278 review Round 3 f006/f007 code minor + f007/f008 test minor）。核实（2026-08-10 合并后代码）：`WebLoginSection` 的 `cookieLogin`/`cookieLoginStatus` 轮询仅覆盖 web 编辑实例路径（有 `instance_id`）；web 添加账号（无 `instance_id`）仍走阻塞式 `session.login`，刷新/断请求丢捕获结果且与编辑路径行为分叉；两处轮询逻辑逐字重复；`startCookieLogin` 并发冲突与 120s 轮询超时分支无测试。属 web 认证对齐（t278）的收尾遗留。
+来源：`docs/pending` p106（t278 review Round 3 f006/f007 code minor + f007/f008 test minor）。核实（2026-08-10 合并后代码）：`WebLoginSection` 的 `cookieLogin`/`cookieLoginStatus` 轮询仅覆盖 web 编辑实例路径（有 `instance_id`）；web 添加账号（无 `instance_id`）仍走阻塞式 `session.login`，刷新/断请求丢捕获结果且与编辑路径行为分叉；两处轮询逻辑逐字重复；`startCookieLogin` 并发冲突与 120s 轮询超时分支无测试。属 web 认证对齐（t278）的收尾遗留。
 
 ## 契约区
-
-reviewer 判 AC 时只看本区。
 
 ### 范围
 
@@ -24,17 +20,41 @@ reviewer 判 AC 时只看本区。
 
 ### 验收标准
 
+<!-- 规范（门禁必留，不得删除） -->
+
+只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+每条 AC 条目带稳定编号 `AC-NNN`（三位十进制、task 内从 001 顺序编号、唯一、删除不复用）；收尾时 `handoff.json` 的 `ac_evidence` 须精确覆盖本区全部编号。编号约定见 `docs/blueprint/conventions.md`。
+
+<!-- /规范 -->
+
 只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：web 添加 cookie 类账号发起登录后，刷新/中止请求不丢捕获结果（落 vault 或明确降级指引可恢复）
-- [ ] AC2：`SettingsForm` 与 `WebLoginSection` 的 cookie 登录轮询共用同一实现，行为与超时/冲突文案一致
-- [ ] AC3：重复触发登录返回可读中文冲突提示，不出现英文原始消息
-- [ ] AC4：轮询超时（120s）给出可读提示
-- [ ] AC5：桌面版 cookie 登录行为与现状一致（回归）
+- [ ] AC-001：web 添加 cookie 类账号发起登录后，刷新/中止请求不丢捕获结果（落 vault 或明确降级指引可恢复）
+- [ ] AC-002：`SettingsForm` 与 `WebLoginSection` 的 cookie 登录轮询共用同一实现，行为与超时/冲突文案一致
+- [ ] AC-003：重复触发登录返回可读中文冲突提示，不出现英文原始消息
+- [ ] AC-004：轮询超时（120s）给出可读提示
+- [ ] AC-005：桌面版 cookie 登录行为与现状一致（回归）
 
 ### 可测试性声明
+
+<!-- 规范（门禁必留，不得删除） -->
+
+逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
+
+<!-- /规范 -->
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
@@ -42,15 +62,27 @@ reviewer 判 AC 时只看本区。
 
 ## 上下文区
 
-reviewer 判测试覆盖时核对本区；实施期可补。
+- 来源：p106（t278 review Round 3 f006/f007 code minor + f007/f008 test minor；2026-08-10 代码核实仍在）
 
 ### 有意不测
+
+<!-- 规范（门禁必留，不得删除） -->
+
+已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
+
+<!-- /规范 -->
 
 已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
 
 - 无
 
 ### 测试策略
+
+<!-- 规范（门禁必留，不得删除） -->
+
+mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
+
+<!-- /规范 -->
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
@@ -59,6 +91,12 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 - 超时分支：`vi.useFakeTimers()` 推进超 `COOKIE_LOGIN_POLL_TIMEOUT_MS`
 
 ### 未知契约清单
+
+<!-- 规范（门禁必留，不得删除） -->
+
+尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
+
+<!-- /规范 -->
 
 尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
 

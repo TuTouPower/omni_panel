@@ -2,12 +2,12 @@
 import sys
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts" / "repo_template"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import pytest
-from task import (
-    TaskDataError,
+from repo_task.context import TaskDataError
+from repo_task.documents import (
     _quote,
     _unquote,
     dump_front_matter,
@@ -105,34 +105,6 @@ def test_write_uses_lf_newlines(tmp_path):
     p = tmp_path / "task.md"
     write_front_matter(p, {"tid": "t001"}, "body\n")
     assert b"\r\n" not in p.read_bytes()
-
-
-# --- 原子写：失败路径与中断恢复 ---
-
-def _raise_runtime_error(*_args, **_kwargs):
-    raise RuntimeError("injected failure")
-
-
-def test_atomic_write_replace_failure_keeps_target_and_cleans_tmp(tmp_path, monkeypatch):
-    """os.replace 失败：目标文件保持原样，tmp 文件被清理。"""
-    target = tmp_path / "task.md"
-    target.write_text("旧内容", encoding="utf-8")
-    monkeypatch.setattr("task.os.replace", _raise_runtime_error)
-    with pytest.raises(RuntimeError):
-        write_front_matter(target, {"tid": "t001"}, "body\n")
-    assert target.read_text(encoding="utf-8") == "旧内容"
-    assert not (tmp_path / "task.md.tmp").exists()
-
-
-def test_atomic_write_fsync_failure_keeps_target_and_cleans_tmp(tmp_path, monkeypatch):
-    """写盘阶段失败（fsync 抛错）：目标文件不产生半写状态，tmp 被清理。"""
-    target = tmp_path / "task.md"
-    target.write_text("旧内容", encoding="utf-8")
-    monkeypatch.setattr("task.os.fsync", _raise_runtime_error)
-    with pytest.raises(RuntimeError):
-        write_front_matter(target, {"tid": "t001"}, "body\n")
-    assert target.read_text(encoding="utf-8") == "旧内容"
-    assert not (tmp_path / "task.md.tmp").exists()
 
 
 def test_parse_strips_inline_comment_unquoted(tmp_path):

@@ -4,7 +4,7 @@
 - branch：`t228_session_alignment_finalize`
 - head_commit：本分支 HEAD（`git log --grep "t228"` 查）
 - 当前状态：会话面板对齐批次（t223 外壳 / t224 槽位 / t225 面板 / t226 摘选 / t227 会话库 / t228 收尾）交付完成，链尾 `t228_session_alignment_finalize` 待整批合并 main。
-- 已知 bug：见 `docs/bugs.md`，所有条目均已记录「修复：」行——T029 per-account error（t084 spike close 评估完结，commit `311ee3d`）、OpenCode Go 添加账号无弹窗（t098，commit `3aabba4`）、监控重置 bell 仅 Tavily（t086，commit `cf8a55d`）、添加账号弹窗黑色横线（t087 评估 + t106 实施，commit `89dec60`）、task 索引序列化 CRLF/2 空格（`scripts/task.py`，commit `5484704`）、t099 宽度上限、t100 L2 折叠重置。
+- 已知 bug：见 `docs/bugs.md`，所有条目均已记录「修复：」行——T029 per-account error（t084 spike close 评估完结，commit `311ee3d`）、OpenCode Go 添加账号无弹窗（t098，commit `3aabba4`）、监控重置 bell 仅 Tavily（t086，commit `cf8a55d`）、添加账号弹窗黑色横线（t087 评估 + t106 实施，commit `89dec60`）、task 索引序列化 CRLF/2 空格（`scripts/repo_template/task.py`，commit `5484704`）、t099 宽度上限、t100 L2 折叠重置。
 - 大重构：t076 refresh-service / t077 main index / t078 PopupView 三轮拆分均 done（t089/t090/t091 后续拆分完成）。
 - 连接器迁移 ctx.status（原 t066 遗留）：t088 已完成（9 连接器删内联 helper）。
 
@@ -20,7 +20,7 @@
     - t227：会话库视图（搜索/筛选/排序/预览/批量打开，main 侧 query_sessions 扩展）。
     - t228：对齐收尾——web e2e 会话面板关键路径（`session_panel.spec.ts`，全量 53 passed）、旧实现残留清理确认、web 会话桥实桥、文档同步。
 - 验证：各 task `pnpm test` 全量绿（t228 2460 passed）、typecheck/lint/build 通过；t228 web e2e `MOCK_FIXTURE=synthetic` 全量 53 passed（CI smoke 同参）。
-- 遗留：p054（web e2e fixture 分叉）/ p055（WorkspaceView 拆分）/ p056（crypto 集成 flaky）/ p057（act 警告）/ p058（load_error 展示）/ p059（会话库拆分）见 `docs/pending.md`「待办」。
+- 遗留：p054（web e2e fixture 分叉）/ p055（WorkspaceView 拆分）/ p056（crypto 集成 flaky）/ p057（act 警告）/ p058（load_error 展示）/ p059（会话库拆分）见 `docs/pending`「待办」。
 - [deploy] 人工验收项（真实窗口黑盒：主题持久化/拖拽换位/滚动/快捷键/真实会话打开与实时更新）留用户打包后实测，清单见 t228 spec AC3。
 
 ## 2026-08-05 t209-t213 会话历史窗口功能链完成
@@ -43,7 +43,7 @@
 - 已完成实现：移除 `MAX_PANEL_WIDTH=780`；floating 保存与恢复宽度改以上次窗口所在 display 的 `workArea.width` 为上限；移除 `WINDOW_CONFIGS.usage.maxWidth`；新增 1200px floating 宽度持久化单元测试。
 - 已完成验证：专项 Vitest 15 passed；`pnpm typecheck`、改动文件 Prettier、定向 ESLint 通过；`pnpm test` 158 files / 1616 tests 通过；隔离 Electron 验证 floating 1200px 可保存、重启恢复，popup 可超过 780px，二者 `maximum_size=[0,0]`；`pnpm package && pnpm test:packaged` 3 passed。
 - 当前停点：Step 5 双审。提示词已生成于 `.scratch/review_prompts/`；下一步仅并行启动两个 `general-purpose` subagent，分别完整读取 `code_review_prompt.md` 与 `test_review_prompt.md`，只写 `docs/tasks/t099_popup_width_cap_remove/review_code.md` / `review_test.md`。
-- 双审 PASS 后：更新 `task.md` 收尾报告与 `docs/blueprint/architecture.md` 主面板宽度策略；运行 `scripts/task.py finish t099`；归档 task 目录；仅暂存 t099 文件，排除 `docs/tasks/t103_token_stats_natural_bucket/`；单 task 单 commit。
+- 双审 PASS 后：更新 `task.md` 收尾报告与 `docs/blueprint/architecture.md` 主面板宽度策略；运行 `scripts/repo_template/task.py finish t099`；归档 task 目录；仅暂存 t099 文件，排除 `docs/tasks/t103_token_stats_natural_bucket/`；单 task 单 commit。
 
 ## 2026-07-24 t099 完成
 
@@ -79,7 +79,7 @@
 - 状态：`done`；task 已归档至 `docs/archive/tasks/t102_remove_stale_amber_border/`。
 - 实现：删除 `.card.stale` amber border；清理 ProviderCard、ProviderAccountRow 无消费者 `stale` class；保留 stale 徽章、错误文字及 stale 判定。
 - 验证：`pnpm test` 158 files / 1622 tests、`pnpm typecheck`、改动文件 Prettier 通过。
-- 双审：Round 1 修复 `t102_code_f001`、`t102_test_f001`；Round 2/3 测试 PASS。代码 review 遗留 `t102_code_f002`：`scripts/task.py` 输出的 task 索引为 CRLF/2 空格，已记录 `docs/bugs.md`，需另立 task 修复。后续已由 commit `5484704 fix(scripts): task.py save() 用 4 空格缩进 + LF` 修复（见 bugs.md 修复行）。
+- 双审：Round 1 修复 `t102_code_f001`、`t102_test_f001`；Round 2/3 测试 PASS。代码 review 遗留 `t102_code_f002`：`scripts/repo_template/task.py` 输出的 task 索引为 CRLF/2 空格，已记录 `docs/bugs.md`，需另立 task 修复。后续已由 commit `5484704 fix(scripts): task.py save() 用 4 空格缩进 + LF` 修复（见 bugs.md 修复行）。
 
 ## 2026-07-24 t103 完成
 
@@ -120,7 +120,7 @@
     - `tests/integration/config/config-store.test.ts`、`tests/unit/core/storage/write-json.test.ts` 覆盖新行为。
     - `docs/specs/config_fallback_p0_protection.md`、`docs/specs_index.md`、`docs/blueprint/architecture.md` 已同步。
 - 后续 backlog：t112 Kimi device code OAuth 登录、t113 Kimi connector 解析 boosterWallet/totalQuota/membership、t114 token-stats collector 扫描状态落盘。
-- 用户指示完成 t111 后结束，t112 未启动实现。已创建空 task 目录 `docs/tasks/t112_kimi_oauth_device_code/` 与分支 `t112_kimi_oauth_device_code`（仅模板文件，未提交），接手时可直接从 `scripts/task.py show t112` 与 spec/plan 开始。
+- 用户指示完成 t111 后结束，t112 未启动实现。已创建空 task 目录 `docs/tasks/t112_kimi_oauth_device_code/` 与分支 `t112_kimi_oauth_device_code`（仅模板文件，未提交），接手时可直接从 `scripts/repo_template/task.py show t112` 与 spec/plan 开始。
 
 ## 2026-07-26 t121+t122 完成
 
@@ -141,9 +141,9 @@
 - branch：`t169_align_scripts_layer`
 - head_commit：本分支 HEAD（本次迁移工作区 commit，`git log --grep "align repo_template"` 查）
 - 内容：本仓工作流对齐 `\wsl.localhost\Ubuntu-22.04\home\testuser\testuser_ubuntu\repo_template`。
-    - 脚本层：`scripts/task.py`（2216 行，front matter 状态权威 + worktree 链）+ `_id_scan.py`/`pending.py`/`findings.py`/`render_review_prompts.py`/`check_review_status.py` 全量移植；Windows 适配（git 子进程 UTF-8 encoding、worktree 路径 resolve 统一，见 `docs/findings.md` d001）。`tests/repo_template/` 197 用例 + `pnpm test` 1910 用例全过。
+    - 脚本层：`scripts/repo_template/task.py`（2216 行，front matter 状态权威 + worktree 链）+ `_id_scan.py`/`pending.py`/`findings.py`/`render_review_prompts.py`/`check_review_status.py` 全量移植；Windows 适配（git 子进程 UTF-8 encoding、worktree 路径 resolve 统一，见 `docs/findings` d001）。`tests/repo_template/` 197 用例 + `pnpm test` 1910 用例全过。
     - 数据迁移：169 个 task 目录补 `task.md` front matter（12 字段 schema）；旧 `task_report.md`/`log.md` 保留；`docs/archive/tasks/_pre/` 历史快照移至 `docs/archive/_pre_tasks/`。
-    - 文档骨架：`docs/pending.md`（原 `bugs.md` 10 条全修复→`archive/bugs_2026_07.md`；`legacy_backlog.md` 9 条「暂不建」→ pending「不办」节 p001–p009）；`docs/findings.md`；模板迁到 `docs/tasks/task_template/`、`docs/spikes/report_template.md`、`docs/reviews/prompts/`；旧 `docs/templates/` 删除。
+    - 文档骨架：`docs/pending`（原 `bugs.md` 10 条全修复→`archive/bugs_2026_07.md`；`legacy_backlog.md` 9 条「暂不建」→ pending「不办」节 p001–p009）；`docs/findings`；模板迁到 `docs/tasks/task_template/`、`docs/spikes/report_template.md`、`docs/reviews/prompts/`；旧 `docs/templates/` 删除。
     - AGENTS.md 重写为路由版（skill 路由 + 目录权责，本仓特有约束保留）。
     - 9 个 skill 移植（`.agents/skills/` + `.claude/skills/` 软链）+ `merge_guard.py` PreToolUse hook（`.claude/settings.json`）。
     - `docs/blueprint/testing.md` 建立（门禁类别清单：单测/typecheck/lint/build 全绿）。

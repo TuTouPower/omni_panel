@@ -4,11 +4,11 @@ import sys
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
-REPO_ROOT = SCRIPTS_DIR.parent
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts" / "repo_template"
+REPO_ROOT = SCRIPTS_DIR.parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from task import parse_front_matter, validate_task_documents
+from repo_task.documents import parse_front_matter, validate_task_documents
 
 
 SPEC_TEMPLATE = (REPO_ROOT / "docs/tasks/task_template/spec.md").read_text(encoding="utf-8")
@@ -21,7 +21,7 @@ def _filled_spec() -> str:
         "{本 task 包含什么。}": "测试范围。",
         "{明确不做什么。}": "无。",
         "{可独立验证的行为结果。}": "可验证行为。",
-        "- {AC 编号}：{不可测原因与替代验证方式}": "- 全部 AC 可自动测试",
+        "- AC-001：{不可测原因与替代验证方式}": "- 全部 AC 可自动测试",
         "- {分支或场景}：{不测原因}": "- 无",
         "- {内容}": "- 按项目默认",
         "- {契约}：{分类标记}，{待验证方式}": "- 无",
@@ -29,6 +29,7 @@ def _filled_spec() -> str:
         "- 回退：{失败后如何恢复}": "- 回退：无",
         "- {前置依赖、平台、安全或兼容性约束；无则写「无」。}": "- 无",
         "- `{文件路径}`：{具体条目；无则写「无」}": "- 无",
+        "- 来源：{pNNN / finding_id / 原 tid}（核实日期与结论；无外部来源写「无」）": "- 来源：无",
     }
     text = SPEC_TEMPLATE
     for old, new in replacements.items():
@@ -52,6 +53,42 @@ def test_filled_documents_pass():
 
     assert problems == []
     assert warnings == []
+
+
+def test_acceptance_missing_ac_id_fails():
+    spec = _filled_spec().replace(
+        "- [ ] AC-001：可验证行为。",
+        "- [ ] 可验证行为。",
+        1,
+    )
+
+    problems, _ = validate_task_documents(spec, TASK_BODY_TEMPLATE)
+
+    assert any("缺 AC 编号" in problem for problem in problems)
+
+
+def test_acceptance_duplicate_ac_id_fails():
+    spec = _filled_spec().replace(
+        "- [ ] AC-001：可验证行为。",
+        "- [ ] AC-001：可验证行为。\n- [ ] AC-001：重复编号。",
+        1,
+    )
+
+    problems, _ = validate_task_documents(spec, TASK_BODY_TEMPLATE)
+
+    assert any("AC 编号重复" in problem for problem in problems)
+
+
+def test_acceptance_deploy_ac_id_passes():
+    spec = _filled_spec().replace(
+        "- [ ] AC-001：可验证行为。",
+        "- [ ] [deploy] AC-001：需真实部署验证。",
+        1,
+    )
+
+    problems, _ = validate_task_documents(spec, TASK_BODY_TEMPLATE)
+
+    assert problems == []
 
 
 @pytest.mark.parametrize(
@@ -86,11 +123,18 @@ def test_heading_order_change_fails():
 
 
 def test_missing_fixed_guidance_fails():
-    spec = _filled_spec().replace("reviewer 判 AC 时只看本区。\n", "", 1)
+    # 删掉带 `<!-- 规范 -->` 标记的就近规范块，门禁应失败
+    spec = _filled_spec().replace(
+        "<!-- 规范（门禁必留，不得删除） -->\n"
+        "只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。\n"
+        "<!-- /规范 -->\n",
+        "",
+        1,
+    )
 
     problems, _ = validate_task_documents(spec, TASK_BODY_TEMPLATE)
 
-    assert any("固定声明或引导语" in problem for problem in problems)
+    assert any("规范块" in problem for problem in problems)
 
 
 def test_template_placeholder_fails_after_creation():

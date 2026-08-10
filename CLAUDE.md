@@ -1,1 +1,1 @@
-D:/Dev/Code/omni_usage/AGENTS.md
+AGENTS.md
