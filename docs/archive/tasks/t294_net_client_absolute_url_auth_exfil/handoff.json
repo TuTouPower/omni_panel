@@ -1,0 +1,24 @@
+{
+    "tid": "t294",
+    "attempt": 1,
+    "execution_id": "c91a971fe40d473e8f800a9ba86f800d",
+    "status": "done",
+    "branch": "t294_net_client_absolute_url_auth_exfil",
+    "base_sha": "c35155f2c456447e5981cbf84827f34c430b39b4",
+    "tests": "pnpm test：254 files / 2844 passed，0 failed",
+    "blackbox": "pnpm test 全绿（含 net-client 集成测试真实 undici 请求路径）",
+    "review": "Round 5 code PASS + test PASS，4 条 minor 全已修",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/connector/net-client.test.ts::rejects an absolute URL path so vault auth cannot be exfiltrated 通过",
+            "tests/integration/connector/net-client.test.ts::rejects a protocol-relative path so vault auth cannot be exfiltrated 通过"
+        ],
+        "AC-002": ["既有 31 用例全绿 + pnpm test 全量 2844 passed 0 failed"],
+        "AC-003": [
+            "tests/integration/connector/net-client.test.ts::rejects an out-of-origin path from get_raw too 通过（probe 通道）",
+            "tests/integration/connector/net-client.test.ts::rejects an out-of-origin protocol-relative path from post_json 通过（poll 通道）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
