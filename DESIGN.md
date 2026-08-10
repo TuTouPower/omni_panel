@@ -67,7 +67,7 @@ colors:
     hairline-dark: "#262b34"
     success-dark: "#34d27b"
     warning-dark: "#f7b53c"
-    error-dark: "#ff6b6b"
+    error-dark: "#f0564d"
     risk-mid-dark: "#f5c84b"
     risk-high-dark: "#ff9d4d"
     risk-critical-dark: "#ff6b6b"

@@ -1,0 +1,22 @@
+{
+    "tid": "t298",
+    "attempt": 1,
+    "execution_id": "62f353c013f14ac3b7bf282f65a52dff",
+    "status": "done",
+    "branch": "t298_button_font_merge_and_danger_contrast",
+    "base_sha": "f777c0f5a6bc66956e106772ce1baefd06197f88",
+    "tests": "pnpm test：254 files / 2857 passed，0 failed；designmd:check drift passed",
+    "blackbox": "pnpm test 全绿 + designmd:check 通过",
+    "review": "Round 2 code PASS + test PASS，3 条 minor 全已修",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/ui/ui.test.tsx::Button standard 字号类不被 tailwind-merge 吞 循环断言 primary/secondary/danger 三 variant text-[length:var(--text-body-md)] + 文字色共存"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/ui/ui.test.tsx::danger 按钮暗色白字对比 ≥3.0 断言 #f0564d 对比 3.42 ≥ 3.0"
+        ],
+        "AC-003": ["pnpm designmd:check drift passed；全量 pnpm test 2857 passed 0 failed"]
+    },
+    "pending": ["p126"],
+    "findings": []
+}

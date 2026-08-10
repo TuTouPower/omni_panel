@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-    "inline-flex items-center justify-center gap-1.5 rounded-md text-body-md font-medium " +
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium " +
     "transition-feedback disabled:pointer-events-none disabled:opacity-50 " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-0";
 
@@ -25,9 +25,9 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-    standard: "h-9 px-[18px]",
-    // text-[length:...] 显式字号：避免 tailwind-merge 把自定义字号 token（--text-label-md）
-    // 误判为颜色类，吞掉 primary/danger 的 text-[var(--color-on-primary)]（t283 实测）。
+    // text-[length:...] 显式字号：避免 tailwind-merge 把自定义字号 token（--text-body-md）
+    // 误判为颜色类，吞掉 primary/danger 的 text-[var(--color-on-primary)]（t298，sm 档 t283）。
+    standard: "h-9 px-[18px] text-[length:var(--text-body-md)]",
     sm: "h-8 px-3 text-[length:var(--text-label-md)]",
 };
 
