@@ -119,7 +119,7 @@ describe("PopupView mirror isolation", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
-            auth: { cookieLogin: vi.fn() },
+            auth: { cookieLogin: vi.fn(), cookieLoginStatus: vi.fn() },
             session: { login: vi.fn(), refresh: vi.fn() },
             grok: {
                 login_start: vi.fn(),
@@ -185,8 +185,12 @@ describe("PopupView mirror isolation", () => {
             expect(screen.getAllByRole("button", { name: /总览/ }).length).toBeGreaterThan(0);
         });
 
-        const live_tabs = document.querySelectorAll(".tabs-wrap:not(.tabs-wrap-mirror)");
-        const mirror_tabs = document.querySelectorAll(".tabs-wrap.tabs-wrap-mirror");
+        const live_tabs = document.querySelectorAll(
+            '[data-popup="live"] [data-testid="popup-tabs-wrap"]',
+        );
+        const mirror_tabs = document.querySelectorAll(
+            '[data-popup="mirror"] [data-testid="popup-tabs-wrap"]',
+        );
 
         // Exactly one live tabs-wrap (the one tabsRef binds to).
         expect(live_tabs.length).toBe(1);

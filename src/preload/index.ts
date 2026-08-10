@@ -12,6 +12,9 @@ import { create_on_updated_subscriber } from "./token-stats-events";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
+    ConfigExportOptions,
+    CookieLoginResult,
+    CookieLoginStatus,
     HistoryMessageLike,
     RendererLogPayload,
     RendererPlatform,
@@ -349,10 +352,12 @@ const config_full = {
             IPC_CHANNELS.CONFIG_CREATE_INSTANCE,
             manifestId,
         ),
-    export: () =>
-        invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
+    export: (options?: ConfigExportOptions) => {
+        void options;
+        return invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
             IPC_CHANNELS.CONFIG_EXPORT,
-        ),
+        );
+    },
     import: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["import"]>>>(
             IPC_CHANNELS.CONFIG_IMPORT,
@@ -463,7 +468,9 @@ const tray_methods = {
 
 const auth_methods = {
     cookieLogin: (instanceId: string) =>
-        invoke<{ saved: boolean }>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
+        invoke<CookieLoginResult>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
+    cookieLoginStatus: (instanceId: string) =>
+        invoke<CookieLoginStatus>(IPC_CHANNELS.AUTH_COOKIE_LOGIN_STATUS, instanceId),
 };
 
 const session_methods = {

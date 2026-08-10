@@ -10,6 +10,10 @@ import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
 import { FOLLOW_GLOBAL_REFRESH_SENTINEL } from "../core/config/auto-seed";
+import {
+    build_secret_param_keys,
+    find_unknown_executable_paths,
+} from "../core/config/secret_param_keys";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -278,7 +282,7 @@ export async function handleConfigGetSecrets(
     }
 }
 
-async function handleConfigDuplicate(
+export async function handleConfigDuplicate(
     deps: ConfigIpcDeps,
     payload: unknown,
 ): Promise<IpcResult<{ instanceId: string }>> {
@@ -378,6 +382,169 @@ export async function handleConfigCreateInstance(
     }
 }
 
+function secret_keys_for(
+    deps: ConfigIpcDeps,
+    config: AppConfiguration,
+): ReadonlyMap<string, ReadonlySet<string>> {
+    return deps.definitions !== undefined
+        ? build_secret_param_keys(config, deps.definitions)
+        : deps.secretParamKeys;
+}
+
+function allowed_executable_paths_for(deps: ConfigIpcDeps): ReadonlySet<string> | undefined {
+    return deps.definitions === undefined
+        ? undefined
+        : new Set(deps.definitions.map((definition) => definition.executablePath));
+}
+
+function unknown_paths_for(deps: ConfigIpcDeps, config: AppConfiguration): string[] {
+    return deps.definitions === undefined
+        ? []
+        : find_unknown_executable_paths(config, deps.definitions);
+}
+
+function inject_secrets(
+    config: AppConfiguration,
+    secret_keys: ReadonlyMap<string, ReadonlySet<string>>,
+    exported: Readonly<Record<string, string>>,
+): AppConfiguration {
+    return {
+        ...config,
+        plugins: config.plugins.map((plugin) => {
+            const keys = secret_keys.get(plugin.instanceId);
+            if (!keys || keys.size === 0) return plugin;
+            const parameterValues = { ...plugin.parameterValues };
+            for (const key of keys) {
+                const value = exported[keyFor(plugin.instanceId, key)];
+                if (value !== undefined) parameterValues[key] = value;
+            }
+            return { ...plugin, parameterValues };
+        }),
+    };
+}
+
+export interface ConfigExportOptions {
+    readonly includeSecrets?: boolean;
+}
+
+export interface ConfigImportOptions {
+    /** Web callers cannot show the desktop endpoint-overrides confirmation dialog. */
+    readonly allowEndpointOverrides?: boolean;
+}
+
+/** Return native config.json-shaped data for LocalAPI and CLI callers. */
+export async function handleConfigExportData(
+    deps: ConfigIpcDeps,
+    options: ConfigExportOptions = {},
+): Promise<IpcResult<AppConfiguration>> {
+    try {
+        const config = await deps.configStore.load();
+        const secret_keys = secret_keys_for(deps, config);
+        const stripped = stripSecrets(config, secret_keys);
+        if (!options.includeSecrets) return ok(stripped);
+        const exported = await deps.secretsStore.exportAll();
+        return ok(inject_secrets(stripped, secret_keys, exported));
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `导出配置失败: ${msg}`);
+    }
+}
+
+function is_record(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+/** Apply a native config or the legacy desktop export wrapper. */
+export async function handleConfigImportData(
+    deps: ConfigIpcDeps,
+    raw: unknown,
+    options: ConfigImportOptions = {},
+): Promise<IpcResult<{ imported: boolean }>> {
+    try {
+        let config_input: unknown = raw;
+        let wrapper_secrets: Record<string, string> = {};
+        if (is_record(raw) && "formatVersion" in raw) {
+            if (raw["formatVersion"] !== 1) {
+                return fail("VALIDATION_ERROR", "不支持的导入文件版本");
+            }
+            config_input = raw["config"];
+            if (!is_record(config_input)) {
+                return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
+            }
+            if (raw["secrets"] !== undefined) {
+                if (!is_record(raw["secrets"])) {
+                    return fail("VALIDATION_ERROR", "导入文件密钥格式无效");
+                }
+                const entries = Object.entries(raw["secrets"]);
+                if (entries.some(([, value]) => typeof value !== "string")) {
+                    return fail("VALIDATION_ERROR", "导入文件密钥格式无效");
+                }
+                wrapper_secrets = Object.fromEntries(entries) as Record<string, string>;
+            }
+        }
+
+        const parsed = appConfigurationSchema.safeParse(config_input);
+        if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
+        const incoming = parsed.data as AppConfiguration;
+        const unknown_paths = unknown_paths_for(deps, incoming);
+        if (unknown_paths.length > 0) {
+            return fail(
+                "VALIDATION_ERROR",
+                `导入配置包含未知连接器路径: ${unknown_paths.join(", ")}`,
+            );
+        }
+        if (
+            options.allowEndpointOverrides === false &&
+            incoming.plugins.some((plugin) => Object.keys(plugin.endpointOverrides).length > 0)
+        ) {
+            return fail("VALIDATION_ERROR", "Web 导入不接受自定义端点覆盖，请在桌面版确认后导入");
+        }
+        const secret_keys = secret_keys_for(deps, incoming);
+        const imported_secrets: Record<string, string> = { ...wrapper_secrets };
+        for (const plugin of incoming.plugins) {
+            const keys = secret_keys.get(plugin.instanceId);
+            if (!keys) continue;
+            for (const key of keys) {
+                const value = plugin.parameterValues[key];
+                if (typeof value === "string" && value !== "") {
+                    imported_secrets[keyFor(plugin.instanceId, key)] = value;
+                }
+            }
+        }
+
+        const stripped = stripSecrets(incoming, secret_keys);
+        const previous_config = await deps.configStore.load();
+        await deps.configStore.save(stripped);
+        if (Object.keys(imported_secrets).length > 0) {
+            try {
+                await deps.secretsStore.importAll(imported_secrets);
+            } catch (import_err: unknown) {
+                try {
+                    await deps.configStore.save(previous_config);
+                } catch (rollback_err: unknown) {
+                    log.error("Config rollback after failed secrets import failed", rollback_err);
+                }
+                throw import_err;
+            }
+        }
+
+        let saved_config = stripped;
+        try {
+            saved_config = await deps.configStore.prune_unhealthy_plugins(
+                allowed_executable_paths_for(deps),
+            );
+        } catch (err) {
+            log.warn("Post-import health prune failed", err);
+        }
+        deps.onConfigSaved?.(saved_config);
+        deps.onConfigImported?.(saved_config);
+        return ok({ imported: true });
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return fail("INTERNAL_ERROR", `导入设置失败: ${msg}`);
+    }
+}
+
 export async function handleConfigExport(
     deps: ConfigIpcDeps,
 ): Promise<IpcResult<{ saved: boolean }>> {
@@ -474,35 +641,11 @@ export async function handleConfigImport(
                 ? (obj["secrets"] as Record<string, string>)
                 : {};
 
-        // Write config first, then secrets. If secrets fails (vault write
-        // error, permission issue), roll the config back to its pre-import
-        // state so connectors don't reference secrets that were never written
-        // (D14).
-        const previous_config = await deps.configStore.load();
-        await deps.configStore.save(parsed.data as AppConfiguration);
-        try {
-            await deps.secretsStore.importAll(secrets);
-        } catch (import_err: unknown) {
-            try {
-                await deps.configStore.save(previous_config);
-            } catch (rollback_err: unknown) {
-                log.error("Config rollback after failed secrets import failed", rollback_err);
-            }
-            throw import_err;
-        }
-        // t195: 结构变更（导入）后一次性健康检查，清理孤儿/非法 provider 插件。
-        // 先 prune 再触发 onConfigSaved/onConfigImported，二者都用清理后的
-        // 配置（scheduler rebuild 与 refreshAll 都不会碰孤儿插件）。失败不阻断
-        // import——配置与密钥已持久化，prune 只是启动期语义的补一次。
-        let saved_config = parsed.data as AppConfiguration;
-        try {
-            saved_config = await deps.configStore.prune_unhealthy_plugins();
-        } catch (err) {
-            log.warn(`Post-import health prune failed`, err);
-        }
-        deps.onConfigSaved?.(saved_config);
-        deps.onConfigImported?.(parsed.data as AppConfiguration);
-        return ok({ imported: true });
+        return await handleConfigImportData(deps, {
+            formatVersion: 1,
+            config: parsed.data,
+            secrets,
+        });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `导入设置失败: ${msg}`);

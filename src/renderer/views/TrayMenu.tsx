@@ -190,12 +190,22 @@ export function TrayMenu() {
     useResizeObserver(menu_ref, report_menu_size, [items]);
 
     return (
-        <div className="tray-window" ref={menu_ref}>
-            <div className="tray-win-head">
-                <img className="app-logo sm" src={logo} alt="" width={24} height={24} />
+        <div
+            className="w-max shrink-0 self-start overflow-hidden rounded-2xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-menu-bg)] py-2 shadow-menu backdrop-blur-[28px] backdrop-saturate-[1.7] motion-safe:animate-[ctxIn_0.18s_ease-out]"
+            data-testid="tray-window"
+            ref={menu_ref}
+        >
+            <div className="mb-0.5 flex items-center gap-2 border-b-[0.5px] border-b-[var(--color-hairline)] px-3.5 py-3 text-[13.5px] font-bold text-[var(--color-on-surface)]">
+                <img
+                    className="block h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+                    src={logo}
+                    alt=""
+                    width={24}
+                    height={24}
+                />
                 <span>OmniPanel</span>
             </div>
-            <div className="tray-menu-body">
+            <div className="p-[7px]" data-testid="tray-menu-body">
                 <Menu>
                     {items.map((item, i) => (
                         <div key={i}>

@@ -27,7 +27,7 @@ describe("CollapsibleCard", () => {
         const { container } = render(
             <CollapsibleCard header={<span>Card</span>} collapsed={true} onToggle={vi.fn()} />,
         );
-        const card = container.querySelector(".card");
+        const card = container.querySelector('[data-testid="collapsible-card"]');
         expect(card).toHaveAttribute("data-collapsed", "true");
     });
 
@@ -64,7 +64,7 @@ describe("CollapsibleCard", () => {
                 onToggle={vi.fn()}
             />,
         );
-        const card = container.querySelector(".card");
+        const card = container.querySelector('[data-testid="collapsible-card"]');
         expect(card?.classList.contains("extra-class")).toBe(true);
     });
 

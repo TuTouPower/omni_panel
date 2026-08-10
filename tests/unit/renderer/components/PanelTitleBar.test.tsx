@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { PanelTitleBar } from "../../../../src/renderer/components/PanelTitleBar";
+import { PanelTitleBar } from "../../../../src/renderer/components/ui/PanelTitleBar";
 
 describe("PanelTitleBar (t252)", () => {
     beforeEach(() => {
@@ -31,11 +31,11 @@ describe("PanelTitleBar (t252)", () => {
         expect(onNavigate).toHaveBeenCalledWith("Agent");
     });
 
-    it("点击刷新调用 onRefresh；refreshing 时按钮加 spinning", () => {
+    it("点击刷新调用 onRefresh；refreshing 时图标旋转", () => {
         const onRefresh = vi.fn();
         render(<PanelTitleBar panel="Settings" onRefresh={onRefresh} refreshing />);
         const btn = screen.getByTitle("刷新当前面板");
-        expect(btn).toHaveClass("spinning");
+        expect(btn.querySelector("svg")).toHaveClass("animate-spin");
         fireEvent.click(btn);
         expect(onRefresh).toHaveBeenCalled();
     });

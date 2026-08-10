@@ -1,26 +1,164 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { Icon } from "../Icon";
+import { is_web } from "../../lib/is-web";
+import type { PanelName } from "../../lib/panel-navigation";
+import logo from "../../assets/logo.svg";
+import { Button } from "./Button";
 
 interface PanelTitleBarProps {
-    title: ReactNode;
-    /** 右侧动作区（关闭/最小化等）。 */
+    /** 通用形态：标题内容（与 panel 形态二选一）。 */
+    title?: ReactNode;
+    /** 通用形态：右侧动作区（关闭/最小化等）。 */
     actions?: ReactNode;
     className?: string;
+    "data-panel-titlebar"?: string;
+    /** 面板形态：当前面板名（品牌标题 `Omni Panel - <name>`）。 */
+    panel?: PanelName;
+    /** 面板形态：是否正在刷新（旋转动画）。 */
+    refreshing?: boolean;
+    /** 面板形态：刷新当前面板。 */
+    onRefresh?: () => void;
+    /** 面板形态：面板切换（当前面板对应图标隐藏）。 */
+    onNavigate?: (panel: PanelName) => void;
+    /** 面板形态：刷新按钮仅 live 模式可用。 */
+    is_live?: boolean;
+    /** 面板形态：覆盖关闭行为（用量面板关闭=隐藏到托盘，AC3）。缺省 window.close。 */
+    onClose?: () => void;
 }
 
-/** t269: 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。 */
-export function PanelTitleBar({ title, actions, className }: PanelTitleBarProps) {
+/**
+ * t269 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。
+ * 通用形态 = title/actions；t252 面板形态 = panel/onNavigate/onRefresh（品牌区 + 面板切换 +
+ * 窗口控制），四面板（Settings/Session/Agent）共用，避免重复实现。
+ */
+export function PanelTitleBar({
+    title,
+    actions,
+    className,
+    "data-panel-titlebar": dataPanelTitlebar,
+    panel,
+    refreshing = false,
+    onRefresh,
+    onNavigate,
+    is_live = true,
+    onClose,
+}: PanelTitleBarProps) {
+    const panels: PanelName[] = ["Usage", "Agent", "Session", "Settings"];
+    const base = cn(
+        "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
+            "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
+            "px-[var(--spacing-panel-padding)] text-body-md text-[var(--color-on-surface)] " +
+            "[-webkit-app-region:drag]",
+        className,
+    );
+    const actions_cls = "[-webkit-app-region:no-drag] flex items-center gap-1";
+
+    if (panel !== undefined) {
+        return (
+            <div className={base} data-panel-titlebar={dataPanelTitlebar ?? panel}>
+                <div className="flex min-w-0 items-center gap-2">
+                    <img
+                        src={logo}
+                        alt="OmniPanel"
+                        className="h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+                    />
+                    <span
+                        className="truncate text-title-md font-bold tracking-[-0.01em]"
+                        data-testid="app-title"
+                    >
+                        {`Omni Panel - ${panel}`}
+                    </span>
+                </div>
+                <div className={actions_cls}>
+                    {onRefresh && (
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="刷新当前面板"
+                            aria-label="刷新"
+                            onClick={is_live ? onRefresh : undefined}
+                        >
+                            <Icon
+                                name="refresh"
+                                size={16}
+                                {...(refreshing ? { className: "animate-spin" } : {})}
+                            />
+                        </Button>
+                    )}
+                    {panels
+                        .filter((p) => p !== panel)
+                        .map((p) => (
+                            <Button
+                                key={p}
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title={`${p}面板`}
+                                aria-label={`${p}面板`}
+                                onClick={() => {
+                                    onNavigate?.(p);
+                                }}
+                            >
+                                {p === "Usage" && <Icon name="dashboard" size={16} />}
+                                {p === "Agent" && <Icon name="chart" size={16} />}
+                                {p === "Session" && <Icon name="chat_square" size={16} />}
+                                {p === "Settings" && <Icon name="gear" size={16} />}
+                            </Button>
+                        ))}
+                    {!is_web() && (
+                        <>
+                            <Button
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title="最小化"
+                                aria-label="最小化"
+                                onClick={() => {
+                                    window.usageboard.window.minimize();
+                                }}
+                            >
+                                <Icon name="minus" size={16} />
+                            </Button>
+                            <Button
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title="最大化/还原"
+                                aria-label="最大化/还原"
+                                onClick={() => {
+                                    window.usageboard.window.maximize();
+                                }}
+                            >
+                                <Icon name="maximize" size={16} />
+                            </Button>
+                            <Button
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title="关闭"
+                                aria-label="关闭"
+                                onClick={
+                                    onClose ??
+                                    (() => {
+                                        window.usageboard.window.close();
+                                    })
+                                }
+                            >
+                                <Icon name="close" size={16} />
+                            </Button>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div
-            className={cn(
-                "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
-                    "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
-                    "px-[var(--spacing-panel-padding)] text-body-md text-[var(--color-on-surface)]",
-                className,
-            )}
-        >
+        <div className={base} data-panel-titlebar={dataPanelTitlebar}>
             <div className="truncate">{title}</div>
-            {actions !== undefined && <div className="flex items-center gap-1">{actions}</div>}
+            {actions !== undefined && <div className={actions_cls}>{actions}</div>}
         </div>
     );
 }

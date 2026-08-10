@@ -28,7 +28,7 @@ test.describe("auto-seed", () => {
         // Wait for scheduler to complete initial refreshes.
         await page.waitForTimeout(5000);
 
-        const pluginCards = page.locator(".card");
+        const pluginCards = page.locator('[data-testid="collapsible-card"]');
         const count = await pluginCards.count();
         // Auto-seed 种全部 bundled 连接器：卡片数 ≥ 真实 bundled 连接器数
         // （另有 UpcomingResetCard 等非插件卡片，故用 ≥ 而非精确等）。
@@ -96,14 +96,14 @@ testWithConfig.describe("auto-seed with existing config", () => {
         await sPage.waitForTimeout(500);
 
         // "My Claude" must still exist (not replaced by "Claude" or "Claude 2")
-        // Account rows render as .acc-row inside per-provider .acc-card groups
+        // Account rows render as account-row inside per-provider account-card groups
         await expectWithConfig(
-            sPage.locator(".acc-row").filter({ hasText: "My Claude" }).first(),
+            sPage.locator('[data-testid="account-row"]').filter({ hasText: "My Claude" }).first(),
         ).toBeVisible();
 
-        // Each configured plugin renders at least one .acc-row; the pre-seeded
+        // Each configured plugin renders at least one account-row; the pre-seeded
         // "My Claude" plus all auto-seeded connectors must all be present.
-        const accRows = sPage.locator(".acc-row");
+        const accRows = sPage.locator('[data-testid="account-row"]');
         const count = await accRows.count();
         expectWithConfig(count).toBeGreaterThanOrEqual(bundled_plugin_count());
     });

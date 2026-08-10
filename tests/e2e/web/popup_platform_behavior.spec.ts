@@ -20,7 +20,7 @@ test.describe("popup platform behavior (web)", () => {
         await popup.waitReady();
 
         const has_titlebar = await webPage.evaluate(() => {
-            const tb = document.querySelector(".titlebar");
+            const tb = document.querySelector('[data-testid="popup-titlebar"]');
             return tb instanceof HTMLElement;
         });
 

@@ -9,6 +9,7 @@ import type {
     TokenStatsSession,
 } from "../../../../../src/shared/types/token-stats";
 import type { Metric } from "../../../../../src/renderer/lib/token-stats/types";
+import { DEFAULT_CHART_PALETTES } from "../../../../../src/renderer/lib/echarts_token_resolver";
 import {
     agentSegments,
     agentSegmentsFromBuckets,
@@ -109,18 +110,14 @@ describe("chart-data", () => {
             const segs = modelSegments(records, sumTokensValue, "dark");
             expect(segs).toHaveLength(6);
             expect(segs.slice(0, 5).map((s) => s.name)).toEqual(["a", "b", "c", "d", "e"]);
-            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual([
-                "#7c6cf6",
-                "#4cc2ff",
-                "#3ddc97",
-                "#ffb454",
-                "#f56cc6",
-            ]);
+            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual(
+                DEFAULT_CHART_PALETTES.dark.series,
+            );
             const other = segs[5];
             if (!other) throw new Error("expected other segment");
             expect(other.name).toContain("其他");
             expect(other.value).toBe(40);
-            expect(other.itemStyle.color).toBe("#46506a");
+            expect(other.itemStyle.color).toBe(DEFAULT_CHART_PALETTES.dark.other);
         });
 
         it("omits the 'other' bucket when there are 5 or fewer models", () => {
@@ -176,15 +173,11 @@ describe("chart-data", () => {
             ];
             const segs = projectSegments(records, "dark");
             expect(segs).toHaveLength(6);
-            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual([
-                "#7c6cf6",
-                "#4cc2ff",
-                "#3ddc97",
-                "#ffb454",
-                "#f56cc6",
-            ]);
+            expect(segs.slice(0, 5).map((s) => s.itemStyle.color)).toEqual(
+                DEFAULT_CHART_PALETTES.dark.series,
+            );
             expect(segs[5]?.name).toContain("其他");
-            expect(segs[5]?.itemStyle.color).toBe("#46506a");
+            expect(segs[5]?.itemStyle.color).toBe(DEFAULT_CHART_PALETTES.dark.other);
         });
     });
 
@@ -199,8 +192,8 @@ describe("chart-data", () => {
                 record({ model: "f", input_tokens: 20 }),
             ];
             const map = modelColorMap(records, "tokens", "dark");
-            expect(map.get("a")).toBe("#7c6cf6");
-            expect(map.get("e")).toBe("#f56cc6");
+            expect(map.get("a")).toBe(DEFAULT_CHART_PALETTES.dark.series[0]);
+            expect(map.get("e")).toBe(DEFAULT_CHART_PALETTES.dark.series[4]);
             expect(map.has("f")).toBe(false);
         });
     });
@@ -309,7 +302,7 @@ describe("chart-data", () => {
                 record({ directory: "/c", session_id: "z" }),
             ];
             const data = prepareBarData(records, "sessions", "project", "day", 0, 1, "dark");
-            const gray = "#6b7890";
+            const gray = DEFAULT_CHART_PALETTES.dark.other;
             for (const s of data.series) {
                 if (s.name !== "其他") {
                     expect(s.itemStyle.color).not.toBe(gray);

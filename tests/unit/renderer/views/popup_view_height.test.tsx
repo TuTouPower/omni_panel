@@ -216,7 +216,7 @@ describe("PopupView collapse + height report", () => {
                 on_pause_state: vi.fn(() => vi.fn()),
                 on_autostart_state: vi.fn(() => vi.fn()),
             },
-            auth: { cookieLogin: vi.fn() },
+            auth: { cookieLogin: vi.fn(), cookieLoginStatus: vi.fn() },
             session: { login: vi.fn(), refresh: vi.fn() },
             grok: {
                 login_start: vi.fn(),
@@ -318,14 +318,14 @@ describe("PopupView collapse + height report", () => {
         });
 
         const live_expand_a = find_live_button(/^展开 Account A$/);
-        const account_a_card = live_expand_a.closest(".card");
-        expect(account_a_card?.querySelector(".bars")).toBeNull();
+        const account_a_card = live_expand_a.closest('[data-testid="collapsible-card"]');
+        expect(account_a_card?.querySelector('[data-testid="usage-bars"]')).toBeNull();
 
         const live_b_card = screen
             .getAllByRole("button", { name: /^折叠 Account B$/ })
             .find((b) => !b.closest('[aria-hidden="true"]'))
-            ?.closest(".card");
-        expect(live_b_card?.querySelector(".bars")).not.toBeNull();
+            ?.closest('[data-testid="collapsible-card"]');
+        expect(live_b_card?.querySelector('[data-testid="usage-bars"]')).not.toBeNull();
     });
 
     it("preserves collapse state when switching tabs without structure change", async () => {
@@ -361,7 +361,7 @@ describe("PopupView collapse + height report", () => {
 
     it("reports content_height and collapsed_min_height to the main process", async () => {
         render(<PopupView />);
-        const mirror_el = document.querySelector(".popup-mirror");
+        const mirror_el = document.querySelector('[data-popup="mirror"]');
         if (!(mirror_el instanceof HTMLElement)) throw new Error("popup mirror not rendered");
         const mirror = mirror_el;
         // t196 AC3: single mirror. offsetHeight is content height in the normal
@@ -381,7 +381,7 @@ describe("PopupView collapse + height report", () => {
 
     it("re-reports on ResizeObserver fire", async () => {
         render(<PopupView />);
-        const mirror_el = document.querySelector(".popup-mirror");
+        const mirror_el = document.querySelector('[data-popup="mirror"]');
         if (!(mirror_el instanceof HTMLElement)) throw new Error("popup mirror not rendered");
         const mirror = mirror_el;
         Object.defineProperty(mirror, "offsetHeight", {
@@ -470,7 +470,7 @@ describe("PopupView collapse + height report", () => {
 
         render(<PopupView />);
         await waitFor(() => {
-            expect(document.querySelector(".app-title")).not.toBeNull();
+            expect(document.querySelector('[data-testid="app-title"]')).not.toBeNull();
         });
 
         // 立即 ack 的 refresh-all；spinner 出现。
@@ -480,7 +480,11 @@ describe("PopupView collapse + height report", () => {
         if (!live_refresh_all) throw new Error("live refresh-all button not found");
         fireEvent.click(live_refresh_all);
         await waitFor(() => {
-            expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+            expect(
+                document.querySelector(
+                    '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                ),
+            ).not.toBeNull();
         });
 
         // 采集进行中（loading 推送）→ spinner 保持，不因立即 ack 提前结束。
@@ -491,7 +495,11 @@ describe("PopupView collapse + height report", () => {
         });
         // 超过 500ms 下限后仍 spinning（真实 pending 驱动，非固定时长）。
         await new Promise((resolve) => setTimeout(resolve, 700));
-        expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+        expect(
+            document.querySelector(
+                '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+            ),
+        ).not.toBeNull();
 
         // 采集完成（ready 推送）→ spinner 在 500ms 下限后清除。
         await act(async () => {
@@ -504,7 +512,11 @@ describe("PopupView collapse + height report", () => {
         });
         await waitFor(
             () => {
-                expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).toBeNull();
+                expect(
+                    document.querySelector(
+                        '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                    ),
+                ).toBeNull();
             },
             { timeout: 3_000 },
         );
@@ -521,7 +533,7 @@ describe("PopupView collapse + height report", () => {
 
         render(<PopupView />);
         await waitFor(() => {
-            expect(document.querySelector(".app-title")).not.toBeNull();
+            expect(document.querySelector('[data-testid="app-title"]')).not.toBeNull();
         });
 
         // 点击前该 connector 已处于 loading（如定时采集占位）；先让快照 flush。
@@ -536,13 +548,21 @@ describe("PopupView collapse + height report", () => {
         if (!live_refresh_all) throw new Error("live refresh-all button not found");
         fireEvent.click(live_refresh_all);
         await waitFor(() => {
-            expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).not.toBeNull();
+            expect(
+                document.querySelector(
+                    '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                ),
+            ).not.toBeNull();
         });
 
         // pre-existing loading 被排除：500ms 下限后 spinner 清除，不钉死。
         await waitFor(
             () => {
-                expect(document.querySelector('.icon-btn[title="刷新全部"].spinning')).toBeNull();
+                expect(
+                    document.querySelector(
+                        '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                    ),
+                ).toBeNull();
             },
             { timeout: 3_000 },
         );

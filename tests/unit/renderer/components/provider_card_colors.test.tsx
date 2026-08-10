@@ -93,7 +93,7 @@ describe("ProviderCard - colors", () => {
         );
 
         // Overview mode: aggregated bars by period type ("一周" idx=0, "5小时" idx=1)
-        const fills = document.querySelectorAll(".fill");
+        const fills = document.querySelectorAll('[data-testid="bar-fill"]');
         expect(fills.length).toBeGreaterThanOrEqual(2);
         expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(0)));
         expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(1)));
@@ -126,16 +126,16 @@ describe("ProviderCard - colors", () => {
             />,
         );
 
-        const fill = document.querySelector<HTMLElement>(".fill");
+        const fill = document.querySelector<HTMLElement>('[data-testid="bar-fill"]');
         if (!fill) throw new Error("missing fill");
-        expect(fill.style.background).toBe("var(--risk-yellow)");
+        expect(fill.style.background).toBe("var(--color-risk-mid)");
     });
 
     it("resolves projected risk colors and falls back to current-only without elapsed", () => {
         expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.4 })).toBe(
-            "var(--risk-red)",
+            "var(--color-risk-critical)",
         );
-        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0 })).toBe("var(--risk-green)");
+        expect(bar_fill_color("risk-projected", { pct: 50, idx: 0 })).toBe("var(--color-success)");
     });
 
     it("uses current-only color for multi-account overview when reset display is hidden", () => {
@@ -198,12 +198,14 @@ describe("ProviderCard - colors", () => {
             />,
         );
 
-        const row = screen.getByText("5小时").closest(".bar-row");
+        const row = screen.getByText("5小时").closest('[data-testid="bar-row"]');
         expect(row).toBeInstanceOf(HTMLElement);
-        const fill = (row as HTMLElement).querySelector<HTMLElement>(".fill");
+        const fill = (row as HTMLElement).querySelector<HTMLElement>('[data-testid="bar-fill"]');
         if (!fill) throw new Error("missing fill");
-        expect(fill.style.background).toBe("var(--risk-green)");
-        expect((row as HTMLElement).querySelector(".bar-reset")).toBeEmptyDOMElement();
+        expect(fill.style.background).toBe("var(--color-success)");
+        expect(
+            (row as HTMLElement).querySelector('[data-testid="bar-reset"]'),
+        ).toBeEmptyDOMElement();
     });
 
     it("uses nine-cycle colors when configured", () => {
@@ -234,7 +236,7 @@ describe("ProviderCard - colors", () => {
             />,
         );
 
-        const fill = document.querySelector<HTMLElement>(".fill");
+        const fill = document.querySelector<HTMLElement>('[data-testid="bar-fill"]');
         if (!fill) throw new Error("missing fill");
         expect(fill.style.background).toBe(hex_to_rgb(usage_color(0)));
     });
@@ -249,7 +251,7 @@ describe("ProviderCard - colors", () => {
 
         render(<ProviderCard provider="deepseek" group={group} />);
 
-        const fills = document.querySelectorAll(".fill");
+        const fills = document.querySelectorAll('[data-testid="bar-fill"]');
         for (const f of fills) {
             expect(f.classList.contains("blue")).toBe(false);
             expect(f.classList.contains("purple")).toBe(false);

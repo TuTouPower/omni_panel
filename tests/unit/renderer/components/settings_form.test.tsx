@@ -130,6 +130,31 @@ describe("SettingsForm", () => {
         expect(onDuplicate).toHaveBeenCalledWith("deepseek");
     });
 
+    it("disables duplicate while the duplicate request is pending", async () => {
+        let resolve_duplicate!: () => void;
+        const onDuplicate = vi.fn(
+            () =>
+                new Promise<void>((resolve) => {
+                    resolve_duplicate = resolve;
+                }),
+        );
+        const user = userEvent.setup();
+        renderForm({ onDuplicate });
+        const button = screen.getByTestId("settings-duplicate-btn-deepseek");
+
+        await user.click(button);
+        expect(onDuplicate).toHaveBeenCalledTimes(1);
+        expect(button).toBeDisabled();
+
+        await user.click(button);
+        expect(onDuplicate).toHaveBeenCalledTimes(1);
+
+        resolve_duplicate();
+        await waitFor(() => {
+            expect(button).not.toBeDisabled();
+        });
+    });
+
     it("renders label map rows without a disclosure button under React StrictMode", async () => {
         window.usageboard.connector.getState = vi.fn().mockResolvedValue({
             status: "ready",
@@ -470,12 +495,18 @@ describe("SettingsForm OAuth device login (t157)", () => {
 
 describe("SettingsForm web_login editing (t157)", () => {
     let sessionLoginMock: ReturnType<typeof vi.fn>;
+    let getSecretsMock: ReturnType<typeof vi.fn>;
+    let connectorRefreshMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
-        sessionLoginMock = vi.fn().mockResolvedValue({ saved: true, cookie: "captured-cookie" });
+        sessionLoginMock = vi.fn().mockResolvedValue({ saved: true });
+        getSecretsMock = vi.fn().mockResolvedValue({ SESSION_COOKIE: "captured-cookie" });
+        connectorRefreshMock = vi.fn().mockResolvedValue(undefined);
         window.usageboard.session = {
             login: sessionLoginMock,
         } as unknown as typeof window.usageboard.session;
+        window.usageboard.config.getSecrets = getSecretsMock;
+        window.usageboard.connector.refresh = connectorRefreshMock;
     });
 
     function renderWebLoginForm(overrides: Record<string, unknown> = {}) {
@@ -506,13 +537,14 @@ describe("SettingsForm web_login editing (t157)", () => {
         return { ...render(<SettingsForm {...defaults} {...overrides} />), onSave };
     }
 
-    it("renders WebLoginSection for authMethod web_login and hides secret input", () => {
+    it("renders WebLoginSection with a manual Cookie fallback", () => {
         renderWebLoginForm();
         expect(screen.getByTestId("web-login-section-opencode_go")).toBeInTheDocument();
+        expect(screen.getByLabelText("网页登录 Cookie")).toBeInTheDocument();
         expect(screen.queryByLabelText("Cookie")).not.toBeInTheDocument();
     });
 
-    it("calls session.login and saves cookie when web login succeeds", async () => {
+    it("reloads the vault and refreshes after instance web login succeeds", async () => {
         const { onSave } = renderWebLoginForm();
         const user = userEvent.setup();
         await user.click(screen.getByText("网页登录"));
@@ -524,7 +556,50 @@ describe("SettingsForm web_login editing (t157)", () => {
                 cookie_names: ["*"],
                 instance_id: "opencode-go-1",
             });
+            expect(getSecretsMock).toHaveBeenCalledWith("opencode-go-1");
+            expect(connectorRefreshMock).toHaveBeenCalledWith("opencode-go-1");
         });
+        expect(onSave).not.toHaveBeenCalled();
+        expect(screen.getByDisplayValue("captured-cookie")).toBeInTheDocument();
+    });
+
+    it("uses cookie status polling for web instance login", async () => {
+        document.documentElement.dataset["web"] = "";
+        try {
+            const cookie_login = vi.fn().mockResolvedValue({ started: true });
+            const cookie_login_status = vi
+                .fn()
+                .mockResolvedValueOnce({ in_progress: true, saved: false })
+                .mockResolvedValueOnce({ in_progress: false, saved: true });
+            window.usageboard.auth = {
+                cookieLogin: cookie_login,
+                cookieLoginStatus: cookie_login_status,
+            };
+            const { onSave } = renderWebLoginForm();
+            const user = userEvent.setup();
+            await user.click(screen.getByText("网页登录"));
+
+            await waitFor(() => {
+                expect(cookie_login).toHaveBeenCalledWith("opencode-go-1");
+                expect(cookie_login_status).toHaveBeenCalledTimes(2);
+                expect(getSecretsMock).toHaveBeenCalledWith("opencode-go-1");
+                expect(connectorRefreshMock).toHaveBeenCalledWith("opencode-go-1");
+            });
+            expect(sessionLoginMock).not.toHaveBeenCalled();
+            expect(onSave).not.toHaveBeenCalled();
+            expect(screen.getByDisplayValue("captured-cookie")).toBeInTheDocument();
+        } finally {
+            delete document.documentElement.dataset["web"];
+        }
+    });
+
+    it("allows a manually pasted Cookie to use the normal save path", async () => {
+        window.usageboard.config.getSecrets = vi.fn().mockResolvedValue({});
+        const { onSave } = renderWebLoginForm();
+        const user = userEvent.setup();
+        await user.type(screen.getByLabelText("网页登录 Cookie"), "manual-cookie");
+        await user.click(screen.getByTestId("settings-save-btn-opencode-go-1"));
+
         await waitFor(() => {
             expect(onSave).toHaveBeenCalledTimes(1);
         });
@@ -532,14 +607,11 @@ describe("SettingsForm web_login editing (t157)", () => {
         expect(call).toBeDefined();
         if (!call) return;
         const [, , secrets] = call;
-        expect(secrets).toEqual({ SESSION_COOKIE: "captured-cookie" });
+        expect(secrets).toEqual({ SESSION_COOKIE: "manual-cookie" });
     });
 
-    it("does not save when web login returns empty cookie", async () => {
-        sessionLoginMock.mockResolvedValue({
-            saved: true,
-            cookie: "",
-        });
+    it("does not save when web login captures no cookie", async () => {
+        sessionLoginMock.mockResolvedValue({ saved: false });
         const { onSave } = renderWebLoginForm();
         const user = userEvent.setup();
         await user.click(screen.getByText("网页登录"));
@@ -588,6 +660,120 @@ describe("SettingsForm session editing (t157)", () => {
         if (!call) return;
         const [, , secrets] = call;
         expect(secrets).toEqual({ SESSION_COOKIE: "manual-cookie-value" });
+    });
+
+    it("opens the controlled login window, polls status, and refreshes after capture", async () => {
+        const cookie_login = vi.fn().mockResolvedValue({ started: true });
+        const cookie_login_status = vi
+            .fn()
+            .mockResolvedValueOnce({ in_progress: true, saved: false })
+            .mockResolvedValueOnce({ in_progress: false, saved: true });
+        const get_secrets = vi
+            .fn()
+            .mockResolvedValueOnce({})
+            .mockResolvedValueOnce({ SESSION_COOKIE: "captured-cookie" });
+        const refresh = vi.fn().mockResolvedValue(undefined);
+        window.usageboard.auth = {
+            cookieLogin: cookie_login,
+            cookieLoginStatus: cookie_login_status,
+        };
+        window.usageboard.config.getSecrets = get_secrets;
+        window.usageboard.connector.refresh = refresh;
+
+        render(
+            <SettingsForm
+                instanceId="mimo-1"
+                providerId="mimo"
+                authMethod="session"
+                loginUrl="https://platform.xiaomimimo.com/console/plan-manage"
+                parameters={[
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Cookie",
+                        type: "secret" as const,
+                        required: true,
+                    },
+                ]}
+                values={{}}
+                hasSecrets={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+
+        const user = userEvent.setup();
+        await user.click(await screen.findByTestId("session-login-SESSION_COOKIE"));
+        await waitFor(() => {
+            expect(cookie_login).toHaveBeenCalledWith("mimo-1");
+            expect(cookie_login_status).toHaveBeenCalledTimes(2);
+            expect(refresh).toHaveBeenCalledWith("mimo-1");
+        });
+        expect(get_secrets).toHaveBeenCalledWith("mimo-1");
+        expect(screen.getByDisplayValue("captured-cookie")).toBeInTheDocument();
+    });
+
+    it("shows a readable error when controlled session login cannot start", async () => {
+        const cookie_login = vi
+            .fn()
+            .mockRejectedValue(new Error("Interactive login requires a graphical display"));
+        window.usageboard.auth = {
+            cookieLogin: cookie_login,
+            cookieLoginStatus: vi.fn(),
+        };
+
+        render(
+            <SettingsForm
+                instanceId="mimo-1"
+                authMethod="session"
+                loginUrl="https://platform.xiaomimimo.com/console/plan-manage"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+
+        const user = userEvent.setup();
+        await user.click(screen.getByTestId("session-login-OAUTH_TOKEN"));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "Interactive login requires a graphical display",
+        );
+    });
+
+    it("shows the status error from controlled session login", async () => {
+        const cookie_login = vi.fn().mockResolvedValue({ started: true });
+        const cookie_login_status = vi.fn().mockResolvedValue({
+            in_progress: false,
+            saved: false,
+            error: "Interactive login requires a graphical display",
+        });
+        window.usageboard.auth = {
+            cookieLogin: cookie_login,
+            cookieLoginStatus: cookie_login_status,
+        };
+
+        render(
+            <SettingsForm
+                instanceId="mimo-1"
+                authMethod="session"
+                loginUrl="https://platform.xiaomimimo.com/console/plan-manage"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+
+        const user = userEvent.setup();
+        await user.click(screen.getByTestId("session-login-OAUTH_TOKEN"));
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "Interactive login requires a graphical display",
+        );
+        expect(cookie_login).toHaveBeenCalledWith("mimo-1");
+        expect(cookie_login_status).toHaveBeenCalledWith("mimo-1");
     });
 
     it("uses label@zh-Hans when available", () => {

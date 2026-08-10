@@ -1,4 +1,54 @@
 import { type CSSProperties } from "react";
+import {
+    type LucideIcon,
+    BarChart3,
+    Bell,
+    BookOpen,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clipboard,
+    ClockArrowUp,
+    CloudOff,
+    Code,
+    Download,
+    ExternalLink,
+    Eye,
+    EyeOff,
+    File,
+    Folder,
+    Globe,
+    GripVertical,
+    Heart,
+    History,
+    Inbox,
+    Info,
+    Layers,
+    LayoutDashboard,
+    LayoutGrid,
+    Lock,
+    LogOut,
+    Maximize2,
+    MessageCircle,
+    MessageSquare,
+    Minus,
+    Moon,
+    MoreVertical,
+    Palette,
+    Pause,
+    Pencil,
+    Plus,
+    Power,
+    RefreshCw,
+    Search,
+    Settings,
+    Shield,
+    Sun,
+    Tag,
+    Trash2,
+    X,
+} from "lucide-react";
 import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
@@ -18,68 +68,59 @@ import opencode_go_light_svg from "../assets/vendor_logos/opencode_go_light.svg"
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
 import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
 
-const UI_ICONS: Record<string, string> = {
-    refresh: '<path d="M20 11a8 8 0 1 0-1.5 5.5M20 11V5m0 6h-6"/>',
-    gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-    more: '<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>',
-    grip: '<circle cx="9" cy="6" r="1.1"/><circle cx="15" cy="6" r="1.1"/><circle cx="9" cy="12" r="1.1"/><circle cx="15" cy="12" r="1.1"/><circle cx="9" cy="18" r="1.1"/><circle cx="15" cy="18" r="1.1"/>',
-    back: '<path d="M15 5l-7 7 7 7"/>',
-    chev_down: '<path d="M6 9l6 6 6-6"/>',
-    dashboard:
-        '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
-    minus: '<path d="M5 12h14"/>',
-    maximize: '<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 5v4a2 2 0 0 1-2 2H5"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/>',
-    edit: '<path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/>',
-    cloud_off:
-        '<path d="M3 3l18 18M18.4 15.4A4 4 0 0 0 17 8h-1.3A7 7 0 0 0 6 6.3M5.5 9.5A4 4 0 0 0 6 17h10"/>',
-    lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 1 1 8 0v3"/>',
-    inbox: '<path d="M3 13l3-8h12l3 8M3 13v6a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6M3 13h5l1.5 2.5h5L16 13h5"/>',
-    power: '<path d="M12 4v8M7 6.5a7 7 0 1 0 10 0"/>',
-    pause: '<rect x="6" y="5" width="3.5" height="14" rx="1"/><rect x="14.5" y="5" width="3.5" height="14" rx="1"/>',
-    open: '<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
-    download: '<path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/>',
-    check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
-    exit: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
-    bell: '<path d="M18 9a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9zM10.5 20a2 2 0 0 0 3 0"/>',
-    palette:
-        '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-.5-.3-.9-.3-1.4 0-.6.5-1 1-1H15a4 4 0 0 0 4-4c0-5-3.6-9-7-9z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="11" cy="7.5" r="1"/><circle cx="15" cy="8.5" r="1"/>',
-    shield: '<path d="M12 3l7 3v5c0 5-3.2 8.3-7 9.5C8.2 19.3 5 16 5 11V6z"/>',
-    grid_nav:
-        '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
-    close: '<path d="M6 6l12 12M18 6L6 18"/>',
-    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.5"/>',
-    eye_off:
-        '<path d="M9.9 4.2A9.5 9.5 0 0 1 12 4c6.5 0 10 7 10 7s-.7 1.4-2 3"/><path d="M6.2 6.2C4 8.2 2.5 10.6 2 12c0 0 3.5 7 10 7 1.8 0 3.5-.4 5-1.2"/><line x1="2" y1="2" x2="22" y2="22"/>',
-    chevron: '<path d="M8 4l8 8-8 8"/>',
-    external_link:
-        '<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
-    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9A15 15 0 0 1 12 3z"/>',
-    chart: '<path d="M3 20h18M7 20v-8M12 20V6M17 20v-5"/>',
-    clipboard:
-        '<rect x="8" y="4" width="8" height="4" rx="1"/><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
-    heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>',
-    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-    history: '<path d="M4 12a8 8 0 1 1 2.34 5.66M4 12h4M8 16l-4-4 4-4"/>',
-    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
-    tag: '<path d="M3 7v5.6a2 2 0 0 0 .6 1.4l7 7a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8l-7-7A2 2 0 0 0 12.6 3H5a2 2 0 0 0-2 2z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
-    book: '<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>',
-    code: '<path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>',
-    feedback:
-        '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
-    // 用量面板（面板间导航，clock-fast-forward.svg）。
-    clock_forward:
-        '<path d="M22.7 11.5L20.7005 13.5L18.7 11.5M20.9451 13C20.9814 12.6717 21 12.338 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C14.8273 21 17.35 19.6963 19 17.6573M12 7V12L15 14"/>',
-    // 会话历史（面板间导航，message-chat-square.svg）。
-    chat_square:
-        '<path d="M10 15L6.92474 18.1137C6.49579 18.548 6.28131 18.7652 6.09695 18.7805C5.93701 18.7938 5.78042 18.7295 5.67596 18.6076C5.55556 18.4672 5.55556 18.162 5.55556 17.5515V15.9916C5.55556 15.444 5.10707 15.0477 4.5652 14.9683V14.9683C3.25374 14.7762 2.22378 13.7463 2.03168 12.4348C2 12.2186 2 11.9605 2 11.4444V6.8C2 5.11984 2 4.27976 2.32698 3.63803C2.6146 3.07354 3.07354 2.6146 3.63803 2.32698C4.27976 2 5.11984 2 6.8 2H14.2C15.8802 2 16.7202 2 17.362 2.32698C17.9265 2.6146 18.3854 3.07354 18.673 3.63803C19 4.27976 19 5.11984 19 6.8V11M19 22L16.8236 20.4869C16.5177 20.2742 16.3647 20.1678 16.1982 20.0924C16.0504 20.0255 15.8951 19.9768 15.7356 19.9474C15.5558 19.9143 15.3695 19.9143 14.9969 19.9143H13.2C12.0799 19.9143 11.5198 19.9143 11.092 19.6963C10.7157 19.5046 10.4097 19.1986 10.218 18.8223C10 18.3944 10 17.8344 10 16.7143V14.2C10 13.0799 10 12.5198 10.218 12.092C10.4097 11.7157 10.7157 11.4097 11.092 11.218C11.5198 11 12.0799 11 13.2 11H18.8C19.9201 11 20.4802 11 20.908 11.218C21.2843 11.4097 21.5903 11.7157 21.782 12.092C22 12.5198 22 13.0799 22 14.2V16.9143C22 17.8462 22 18.3121 21.8478 18.6797C21.6448 19.1697 21.2554 19.5591 20.7654 19.762C20.3978 19.9143 19.9319 19.9143 19 19.9143V22Z"/>',
-    // 明/暗主题切换（lucide sun / moon）与会话库空态（lucide layers）。
-    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-    moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
-    layers: '<path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
+// 操作/导航图标统一来自 lucide-react（t274 收口手绘 SVG 图标集）。
+const UI_ICONS: Record<string, LucideIcon> = {
+    refresh: RefreshCw,
+    gear: Settings,
+    more: MoreVertical,
+    grip: GripVertical,
+    back: ChevronLeft,
+    chev_down: ChevronDown,
+    dashboard: LayoutDashboard,
+    minus: Minus,
+    maximize: Maximize2,
+    info: Info,
+    plus: Plus,
+    trash: Trash2,
+    edit: Pencil,
+    cloud_off: CloudOff,
+    lock: Lock,
+    inbox: Inbox,
+    power: Power,
+    pause: Pause,
+    open: ExternalLink,
+    download: Download,
+    check: Check,
+    exit: LogOut,
+    bell: Bell,
+    palette: Palette,
+    shield: Shield,
+    grid_nav: LayoutGrid,
+    close: X,
+    eye: Eye,
+    eye_off: EyeOff,
+    chevron: ChevronRight,
+    external_link: ExternalLink,
+    globe: Globe,
+    chart: BarChart3,
+    clipboard: Clipboard,
+    heart: Heart,
+    search: Search,
+    history: History,
+    folder: Folder,
+    file: File,
+    tag: Tag,
+    book: BookOpen,
+    code: Code,
+    // 用量面板（面板间导航，时间快进）。
+    feedback: MessageCircle,
+    clock_forward: ClockArrowUp,
+    // 会话历史（面板间导航，聊天气泡）。
+    chat_square: MessageSquare,
+    // 明/暗主题切换（sun / moon）与会话库空态（layers）。
+    sun: Sun,
+    moon: Moon,
+    layers: Layers,
 };
 
 interface IconProps {
@@ -92,19 +133,31 @@ interface IconProps {
 }
 
 export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, className }: IconProps) {
+    const IconComponent = UI_ICONS[name];
+    if (!IconComponent) {
+        // 未知 name：保持空 SVG、不崩溃。
+        return (
+            <svg
+                viewBox="0 0 24 24"
+                width={size}
+                height={size}
+                fill="none"
+                stroke={color ?? "currentColor"}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={className}
+                style={style}
+            />
+        );
+    }
     return (
-        <svg
-            viewBox="0 0 24 24"
-            width={size}
-            height={size}
-            fill="none"
-            stroke={color ?? "currentColor"}
+        <IconComponent
+            size={size}
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            color={color}
             className={className}
             style={style}
-            dangerouslySetInnerHTML={{ __html: UI_ICONS[name] ?? "" }}
         />
     );
 }
@@ -202,12 +255,16 @@ interface VendorMarkProps {
 }
 
 export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
+    // wrapper：t274 由全局 .vicon 迁为组件内 utility。logo 明暗切换用 dark:
+    // 变体（t268 @custom-variant）在组件内封装，globals.css 不再保留业务选择器。
+    const wrap = "flex shrink-0 items-center justify-center [&_svg]:block [&_img]:block";
+    const logo_img = "h-full w-full object-contain";
     const theme_logo = VENDOR_THEME_LOGOS[id];
     if (theme_logo) {
         return (
-            <span className="vicon" style={{ width: size, height: size }}>
-                <img className="vendor-logo-img vendor-logo-light" src={theme_logo.light} alt="" />
-                <img className="vendor-logo-img vendor-logo-dark" src={theme_logo.dark} alt="" />
+            <span className={wrap} style={{ width: size, height: size }} data-testid="vendor-mark">
+                <img className={logo_img + " dark:hidden"} src={theme_logo.light} alt="" />
+                <img className={logo_img + " hidden dark:block"} src={theme_logo.dark} alt="" />
             </span>
         );
     }
@@ -215,8 +272,8 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     const logo = VENDOR_LOGOS[id];
     if (logo) {
         return (
-            <span className="vicon" style={{ width: size, height: size }}>
-                <img className="vendor-logo-img" src={logo} alt="" />
+            <span className={wrap} style={{ width: size, height: size }} data-testid="vendor-mark">
+                <img className={logo_img} src={logo} alt="" />
             </span>
         );
     }
@@ -225,8 +282,9 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     if (!render) return null;
     return (
         <span
-            className="vicon"
+            className={wrap}
             style={{ width: size, height: size, color: color ?? undefined }}
+            data-testid="vendor-mark"
             dangerouslySetInnerHTML={{ __html: render(size) }}
         />
     );

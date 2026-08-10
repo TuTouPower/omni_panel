@@ -39,7 +39,37 @@ describe("WebLoginForm", () => {
 
         expect(screen.getByPlaceholderText("例如：工作账号")).toBeInTheDocument();
         expect(screen.getByText("网页登录")).toBeInTheDocument();
-        expect(screen.queryByPlaceholderText(/在浏览器登录/)).not.toBeInTheDocument();
+        expect(screen.getByLabelText("网页登录 Cookie")).toBeInTheDocument();
+        expect(screen.getByTestId("web-login-manual-save")).toBeInTheDocument();
+    });
+
+    it("saves a manually pasted cookie", async () => {
+        mock_session_api();
+        const on_save = make_on_save();
+        const user = userEvent.setup();
+        render(
+            <WebLoginForm
+                provider="opencode_go"
+                login_url="https://opencode.ai/auth"
+                secret_name="SESSION_COOKIE"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={on_save}
+            />,
+        );
+
+        await user.type(screen.getByLabelText("网页登录 Cookie"), "manual-cookie");
+        await user.click(screen.getByTestId("web-login-manual-save"));
+
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledWith({
+                vendor_id: "opencode_go",
+                account_name: "opencode_go",
+                auth_method: "web_login",
+                parameter_values: {},
+                secrets: { SESSION_COOKIE: "manual-cookie" },
+            });
+        });
     });
 
     it("calls session.login and on_save with cookie secret on success", async () => {

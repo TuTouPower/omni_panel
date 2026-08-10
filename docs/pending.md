@@ -16,16 +16,38 @@
 
 已验证的技术发现不属于待办，写 `docs/findings.md`。
 
-## p105 web e2e synthetic fixture 重建丢失手工 connector 条目（2026-08-10）
+## p088 typecheck TS4111：local-api/server.ts 索引签名属性需 bracket 访问（2026-08-08）
 
-- 来源：t277/t278 实施期 web e2e 黑盒复测
-- 内容：`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目；`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时，synthetic fixture 中没有对应 config plugin 的这两类 connector 会被丢弃。后果：`tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 在 `MOCK_FIXTURE=synthetic` 下稳定失败（基线问题，非 t277/t278 引入，主仓同失败）。关联历史：`gen_synthetic.mjs` 重生成覆盖手工条目曾在 p021 登记；修法候选：让 mock 的 config 重建保留 synthetic-only connector，或 sync 时跳过无 config 匹配的 synthetic connector，或补充 fixture 生成脚本产出。
+- 来源：技术债自查（t261 实施期发现）
+- 内容：`src/main/core/local-api/server.ts:323-325` 三处对索引签名类型属性用点号访问 `source` / `env` / `session_id`，TS4111 要求 `['source']` 等 bracket 形式。主仓与 worktree 均复现，`pnpm typecheck` 失败；文件不在 t261 diff 内，锚点 commit 已存在。
 - 处理：未开
 
-## p106 web 认证 web 添加账号 cookie 登录阻塞式、轮询逻辑重复与覆盖缺口（2026-08-10）
+## p089 popup_view_height.test.tsx 批量运行 2 条 act 警告（2026-08-08）
 
-- 来源：t278 review Round 3 f006/f007（code，minor）与 f007/f008（test，minor）
-- 内容：四项。(1) web 面板添加 cookie 类账号（无 `instance_id`）时「网页登录」仍走阻塞式 `session.login`，无状态轮询；窗口打开期间刷新/断请求会丢失捕获结果，且与编辑实例路径行为分叉（`WebLoginSection.tsx` web+instance_id 分支已轮询）。可后续改为先建临时会话接入 `cookieLogin`/`cookieLoginStatus`，或仅在 web 登录指引提示「登录期间勿刷新，失败后手动粘贴 Cookie」。(2) `SettingsForm.handle_session_login` 与 `WebLoginSection` web 分支的 250ms/120s 轮询逻辑逐字重复，后续可抽共享 hook。(3) `startCookieLogin` 并发冲突（CONFLICT）分支无测试——在 `tests/unit/ipc/auth-ipc.test.ts` 令 `is_login_in_progress` 返回 true，断言返回 CONFLICT 且不触发 `sessionManager.start_login`。(4) `SettingsForm`/`WebLoginSection` 轮询 120s 超时分支无测试——mock `cookieLoginStatus` 恒 `in_progress:true`，`vi.useFakeTimers()` 推进超 `COOKIE_LOGIN_POLL_TIMEOUT_MS`，断言「网页登录超时，请重试」。
+- 来源：技术债自查（t261 实施期批量跑 popup_view 8 文件发现；锚点基线复跑确认 pre-existing）
+- 内容：批量运行 `tests/unit/renderer/views/popup_view_height.test.tsx` 出现 2 条「update not wrapped in act」警告，测试仍通过但疑似掩盖时序问题（疑似假绿）。单文件运行是否复现未单独验证；根因暂未定位。
+- 处理：未开
+
+## p091 synthetic.json 2-space 缩进脱离仓库 prettier 规范（2026-08-08）
+
+- 来源：t266 review f002 遗留
+- 内容：`tests/e2e/fixtures/synthetic.json` 由 `scripts/e2e/gen_synthetic.mjs` 以 `JSON.stringify(out, null, 2)` 生成（2-space），仓库 prettier 配置 tabWidth=4，`pnpm format:check` 对该文件恒 warn。锚点版本同样 warn，属既有状态非 t266 引入。改脚本生成缩进为 prettier 对齐会破坏「产物与脚本一致」的再生成约定，故不动。
+- 处理：未开
+
+## p092 local-api searchContent 断连测试未处理 AbortError（2026-08-08）
+
+- 来源：技术债自查（t267 全量单测发现；t263 断连测试引入，t264 review 已提示）
+- 现象：`tests/integration/local-api/server.test.ts`「POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)」触发 `AbortError: This operation was aborted`（undici），Vitest 报 1 unhandled error（PromiseRejectionHandledWarning），测试本身通过。
+- 影响：全量 `pnpm test` exit 1（vitest 把 unhandled error 记为失败），CI 门禁被触发。
+- 根因：t263 断连测试 abort fetch 后，undici 的 rejection 在测试结束后的微任务才触发，`req.catch(() => {})` 虽捕获但 timing 上 rejected promise 被 vitest 计为 unhandled。
+- 测试缺口：断连测试未在测试内 await 并稳定捕获 abort rejection。
+- 线索：`server.test.ts` 断连用例 `await req.catch(() => {})` 后需额外 flush 微任务或改用 `vi.waitFor` 后显式断言；或服务端 handler 对断连 abort 时不 reject 响应 promise。
+- 处理：未开
+
+## p094 CLI 模式 import-config 回滚边界与 WSL apt 依赖清单（2026-08-09）
+
+- 来源：t275 review Round 2 code 非阻断备注
+- 内容：两处小项。(1) `import_config_file` 重复导入同一 plugin/param 且 config save 失败时，回滚会连旧 vault 值一并删除（概率极低，两态皆半初始化）；(2) `docs/guides/cli-mode.md` 未逐包枚举 Electron GUI 依赖（libgtk/libnss3 等），建议后续补 apt 包清单。
 - 处理：未开
 
 ## p095 CLI 控制 restart e2e 泄漏 relaunch 进程（2026-08-09）
@@ -34,6 +56,12 @@
 - 现象：`tests/e2e/electron/cli_control.spec.ts` AC3 restart 测试，restart 端点 `app.relaunch()` 出的新进程无句柄回收，`finally` 只关原始句柄；跨 run 在 18811 堆积孤儿进程，EADDRINUSE 致 waitHealth 偶发失败。
 - 影响：flaky 测试（非产品缺陷）；端口 18811 被孤儿进程占用。
 - 根因：relaunch 脱离 playwright ElectronApplication 句柄，测试无法 close。
+- 处理：未开
+
+## p096 cli e2e 项目继承全局 webServer（2026-08-09）
+
+- 来源：t280 review Round 1 f005（minor）
+- 内容：`tests/e2e/cli/cli_flow.spec.ts` 所在 cli 项目继承 playwright.config 全局 `webServer`（5174 vite preview mock），cli 测试自起 `--cli serve` 真实实例，不依赖 webServer；playwright 无按 project 关闭 webServer 的机制，vite preview 闲置启动（无害但多余）。future: playwright 支持 project 级 webServer 后可优化。
 - 处理：未开
 
 ## p097 web e2e webServer 自动启动偶发失败（2026-08-09）
@@ -62,44 +90,34 @@
 - 内容：globals.css `.ctx-overlay`/`.ctx-menu` 为死选择器（无 DOM 引用，anchor 提交亦无引用）——迁移前已存在的旧死代码，非 t270 残留。可随后续 CSS 清理删除。
 - 处理：未开
 
-## p096 cli e2e 项目继承全局 webServer（2026-08-09）
+## p101 electron e2e 全量串行首窗口启动超时（2026-08-09）
 
-- 来源：t280 review Round 1 f005（minor）
-- 内容：`tests/e2e/cli/cli_flow.spec.ts` 所在 cli 项目继承 playwright.config 全局 `webServer`（5174 vite preview mock），cli 测试自起 `--cli serve` 真实实例，不依赖 webServer；playwright 无按 project 关闭 webServer 的机制，vite preview 闲置启动（无害但多余）。future: playwright 支持 project 级 webServer 后可优化。
+- 来源：t272 test review Round 2 未进表提示
+- 内容：完整 Electron 无头套件串行运行时，`popup_multi_display` 首用例与 `popup_collapse_persistence` 重启后首用例偶发 `electronApplication.firstWindow` 30s 超时；两文件隔离复跑通过。影响全量 e2e 稳定性，尚未定位根因，非当前 Agent 窗口 diff 路径。
 - 处理：未开
 
-## p094 CLI 模式 import-config 回滚边界与 WSL apt 依赖清单（2026-08-09）
+## p102 t273 会话字号测试依赖源文本正则（2026-08-09）
 
-- 来源：t275 review Round 2 code 非阻断备注
-- 内容：两处小项。(1) `import_config_file` 重复导入同一 plugin/param 且 config save 失败时，回滚会连旧 vault 值一并删除（概率极低，两态皆半初始化）；(2) `docs/guides/cli-mode.md` 未逐包枚举 Electron GUI 依赖（libgtk/libnss3 等），建议后续补 apt 包清单。
+- 来源：t273 test review Round 2 `t273_test_f001`（minor）
+- 内容：`tests/unit/renderer/styles/session_typography.test.ts` 通过源文件文本正则验证 utility 类名，类名拆分或 utility 生成规则变化时存在假阳/假阴边界。
 - 处理：未开
 
-## p088 typecheck TS4111：local-api/server.ts 索引签名属性需 bracket 访问（2026-08-08）
+## p104 Linux packaged smoke 启动脚本使用 macOS 路径（2026-08-09）
 
-- 来源：技术债自查（t261 实施期发现）
-- 内容：`src/main/core/local-api/server.ts:323-325` 三处对索引签名类型属性用点号访问 `source` / `env` / `session_id`，TS4111 要求 `['source']` 等 bracket 形式。主仓与 worktree 均复现，`pnpm typecheck` 失败；文件不在 t261 diff 内，锚点 commit 已存在。
+- 来源：t274 打包验证
+- 内容：Linux 上 `pnpm package` 已生成 `artifacts/linux-unpacked/omni_panel`，但 `scripts/package-and-run.ts` 的非 Windows 分支固定拼接 macOS `OmniPanel.app` 路径，导致包装启动阶段返回 `ENOENT`；直接使用 Linux 产物运行 `pnpm test:packaged` 可通过。
 - 处理：未开
 
-## p089 popup_view_height.test.tsx 批量运行 2 条 act 警告（2026-08-08）
+## p105 web e2e synthetic fixture 重建丢失手工 connector 条目（2026-08-10）
 
-- 来源：技术债自查（t261 实施期批量跑 popup_view 8 文件发现；锚点基线复跑确认 pre-existing）
-- 内容：批量运行 `tests/unit/renderer/views/popup_view_height.test.tsx` 出现 2 条「update not wrapped in act」警告，测试仍通过但疑似掩盖时序问题（疑似假绿）。单文件运行是否复现未单独验证；根因暂未定位。
+- 来源：t277 实施期全量 Web E2E；t277/t278 黑盒复测补充
+- 内容：`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目（`synthetic-opencode-go` 无对应配置 plugin）；`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时，这两类无 config 匹配的 synthetic connector 会被丢弃。后果：`tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 在 `MOCK_FIXTURE=synthetic` 下稳定失败（基线问题，非 t277/t278 引入，主仓同失败）。关联历史：`gen_synthetic.mjs` 重生成覆盖手工条目曾在 p021 登记；修法候选：让 mock 的 config 重建保留 synthetic-only connector，或 sync 时跳过无 config 匹配的 synthetic connector，或补充 fixture 生成脚本产出。
 - 处理：未开
 
-## p091 synthetic.json 2-space 缩进脱离仓库 prettier 规范（2026-08-08）
+## p106 web 认证 web 添加账号 cookie 登录阻塞式、轮询逻辑重复与覆盖缺口（2026-08-10）
 
-- 来源：t266 review f002 遗留
-- 内容：`tests/e2e/fixtures/synthetic.json` 由 `scripts/e2e/gen_synthetic.mjs` 以 `JSON.stringify(out, null, 2)` 生成（2-space），仓库 prettier 配置 tabWidth=4，`pnpm format:check` 对该文件恒 warn。锚点版本同样 warn，属既有状态非 t266 引入。改脚本生成缩进为 prettier 对齐会破坏「产物与脚本一致」的再生成约定，故不动。
-- 处理：未开
-
-## p092 local-api searchContent 断连测试未处理 AbortError（2026-08-08）
-
-- 来源：技术债自查（t267 全量单测发现；t263 断连测试引入，t264 review 已提示）
-- 现象：`tests/integration/local-api/server.test.ts`「POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)」触发 `AbortError: This operation was aborted`（undici），Vitest 报 1 unhandled error（PromiseRejectionHandledWarning），测试本身通过。
-- 影响：全量 `pnpm test` exit 1（vitest 把 unhandled error 记为失败），CI 门禁被触发。
-- 根因：t263 断连测试 abort fetch 后，undici 的 rejection 在测试结束后的微任务才触发，`req.catch(() => {})` 虽捕获但 timing 上 rejected promise 被 vitest 计为 unhandled。
-- 测试缺口：断连测试未在测试内 await 并稳定捕获 abort rejection。
-- 线索：`server.test.ts` 断连用例 `await req.catch(() => {})` 后需额外 flush 微任务或改用 `vi.waitFor` 后显式断言；或服务端 handler 对断连 abort 时不 reject 响应 promise。
+- 来源：t278 review Round 3 f006/f007（code，minor）与 f007/f008（test，minor）
+- 内容：四项。(1) web 面板添加 cookie 类账号（无 `instance_id`）时「网页登录」仍走阻塞式 `session.login`，无状态轮询；窗口打开期间刷新/断请求会丢失捕获结果，且与编辑实例路径行为分叉（`WebLoginSection.tsx` web+instance_id 分支已轮询）。可后续改为先建临时会话接入 `cookieLogin`/`cookieLoginStatus`，或仅在 web 登录指引提示「登录期间勿刷新，失败后手动粘贴 Cookie」。(2) `SettingsForm.handle_session_login` 与 `WebLoginSection` web 分支的 250ms/120s 轮询逻辑逐字重复，后续可抽共享 hook。(3) `startCookieLogin` 并发冲突（CONFLICT）分支无测试——在 `tests/unit/ipc/auth-ipc.test.ts` 令 `is_login_in_progress` 返回 true，断言返回 CONFLICT 且不触发 `sessionManager.start_login`。(4) `SettingsForm`/`WebLoginSection` 轮询 120s 超时分支无测试——mock `cookieLoginStatus` 恒 `in_progress:true`，`vi.useFakeTimers()` 推进超 `COOKIE_LOGIN_POLL_TIMEOUT_MS`，断言「网页登录超时，请重试」。
 - 处理：未开
 
 ## 不办

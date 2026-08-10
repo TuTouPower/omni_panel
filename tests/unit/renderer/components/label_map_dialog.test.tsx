@@ -468,9 +468,8 @@ describe("LabelMapDialog", () => {
         await waitFor(() => {
             expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
         });
-        const scrim = document.querySelector(".acct-dialog-scrim");
-        if (!scrim) throw new Error("missing scrim");
-        fireEvent.mouseDown(scrim);
+        const scrim = screen.getByTestId("label-map-dialog-backdrop");
+        fireEvent.click(scrim);
         expect(on_close).toHaveBeenCalled();
     });
 
@@ -489,8 +488,7 @@ describe("LabelMapDialog", () => {
         await waitFor(() => {
             expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
         });
-        const dialog = document.querySelector(".acct-dialog");
-        if (!dialog) throw new Error("missing dialog");
+        const dialog = screen.getByRole("dialog");
         fireEvent.mouseDown(dialog);
         expect(on_close).not.toHaveBeenCalled();
     });

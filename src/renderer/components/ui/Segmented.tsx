@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 interface SegmentedProps<T extends string> {
-    options: readonly { value: T; label: ReactNode }[];
-    value: T;
+    options: readonly { value: T; label: ReactNode; disabled?: boolean }[];
+    value: T | "" | null;
     onChange: (value: T) => void;
+    size?: "sm" | "default";
     className?: string;
+    "aria-label"?: string;
 }
 
 /** t269: 统一 Segmented（分段控件）。只消费语义 token。 */
@@ -13,10 +15,14 @@ export function Segmented<T extends string>({
     options,
     value,
     onChange,
+    size = "default",
     className,
+    "aria-label": ariaLabel,
 }: SegmentedProps<T>) {
     return (
         <div
+            role="group"
+            aria-label={ariaLabel}
             className={cn(
                 "inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5",
                 className,
@@ -26,9 +32,13 @@ export function Segmented<T extends string>({
                 <button
                     key={opt.value}
                     type="button"
+                    disabled={opt.disabled}
+                    aria-pressed={value === opt.value}
                     className={cn(
-                        "rounded px-3 py-1 text-label-md transition-feedback " +
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        "rounded transition-feedback disabled:pointer-events-none disabled:opacity-50 " +
+                            "focus-visible:outline-none focus-visible:ring-2 " +
+                            "focus-visible:ring-[var(--color-accent-ring)]",
+                        size === "sm" ? "px-2 py-0.5 text-label-sm" : "px-3 py-1 text-label-md",
                         value === opt.value
                             ? "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm"
                             : "text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]",

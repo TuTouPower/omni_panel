@@ -23,7 +23,7 @@ interface UsageBarListProps {
 
 export function UsageBarList({
     periods,
-    className = "bars",
+    className,
     colorScheme = DEFAULT_USAGE_BAR_COLOR_SCHEME,
     barStyle = "thin",
     labelMap,
@@ -32,7 +32,15 @@ export function UsageBarList({
     on_toggle_watched,
 }: UsageBarListProps) {
     return (
-        <div className={className}>
+        <div
+            className={
+                className ??
+                (barStyle === "capsule"
+                    ? "mt-[11px] flex flex-col gap-[7px]"
+                    : "mt-[11px] flex flex-col gap-[9px]")
+            }
+            data-testid="usage-bars"
+        >
             {periods.map((period, idx) => (
                 <UsageBarRow
                     key={period.id}

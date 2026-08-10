@@ -1,7 +1,25 @@
 import { useEffect, useState } from "react";
+import { notify_chart_palette_change } from "./echarts_token_resolver";
 
 function apply_theme(is_dark: boolean) {
-    document.documentElement.setAttribute("data-theme", is_dark ? "dark" : "light");
+    const root = document.documentElement;
+    const next_theme = is_dark ? "dark" : "light";
+    if (root.getAttribute("data-theme") === next_theme) return;
+    root.setAttribute("data-theme", next_theme);
+    notify_chart_palette_change();
+}
+
+type ThemeMode = "light" | "dark" | "system";
+
+function resolve_theme_mode(mode: ThemeMode | undefined): boolean {
+    const resolved_mode = mode ?? "system";
+    return resolved_mode === "system"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        : resolved_mode === "dark";
+}
+
+function apply_theme_mode(mode: ThemeMode | undefined): void {
+    apply_theme(resolve_theme_mode(mode));
 }
 
 /**
@@ -33,61 +51,84 @@ export function apply_accent(accent_color: string | undefined) {
         : is_valid_hex
           ? (accent_color ?? "var(--accent-blue)")
           : "var(--accent-blue)";
+    if (root.style.getPropertyValue("--accent").trim() === final_accent) return;
     root.style.setProperty("--accent", final_accent);
+    notify_chart_palette_change();
 }
 
 export function useTheme() {
-    // Apply saved theme + accent immediately on mount so the first frame is correct
+    // Subscribe before reading the initial snapshot. A push event received first
+    // makes the in-flight snapshot stale and prevents it from rolling the theme back.
     useEffect(() => {
+        let active = true;
+        let event_generation = 0;
+        const initial_generation = event_generation;
+        const unsubscribe_config = window.usageboard.event.onConfigChange?.((config) => {
+            if (!active) return;
+            event_generation += 1;
+            apply_theme_mode(config.theme);
+            apply_accent(config.accentColor);
+        });
+        const unsubscribe_theme = window.usageboard.event.onThemeChange((isDark) => {
+            if (!active) return;
+            event_generation += 1;
+            apply_theme(isDark);
+        });
         void window.usageboard.config
             .get()
             .then(({ config }) => {
-                const mode = config.theme ?? "system";
-                if (mode === "system") {
-                    apply_theme(window.matchMedia("(prefers-color-scheme: dark)").matches);
-                } else {
-                    apply_theme(mode === "dark");
-                }
+                if (!active || event_generation !== initial_generation) return;
+                apply_theme_mode(config.theme);
                 apply_accent(config.accentColor);
             })
             .catch(() => {
-                // default to light
+                if (!active || event_generation !== initial_generation) return;
                 apply_theme(false);
             });
-    }, []);
-
-    // Listen for theme changes broadcast by the main process
-    useEffect(() => {
-        const unsubscribe = window.usageboard.event.onThemeChange((isDark) => {
-            apply_theme(isDark);
-        });
-
-        return unsubscribe;
+        return () => {
+            active = false;
+            unsubscribe_config?.();
+            unsubscribe_theme();
+        };
     }, []);
 }
 
-/** t252: 返回当前全局主题（"dark" | "light"，读 config.theme + 订阅 onThemeChange）。
+/** t252: 返回当前全局主题（"dark" | "light"，读 config.theme + 订阅配置/主题事件）。
  *  供代理面板等需要主题值渲染的组件使用，替代独立 usage-theme 存储。 */
 export function useGlobalTheme(): "dark" | "light" {
     const [theme, set_theme] = useState<"dark" | "light">("dark");
     useEffect(() => {
+        let active = true;
+        let event_generation = 0;
+        const initial_generation = event_generation;
+        const apply_config_theme = (mode: ThemeMode | undefined) => {
+            set_theme(resolve_theme_mode(mode) ? "dark" : "light");
+        };
+        const unsubscribe_config = window.usageboard.event.onConfigChange?.((config) => {
+            if (!active) return;
+            event_generation += 1;
+            apply_config_theme(config.theme);
+        });
+        const unsubscribe_theme = window.usageboard.event.onThemeChange((dark) => {
+            if (!active) return;
+            event_generation += 1;
+            set_theme(dark ? "dark" : "light");
+        });
         void window.usageboard.config
             .get()
             .then(({ config }) => {
-                const mode = config.theme ?? "system";
-                const dark =
-                    mode === "system"
-                        ? window.matchMedia("(prefers-color-scheme: dark)").matches
-                        : mode === "dark";
-                set_theme(dark ? "dark" : "light");
+                if (!active || event_generation !== initial_generation) return;
+                apply_config_theme(config.theme);
             })
             .catch(() => {
+                if (!active || event_generation !== initial_generation) return;
                 set_theme("dark");
             });
-        const unsubscribe = window.usageboard.event.onThemeChange((dark) => {
-            set_theme(dark ? "dark" : "light");
-        });
-        return unsubscribe;
+        return () => {
+            active = false;
+            unsubscribe_config?.();
+            unsubscribe_theme();
+        };
     }, []);
     return theme;
 }

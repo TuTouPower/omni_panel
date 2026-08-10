@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
+import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
+import { agent_color, palette_for } from "../../lib/echarts_token_resolver";
 import { fmtTime, fmtTok } from "../../lib/token-stats/format";
-import { paletteFor } from "../../lib/token-stats/palette";
 import { build_resolver } from "../../lib/token-stats/chart-data";
 import type { SessionRow } from "../../lib/token-stats/types";
 
@@ -57,7 +62,7 @@ export function SessionTable({
         [input_rows, sortKey, sortDir],
     );
 
-    const otherColor = paletteFor(theme).other;
+    const otherColor = palette_for(theme).other;
     const colorForModel = (m: string) => modelColors.get(m) ?? otherColor;
 
     const resolve_model = useMemo(
@@ -110,27 +115,30 @@ export function SessionTable({
     };
 
     return (
-        <div className="card span-12">
-            <h3>
-                会话明细 <span className="hint">点击表头排序</span>
-                <span className="table-actions">
-                    <button
-                        type="button"
-                        className="open-history-btn"
-                        disabled={checked.size === 0}
-                        onClick={() => {
-                            onOpenSelected?.([...checked]);
-                        }}
-                    >
-                        打开历史{checked.size > 0 ? ` (${String(checked.size)})` : ""}
-                    </button>
-                </span>
-            </h3>
-            <div className="tablewrap">
-                <table>
-                    <thead>
+        <Card className="col-span-12 overflow-hidden">
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="m-0 text-title-md font-semibold text-[var(--color-on-surface)]">
+                    会话明细{" "}
+                    <span className="text-label-md font-normal text-[var(--color-on-surface-muted)]">
+                        点击表头排序
+                    </span>
+                </h3>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={checked.size === 0}
+                    onClick={() => {
+                        onOpenSelected?.([...checked]);
+                    }}
+                >
+                    打开历史{checked.size > 0 ? ` (${String(checked.size)})` : ""}
+                </Button>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-[var(--color-outline)]">
+                <table className="w-full min-w-[900px] border-collapse text-body-md">
+                    <thead className="bg-[var(--color-surface-raised)]">
                         <tr>
-                            <th className="t-check" aria-hidden="true" />
+                            <th className="w-10 px-2 py-2" aria-hidden="true" />
                             <SortHeader
                                 label="会话"
                                 k="title"
@@ -192,7 +200,10 @@ export function SessionTable({
                     <tbody>
                         {slice.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="empty">
+                                <td
+                                    colSpan={9}
+                                    className="px-3 py-8 text-center text-label-md text-[var(--color-on-surface-muted)]"
+                                >
                                     该筛选条件下暂无记录
                                 </td>
                             </tr>
@@ -200,18 +211,18 @@ export function SessionTable({
                             slice.map((r) => (
                                 <tr
                                     key={r.identity_key ?? r.session_id}
+                                    className="border-b border-[var(--color-hairline)] align-middle transition-colors hover:bg-[var(--color-surface-raised)]"
                                     onClick={() => {
                                         if (r.identity_key) onOpenSession?.(r.identity_key);
                                     }}
                                 >
                                     <td
-                                        className="t-check"
+                                        className="w-10 px-2 py-2"
                                         onClick={(event) => {
                                             event.stopPropagation();
                                         }}
                                     >
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={checked.has(r.identity_key ?? r.session_id)}
                                             onChange={() => {
                                                 const key = r.identity_key ?? r.session_id;
@@ -228,28 +239,25 @@ export function SessionTable({
                                             aria-label={`选择 ${r.title}`}
                                         />
                                     </td>
-                                    <td className="t-title" title={r.title}>
-                                        {r.title}
-                                        <div
-                                            className="t-dim t-mono"
-                                            style={{ fontSize: "10.5px", marginTop: 3 }}
-                                        >
+                                    <td className="max-w-[220px] px-3 py-2" title={r.title}>
+                                        <div className="truncate text-[var(--color-on-surface)]">
+                                            {r.title}
+                                        </div>
+                                        <div className="mt-0.5 truncate font-mono text-label-sm text-[var(--color-on-surface-muted)]">
                                             {r.slug ?? ""}
-                                            {r.sub && <span className="chip sub">sub-agent</span>}
+                                            {r.sub && (
+                                                <Badge
+                                                    variant="label"
+                                                    color="var(--color-primary)"
+                                                    className="ml-1 border border-[var(--color-accent-ring)] text-label-sm"
+                                                >
+                                                    sub-agent
+                                                </Badge>
+                                            )}
                                         </div>
                                     </td>
-                                    <td>
-                                        <span
-                                            className={`chip ${
-                                                r.agent === "claude-code"
-                                                    ? "cc"
-                                                    : r.agent === "kimi-code"
-                                                      ? "kc"
-                                                      : r.agent === "grok"
-                                                        ? "gk"
-                                                        : "oc"
-                                            }`}
-                                        >
+                                    <td className="whitespace-nowrap px-3 py-2">
+                                        <Badge variant="label" color={agent_color(r.agent, theme)}>
                                             {r.agent === "claude-code"
                                                 ? "Claude Code"
                                                 : r.agent === "kimi-code"
@@ -257,99 +265,98 @@ export function SessionTable({
                                                   : r.agent === "grok"
                                                     ? "Grok"
                                                     : "OpenCode"}
-                                        </span>
+                                        </Badge>
                                     </td>
-                                    <td className="t-dim t-mono">{r.directory}</td>
-                                    <td>
-                                        {display_models(r.models).map(({ label, color: c }) => (
-                                            <span
-                                                key={label}
-                                                className="modeltag"
-                                                style={{
-                                                    color: c,
-                                                    background: `${c}18`,
-                                                    border: `1px solid ${c}30`,
-                                                }}
-                                            >
-                                                {label}
-                                            </span>
-                                        ))}
+                                    <td className="max-w-[240px] truncate px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                        {r.directory}
                                     </td>
-                                    <td className="t-mono t-dim">{r.calls}</td>
-                                    <td>
-                                        <div className="bar-cell">
+                                    <td className="px-3 py-2">
+                                        <div className="flex flex-wrap gap-1">
+                                            {display_models(r.models).map(({ label, color: c }) => (
+                                                <Badge key={label} variant="label" color={c}>
+                                                    {label}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                        {r.calls}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2">
+                                        <div className="flex items-center gap-2">
                                             <div
-                                                className="bar"
+                                                className="h-1.5 min-w-[2px] rounded-full bg-[var(--color-primary)]"
                                                 style={{
                                                     width: `${String(Math.max(2, (r.tokens / maxTokens) * 90))}px`,
                                                 }}
                                             />
-                                            <span>{fmtTok(r.tokens)}</span>
+                                            <span className="font-mono text-label-md text-[var(--color-on-surface)]">
+                                                {fmtTok(r.tokens)}
+                                            </span>
                                         </div>
                                     </td>
                                     <td
-                                        className="t-mono"
-                                        style={{
-                                            color:
-                                                r.cacheRate > 0.7
-                                                    ? "var(--ts-green)"
-                                                    : r.cacheRate > 0.4
-                                                      ? "var(--ts-amber)"
-                                                      : "var(--ts-text-2)",
-                                        }}
+                                        className={
+                                            r.cacheRate > 0.7
+                                                ? "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-success)]"
+                                                : r.cacheRate > 0.4
+                                                  ? "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-warning)]"
+                                                  : "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]"
+                                        }
                                     >
                                         {(r.cacheRate * 100).toFixed(0)}%
                                     </td>
-                                    <td className="t-mono t-dim">{fmtTime(r.lastTs)}</td>
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                        {fmtTime(r.lastTs)}
+                                    </td>
                                 </tr>
                             ))
                         )}
                     </tbody>
                 </table>
             </div>
-            <div className="pager">
-                <span />
-                <span className="btns">
-                    <select
-                        className="pgselect"
-                        value={pageSize}
-                        onChange={(e) => {
-                            setPageSize(Number(e.target.value) as PageSize);
-                            setPage(1);
-                            // checkbox 选中态仅当前页有效。
-                            set_checked(new Set());
-                        }}
-                    >
-                        {PAGE_SIZES.map((s) => (
-                            <option key={s} value={s}>
-                                {s} / 页
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        type="button"
-                        disabled={safePage <= 1}
-                        onClick={() => {
-                            go_to_page(safePage - 1);
-                        }}
-                    >
-                        ‹ 上一页
-                    </button>
-                    <span className="cur">
-                        {safePage} / {pages}
-                    </span>
-                    <button
-                        type="button"
-                        disabled={safePage >= pages}
-                        onClick={() => {
-                            go_to_page(safePage + 1);
-                        }}
-                    >
-                        下一页 ›
-                    </button>
+            <div className="mt-3 flex items-center justify-end gap-2">
+                <Select
+                    className="h-8 w-auto min-w-[96px] py-1 text-label-md"
+                    value={pageSize}
+                    onChange={(e) => {
+                        setPageSize(Number(e.target.value) as PageSize);
+                        setPage(1);
+                        // checkbox 选中态仅当前页有效。
+                        set_checked(new Set());
+                    }}
+                >
+                    {PAGE_SIZES.map((s) => (
+                        <option key={s} value={s}>
+                            {s} / 页
+                        </option>
+                    ))}
+                </Select>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={safePage <= 1}
+                    onClick={() => {
+                        go_to_page(safePage - 1);
+                    }}
+                >
+                    ‹ 上一页
+                </Button>
+                <span className="min-w-[64px] text-center font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                    {safePage} / {pages}
                 </span>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={safePage >= pages}
+                    onClick={() => {
+                        go_to_page(safePage + 1);
+                    }}
+                >
+                    下一页 ›
+                </Button>
             </div>
-        </div>
+        </Card>
     );
 }
 
@@ -369,11 +376,15 @@ function SortHeader({
     const active = sortKey === k;
     return (
         <th
+            className="cursor-pointer whitespace-nowrap px-3 py-2 text-left text-label-md font-medium text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)]"
             onClick={() => {
                 onSort(k);
             }}
         >
-            {label} <span className="arr">{active ? (sortDir === 1 ? "↑" : "↓") : "↕"}</span>
+            {label}{" "}
+            <span className="text-[var(--color-on-surface-muted)]">
+                {active ? (sortDir === 1 ? "↑" : "↓") : "↕"}
+            </span>
         </th>
     );
 }

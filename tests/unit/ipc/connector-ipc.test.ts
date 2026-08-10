@@ -519,6 +519,45 @@ describe("connector-ipc", () => {
                 login_url: "https://opencode.ai/auth",
             });
         });
+        it("exposes session login metadata without an auth descriptor", async () => {
+            const { handleConnectorList } = await import("../../../src/main/ipc/connector-ipc");
+            const manifest: ConnectorDefinition["manifest"] = {
+                id: "mimo",
+                provider: "mimo",
+                capabilities: ["session"],
+                parameters: [],
+                endpoints: {
+                    default: "https://platform.xiaomimimo.com",
+                    login: "https://platform.xiaomimimo.com/console/plan-manage",
+                },
+                cookieNames: ["api-platform_serviceToken", "userId"],
+            };
+            const configStore = create_config_store([
+                {
+                    instanceId: "mimo-1",
+                    stateId: "mimo-1",
+                    name: "MiMo",
+                    enabled: true,
+                    executablePath: "/connectors/mimo",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ]);
+            const result = await handleConnectorList({
+                configStore,
+                runtimeStore: create_runtime_store("idle"),
+                refreshService: createMockDeps().refreshService,
+                definitions: [build_definition(manifest)],
+            });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data[0]?.metadata).toMatchObject({
+                login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+                cookie_names: ["api-platform_serviceToken", "userId"],
+            });
+            expect(result.data[0]?.metadata?.auth).toBeUndefined();
+        });
     });
 
     describe("is_cpa_connector", () => {

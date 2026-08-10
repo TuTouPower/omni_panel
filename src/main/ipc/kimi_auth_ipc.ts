@@ -25,7 +25,7 @@ export async function handle_kimi_login_start(
         return ok(result);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`login_start failed: ${message}`);
+        log.error(`login_start failed`);
         return fail("INTERNAL_ERROR", message);
     }
 }
@@ -47,7 +47,7 @@ export async function handle_kimi_login_poll(
         return ok(result);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`login_poll failed for ${instance_id}: ${message}`);
+        log.error(`login_poll failed for ${instance_id}`);
         return fail("OAUTH_ERROR", message);
     }
 }
@@ -61,7 +61,7 @@ export function handle_kimi_login_cancel(
         return Promise.resolve(ok(undefined));
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`login_cancel failed for ${instance_id}: ${message}`);
+        log.error(`login_cancel failed for ${instance_id}`);
         return Promise.resolve(fail("INTERNAL_ERROR", message));
     }
 }
@@ -75,7 +75,7 @@ export async function handle_kimi_login_status(
         return ok(result);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`login_status failed for ${instance_id}: ${message}`);
+        log.error(`login_status failed for ${instance_id}`);
         return fail("INTERNAL_ERROR", message);
     }
 }
@@ -89,7 +89,7 @@ export async function handle_kimi_logout(
         return ok({ logged_out: true });
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`logout failed for ${instance_id}: ${message}`);
+        log.error(`logout failed for ${instance_id}`);
         return fail("INTERNAL_ERROR", message);
     }
 }
@@ -103,7 +103,7 @@ export async function handle_kimi_refresh(
         return ok(result);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log.error(`refresh failed for ${instance_id}: ${message}`);
+        log.error(`refresh failed for ${instance_id}`);
         return fail("INTERNAL_ERROR", message);
     }
 }

@@ -117,8 +117,8 @@ describe("SettingsView", () => {
         const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
         const user = userEvent.setup();
         render(<SettingsView />);
-        const backBtn = document.querySelector<HTMLButtonElement>(".back-btn");
-        if (!backBtn) throw new Error("back button not found");
+        // t271: back-btn 迁移到 ui/Button，定位改 aria-label。
+        const backBtn = screen.getByLabelText("返回");
         await user.click(backBtn);
         expect(closeSpy).toHaveBeenCalled();
         closeSpy.mockRestore();
@@ -193,7 +193,10 @@ describe("SettingsView", () => {
         ).toBe(true);
 
         const style_field = screen.getByLabelText("用量条样式");
-        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass("on");
+        // t271: set-seg 迁移到 ui/Segmented，选中态由 .on class 改为语义类。
+        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
+            "bg-[var(--color-surface-window)]",
+        );
         await user.click(within(style_field).getByRole("button", { name: "粗胶囊型" }));
 
         expect(save).toHaveBeenCalledWith({
@@ -247,22 +250,26 @@ describe("SettingsView", () => {
     });
 
     it("right-aligns account action buttons via margin-left: auto", async () => {
-        // The .ao-actions element must have margin-left: auto to push
-        // toggle/action buttons to the right edge of the flex row.
-        // JSDOM doesn't load external CSS, so we verify the rule exists in the source.
-        const css = await readFile(
+        // t274: 动作列手写规则（.ao-actions margin-left:auto）已迁为
+        // AccountRow/CpaCard 内 ml-auto utility。JSDOM 不加载 Tailwind 产物，
+        // 沿用本文件既有策略：在组件源码断言 actions 容器带 ml-auto。
+        const row_src = await readFile(
             join(
                 dirname(fileURLToPath(import.meta.url)),
-                "../../../../src/renderer/styles/globals.css",
+                "../../../../src/renderer/components/AccountRow.tsx",
             ),
             "utf8",
         );
-
-        // .ao-actions block must include margin-left: auto
-        const match = /\.ao-actions\s*\{([^}]+)\}/.exec(css);
-        if (!match) throw new Error(".ao-actions rule not found in globals.css");
-        expect(match[1]).toContain("margin-left");
-        expect(match[1]).toContain("auto");
+        const cpa_src = await readFile(
+            join(
+                dirname(fileURLToPath(import.meta.url)),
+                "../../../../src/renderer/components/CpaCard.tsx",
+            ),
+            "utf8",
+        );
+        const actions_class = /className="([^"]*ml-auto[^"]*)"/.exec(row_src)?.[1];
+        expect(actions_class).toContain("ml-auto");
+        expect(cpa_src).toContain("ml-auto");
     });
 
     it("shows label map sync behavior in general section", async () => {
@@ -270,7 +277,9 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(screen.getByText("同一厂商的数据标签映射同步")).toBeInTheDocument();
         });
-        const syncRow = screen.getByText("同一厂商的数据标签映射同步").closest(".set-row");
+        const syncRow = screen
+            .getByText("同一厂商的数据标签映射同步")
+            .closest('[data-testid="set-row"]');
         if (!syncRow) throw new Error("sync row not found");
         expect(within(syncRow as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
     });
@@ -312,7 +321,7 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
-        const cards = document.querySelectorAll(".ab-card");
+        const cards = document.querySelectorAll('[data-testid^="about-card-"]');
         expect(cards).toHaveLength(8);
     });
 
@@ -321,9 +330,9 @@ describe("SettingsView", () => {
         render(<SettingsView />);
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
-        const meta = document.querySelector(".ah-meta");
-        expect(meta).not.toBeNull();
-        expect(meta?.textContent).toMatch(/Windows.*x64/);
+        const meta = screen.getByTestId("about-platform");
+        expect(meta).toBeInTheDocument();
+        expect(meta.textContent).toMatch(/Windows.*x64/);
     });
 
     it("shows build info branch@commit subject in about section", async () => {
@@ -332,8 +341,9 @@ describe("SettingsView", () => {
 
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
         await waitFor(() => {
-            const build = document.querySelector(".ah-build");
-            expect(build?.textContent).toBe("t030_test@abc1234 feat: do thing");
+            expect(screen.getByTestId("about-build")).toHaveTextContent(
+                "t030_test@abc1234 feat: do thing",
+            );
         });
     });
 
@@ -371,5 +381,43 @@ describe("SettingsView", () => {
             save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
         )?.[0];
         expect(saved_config?.proxy).toBeUndefined();
+    });
+
+    it("uses semantic UI controls for data actions", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-data"));
+
+        for (const label of ["导出", "导入", "导出日志", "暂未开放"]) {
+            const buttons = screen.getAllByRole("button", { name: label });
+            expect(buttons.length).toBeGreaterThan(0);
+            for (const button of buttons) {
+                expect(button.className).not.toContain("set-select");
+            }
+        }
+    });
+
+    it("removes migrated settings control CSS selectors", async () => {
+        const css = await readFile(
+            join(
+                dirname(fileURLToPath(import.meta.url)),
+                "../../../../src/renderer/styles/globals.css",
+            ),
+            "utf8",
+        );
+        for (const selector of [
+            ".set-select",
+            ".set-seg",
+            ".ad-input",
+            ".ad-btn",
+            ".acct-dialog",
+            ".acct-dialog-scrim",
+            ".sp-action",
+            ".accent-sw",
+            ".bsf-opt",
+        ]) {
+            const escaped = selector.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+            expect(css).not.toMatch(new RegExp(`${escaped}\\s*\\{`));
+        }
     });
 });

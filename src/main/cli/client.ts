@@ -9,11 +9,24 @@ import { execFile, spawn } from "node:child_process";
 import { get as httpGet, request as httpRequest } from "node:http";
 import { cli_json_path, type CliInstanceInfo } from "./cli-json";
 import { getDataRoot } from "../core/paths";
+import type { CliExportOptions } from "./args";
+
+function write_stdout(text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        process.stdout.write(text, (error?: Error | null) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
 
 export interface ControlClientDeps {
     dataRoot?: string;
     /** stdout 输出（可注入测试）。 */
-    write?: (text: string) => void;
+    write?: (text: string) => void | Promise<void>;
 }
 
 export type ControlCommand =
@@ -87,6 +100,39 @@ export function post_control(port: number, action: string): Promise<string> {
     });
 }
 
+export function get_config_export(port: number, include_secrets: boolean): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const req = httpGet(
+            {
+                host: "localhost",
+                port,
+                path: `/v1/config/export?includeSecrets=${String(include_secrets)}`,
+                timeout: 5000,
+            },
+            (res) => {
+                let body = "";
+                res.setEncoding("utf8");
+                res.on("data", (chunk: string) => {
+                    body += chunk;
+                });
+                res.on("end", () => {
+                    if (res.statusCode === 200) {
+                        resolve(body);
+                    } else {
+                        reject(new Error(`导出端点返回 ${String(res.statusCode ?? "?")}: ${body}`));
+                    }
+                });
+            },
+        );
+        req.on("timeout", () => {
+            req.destroy(new Error("导出请求超时"));
+        });
+        req.on("error", (err: Error) => {
+            reject(new Error(`实例未运行或不可达：${err.message}`));
+        });
+    });
+}
+
 /** GET 面板 URL 可达性检查（open 用）。 */
 export function fetch_url(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -111,7 +157,7 @@ export function open_in_browser(url: string, deps: ControlClientDeps): void {
         const try_launch = (cmd: string, args: string[]): void => {
             execFile(cmd, args, (err) => {
                 if (err) {
-                    write(`无法自动打开浏览器（${cmd} 失败），请手动访问：${url}\n`);
+                    void write(`无法自动打开浏览器（${cmd} 失败），请手动访问：${url}\n`);
                 }
             });
         };
@@ -119,7 +165,7 @@ export function open_in_browser(url: string, deps: ControlClientDeps): void {
     } else if (process.platform === "win32") {
         spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
     } else {
-        write(`请在浏览器打开：${url}\n`);
+        void write(`请在浏览器打开：${url}\n`);
     }
 }
 
@@ -138,20 +184,20 @@ export async function run_control_command(
             case "autostart": {
                 // Linux 无自启动集成（systemd 文档引导）；Windows 走 loginItem。
                 if (process.platform === "linux") {
-                    write("autostart 在 Linux 上不受支持（可手动配置 systemd 自启动）\n");
+                    await write("autostart 在 Linux 上不受支持（可手动配置 systemd 自启动）\n");
                     return 0;
                 }
                 // Windows 桌面沿用 setLoginItemSettings（与 tray toggle 一致）。
                 const { app } = await import("electron");
                 const current = app.getLoginItemSettings().openAtLogin;
                 app.setLoginItemSettings({ openAtLogin: !current });
-                write(`autostart 已${current ? "关闭" : "开启"}\n`);
+                await write(`autostart 已${current ? "关闭" : "开启"}\n`);
                 return 0;
             }
             case "open": {
                 const inst = resolve_instance(deps, options.port);
                 await fetch_url(inst.url);
-                write(`面板地址：${inst.url}\n`);
+                await write(`面板地址：${inst.url}\n`);
                 open_in_browser(inst.url, deps);
                 return 0;
             }
@@ -162,10 +208,27 @@ export async function run_control_command(
             case "quit": {
                 const inst = resolve_instance(deps, options.port);
                 await post_control(inst.port, command);
-                write(`${command} 已发送\n`);
+                await write(`${command} 已发送\n`);
                 return 0;
             }
         }
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`OmniPanel: ${msg}\n`);
+        return 1;
+    }
+}
+
+export async function run_export_command(
+    options: CliExportOptions,
+    deps: ControlClientDeps = {},
+): Promise<number> {
+    const write = deps.write ?? write_stdout;
+    try {
+        const inst = resolve_instance(deps, options.port);
+        const body = await get_config_export(inst.port, options.includeSecrets === true);
+        await write(body.endsWith("\n") ? body : `${body}\n`);
+        return 0;
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         process.stderr.write(`OmniPanel: ${msg}\n`);

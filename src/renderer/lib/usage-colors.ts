@@ -46,6 +46,14 @@ export function usage_window_elapsed(elapsed: number | undefined): number | unde
     return elapsed;
 }
 
+/* t274: 风险色档位 → 语义 token（旧 --risk-* 兼容桥已删除）。 */
+const RISK_TOKENS: Record<"green" | "yellow" | "orange" | "red", string> = {
+    green: "var(--color-success)",
+    yellow: "var(--color-risk-mid)",
+    orange: "var(--color-risk-high)",
+    red: "var(--color-risk-critical)",
+};
+
 export function bar_fill_color(
     scheme: UsageBarColorScheme | undefined,
     { pct, idx, elapsed }: { pct: number; idx: number; elapsed?: number | undefined },
@@ -54,8 +62,8 @@ export function bar_fill_color(
         scheme === "nine-cycle"
             ? usage_color(idx)
             : scheme === "risk-projected"
-              ? `var(--risk-${risk_projected_level(pct, elapsed)})`
-              : `var(--risk-${risk_current_level(pct)})`;
+              ? RISK_TOKENS[risk_projected_level(pct, elapsed)]
+              : RISK_TOKENS[risk_current_level(pct)];
     if (should_log_raw) {
         log.debug("bar fill color raw", { scheme, pct, idx, elapsed, result });
     }

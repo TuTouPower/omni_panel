@@ -1,8 +1,9 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
 import { AliasEditor } from "../../../components/AliasEditor";
 import { Select } from "../../../components/settings/Select";
-import { SetRow } from "../../../components/settings/SetRow";
+import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Toggle } from "../../../components/settings/Toggle";
+import { Input } from "../../../components/ui/Input";
 import {
     REFRESH_INTERVAL_OPTIONS,
     refresh_label_to_seconds,
@@ -49,7 +50,7 @@ export function GeneralSection({
 
     return (
         <>
-            <div className="set-group-label">启动</div>
+            <SetGroupLabel>启动</SetGroupLabel>
             <SetRow title="开机时自动启动" sub="登录系统后在后台运行并驻留托盘">
                 <Toggle
                     on={config.launchAtLogin}
@@ -73,7 +74,7 @@ export function GeneralSection({
                 />
             </SetRow>
 
-            <div className="set-group-label">刷新</div>
+            <SetGroupLabel>刷新</SetGroupLabel>
             <SetRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                 <Select
                     value={interval_label}
@@ -87,7 +88,7 @@ export function GeneralSection({
                 />
             </SetRow>
 
-            <div className="set-group-label">诊断</div>
+            <SetGroupLabel>诊断</SetGroupLabel>
             <SetRow title="日志等级" sub="Debug 记录最多，Info 适合日常诊断">
                 <Select
                     ariaLabel="日志等级"
@@ -102,10 +103,10 @@ export function GeneralSection({
                 />
             </SetRow>
 
-            <div className="set-group-label">网络</div>
+            <SetGroupLabel>网络</SetGroupLabel>
             <SetRow title="代理地址" sub="HTTP/HTTPS/SOCKS 代理，留空直连">
-                <input
-                    className="ad-input mono"
+                <Input
+                    className="font-[var(--font-code-md)]"
                     value={config.proxy?.url ?? ""}
                     onChange={(e) => {
                         const val = e.target.value.trim();
@@ -130,7 +131,7 @@ export function GeneralSection({
                 />
             </SetRow>
 
-            <div className="set-group-label">窗口</div>
+            <SetGroupLabel>窗口</SetGroupLabel>
             <SetRow title="用量面板打开方式" sub="左键托盘图标永远打开用量面板，外壳由这里决定">
                 <Select
                     value={main_panel_mode_value_to_label(mainPanelMode)}
@@ -175,7 +176,7 @@ export function GeneralSection({
                     options={["简体中文", "English", "跟随系统"]}
                 />
             </SetRow>
-            <div className="set-group-label">其他</div>
+            <SetGroupLabel>其他</SetGroupLabel>
             <SetRow title="界面脱敏" sub="隐藏所有账号备注名（用量面板与设置面板）">
                 <Toggle
                     on={config.uiDesensitizeRemarks === true}
@@ -251,11 +252,10 @@ export function GeneralSection({
                 title="即将重置提醒阈值"
                 sub="重置时间剩余占周期的百分之多少时在即将重置面板展示；留空表示不监控"
             >
-                <input
+                <Input
                     type="number"
                     min={0}
                     max={100}
-                    className="ad-input"
                     style={{ width: 80 }}
                     value={
                         config.upcomingResetThresholdPercent === null ||

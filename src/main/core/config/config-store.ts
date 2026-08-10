@@ -78,7 +78,9 @@ export interface AppConfigStore {
      * config and return it. Called at startup and after structural changes
      * (import), NOT on every load — load() is a memory-cache hit.
      */
-    prune_unhealthy_plugins(): Promise<AppConfiguration>;
+    prune_unhealthy_plugins(
+        allowed_executable_paths?: ReadonlySet<string>,
+    ): Promise<AppConfiguration>;
 }
 
 const log = createLogger("config-store");
@@ -169,13 +171,24 @@ async function is_plugin_healthy(executable_path: string): Promise<boolean> {
 
 async function prune_invalid_plugins(
     plugins: readonly { executablePath: string }[],
+    allowed_executable_paths?: ReadonlySet<string>,
 ): Promise<number[]> {
     const keep_indices: number[] = [];
     // Health checks run in parallel via Promise.all. With a very large plugin
     // count (>50) this could saturate the I/O thread pool; acceptable for now
     // because typical installs have <20 plugins. If that changes, add a
     // concurrency limiter (e.g. p-limit) here.
-    const verdicts = await Promise.all(plugins.map((p) => is_plugin_healthy(p.executablePath)));
+    const verdicts = await Promise.all(
+        plugins.map(async (plugin) => {
+            if (
+                allowed_executable_paths !== undefined &&
+                !allowed_executable_paths.has(plugin.executablePath)
+            ) {
+                return false;
+            }
+            return is_plugin_healthy(plugin.executablePath);
+        }),
+    );
     verdicts.forEach((healthy, idx) => {
         if (healthy) keep_indices.push(idx);
     });
@@ -357,9 +370,11 @@ export function createConfigStore(configPath: string): AppConfigStore {
         }
     }
 
-    async function prune_unhealthy_plugins(): Promise<AppConfiguration> {
+    async function prune_unhealthy_plugins(
+        allowed_executable_paths?: ReadonlySet<string>,
+    ): Promise<AppConfiguration> {
         const config = cached_config ?? (await load_uncached());
-        const keep_indices = await prune_invalid_plugins(config.plugins);
+        const keep_indices = await prune_invalid_plugins(config.plugins, allowed_executable_paths);
         if (keep_indices.length === config.plugins.length) return config;
         const dropped = config.plugins.length - keep_indices.length;
         log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
@@ -421,8 +436,10 @@ export function createConfigStore(configPath: string): AppConfigStore {
             return pendingTimer !== null || inflightSaves > 0;
         },
 
-        async prune_unhealthy_plugins(): Promise<AppConfiguration> {
-            return prune_unhealthy_plugins();
+        async prune_unhealthy_plugins(
+            allowed_executable_paths?: ReadonlySet<string>,
+        ): Promise<AppConfiguration> {
+            return prune_unhealthy_plugins(allowed_executable_paths);
         },
     };
 }

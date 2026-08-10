@@ -66,13 +66,13 @@ async function setup_large_session_routes(page: Page): Promise<void> {
 
 async function open_history(page: Page): Promise<void> {
     await page.goto("/#history");
-    await page.locator(".session-shell").first().waitFor({ state: "visible" });
+    await page.locator(".history-shell").first().waitFor({ state: "visible" });
 }
 
 /** 从会话库把指定标题的会话单独打开，等待工作台出现槽位。 */
 async function open_session_from_library(page: Page, title: string): Promise<void> {
     const card = page
-        .locator(".lib-card")
+        .locator(".library-card")
         .filter({ has: page.getByText(title, { exact: false }) })
         .first();
     await card.hover();
@@ -88,21 +88,23 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "登录页 bug 修复");
         // 工作台出现槽位与消息。
-        await expect(page.locator(".slot-pane").first()).toBeVisible();
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
-        const loc_key = await page.locator(".slot-pane").first().getAttribute("data-loc-key");
+        await expect(page.locator(".history-cell").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
         // 勾选第一条消息产生已选状态。
-        await page.locator(".pane-msg-check").first().click();
+        await page.locator(".conversation-message-check").first().click();
         await expect(page.locator(".selection-tray.expanded")).toBeVisible();
-        await expect(page.locator(".pane-msg-row.selected").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row.selected").first()).toBeVisible();
         // 切到会话库再切回，槽位与已选状态保留。
         await page.getByRole("button", { name: "会话库", exact: true }).click();
-        await expect(page.locator(".session-library").first()).toBeVisible();
+        await expect(page.locator(".library-view").first()).toBeVisible();
         await page.getByRole("button", { name: "工作台", exact: true }).click();
-        await expect(page.locator(".slot-pane").first()).toBeVisible();
-        expect(await page.locator(".slot-pane").first().getAttribute("data-loc-key")).toBe(loc_key);
+        await expect(page.locator(".history-cell").first()).toBeVisible();
+        expect(await page.locator(".history-cell").first().getAttribute("data-loc-key")).toBe(
+            loc_key,
+        );
         expect(loc_key).toBeTruthy();
-        await expect(page.locator(".pane-msg-row.selected").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row.selected").first()).toBeVisible();
         await expect(page.locator(".selection-tray.expanded")).toBeVisible();
     });
 
@@ -112,8 +114,8 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "登录页 bug 修复");
         // 消息行渲染（s1 的 fixture 消息）。
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
-        await expect(page.locator(".pane-msg-row").first()).toContainText(/用户|Agent/);
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toContainText(/用户|Agent/);
     });
 
     test("用量面板跨面板打开会话定位到目标会话（t263）", async ({ webPage }) => {
@@ -127,9 +129,9 @@ test.describe("session panel (web, t228)", () => {
             void window.usageboard.sessionHistory.open("claude_code", "win", "s1");
         });
         // open 切到 history 路由，会话面板挂载并定位 s1。
-        await page.locator(".session-shell").first().waitFor({ state: "visible" });
-        await expect(page.locator(".slot-pane").first()).toBeVisible();
-        const loc_key = await page.locator(".slot-pane").first().getAttribute("data-loc-key");
+        await page.locator(".history-shell").first().waitFor({ state: "visible" });
+        await expect(page.locator(".history-cell").first()).toBeVisible();
+        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
         expect(loc_key).toBe("claude_code|win|s1");
     });
 
@@ -137,7 +139,7 @@ test.describe("session panel (web, t228)", () => {
         const page = webPage;
         await open_history(page);
         await page.getByRole("button", { name: "会话库", exact: true }).click();
-        await expect(page.locator(".lib-card").first()).toBeVisible();
+        await expect(page.locator(".library-card").first()).toBeVisible();
         // 勾选全部 8 个会话。
         for (const id of ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"]) {
             await page.getByRole("button", { name: `会话 ${id}` }).click();
@@ -145,15 +147,15 @@ test.describe("session panel (web, t228)", () => {
         await expect(page.getByText("8/8")).toBeVisible();
         // 并排打开 → 工作台 8 槽满。
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".slot-pane")).toHaveCount(8);
+        await expect(page.locator(".history-cell")).toHaveCount(8);
         // 再打开第 9 个（s9，不在已勾选的 8 个里）→ toast 槽位已满。
         await page.getByRole("button", { name: "会话库", exact: true }).click();
-        const card = page.locator(".lib-card").filter({
+        const card = page.locator(".library-card").filter({
             has: page.getByText("部署发布", { exact: false }),
         });
         await card.hover();
         await card.getByRole("button", { name: "单独打开" }).first().click();
-        await expect(page.locator(".workspace-toast")).toContainText("槽位已满");
+        await expect(page.locator(".history-toast")).toContainText("槽位已满");
     });
 
     test("摘选后三种格式复制内容正确", async ({ webPage }) => {
@@ -163,7 +165,7 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "登录页 bug 修复");
         // 勾选第一条消息。
-        await page.locator(".pane-msg-check").first().click();
+        await page.locator(".conversation-message-check").first().click();
         await expect(page.locator(".selection-tray.expanded")).toBeVisible();
         // 复制到剪贴板（markdown 格式）。
         await page.getByRole("button", { name: "复制" }).first().click();
@@ -187,37 +189,37 @@ test.describe("session panel (web, t228)", () => {
         const page = webPage;
         await open_history(page);
         await page.getByRole("button", { name: "会话库", exact: true }).click();
-        await expect(page.locator(".lib-card").first()).toBeVisible();
+        await expect(page.locator(".library-card").first()).toBeVisible();
         // 统计行。
         await expect(page.getByText(/9 个会话/)).toBeVisible();
         // 搜索：目录关键词过滤。
         await page.getByPlaceholder(/搜索/).fill("auth");
-        await expect(page.locator(".lib-card")).toHaveCount(1);
+        await expect(page.locator(".library-card")).toHaveCount(1);
         await expect(page.getByText("登录页 bug 修复")).toBeVisible();
         // 清空搜索。
         await page.getByPlaceholder(/搜索/).fill("");
-        await expect(page.locator(".lib-card")).toHaveCount(9);
+        await expect(page.locator(".library-card")).toHaveCount(9);
         // agent 芯片过滤：Claude。
         await page.getByRole("button", { name: /^Claude/ }).click();
-        await expect(page.locator(".lib-card")).toHaveCount(3);
+        await expect(page.locator(".library-card")).toHaveCount(3);
         await page.getByRole("button", { name: /^Claude/ }).click();
-        await expect(page.locator(".lib-card")).toHaveCount(9);
+        await expect(page.locator(".library-card")).toHaveCount(9);
         // 排序：calls → 首卡为轮次最多会话（s1 calls=12 最大）。
         await page.getByLabel("排序方式").selectOption("calls");
-        await expect(page.locator(".lib-card-title").first()).toHaveText("登录页 bug 修复");
+        await expect(page.locator(".library-card-title").first()).toHaveText("登录页 bug 修复");
         // 预览抽屉：前 5 条消息可见。
-        const card = page.locator(".lib-card").first();
+        const card = page.locator(".library-card").first();
         await card.hover();
         await card.getByRole("button", { name: "预览" }).first().click();
-        await expect(page.locator(".lib-preview-msg").first()).toBeVisible();
+        await expect(page.locator(".preview-message").first()).toBeVisible();
         await page.keyboard.press("Escape");
-        await expect(page.locator(".lib-preview")).toHaveCount(0);
+        await expect(page.locator(".preview-panel")).toHaveCount(0);
         // 并排打开 2 个会话 → 工作台 2 槽。
         await page.getByRole("button", { name: "会话 s1" }).click();
         await page.getByRole("button", { name: "会话 s2" }).click();
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".slot-pane")).toHaveCount(2);
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+        await expect(page.locator(".history-cell")).toHaveCount(2);
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
     });
 });
 
@@ -231,10 +233,10 @@ test.describe("session panel virtual list (web, t237)", () => {
         await open_history(page);
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "大会话虚拟列表");
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
         // 等待虚拟列表根据容器高度收敛到可视窗口 + 缓冲区。
         await expect
-            .poll(async () => page.locator(".pane-msg-row").count(), {
+            .poll(async () => page.locator(".conversation-message-row").count(), {
                 timeout: 5000,
             })
             .toBeLessThanOrEqual(40);
@@ -245,17 +247,19 @@ test.describe("session panel virtual list (web, t237)", () => {
         await open_history(page);
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "大会话虚拟列表");
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
 
         // 翻到最顶部触发 load older（第一页最旧消息为「消息 400」）。
         await page.evaluate(() => {
-            const el = document.querySelector<HTMLElement>(".pane-msgs");
+            const el = document.querySelector<HTMLElement>(".conversation-message-scroll");
             if (el) el.scrollTop = 0;
         });
-        await expect(page.locator(".pane-loading")).toHaveCount(0);
+        await expect(page.locator(".conversation-loading")).toHaveCount(0);
 
         // 滚动补偿后「消息 400」仍应可见。
-        await expect(page.locator(".pane-msg-row", { hasText: "消息 400" }).first()).toBeVisible();
+        await expect(
+            page.locator(".conversation-message-row", { hasText: "消息 400" }).first(),
+        ).toBeVisible();
     });
 
     test("大纲点击可视区外的消息能跳转并渲染", async ({ webPage }) => {
@@ -263,14 +267,16 @@ test.describe("session panel virtual list (web, t237)", () => {
         await open_history(page);
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "大会话虚拟列表");
-        await expect(page.locator(".pane-msg-row").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
 
         // 打开大纲。
-        await page.locator(".slot-pane .pane-hover-btn[title='大纲']").first().click();
-        await expect(page.locator(".pane-outline")).toBeVisible();
+        await page.locator(".history-cell .conversation-action[title='大纲']").first().click();
+        await expect(page.locator(".conversation-outline")).toBeVisible();
 
         // 点击远离可视区的「消息 450」（首页为后 200 条 400–599，450 在可视区外但在首页内）。
-        await page.locator(".pane-outline-row", { hasText: "消息 450" }).first().click();
-        await expect(page.locator(".pane-msg-row", { hasText: "消息 450" }).first()).toBeVisible();
+        await page.locator(".conversation-outline-row", { hasText: "消息 450" }).first().click();
+        await expect(
+            page.locator(".conversation-message-row", { hasText: "消息 450" }).first(),
+        ).toBeVisible();
     });
 });

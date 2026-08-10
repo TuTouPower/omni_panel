@@ -17,6 +17,8 @@ import { VendorPicker } from "./add_account/VendorPicker";
 import { ApiKeyForm } from "./add_account/ApiKeyForm";
 import { SessionForm } from "./add_account/SessionForm";
 import { LocalScanForm } from "./add_account/LocalScanForm";
+import { Button } from "./ui/Button";
+import { Dialog } from "./ui/Dialog";
 import type { AddAccountParams } from "./add_account/add_account_params";
 
 export type { AddAccountParams } from "./add_account/add_account_params";
@@ -249,154 +251,171 @@ export function AddAccountDialog({
     );
 
     return (
-        <div className="acct-dialog-scrim" onMouseDown={on_close}>
-            <div
-                className={"acct-dialog aa" + (wide ? " wide" : "")}
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                }}
-            >
-                {/* Header */}
-                <div className="ad-head">
-                    {step === "auth" && vendor_id ? (
-                        <span className="ad-mark">
-                            <VendorMark id={vendor_id} size={24} />
-                        </span>
-                    ) : (
-                        <span className="ad-mark">
-                            <VendorMark id="overview" size={24} />
-                        </span>
-                    )}
-                    <div className="ad-htext">
-                        <div className="ad-title">{title}</div>
-                        {sub && <div className="ad-sub">{sub}</div>}
+        <Dialog
+            open
+            onClose={on_close}
+            width={wide ? 420 : 372}
+            ariaLabel={title}
+            backdropTestId="add-account-dialog-backdrop"
+            title={
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary-container)]">
+                        <VendorMark
+                            id={step === "auth" && vendor_id ? vendor_id : "overview"}
+                            size={24}
+                        />
+                    </span>
+                    <div className="min-w-0">
+                        <div className="text-title-sm font-semibold">{title}</div>
+                        {sub && (
+                            <div className="mt-0.5 truncate text-body-sm text-[var(--color-on-surface-muted)]">
+                                {sub}
+                            </div>
+                        )}
                     </div>
                     {step === "auth" && (
-                        <button
-                            className="ad-back"
-                            type="button"
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="ml-auto h-8 w-8 shrink-0 p-0"
                             onClick={handle_back}
                             title="返回选择服务"
+                            aria-label="返回选择服务"
                         >
                             <Icon name="back" size={17} strokeWidth={2} />
-                        </button>
+                        </Button>
                     )}
-                    <button className="ad-close" onClick={on_close} title="关闭" type="button">
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className={"h-8 w-8 shrink-0 p-0" + (step === "vendor" ? " ml-auto" : "")}
+                        onClick={on_close}
+                        title="关闭"
+                        aria-label="关闭"
+                    >
                         <Icon name="close" size={17} strokeWidth={2} />
-                    </button>
+                    </Button>
                 </div>
-
-                {/* Body */}
-                <div className="ad-body">
-                    {step === "vendor" && (
-                        <VendorPicker
-                            plugin_infos={plugin_infos}
-                            on_select={handle_select_vendor}
-                        />
-                    )}
-                    {step === "auth" && vendor_id && (
-                        <>
-                            {auth_method === "apikey" && !has_extra_fields && (
-                                <ApiKeyForm
-                                    account_name={account_name}
-                                    set_account_name={set_account_name}
-                                    form_ref={api_form_ref}
-                                />
-                            )}
-                            {auth_method === "session" && (
-                                <SessionForm
-                                    account_name={account_name}
-                                    set_account_name={set_account_name}
-                                    form_ref={session_form_ref}
-                                />
-                            )}
-                            {auth_method === "local_cli" && <LocalScanForm vendor_id={vendor_id} />}
-                            {auth_method === "oauth_device" && (
-                                <OAuthDeviceForm
-                                    key={vendor_id}
-                                    instance_id={oauth_instance_id_ref.current}
-                                    vendor={vendor_id === "kimi" ? "kimi" : "grok"}
-                                    vendor_id={vendor_id}
-                                    secret_name={
-                                        auth_descriptor?.secret_name ??
-                                        fallback_secret_name(selected_connector)
-                                    }
-                                    account_name={account_name}
-                                    set_account_name={set_account_name}
-                                    on_save={handle_form_save}
-                                />
-                            )}
-                            {auth_method === "web_login" && auth_descriptor?.login_url && (
-                                <WebLoginForm
-                                    key={vendor_id}
-                                    provider={vendor_id}
-                                    login_url={auth_descriptor.login_url}
-                                    secret_name={auth_descriptor.secret_name}
-                                    account_name={account_name}
-                                    set_account_name={set_account_name}
-                                    on_save={handle_form_save}
-                                />
-                            )}
-                            {auth_method === "cpa_mgmt" && (
-                                <CpaMgmtForm
-                                    key={vendor_id}
-                                    vendor_id={vendor_id}
-                                    default_endpoint={
-                                        selected_connector?.metadata?.endpoints?.["default"] ??
-                                        undefined
-                                    }
-                                    account_name={account_name}
-                                    set_account_name={set_account_name}
-                                    on_save={handle_form_save}
-                                />
-                            )}
-                            {auth_method === "apikey" &&
-                                vendor_id === "exa" &&
-                                has_extra_fields && (
-                                    <ExaServiceKeyForm
-                                        key={vendor_id}
-                                        vendor_id={vendor_id}
-                                        secret_name={
-                                            auth_descriptor?.secret_name ??
-                                            fallback_secret_name(selected_connector)
-                                        }
-                                        account_name={account_name}
-                                        set_account_name={set_account_name}
-                                        on_save={handle_form_save}
-                                    />
-                                )}
-                        </>
-                    )}
-                </div>
-
-                {/* Footer */}
-                {step === "auth" && !form_handles_save && (
-                    <div className="ad-foot">
-                        {error_message && <div className="ad-hint">{error_message}</div>}
+            }
+            footer={
+                step === "auth" && !form_handles_save ? (
+                    <>
+                        {error_message && (
+                            <div
+                                className="mr-auto text-body-sm text-[var(--color-error)]"
+                                role="alert"
+                            >
+                                {error_message}
+                            </div>
+                        )}
                         {auth_method !== "local_cli" && (
-                            <button className="ad-test" type="button" disabled>
+                            <Button variant="ghost" size="sm" type="button" disabled>
                                 <Icon name="refresh" size={14} strokeWidth={1.9} />
                                 测试连接
-                            </button>
+                            </Button>
                         )}
-                        <div className="ad-foot-r">
-                            <button className="ad-btn ghost" type="button" onClick={on_close}>
-                                取消
-                            </button>
-                            <button
-                                className={"ad-btn primary" + (saving ? " disabled" : "")}
-                                type="button"
-                                disabled={saving}
-                                onClick={() => {
-                                    void handle_save();
-                                }}
-                            >
-                                {auth_method === "local_cli" ? "导入账号" : "添加账号"}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                        <Button variant="ghost" size="sm" type="button" onClick={on_close}>
+                            取消
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            disabled={saving}
+                            onClick={() => {
+                                void handle_save();
+                            }}
+                        >
+                            {auth_method === "local_cli" ? "导入账号" : "添加账号"}
+                        </Button>
+                    </>
+                ) : undefined
+            }
+        >
+            {step === "vendor" && (
+                <VendorPicker plugin_infos={plugin_infos} on_select={handle_select_vendor} />
+            )}
+            {step === "auth" && vendor_id && (
+                <>
+                    {auth_method === "apikey" && !has_extra_fields && (
+                        <ApiKeyForm
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            form_ref={api_form_ref}
+                        />
+                    )}
+                    {auth_method === "session" && (
+                        <SessionForm
+                            provider={vendor_id}
+                            secret_name={
+                                auth_descriptor?.secret_name ??
+                                fallback_secret_name(selected_connector)
+                            }
+                            login_url={
+                                selected_connector?.metadata?.login_url ??
+                                selected_connector?.metadata?.endpoints?.["login"] ??
+                                undefined
+                            }
+                            cookie_names={selected_connector?.metadata?.cookie_names}
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            form_ref={session_form_ref}
+                        />
+                    )}
+                    {auth_method === "local_cli" && <LocalScanForm vendor_id={vendor_id} />}
+                    {auth_method === "oauth_device" && (
+                        <OAuthDeviceForm
+                            key={vendor_id}
+                            instance_id={oauth_instance_id_ref.current}
+                            vendor={vendor_id === "kimi" ? "kimi" : "grok"}
+                            vendor_id={vendor_id}
+                            secret_name={
+                                auth_descriptor?.secret_name ??
+                                fallback_secret_name(selected_connector)
+                            }
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            on_save={handle_form_save}
+                        />
+                    )}
+                    {auth_method === "web_login" && auth_descriptor?.login_url && (
+                        <WebLoginForm
+                            key={vendor_id}
+                            provider={vendor_id}
+                            login_url={auth_descriptor.login_url}
+                            secret_name={auth_descriptor.secret_name}
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            on_save={handle_form_save}
+                        />
+                    )}
+                    {auth_method === "cpa_mgmt" && (
+                        <CpaMgmtForm
+                            key={vendor_id}
+                            vendor_id={vendor_id}
+                            default_endpoint={
+                                selected_connector?.metadata?.endpoints?.["default"] ?? undefined
+                            }
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            on_save={handle_form_save}
+                        />
+                    )}
+                    {auth_method === "apikey" && vendor_id === "exa" && has_extra_fields && (
+                        <ExaServiceKeyForm
+                            key={vendor_id}
+                            vendor_id={vendor_id}
+                            secret_name={
+                                auth_descriptor?.secret_name ??
+                                fallback_secret_name(selected_connector)
+                            }
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            on_save={handle_form_save}
+                        />
+                    )}
+                </>
+            )}
+        </Dialog>
     );
 }

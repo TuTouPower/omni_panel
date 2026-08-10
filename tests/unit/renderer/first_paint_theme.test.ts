@@ -52,7 +52,7 @@ describe("first-paint theme background", () => {
         expect(html.indexOf("<style>")).toBeLessThan(html.indexOf('<script type="module"'));
     });
 
-    it("inlines body/#root background too, so globals.css var(--win-bg) (default white) cannot flash through before the bundle loads", () => {
+    it("inlines body/#root background too, so globals.css var(--color-surface-window) (default white) cannot flash through before the bundle loads", () => {
         const html = read_source("src/renderer/index.html");
         // body and #root must be themed inline, not only html.
         expect(html).toContain('html[data-theme="dark"] body');
@@ -63,15 +63,16 @@ describe("first-paint theme background", () => {
     });
 
     it("does not animate the first visible window background", () => {
-        const css = read_source("src/renderer/styles/globals.css");
-        const window_start = css.indexOf(".window {");
-        const window_end = css.indexOf("}\n@media", window_start);
-        const window_rule = css.slice(window_start, window_end);
-
-        expect(window_start).toBeGreaterThanOrEqual(0);
-        expect(window_end).toBeGreaterThan(window_start);
-        expect(window_rule).toContain("background: var(--win-bg)");
-        expect(window_rule).not.toContain("background 0.35s ease");
+        // t274: `.window` 手写规则已迁到 PopupView window 根的 utility 类，
+        // 契约不变：窗口壳背景不参与 transition（仅 height/box-shadow 动画）。
+        const source = read_source("src/renderer/views/PopupView.tsx");
+        const win_cls_start = source.indexOf('data-popup="live"');
+        expect(win_cls_start).toBeGreaterThanOrEqual(0);
+        const win_cls = source.slice(0, win_cls_start);
+        expect(win_cls).toContain("bg-[var(--color-surface-window)]");
+        expect(win_cls).toContain("transition-[height,box-shadow]");
+        expect(win_cls).not.toMatch(/transition-\[(?:[^\]]*background|background)/);
+        expect(win_cls).not.toMatch(/bg-\[[^\]]*\]\s*transition/);
     });
 
     it("pre-warms the settings window and hides (not destroys) on close, so reopen reuses the painted window", () => {

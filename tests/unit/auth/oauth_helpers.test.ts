@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { request as undici_request } from "undici";
 import {
     is_token_response,
     is_error_response,
@@ -8,10 +9,13 @@ import {
     load_tokens,
     store_tokens,
     clear_tokens,
+    make_default_http_post,
     OAUTH_TOKEN_KEY,
     OAUTH_REFRESH_TOKEN_KEY,
     OAUTH_EXPIRES_AT_KEY,
 } from "../../../src/main/core/auth/oauth_helpers";
+
+vi.mock("undici", () => ({ request: vi.fn() }));
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 import { keyFor } from "../../../src/main/core/config/secrets-store";
 
@@ -232,6 +236,35 @@ describe("oauth_helpers", () => {
             const vault = create_vault();
             await store_tokens(vault, "inst-1", { access_token: "access-1" });
             await expect(vault.get(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY))).resolves.toBeNull();
+        });
+    });
+
+    describe("make_default_http_post", () => {
+        it("does not include a non-JSON response body in the error", async () => {
+            const access_token = "access-token-body-sentinel";
+            const refresh_token = "refresh-token-body-sentinel";
+            vi.mocked(undici_request).mockResolvedValue({
+                statusCode: 502,
+                body: {
+                    text: vi
+                        .fn()
+                        .mockResolvedValue(
+                            `access_token=${access_token}&refresh_token=${refresh_token}`,
+                        ),
+                },
+            } as never);
+
+            const post = make_default_http_post();
+            await expect(
+                post("https://oauth.example/token", "grant_type=device_code", {}),
+            ).rejects.toSatisfy((error: unknown) => {
+                return (
+                    error instanceof Error &&
+                    error.message.includes("non-JSON response") &&
+                    !error.message.includes(access_token) &&
+                    !error.message.includes(refresh_token)
+                );
+            });
         });
     });
 

@@ -10,7 +10,9 @@ test.describe("popup demo alignment (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        await expect(webPage.locator(".app-title").first()).toHaveText("Omni Panel - Usage");
+        await expect(webPage.locator('[data-testid="app-title"]').first()).toHaveText(
+            "Omni Panel - Usage",
+        );
         await expect(webPage.locator('[title="刷新全部"]').first()).toBeVisible();
         await expect(webPage.locator('[title="设置"]').first()).toBeVisible();
     });
@@ -19,7 +21,7 @@ test.describe("popup demo alignment (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const cards = webPage.locator(".card");
+        const cards = webPage.locator('[data-testid="collapsible-card"]');
         expect(await cards.count()).toBeGreaterThan(0);
     });
 
@@ -27,7 +29,7 @@ test.describe("popup demo alignment (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
-        const timeLabel = webPage.locator(".tb-time").first();
+        const timeLabel = webPage.locator('[data-testid="popup-time"]').first();
         await expect(timeLabel).toBeVisible();
     });
 });

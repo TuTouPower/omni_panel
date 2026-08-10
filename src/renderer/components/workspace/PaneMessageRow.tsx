@@ -1,6 +1,8 @@
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import { format_time_short } from "../../lib/session-history/markdown";
+import { cn } from "../../lib/utils";
+import { Checkbox } from "../ui/Checkbox";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 export interface PaneMessageRowProps {
@@ -14,7 +16,7 @@ export interface PaneMessageRowProps {
     readonly onRender?: () => void;
 }
 
-/** t257：内容元素是否超出一行（scrollHeight > clientHeight）。抽为函数便于测试注入。 */
+/** 内容元素是否超出一行。 */
 export function content_overflows(
     el: HTMLElement | null,
     scroll_height: number,
@@ -27,8 +29,7 @@ export function content_overflows(
     return scroll_height > client_height;
 }
 
-/** t237 单条消息行：memo 化，仅当 message / selected / 视图回调相关 props 变化时重渲染。
- *  t257：默认单行折叠，超行消息显示展开按钮，点击展开/恢复折叠（AC9-AC11）。 */
+/** 单条消息行：memo 化，并提供默认单行折叠与展开切换。 */
 export const PaneMessageRow = memo(function PaneMessageRow({
     message,
     selected,
@@ -43,9 +44,6 @@ export const PaneMessageRow = memo(function PaneMessageRow({
     const [overflows, set_overflows] = useState(false);
     const content_ref = useRef<HTMLDivElement | null>(null);
 
-    // 测量内容是否超一行（仅在折叠态语义下测一次，随消息变化重测）。
-    // 不依赖 expanded：展开后 scrollHeight===clientHeight 会误判不超行，
-    // 导致展开按钮消失、无法恢复折叠（t257 f008）。
     useLayoutEffect(() => {
         const el = content_ref.current;
         if (!el) return;
@@ -54,13 +52,14 @@ export const PaneMessageRow = memo(function PaneMessageRow({
 
     return (
         <div
-            className={
-                "pane-msg-row" +
-                (selected ? " selected" : "") +
-                (compact ? " compact" : "") +
-                (expanded ? " expanded" : "")
-            }
+            className={cn(
+                "conversation-message-row group flex gap-2 py-1",
+                selected && "selected rounded-md bg-[var(--color-primary-container)]",
+                compact && "compact",
+                expanded && "expanded",
+            )}
             data-message-id={message.id}
+            data-selected={selected}
             onMouseEnter={() => {
                 on_hover(message.id);
             }}
@@ -68,9 +67,8 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                 on_hover(null);
             }}
         >
-            <input
-                type="checkbox"
-                className="pane-msg-check"
+            <Checkbox
+                className="conversation-message-check mt-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                 aria-label={`选择消息 ${message.text.slice(0, 24) || "(空)"}`}
                 checked={selected}
                 readOnly
@@ -78,27 +76,35 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                     on_toggle(message.id, e.shiftKey);
                 }}
             />
-            <div className="pane-msg-body">
-                <div className="pane-msg-meta">
-                    <span className="pane-msg-role">
+            <div className="conversation-message-body min-w-0 flex-1">
+                <div
+                    className={cn(
+                        "conversation-message-meta items-center gap-2",
+                        compact ? "inline-flex" : "mb-0.5 flex",
+                    )}
+                >
+                    <span className="conversation-message-role text-label-md font-semibold text-[var(--color-on-surface-variant)]">
                         {message.role === "user" ? "用户" : "Agent"}
                     </span>
                     {show_time && message.timestamp !== null && (
-                        <span className="pane-msg-time">
+                        <span className="conversation-message-time font-code-md text-label-caps tabular-nums text-[var(--color-on-surface-muted)]">
                             {format_time_short(message.timestamp)}
                         </span>
                     )}
                 </div>
                 <div
                     ref={content_ref}
-                    className={"pane-msg-content" + (expanded ? "" : " single-line")}
+                    className={cn(
+                        "conversation-message-content min-w-0",
+                        !expanded && "single-line line-clamp-1",
+                    )}
                 >
                     <MarkdownMessage text={message.text} />
                 </div>
                 {overflows && (
                     <button
                         type="button"
-                        className="pane-msg-expand"
+                        className="conversation-message-expand mt-0.5 rounded px-1.5 py-px text-label-md text-[var(--color-primary)] hover:bg-[var(--color-primary-container)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         aria-label={expanded ? "折叠消息" : "展开消息"}
                         onClick={() => {
                             set_expanded((v) => !v);

@@ -10,6 +10,7 @@ const themeSchema = z.enum(["light", "dark", "system"]);
 
 export interface EventIpcDeps {
     runtimeStore: RuntimeStore;
+    onThemeChanged?: (isDark: boolean) => void;
 }
 
 export function registerEventIpc(deps: EventIpcDeps): () => void {
@@ -60,6 +61,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
                     win.webContents.send(channel, isDark);
                 }
             }
+            deps.onThemeChanged?.(isDark);
             if (is_development) log.debug("ipc response raw", { channel, result: isDark });
         } catch (error: unknown) {
             // catch-log-rethrow: ensure errors are observed even if callers don't handle them

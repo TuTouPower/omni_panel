@@ -18,7 +18,7 @@ const RENDERER_HTML = resolve(REPO_ROOT, "out/renderer/index.html");
 const has_build_output = existsSync(WEB_HTML) && existsSync(RENDERER_HTML);
 
 const ECHARTS_RUNTIME_MARK = "echarts_instance_";
-const SESSION_SHELL_MARK = "session-shell";
+const HISTORY_SHELL_MARK = "history-shell";
 
 function read_entry_chunk(build_dir: "out/web" | "out/renderer"): string {
     const html_path = resolve(REPO_ROOT, build_dir, "index.html");
@@ -52,7 +52,7 @@ describe.skipIf(!has_build_output)("t249 构建产物代码分割", () => {
             it("入口 chunk 不含 echarts 运行时与 SessionShell 代码", () => {
                 const entry = read_entry_chunk(build_dir);
                 expect(entry).not.toContain(ECHARTS_RUNTIME_MARK);
-                expect(entry).not.toContain(SESSION_SHELL_MARK);
+                expect(entry).not.toContain(HISTORY_SHELL_MARK);
             });
 
             it("echarts 运行时代码位于独立非入口 chunk", () => {
@@ -62,7 +62,7 @@ describe.skipIf(!has_build_output)("t249 构建产物代码分割", () => {
             });
 
             it("SessionShell 子树位于独立非入口 chunk", () => {
-                const chunk = chunk_containing(build_dir, SESSION_SHELL_MARK);
+                const chunk = chunk_containing(build_dir, HISTORY_SHELL_MARK);
                 expect(chunk).toBeTruthy();
                 expect(chunk).not.toMatch(/^index-/);
             });

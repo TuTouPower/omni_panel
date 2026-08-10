@@ -10,22 +10,20 @@ import { MetricDonut } from "../components/token-stats/MetricDonut";
 import { BarChart } from "../components/token-stats/BarChart";
 import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
-import { Segmented } from "../components/token-stats/Segmented";
 import { RangePicker } from "../components/token-stats/RangePicker";
+import { Button, Card, PanelTitleBar, Segmented, Select } from "../components/ui";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
     create_token_stats_query_cache,
     type TokenStatsQueryKey,
 } from "../lib/token-stats/query-cache";
-import { PanelTitleBar } from "../components/PanelTitleBar";
 import { useGlobalTheme, useTheme } from "../lib/theme";
+import { use_chart_palette, type ChartPalette } from "../lib/echarts_token_resolver";
 import { use_panel_navigation } from "../lib/panel-navigation";
-import "../styles/token-stats.css";
 
 const MODULE = "TokenStatsView";
 
-type Theme = "dark" | "light";
 type RangePreset = "24h" | "7d" | "30d";
 type PlatformFilter = "all" | TokenStatsEnv;
 const SESSION_QUERY_LIMIT = 100;
@@ -93,20 +91,19 @@ interface TokenStatsQueryData {
 
 function dashboard_segments(
     values: readonly { key: string; value: number }[],
-    theme: Theme,
+    palette: ChartPalette,
 ): { name: string; value: number; itemStyle: { color: string } }[] {
-    const colors = ["#7c6cf6", "#4cc2ff", "#3ddc97", "#ffb454", "#f56cc6"];
     const top = values.slice(0, 5).map((item, index) => ({
         name: item.key,
         value: item.value,
-        itemStyle: { color: colors[index] ?? (theme === "dark" ? "#46506a" : "#98a0b4") },
+        itemStyle: { color: palette.series[index] ?? palette.other },
     }));
     const other_value = values.slice(5).reduce((sum, item) => sum + item.value, 0);
     if (other_value > 0) {
         top.push({
             name: "其他",
             value: other_value,
-            itemStyle: { color: theme === "dark" ? "#46506a" : "#98a0b4" },
+            itemStyle: { color: palette.other },
         });
     }
     return top;
@@ -149,16 +146,10 @@ function dashboard_session_rows(items: readonly TokenStatsDashboardSessionSummar
 
 function dashboard_model_colors(
     values: readonly { key: string; value: number }[],
-    theme: Theme,
+    palette: ChartPalette,
 ): Map<string, string> {
-    const colors = ["#7c6cf6", "#4cc2ff", "#3ddc97", "#ffb454", "#f56cc6"];
     return new Map(
-        values
-            .slice(0, 5)
-            .map((item, index) => [
-                item.key,
-                colors[index] ?? (theme === "dark" ? "#46506a" : "#98a0b4"),
-            ]),
+        values.slice(0, 5).map((item, index) => [item.key, palette.series[index] ?? palette.other]),
     );
 }
 
@@ -200,9 +191,9 @@ export function TokenStatsView() {
     const [model, setModel] = useState<string>(saved.model ?? "all");
     // t252 AC6: 主题跟随全局（弃用独立 usage-theme 存储）。
     const theme = useGlobalTheme();
-    // t252 AC6: 同步 data-theme 实时跟随全局（useGlobalTheme 只返回主题值喂图表，
-    // 不更新 documentElement[data-theme]，token-stats.css 依赖它切换明暗）。
+    // 同步 data-theme 与 canvas 图表 token，确保主题切换立即重绘。
     useTheme();
+    const { palette } = use_chart_palette(theme);
     const navigate = use_panel_navigation();
     const [dirAliases, setDirAliases] = useState<{ alias: string; dirs: string[] }[]>([]);
     const [modelAliases, setModelAliases] = useState<{ alias: string; models: string[] }[]>([]);
@@ -553,22 +544,22 @@ export function TokenStatsView() {
               {
                   name: "cache_read",
                   value: currentSummary.cache_read_tokens,
-                  itemStyle: { color: "#3ddc97" },
+                  itemStyle: { color: palette.composition["cache_read"] ?? palette.other },
               },
               {
                   name: "input",
                   value: currentSummary.input_tokens,
-                  itemStyle: { color: "#4cc2ff" },
+                  itemStyle: { color: palette.composition["input"] ?? palette.other },
               },
               {
                   name: "cache_write",
                   value: currentSummary.cache_write_tokens,
-                  itemStyle: { color: "#ffb454" },
+                  itemStyle: { color: palette.composition["cache_write"] ?? palette.other },
               },
               {
                   name: "output",
                   value: currentSummary.output_tokens,
-                  itemStyle: { color: "#7c6cf6" },
+                  itemStyle: { color: palette.composition["output"] ?? palette.other },
               },
           ].filter((item) => item.value > 0)
         : [];
@@ -585,10 +576,10 @@ export function TokenStatsView() {
     const prevTokens = prevKpi.tokens;
     const prevSessions = prevKpi.sessions;
     const prevCalls = prevKpi.calls;
-    const agentSegmentsData = dashboard_segments(currentSummary?.agent_totals ?? [], theme);
-    const modelTokenSegs = dashboard_segments(currentSummary?.model_token_totals ?? [], theme);
-    const modelCallSegs = dashboard_segments(currentSummary?.model_call_totals ?? [], theme);
-    const modelColors = dashboard_model_colors(currentSummary?.model_token_totals ?? [], theme);
+    const agentSegmentsData = dashboard_segments(currentSummary?.agent_totals ?? [], palette);
+    const modelTokenSegs = dashboard_segments(currentSummary?.model_token_totals ?? [], palette);
+    const modelCallSegs = dashboard_segments(currentSummary?.model_call_totals ?? [], palette);
+    const modelColors = dashboard_model_colors(currentSummary?.model_token_totals ?? [], palette);
     const currentRecords: never[] = [];
     const currentBuckets: never[] = [];
     const hourBuckets: never[] = [];
@@ -600,21 +591,33 @@ export function TokenStatsView() {
     const topAgentLabel = topAgentSeg ? topAgentSeg.name.replace(/ /g, "\\n") : "—";
     const deltaHtml = useCallback((current: number, previous: number, pp = false) => {
         if (previous <= 0 && !(pp && previous !== 0)) {
-            return <b style={{ color: "var(--ts-text-3)" }}>前段无数据</b>;
+            return (
+                <b className="font-mono text-label-sm font-medium text-[var(--color-on-surface-muted)]">
+                    前段无数据
+                </b>
+            );
         }
         if (pp) {
             const d = (current - previous) * 100;
             return d >= 0 ? (
-                <b className="up">▲ {d.toFixed(1)} pp</b>
+                <b className="font-mono text-label-sm font-medium text-[var(--color-success)]">
+                    ▲ {d.toFixed(1)} pp
+                </b>
             ) : (
-                <b className="down">▼ {Math.abs(d).toFixed(1)} pp</b>
+                <b className="font-mono text-label-sm font-medium text-[var(--color-error)]">
+                    ▼ {Math.abs(d).toFixed(1)} pp
+                </b>
             );
         }
         const d = previous === 0 ? 0 : (current - previous) / previous;
         return d >= 0 ? (
-            <b className="up">▲ {(d * 100).toFixed(1)}%</b>
+            <b className="font-mono text-label-sm font-medium text-[var(--color-success)]">
+                ▲ {(d * 100).toFixed(1)}%
+            </b>
         ) : (
-            <b className="down">▼ {Math.abs(d * 100).toFixed(1)}%</b>
+            <b className="font-mono text-label-sm font-medium text-[var(--color-error)]">
+                ▼ {Math.abs(d * 100).toFixed(1)}%
+            </b>
         );
     }, []);
 
@@ -635,37 +638,50 @@ export function TokenStatsView() {
     };
 
     return (
-        <div className="token-stats">
+        <div className="token-stats flex min-h-full flex-col gap-4 bg-[var(--color-surface-window)] p-4 text-[var(--color-on-surface)] md:p-6">
             <PanelTitleBar
                 panel="Agent"
+                data-panel-titlebar="Agent"
                 refreshing={refreshing}
                 onRefresh={() => {
                     void loadData(false);
                 }}
                 onNavigate={navigate}
             />
-            <header>
-                <div className="brand">
-                    <h1>
-                        <span className="dot" />
+            <header className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[var(--color-primary)] shadow-[0_0_12px_var(--color-accent-ring)]" />
+                    <h1 className="m-0 flex flex-wrap items-center gap-2 text-title-lg font-bold tracking-tight">
                         代理面板
-                        {updatedAgo && <span className="update-ago">{updatedAgo}</span>}
+                        {updatedAgo && (
+                            <span className="font-mono text-label-sm font-medium text-[var(--color-on-surface-muted)]">
+                                {updatedAgo}
+                            </span>
+                        )}
                         {refreshing && (
-                            <span className="update-ago" data-testid="token-stats-refreshing">
+                            <span
+                                className="font-mono text-label-sm font-medium text-[var(--color-on-surface-muted)]"
+                                data-testid="token-stats-refreshing"
+                            >
                                 刷新中...
                             </span>
                         )}
                         {error && dashboard && (
-                            <span className="update-ago" role="status">
+                            <span
+                                className="font-mono text-label-sm font-medium text-[var(--color-error)]"
+                                role="status"
+                            >
                                 刷新失败
                             </span>
                         )}
                     </h1>
                 </div>
-                <div className="controls">
+                <div className="flex flex-wrap items-center gap-2">
                     <Segmented
                         options={AGENT_OPTIONS}
                         value={agent}
+                        size="sm"
+                        aria-label="工具筛选"
                         onChange={(v) => {
                             setAgent(v);
                         }}
@@ -673,12 +689,14 @@ export function TokenStatsView() {
                     <Segmented
                         options={PLATFORM_OPTIONS}
                         value={platform}
+                        size="sm"
+                        aria-label="平台筛选"
                         onChange={(v) => {
                             setPlatform(v);
                         }}
                     />
-                    <select
-                        className="pgselect ts-model-select"
+                    <Select
+                        className="h-8 w-auto min-w-[128px] py-1 text-label-md"
                         aria-label="模型筛选"
                         value={model}
                         onChange={(e) => {
@@ -691,10 +709,12 @@ export function TokenStatsView() {
                                 {o.label}
                             </option>
                         ))}
-                    </select>
+                    </Select>
                     <Segmented
                         options={RANGE_OPTIONS}
                         value={preset}
+                        size="sm"
+                        aria-label="时间范围"
                         onChange={(v) => {
                             handlePresetChange(v);
                         }}
@@ -709,110 +729,126 @@ export function TokenStatsView() {
             </header>
 
             {loading ? (
-                <div className="empty">加载中...</div>
+                <Card className="flex min-h-[180px] items-center justify-center text-label-md text-[var(--color-on-surface-muted)]">
+                    加载中...
+                </Card>
             ) : error && !dashboard ? (
-                <div className="empty" role="alert">
-                    查询失败：{error}
-                    <button
-                        type="button"
+                <Card
+                    className="flex flex-wrap items-center justify-center gap-3 text-label-md text-[var(--color-error)]"
+                    role="alert"
+                >
+                    <span>查询失败：{error}</span>
+                    <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => {
                             void loadData();
                         }}
                     >
                         重试
-                    </button>
-                </div>
+                    </Button>
+                </Card>
             ) : !dashboard || dashboard.current.calls === 0 ? (
-                <div className="empty">该筛选条件下暂无记录</div>
+                <Card className="flex min-h-[180px] items-center justify-center text-label-md text-[var(--color-on-surface-muted)]">
+                    该筛选条件下暂无记录
+                </Card>
             ) : (
                 <>
-                    <div className="grid kpi-grid">
-                        <div className="card span-3">
-                            <h3>
-                                总 Token 消耗{" "}
-                                <span className="delta">{deltaHtml(totalTokens, prevTokens)}</span>
-                            </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                        <Card className="min-w-0">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                    总 Token 消耗
+                                </h3>
+                                {deltaHtml(totalTokens, prevTokens)}
+                            </div>
                             <MetricDonut
                                 centerValue={fmtTok(totalTokens)}
                                 segments={modelTokenSegs}
                                 format={fmtTok}
                                 theme={theme}
                             />
-                        </div>
-                        <div className="card span-3">
-                            <h3>
-                                会话数{" "}
-                                <span className="delta">
-                                    {deltaHtml(totalSessions, prevSessions)}
-                                </span>
-                            </h3>
+                        </Card>
+                        <Card className="min-w-0">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                    会话数
+                                </h3>
+                                {deltaHtml(totalSessions, prevSessions)}
+                            </div>
                             <MetricDonut
                                 centerValue={fmtInt(totalSessions)}
                                 segments={dashboard_segments(
                                     currentSummary?.project_session_totals ?? [],
-                                    theme,
+                                    palette,
                                 )}
                                 format={fmtInt}
                                 theme={theme}
                             />
-                        </div>
-                        <div className="card span-3">
-                            <h3>
-                                调用次数{" "}
-                                <span className="delta">{deltaHtml(totalCalls, prevCalls)}</span>
-                            </h3>
+                        </Card>
+                        <Card className="min-w-0">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                    调用次数
+                                </h3>
+                                {deltaHtml(totalCalls, prevCalls)}
+                            </div>
                             <MetricDonut
                                 centerValue={fmtInt(totalCalls)}
                                 segments={modelCallSegs}
                                 format={fmtInt}
                                 theme={theme}
                             />
-                        </div>
-                        <div className="card span-3">
-                            <h3>工具占比</h3>
+                        </Card>
+                        <Card className="min-w-0">
+                            <h3 className="mb-2 m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                工具占比
+                            </h3>
                             <MetricDonut
                                 centerValue={topAgentLabel}
                                 segments={agentSegmentsData}
                                 format={fmtTok}
                                 theme={theme}
                             />
-                        </div>
-                        <div className="card span-3">
-                            <h3>
-                                缓存命中率{" "}
-                                <span className="delta">
-                                    {deltaHtml(hitRate, prevHitRate, true)}
-                                </span>
-                            </h3>
+                        </Card>
+                        <Card className="min-w-0">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                    缓存命中率
+                                </h3>
+                                {deltaHtml(hitRate, prevHitRate, true)}
+                            </div>
                             <MetricDonut
                                 centerValue={`${(hitRate * 100).toFixed(1)}%`}
                                 segments={currentComp}
                                 format={fmtTok}
                                 theme={theme}
                             />
-                        </div>
+                        </Card>
                     </div>
 
-                    <div className="grid">
-                        <div className="card span-8">
-                            <h3 className="bar-chart-header">
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-8">
+                        <Card className="min-w-0 xl:col-span-5">
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                 <Segmented
                                     options={METRIC_OPTIONS}
                                     value={metric}
+                                    size="sm"
+                                    aria-label="图表指标"
                                     onChange={(v) => {
                                         handleMetricChange(v);
                                     }}
-                                    size="sm"
                                 />
-                                <span className="h3ctrl">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {effective_xaxis === "time" && (
                                         <Segmented
                                             options={GRAN_OPTIONS}
                                             value={effective_gran}
+                                            size="sm"
+                                            aria-label="图表粒度"
                                             onChange={(v) => {
                                                 setGran(v);
                                             }}
-                                            size="sm"
                                         />
                                     )}
                                     <Segmented
@@ -821,70 +857,69 @@ export function TokenStatsView() {
                                             disabled: metric === "sessions" && o.value !== "time",
                                         }))}
                                         value={effective_xaxis}
+                                        size="sm"
+                                        aria-label="图表横轴"
                                         onChange={(v) => {
                                             setXaxis(v);
                                         }}
-                                        size="sm"
                                     />
-                                </span>
-                            </h3>
-                            <div className="bar-chart-wrap">
-                                <BarChart
-                                    records={currentRecords}
-                                    buckets={currentBuckets}
-                                    hourBuckets={hourBuckets}
-                                    rollup={rollup}
-                                    metric={metric}
-                                    xaxis={effective_xaxis}
-                                    gran={effective_gran}
-                                    start={currentRange.start}
-                                    end={currentRange.end}
-                                    theme={theme}
-                                    dirAliases={dirAliases}
-                                    modelAliases={modelAliases}
-                                    chartData={dashboard.chart_data}
-                                />
+                                </div>
                             </div>
-                        </div>
-                        <div className="card span-4">
-                            <h3>时段热力</h3>
+                            <BarChart
+                                records={currentRecords}
+                                buckets={currentBuckets}
+                                hourBuckets={hourBuckets}
+                                rollup={rollup}
+                                metric={metric}
+                                xaxis={effective_xaxis}
+                                gran={effective_gran}
+                                start={currentRange.start}
+                                end={currentRange.end}
+                                theme={theme}
+                                dirAliases={dirAliases}
+                                modelAliases={modelAliases}
+                                chartData={dashboard.chart_data}
+                            />
+                        </Card>
+                        <Card className="min-w-0 xl:col-span-3">
+                            <h3 className="mb-2 m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                时段热力
+                            </h3>
                             <Heatmap cells={dashboard.heatmap} metric={metric} theme={theme} />
-                        </div>
+                        </Card>
                     </div>
 
-                    <div className="grid">
-                        <SessionTable
-                            rows={currentSessionRows}
-                            theme={theme}
-                            modelColors={modelColors}
-                            modelAliases={modelAliases}
-                            totalRows={sessions_total}
-                            loadedOffset={session_offset}
-                            onPageChange={set_session_offset}
-                            onOpenSession={(identity_key) => {
-                                // identity_key = source|env|session_id；无管道分隔（session_id
-                                // 兜底）时丢弃，避免拆出非法 source 打开错误会话。
-                                const parts = identity_key.split("|");
-                                if (parts.length !== 3) return;
+                    <SessionTable
+                        rows={currentSessionRows}
+                        theme={theme}
+                        modelColors={modelColors}
+                        modelAliases={modelAliases}
+                        totalRows={sessions_total}
+                        loadedOffset={session_offset}
+                        onPageChange={set_session_offset}
+                        onOpenSession={(identity_key) => {
+                            // identity_key = source|env|session_id；无管道分隔（session_id
+                            // 兜底）时丢弃，避免拆出非法 source 打开错误会话。
+                            const parts = identity_key.split("|");
+                            if (parts.length !== 3) return;
+                            void window.usageboard.sessionHistory.open(
+                                parts[0] ?? "",
+                                parts[1] ?? "",
+                                parts[2] ?? "",
+                            );
+                        }}
+                        onOpenSelected={(keys) => {
+                            for (const key of keys) {
+                                const parts = key.split("|");
+                                if (parts.length !== 3) continue;
                                 void window.usageboard.sessionHistory.open(
                                     parts[0] ?? "",
                                     parts[1] ?? "",
                                     parts[2] ?? "",
                                 );
-                            }}
-                            onOpenSelected={(keys) => {
-                                for (const key of keys) {
-                                    const parts = key.split("|");
-                                    if (parts.length !== 3) continue;
-                                    void window.usageboard.sessionHistory.open(
-                                        parts[0] ?? "",
-                                        parts[1] ?? "",
-                                        parts[2] ?? "",
-                                    );
-                                }
-                            }}
-                        />
-                    </div>
+                            }
+                        }}
+                    />
                 </>
             )}
         </div>

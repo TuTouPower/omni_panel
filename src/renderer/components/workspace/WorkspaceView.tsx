@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { CSSProperties } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import {
@@ -10,6 +11,7 @@ import {
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
+import { Button } from "../ui/Button";
 import { SessionRail } from "./SessionRail";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { SessionPickerModal } from "./SessionPickerModal";
@@ -18,7 +20,6 @@ import { SessionPane, type PaneView as PaneViewState } from "./SessionPane";
 import { SelectionTray } from "./SelectionTray";
 import { useWorkspaceColumns } from "./use-workspace-columns";
 import { loc_key, selection_key, type Loc } from "./workspace-view-helpers";
-import "../../styles/workspace.css";
 
 export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}) {
     const {
@@ -272,7 +273,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
     }, []);
 
     return (
-        <div className="workspace">
+        <div className="history-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface)]">
             <WorkspaceToolbar
                 layout={layout}
                 count={count}
@@ -284,7 +285,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 }}
                 on_clear={clear_all}
             />
-            <div className="workspace-body">
+            <div className="history-workspace-body flex min-h-0 flex-1">
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
@@ -295,43 +296,55 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                     on_close={close_slot}
                     on_move={move_slot_ui}
                 />
-                <div className="workspace-main" ref={container_ref}>
+                <div
+                    className="history-workspace-main flex min-w-0 flex-1 overflow-auto"
+                    ref={container_ref}
+                >
                     {count === 0 ? (
-                        <div className="workspace-empty">
-                            <p className="workspace-empty-title">工作台为空</p>
-                            <p className="workspace-empty-sub">
+                        <div className="history-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
+                            <p className="history-workspace-empty-title text-title-md font-semibold text-[var(--color-on-surface)]">
+                                工作台为空
+                            </p>
+                            <p className="history-workspace-empty-sub text-body-md text-[var(--color-on-surface-muted)]">
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
-                            <div className="workspace-empty-actions">
-                                <button
-                                    type="button"
-                                    className="workspace-empty-btn"
+                            <div className="history-workspace-empty-actions mt-3 flex gap-2.5">
+                                <Button
+                                    variant="secondary"
                                     onClick={() => {
                                         set_recent_open(true);
                                     }}
                                 >
                                     打开最近会话
-                                </button>
-                                <button
-                                    type="button"
-                                    className="workspace-empty-btn"
+                                </Button>
+                                <Button
+                                    variant="secondary"
                                     onClick={() => {
                                         open_picker(0);
                                     }}
                                 >
                                     去会话库
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ) : (
                         <div
-                            className={"slot-grid" + (focused_index !== null ? " focused" : "")}
-                            style={{ "--cols": String(cols) } as React.CSSProperties}
+                            className={
+                                "history-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-px bg-[var(--color-outline)] p-px" +
+                                (focused_index !== null ? " focused" : "")
+                            }
+                            style={{ "--cols": String(cols) } as CSSProperties}
                         >
                             {slots_state.map((slot, index) =>
                                 slot === null ? null : (
                                     <div
-                                        className="slot-pane"
+                                        className={
+                                            "history-cell flex min-h-0 min-w-0 bg-[var(--color-surface)]" +
+                                            (focused_index !== null && focused_index !== index
+                                                ? " hidden"
+                                                : "") +
+                                            (focused_index === index ? " col-span-full" : "")
+                                        }
                                         key={loc_key(slot.loc)}
                                         data-loc-key={loc_key(slot.loc)}
                                         data-focused={focused_index === index}
@@ -415,7 +428,11 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                     }}
                 />
             )}
-            {toast !== null && <div className="workspace-toast">{toast}</div>}
+            {toast !== null && (
+                <div className="history-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-body-md font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                    {toast}
+                </div>
+            )}
         </div>
     );
 }

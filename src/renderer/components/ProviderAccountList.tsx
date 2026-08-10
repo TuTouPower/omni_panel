@@ -8,7 +8,6 @@ interface ProviderAccountListProps {
     collapsedAccounts?: Record<string, boolean> | undefined;
     onToggleAccount?: ((accountId: string) => void) | undefined;
     draggingId?: string | null | undefined;
-    overId?: string | null | undefined;
     onDragStart?: ((accountId: string) => void) | undefined;
     onDragEnter?: ((accountId: string) => void) | undefined;
     onDragEnd?: (() => void) | undefined;
@@ -47,7 +46,6 @@ export function ProviderAccountList({
     collapsedAccounts,
     onToggleAccount,
     draggingId,
-    overId,
     onDragStart,
     onDragEnter,
     onDragEnd,
@@ -73,11 +71,13 @@ export function ProviderAccountList({
         : undefined;
 
     return (
-        <div className="provider-account-list">
+        <div
+            className="grid items-stretch gap-3 [grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]"
+            data-testid="provider-account-list"
+        >
             {group.accounts.map((account) => {
                 const collapsed = collapsedAccounts?.[account.id] ?? false;
                 const isDragging = draggingId === account.id;
-                const isDragOver = overId === account.id && draggingId !== account.id;
                 const connector_instance_id = account.periods[0]?.connectorInstanceId;
                 const per_account_map = connector_instance_id
                     ? (accountLabelMaps?.[connector_instance_id] ?? {})
@@ -131,7 +131,6 @@ export function ProviderAccountList({
                         collapsed={collapsed}
                         onToggleCollapsed={onToggle}
                         dragging={isDragging}
-                        dragOver={isDragOver}
                         onDragStart={
                             onDragStart
                                 ? () => {

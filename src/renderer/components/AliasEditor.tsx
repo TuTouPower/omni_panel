@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { SetGroupLabel } from "./settings/SetRow";
 
 export interface AliasEntry {
     alias: string;
@@ -17,6 +18,12 @@ function to_mutable(
 ): AliasEntry[] {
     return entries.map((en) => ({ alias: en.alias, values: [...en.values] }));
 }
+
+const alias_input_class =
+    "h-8 rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] " +
+    "px-2 text-[12.5px] text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-muted)] " +
+    "focus-visible:outline-none focus-visible:border-[var(--color-accent)] focus-visible:ring-2 " +
+    "focus-visible:ring-[var(--color-accent-ring)]";
 
 /** Editor for a list of {alias, values[]} — used for dir aliases and model aliases. */
 export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditorProps) {
@@ -45,12 +52,12 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
     };
 
     return (
-        <div className="alias-editor">
-            <div className="set-group-label">{label}</div>
+        <div className="mt-4 flex flex-col gap-2">
+            <SetGroupLabel>{label}</SetGroupLabel>
             {entries.map((entry, i) => (
-                <div key={i} className="alias-row">
+                <div key={i} className="flex items-center gap-2">
                     <input
-                        className="alias-name"
+                        className={alias_input_class + " w-28 shrink-0"}
                         value={entry.alias}
                         placeholder="别名"
                         onChange={(e) => {
@@ -58,7 +65,7 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
                         }}
                     />
                     <input
-                        className="alias-values"
+                        className={alias_input_class + " min-w-0 flex-1"}
                         value={entry.values.join(", ")}
                         placeholder={`${itemLabel}，逗号分隔`}
                         onChange={(e) => {
@@ -67,6 +74,7 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
                     />
                     <button
                         type="button"
+                        className="shrink-0 cursor-pointer rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
                         onClick={() => {
                             remove(i);
                         }}
@@ -75,7 +83,11 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
                     </button>
                 </div>
             ))}
-            <button type="button" onClick={add}>
+            <button
+                type="button"
+                className="self-start cursor-pointer rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
+                onClick={add}
+            >
                 添加
             </button>
         </div>

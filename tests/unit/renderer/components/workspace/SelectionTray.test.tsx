@@ -91,8 +91,8 @@ describe("SelectionTray (t226)", () => {
             expect(document.querySelector(".selection-tray")?.className).toContain("expanded");
         });
         const select = screen.getByLabelText("复制格式");
-        const copy_btn = [...document.querySelectorAll<HTMLElement>(".tray-btn")].find(
-            (b) => !b.className.includes("tray-btn-clear"),
+        const copy_btn = [...document.querySelectorAll<HTMLElement>(".selection-tray-button")].find(
+            (b) => !b.className.includes("selection-tray-clear"),
         );
         if (!copy_btn) throw new Error("copy button missing");
         for (const [format, marker] of [

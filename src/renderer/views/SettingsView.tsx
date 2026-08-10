@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
-import { PanelTitleBar } from "../components/PanelTitleBar";
+import { PanelTitleBar } from "../components/ui/PanelTitleBar";
+import { Button } from "../components/ui/Button";
 import { use_panel_navigation } from "../lib/panel-navigation";
 import { refresh_seconds_to_label } from "../lib/refresh-intervals";
 import {
@@ -33,6 +34,7 @@ import { AboutSection } from "./settings-view/sections/about_section";
 import { AccountsSection } from "./settings-view/sections/accounts_section";
 import { AppearanceSection } from "./settings-view/sections/appearance_section";
 import { DataSection } from "./settings-view/sections/data_section";
+import { is_web } from "../lib/is-web";
 import { GeneralSection } from "./settings-view/sections/general_section";
 
 /* ── types ── */
@@ -109,7 +111,8 @@ export function SettingsView() {
                 log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
             });
     }, []);
-    const { config, hasSecrets, loading, error, save, saveSecrets, reload } = use_config();
+    const { config, hasSecrets, loading, error, save, saveSecrets, duplicate, reload } =
+        use_config();
     const navigate = use_panel_navigation();
     const configRef = useRef(config);
     useEffect(() => {
@@ -240,6 +243,8 @@ export function SettingsView() {
         lang: "简体中文",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
+    const [include_secrets, set_include_secrets] = useState(false);
+    const web_mode = is_web();
     const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Clear any pending data-msg timer on unmount so it can't fire setDataMsg
@@ -256,7 +261,9 @@ export function SettingsView() {
 
     const handleExport = useCallback(async () => {
         try {
-            const { saved } = await window.usageboard.config.export();
+            const { saved } = await window.usageboard.config.export(
+                web_mode ? { includeSecrets: include_secrets } : undefined,
+            );
             setDataMsg(saved ? "设置已导出" : null);
         } catch {
             setDataMsg("导出失败");
@@ -265,7 +272,7 @@ export function SettingsView() {
         data_msg_timer.current = setTimeout(() => {
             setDataMsg(null);
         }, 2000);
-    }, []);
+    }, [include_secrets, web_mode]);
 
     const handleExportLogs = useCallback(async () => {
         try {
@@ -290,8 +297,9 @@ export function SettingsView() {
             } else {
                 setDataMsg(null);
             }
-        } catch {
-            setDataMsg("导入失败");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            setDataMsg(`导入失败：${message || "未知错误"}`);
             clearTimeout(data_msg_timer.current);
             data_msg_timer.current = setTimeout(() => {
                 setDataMsg(null);
@@ -385,18 +393,24 @@ export function SettingsView() {
 
     if (loading) {
         return (
-            <div className="window" data-window="settings">
+            <div
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                data-window="settings"
+            >
                 <PanelTitleBar panel="Settings" />
-                <div className="p-6 text-[var(--text-3)]">加载中...</div>
+                <div className="p-6 text-[var(--color-on-surface-muted)]">加载中...</div>
             </div>
         );
     }
     if (error) {
         return (
-            <div className="window" data-window="settings">
+            <div
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                data-window="settings"
+            >
                 <PanelTitleBar panel="Settings" />
                 <div className="p-6">
-                    <div className="net-banner">
+                    <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)] px-3.5 py-[11px] text-[13px] text-[var(--color-error)]">
                         <Icon name="cloud_off" size={18} />
                         <span>{error}</span>
                     </div>
@@ -407,8 +421,11 @@ export function SettingsView() {
     if (!config) return null;
 
     return (
-        <div className="window" data-window="settings">
-            <div className="settings">
+        <div
+            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+            data-window="settings"
+        >
+            <div className="relative flex min-h-0 flex-1 flex-col">
                 <PanelTitleBar
                     panel="Settings"
                     onNavigate={navigate}
@@ -417,19 +434,28 @@ export function SettingsView() {
                     }}
                 />
                 {/* header */}
-                <div className="settings-head">
-                    <button className="back-btn" onClick={goBack} type="button">
+                <div className="flex shrink-0 items-center gap-[10px] px-[14px] pb-3 pt-[14px]">
+                    <Button variant="ghost" size="sm" onClick={goBack} aria-label="返回">
                         <Icon name="back" size={20} />
-                    </button>
+                    </Button>
                 </div>
 
-                <div className="settings-body">
+                <div className="flex min-h-0 flex-1">
                     {/* left nav */}
-                    <div className="set-nav" data-testid="settings-sidebar">
+                    <div
+                        className="flex w-[176px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] px-3 py-[14px]"
+                        data-testid="settings-sidebar"
+                    >
                         {NAV_ITEMS.map((n) => (
                             <button
                                 key={n.id}
-                                className={`set-nav-item${section === n.id ? " on" : ""}`}
+                                aria-current={section === n.id ? "page" : undefined}
+                                className={
+                                    "flex w-full cursor-pointer items-center gap-[10px] rounded-[9px] border-0 px-[10px] py-2 text-left text-[13.5px] font-medium [font-family:inherit]" +
+                                    (section === n.id
+                                        ? " bg-[var(--color-primary-container)] text-[var(--accent)]"
+                                        : " text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)]")
+                                }
                                 onClick={() => {
                                     setSection(n.id);
                                     setEditingCpaId(null);
@@ -437,7 +463,14 @@ export function SettingsView() {
                                 data-testid={`settings-plugin-nav-${n.id}`}
                                 type="button"
                             >
-                                <span className="sn-ic">
+                                <span
+                                    className={
+                                        "flex" +
+                                        (section === n.id
+                                            ? " text-[var(--accent)]"
+                                            : " text-[var(--color-on-surface-muted)]")
+                                    }
+                                >
                                     <Icon name={n.icon} size={16} strokeWidth={1.7} />
                                 </span>
                                 {n.label}
@@ -446,7 +479,7 @@ export function SettingsView() {
                     </div>
 
                     {/* right content */}
-                    <div className="set-content">
+                    <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6 pt-[14px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.35)_transparent]">
                         {/* ── General ── */}
                         {section === "general" && (
                             <GeneralSection
@@ -499,6 +532,9 @@ export function SettingsView() {
                                 handle_export_logs={handleExportLogs}
                                 handle_import={handleImport}
                                 save_config={save_config}
+                                show_secret_option={web_mode}
+                                include_secrets={include_secrets}
+                                on_include_secrets_change={set_include_secrets}
                             />
                         )}
 
@@ -545,6 +581,10 @@ export function SettingsView() {
                         catalog={catalog}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
+                        onDuplicate={async (instanceId) => {
+                            await duplicate(instanceId);
+                            setDialog(null);
+                        }}
                         onAddAccount={async (params) => {
                             const result = await create_instance_and_save(
                                 params,

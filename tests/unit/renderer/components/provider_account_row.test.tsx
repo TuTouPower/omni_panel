@@ -50,7 +50,7 @@ describe("ProviderAccountRow", () => {
         const { container } = render(<ProviderAccountRow account={make_account()} />);
 
         expect(screen.queryByText(/个周期/)).not.toBeInTheDocument();
-        expect(container.querySelector(".rel-time")?.textContent).not.toBe("");
+        expect(container.querySelector('[data-testid="rel-time"]')?.textContent).not.toBe("");
     });
 
     it("renders no collapse chevron when no toggle handler is provided (p041)", () => {
@@ -76,7 +76,7 @@ describe("ProviderAccountRow", () => {
                 })}
             />,
         );
-        const rel_time = container.querySelector(".rel-time")?.textContent ?? "";
+        const rel_time = container.querySelector('[data-testid="rel-time"]')?.textContent ?? "";
         // 基于 observedAt：约 3 天前
         expect(rel_time).toContain("天前");
         // 不得基于 updatedAt（刚刚）显示
@@ -99,7 +99,9 @@ describe("ProviderAccountRow", () => {
         );
 
         expect(screen.getByText("已过期")).toBeInTheDocument();
-        expect(container.querySelector(".card.stale")).not.toBeInTheDocument();
+        expect(
+            container.querySelector('[data-testid="collapsible-card"][data-status="stale"]'),
+        ).not.toBeInTheDocument();
     });
 
     it("hides account label when desensitizeRemarks is on", () => {
@@ -112,13 +114,14 @@ describe("ProviderAccountRow", () => {
         expect(screen.getByText("Account A")).toBeInTheDocument();
     });
 
-    it("card has .card class and no status-specific class when critical", () => {
+    it("card carries account status via data-status (critical)", () => {
         const account = make_account({
             status: "critical",
         });
         const { container } = render(<ProviderAccountRow account={account} />);
-        expect(container.querySelector(".card")).toBeInTheDocument();
-        expect(container.querySelector(".card--critical")).not.toBeInTheDocument();
+        const card = container.querySelector('[data-testid="collapsible-card"]');
+        expect(card).toBeInTheDocument();
+        expect(card?.getAttribute("data-status")).toBe("critical");
     });
 
     // t158: per-account re-login entry — independent from the overview-level
@@ -205,7 +208,7 @@ describe("ProviderAccountRow", () => {
                 />,
             );
             await waitFor(() => {
-                expect(container.querySelector(".trend-svg")).toBeInTheDocument();
+                expect(container.querySelector('[data-testid="trend-svg"]')).toBeInTheDocument();
             });
             expect(trend_bulk).toHaveBeenCalledTimes(1);
             // bulk 查询键是 period.metric_id（observation 完整键），非 raw_label（p044）；
@@ -218,7 +221,9 @@ describe("ProviderAccountRow", () => {
                     periods: [expect.objectContaining({ metric_id: "claude:auth-a:5h" })],
                 }),
             );
-            expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
+            expect(
+                container.querySelector('[data-testid="trend-sparkline-empty"]'),
+            ).not.toBeInTheDocument();
         });
 
         it("fetches all metric periods in a single getBulk call (t196 AC5 N>1)", async () => {
@@ -285,9 +290,11 @@ describe("ProviderAccountRow", () => {
                 }),
             );
             await waitFor(() => {
-                expect(container.querySelectorAll(".trend-svg").length).toBe(2);
+                expect(container.querySelectorAll('[data-testid="trend-svg"]').length).toBe(2);
             });
-            expect(container.querySelector(".trend-sparkline-empty")).not.toBeInTheDocument();
+            expect(
+                container.querySelector('[data-testid="trend-sparkline-empty"]'),
+            ).not.toBeInTheDocument();
         });
 
         it("does not re-fetch on collapse/re-expand (cache hit)", async () => {
@@ -334,7 +341,7 @@ describe("ProviderAccountRow", () => {
                 />,
             );
             await waitFor(() => {
-                expect(container.querySelector(".trend-svg")).toBeInTheDocument();
+                expect(container.querySelector('[data-testid="trend-svg"]')).toBeInTheDocument();
             });
             expect(trend_bulk).toHaveBeenCalledTimes(1);
         });
@@ -357,7 +364,9 @@ describe("ProviderAccountRow", () => {
                 expect(trend_bulk).toHaveBeenCalledTimes(1);
             });
             // Failure branch: placeholder shown, not cached.
-            expect(container.querySelector(".trend-sparkline-empty")).toBeInTheDocument();
+            expect(
+                container.querySelector('[data-testid="trend-sparkline-empty"]'),
+            ).toBeInTheDocument();
             // Collapse and re-expand - without cache, getBulk is called again.
             rerender(
                 <ProviderAccountRow
@@ -412,7 +421,7 @@ describe("ProviderAccountRow", () => {
                 }),
             );
             // 切到 1 天
-            const buttons = container.querySelectorAll(".trend-window-btn");
+            const buttons = container.querySelectorAll('[data-testid="trend-window-btn"]');
             const one_day_btn = Array.from(buttons).find((b) => b.textContent === "1天");
             expect(one_day_btn).toBeDefined();
             if (!one_day_btn) throw new Error("no 1d btn");
@@ -476,7 +485,7 @@ describe("ProviderAccountRow", () => {
                     periods: [expect.objectContaining({ days: 1 })],
                 }),
             );
-            const buttons = container.querySelectorAll(".trend-window-btn");
+            const buttons = container.querySelectorAll('[data-testid="trend-window-btn"]');
             const one_day_btn = Array.from(buttons).find((b) => b.textContent === "1天");
             expect(one_day_btn?.getAttribute("aria-pressed")).toBe("true");
 
@@ -513,7 +522,7 @@ describe("ProviderAccountRow", () => {
                     periods: [expect.objectContaining({ days: 7 })],
                 }),
             );
-            const buttons = container.querySelectorAll(".trend-window-btn");
+            const buttons = container.querySelectorAll('[data-testid="trend-window-btn"]');
             const seven_day_btn = Array.from(buttons).find((b) => b.textContent === "7天");
             expect(seven_day_btn?.getAttribute("aria-pressed")).toBe("true");
         });

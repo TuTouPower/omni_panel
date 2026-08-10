@@ -19,11 +19,11 @@ async function openAccountForm(sPage: Page, name: string) {
     await sPage.locator('[data-testid="settings-plugin-nav-accounts"]').click();
     // Find the specific account row matching the name (e.g. "CPA · Claude"),
     // not just any group containing the text (which could match provider groups).
-    const row = sPage.locator(".acc-row").filter({ hasText: name }).first();
+    const row = sPage.locator('[data-testid="account-row"]').filter({ hasText: name }).first();
     await expect(row).toBeVisible();
     // Determine CPA before clicking — the account list unmounts when the edit
-    // view opens, so reading the class afterwards would hang.
-    const is_cpa = ((await row.getAttribute("class")) ?? "").includes("ds-row");
+    // view opens, so reading the attribute afterwards would hang.
+    const is_cpa = (await row.getAttribute("data-mode")) === "cpa-source";
     // "编辑" for direct rows, "编辑（连接设置）" for the CPA source row
     await row.locator('button[title^="编辑"]').first().click();
     // CPA renders inline (data-testid="cpa-connector-settings", no dialog);
@@ -96,7 +96,10 @@ test.describe("plugin configuration", () => {
         // CPA plugin is grouped by its active providers (e.g. "Claude"),
         // not in a standalone "CPA 额度连接器" group.
         // Find any account row containing CPA and click its edit button.
-        const cpaRow = sPage.locator(".acc-row").filter({ hasText: "CPA" }).first();
+        const cpaRow = sPage
+            .locator('[data-testid="account-row"]')
+            .filter({ hasText: "CPA" })
+            .first();
         await expect(cpaRow).toBeVisible();
         await cpaRow.locator('button[title^="编辑"]').first().click();
         // CPA detail page renders inline (not in a dialog)
@@ -126,7 +129,7 @@ test.describe("plugin configuration", () => {
         await expect(sPage.locator('[data-testid="cpa-connector-settings"]')).toBeHidden({
             timeout: 10_000,
         });
-        await expect(sPage.locator(".acc-card").first()).toBeVisible();
+        await expect(sPage.locator('[data-testid="account-card"]').first()).toBeVisible();
 
         // t267: 保存值经 config-store save 落盘。确定性等待 config.json 出现目标
         // endpoint 再 restart（AC3 确定性条件等待）。注：生产保存链路偶发不落盘
