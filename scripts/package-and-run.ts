@@ -73,13 +73,15 @@ function clear_runtime_state(): void {
 }
 
 function run_packaged(): void {
-    const is_win = platform() === "win32";
-    const exe = resolve(
-        ROOT,
-        is_win
-            ? "artifacts/win-unpacked/OmniPanel.exe"
-            : "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel",
-    );
+    let rel_path: string;
+    if (platform() === "win32") {
+        rel_path = "artifacts/win-unpacked/OmniPanel.exe";
+    } else if (platform() === "darwin") {
+        rel_path = "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel";
+    } else {
+        rel_path = "artifacts/linux-unpacked/omni_panel";
+    }
+    const exe = resolve(ROOT, rel_path);
 
     log(`starting: ${exe}`);
 
