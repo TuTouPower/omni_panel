@@ -51,6 +51,10 @@ function makeDeps() {
             savedConfigs.push(cfg);
             return Promise.resolve();
         }),
+        saveIfBaseMatches: vi.fn().mockImplementation((_base, cfg: AppConfiguration) => {
+            savedConfigs.push(cfg);
+            return Promise.resolve("saved");
+        }),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn(() => false),

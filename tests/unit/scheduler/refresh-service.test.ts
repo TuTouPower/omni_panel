@@ -92,6 +92,11 @@ function create_config_store(plugins: ConnectorConfiguration[]) {
             launchAtLogin: false,
         }),
         save: vi.fn<(config: AppConfiguration) => Promise<void>>().mockResolvedValue(undefined),
+        saveIfBaseMatches: vi
+            .fn<
+                (base: AppConfiguration, config: AppConfiguration) => Promise<"saved" | "conflict">
+            >()
+            .mockResolvedValue("saved"),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         hasPendingSave: vi.fn<() => boolean>().mockReturnValue(false),
