@@ -9,6 +9,7 @@ review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
+schedule_status: "scheduled"
 note: "p089：popup_view_height act 警告（单文件复现）"
 ---
 

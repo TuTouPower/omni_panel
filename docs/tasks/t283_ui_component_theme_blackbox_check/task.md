@@ -1,15 +1,16 @@
 ---
 tid: "t283"
 slug: "ui_component_theme_blackbox_check"
-title: "ui 组件明暗主题黑盒抽查"
+title: "ui 组件明暗主题抽查与 DESIGN 视觉对照"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: ""
-note: "p099：组件已消费，补暗色渲染抽查"
+conflicts_with: "t281,t288,t292"
+schedule_status: "scheduled"
+note: "p099：组件已消费，补暗色渲染抽查; merged from t286"
 ---
 
 # Task 过程总账

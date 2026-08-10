@@ -8,7 +8,8 @@ worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: ""
+conflicts_with: "t281,t283,t292"
+schedule_status: "scheduled"
 note: "p095：CLI restart e2e relaunch 进程泄漏"
 ---
 

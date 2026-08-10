@@ -2,20 +2,29 @@
 
 ## 背景
 
-来源：`docs/pending` p105（t277/t278 实施期登记）。核实（2026-08-10 合并批次复测）：`MOCK_FIXTURE=synthetic` 下 `tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 稳定失败——`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目，`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时丢弃无 config 匹配的 synthetic connector。基线问题（非 t277/t278 引入），修复后 synthetic web e2e 全绿。
+来源：p105（synthetic-only connector 重建丢弃）+ p091（gen_synthetic 缩进与 prettier 不一致）。核实（2026-08-10）：
+
+1. `MOCK_FIXTURE=synthetic` 下 `account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 稳定失败——fixture 中 `synthetic-kimi-failed` / `synthetic-opencode-go` 为手工条目，`mock_server.mjs` 的 `sync_connectors()` 依 `/v1/config` 重建时丢弃无 config 匹配的 synthetic connector。
+2. `tests/e2e/fixtures/synthetic.json` 已为 4-space（prettier 合规），但 `scripts/e2e/gen_synthetic.mjs` 仍 `JSON.stringify(out, null, 2)`；再生成会退回 2-space 并触发 `format:check` warn。
+
+两处均触碰 gen_synthetic / synthetic fixture 链路，合并一次改脚本并再生成。
 
 ## 契约区
 
 ### 范围
 
-- synthetic fixture 下 mock local-api 保留 fixture 中无对应 config plugin 的 synthetic-only connector（`synthetic-kimi-failed`、`synthetic-opencode-go`），或等价机制使这两个 spec 不再依赖 config 重建行为
+- synthetic fixture 下 mock local-api 保留 fixture 中无对应 config plugin 的 synthetic-only connector（`synthetic-kimi-failed`、`synthetic-opencode-go`），或等价机制使上述 spec 不再依赖 config 重建行为
 - 若改 fixture 生成脚本，同步保证再生成产物与手工条目一致（补齐 `gen_synthetic.mjs` 对这两类 connector 的产出）
+- `scripts/e2e/gen_synthetic.mjs` 生成缩进对齐仓库 prettier（tabWidth=4）：`JSON.stringify(out, null, 4)` 或等价，保证再生成产物 prettier 合规
 
 ### 非范围
 
 - real fixture（`responses.json`）行为
 - 桌面/Electron e2e
 - 其他 synthetic fixture 缺口（trend metricId 等既有登记项）
+- 不改 synthetic.json 内容语义（除为保留 connector / 对齐缩进所必需）
+- 不引入 prettier 为脚本运行时依赖（除非已有）；优先纯缩进参数
+- 不动 `scripts/e2e/gen_fixture.mjs`（如与 prettier 无冲突）
 
 ### 验收标准
 
@@ -37,13 +46,12 @@
 
 <!-- /规范 -->
 
-只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
-
-需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
-
 - [ ] AC-001：`MOCK_FIXTURE=synthetic pnpm test:e2e:web` 全绿（含 `account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts`）
 - [ ] AC-002：mock `sync_connectors()` 对 fixture 中 synthetic-only connector 的行为有单测守护（重建不丢弃 / 明确跳过）
-- [ ] AC-003：`pnpm e2e:gen-synthetic` 再生成后 synthetic fixture 仍包含这两类 connector（改生成脚本时）
+- [ ] AC-003：`pnpm e2e:gen-synthetic` 再生成后 synthetic fixture 仍包含 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 两类 connector
+- [ ] AC-004：运行 `pnpm e2e:gen-synthetic` 重生成后，`npx prettier --check tests/e2e/fixtures/synthetic.json` 通过
+- [ ] AC-005：重生成产物与脚本一致：在内容语义不变前提下无纯缩进噪声（与重生成前内容等价、仅缩进差异视为不通过）
+- [ ] AC-006：`pnpm format:check` 对 synthetic.json 无 warn
 
 ### 可测试性声明
 
@@ -53,13 +61,11 @@
 
 <!-- /规范 -->
 
-逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
-
-- 全部 AC 可自动测试（AC1 为既有 web e2e 套件；AC2 为 mock_server 单测；AC3 为生成脚本幂等验证）。
+- 全部 AC 可自动测试（AC-001 为 web e2e；AC-002 为 mock_server 单测；AC-003～006 为生成脚本幂等 + prettier / format 断言）。
 
 ## 上下文区
 
-- 来源：p105（t277/t278 实施期登记；2026-08-10 复测仍在：synthetic 下 account_error_badge/opencode_go_usage 稳定失败，mock sync_connectors 丢弃无 config 匹配的 synthetic connector）
+- 来源：p105（t277/t278 实施期登记；synthetic 下 account_error_badge/opencode_go_usage 失败，sync_connectors 丢弃 synthetic-only connector）+ p091（gen_synthetic 2-space 与产物 4-space 不一致，再生成复发 format warn）
 
 ### 有意不测
 
@@ -68,8 +74,6 @@
 已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
 
 <!-- /规范 -->
-
-已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
 
 - 无
 
@@ -81,11 +85,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
-
 - 单测：`tests/unit/e2e/mock_server.test.ts` 补 `sync_connectors()` 对 synthetic-only connector 的保留/跳过断言
 - e2e：`MOCK_FIXTURE=synthetic` 全量 web 套件（`account_error_badge`、`opencode_go_usage` 为验收锚点）
-- 生成脚本：如改 `scripts/e2e/gen_synthetic.mjs`，验证再生成产物含两类 connector
+- 生成脚本：改 `scripts/e2e/gen_synthetic.mjs` 后验证再生成含两类 connector + prettier 合规；注意 `JSON.stringify(out, null, 2)`（缩进相关）与 `JSON.stringify(raw)` 用途不同，只改缩进相关处
 
 ### 未知契约清单
 
@@ -94,8 +96,6 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
 
 <!-- /规范 -->
-
-尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
 
 `UNVERIFIED-BLOCKING`：只有用户或外部环境能核实；核实前 `start` 失败。
 
@@ -107,13 +107,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 风险与回退
 
-- 风险：改 mock 重建逻辑可能影响 real fixture 路径或其他 synthetic 用例；改生成脚本可能产生大 diff
-- 回退：纯测试基建改动，可整段回退；不动 real fixture 路径
+- 风险：改 mock 重建逻辑可能影响 real fixture 路径或其他 synthetic 用例；改生成脚本可能产生大 diff 或同时引入内容变化
+- 回退：测试基建改动，可整段回退脚本与 fixture；不动 real fixture 路径
 
 ### 依赖与约束
 
-- 无
+- 约束：保持「产物与脚本一致」约定；优先纯缩进参数，不新增 prettier 运行时依赖
 
 ### Finalization 时更新的 blueprint
 
-- `docs/blueprint/testing.md`：如改 synthetic fixture 生成约定，同步说明
+- `docs/blueprint/testing.md`：如改 synthetic fixture 生成约定（connector 保留 / 缩进），同步说明
