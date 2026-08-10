@@ -54,7 +54,52 @@
 
 - 来源：Grok 全仓评审 Issue 2（config-ipc.ts:193 / config-store.ts 缓存）
 
+### 有意不测
+
+<!-- 规范（门禁必留，不得删除） -->
+
+已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
+
+<!-- /规范 -->
+
+- 无
+
 ### 测试策略
+
+<!-- 规范（门禁必留，不得删除） -->
+
+mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
+
+<!-- /规范 -->
 
 - 单测：config-ipc 并发 save 用例（重叠 save + 延迟完成）+ config-store 冲突检测单测
 - mock 边界：不 mock 冲突检测核心；仅 mock save 存储层完成时机
+
+### 未知契约清单
+
+<!-- 规范（门禁必留，不得删除） -->
+
+尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
+
+<!-- /规范 -->
+
+`UNVERIFIED-BLOCKING`：只有用户或外部环境能核实；核实前 `start` 失败。
+
+`UNVERIFIED-SPIKE`：agent 可在执行期 Step 1 实验核实；未核实前不得进入实现。
+
+裸 `UNVERIFIED` 属歧义格式，门禁失败。
+
+- 无
+
+### 风险与回退
+
+- 风险：见 spec 背景与范围；实施失败影响限本 task 涉及面
+- 回退：改动可整段回退，回归测试守护
+
+### 依赖与约束
+
+- 无
+
+### Finalization 时更新的 blueprint
+
+- 无

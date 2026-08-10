@@ -2,19 +2,23 @@
 
 ## 背景
 
-来源：Grok 全仓评审（2026-08-11）Issue 3。`src/main/core/connector/net-client.ts` 请求 URL 由 `new URL(options.path, base)` 构造；`path` 为绝对或 protocol-relative URL（`https://evil.example/...` / `//evil.example/...`）时 URL API 以之替换 manifest endpoint origin。`apply_request_auth` 在 URL 构造后注入 vault 凭据（apikey/cookie），hostile/被攻陷的 connector 脚本（用户 `connectors/` 目录经 `manifest-loader` 加载）或构造的 poll path 可把 vault 注入的 auth 发往任意主机。`assert_safe_connector_host` 只拦云 metadata 主机，不拦任意公网主机。
+来源：p115 + p116（t283 review Round 2 提示，2026-08-11 核实仍在）。
+
+1. **standard Button 字号被吞**：`src/renderer/components/ui/Button.tsx` base 类 `text-body-md` 经 tailwind-merge 误判为颜色类吞掉（机制见 `docs/findings/d032`），standard 按钮字号回退继承值。t283 只修了 sm 档（`text-[length:var(--text-label-md)]`），standard 未同步。
+2. **danger 按钮暗色对比不达标**：`danger: bg-[var(--color-error)] text-[var(--color-on-primary)]`，暗色 `--color-error` = error-dark #ff6b6b，白字对比 2.78 < DESIGN 3.0 大字线（t283 e2e 未取样 danger 故未红）。
 
 ## 契约区
 
 ### 范围
 
-- URL 构造后强制 `url.origin` 等于解析后的 endpoint base origin（或只允许 `/` 开头相对路径），拒绝绝对 URL 与 `//` protocol-relative path
-- 同一检查应用到 poll/probe executor 的请求路径
+- Button base 字号类改显式 `text-[length:var(--text-body-md)]`（消除 twMerge 吞色）
+- danger 按钮暗色对比达标（调 error-dark token 或按钮特调；error-dark 同时用于错误文字，调暗方向一致需复核）
+- 补 standard 字号 + danger 暗色对比回归测试
 
 ### 非范围
 
-- connector 信任模型重构（架构已声明用户 connector 为受信代码，见 architecture.md）
-- 其他网络能力调整
+- 其它组件同类字号类（如发现同模式登记或一并修）
+- 设计 token 体系调整（仅 error-dark 值微调属 token 变更需同步 designmd export）
 
 ### 验收标准
 
@@ -36,9 +40,9 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：`path` 为绝对 URL 或 `//` protocol-relative 时请求被拒绝（抛错），不发起网络请求
-- [ ] AC-002：合法相对路径（`/` 开头）请求行为不变，auth 注入与请求成功（既有 connector 测试全绿）
-- [ ] AC-003：poll/probe executor 与主请求路径同样拒绝越界 origin（单测覆盖）
+- [ ] AC-001：standard 尺寸 primary/secondary/danger 按钮 computedStyle 字号为 13.5px（body-md），且 primary/danger 文字色为 `--color-on-primary`（不再回退 on-surface）
+- [ ] AC-002：暗色主题下 danger 按钮白字 vs 底对比 ≥ 3.0（computedStyle 实测）
+- [ ] AC-003：`pnpm designmd:check` drift 通过（若 error-dark 值变更）；全量 `pnpm test` 通过
 
 ### 可测试性声明
 
@@ -48,11 +52,11 @@
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试：单测构造绝对/protocol-relative path 断言拒绝 + 相对路径回归。
+- 全部 AC 可自动测试：渲染断言（computedStyle）+ WCAG 对比计算（复用 t283 方式）；token 变更走 designmd:check。
 
 ## 上下文区
 
-- 来源：Grok 全仓评审 Issue 3（net-client.ts:199）
+- 来源：p115（fix_ref 指向本 task）/ p116
 
 ### 有意不测
 
@@ -64,6 +68,8 @@
 
 - 无
 
+- 机制：`docs/findings/d032`（tailwind-merge 误判自定义字号 token）
+
 ### 测试策略
 
 <!-- 规范（门禁必留，不得删除） -->
@@ -72,8 +78,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 单测：net-client URL 构造用例（绝对/protocol-relative/相对路径）+ poll/probe executor 同检查
-- 回归：既有 connector 请求测试保持全绿
+- 单测/渲染：Button 组件各 variant+size 的 computedStyle 字号与颜色断言（含暗色）
+- 回归：既有 Button 消费方测试 + `pnpm designmd:check`
 
 ### 未知契约清单
 
