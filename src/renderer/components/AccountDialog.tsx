@@ -19,6 +19,7 @@ export function AccountDialog({
     catalog,
     hasSecrets,
     onSave,
+    onDuplicate,
     onAddAccount,
     onClose,
     existingLabelMap,
@@ -46,6 +47,7 @@ export function AccountDialog({
         refreshIntervalSeconds: number,
         displayName?: string,
     ) => Promise<void>;
+    onDuplicate?: (instanceId: string) => Promise<void>;
     onAddAccount: (params: AddAccountParams) => Promise<void>;
     onClose: () => void;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
@@ -142,6 +144,7 @@ export function AccountDialog({
                                 await onSave(...args);
                                 onClose();
                             }}
+                            onDuplicate={onDuplicate}
                             existingLabelMap={existingLabelMap}
                             onSaveLabelMap={onSaveLabelMap}
                             forcePercent={forcePercent}

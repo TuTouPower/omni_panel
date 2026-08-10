@@ -22,6 +22,10 @@ import {
     handleConfigGetSecrets,
     handleConfigSave,
     handleConfigSaveSecrets,
+    handleConfigDuplicate,
+    handleConfigCreateInstance,
+    handleConfigExportData,
+    handleConfigImportData,
 } from "../../ipc/config-ipc";
 import type { ConfigIpcDeps } from "../../ipc/config-ipc";
 import {
@@ -34,6 +38,7 @@ import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
 import type { ConnectorSnapshotState } from "../scheduler/types";
 import type { IpcResult } from "../../../shared/types/ipc";
+import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
 import type {
@@ -82,6 +87,8 @@ export interface LocalAPIServer {
     stop(): Promise<void>;
     get_port(): number;
     get_token(): string;
+    publish_config_change(config: AppConfiguration): void;
+    publish_theme_change(is_dark: boolean): void;
 }
 
 /** t259: 会话历史 HTTP 桥依赖（映射桌面 session-history-ipc 的 deps）。 */
@@ -138,16 +145,18 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
     });
 }
 
-async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<unknown> {
+type JsonBodyResult = { ok: true; value: unknown } | { ok: false };
+
+async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<JsonBodyResult> {
     try {
-        return JSON.parse((await parse_body(req)).toString("utf8"));
+        return { ok: true, value: JSON.parse((await parse_body(req)).toString("utf8")) };
     } catch (err) {
         if (err instanceof RequestBodyTooLargeError) {
             json_response(res, 413, { error: "Request body too large" });
         } else {
             json_response(res, 400, { error: "Invalid JSON" });
         }
-        return null;
+        return { ok: false };
     }
 }
 
@@ -447,14 +456,14 @@ async function handle_web_session_history(
     if (req.method !== "POST") return false;
     if (url.pathname === "/v1/sessionHistory/searchContent") {
         const parsed = await read_json_body(req, res);
-        if (parsed === null) return true;
-        await handle_session_history_search_content(res, deps, parsed);
+        if (!parsed.ok) return true;
+        await handle_session_history_search_content(res, deps, parsed.value);
         return true;
     }
     if (url.pathname === "/v1/sessionHistory/summaries") {
         const parsed = await read_json_body(req, res);
-        if (parsed === null) return true;
-        await handle_session_history_summaries(res, deps, parsed);
+        if (!parsed.ok) return true;
+        await handle_session_history_summaries(res, deps, parsed.value);
         return true;
     }
     return false;
@@ -555,6 +564,7 @@ export function create_local_api_server(
     let port =
         options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);
     let server: ReturnType<typeof createServer> | null = null;
+    const sse_clients = new Set<ServerResponse>();
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
         let parsed: unknown;
@@ -892,6 +902,40 @@ export function create_local_api_server(
         url: URL,
         deps: ConfigIpcDeps,
     ): Promise<boolean> {
+        if (url.pathname === "/v1/config/duplicate" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const instance_id = is_record(parsed.value) ? parsed.value["instanceId"] : undefined;
+            send_result(res, await handleConfigDuplicate(deps, instance_id));
+            return true;
+        }
+        if (url.pathname === "/v1/config/createInstance" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            const manifest_id = is_record(parsed.value) ? parsed.value["manifestId"] : undefined;
+            send_result(res, await handleConfigCreateInstance(deps, manifest_id));
+            return true;
+        }
+        if (url.pathname === "/v1/config/export" && req.method === "GET") {
+            send_result(
+                res,
+                await handleConfigExportData(deps, {
+                    includeSecrets: url.searchParams.get("includeSecrets") === "true",
+                }),
+            );
+            return true;
+        }
+        if (url.pathname === "/v1/config/import" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            send_result(
+                res,
+                await handleConfigImportData(deps, parsed.value, {
+                    allowEndpointOverrides: false,
+                }),
+            );
+            return true;
+        }
         if (url.pathname === "/v1/config") {
             if (req.method === "GET") {
                 send_result(res, await handleConfigGet(deps));
@@ -899,8 +943,8 @@ export function create_local_api_server(
             }
             if (req.method === "POST") {
                 const parsed = await read_json_body(req, res);
-                if (parsed === null) return true;
-                send_result(res, await handleConfigSave(deps, parsed));
+                if (!parsed.ok) return true;
+                send_result(res, await handleConfigSave(deps, parsed.value));
                 return true;
             }
             return false;
@@ -917,8 +961,8 @@ export function create_local_api_server(
             }
             if (req.method === "POST") {
                 const parsed = await read_json_body(req, res);
-                if (parsed === null) return true;
-                send_result(res, await handleConfigSaveSecrets(deps, parsed));
+                if (!parsed.ok) return true;
+                send_result(res, await handleConfigSaveSecrets(deps, parsed.value));
                 return true;
             }
             return false;
@@ -1008,6 +1052,18 @@ export function create_local_api_server(
         }
     }
 
+    function write_sse_event(res: ServerResponse, event: string | undefined, data: unknown): void {
+        if (res.destroyed || res.writableEnded) return;
+        const event_line = event ? `event: ${event}\n` : "";
+        res.write(`${event_line}data: ${JSON.stringify(data)}\n\n`);
+    }
+
+    function publish_sse_event(event: string, data: unknown): void {
+        for (const client of sse_clients) {
+            write_sse_event(client, event, data);
+        }
+    }
+
     function handle_sse(req: IncomingMessage, res: ServerResponse): void {
         const store = connector_deps?.runtimeStore;
         if (!store) {
@@ -1020,14 +1076,20 @@ export function create_local_api_server(
             Connection: "keep-alive",
         });
         res.flushHeaders();
+        sse_clients.add(res);
         const unsub = store.subscribe({
             onStateChange(instanceId: string, state: ConnectorSnapshotState): void {
-                if (res.destroyed || res.writableEnded) return;
-                const dto = state_to_snapshot_dto(state);
-                res.write(`data: ${JSON.stringify({ instanceId, state: dto })}\n\n`);
+                write_sse_event(res, undefined, {
+                    instanceId,
+                    state: state_to_snapshot_dto(state),
+                });
             },
         });
+        let cleaned = false;
         const cleanup = (): void => {
+            if (cleaned) return;
+            cleaned = true;
+            sse_clients.delete(res);
             unsub();
         };
         req.on("close", cleanup);
@@ -1075,6 +1137,8 @@ export function create_local_api_server(
         async stop() {
             const active_server = server;
             if (!active_server) return;
+            for (const client of sse_clients) client.end();
+            sse_clients.clear();
             await new Promise<void>((resolve, reject) => {
                 active_server.close((error?: Error) => {
                     if (error) {
@@ -1096,6 +1160,14 @@ export function create_local_api_server(
         // redact before logging or persisting.
         get_token() {
             return token;
+        },
+
+        publish_config_change(config) {
+            publish_sse_event("config", config);
+        },
+
+        publish_theme_change(is_dark) {
+            publish_sse_event("theme", is_dark);
         },
     };
 }

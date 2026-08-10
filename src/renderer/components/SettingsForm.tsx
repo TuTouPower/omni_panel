@@ -45,7 +45,7 @@ interface SettingsFormProps {
         refreshIntervalSeconds: number,
         displayName?: string,
     ) => Promise<void>;
-    onDuplicate?: ((instanceId: string) => void) | undefined;
+    onDuplicate?: ((instanceId: string) => void | Promise<void>) | undefined;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
     onSaveLabelMap?:
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
@@ -82,6 +82,7 @@ export function SettingsForm({
     onToggleWatched,
 }: SettingsFormProps) {
     const [saving, setSaving] = useState(false);
+    const [duplicating, setDuplicating] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
@@ -640,8 +641,20 @@ export function SettingsForm({
                         size="sm"
                         type="button"
                         data-testid={`settings-duplicate-btn-${instanceId}`}
+                        disabled={duplicating}
                         onClick={() => {
-                            onDuplicate(instanceId);
+                            if (duplicating) return;
+                            setDuplicating(true);
+                            setSaveError(null);
+                            void Promise.resolve()
+                                .then(() => onDuplicate(instanceId))
+                                .catch((err: unknown) => {
+                                    if (!mounted_ref.current) return;
+                                    setSaveError(err instanceof Error ? err.message : String(err));
+                                })
+                                .finally(() => {
+                                    if (mounted_ref.current) setDuplicating(false);
+                                });
                         }}
                     >
                         复制

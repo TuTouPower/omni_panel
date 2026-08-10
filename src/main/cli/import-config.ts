@@ -10,7 +10,10 @@ import { readFile } from "node:fs/promises";
 import { createLogger } from "../../shared/lib/logger";
 import { appConfigurationSchema } from "../core/config/types";
 import type { AppConfiguration } from "../../shared/types/config";
-import { build_secret_param_keys } from "../core/config/secret_param_keys";
+import {
+    build_secret_param_keys,
+    find_unknown_executable_paths,
+} from "../core/config/secret_param_keys";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
@@ -55,6 +58,10 @@ export async function import_config_file(
         throw new Error(`配置文件 schema 校验失败: ${result.error.message}`);
     }
     const config = result.data as AppConfiguration;
+    const unknown_paths = find_unknown_executable_paths(config, deps.definitions);
+    if (unknown_paths.length > 0) {
+        throw new Error(`配置文件包含未知连接器路径: ${unknown_paths.join(", ")}`);
+    }
 
     const secretKeys = build_secret_param_keys(config, deps.definitions);
     // 记录本次转存的 vault key，save 失败时回滚删除，避免孤儿 secret（AC8 半初始化）。

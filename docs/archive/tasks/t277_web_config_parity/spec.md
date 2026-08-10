@@ -80,8 +80,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- 既有 config IPC 的 export/import 是否已支持密钥字段（还是仅 config.json 本体）：`UNVERIFIED-SPIKE`，Step 1 读 config-ipc handler 核实，决定「含密钥变体」是扩展既有格式还是新增并行格式
-- SSE 通道当前事件类型集合与 config/theme 变更事件的接入点：`UNVERIFIED-SPIKE`，Step 1 读 local-api SSE 与 config-store 变更钩子核实
+- 已核实：`src/main/ipc/config-ipc.ts` 的 `handleConfigExport` 已生成 `formatVersion: 1` 的 `{ config, secrets }` 产物并通过 `SecretsStore.exportAll()` 取明文密钥；`handleConfigImport` 校验该格式、写入 config/vault，并在密钥导入失败时回滚配置。当前 LocalAPI 尚未暴露对应四个端点，Web 需复用该格式并增加不含密钥与含密钥两种导出选择。
+- 已核实：现有 `/v1/events` SSE 仅订阅 `runtimeStore` 的连接器状态变化；配置变更由 `onConfigSaved` 通过 Electron IPC 广播，主题变更由 `nativeTheme.updated` 通过 Electron IPC 广播，LocalAPI 尚未转发 config/theme 事件。Web 需扩展同一 SSE 通道的事件类型与配置/主题回调。
 
 ### 风险与回退
 

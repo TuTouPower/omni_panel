@@ -6,6 +6,10 @@ function mock_response(body: unknown): Response {
     return { ok: true, json: () => Promise.resolve(body) } as Response;
 }
 
+function mock_error_response(body: unknown, status = 400): Response {
+    return { ok: false, status, json: () => Promise.resolve(body) } as Response;
+}
+
 /** jsdom 无 matchMedia 实现；桩成固定返回值供 system 模式解析。 */
 function stub_match_media(dark: boolean): void {
     vi.stubGlobal(
@@ -158,6 +162,29 @@ describe("web usageboard bridge", () => {
         );
     });
 
+    it("get/post errors include the local-api response message", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(mock_error_response({ message: "配置读取失败" }, 500))
+            .mockResolvedValueOnce(mock_error_response({ error: "配置保存失败" }, 400))
+            .mockResolvedValueOnce(
+                mock_error_response(
+                    { error: { code: "VALIDATION_ERROR", message: "导入的配置格式无效" } },
+                    400,
+                ),
+            );
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.config.get()).rejects.toThrow("GET /v1/config failed: 配置读取失败");
+        await expect(api.config.save({ schemaVersion: 1 } as never)).rejects.toThrow(
+            "POST /v1/config failed: 配置保存失败",
+        );
+        await expect(api.config.save({ schemaVersion: 1 } as never)).rejects.toThrow(
+            "POST /v1/config failed: 导入的配置格式无效",
+        );
+    });
+
     it("session.login returns { saved: false }", async () => {
         const api = create_web_usageboard();
         const result = await api.session.login({ provider: "kimi" } as never);
@@ -180,10 +207,139 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/catalog"));
     });
 
-    it("config.createInstance returns stub instance id", async () => {
+    it("config.duplicate posts instance id and returns the created instance", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ instanceId: "duplicate-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+
         const api = create_web_usageboard();
-        const result = await api.config.createInstance("some-manifest");
-        expect(result.instanceId).toBe("");
+        const result = await api.config.duplicate("source-1");
+
+        expect(result).toEqual({ instanceId: "duplicate-1" });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/config/duplicate",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ instanceId: "source-1" }),
+            }),
+        );
+    });
+
+    it("config.createInstance calls the local-api endpoint for a manifest", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ instanceId: "created-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const result = await api.config.createInstance("claude");
+
+        expect(result).toEqual({ instanceId: "created-1" });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/config/createInstance",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ manifestId: "claude" }),
+            }),
+        );
+    });
+
+    it("config.import reports malformed JSON files before posting", async () => {
+        const input = document.createElementNS(
+            "http://www.w3.org/1999/xhtml",
+            "input",
+        ) as HTMLInputElement;
+        const file = new File(["{"], "malformed.json", { type: "application/json" });
+        Object.defineProperty(input, "files", {
+            configurable: true,
+            value: [file],
+        });
+        const click = vi.spyOn(input, "click").mockImplementation(() => {
+            input.onchange?.(new Event("change"));
+        });
+        const original_create_element = Reflect.get(Document.prototype, "createElement") as (
+            tag_name: string,
+            options?: ElementCreationOptions,
+        ) => HTMLElement;
+        const create_element = vi.spyOn(document, "createElement");
+        create_element.mockImplementation(((tag_name: string, options?: ElementCreationOptions) => {
+            if (tag_name === "input") return input;
+            return original_create_element.call(document, tag_name, options);
+        }) as (tag_name: string, options?: ElementCreationOptions) => HTMLElement);
+
+        const api = create_web_usageboard();
+        await expect(api.config.import()).rejects.toThrow("导入文件 JSON 无效");
+
+        click.mockRestore();
+        create_element.mockRestore();
+    });
+
+    it("config.import resolves a cancelled file picker without posting", async () => {
+        const input = document.createElementNS(
+            "http://www.w3.org/1999/xhtml",
+            "input",
+        ) as HTMLInputElement;
+        const click = vi.spyOn(input, "click").mockImplementation(() => {
+            input.oncancel?.(new Event("cancel"));
+        });
+        const original_create_element = Reflect.get(Document.prototype, "createElement") as (
+            tag_name: string,
+            options?: ElementCreationOptions,
+        ) => HTMLElement;
+        const create_element = vi.spyOn(document, "createElement");
+        create_element.mockImplementation(((tag_name: string, options?: ElementCreationOptions) => {
+            if (tag_name === "input") return input;
+            return original_create_element.call(document, tag_name, options);
+        }) as (tag_name: string, options?: ElementCreationOptions) => HTMLElement);
+        const fetch_mock = vi.fn<typeof fetch>();
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.config.import()).resolves.toEqual({ imported: false });
+        expect(click).toHaveBeenCalledTimes(1);
+        expect(fetch_mock).not.toHaveBeenCalled();
+
+        click.mockRestore();
+        create_element.mockRestore();
+    });
+    it("config.export downloads both redacted and plaintext native config bodies", async () => {
+        const redacted = { schemaVersion: 1, plugins: [{ parameterValues: {} }] };
+        const plaintext = {
+            schemaVersion: 1,
+            plugins: [{ parameterValues: { API_KEY: "sk-test" } }],
+        };
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(mock_response(redacted))
+            .mockResolvedValueOnce(mock_response(plaintext));
+        vi.stubGlobal("fetch", fetch_mock);
+        const downloaded: Blob[] = [];
+        const create_url = vi.fn((blob: Blob) => {
+            downloaded.push(blob);
+            return `blob:${String(downloaded.length)}`;
+        });
+        const revoke_url = vi.fn();
+        Object.defineProperty(URL, "createObjectURL", { configurable: true, value: create_url });
+        Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revoke_url });
+
+        const api = create_web_usageboard();
+        await api.config.export();
+        await api.config.export({ includeSecrets: true });
+
+        expect(fetch_mock).toHaveBeenNthCalledWith(1, "/v1/config/export?includeSecrets=false", {
+            method: "GET",
+        });
+        expect(fetch_mock).toHaveBeenNthCalledWith(2, "/v1/config/export?includeSecrets=true", {
+            method: "GET",
+        });
+        expect(downloaded).toHaveLength(2);
+        expect(await downloaded[0]?.text()).toContain('"plugins"');
+        expect(await downloaded[0]?.text()).not.toContain("sk-test");
+        expect(await downloaded[1]?.text()).toContain("sk-test");
+        expect(create_url).toHaveBeenCalledTimes(2);
+        expect(revoke_url).toHaveBeenNthCalledWith(1, "blob:1");
+        expect(revoke_url).toHaveBeenNthCalledWith(2, "blob:2");
     });
 
     it("settings.openConnectorsDir is a no-op", () => {
@@ -241,6 +397,28 @@ describe("web usageboard bridge", () => {
         if (!handler) throw new Error("no message handler");
         handler({ data: JSON.stringify({ instanceId: "inst-1", state: { status: "idle" } }) });
         expect(received).toEqual([["inst-1", { status: "idle" }]]);
+    });
+
+    it("onConfigChange/onThemeChange relay named SSE events", () => {
+        const handlers = new Map<string, (ev: { data: string }) => void>();
+        class FakeEventSource {
+            constructor(public url: string) {}
+            addEventListener(type: string, handler: (ev: { data: string }) => void): void {
+                handlers.set(type, handler);
+            }
+        }
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        const configs: unknown[] = [];
+        const themes: boolean[] = [];
+        api.event.onConfigChange?.((config) => configs.push(config));
+        api.event.onThemeChange((isDark) => themes.push(isDark));
+
+        handlers.get("config")?.({ data: JSON.stringify({ schemaVersion: 1 }) });
+        handlers.get("theme")?.({ data: JSON.stringify(true) });
+        expect(configs).toEqual([{ schemaVersion: 1 }]);
+        expect(themes).toEqual([true]);
     });
 
     it("trend.get forwards sourceInstanceId as query param (t214)", async () => {

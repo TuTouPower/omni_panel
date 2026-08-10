@@ -236,6 +236,10 @@ export interface ConfigSaveSecretsPayload {
     secrets: Record<string, string>;
 }
 
+export interface ConfigExportOptions {
+    readonly includeSecrets?: boolean;
+}
+
 export interface ConfigExportData {
     readonly formatVersion: 1;
     readonly exportedAt: string;
@@ -531,7 +535,7 @@ export interface UsageboardApi {
         duplicate(instanceId: string): Promise<{ instanceId: string }>;
         /** t121: create a new instance directly from a manifest id (clears tombstone). */
         createInstance(manifestId: string): Promise<{ instanceId: string }>;
-        export(): Promise<{ saved: boolean }>;
+        export(options?: ConfigExportOptions): Promise<{ saved: boolean }>;
         import(): Promise<{ imported: boolean }>;
     };
     event: {

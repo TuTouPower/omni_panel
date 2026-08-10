@@ -112,6 +112,42 @@ describe("import_config_file", () => {
         expect(secrets["claude-1:MODEL"]).toBeUndefined();
     });
 
+    it("拒绝未知 connector 路径并在转存 secret 前失败", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "unknown.json");
+        writeFileSync(
+            importFile,
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "unknown-1",
+                        stateId: "unknown-1",
+                        name: "Unknown",
+                        enabled: true,
+                        executablePath: "/plugins/unknown.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: { API_KEY: "sk-unknown" },
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+        );
+        const { configStore, secretsStore } = makeDeps();
+
+        await expect(
+            import_config_file(
+                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+                importFile,
+            ),
+        ).rejects.toThrow(/未知连接器路径/);
+        expect(Reflect.get(secretsStore, "set")).not.toHaveBeenCalled();
+        expect(Reflect.get(configStore, "save")).not.toHaveBeenCalled();
+    });
+
     it("非 JSON 文件抛错", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");

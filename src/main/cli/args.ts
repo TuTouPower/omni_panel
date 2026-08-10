@@ -22,8 +22,14 @@ export interface CliControlOptions {
     port?: number;
 }
 
+export interface CliExportOptions {
+    port?: number;
+    includeSecrets?: boolean;
+}
+
 export type CliCommand =
     | { type: "serve"; options: CliServeOptions }
+    | { type: "export"; options: CliExportOptions }
     | {
           type: "open" | "refresh-all" | "pause" | "resume" | "restart" | "quit" | "autostart";
           options: CliControlOptions;
@@ -101,6 +107,28 @@ export function parse_cli_args(argv: readonly string[]): CliArgs {
             }
         }
         return { cli: true, command: { type: "serve", options } };
+    }
+
+    if (sub === "export") {
+        const options: CliExportOptions = {};
+        let i = 1;
+        while (i < rest.length) {
+            const tok = rest[i];
+            if (tok === undefined) break;
+            if (tok === "--include-secrets") {
+                options.includeSecrets = true;
+                i += 1;
+            } else if (tok === "--port") {
+                options.port = parse_port(rest[i + 1], "--port");
+                options.includeSecrets ??= false;
+                i += 2;
+            } else if (tok.startsWith("--")) {
+                i += 1;
+            } else {
+                throw new CliUsageError(`意外位置参数: ${tok}`);
+            }
+        }
+        return { cli: true, command: { type: "export", options } };
     }
 
     // 控制子命令：瘦客户端，支持 --port 覆盖实例发现。

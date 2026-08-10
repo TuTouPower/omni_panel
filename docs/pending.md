@@ -11,6 +11,12 @@
 
 两种字段模板，按条目性质选一种；`- 处理` 字段未闭环写「未开」，闭环写 `{tid}` 或外部动作说明。
 
+### p105 Web 全量 E2E synthetic connector fixture 与配置不一致（2026-08-10）
+
+- 来源：t277 实施期全量 Web E2E
+- 内容：`synthetic-opencode-go` 存在于 connector fixture，但没有对应的配置 plugin；mock `sync_connectors()` 会将该 fixture connector 移除，导致 `opencode_go_usage` 用例失败。t277 目标 `settings_view.spec.ts` 独立通过，故问题属于既有 fixture 一致性缺口，不是本 task 生产路径回归。
+- 处理：未开
+
 - 普通（需求 / 遗留 / 技术债）：`- 来源` / `- 内容` / `- 处理`。`- 来源` 写清出处：finding_id、原 tid、用户提出，或技术债自查。
 - bug：`- 现象` / `- 影响` / `- 根因` / `- 测试缺口` / `- 线索` / `- 处理`。bug 由 `task-bug` 登记并完成根因与补测分析。
 

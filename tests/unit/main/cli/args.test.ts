@@ -129,3 +129,29 @@ describe("parse_cli_args 控制子命令（t276）", () => {
         );
     });
 });
+
+describe("parse_cli_args export（t277）", () => {
+    it("解析 --cli export --include-secrets", () => {
+        expect(
+            parse_cli_args(["electron", "index.js", "--cli", "export", "--include-secrets"]),
+        ).toEqual({
+            cli: true,
+            command: { type: "export", options: { includeSecrets: true } },
+        });
+    });
+
+    it("export 支持 --port 且默认不含 secrets", () => {
+        expect(
+            parse_cli_args(["electron", "index.js", "--cli", "export", "--port", "18263"]),
+        ).toEqual({
+            cli: true,
+            command: { type: "export", options: { port: 18263, includeSecrets: false } },
+        });
+    });
+
+    it("export 拒绝位置参数", () => {
+        expect(() => parse_cli_args(["electron", "index.js", "--cli", "export", "stray"])).toThrow(
+            /意外位置参数/,
+        );
+    });
+});

@@ -1,7 +1,8 @@
 import { expect, test } from "../fixtures/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
-import { get as httpGet } from "node:http";
+import { createServer, get as httpGet, request as httpRequest } from "node:http";
+import { spawn, type ChildProcess } from "node:child_process";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -25,6 +26,118 @@ async function httpJson(url: string): Promise<{ status: number; body: unknown }>
             });
         }).on("error", reject);
     });
+}
+
+function post_json(url: string, timeout = 2000): Promise<{ status: number; body: unknown }> {
+    return new Promise((resolveResult, reject) => {
+        const target = new URL(url);
+        const req = httpRequest(
+            {
+                hostname: target.hostname,
+                port: target.port,
+                path: target.pathname,
+                method: "POST",
+            },
+            (res) => {
+                let data = "";
+                res.on("data", (c: Buffer) => (data += c.toString()));
+                res.on("end", () => {
+                    let body: unknown;
+                    try {
+                        body = JSON.parse(data);
+                    } catch {
+                        body = data;
+                    }
+                    resolveResult({ status: res.statusCode ?? 0, body });
+                });
+            },
+        );
+        req.setTimeout(timeout, () => req.destroy(new Error("timeout")));
+        req.on("error", reject);
+        req.end();
+    });
+}
+
+async function start_deepseek_mock(): Promise<{
+    url: string;
+    seen_auth: string[];
+    close: () => Promise<void>;
+}> {
+    const seen_auth: string[] = [];
+    const server = createServer((req, res) => {
+        if (req.url !== "/user/balance") {
+            res.writeHead(404);
+            res.end();
+            return;
+        }
+        seen_auth.push(req.headers.authorization ?? "");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+            JSON.stringify({
+                code: 200,
+                balance_infos: [{ currency: "USD", total_balance: "12.34" }],
+            }),
+        );
+    });
+    await new Promise<void>((resolveListen, rejectListen) => {
+        server.once("error", rejectListen);
+        server.listen(0, "127.0.0.1", resolveListen);
+    });
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+        throw new Error("DeepSeek mock did not expose a TCP port");
+    }
+    return {
+        url: `http://127.0.0.1:${String(address.port)}`,
+        seen_auth,
+        close: () =>
+            new Promise<void>((resolveClose, rejectClose) => {
+                server.close((error) => {
+                    if (error) {
+                        rejectClose(error);
+                    } else {
+                        resolveClose();
+                    }
+                });
+            }),
+    };
+}
+
+async function wait_for_ready(
+    port: number,
+    instance_id: string,
+): Promise<{
+    status?: unknown;
+    items?: unknown[];
+    error?: unknown;
+}> {
+    const deadline = Date.now() + 15000;
+    let last: unknown;
+    while (Date.now() < deadline) {
+        try {
+            const result = await httpJson(
+                `http://localhost:${String(port)}/v1/connectors/${encodeURIComponent(instance_id)}/state`,
+            );
+            last = result.body;
+            const state = result.body as {
+                status?: unknown;
+                items?: unknown[];
+                error?: unknown;
+            };
+            if (result.status === 200 && state.status === "ready" && state.items?.length) {
+                return state;
+            }
+            if (result.status === 200 && state.status === "failed") {
+                throw new Error(`connector refresh failed: ${JSON.stringify(state)}`);
+            }
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message.startsWith("connector refresh failed:")) {
+                throw error;
+            }
+        }
+        await new Promise((r) => setTimeout(r, 300));
+    }
+    throw new Error(`connector did not become ready: ${JSON.stringify(last)}`);
 }
 
 /** 起一个 CLI 模式实例，返回 app + userDataDir + stdout 缓冲。 */
@@ -51,6 +164,39 @@ async function launchCli(
         out += d.toString();
     });
     return { app, userDataDir, stdout: () => out };
+}
+
+/** 以真实 Electron 子进程执行瘦客户端，避免 app.exit 让 Playwright launch reject。 */
+function runThinClient(
+    args: string[],
+    userDataDir: string,
+): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+    return new Promise((resolveResult) => {
+        const child: ChildProcess = spawn(
+            ELECTRON,
+            [MAIN_ENTRY, ...args, `--user-data-dir=${userDataDir}`],
+            {
+                cwd: ROOT,
+                env: { ...process.env, E2E: "1", E2E_HEADLESS: "1" },
+            },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout?.on("data", (data: Buffer) => {
+            stdout += data.toString();
+        });
+        child.stderr?.on("data", (data: Buffer) => {
+            stderr += data.toString();
+        });
+        const timer = setTimeout(() => {
+            child.kill();
+            resolveResult({ exitCode: null, stdout, stderr });
+        }, 8000);
+        child.on("exit", (code) => {
+            clearTimeout(timer);
+            resolveResult({ exitCode: code, stdout, stderr });
+        });
+    });
 }
 
 async function closeApp(app: ElectronApplication): Promise<void> {
@@ -207,6 +353,152 @@ test.describe("CLI 模式 serve（t275）", () => {
             await closeApp(app);
             rmSync(userDataDir, { recursive: true, force: true });
             rmSync(configImport, { recursive: true, force: true });
+        }
+    });
+
+    test("t277 AC3/AC7：含密钥导出可被新 CLI 实例导入并完成采集", async () => {
+        const source_port = 18706;
+        const target_port = 18707;
+        const secret = "sk-t277-roundtrip-synthetic";
+        const instance_id = "t277-roundtrip";
+        const files_dir = mkdtempSync(join(tmpdir(), "omnipanel-t277-roundtrip-"));
+        const import_file = join(files_dir, "source.json");
+        const export_file = join(files_dir, "exported.json");
+        const mock = await start_deepseek_mock();
+        let source_app: ElectronApplication | null = null;
+        let target_app: ElectronApplication | null = null;
+        let source_user_data_dir: string | null = null;
+        let target_user_data_dir: string | null = null;
+        let client_user_data_dir: string | null = null;
+
+        writeFileSync(
+            import_file,
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: instance_id,
+                        stateId: instance_id,
+                        name: "DeepSeek roundtrip",
+                        enabled: true,
+                        executablePath: resolve(ROOT, "connectors/deepseek"),
+                        refreshIntervalSeconds: 300,
+                        manualRefreshOnly: true,
+                        parameterValues: { API_KEY: secret, LIMIT: "100" },
+                        endpointOverrides: { default: mock.url },
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+        );
+
+        try {
+            const source = await launchCli([
+                "--cli",
+                "serve",
+                "--port",
+                String(source_port),
+                "--config",
+                import_file,
+            ]);
+            source_app = source.app;
+            source_user_data_dir = source.userDataDir;
+            await wait_for_health(source_port);
+
+            const redacted_export = await httpJson(
+                `http://localhost:${String(source_port)}/v1/config/export?includeSecrets=false`,
+            );
+            expect(redacted_export.status).toBe(200);
+            expect(JSON.stringify(redacted_export.body)).not.toContain(secret);
+
+            const plaintext_export = await httpJson(
+                `http://localhost:${String(source_port)}/v1/config/export?includeSecrets=true`,
+            );
+            expect(plaintext_export.status).toBe(200);
+            const exported_config = plaintext_export.body as {
+                plugins?: {
+                    instanceId?: string;
+                    parameterValues?: Record<string, string | number>;
+                }[];
+            };
+            expect(exported_config.plugins?.[0]?.instanceId).toBe(instance_id);
+            expect(exported_config.plugins?.[0]?.parameterValues?.["API_KEY"]).toBe(secret);
+
+            // AC4：真实瘦客户端必须走相同 LocalAPI，且两种输出与端点导出等价。
+            client_user_data_dir = mkdtempSync(join(tmpdir(), "omnipanel-t277-export-client-"));
+            const cli_redacted = await runThinClient(
+                ["--cli", "export", "--port", String(source_port)],
+                client_user_data_dir,
+            );
+            expect(cli_redacted.exitCode).toBe(0);
+            expect(JSON.parse(cli_redacted.stdout.trim()) as unknown).toEqual(redacted_export.body);
+            const cli_plaintext = await runThinClient(
+                ["--cli", "export", "--include-secrets", "--port", String(source_port)],
+                client_user_data_dir,
+            );
+            expect(cli_plaintext.exitCode).toBe(0);
+            expect(JSON.parse(cli_plaintext.stdout.trim()) as unknown).toEqual(
+                plaintext_export.body,
+            );
+
+            writeFileSync(export_file, JSON.stringify(exported_config));
+            const auth_count_before_import = mock.seen_auth.length;
+            const source_stdout = source.stdout();
+            await closeApp(source_app);
+            source_app = null;
+            expect(source_stdout).not.toContain(secret);
+
+            const target = await launchCli([
+                "--cli",
+                "serve",
+                "--port",
+                String(target_port),
+                "--config",
+                export_file,
+            ]);
+            target_app = target.app;
+            target_user_data_dir = target.userDataDir;
+            await wait_for_health(target_port);
+
+            const persisted = JSON.parse(
+                readFileSync(join(target_user_data_dir, "config.json"), "utf8"),
+            ) as {
+                plugins: { instanceId: string; parameterValues: Record<string, string | number> }[];
+            };
+            expect(persisted.plugins[0]?.instanceId).toBe(instance_id);
+            expect(persisted.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+            expect(JSON.stringify(persisted)).not.toContain(secret);
+
+            const vault_path = join(target_user_data_dir, "secrets.vault");
+            expect(existsSync(vault_path)).toBe(true);
+            expect(readFileSync(vault_path, "utf8")).not.toContain(secret);
+            expect(target.stdout()).not.toContain(secret);
+
+            const stored_secrets = await httpJson(
+                `http://localhost:${String(target_port)}/v1/secrets?instanceId=${instance_id}`,
+            );
+            expect(stored_secrets.status).toBe(200);
+            expect((stored_secrets.body as Record<string, string>)["API_KEY"]).toBe(secret);
+
+            const refresh = await post_json(
+                `http://localhost:${String(target_port)}/v1/connectors/${instance_id}/refresh`,
+            );
+            expect(refresh.status).toBe(200);
+            const state = await wait_for_ready(target_port, instance_id);
+            expect(state.items?.length).toBeGreaterThan(0);
+            expect(mock.seen_auth.slice(auth_count_before_import)).toContain(`Bearer ${secret}`);
+        } finally {
+            if (source_app) await closeApp(source_app).catch(() => undefined);
+            if (target_app) await closeApp(target_app).catch(() => undefined);
+            await mock.close().catch(() => undefined);
+            if (source_user_data_dir)
+                rmSync(source_user_data_dir, { recursive: true, force: true });
+            if (target_user_data_dir)
+                rmSync(target_user_data_dir, { recursive: true, force: true });
+            if (client_user_data_dir)
+                rmSync(client_user_data_dir, { recursive: true, force: true });
+            rmSync(files_dir, { recursive: true, force: true });
         }
     });
 

@@ -13,6 +13,8 @@ import type { ObservationStore } from "../../../src/main/core/observation/observ
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
 import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
+import type { AppConfiguration } from "../../../src/shared/types/config";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type {
     QueryResult,
     SessionHistorySubscriptionService,
@@ -227,6 +229,266 @@ describe("local-api", () => {
                 resolve();
             });
         });
+    });
+});
+
+describe("local-api config management", () => {
+    let managed_config: AppConfiguration;
+    let managed_deps: ConfigIpcDeps;
+    const definition = {
+        directory: "/plugins/claude",
+        executablePath: "/plugins/claude.py",
+        manifest: {
+            id: "claude",
+            provider: "claude",
+            capabilities: ["poll"],
+            parameters: [{ name: "API_KEY", type: "secret", required: true }],
+            poll: { request: { endpoint: "default", path: "/usage", method: "GET" }, map: {} },
+        },
+    } as unknown as ConnectorDefinition;
+
+    beforeEach(() => {
+        managed_config = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [
+                {
+                    instanceId: "managed-1",
+                    stateId: "managed-1",
+                    name: "Claude",
+                    enabled: true,
+                    executablePath: "/plugins/claude.py",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        const config_store = {
+            load: vi.fn(() => Promise.resolve(structuredClone(managed_config))),
+            save: vi.fn((next: AppConfiguration) => {
+                managed_config = structuredClone(next);
+                return Promise.resolve();
+            }),
+            scheduleSave: vi.fn(),
+            flushPendingSave: vi.fn().mockResolvedValue(undefined),
+            hasPendingSave: vi.fn().mockReturnValue(false),
+            prune_unhealthy_plugins: vi.fn(() => Promise.resolve(structuredClone(managed_config))),
+        };
+        managed_deps = {
+            configStore: config_store,
+            secretsStore: {
+                get: vi.fn().mockResolvedValue("sk-managed"),
+                set: vi.fn().mockResolvedValue(undefined),
+                delete: vi.fn().mockResolvedValue(undefined),
+                exportAll: vi.fn().mockResolvedValue({ "managed-1:API_KEY": "sk-managed" }),
+                importAll: vi.fn().mockResolvedValue(undefined),
+            },
+            secretParamKeys: new Map([["managed-1", new Set(["API_KEY"])]]),
+            definitions: [definition],
+            onConfigSaved: vi.fn(),
+            onConfigImported: vi.fn(),
+        };
+        api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            config_deps: managed_deps,
+            connector_deps,
+            web_root,
+        });
+        managed_deps.onConfigSaved = (config) => {
+            api.publish_config_change(config);
+        };
+    });
+
+    it("POST duplicate/createInstance persists new config instances", async () => {
+        await api.start();
+        const duplicate = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/duplicate`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instanceId: "managed-1" }),
+            },
+        );
+        expect(duplicate.status).toBe(200);
+        const duplicate_body = (await duplicate.json()) as { instanceId: string };
+        expect(duplicate_body.instanceId).not.toBe("managed-1");
+        expect(managed_config.plugins.some((p) => p.instanceId === duplicate_body.instanceId)).toBe(
+            true,
+        );
+
+        const created = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/createInstance`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ manifestId: "claude" }),
+            },
+        );
+        expect(created.status).toBe(200);
+        const created_body = (await created.json()) as { instanceId: string };
+        expect(created_body.instanceId).toEqual(expect.any(String));
+        expect(managed_config.plugins.some((p) => p.instanceId === created_body.instanceId)).toBe(
+            true,
+        );
+    });
+
+    it("export returns native config without secrets by default and with secrets explicitly", async () => {
+        await api.start();
+        const plain = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config/export`);
+        expect(plain.status).toBe(200);
+        const plain_body = (await plain.json()) as {
+            plugins: { parameterValues: Record<string, unknown> }[];
+        };
+        expect(plain_body.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+
+        const with_secrets = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/export?includeSecrets=true`,
+        );
+        expect(with_secrets.status).toBe(200);
+        const with_secrets_body = (await with_secrets.json()) as {
+            plugins: { parameterValues: Record<string, unknown> }[];
+        };
+        expect(with_secrets_body.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-managed");
+    });
+
+    it("import validates malformed/schema-invalid JSON without changing config", async () => {
+        await api.start();
+        const incoming = {
+            ...structuredClone(managed_config),
+            plugins: managed_config.plugins.map((plugin) => ({
+                ...plugin,
+                parameterValues: { API_KEY: "sk-from-http" },
+            })),
+        };
+        const imported = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(incoming),
+            },
+        );
+        expect(imported.status).toBe(200);
+        const imported_body = (await imported.json()) as { imported: boolean };
+        expect(imported_body.imported).toBe(true);
+        const after_valid_import = structuredClone(managed_config);
+
+        const malformed = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{",
+            },
+        );
+        expect(malformed.status).toBe(400);
+        const malformed_body = (await malformed.json()) as { error: string };
+        expect(malformed_body.error).toContain("Invalid JSON");
+        expect(managed_config).toEqual(after_valid_import);
+
+        const null_body = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "null",
+            },
+        );
+        expect(null_body.status).toBe(400);
+        const null_response = (await null_body.json()) as { message: string };
+        expect(null_response.message).toContain("导入的配置格式无效");
+        expect(managed_config).toEqual(after_valid_import);
+
+        const schema_invalid = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...incoming, launchAtLogin: "not-a-boolean" }),
+            },
+        );
+        expect(schema_invalid.status).toBe(400);
+        const schema_invalid_body = (await schema_invalid.json()) as { message: string };
+        expect(schema_invalid_body.message).toContain("导入的配置格式无效");
+        expect(managed_config).toEqual(after_valid_import);
+    });
+
+    it("importing a redacted config preserves the existing secret vault", async () => {
+        await api.start();
+        const redacted = structuredClone(managed_config);
+        const imported = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(redacted),
+            },
+        );
+        expect(imported.status).toBe(200);
+        expect(
+            (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls,
+        ).toHaveLength(0);
+        expect(managed_config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+    });
+
+    it("web import rejects endpoint overrides before persisting config or secrets", async () => {
+        await api.start();
+        const before = structuredClone(managed_config);
+        const incoming = {
+            ...structuredClone(managed_config),
+            plugins: managed_config.plugins.map((plugin) => ({
+                ...plugin,
+                parameterValues: { API_KEY: "sk-untrusted" },
+                endpointOverrides: { default: "https://untrusted.example" },
+            })),
+        };
+        const response = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(incoming),
+            },
+        );
+        expect(response.status).toBe(400);
+        const body = (await response.json()) as { message: string };
+        expect(body.message).toContain("自定义端点");
+        expect(managed_config).toEqual(before);
+        expect(
+            (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls,
+        ).toHaveLength(0);
+    });
+
+    it("config save publishes named SSE events to two subscribed clients", async () => {
+        await api.start();
+        const [first_response, second_response] = await Promise.all([
+            fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`),
+            fetch(`http://127.0.0.1:${String(api.get_port())}/v1/events`),
+        ]);
+        const first_reader = first_response.body?.getReader();
+        const second_reader = second_response.body?.getReader();
+        if (!first_reader || !second_reader) throw new Error("missing SSE response body");
+
+        const next_config = { ...managed_config, theme: "dark" as const };
+        const saved = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next_config),
+        });
+        expect(saved.status).toBe(200);
+
+        const frames = await Promise.all([first_reader.read(), second_reader.read()]);
+        for (const frame of frames) {
+            const text = new TextDecoder().decode(frame.value);
+            expect(text).toContain("event: config");
+            expect(text).toContain('"theme":"dark"');
+        }
+        await Promise.all([first_reader.cancel(), second_reader.cancel()]);
     });
 });
 

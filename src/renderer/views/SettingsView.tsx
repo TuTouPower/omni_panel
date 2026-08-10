@@ -34,6 +34,7 @@ import { AboutSection } from "./settings-view/sections/about_section";
 import { AccountsSection } from "./settings-view/sections/accounts_section";
 import { AppearanceSection } from "./settings-view/sections/appearance_section";
 import { DataSection } from "./settings-view/sections/data_section";
+import { is_web } from "../lib/is-web";
 import { GeneralSection } from "./settings-view/sections/general_section";
 
 /* ── types ── */
@@ -110,7 +111,8 @@ export function SettingsView() {
                 log.warn("加载 build info 失败，关于段不显示 branch@commit", err);
             });
     }, []);
-    const { config, hasSecrets, loading, error, save, saveSecrets, reload } = use_config();
+    const { config, hasSecrets, loading, error, save, saveSecrets, duplicate, reload } =
+        use_config();
     const navigate = use_panel_navigation();
     const configRef = useRef(config);
     useEffect(() => {
@@ -241,6 +243,8 @@ export function SettingsView() {
         lang: "简体中文",
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
+    const [include_secrets, set_include_secrets] = useState(false);
+    const web_mode = is_web();
     const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Clear any pending data-msg timer on unmount so it can't fire setDataMsg
@@ -257,7 +261,9 @@ export function SettingsView() {
 
     const handleExport = useCallback(async () => {
         try {
-            const { saved } = await window.usageboard.config.export();
+            const { saved } = await window.usageboard.config.export(
+                web_mode ? { includeSecrets: include_secrets } : undefined,
+            );
             setDataMsg(saved ? "设置已导出" : null);
         } catch {
             setDataMsg("导出失败");
@@ -266,7 +272,7 @@ export function SettingsView() {
         data_msg_timer.current = setTimeout(() => {
             setDataMsg(null);
         }, 2000);
-    }, []);
+    }, [include_secrets, web_mode]);
 
     const handleExportLogs = useCallback(async () => {
         try {
@@ -291,8 +297,9 @@ export function SettingsView() {
             } else {
                 setDataMsg(null);
             }
-        } catch {
-            setDataMsg("导入失败");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            setDataMsg(`导入失败：${message || "未知错误"}`);
             clearTimeout(data_msg_timer.current);
             data_msg_timer.current = setTimeout(() => {
                 setDataMsg(null);
@@ -525,6 +532,9 @@ export function SettingsView() {
                                 handle_export_logs={handleExportLogs}
                                 handle_import={handleImport}
                                 save_config={save_config}
+                                show_secret_option={web_mode}
+                                include_secrets={include_secrets}
+                                on_include_secrets_change={set_include_secrets}
                             />
                         )}
 
@@ -571,6 +581,10 @@ export function SettingsView() {
                         catalog={catalog}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
+                        onDuplicate={async (instanceId) => {
+                            await duplicate(instanceId);
+                            setDialog(null);
+                        }}
                         onAddAccount={async (params) => {
                             const result = await create_instance_and_save(
                                 params,
