@@ -61,6 +61,12 @@ export default defineConfig(
             "scripts/start-test.mjs",
             "docs/spikes/",
             "public/",
+            // t299: repo_template 静态 CommonJS 工具（board.js 为 HTML 看板脚本、
+            // chain_plan.js 为看板核心规划模块、test_chain_plan_cases.js 为链式
+            // 规划测试数据），不在 tsconfig include，免 type-checked lint 报 not found。
+            "scripts/repo_template/repo_task/view_static/board.js",
+            "scripts/repo_template/repo_task/view_static/chain_plan.js",
+            "tests/repo_template/test_chain_plan_cases.js",
         ],
     },
 );
