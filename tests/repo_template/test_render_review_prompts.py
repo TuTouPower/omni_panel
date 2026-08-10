@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts" / "repo_template"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import pytest
@@ -274,8 +274,7 @@ def test_render_includes_share_section(tmp_path, monkeypatch):
 
 def _git(repo, *args):
     return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True,
-        encoding="utf-8", errors="replace", check=True
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, encoding="utf-8", errors="replace", check=True
     )
 
 

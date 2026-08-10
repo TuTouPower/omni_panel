@@ -6,245 +6,128 @@ disable-model-invocation: true
 
 # task-run
 
-串行执行待做 task，直到固定队列完成或必须停。状态机、blocked、目录权责等权威规则见 `AGENTS.md`；门禁数字见本 skill；本 skill 定义链式分支与批次操作顺序。
+串行执行固定队列（链式拓扑）。合并时机与分支形态见 `AGENTS.md`「职责分工与合并时机」。
 
-## 队列执行已获批准
+单 task 执行流程见 `task-work`；合并流程见 `task-integrate`。
 
-用户触发本 skill 表示批准固定队列内全部 task 执行至各自执行 commit 完成，**不表示批准修改本地 main**。禁止进入 plan mode（`EnterPlanMode` / `ExitPlanMode`），禁止开跑前重述计划征求同意，禁止把 spec 已写明内容再问一遍。直接从 Step 1 开始。
+## 会话级授权
 
-每个 task 完成后不询问合并。只有固定队列全部完成，才一次询问是否把链尾分支合并本地 main。
+用户触发本 skill 即批准队列内全部 task 执行至各自执行 commit、terminal/report 与 exact cleanup 完成；不得逐 task 询问 commit。合并授权不在启动时询问，整条链完成后才询问一次是否需要合入：
+
+- 整链完成且各成员 exact cleanup 后，询问一次是否需要合入；用户同意后才调用 `integrate-chain`。
+- 用户未同意合入时，保留已清理的链分支与执行 commit，不得提前 merge；合并授权只覆盖本次固定队列的一次链尾合并与后续可恢复 finalize。
+
+启动时只说明固定队列、每 task 一个执行 commit、链式 `--base` 继承、最终只合链尾一次、不 push；不征求合并授权：
+
+```text
+准备串行执行：{tid 列表}（链式）。每个 task 一个执行 commit；中间只 exact cleanup；整链完成后问你是否需要合入主干，不 push。
+```
+
+禁止进入 plan mode（`EnterPlanMode` / `ExitPlanMode`），禁止开跑前重述 spec 已写明的内容征求同意。执行授权已由 skill 调用给出；只在「停止条件」列举的情况停下来问用户。
+
+## goal 模式
+
+用 goal 模式自治跑队列时，`task.py goal` 是唯一入口；它冻结队列快照到 `docs/runtime/goal_queue.json` 并打印 ready-to-paste 的 `/goal` 行（含机器终态判定）。手写 `/goal 请按 task-run 执行所有 task` 是反模式：终态不可判定，evaluator 无依据反驳中途停止。
+
+goal 会话内的执行行为与本 skill 队列循环完全一致，固定队列以快照为准（不得变更成员）。终态由 `task.py goal-check` 只读判定：
+
+| marker                              | exit | 语义                                                                       |
+| ----------------------------------- | ---- | -------------------------------------------------------------------------- |
+| `GOAL_QUEUE_COMPLETE`               | 0    | 全部成员 closed（terminal+report+handoff+cleanup）或 integrated；goal 结束 |
+| `GOAL_QUEUE_STOPPED: <tid>=<state>` | 3    | 任一成员 blocked/failed；合法停止，按「停止条件」汇报后 goal 结束          |
+| `GOAL_QUEUE_INCOMPLETE: x/y closed` | 2    | 继续执行                                                                   |
+
+逐 tid 状态行里 `pending` / `running` / `cleanup_pending` / `unverified`（handoff/refs 校验未过）/ `incomplete` 均归入 INCOMPLETE；`dropped` 意味着快照过期（成员在 goal 期间被 drop），按 STOPPED 处理，由用户决策后重新 `task.py goal`。
+
+goal 模式同时只服务一个队列（快照覆盖式）；多会话手动并发各跑普通 task-run，不用 goal 生成器。合并授权语义不变：整链完成后询问一次，merge 是 goal 判定范围外的人工步骤。
 
 ## 输入与固定队列
 
-| 用户输入                        | 队列                                                                                                  |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 无参数                          | `backlog` ∪ `active`（tid 升序）；不含 blocked / done / dropped                                       |
-| 一个或多个 `tNNN`               | 严格按用户输入顺序，只跑这些（须 backlog/active；含 blocked 则整批停止，请用户选择加轮/dropped）      |
-| 状态词 `backlog` 和/或 `active` | 只跑这些状态的全部，tid 升序                                                                          |
-| 写了 `blocked`                  | `blocked` 不入队。先按「整批停止条件」呈 blocked 选项请用户决策；用户当次明确继续后，再跑其余可跑 tid |
+| 用户输入                        | 队列                                                                                         |
+| ------------------------------- | -------------------------------------------------------------------------------------------- |
+| 无参数                          | `backlog` ∪ `active`（tid 升序）；不含 blocked / done / dropped                              |
+| 一个或多个 `tNNN`               | 严格按用户输入顺序，只跑这些（须 backlog/active；含 blocked 则停止，请用户选择加轮/dropped） |
+| 状态词 `backlog` 和/或 `active` | 只跑这些状态的全部，tid 升序                                                                 |
+| 写了 `blocked`                  | `blocked` 不入队。先呈 blocked 选项请用户决策；用户当次明确继续后，再跑其余可跑 tid          |
 
-`done` / `dropped` 永不重新入队。CLI 一次只能带一个 `--status`，默认队列由两次 list 合并去重。开始修改状态前固定 tid 与顺序；批次中禁止从 main 重新计算队列。
+`done` / `dropped` 永不重新入队。CLI 一次只能带一个 `--status`，默认队列由两次 list 合并去重。开始修改状态前固定 tid 与顺序。
 
-## 链与恢复
+依赖被前置 task 满足的 backlog 可入队，只要前置排在其前。队列内有 `conflicts_with` 边不影响串行执行——链式拓扑本就不并发。
 
-目标拓扑：
+## 链式拓扑
+
+task 按执行顺序成链：
 
 ```text
-main
-  └─ t001_branch
-       └─ t002_branch
-            └─ t003_branch
+主干 ── t001 ── t002 ── t003 ──► 全部完成后 merge 链尾
 ```
 
-- 首 task 从批次开始时本地 main HEAD（或用户指定 `--base`）创建。
-- 后续 task 从上一已完成 task 分支 HEAD 创建，**不要求该分支以当前 main 为祖先**（批次期间 main 可并行推进）。
-- 每个 task commit 后删除自身 worktree，保留分支。
-- Git ancestry 是链关系权威，不另写 parent/batch 元数据。
-- `batch_main_anchor` = 本批首 task 的 `diff_anchor`（链根 base SHA）。合并阶段用于判断 main 是否与链根分叉；不要求批次期间 main 冻结。首次启动时记录；恢复时从链尾 ref 中本批最早 task 的 front matter 读取，不另设持久字段。
-
-开始或恢复前按以下优先级判断状态：
-
-1. 已登记 task worktree：进入该 worktree，用 `scripts/task.py show <tid>` 读 active/blocked 与未提交证据。
-2. 未合并 task 分支链：用 `scripts/task.py show/list --ref <branch>` 读累计状态。
-3. main：只用于尚未进入链的 backlog task。
-
-链尾发现：列出未合并 main 的 `t[0-9]*_*` 本地分支，用 `git merge-base --is-ancestor` 比较本批候选分支。唯一不被其他候选包含的分支是链尾。存在多个互不为祖先的链尾时整批停止，列出分支与 HEAD，请用户选择；禁止自动选链、merge 或 rebase。
-
-兼容旧 active task：已存在登记 worktree或历史 start commit时，从现有证据续跑，不重走 start，不改写历史 commit。后续新 task 可从其完成分支继续链。
+每个 task 从上一个已完成 task 的分支创建（`--base`），因此自动继承前一个 task 的成果。`depends_on` 边要求被依赖者排在依赖者之前。多会话手动并发时各跑独立链，无自动调度器。
 
 ## 队列循环
 
-1. 按输入固定队列，记录 `batch_main_anchor` 与已发现链尾。
-2. 一次只跑一个 tid；禁止并行多 task（单 task 内可派 subagent）。
-3. 当前 task 执行 commit 完成后，从主仓清理其 worktree；不 merge、不重建 index、不询问用户。
-4. 当前 task 分支成为下一 task 的 base；队列全部完成后进入「整批合并审批」。
-5. 当前 task `blocked` → 整批停止，不自动跳下一个（除非用户显式要求 drop/移出本批）。
-6. 「循环」= 本 skill 内串行推进，不是后台常驻。
+每个 tid 依次走一次队列循环。`attempt reserve` 返回的整数 `attempt` 与字符串 `execution_id` 是本次执行的 exact identity，必须原样传给 `task-work`、terminal、report 与 cleanup：
 
-## 单 task 流程
-
-门禁默认：`max_verify_round = 5`（黑盒）；`max_review_round = 5`（审阅）。`{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 见 `docs/blueprint/testing.md`。
-
-```mermaid
-flowchart TD
-    S1["1 开干+前置"] --> S2["2 红"]
-    S2 --> S3["3 绿"]
-    S3 --> S4["4 黑盒"]
-    S4 --> B1{"黑盒通过?"}
-    B1 -->|否且未满轮| S3
-    B1 -->|否且满轮| BLK["blocked"]
-    B1 -->|是| S5["5 审阅"]
-    S5 --> D{"6 overall?"}
-    D -->|PASS| S7["7 收尾+commit+清理 worktree"]
-    D -->|FAIL 未满轮| W["写处置表"]
-    W --> C{"改了代码/测试?"}
-    C -->|是| S3
-    C -->|否| DOC["改必要文档"] --> S5
-    D -->|FAIL 满轮| W2["写处置表"] --> BLK
-    S7 --> Q{"固定队列完成?"}
-    Q -->|否| S1
-    Q -->|是| APPROVE["整批一次合并审批"]
+```text
+t001: start t001
+      → attempt reserve t001 --executor inline
+      → task-work(t001, attempt, execution_id)
+      → attempt terminal ... --status completed|failed|stopped
+      → attempt report ... --status done|blocked|failed
+      → cleanup-worktree t001 --attempt N --execution-id ID（分支保留）
+t002: start t002 --base t001_分支
+      → reserve inline → task-work(identity) → terminal → report → cleanup exact
+t003: start t003 --base t002_分支
+      → reserve inline → task-work(identity) → terminal → report → cleanup exact
+   ↓ 全部成员完成且已 cleanup；此时询问一次是否需要合入，同意后 integrate-chain
+integrate-chain t003 → aggregate gate → 一次 merge 链尾 → 重建 index → exact integrated 原子批量写入
+   ↓ transaction=awaiting_verification，分支保留
+执行合并后验证 → integrate-chain t003 --continue → 删整条链分支并清除 transaction
 ```
 
-开始或继续每个 task 时，先重新读仓库判断入口（worktree/链尾 ref 中的 `scripts/task.py show <tid>` + task 目录下 `spec.md` / `task.md` / `review_*.md` + 分支 + `git status` + `diff_anchor` + 测试与实施笔记）：
+命令顺序固定：
 
-| 状态 / 证据                      | 从哪继续                  |
-| -------------------------------- | ------------------------- |
-| `backlog`，无 task 分支/worktree | Step 1                    |
-| `active`，无红灯证据             | Step 2                    |
-| 红已有、实现未完                 | Step 3                    |
-| 绿过、黑盒未过                   | Step 4                    |
-| 黑盒过、无审阅                   | Step 5                    |
-| 有 FAIL、未满轮                  | Step 6 处置后按表回流     |
-| `blocked`                        | 停止整批，呈 blocked 选项 |
-| 链尾 ref 中 `done` / `dropped`   | 跳过，不重复执行          |
+1. 首 task 执行 `task.py start {tid}`；后继执行 `task.py start {tid} --base {前一 task 分支}`。
+2. 紧接着执行 `task.py attempt reserve {tid} --executor inline`。reserve 原子返回 identity，inline attempt 直接进入 `running`；当前 attempt 未 terminal 时禁止再次 reserve。
+3. 调用 `task-work` 时 `attempt` 与 `execution_id` 均必填。每个 task 只产生一个执行 commit。
+4. `task-work` 返回后先写 executor 终态：正常返回（包括业务 `blocked`）写 `terminal --status completed`；执行器/环境失败写 `failed`，用户或宿主停止写 `stopped`。再以同一 identity 写 `report --status done|blocked|failed`。
+5. 只有 `terminal completed` 且业务 `report done` 的成员才执行 `cleanup-worktree {tid} --attempt {N} --execution-id {ID}`。中间只 cleanup，**不合并**；分支保留并成为下一个 task 的 `--base`。
+6. 队列全部成员完成后，询问一次是否需要合入；用户同意后调用 `integrate-chain {链尾 tid}`，未同意则不 merge、保留已清理的链分支。它从控制面聚合各成员 exact identity，不接受 `--attempt` / `--execution-id`，主干只进一次链尾 merge commit；命令完成 index 与幂等批量 integrated 后停在 `awaiting_verification`，保留分支和 transaction。
+7. 执行合并后验证。通过后调用同一 `integrate-chain {链尾 tid} --continue`，删除整条链分支并清除 transaction；验证失败则停止，保留可恢复证据，不调用最终 continue。
+8. 当前 task `blocked` → 队列停止，不 cleanup、不自动跳下一个；保留现场等待用户决定。
+9. 「循环」= 本 skill 内串行推进，不是后台常驻。
 
-### Step 1：开干与前置
+## 恢复
 
-1. 有 `{doctor_cmd}` 则跑；无则实施笔记写「无」。失败：停本 task 及整批，先解决环境或走 spike，不盲目 start。
-2. 没有现成 active worktree时，在干净主仓默认分支执行 start：
-    - 批次首 task、无链尾：`scripts/task.py start <tid>`。
-    - 后续 task：`scripts/task.py start <tid> --base <上一 task 分支>`。
-    - `start` 不修改 main、不建 start commit；新 worktree 中 task.md 的 active 改动属于当前 task 执行 commit。
-3. 必须 `cd` 进新 worktree；后续 Step 1–7c 都在其中进行。
-4. 执行 `scripts/task.py preflight <tid>`：状态、spec 完整、工作区一致性与未知契约分类。
-    - `UNVERIFIED-BLOCKING` 或裸 `UNVERIFIED` → FAIL，必须停止。
-    - `UNVERIFIED-SPIKE` → WARN；当前只可继续 Step 1 实验，不得进入 Step 2。
-5. spec 契约区行为 AC 非空再继续（preflight 已查）。
-6. spec 上下文区有 `UNVERIFIED-SPIKE`：先做实验，文档查询不能替代兼容实验。需外部环境的 SPIKE 先查环境齐备性（key、代理、夹具）并做最小实测；未实测不得以「难验证」上报阻断，实测失败须附输出证据；优先走 spec 预留的保守回退方案，而非中断。建 `docs/spikes/{sid}_{slug}/`（`sid` 取 spikes 与 archive 中最大编号加一），复制 `docs/spikes/report_template.md` 为 `report.md`；有实验代码建 `code/`。结论总结写入 `docs/findings.md`，报告留在 spike 目录。
-7. 将全部 `UNVERIFIED-SPIKE` 改写为验证结论与验证方式，再运行 `scripts/task.py preflight <tid> --require-verified`。严格门禁 PASS 后才可进入 Step 2。
+中断后先用 `task.py ps --all` 与 `task.py ledger tail --tid <tid>` 恢复该 task 的 current exact identity，再按以下优先级判断仓库状态：
 
-### Step 2：红
+1. 当前 identity 为 `running` 且已登记 task worktree：进入该 worktree，用 `scripts/repo_template/task.py show <tid>` 读 active/blocked 与未提交证据，以原 `attempt` / `execution_id` 回 `task-work` 对应步骤；禁止另行 reserve。
+2. task 分支已有执行 commit 与 `handoff.json`，但 terminal/report/cleanup 未闭环：核对 handoff identity 后，按原 identity 补 `terminal → report → cleanup-worktree`，不创建新 attempt。
+3. 未合并 task 分支已 `done` 且 exact cleanup 完成：记录其分支为下一个 `--base`，继续队列下一个 backlog。
+4. `.git/repo-task/integrate-chain.json` 存在：读取 `phase`。`prepared` 且有冲突时先解决并 `git add`；`merged` / `indexed` 表示 merge 已发生但收尾未闭环；以上均以原 tail 执行一次 `integrate-chain {链尾 tid} --continue` 恢复到 `awaiting_verification`。`awaiting_verification` 必须先完成合并后验证，验证通过后再执行一次同命令删除分支并清除 transaction。
+5. 主干中尚未进入执行的 backlog task：从队列头执行 `start → reserve inline`。
 
-可测部分先写失败测试；`{test_cmd}` 确认失败。测试须触达生产逻辑。
+已合并的 task 在主干中即 `done`，不重复执行。current attempt 未 terminal 时绝不 reserve 新 attempt。
 
-### Step 3：绿
+**view 的主干视角限制**：`task.py view` 的 `done_set` 用 `main_done_set`（已合入主干才算 done）。链上已完成但未合 main 的前置在 view 中显示为「依赖阻塞」，对链式恢复无意义——链式恢复时按**分支 tip 与 exact attempt 闭环**判依赖（前置分支 done 且已 cleanup 才可作 `--base`），不依赖 view 的解锁判断。
 
-实现至测试通过；`{test_cmd}` 确认。量大可派 subagent。
+## 停止条件
 
-变更命中 `docs/blueprint/testing.md`「Schema / codegen 验证」触发路径时，运行其中生成命令与验证命令；未声明或写「无」则跳过。涉及 migration 独占窗口时，不与其他 migration 并行。生产 migration、部署和数据操作不由本步骤或普通 merge 自动执行。
+停止条件仅限本节列举的可验证事件，不得自行扩充（如 task 规模大、SPIKE 多、主观估计上下文将耗尽）。是否继续以系统提供的上下文占用客观数据为准，不以主观工作量感推断；数据不明确时默认继续——中断代价确定，耗尽风险由系统压缩与中间态恢复兜底。
 
-改既有测试纪律见 `AGENTS.md`「开发原则」TDD 条款。
-
-### Step 4：黑盒
-
-按 `docs/blueprint/testing.md` 中 `{blackbox_verify}` 执行。通过→Step 5。未通过且 `< max_verify_round` → 回 Step 3 再黑盒。未通过且 `≥ max_verify_round` → `block --reason blackbox`，整批停止。
-
-### Step 5：审阅
-
-- 用 `git ls-files --others --exclude-standard` 列出本 task 新文件，剔除无关/临时/`.scratch/` 后，对明确路径执行 `git add -N -- <path...>`，让 untracked 产出进入 `git diff {diff_anchor}`；无新文件则跳过。不得用无路径 `git add -N`。
-- 渲染 prompt：
-    ```bash
-    scripts/render_review_prompts.py \
-      --task-dir docs/tasks/{tid}_{slug} \
-      --out-dir .scratch/review_prompts
-    ```
-- 派 subagent 时只传文件路径，不把 prompt 正文内联进派发消息。
-- `review_level=full`：code + test 两路并行；`single`：一路 general。
-- 报告写入 task 目录：`full` 写 `review_code.md` / `review_test.md`；`single` 写 `review_general.md`。多轮追加，不覆盖历史。
-
-### Step 6：处置
-
-- 处置表唯一落点：`task.md` → `## Review 处置`。`status` 仅：`已修` / `遗留` / `撤回`。
-- `status=遗留` 的内容不写 task.md：先运行 `scripts/pending.py next`，登记到 `docs/pending.md`「待办」节；`fix_ref` 填 `pNNN` 或已有 follow-up tid。
-- 运行：
-    ```bash
-    scripts/check_review_status.py \
-      --task-dir docs/tasks/{tid}_{slug} \
-      --max-review-round <N>
-    ```
-- `prompt_hint` 非空 → 下一轮派发附上轮撤回 finding_id 与理由。
-- reviewer 标注 spec 过时：改 spec 上下文区，不计 FAIL，不因此回 Step 3。
-- `overall=PASS` → Step 7。
-- `FAIL` 且 `round < max`：填处置表；改代码/测试则 Step 3→4→5→6，只改必要文档也须回 Step 5 完整重审。
-- `FAIL` 且 `round ≥ max`：处置表填完 → `block --reason review`，整批停止。
-- 禁止同一 round 内「复核翻 PASS」。
-
-### Step 7：收尾、执行 commit 与 worktree 清理
-
-进入本步前重新运行 `check_review_status.py`，确认最新 `overall=PASS`。
-
-**7a 收尾文档（worktree 内）**：
-
-- 更新 `docs/specs/<slug>.md` 与 `docs/specs_index.md`。
-- 更新受影响的 `docs/blueprint/`、`docs/guides/`、`README.md`、`AGENTS.md`、API 文档等。
-- 写全 `task.md` 收尾报告；收尾报告不设遗留节，遗留在 `docs/pending.md`。
-- pending 闭环：相关条目标记当前 tid，整条从 `docs/pending.md` 移除并追加到 `docs/archive/pending.md`。
-- 顺手发现登记（必做）：实施/测试/黑盒中观察到、但不属本 task 范围且未修的疑似存量问题，不得只写 `task.md` 笔记——`task.md` 随 task 归档后这些发现无人跟踪。逐条盘点处置：已复现确认的 bug 链式走 `task-bug`（根因 + 补测 + 登记）；疑点或技术债按普通模板登记 `docs/pending.md`（先 `scripts/pending.py next` 取号）。已随本 task 修复或确认不成立的不登记。
-- 测试假绿专项（必做）：测试过程中发现疑似假绿（断言过弱、mock 掉被测逻辑、只测假路径、缺集成层导致测试通过但逻辑有误）的存量测试，同样必须登记——能定位根因的走 `task-bug` 补测分析，暂不能定位的按普通模板登记 `docs/pending.md` 并注明疑似假绿。不得在收尾报告里一笔带过。
-- 核对所有 `status=遗留` 行的 `fix_ref` 已指向 `pNNN` 或 follow-up tid。
-- 抽取可跨 task 复用的已验证事实到 `docs/findings.md`。
-- 排在其后且未 `done` 的 task 若受影响，修订其 `spec.md`；后续链会继承这些修订。
-
-**7b finish（worktree 内）**：
-
-```bash
-scripts/task.py finish <tid>
-```
-
-`finish` 将 task 归档并清空归档 front matter 的 worktree 字段；物理 worktree 此时仍存在。
-
-**7c 执行 commit（worktree 内）**：
-
-- 把本 task 执行期全部改动（含 7a 文档、7b 归档移动）一次性 commit；subject 含 `{tid}`。
-- 一 task 一执行 commit。旧 active task已有历史 start commit时保留历史，不重写。
-- commit 后确认 worktree clean、分支 HEAD 相对 `diff_anchor` 包含当前 task commit。
-
-**7d 清理 worktree（主仓）**：
-
-```bash
-cd <主仓>
-scripts/task.py cleanup-worktree <tid>
-```
-
-- 清理后确认 worktree 已移除、task 分支保留。
-- 不 merge main，不重建 index，不询问用户。
-- 当前 task 分支成为下一 task `--base`。
-- blocked 未放行前不 finish、不 commit终态、不清理 worktree。
-
-## 整批合并审批
-
-仅当固定队列每个 tid 在链尾 ref 中均为 `done`，或经用户明确决定为 `dropped`，且所有相关 worktree 已清理，才进入本节。blocked、preflight FAIL、环境阻断或用户限制中间终点都不进入合并询问。
-
-询问前只读核对并展示：
-
-- `batch_main_anchor`、当前 main HEAD。两者不同表示批次期间 main 已并行推进；合并为三方 merge，见下。
-- 链尾分支与 HEAD。
-- 固定队列及链尾 ref 中最终状态。
-- `git log --oneline main..<链尾>`。
-- 测试、黑盒、review 结果。
-- `git worktree list` 中无本批 task worktree。
-- 批准后还会产生一条 merge commit 与一条 index 维护 commit。
-
-然后只询问一次是否合并本地 main。
-
-- 用户未批准或暂缓：main 不变；保留完整分支链；汇报恢复所需链尾与 HEAD。
-- 用户批准：再次确认 main、链尾 HEAD、工作区状态未变化，再执行：
-    1. `git merge --no-ff <链尾分支>`，只合并链尾一次；祖先链自动包含全部 task commit。链尾与当前 main 分叉时为三方 merge：
-        - 无冲突：merge 完成，进入步骤 2。
-        - 有冲突：停下报告冲突文件；解决后 `git add` + `git commit` 完成 merge。无法解决则 `git merge --abort` 回退，链尾分支与 main 保持不变，报告失败由用户裁决，不盲目重试。
-    2. 执行声明的合并后验证；失败则报告实际 merge 状态，不盲目重试或回退。
-    3. `scripts/task.py list --rebuild`。
-    4. 只提交 `docs/tasks_index.json` 与 `docs/archive/tasks_index.json`，形成独立维护 commit。
-    5. 再执行 `docs/blueprint/testing.md` 声明的合并后动作及验证。
-- 不自动删除 task 分支。
-
-## 整批停止条件
-
-停止条件仅限本节列举的可验证事件，agent 不得自行扩充（如 task 规模大、SPIKE 多、主观估计上下文将耗尽）。是否继续以系统提供的上下文占用客观数据为准，不以主观工作量感推断；数据不明确时默认继续——中断代价确定，耗尽风险由系统压缩与中间态恢复兜底。
-
-遇任一即停，不自动跳当前 task跑下一个：
+遇任一即停，不自动跳当前 task 跑下一个：
 
 - `preflight` FAIL 且无法在本 task 内修复。
-- 当前 task `blocked`（呈加轮 / dropped）。
+- 当前 task `blocked`（呈加轮 / dropped 选项）。
+- merge 冲突需用户裁决。
+- 合并后验证失败——停止队列后续全部执行。
 - 需用户提供密钥、环境、产品决策等不可替代输入。
 - 环境/权限/外部依赖阻断；基础设施连续失败 → `block --reason infra`。
 - 用户限制本次终点。
 - 工作区有与本队列冲突的无关脏改动且无法安全隔离。
-- 出现多条不相容未合并 task 分支链。
 
-停止时不询问合并。保留已完成前缀分支；当前 active/blocked worktree 保留；汇报已完成 tid、当前阻塞、剩余固定队列与恢复入口。只有用户明确 drop/移出剩余项并重新界定批次范围后，才按新范围判断是否进入整批合并审批。
+停止时保留当前 worktree 与分支；汇报已完成 tid、当前阻塞、剩余队列与恢复入口。
 
 ## 完成
 
-汇报：固定队列、已完成 tid、链尾分支与 HEAD、main 是否已获批合并、index 维护结果、停止原因与剩余队列（若有）。
+汇报：固定队列；各 tid 的 `(attempt, execution_id)` 与执行 commit；逐成员 cleanup 结果；链尾分支与 HEAD；`integrate-chain` 事务结果、main merge commit、各成员 exact integrated 与 index 维护结果；删除的链分支；停止原因与剩余队列（若有）；遗留 worktree、分支或事务 snapshot（若有）。

@@ -1,14 +1,10 @@
 # Task spec
 
-契约区执行期原则上不再改动；确需调整须经用户确认（渲染 review prompt 时脚本会附契约区相对 diff_anchor 的 drift diff 供 reviewer 核对）。上下文区执行期可补。
-
 ## 背景
 
-来源：`docs/pending.md` p105（t277/t278 实施期登记）。核实（2026-08-10 合并批次复测）：`MOCK_FIXTURE=synthetic` 下 `tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 稳定失败——`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目，`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时丢弃无 config 匹配的 synthetic connector。基线问题（非 t277/t278 引入），修复后 synthetic web e2e 全绿。
+来源：`docs/pending` p105（t277/t278 实施期登记）。核实（2026-08-10 合并批次复测）：`MOCK_FIXTURE=synthetic` 下 `tests/e2e/web/account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts` 稳定失败——`tests/e2e/fixtures/synthetic.json` 的 `synthetic-kimi-failed` 与 `synthetic-opencode-go` 为手工写入条目，`tests/e2e/fixtures/mock_server.mjs` 的 `sync_connectors()` 依据 `/v1/config` 重建 connector 时丢弃无 config 匹配的 synthetic connector。基线问题（非 t277/t278 引入），修复后 synthetic web e2e 全绿。
 
 ## 契约区
-
-reviewer 判 AC 时只看本区。
 
 ### 范围
 
@@ -23,15 +19,39 @@ reviewer 判 AC 时只看本区。
 
 ### 验收标准
 
+<!-- 规范（门禁必留，不得删除） -->
+
+只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+每条 AC 条目带稳定编号 `AC-NNN`（三位十进制、task 内从 001 顺序编号、唯一、删除不复用）；收尾时 `handoff.json` 的 `ac_evidence` 须精确覆盖本区全部编号。编号约定见 `docs/blueprint/conventions.md`。
+
+<!-- /规范 -->
+
 只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：`MOCK_FIXTURE=synthetic pnpm test:e2e:web` 全绿（含 `account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts`）
-- [ ] AC2：mock `sync_connectors()` 对 fixture 中 synthetic-only connector 的行为有单测守护（重建不丢弃 / 明确跳过）
-- [ ] AC3：`pnpm e2e:gen-synthetic` 再生成后 synthetic fixture 仍包含这两类 connector（改生成脚本时）
+- [ ] AC-001：`MOCK_FIXTURE=synthetic pnpm test:e2e:web` 全绿（含 `account_error_badge.spec.ts` 与 `opencode_go_usage.spec.ts`）
+- [ ] AC-002：mock `sync_connectors()` 对 fixture 中 synthetic-only connector 的行为有单测守护（重建不丢弃 / 明确跳过）
+- [ ] AC-003：`pnpm e2e:gen-synthetic` 再生成后 synthetic fixture 仍包含这两类 connector（改生成脚本时）
 
 ### 可测试性声明
+
+<!-- 规范（门禁必留，不得删除） -->
+
+逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
+
+<!-- /规范 -->
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
@@ -39,15 +59,27 @@ reviewer 判 AC 时只看本区。
 
 ## 上下文区
 
-reviewer 判测试覆盖时核对本区；实施期可补。
+- 来源：p105（t277/t278 实施期登记；2026-08-10 复测仍在：synthetic 下 account_error_badge/opencode_go_usage 稳定失败，mock sync_connectors 丢弃无 config 匹配的 synthetic connector）
 
 ### 有意不测
+
+<!-- 规范（门禁必留，不得删除） -->
+
+已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
+
+<!-- /规范 -->
 
 已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
 
 - 无
 
 ### 测试策略
+
+<!-- 规范（门禁必留，不得删除） -->
+
+mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
+
+<!-- /规范 -->
 
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
@@ -56,6 +88,12 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 - 生成脚本：如改 `scripts/e2e/gen_synthetic.mjs`，验证再生成产物含两类 connector
 
 ### 未知契约清单
+
+<!-- 规范（门禁必留，不得删除） -->
+
+尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
+
+<!-- /规范 -->
 
 尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
 

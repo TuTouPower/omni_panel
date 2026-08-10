@@ -1,5 +1,5 @@
 {
-    "generated_by": "scripts/task.py",
+    "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
     "tasks": [
@@ -107,6 +107,36 @@
             "schedule_status": "",
             "note": "p096：playwright future 项，闲置 vite preview",
             "dir": "docs/tasks/t287_cli_e2e_webserver_isolate"
+        },
+        {
+            "tid": "t288",
+            "slug": "cli_control_restart_relaunch_reap",
+            "title": "CLI 控制 restart e2e 回收 relaunch 进程",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t288_cli_control_restart_relaunch_reap"
+        },
+        {
+            "tid": "t289",
+            "slug": "web_e2e_webserver_proxy_isolation",
+            "title": "web e2e webServer 探测隔离代理环境变量",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t289_web_e2e_webserver_proxy_isolation"
         }
     ]
 }

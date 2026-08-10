@@ -43,7 +43,7 @@ disable-model-invocation: true
 - **业务与契约正文**：`src/`、`tests/`、`schemas/`、`config/` 下的源码、测试、契约与配置（**不是**类别表里的垃圾名）。  
   类别表命中的垃圾**可清**，即使落在这些目录下（如 `src/**/__pycache__/`、`tests/**/.pytest_cache/`）。
 - `docs/` 下除 OS/编辑器垃圾文件名以外的一切（含 task 文档、specs、handoff/pending/findings）
-- `scripts/` 入库脚本；`.agents/`、`.claude/` skill 与软链
+- `scripts/` 与 `scripts/repo_template/` 入库脚本；`.agents/`、`.claude/` skill 与软链
 - `AGENTS.md`、`README.md`、`CLAUDE.md`、`.gitignore`
 - `docs/archive/tasks_audit.log`
 - task worktree（`../{repo}_tNNN`）在仓库外，本 skill 不扫不删；正常完成后由 `task.py cleanup-worktree` 从主仓清理，active/blocked worktree 保留
@@ -69,9 +69,9 @@ disable-model-invocation: true
     模式：dry-run
     类别：…
 
-    | 路径                      | 类别    | 说明 |
-    | ------------------------- | ------- | ---- |
-    | ./tests/unit/**pycache**/ | pycache | 目录 |
+    | 路径                               | 类别    | 说明 |
+    | ---------------------------------- | ------- | ---- |
+    | ./tests/repo_template/**pycache**/ | pycache | 目录 |
 
     合计：N 项
     下一步：确认后 `/repo-cleanup apply`（或带类别）。
@@ -81,7 +81,7 @@ disable-model-invocation: true
     1. 再扫一遍，与 dry-run 同规则。
     2. 文件 `rm`；目录 `rm -rf`（**仅列表内路径**）。禁止 `rm -rf` 仓库根或保护路径。
     3. **`scratch`**（仅点名 `apply scratch`）：
-        - 以登记 worktree、未合并 task 分支链尾 ref、main 的优先级确定 backlog/active/blocked task；读各有效来源中的 `spec.md` 上下文区与 `task.md` 实施笔记，收集提及的 `.scratch/` 相对路径 → **跳过不删**。main 中被 worktree或链尾覆盖的旧状态不重复计。
+        - 按 `AGENTS.md`「task 状态读取优先级」确定 backlog/active/blocked task；读各有效来源中的 `spec.md` 上下文区与 `task.md` 实施笔记，收集提及的 `.scratch/` 相对路径 → **跳过不删**。主干中被 worktree 或未合并分支覆盖的旧状态不重复计。
         - 其余 `.scratch/` 内容删掉，保留空目录。
         - 无法解析引用 → **不删** `.scratch/`，列入「需用户决定」。
     4. `artifacts` / `data`：清内容、保留目录。

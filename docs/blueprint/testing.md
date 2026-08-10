@@ -1,10 +1,10 @@
 # 测试
 
-`{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 必须在本文件给出说明。
+`doctor_cmd` / `test_cmd` / `blackbox_verify` 必须在本文件给出说明。
 
-- `{doctor_cmd}`：环境前置检查——本仓无独立 doctor 命令；`task-run` Step 1 写「无」，靠 `{test_cmd}` 各命令自身的失败信号判定环境。
-- `{test_cmd}`：日常测试（红/绿），见下方「门禁类别清单」。
-- `{blackbox_verify}`：黑盒验证——是一套方法论，不是单个命令。agent 按本文件描述自行决定如何执行。
+- `doctor_cmd`：环境前置检查——本仓无独立 doctor 命令；`task-run` Step 1 写「无」，靠 `test_cmd` 各命令自身的失败信号判定环境。
+- `test_cmd`：日常测试（红/绿）——`pnpm test`（vitest run，单元 + 集成），见下方「门禁类别清单」。
+- `blackbox_verify`：黑盒验证——是一套方法论，不是单个命令。agent 按本文件描述自行决定如何执行。
 
 日常命令速查（人读）见 `docs/guides/testing.md`；本文件是权威定义。
 
@@ -22,7 +22,7 @@
 
 ## 门禁类别清单
 
-填 `{test_cmd}` 时按本节逐类覆盖。运行时通过 ≠ 类型 / 构建正确，每类须有独立验证。本仓当前全部绿。
+填 `test_cmd`（`pnpm test`）时按本节逐类覆盖。运行时通过 ≠ 类型 / 构建正确，每类须有独立验证。本仓当前全部绿。
 
 | 类别                    | 命令             | 说明                                                                                                                                                                                                                                                                                                                                |
 | ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - better-sqlite3 ABI 由 `scripts/ensure_sqlite_abi.mjs` 在 worktree 内按 Electron/Node 运行时切换；`pnpm test` 前置 `node scripts/ensure_sqlite_abi.mjs node`。
 - `src/generated/`（gitignore）需在 worktree 内先 `npx tsx scripts/gen-build-info.ts` 生成，否则 `build-info-ipc` 相关测试整批必挂（t218 实测）。
 
-## 黑盒验证（{blackbox_verify}）
+## 黑盒验证（blackbox_verify）
 
 黑盒按 task 范围选择层级，非单个命令：
 

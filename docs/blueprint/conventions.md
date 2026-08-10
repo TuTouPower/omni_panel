@@ -8,7 +8,7 @@
 - `AGENTS.md`、`CLAUDE.md`、`README.md` 是工具入口例外。
 - task 编号：占位 `{tid}`，值小写 `t001`、`t042`…。目录 / 分支 / finding / worktree：`docs/tasks/{tid}_{slug}/`、`{tid}_{slug}`、`{tid}_code_fNNN`、`../omni_usage_{tid}`。
 - spike 编号：占位 `{sid}`，值小写 `s001`、`s003`…。目录：`docs/spikes/{sid}_{slug}/`。
-- 总账编号：`docs/pending.md`（含「待办」「不办」两节）所有条目统一 `pNNN`，新增前用 `scripts/pending.py next` 扫描所有本地分支 git 树 + worktree 取号，全局共享递增不复用。`docs/findings.md` 用 `dNNN`，`scripts/findings.py next` 同法。
+- 总账编号：`docs/pending/{todo,parked}/` 与 `docs/archive/pending/` 条目统一 `pNNN`，新增用 `scripts/repo_template/pending.py new`（锁内扫描所有本地分支 git 树 + worktree 取号），全局共享递增不复用。`docs/findings/` 用 `dNNN`，`scripts/repo_template/findings.py new` 同法。
 - 占位示例（模板、示例行）不得占用真实 `tid`/`sid`/`pNNN`/`dNNN`，也不得当作 active 工作项执行。
 - Markdown 嵌套内容缩进 4 空格，禁止 tab。
 - 时间戳统一使用中国时间，格式 `YYYY-MM-DD HH:MM UTC+8`。
@@ -55,7 +55,7 @@
 
 ### `task.md` front matter
 
-front matter 是 task 状态权威，只经 `scripts/task.py` 修改；`docs/tasks_index.json` 由它派生。
+front matter 是 task 状态权威，只经 `scripts/repo_template/task.py` 修改；`docs/tasks_index.json` 由它派生。
 
 ```yaml
 ---
@@ -77,23 +77,23 @@ note: ""
 - 字段 schema 完整定义在 `docs/tasks/task_template/task.md`；`tid`/`slug`/`title` 在 `task.py add` 后即填，`diff_anchor`/`branch`/`worktree` 在 step 1 开干时写实值。
 - `status`（`backlog`/`active`/`blocked`/`done`/`dropped`）权威就在 front matter（不是 JSON）。
 - `review_level`：`full`（code + test 双审，默认）/ `single`（general 单审，小 task 用）。
-- `scripts/render_review_prompts.py --task-dir ...` 读 `tid`/`slug`/`diff_anchor`/`review_level` 生成 review prompt。
+- `scripts/repo_template/render_review_prompts.py --task-dir ...` 读 `tid`/`slug`/`diff_anchor`/`review_level` 生成 review prompt。
 - 正文结构见 `docs/tasks/task_template/task.md`。
 
 ## review 报告字段
 
-`review_code.md` / `review_test.md`（`full`）或 `review_general.md`（`single`）以 `scripts/render_review_prompts.py` 渲染产物为准；流程见 `task-run` skill Step 5。
+`review_code.md` / `review_test.md`（`full`）或 `review_general.md`（`single`）以 `scripts/repo_template/render_review_prompts.py` 渲染产物为准；流程见 `task-run` skill Step 5。
 
 - 提示词正文存于 `docs/reviews/prompts/`（`code_prompt.txt` / `test_prompt.txt` / `general_prompt.txt` / `share_prompt.txt`），由 `render_review_prompts.py` 读 front matter 填占位符。
-- 用法：`scripts/render_review_prompts.py --task-dir docs/tasks/{tid}_{slug} --out-dir .scratch/review_prompts`
+- 用法：`scripts/repo_template/render_review_prompts.py --task-dir docs/tasks/{tid}_{slug} --out-dir .scratch/review_prompts`
 - 产物：`.scratch/review_prompts/{code,test}_review_prompt.md`（gitignore，不入库）。
 - front matter 字段：`task`=`{tid}_{slug}`、`spec`、`diff_anchor`、`target`=`git diff <diff_anchor>`、`round`、`reviewed_at`。
 - findings 前缀 `{tid}_code_fNNN` / `{tid}_test_fNNN` / `{tid}_general_fNNN`（跨轮全局续编）。
-- 末行 `verdict: PASS|FAIL`，由 `scripts/check_review_status.py` 解析。
+- 末行 `verdict: PASS|FAIL`，由 `scripts/repo_template/check_review_status.py` 解析。
 
 ## Review 处置（task.md 内）
 
-处置表唯一落点为 `task.md` 的 `## Review 处置` 小节；流程见 `task-run` skill Step 6。`status` 仅三值：`已修` / `遗留`（须登记 `docs/pending.md`）/ `撤回`。
+处置表唯一落点为 `task.md` 的 `## Review 处置` 小节；流程见 `task-run` skill Step 6。`status` 仅三值：`已修` / `遗留`（须登记 `docs/pending`）/ `撤回`。
 
 | finding_id       | severity                 | status             | rationale | fix_ref   |
 | ---------------- | ------------------------ | ------------------ | --------- | --------- |
@@ -167,7 +167,7 @@ note: ""
 
 ### 原子写
 
-- 写权威/派生状态数据（`task.md` front matter、`docs/tasks_index.json` / `docs/archive/tasks_index.json`、`docs/pending.md` / `docs/archive/pending.md`、review prompt 文件等）必须走 tmp 文件 + fsync + `os.replace` 原子写（`scripts/task.py` 的 `_atomic_write_text`），防中断/掉电产生半写状态。t063 曾实现、t169 模板化重写后丢失、t179 恢复（task.py）、t185 扩展到 `pending.py` 与 `render_review_prompts.py`。脚本层跨模块复用时 `from task import _atomic_write_text`（task.py 有 `__main__` guard，import 安全）。
+- 写权威/派生状态数据（`task.md` front matter、`docs/tasks_index.json` / `docs/archive/tasks_index.json`、`docs/pending/` / `docs/archive/pending/`、review prompt 文件等）必须走 tmp 文件 + fsync + `os.replace` 原子写（`scripts/repo_template/task.py` 的 `_atomic_write_text`），防中断/掉电产生半写状态。t063 曾实现、t169 模板化重写后丢失、t179 恢复（task.py）、t185 扩展到 `pending.py` 与 `render_review_prompts.py`。脚本层跨模块复用时 `from task import _atomic_write_text`（task.py 有 `__main__` guard，import 安全）。
 
 ## 浏览器/网络 API 约定
 

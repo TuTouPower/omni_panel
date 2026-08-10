@@ -1,14 +1,10 @@
 # Task spec
 
-契约区执行期原则上不再改动；确需调整须经用户确认（渲染 review prompt 时脚本会附契约区相对 diff_anchor 的 drift diff 供 reviewer 核对）。上下文区执行期可补。
-
 ## 背景
 
-来源：`docs/pending.md` p102（t273 test review Round 2 `t273_test_f001` minor）。核实（2026-08-10）：`tests/unit/renderer/styles/session_typography.test.ts` 仍通过 `readFileSync` 读源文件并用文本正则验证 utility 类名；类名拆分或 utility 生成规则变化时存在假阳/假阴边界。测试健壮性改进。
+来源：`docs/pending` p102（t273 test review Round 2 `t273_test_f001` minor）。核实（2026-08-10）：`tests/unit/renderer/styles/session_typography.test.ts` 仍通过 `readFileSync` 读源文件并用文本正则验证 utility 类名；类名拆分或 utility 生成规则变化时存在假阳/假阴边界。测试健壮性改进。
 
 ## 契约区
-
-reviewer 判 AC 时只看本区。
 
 ### 范围
 
@@ -22,15 +18,39 @@ reviewer 判 AC 时只看本区。
 
 ### 验收标准
 
+<!-- 规范（门禁必留，不得删除） -->
+
+只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
+
+<!-- /规范 -->
+
+<!-- 规范（门禁必留，不得删除） -->
+
+每条 AC 条目带稳定编号 `AC-NNN`（三位十进制、task 内从 001 顺序编号、唯一、删除不复用）；收尾时 `handoff.json` 的 `ac_evidence` 须精确覆盖本区全部编号。编号约定见 `docs/blueprint/conventions.md`。
+
+<!-- /规范 -->
+
 只写用户或调用方可观察行为，每条可独立验证。普通版本号、底层库和目录结构不作为验收标准；需要长期约束后续工作的技术选择写入 `docs/blueprint/decisions.md`。
 
 需真实部署或人工环境才能验证的条目加 `[deploy]` 前缀，标明 agent 无法自证。
 
-- [ ] AC1：`session_typography.test.ts` 不再依赖源文件文本正则验证类名
-- [ ] AC2：原字号层级语义断言全部保留（等价的输入→输出断言）
-- [ ] AC3：全量 `pnpm test` 通过
+- [ ] AC-001：`session_typography.test.ts` 不再依赖源文件文本正则验证类名
+- [ ] AC-002：原字号层级语义断言全部保留（等价的输入→输出断言）
+- [ ] AC-003：全量 `pnpm test` 通过
 
 ### 可测试性声明
+
+<!-- 规范（门禁必留，不得删除） -->
+
+逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
+
+<!-- /规范 -->
 
 逐条说明哪些 AC 不可自动测试及原因；全部可测则写「全部 AC 可自动测试」。
 
@@ -38,9 +58,15 @@ reviewer 判 AC 时只看本区。
 
 ## 上下文区
 
-reviewer 判测试覆盖时核对本区；实施期可补。
+- 来源：p102（t273 test review Round 2 t273_test_f001 minor；2026-08-10 核实仍在：session_typography.test.ts 仍读源文本正则）
 
 ### 有意不测
+
+<!-- 规范（门禁必留，不得删除） -->
+
+已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
+
+<!-- /规范 -->
 
 已判定不写测试的分支与原因。reviewer 不得据此出 blocking finding。无则写「无」。
 
@@ -48,12 +74,24 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 ### 测试策略
 
+<!-- 规范（门禁必留，不得删除） -->
+
+mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
+
+<!-- /规范 -->
+
 mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默认」。
 
 - 单测：改造 `session_typography.test.ts`，断言改从 fixture 或渲染结果提取
 - 若需构建产物参与断言，注明命令与依赖顺序
 
 ### 未知契约清单
+
+<!-- 规范（门禁必留，不得删除） -->
+
+尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
+
+<!-- /规范 -->
 
 尚未核实的外部 endpoint、API 形态、数据结构、第三方行为须分类标记；核实后删除标记，改为结论并注明验证方式。无则写「无」。
 
