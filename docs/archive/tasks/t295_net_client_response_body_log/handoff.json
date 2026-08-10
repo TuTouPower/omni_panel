@@ -1,0 +1,25 @@
+{
+    "tid": "t295",
+    "attempt": 1,
+    "execution_id": "da045545a1bc43bc88d77d7245d4f531",
+    "status": "done",
+    "branch": "t295_net_client_response_body_log",
+    "base_sha": "3d770c708d10586defbb777b92986fc080b2f06f",
+    "tests": "pnpm test：254 files / 2846 passed，0 failed",
+    "blackbox": "pnpm test 全绿（含 net-client 集成测试真实 logger transport + HTTP server 路径）",
+    "review": "Round 2 general PASS，2 条 minor 全已修",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/connector/net-client.test.ts::does not log response body on JSON parse failure 断言日志不含 sensitive-leak-data-xyz"
+        ],
+        "AC-002": [
+            "tests/integration/connector/net-client.test.ts::does not log response body on JSON parse failure 断言 warn meta 含 status/contentType/bodyBytes"
+        ],
+        "AC-003": [
+            "tests/integration/connector/net-client.test.ts::does not log response body on HTTP error 断言日志不含 leak-400-body-sensitive",
+            "tests/integration/connector/net-client.test.ts::does not log response body on get_raw HTTP error 断言日志不含 leak-getraw-body-sensitive"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

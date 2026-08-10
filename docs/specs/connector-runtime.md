@@ -50,6 +50,7 @@
 - 代理：`proxy_url` → `ProxyAgent` dispatcher，同样传 `connections: 6`。超时默认 15s，可 `opts.timeout_ms` 覆盖；响应体上限 50MB。
 - **连接池 reset**：`NetClientConfig.reset` 或 `opts.reset` 为 true 时，undici 请求传 `{reset:true}` 跳过全局连接池，强制新建 TCP+TLS 连接。连接级错误重试时由 refresh-service 自动注入（需连续两次连接错误才升级）。
 - 错误归一：status ≥ 400 抛 `HTTP <status>`；`text/html` 响应抛"possible interception page"；空 body 返回 null。
+- **响应体日志收敛（t295）**：JSON 解析失败日志只记 status/content-type/body 长度，≥400 响应日志记 body 长度，均不打响应体原文——错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
 - **origin 约束（t294）**：请求 URL 由 `new URL(path, base)` 构造后强制 `url.origin` 等于解析后 endpoint base origin；不同 origin 的绝对 URL 或 `//` protocol-relative path 在 auth 注入前抛错拒绝，防止 vault 凭据被发往其它主机。do_request（get_json/post_json）与 get_raw 均经 `build_request_context` 单点校验。
 - SSRF：`assert_safe_connector_host` 拦云元数据主机（`169.254.169.254`/`metadata.google.internal`/`metadata.azure.com`），**不拦公网/私有主机**（见 `architecture.md` §6 已知限制）。
 
