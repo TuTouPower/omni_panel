@@ -180,11 +180,12 @@
 
 .dark,
 [data-theme="dark"] {
-    --accent-blue: #5b8dff;
-    --accent-purple: #9a80ff;
-    --accent-teal: #2cc9bd;
-    --accent-orange: #ff9d5c;
-    --accent-red: #ff6b6b;
+    /* accent 五档暗色值只经 token 翻转（DESIGN.md → @theme 导出），不硬编码副本。 */
+    --accent-blue: var(--color-accent-blue-dark);
+    --accent-purple: var(--color-accent-purple-dark);
+    --accent-teal: var(--color-accent-teal-dark);
+    --accent-orange: var(--color-accent-orange-dark);
+    --accent-red: var(--color-accent-red-dark);
     --accent: var(--accent-blue);
     --accent-strong: color-mix(in srgb, var(--accent) 85%, #fff);
     --accent-container: color-mix(in srgb, var(--accent) 16%, transparent);

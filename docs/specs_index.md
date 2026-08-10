@@ -46,6 +46,7 @@
 | ui-views-web                         | Web                 | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
 | design-tokens-foundation             | Desktop             | t268                                                                                              | 2026-08-09   |
 | ui-component-library                 | Desktop             | t269                                                                                              | 2026-08-09   |
+| ui-component-theme-contrast          | Web                 | t283                                                                                              | 2026-08-10   |
 | legacy_css_cleanup                   | Web+Desktop         | t274                                                                                              | 2026-08-09   |
 | ui-views-desktop                     | Desktop             | 拆自 ui-views（t037），t153                                                                       | 2026-07-27   |
 | cli-mode                             | Desktop             | t275                                                                                              | 2026-08-09   |
