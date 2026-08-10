@@ -2,11 +2,11 @@
 tid: "t300"
 slug: "renderer_act_warnings_cleanup"
 title: "renderer 存量 act 警告清理（settings_form 等）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t300_renderer_act_warnings_cleanup"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "db4f25c5c15cab206dc8dc83ae7e9e29b8b0dc3c"
 depends_on: ""
 conflicts_with: ""
 note: "p119：全量 pnpm test 约 80 条 not wrapped in act 警告（settings_form/cpa_connector_settings/provider_card_label_map/label_map_dialog 等），单文件不现全量现，疑似跨用例污染；按 t290 方式清理或定位污染源"
@@ -21,6 +21,27 @@ note: "p119：全量 pnpm test 约 80 条 not wrapped in act 警告（settings_f
 执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
+
+## 根因
+
+全量 80 条 act 警告集中在 4 个组件：SettingsForm(30)/SessionLibrary(25)/CpaConnectorSettings(22)/SettingsView(3)。源是测试内 render 后组件挂载 effect 的异步 setState（config getSecrets/getState/label map 查询等，mock 立即 resolve 落微任务）在同步测试结束 act 外更新。t290 已修 popup_view_height，本 task 清其余存量。
+
+## 方案
+
+按 t290 已验证方式「等待包 act」：各测试文件的 render helper（renderForm/renderWebLoginForm/renderSettings）改 async，render 后 `await act(async () => { await Promise.resolve(); })` flush 微任务，使挂载 effect 的 setState 在 act 内落地；同步调用点加 await、同步 it 变 async。裸 render 的个别用例（label map loading / SettingsView web mode）同样补 flush。
+
+- settings_form.test.tsx：renderForm + renderWebLoginForm async 化，39 用例
+- cpa_connector_settings.test.tsx：renderSettings async 化，28 用例
+- SessionShell.test.tsx：7 处 render 后 flush
+- settings_view_general.test.tsx：hides window controls 用例 render 后 flush
+
+断言零改动（用例数/断言数不减少）。
+
+## 验证记录
+
+- RED：全量 80 条 act 警告（settings_form 30 / SessionLibrary 25 / cpa 22 / SettingsView 3）。
+- GREEN：逐文件修后单文件 0 警告；全量 `pnpm test` 0 act 警告、2857 passed。
+- typecheck + lint 全绿。
 
 无
 
@@ -44,14 +65,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-11 05:00 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,14 +76,18 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 全量 `pnpm test` stderr 0 条 act 警告；AC-002 4 文件 it/expect 计数与 base 完全一致（diff 比对 IDENTICAL，无删 expect）；AC-003 全量 254 files / 2857 passed
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
+`single`：
 
-`full`：
+- Round 1 general：PASS（零 finding）
+
+### 结果摘要
+
+renderer 测试全量 80 条 act 警告清零：render helper（renderForm/renderWebLoginForm/renderSettings）async 化 + render 后 flush 微任务，使挂载 effect 异步 setState 在 act 内落地；断言零改动。全量 2857 passed、0 警告、typecheck + lint 绿。
 
 - Round 1 code：PASS / FAIL
 - Round 1 test：PASS / FAIL

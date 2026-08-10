@@ -55,7 +55,7 @@ beforeEach(() => {
     } as unknown as typeof window.usageboard;
 });
 
-function renderForm(overrides: Record<string, unknown> = {}) {
+async function renderForm(overrides: Record<string, unknown> = {}) {
     const defaults = {
         instanceId: "deepseek",
         parameters: baseParams,
@@ -66,31 +66,37 @@ function renderForm(overrides: Record<string, unknown> = {}) {
         onSave: vi.fn<SaveHandler>().mockResolvedValue(undefined),
         ...overrides,
     };
-    return { ...render(<SettingsForm {...defaults} />), onSave: defaults.onSave };
+    const result = render(<SettingsForm {...defaults} />);
+    // 组件挂载 effect 异步加载 secrets / connector state / label map，mock 立即
+    // resolve 的 Promise 落在微任务；flush 使其在 act 内落地，避免测试结束 act 外更新。
+    await act(async () => {
+        await Promise.resolve();
+    });
+    return { ...result, onSave: defaults.onSave };
 }
 
 describe("SettingsForm", () => {
-    it("renders form fields", () => {
-        renderForm();
+    it("renders form fields", async () => {
+        await renderForm();
         expect(screen.getByText("备注")).toBeInTheDocument();
         expect(screen.getByText("API Key")).toBeInTheDocument();
     });
 
-    it("renders parameter labels", () => {
-        renderForm();
+    it("renders parameter labels", async () => {
+        await renderForm();
         expect(screen.getByText("API Key")).toBeInTheDocument();
         expect(screen.getByText("Model")).toBeInTheDocument();
     });
 
-    it("renders follow-global switch with correct initial state", () => {
-        renderForm({ refreshIntervalSeconds: 300 });
+    it("renders follow-global switch with correct initial state", async () => {
+        await renderForm({ refreshIntervalSeconds: 300 });
         const btn = screen.getByTestId("settings-follow-global-deepseek");
         expect(btn).toHaveAttribute("data-on", "0");
         expect(screen.getByTestId("settings-sync-interval-deepseek")).toBeInTheDocument();
     });
 
-    it("defaults to follow-global when refreshIntervalSeconds is 0", () => {
-        renderForm({ refreshIntervalSeconds: 0 });
+    it("defaults to follow-global when refreshIntervalSeconds is 0", async () => {
+        await renderForm({ refreshIntervalSeconds: 0 });
         const btn = screen.getByTestId("settings-follow-global-deepseek");
         expect(btn).toHaveAttribute("data-on", "1");
         expect(screen.getByTestId("settings-global-label-deepseek")).toHaveTextContent(
@@ -98,34 +104,34 @@ describe("SettingsForm", () => {
         );
     });
 
-    it("renders save button with default text", () => {
-        renderForm();
+    it("renders save button with default text", async () => {
+        await renderForm();
         expect(screen.getByTestId("settings-save-btn-deepseek")).toHaveTextContent("保存");
     });
 
     it("shows save error when onSave rejects", async () => {
         const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("保存失败：网络错误"));
         const user = userEvent.setup();
-        renderForm({ onSave });
+        await renderForm({ onSave });
         await user.click(screen.getByTestId("settings-save-btn-deepseek"));
         const alert = await screen.findByRole("alert");
         expect(alert).toHaveTextContent("保存失败：网络错误");
     });
 
-    it("does not render duplicate button when onDuplicate is not provided", () => {
-        renderForm();
+    it("does not render duplicate button when onDuplicate is not provided", async () => {
+        await renderForm();
         expect(screen.queryByTestId("settings-duplicate-btn-deepseek")).not.toBeInTheDocument();
     });
 
-    it("renders duplicate button when onDuplicate is provided", () => {
-        renderForm({ onDuplicate: vi.fn() });
+    it("renders duplicate button when onDuplicate is provided", async () => {
+        await renderForm({ onDuplicate: vi.fn() });
         expect(screen.getByTestId("settings-duplicate-btn-deepseek")).toBeInTheDocument();
     });
 
     it("calls onDuplicate with instanceId when duplicate button clicked", async () => {
         const onDuplicate = vi.fn();
         const user = userEvent.setup();
-        renderForm({ onDuplicate });
+        await renderForm({ onDuplicate });
         await user.click(screen.getByTestId("settings-duplicate-btn-deepseek"));
         expect(onDuplicate).toHaveBeenCalledWith("deepseek");
     });
@@ -139,7 +145,7 @@ describe("SettingsForm", () => {
                 }),
         );
         const user = userEvent.setup();
-        renderForm({ onDuplicate });
+        await renderForm({ onDuplicate });
         const button = screen.getByTestId("settings-duplicate-btn-deepseek");
 
         await user.click(button);
@@ -188,7 +194,7 @@ describe("SettingsForm", () => {
         expect(await screen.findByDisplayValue("滚动")).toBeInTheDocument();
     });
 
-    it("shows label map loading state by default", () => {
+    it("shows label map loading state by default", async () => {
         window.usageboard.connector.getState = vi
             .fn()
             .mockReturnValue(new Promise(() => undefined));
@@ -205,6 +211,9 @@ describe("SettingsForm", () => {
                 onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
             />,
         );
+        await act(async () => {
+            await Promise.resolve();
+        });
 
         expect(screen.getByText("加载标签数据…")).toBeInTheDocument();
     });
@@ -235,7 +244,7 @@ describe("SettingsForm", () => {
     it("submits form and calls onSave with correct arguments", async () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
-        renderForm({
+        await renderForm({
             onSave,
             parameters: [
                 {
@@ -263,7 +272,7 @@ describe("SettingsForm", () => {
     it("submits endpoint overrides separately from parameter values", async () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
-        renderForm({
+        await renderForm({
             onSave,
             parameters: [],
             values: {},
@@ -294,7 +303,7 @@ describe("SettingsForm", () => {
                 }),
         );
         const user = userEvent.setup();
-        renderForm({
+        await renderForm({
             onSave,
             parameters: [],
             values: {},
@@ -311,7 +320,7 @@ describe("SettingsForm", () => {
     it("shows saved text after successful save", async () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
-        renderForm({
+        await renderForm({
             onSave,
             parameters: [],
             values: {},
@@ -327,7 +336,7 @@ describe("SettingsForm", () => {
     it("skips secret parameter when unchanged from loaded vault value", async () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const user = userEvent.setup();
-        renderForm({
+        await renderForm({
             onSave,
             parameters: [
                 {
@@ -509,7 +518,7 @@ describe("SettingsForm web_login editing (t157)", () => {
         window.usageboard.connector.refresh = connectorRefreshMock;
     });
 
-    function renderWebLoginForm(overrides: Record<string, unknown> = {}) {
+    async function renderWebLoginForm(overrides: Record<string, unknown> = {}) {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const defaults = {
             instanceId: "opencode-go-1",
@@ -534,18 +543,22 @@ describe("SettingsForm web_login editing (t157)", () => {
             globalIntervalLabel: "5 分钟",
             onSave,
         };
-        return { ...render(<SettingsForm {...defaults} {...overrides} />), onSave };
+        const result = render(<SettingsForm {...defaults} {...overrides} />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        return { ...result, onSave };
     }
 
-    it("renders WebLoginSection with a manual Cookie fallback", () => {
-        renderWebLoginForm();
+    it("renders WebLoginSection with a manual Cookie fallback", async () => {
+        await renderWebLoginForm();
         expect(screen.getByTestId("web-login-section-opencode_go")).toBeInTheDocument();
         expect(screen.getByLabelText("网页登录 Cookie")).toBeInTheDocument();
         expect(screen.queryByLabelText("Cookie")).not.toBeInTheDocument();
     });
 
     it("reloads the vault and refreshes after instance web login succeeds", async () => {
-        const { onSave } = renderWebLoginForm();
+        const { onSave } = await renderWebLoginForm();
         const user = userEvent.setup();
         await user.click(screen.getByText("网页登录"));
 
@@ -575,7 +588,7 @@ describe("SettingsForm web_login editing (t157)", () => {
                 cookieLogin: cookie_login,
                 cookieLoginStatus: cookie_login_status,
             };
-            const { onSave } = renderWebLoginForm();
+            const { onSave } = await renderWebLoginForm();
             const user = userEvent.setup();
             await user.click(screen.getByText("网页登录"));
 
@@ -595,7 +608,7 @@ describe("SettingsForm web_login editing (t157)", () => {
 
     it("allows a manually pasted Cookie to use the normal save path", async () => {
         window.usageboard.config.getSecrets = vi.fn().mockResolvedValue({});
-        const { onSave } = renderWebLoginForm();
+        const { onSave } = await renderWebLoginForm();
         const user = userEvent.setup();
         await user.type(screen.getByLabelText("网页登录 Cookie"), "manual-cookie");
         await user.click(screen.getByTestId("settings-save-btn-opencode-go-1"));
@@ -612,7 +625,7 @@ describe("SettingsForm web_login editing (t157)", () => {
 
     it("does not save when web login captures no cookie", async () => {
         sessionLoginMock.mockResolvedValue({ saved: false });
-        const { onSave } = renderWebLoginForm();
+        const { onSave } = await renderWebLoginForm();
         const user = userEvent.setup();
         await user.click(screen.getByText("网页登录"));
 
@@ -869,7 +882,7 @@ describe("SettingsForm session editing (t157)", () => {
         expect(alert.textContent).not.toMatch(/already in progress/i);
     });
 
-    it("uses label@zh-Hans when available", () => {
+    it("uses label@zh-Hans when available", async () => {
         const params: PluginParameterMetadata[] = [
             {
                 name: "LIMIT",
@@ -879,7 +892,7 @@ describe("SettingsForm session editing (t157)", () => {
                 required: false,
             },
         ];
-        renderForm({ parameters: params });
+        await renderForm({ parameters: params });
         expect(screen.getByText("金额上限")).toBeInTheDocument();
         expect(screen.queryByText("Amount Limit")).not.toBeInTheDocument();
     });
@@ -893,7 +906,7 @@ describe("SettingsForm session editing (t157)", () => {
                 required: true,
             },
         ];
-        renderForm({
+        await renderForm({
             parameters: params,
             hasSecrets: { API_KEY: true },
         });

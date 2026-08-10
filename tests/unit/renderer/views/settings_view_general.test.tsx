@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -88,10 +88,14 @@ describe("SettingsView", () => {
         });
     });
 
-    it("hides window controls in web mode", () => {
+    it("hides window controls in web mode", async () => {
         document.documentElement.setAttribute("data-web", "1");
         try {
             render(<SettingsView />);
+            // 挂载 effect 异步（config get 等）mock 立即 resolve；先 flush 使其在 act 内落地。
+            await act(async () => {
+                await Promise.resolve();
+            });
             // TitleBar renders synchronously; window controls must be absent.
             expect(screen.queryByTitle("最小化")).not.toBeInTheDocument();
             expect(screen.queryByTitle("最大化")).not.toBeInTheDocument();
