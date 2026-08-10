@@ -103,7 +103,7 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
+            "conflicts_with": "t289",
             "schedule_status": "",
             "note": "p096：playwright future 项，闲置 vite preview",
             "dir": "docs/tasks/t287_cli_e2e_webserver_isolate"
@@ -120,7 +120,7 @@
             "depends_on": "",
             "conflicts_with": "",
             "schedule_status": "",
-            "note": "",
+            "note": "p095：CLI restart e2e relaunch 进程泄漏",
             "dir": "docs/tasks/t288_cli_control_restart_relaunch_reap"
         },
         {
@@ -133,10 +133,40 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
+            "conflicts_with": "t287",
+            "schedule_status": "",
+            "note": "p097：web e2e webServer 探测被代理污染",
+            "dir": "docs/tasks/t289_web_e2e_webserver_proxy_isolation"
+        },
+        {
+            "tid": "t290",
+            "slug": "popup_view_height_act_wrap",
+            "title": "popup_view_height act 警告消除与假绿分析",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
             "conflicts_with": "",
             "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t289_web_e2e_webserver_proxy_isolation"
+            "note": "p089：popup_view_height act 警告（单文件复现）",
+            "dir": "docs/tasks/t290_popup_view_height_act_wrap"
+        },
+        {
+            "tid": "t291",
+            "slug": "gen_synthetic_prettier_indent",
+            "title": "gen_synthetic 产物缩进对齐 prettier 与再生成一致",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p091：gen_synthetic 产物缩进对齐 prettier",
+            "dir": "docs/tasks/t291_gen_synthetic_prettier_indent"
         }
     ]
 }

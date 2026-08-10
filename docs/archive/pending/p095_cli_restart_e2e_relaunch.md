@@ -6,4 +6,4 @@
 - 根因：relaunch 脱离 playwright ElectronApplication 句柄，测试无法 close。
 - 测试缺口：teardown 未回收 relaunch 新进程；无断言验证 18811 释放。
 - 线索：2026-08-10 主仓实测（xvfb + E2E_HEADLESS）：restart 用例通过后，relaunch 新进程（监听 0.0.0.0:18811）连同 zygote/gpu/utility 子进程全部残留，`finally` 的 `closeServe` 只关原句柄，跨 run 占端口坐实。修复方向：AC3 teardown 读 `cli.json` 新 pid 后 `process.kill`（连带子进程组），或测试前置清理 18811 残留兜底。
-- 处理：未开
+- 处理：t288

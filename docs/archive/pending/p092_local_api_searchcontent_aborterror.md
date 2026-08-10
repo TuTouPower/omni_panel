@@ -6,4 +6,4 @@
 - 根因：t263 断连测试 abort fetch 后，undici 的 rejection 在测试结束后的微任务才触发，`req.catch(() => {})` 虽捕获但 timing 上 rejected promise 被 vitest 计为 unhandled。
 - 测试缺口：断连测试未在测试内 await 并稳定捕获 abort rejection。
 - 线索：`server.test.ts` 断连用例 `await req.catch(() => {})` 后需额外 flush 微任务或改用 `vi.waitFor` 后显式断言；或服务端 handler 对断连 abort 时不 reject 响应 promise。2026-08-10 主仓复现尝试：全量 `pnpm test` ×2、断连用例 ×10 循环均绿（vitest 3.2.4），unhandled AbortError 未复现，疑似依赖 vitest 版本时序。
-- 处理：未开
+- 处理：未复现
