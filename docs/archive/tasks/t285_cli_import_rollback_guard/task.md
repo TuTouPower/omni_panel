@@ -2,11 +2,11 @@
 tid: "t285"
 slug: "cli_import_rollback_guard"
 title: "CLI import-config 回滚边界加固与 apt 依赖清单"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t285_cli_import_rollback_guard"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "43d55051af9ca47bf541f7e745f52f75886097f2"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -45,14 +45,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-10 23:30 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id     | severity  | status | rationale                                                                                 | fix_ref                                       |
+| -------------- | --------- | ------ | ----------------------------------------------------------------------------------------- | --------------------------------------------- |
+| t285_code_f001 | minor     | 已修   | 二轮导入改不同 secret 值，断言可区分 restore 旧值与 no-op                                 | tests/unit/main/cli/import-config.test.ts:242 |
+| t285_code_f002 | minor     | 已修   | apt 清单 t64 版本说明修正（Debian 13 / Ubuntu 24.04+ 才用 t64 名；旧发行版去后缀）        | docs/guides/cli-mode.md:27                    |
+| t285_test_f001 | important | 已修   | 同 code_f002：apt 清单 t64 事实错误（Debian 12 误标、其余包名一致不成立）已修正为两段清单 | docs/guides/cli-mode.md                       |
+| t285_test_f002 | minor     | 已修   | 同 code_f001：二轮不同值断言已改                                                          | tests/unit/main/cli/import-config.test.ts:242 |
+| t285_code_f003 | minor     | 已修   | Round 2 新增：`plugins[0]!` 非空断言改 if 守卫（lint no-non-null-assertion）              | tests/unit/main/cli/import-config.test.ts:305 |
 
 ## 收尾报告
 
@@ -61,8 +62,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 结果：全部满足
+- 证据：
+    - AC-001：`tests/unit/main/cli/import-config.test.ts` 新增「重复导入且 save 失败时回滚保留导入前已存在的 vault 值」用例——二轮导入不同 secret 值（sk-second-secret）后 save 失败，断言 vault 恢复首轮旧值（sk-live-secret）且 deleteMock 未被调用（restore 分支真实触达）；原「新建回滚删除」用例保持。
+    - AC-002：`docs/guides/cli-mode.md`「Electron GUI 运行时依赖」节——两段 apt 清单（Ubuntu 24.04+/Debian 13+ t64 名；旧发行版去 t64 后缀），包名经 packages.ubuntu.com 逐包核实。
+    - AC-003：`pnpm test` 全量 2834 passed、9 skipped；typecheck/eslint 干净。
 
 ### Reviewer verdict
 
@@ -70,15 +74,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（2 minor）
+- Round 1 test：FAIL（f001 important apt 清单 t64 事实错误 + f002 minor）
+- Round 2 code：PASS（1 新增 minor f003 非空断言）
+- Round 2 test：PASS（1 新增 minor f003）
+- Round 3 code：PASS（f003 处置复核成立，0 新 finding）
+- Round 3 test：PASS（f003 处置复核成立，0 新 finding）
 
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- 不适用
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- import-config 回滚边界加固（覆盖恢复 vs 新建删除），apt 依赖清单补齐（t64 事实修正）；4 finding 全闭环，全量 2834 passed 无回归。

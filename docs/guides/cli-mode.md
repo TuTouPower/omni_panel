@@ -16,6 +16,39 @@ sudo apt install xvfb   # 一次性
 xvfb-run -a omni-panel --cli serve --config ~/import.json
 ```
 
+### Electron GUI 运行时依赖（apt）
+
+Electron 主进程（含 CLI 模式，无窗口也会加载图形栈）需要以下运行时库，缺失时启动报
+`error while loading shared libraries` 或静默崩溃。
+
+**Ubuntu 24.04+ / Debian 13+**（t64 过渡包名）：
+
+```bash
+sudo apt install \
+  libgtk-3-0t64 \
+  libnss3 \
+  libasound2t64 \
+  libatk1.0-0t64 \
+  libatk-bridge2.0-0t64 \
+  libcups2t64 \
+  libdrm2 \
+  libxkbcommon0 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxfixes3 \
+  libxrandr2 \
+  libgbm1 \
+  libpango-1.0-0 \
+  libcairo2 \
+  libatspi2.0-0t64
+```
+
+**旧发行版（Ubuntu ≤22.04 / Debian ≤12）**：同上清单去掉 `t64` 后缀（`libgtk-3-0`
+`libasound2` `libatk1.0-0` `libatk-bridge2.0-0` `libcups2` `libatspi2.0-0`）。
+
+安装后可用 `omni-panel --cli serve --config ~/import.json` 直接验证；仍报缺库时按
+报错的 `.so` 名用 `apt-file search` 定位对应包。
+
 ## 启动语法
 
 ```bash
