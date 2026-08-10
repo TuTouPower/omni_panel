@@ -28,7 +28,7 @@
 | connector-cpa-ui                     | Web                 | 拆自 connector-cpa（t037）                                                                        | 2026-07-21   |
 | connector-direct                     | API                 | 迁移自 omni_powers，t039, t159, t160                                                              | 2026-07-29   |
 | connector-runtime                    | API                 | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
-| connector-session                    | Desktop             | 迁移自 omni_powers，t098                                                                          | 2026-07-24   |
+| connector-session                    | Desktop             | 迁移自 omni_powers，t098，t282                                                                    | 2026-08-10   |
 | connector-user-scripts-entry         | Desktop             | t094                                                                                              | 2026-07-24   |
 | connector-user-scripts               | Desktop             | t095                                                                                              | 2026-07-24   |
 | ipc-api                              | API                 | 拆自 ipc（t037）                                                                                  | 2026-07-21   |
@@ -46,9 +46,11 @@
 | ui-views-web                         | Web                 | 拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215                         | 2026-08-05   |
 | design-tokens-foundation             | Desktop             | t268                                                                                              | 2026-08-09   |
 | ui-component-library                 | Desktop             | t269                                                                                              | 2026-08-09   |
+| ui-component-theme-contrast          | Web                 | t283                                                                                              | 2026-08-10   |
 | legacy_css_cleanup                   | Web+Desktop         | t274                                                                                              | 2026-08-09   |
 | ui-views-desktop                     | Desktop             | 拆自 ui-views（t037），t153                                                                       | 2026-07-27   |
-| cli-mode                             | Desktop             | t275                                                                                              | 2026-08-09   |
+| cli-mode                             | Desktop             | t275, t285                                                                                        | 2026-08-10   |
+| cli-import-config                    | API                 | t285                                                                                              | 2026-08-10   |
 | vendor-forms-oauth-weblogin          | Web                 | t109                                                                                              | 2026-07-25   |
 | fix_add_account_wiring               | Desktop             | t110                                                                                              | 2026-07-25   |
 | web-panel                            | Web                 | 迁移自 omni_powers，无                                                                            | 2026-07-05   |
@@ -74,5 +76,7 @@
 | usage-panel-selection-persist        | Web+Desktop         | t250                                                                                              | 2026-08-08   |
 | panel-window-bounds-persist          | Desktop             | t251, t262                                                                                        | 2026-08-08   |
 | session-pane-display-adjust          | Web+Desktop         | t257                                                                                              | 2026-08-08   |
+| e2e_synthetic_fixture                | Web                 | t281                                                                                              | 2026-08-10   |
+| web_cookie_login_anon_poll_parity    | Web + Desktop       | t282                                                                                              | 2026-08-10   |
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

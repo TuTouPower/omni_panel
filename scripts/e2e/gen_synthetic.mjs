@@ -2,6 +2,7 @@
 // 用法：先 pnpm e2e:gen-data 录真实响应，再 pnpm e2e:gen-synthetic 产 synthetic
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import * as prettier from "prettier";
 import { build_session_responses } from "./session_fixture.mjs";
 
 const ROOT = process.cwd();
@@ -166,7 +167,16 @@ out["GET /v1/connectors/synthetic-opencode-go/state"] = { status: "ready", items
 // t228：并入会话面板 web e2e 的合成会话与消息数据（独立于真实响应，保证可重建）。
 Object.assign(out, build_session_responses());
 
-writeFileSync(OUT, JSON.stringify(out, null, 2));
+// 写出并对齐仓库 prettier（tabWidth=4 + 短数组折叠等）。纯 JSON.stringify(null,4)
+// 仍会与 prettier 在数组折行上不一致，故用已有 prettier 依赖做最终格式化。
+const raw_text = `${JSON.stringify(out, null, 4)}\n`;
+const prettier_cfg = (await prettier.resolveConfig(OUT)) ?? {};
+const formatted = await prettier.format(raw_text, {
+    ...prettier_cfg,
+    filepath: OUT,
+    parser: "json",
+});
+writeFileSync(OUT, formatted);
 console.log(`[gen_synthetic] wrote ${OUT} (${String(Object.keys(out).length)} responses)`);
 
 // 兜底校验：无非 example.com 邮箱

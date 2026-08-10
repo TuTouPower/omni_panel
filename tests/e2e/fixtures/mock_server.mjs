@@ -75,6 +75,18 @@ export function create_mock_handler(responses) {
         };
     }
 
+    // fixture 中无对应 config.plugins 的 connector（synthetic-only，如
+    // synthetic-kimi-failed / synthetic-opencode-go）。按 initial config 计算一次，
+    // 重建时保留；config 里曾出现过的 plugin 删除后不从 initial 复活。
+    const initial_plugin_ids = new Set(
+        (Array.isArray(initial_config?.config?.plugins) ? initial_config.config.plugins : []).map(
+            (p) => p.instanceId,
+        ),
+    );
+    const synthetic_only_connectors = initial_connectors.filter(
+        (item) => item?.instanceId && !initial_plugin_ids.has(item.instanceId),
+    );
+
     function sync_connectors() {
         const plugins = current_plugins();
         if (plugins.length === 0 && !Array.isArray(config_state?.config?.plugins)) {
@@ -82,6 +94,7 @@ export function create_mock_handler(responses) {
             return;
         }
         const current_by_id = new Map(connector_state.map((item) => [item.instanceId, item]));
+        const plugin_ids = new Set(plugins.map((p) => p.instanceId));
         connector_state = plugins.map((plugin) => {
             const template =
                 current_by_id.get(plugin.instanceId) ??
@@ -91,6 +104,11 @@ export function create_mock_handler(responses) {
                 );
             return connector_from_plugin(plugin, template);
         });
+        // t281：保留 fixture 中无 config 匹配的 synthetic-only connector
+        for (const item of synthetic_only_connectors) {
+            if (plugin_ids.has(item.instanceId)) continue;
+            connector_state.push(clone(current_by_id.get(item.instanceId) ?? item));
+        }
     }
 
     function publish_sse(event, data) {

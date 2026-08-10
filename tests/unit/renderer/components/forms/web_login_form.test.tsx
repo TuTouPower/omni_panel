@@ -130,7 +130,7 @@ describe("WebLoginForm", () => {
         });
     });
 
-    it("shows error when session.login rejects", async () => {
+    it("shows Chinese timeout when session.login rejects timed out (t282)", async () => {
         mock_session_api(undefined, new Error("Login timed out"));
         const user = userEvent.setup();
         render(
@@ -147,8 +147,10 @@ describe("WebLoginForm", () => {
         await user.click(screen.getByText("网页登录"));
 
         await waitFor(() => {
-            expect(screen.getByText("Login timed out")).toBeInTheDocument();
+            // Shared format_cookie_login_error maps English timeout → Chinese (AC-004).
+            expect(screen.getByText("网页登录超时，请重试")).toBeInTheDocument();
         });
+        expect(screen.queryByText("Login timed out")).not.toBeInTheDocument();
     });
 
     it("shows error when on_save rejects", async () => {

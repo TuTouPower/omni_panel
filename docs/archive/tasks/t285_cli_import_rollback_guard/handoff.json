@@ -1,0 +1,23 @@
+{
+    "tid": "t285",
+    "attempt": 1,
+    "execution_id": "1a407b20c7394828b49ce644d185dc1e",
+    "status": "done",
+    "branch": "t285_cli_import_rollback_guard",
+    "base_sha": "43d55051af9ca47bf541f7e745f52f75886097f2",
+    "tests": "pnpm test：2834 passed, 9 skipped (253 files)；pnpm typecheck 通过；变更文件 eslint 干净",
+    "blackbox": "import-config.test.ts 8 passed（含重复导入回滚保留旧值新用例，restore 分支真实触达）；CLI 导入属 main 进程单测覆盖",
+    "review": "Round 1 code PASS（2 minor）+ test FAIL（1 important apt t64 事实错误 + 1 minor）→ Round 2 双 PASS（1 新增 minor f003）→ Round 3 双 PASS（f003 闭环，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/cli/import-config.test.ts 新增用例：二轮导入不同值 + save 失败，断言 vault 恢复首轮旧值且 deleteMock 未调用",
+            "src/main/cli/import-config.ts 回滚条目区分 delete/restore"
+        ],
+        "AC-002": [
+            "docs/guides/cli-mode.md「Electron GUI 运行时依赖」两段 apt 清单（t64 与旧名），包名经 packages.ubuntu.com 核实"
+        ],
+        "AC-003": ["pnpm test 全量 2834 passed, 9 skipped；typecheck/eslint 干净"]
+    },
+    "pending": [],
+    "findings": []
+}

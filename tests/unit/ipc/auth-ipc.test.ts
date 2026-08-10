@@ -365,6 +365,121 @@ describe("handleCookieLogin", () => {
     });
 });
 
+describe("startCookieLogin", () => {
+    let secrets_store: Record<string, string>;
+
+    beforeEach(() => {
+        secrets_store = {};
+        mock_cookie_get_result = [];
+        mock_partitions.length = 0;
+        Object.keys(mock_window_events).forEach((k) => {
+            mock_window_events[k] = undefined;
+        });
+        vi.clearAllMocks();
+        vi.resetModules();
+    });
+
+    function build_deps(
+        instance_id: string,
+        session_manager: SessionManager,
+        definition: ConnectorDefinition = mimo_definition,
+    ) {
+        return {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: instance_id,
+                            stateId: instance_id,
+                            name: "Test",
+                            enabled: true,
+                            executablePath: definition.executablePath,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                save: vi.fn(),
+                scheduleSave: vi.fn(),
+                flushPendingSave: vi.fn(),
+                hasPendingSave: vi.fn().mockReturnValue(false),
+                prune_unhealthy_plugins: vi.fn().mockResolvedValue({}),
+            },
+            secretsStore: {
+                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
+                set: vi.fn((key: string, value: string) => {
+                    secrets_store[key] = value;
+                    return Promise.resolve();
+                }),
+                delete: vi.fn(),
+                exportAll: vi.fn(),
+                importAll: vi.fn(),
+            },
+            definitions: [definition],
+            sessionManager: session_manager,
+        };
+    }
+
+    it("returns CONFLICT with Chinese message when is_login_in_progress is true and does not start_login", async () => {
+        const start_login = vi.fn().mockResolvedValue({ saved: true });
+        const sm = {
+            start_login,
+            is_login_in_progress: vi.fn().mockReturnValue(true),
+        };
+        const deps = build_deps("mimo-test-1", sm);
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+
+        const result = mod.startCookieLogin(deps, "mimo-test-1");
+
+        expect(result).toEqual({
+            ok: false,
+            error: {
+                code: "CONFLICT",
+                message: "已有登录正在进行中，请等待当前登录完成",
+            },
+        });
+        expect(start_login).not.toHaveBeenCalled();
+        expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1");
+    });
+
+    it("returns CONFLICT when cookie login state is already in_progress", async () => {
+        let resolve_login: ((value: { saved: boolean }) => void) | undefined;
+        const start_login = vi.fn().mockImplementation(
+            () =>
+                new Promise<{ saved: boolean }>((resolve) => {
+                    resolve_login = resolve;
+                }),
+        );
+        const sm = {
+            start_login,
+            is_login_in_progress: vi.fn().mockReturnValue(false),
+        };
+        const deps = build_deps("mimo-test-1", sm);
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+
+        const first = mod.startCookieLogin(deps, "mimo-test-1");
+        expect(first).toEqual({ ok: true, data: { started: true } });
+
+        // Concurrent start must see state.in_progress before the async start_login settles.
+        const second = mod.startCookieLogin(deps, "mimo-test-1");
+        expect(second).toEqual({
+            ok: false,
+            error: {
+                code: "CONFLICT",
+                message: "已有登录正在进行中，请等待当前登录完成",
+            },
+        });
+
+        resolve_login?.({ saved: true });
+        await Promise.resolve();
+        await Promise.resolve();
+    });
+});
+
 describe("trySilentCookieRefresh", () => {
     let secrets_store: Record<string, string>;
 

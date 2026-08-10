@@ -64,8 +64,12 @@ export async function import_config_file(
     }
 
     const secretKeys = build_secret_param_keys(config, deps.definitions);
-    // 记录本次转存的 vault key，save 失败时回滚删除，避免孤儿 secret（AC8 半初始化）。
-    const written_secret_keys: string[] = [];
+    // 记录本次转存的 vault key 与回滚动作：save 失败时撤销本次变更——
+    // 新建的 key 删除，覆盖已有值的 key 恢复旧值（不误删导入前已存在的凭据，p094 边界）。
+    const rollback_entries: (
+        | { key: string; action: "delete" }
+        | { key: string; action: "restore"; value: string }
+    )[] = [];
     for (const plugin of config.plugins) {
         const keys = secretKeys.get(plugin.instanceId);
         if (!keys || keys.size === 0) continue;
@@ -75,8 +79,13 @@ export async function import_config_file(
             // 明文 secret 语义下字符串才是凭据）。
             if (typeof value === "string" && value !== "") {
                 const vault_key = keyFor(plugin.instanceId, name);
+                const previous = await deps.secretsStore.get(vault_key);
                 await deps.secretsStore.set(vault_key, value);
-                written_secret_keys.push(vault_key);
+                if (previous === null) {
+                    rollback_entries.push({ key: vault_key, action: "delete" });
+                } else {
+                    rollback_entries.push({ key: vault_key, action: "restore", value: previous });
+                }
                 log.debug(`imported secret ${vault_key}`);
             }
         }
@@ -107,11 +116,16 @@ export async function import_config_file(
     try {
         await deps.configStore.save(stripped);
     } catch (err: unknown) {
-        // config 写失败：回滚本次已转存的 secret，保持 vault 与磁盘配置一致（AC8）。
+        // config 写失败：回滚本次变更——新建的 key 删除、覆盖的 key 恢复旧值，
+        // 保持 vault 与磁盘配置一致（AC8），且不误删导入前已存在的凭据（p094）。
         log.warn("Config save failed after secret import — rolling back secrets", err);
-        await Promise.all(
-            written_secret_keys.map((k) => deps.secretsStore.delete(k).catch(() => undefined)),
-        );
+        for (const entry of rollback_entries) {
+            if (entry.action === "delete") {
+                await deps.secretsStore.delete(entry.key).catch(() => undefined);
+            } else {
+                await deps.secretsStore.set(entry.key, entry.value).catch(() => undefined);
+            }
+        }
         throw err;
     }
     log.info(`Imported config from ${file} (${String(stripped.plugins.length)} plugins)`);

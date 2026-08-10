@@ -1,0 +1,23 @@
+{
+    "tid": "t284",
+    "attempt": 1,
+    "execution_id": "a9a7ab35775440aba2fbd6684f2fa8ce",
+    "status": "done",
+    "branch": "t284_session_typography_test_robustness",
+    "base_sha": "5e29bdae00f09862cfb9bd207531e056289c6f3b",
+    "tests": "pnpm test：2833 passed, 9 skipped (253 files)；pnpm typecheck 通过；变更文件 eslint 干净",
+    "blackbox": "pnpm exec vitest run tests/unit/renderer/styles/session_typography.test.tsx：3 passed（渲染输出断言，require_el 找不到元素即失败）",
+    "review": "Round 1 general PASS（2 minor）→ Round 2 general PASS（2/2 处置复核成立，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "session_typography.test.ts（源文本正则）已删除，.tsx 改渲染断言；唯一 readFileSync 为 globals.css 字号 token 值（@theme 导出产物 + designmd:check 守护）"
+        ],
+        "AC-002": [
+            "面板 title 精确 11px < meta 13px；rail title text-body-sm(12.5) > meta text-label-md(11.5)，均对渲染 DOM 元素断言",
+            "tests/unit/renderer/styles/session_typography.test.tsx 3 用例"
+        ],
+        "AC-003": ["pnpm test 全量 2833 passed, 9 skipped；typecheck/eslint 干净"]
+    },
+    "pending": [],
+    "findings": []
+}
