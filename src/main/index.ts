@@ -159,11 +159,23 @@ set_renderer_index_path(resolve(join(__dirname, "../renderer/index.html")));
 
 let cleanupEventIpc: (() => void) | null = null;
 let cleanupPopupIpc: (() => void) | null = null;
+let local_api: LocalAPIServer | null = null;
 
 void app.whenReady().then(async () => {
     try {
+        if (cliMode && cli_args.command?.type === "export") {
+            const { run_export_command } = await import("./cli/client");
+            const exitCode = await run_export_command(cli_args.command.options);
+            app.exit(exitCode);
+            return;
+        }
         // t276: CLI 控制子命令 = 瘦客户端，不进服务初始化。执行完即退出。
-        if (cliMode && cli_args.command && cli_args.command.type !== "serve") {
+        if (
+            cliMode &&
+            cli_args.command &&
+            cli_args.command.type !== "serve" &&
+            cli_args.command.type !== "export"
+        ) {
             const { run_control_command } = await import("./cli/client");
             const cmd = cli_args.command;
             const exitCode = await run_control_command(cmd.type, cmd.options);
@@ -188,7 +200,9 @@ void app.whenReady().then(async () => {
         let currentConfig = await configStore.load();
         // t195: manifest 健康检查从 load 抽出，启动期一次性执行（孤儿/非法
         // provider 插件清理并持久化）；运行期 load 走内存缓存。
-        currentConfig = await configStore.prune_unhealthy_plugins();
+        currentConfig = await configStore.prune_unhealthy_plugins(
+            new Set(allDefinitions.map((definition) => definition.executablePath)),
+        );
         const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
             currentConfig.plugins,
             allDefinitions,
@@ -251,7 +265,9 @@ void app.whenReady().then(async () => {
                 { configPath, configStore, secretsStore, definitions: allDefinitions },
                 cli_args.command.options.configPath,
             );
-            currentConfig = await configStore.prune_unhealthy_plugins();
+            currentConfig = await configStore.prune_unhealthy_plugins(
+                new Set(allDefinitions.map((definition) => definition.executablePath)),
+            );
         }
 
         // Resolve system proxy for OAuth and connector HTTP requests.
@@ -525,6 +541,7 @@ void app.whenReady().then(async () => {
                     win.webContents.send(IPC_CHANNELS.CONFIG_CHANGED, updatedConfig);
                 }
             }
+            local_api?.publish_config_change(updatedConfig);
             main_panel_controller?.apply_config_change();
         };
         const onConfigImported = createOnConfigImported(refreshService, log);
@@ -545,7 +562,7 @@ void app.whenReady().then(async () => {
         const web_root_path = app.isPackaged
             ? join(process.resourcesPath, "web")
             : resolve(__dirname, "..", "web");
-        const local_api: LocalAPIServer = create_local_api_server(observationStore, {
+        local_api = create_local_api_server(observationStore, {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
@@ -555,7 +572,14 @@ void app.whenReady().then(async () => {
             cli_args.command.options.port !== undefined
                 ? { port: cli_args.command.options.port }
                 : {}),
-            config_deps: { configStore, secretsStore, secretParamKeys, onConfigSaved },
+            config_deps: {
+                configStore,
+                secretsStore,
+                secretParamKeys,
+                onConfigSaved,
+                onConfigImported,
+                definitions: allDefinitions,
+            },
             // t276: 控制端点复用 tray 纯 main 动作（refreshService / orchestrator / app）。
             control_deps: {
                 refresh_all: () => {
@@ -616,7 +640,10 @@ void app.whenReady().then(async () => {
         }
         await registerLogIpc(dataRoot);
         registerBuildInfoIpc(() => app.getVersion());
-        cleanupEventIpc = registerEventIpc({ runtimeStore });
+        cleanupEventIpc = registerEventIpc({
+            runtimeStore,
+            onThemeChanged: (is_dark) => local_api?.publish_theme_change(is_dark),
+        });
         registerGrokAuthIpc({ manager: grokOAuthManager });
         registerKimiAuthIpc({ manager: kimiOAuthManager });
 
@@ -1029,6 +1056,7 @@ void app.whenReady().then(async () => {
                 createOrFocusSettings();
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_WEB, () => {
+                if (!local_api) return;
                 void shell.openExternal(`http://localhost:${String(local_api.get_port())}/`);
             });
             ipcMain.handle(IPC_CHANNELS.SETTINGS_OPEN_CONNECTORS_DIR, async () => {
@@ -1147,7 +1175,7 @@ void app.whenReady().then(async () => {
         app.on("before-quit", () => {
             log.info("Application shutting down");
             quitting = true;
-            void local_api.stop();
+            void local_api?.stop();
             tokenStatsQueryDispatcher.stop();
             if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                 trayMenuWin.destroy();

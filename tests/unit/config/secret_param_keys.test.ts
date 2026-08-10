@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { build_secret_param_keys } from "../../../src/main/core/config/secret_param_keys";
+import {
+    build_secret_param_keys,
+    find_unknown_executable_paths,
+} from "../../../src/main/core/config/secret_param_keys";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/shared/types/config";
 import { manifest_schema } from "../../../src/shared/schemas/manifest";
@@ -117,11 +120,16 @@ describe("build_secret_param_keys", () => {
         expect([...(keys.get("api-instance") ?? [])]).toEqual(["API_KEY"]);
     });
 
-    it("registers an empty set when the connector definition is missing", () => {
-        const plugin = make_plugin("missing-instance", "connectors/missing");
+    it("reports unknown executable paths once", () => {
+        const config = make_config([
+            make_plugin("known-instance", "connectors/known"),
+            make_plugin("missing-instance", "connectors/missing"),
+            make_plugin("missing-instance-2", "connectors/missing"),
+        ]);
+        const unknown = find_unknown_executable_paths(config, [
+            make_definition("connectors/known", { id: "known" }),
+        ]);
 
-        const keys = build_secret_param_keys(make_config([plugin]), []);
-
-        expect([...(keys.get("missing-instance") ?? [])]).toEqual([]);
+        expect(unknown).toEqual(["connectors/missing"]);
     });
 });

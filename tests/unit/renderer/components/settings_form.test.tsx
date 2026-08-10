@@ -130,6 +130,31 @@ describe("SettingsForm", () => {
         expect(onDuplicate).toHaveBeenCalledWith("deepseek");
     });
 
+    it("disables duplicate while the duplicate request is pending", async () => {
+        let resolve_duplicate!: () => void;
+        const onDuplicate = vi.fn(
+            () =>
+                new Promise<void>((resolve) => {
+                    resolve_duplicate = resolve;
+                }),
+        );
+        const user = userEvent.setup();
+        renderForm({ onDuplicate });
+        const button = screen.getByTestId("settings-duplicate-btn-deepseek");
+
+        await user.click(button);
+        expect(onDuplicate).toHaveBeenCalledTimes(1);
+        expect(button).toBeDisabled();
+
+        await user.click(button);
+        expect(onDuplicate).toHaveBeenCalledTimes(1);
+
+        resolve_duplicate();
+        await waitFor(() => {
+            expect(button).not.toBeDisabled();
+        });
+    });
+
     it("renders label map rows without a disclosure button under React StrictMode", async () => {
         window.usageboard.connector.getState = vi.fn().mockResolvedValue({
             status: "ready",

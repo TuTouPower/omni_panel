@@ -527,6 +527,48 @@ describe("config-ipc", () => {
         expect(result.data.saved).toBe(false);
     });
 
+    it("handleConfigImportData rejects unknown executable paths before writes", async () => {
+        const deps = {
+            ...createMockDeps(),
+            definitions: [
+                {
+                    directory: "/plugins/known",
+                    executablePath: "/plugins/known",
+                    manifest: {},
+                } as ConnectorDefinition,
+            ],
+        };
+        const raw = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [
+                {
+                    instanceId: "unknown",
+                    stateId: "unknown",
+                    name: "Unknown",
+                    enabled: true,
+                    executablePath: "/plugins/unknown",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: { API_KEY: "sk-unknown" },
+                    endpointOverrides: {},
+                },
+            ],
+            launchAtLogin: false,
+        };
+        const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigImportData(deps, raw);
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe("VALIDATION_ERROR");
+            expect(result.error.message).toContain("未知连接器路径");
+        }
+        expect(deps.configStore.save).not.toHaveBeenCalled();
+        expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
+        expect(deps.configStore.prune_unhealthy_plugins).not.toHaveBeenCalled();
+    });
+
     it("handleConfigImport reads and applies config + secrets", async () => {
         const { dialog } = await import("electron");
         const importPath = await tempFile("import.json");
@@ -1272,6 +1314,96 @@ describe("config-ipc", () => {
             if (!result.ok) {
                 expect(result.error.code).toBe("VALIDATION_ERROR");
             }
+        });
+    });
+
+    describe("原生 CLI 配置导出/导入数据", () => {
+        it("默认导出剥离 secret 且不读取 vault", async () => {
+            const { handleConfigExportData } = await import("../../../src/main/ipc/config-ipc");
+            const deps = createMockDeps();
+            const result = await handleConfigExportData(deps, {});
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+            expect(deps.secretsStore.exportAll).not.toHaveBeenCalled();
+        });
+
+        it("显式包含 secret 时注入原生 config.json 格式", async () => {
+            const { handleConfigExportData } = await import("../../../src/main/ipc/config-ipc");
+            const deps = createMockDeps();
+            const result = await handleConfigExportData(deps, { includeSecrets: true });
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-real");
+            expect(deps.secretsStore.exportAll).toHaveBeenCalledTimes(1);
+            expect(result.data).not.toHaveProperty("formatVersion");
+        });
+
+        it("导入 t275 原生 config 时抽取 secret 并持久化剥离后的配置", async () => {
+            const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+            const deps = createMockDeps();
+            const loaded = (await deps.configStore.load()) as AppConfiguration;
+            const incoming: AppConfiguration = {
+                ...loaded,
+                plugins: loaded.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: { ...plugin.parameterValues, API_KEY: "sk-imported" },
+                })),
+            };
+
+            const result = await handleConfigImportData(deps, incoming);
+
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data.imported).toBe(true);
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as AppConfiguration | undefined;
+            expect(saved).toBeDefined();
+            expect(saved?.plugins[0]?.parameterValues["API_KEY"]).not.toBe("sk-imported");
+            expect(deps.secretsStore.importAll).toHaveBeenCalledWith({
+                "claude:API_KEY": "sk-imported",
+            });
+        });
+
+        it("导入不含 secret 的原生 config 不清空现有 vault", async () => {
+            const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+            const deps = createMockDeps();
+            const loaded = (await deps.configStore.load()) as AppConfiguration;
+            const incoming: AppConfiguration = {
+                ...loaded,
+                plugins: loaded.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: { MODEL: "gpt-4" },
+                })),
+            };
+
+            const result = await handleConfigImportData(deps, incoming);
+
+            expect(result.ok).toBe(true);
+            expect(deps.configStore.save).toHaveBeenCalledTimes(1);
+            expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
+        });
+
+        it("Web 导入拒绝自定义端点覆盖", async () => {
+            const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+            const deps = createMockDeps();
+            const loaded = (await deps.configStore.load()) as AppConfiguration;
+            const incoming: AppConfiguration = {
+                ...loaded,
+                plugins: loaded.plugins.map((plugin) => ({
+                    ...plugin,
+                    endpointOverrides: { default: "https://untrusted.example" },
+                })),
+            };
+
+            const result = await handleConfigImportData(deps, incoming, {
+                allowEndpointOverrides: false,
+            });
+
+            expect(result.ok).toBe(false);
+            expect(deps.configStore.save).not.toHaveBeenCalled();
+            expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
         });
     });
 });

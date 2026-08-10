@@ -236,6 +236,15 @@ route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs
 - **会话历史 IPC 通道组（t210，决策 15）**：`SESSION_HISTORY_OPEN`（打开/聚焦历史窗口 + 定位）、`SUBSCRIBE`/`UNSUBSCRIBE`（watcher 生命周期）、`QUERY`（全量/分页）、`RECENT`（最近会话，按 ended_at 降序）、推送 `MESSAGES_UPDATED` / `FOCUS`。preload 按 route 分权（t212 三档）：`history` / `agent` 暴露全量真实 IPC；`usage`（托盘 popup / 用量面板）仅暴露 `open`（打开/聚焦窗口，订阅查询保持 noop）；其余 route 用 noop 栈。OPEN handler 在 `main/index.ts` 单点注册（fire-and-forget，无 IpcResult 包装）。
 - **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
 
+### 5.1 Web 配置操作与事件桥
+
+Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/specs/web_config_parity.md`](../specs/web_config_parity.md)。技术边界如下：
+
+- LocalAPI 配置端点组为 `/v1/config`、`/v1/config/duplicate`、`/v1/config/createInstance`、`/v1/config/export`、`/v1/config/import`；Web bridge 只通过这些 HTTP 端点访问配置。
+- `/v1/config/export` 默认返回剥离 secret 的 `AppConfiguration`；含密钥变体只在 `includeSecrets=true` 时从 vault 注入导出响应，服务端不保存导出副本。
+- `/v1/events` 的默认 `message` 事件承载 runtime 状态；命名 `config` 事件承载非 secret `AppConfiguration`，命名 `theme` 事件承载 `isDark` 布尔值。主进程保存配置或主题变化时发布对应事件。
+- Web import 在写入前拒绝未知 connector executable path 和非空 `endpointOverrides`；配置持久化仍经 config-store，secret 持久化仍经 vault。
+
 ## 6. 与旧 SPEC 的关键差异 & 已知限制
 
 代码现状**已偏离** `docs/archive/_pre_opinit_20260705/` 的旧 SPEC 与 v2 设计愿景，以下为"现在是什么"：

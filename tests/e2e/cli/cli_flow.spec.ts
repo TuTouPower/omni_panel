@@ -207,4 +207,75 @@ test.describe("CLI 全栈 e2e（t280 AC3）", () => {
             rmSync(importDir, { recursive: true, force: true });
         }
     });
+
+    test("真实 LocalAPI schema 错误经 Web bridge 显示可读消息", async ({ page }) => {
+        const { app, url, userDataDir, importDir } = await launchCliWithConfig();
+        try {
+            await page.goto(`${url}#setting`);
+            await page.waitForSelector('[data-testid="settings-sidebar"]');
+            await page.locator('[data-testid="settings-plugin-nav-data"]').click();
+            const import_row = page
+                .locator('[data-testid="set-row"]')
+                .filter({ hasText: "导入设置" });
+            const import_button = import_row.getByRole("button");
+            page.once("dialog", (dialog) => {
+                void dialog.accept();
+            });
+            const chooser = page.waitForEvent("filechooser");
+            await import_button.click();
+            await (
+                await chooser
+            ).setFiles({
+                name: "schema-invalid.json",
+                mimeType: "application/json",
+                buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, launchAtLogin: "wrong" })),
+            });
+
+            await expect(import_button).toHaveText("失败");
+            await expect(page.getByRole("alert")).toContainText("导入的配置格式无效");
+        } finally {
+            await closeApp(app);
+            rmSync(userDataDir, { recursive: true, force: true });
+            rmSync(importDir, { recursive: true, force: true });
+        }
+    });
+
+    test("真实 LocalAPI 配置 SSE 驱动第二页面主题更新", async ({ page }) => {
+        const { app, url, userDataDir, importDir } = await launchCliWithConfig();
+        const page_b = await page.context().newPage();
+        try {
+            await page.goto(`${url}#setting`);
+            await page.waitForSelector('[data-testid="settings-sidebar"]');
+            await page_b.goto(`${url}#agent`);
+            await page_b.waitForSelector('[data-testid="app-title"]');
+            await expect
+                .poll(() =>
+                    page_b.evaluate(() => document.documentElement.getAttribute("data-theme")),
+                )
+                .not.toBeNull();
+
+            await page.locator('[data-testid="settings-plugin-nav-appearance"]').click();
+            const current_theme = await page_b.evaluate(() =>
+                document.documentElement.getAttribute("data-theme"),
+            );
+            const next_theme = current_theme === "dark" ? "light" : "dark";
+            await page
+                .getByRole("button", { name: next_theme === "dark" ? "深色" : "浅色" })
+                .click();
+
+            await expect
+                .poll(() =>
+                    page_b.evaluate(() => document.documentElement.getAttribute("data-theme")),
+                )
+                .toBe(next_theme);
+            const config = await httpJson(`${url}v1/config`);
+            expect(config.status).toBe(200);
+            expect((config.body as { config?: { theme?: string } }).config?.theme).toBe(next_theme);
+        } finally {
+            await page_b.close();
+            await closeApp(app);
+            rmSync(userDataDir, { recursive: true, force: true });
+            rmSync(importDir, { recursive: true, force: true });
+        }
+    });
 });

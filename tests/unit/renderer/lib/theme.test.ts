@@ -11,14 +11,24 @@ import { get_chart_palette_revision } from "../../../../src/renderer/lib/echarts
 
 describe("theme hooks (t252 AC6)", () => {
     let theme_cb: ((is_dark: boolean) => void) | undefined;
+    let config_cb:
+        | ((config: { theme?: "light" | "dark" | "system"; accentColor?: string }) => void)
+        | undefined;
 
-    function install(config_theme: "light" | "dark" | "system") {
+    function install(config_theme: "light" | "dark" | "system" | undefined) {
         theme_cb = undefined;
+        config_cb = undefined;
         (window as unknown as { usageboard: unknown }).usageboard = {
             config: {
                 get: vi.fn().mockResolvedValue({ config: { theme: config_theme }, hasSecrets: {} }),
             },
             event: {
+                onConfigChange: vi.fn(
+                    (cb: (config: { theme?: "light" | "dark" | "system" }) => void) => {
+                        config_cb = cb;
+                        return vi.fn();
+                    },
+                ),
                 onThemeChange: vi.fn((cb: (is_dark: boolean) => void) => {
                     theme_cb = cb;
                     return vi.fn();
@@ -53,6 +63,55 @@ describe("theme hooks (t252 AC6)", () => {
         expect(result.current).toBe("dark");
     });
 
+    it("useGlobalTheme 在初始 GET 期间收到主题事件后不回滚", async () => {
+        install("light");
+        type ConfigGetResult = Awaited<ReturnType<typeof window.usageboard.config.get>>;
+        let resolve_get!: (value: ConfigGetResult) => void;
+        vi.spyOn(window.usageboard.config, "get").mockImplementation(
+            () =>
+                new Promise<ConfigGetResult>((resolve) => {
+                    resolve_get = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() => useGlobalTheme());
+        act(() => {
+            theme_cb?.(true);
+        });
+        expect(result.current).toBe("dark");
+
+        await act(async () => {
+            resolve_get({
+                config: {
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [],
+                    launchAtLogin: false,
+                    theme: "light",
+                },
+                hasSecrets: {},
+            });
+            await Promise.resolve();
+        });
+        expect(result.current).toBe("dark");
+    });
+
+    it("useGlobalTheme 随 onConfigChange 应用 config.theme", async () => {
+        install("light");
+        const { result } = renderHook(() => useGlobalTheme());
+        await waitFor(() => {
+            expect(result.current).toBe("light");
+        });
+        act(() => {
+            config_cb?.({ theme: "dark" });
+        });
+        expect(result.current).toBe("dark");
+        act(() => {
+            config_cb?.({ theme: "light" });
+        });
+        expect(result.current).toBe("light");
+    });
+
     it("useTheme 同步 data-theme 并随 onThemeChange 更新", async () => {
         install("dark");
         renderHook(() => {
@@ -65,6 +124,55 @@ describe("theme hooks (t252 AC6)", () => {
             theme_cb?.(false);
         });
         expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    });
+
+    it("useTheme 在初始 GET 期间收到主题事件后不回滚", async () => {
+        install("light");
+        type ConfigGetResult = Awaited<ReturnType<typeof window.usageboard.config.get>>;
+        let resolve_get!: (value: ConfigGetResult) => void;
+        vi.spyOn(window.usageboard.config, "get").mockImplementation(
+            () =>
+                new Promise<ConfigGetResult>((resolve) => {
+                    resolve_get = resolve;
+                }),
+        );
+
+        renderHook(() => {
+            useTheme();
+        });
+        act(() => {
+            theme_cb?.(true);
+        });
+        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+
+        await act(async () => {
+            resolve_get({
+                config: {
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [],
+                    launchAtLogin: false,
+                    theme: "light",
+                },
+                hasSecrets: {},
+            });
+            await Promise.resolve();
+        });
+        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    });
+
+    it("useTheme 收到 config SSE 时应用新的 config.theme", async () => {
+        install("light");
+        renderHook(() => {
+            useTheme();
+        });
+        await waitFor(() => {
+            expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+        });
+        act(() => {
+            config_cb?.({ theme: "dark" });
+        });
+        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     });
 
     it("真实主题入口切换时递增图表 palette revision", async () => {
@@ -87,6 +195,21 @@ describe("theme hooks (t252 AC6)", () => {
 
     it("config.theme=system 时按 prefers-color-scheme 解析", async () => {
         install("system");
+        const matchMedia = window.matchMedia;
+        Object.defineProperty(window, "matchMedia", {
+            configurable: true,
+            writable: true,
+            value: vi.fn().mockReturnValue({ matches: true }),
+        });
+        const { result } = renderHook(() => useGlobalTheme());
+        await waitFor(() => {
+            expect(result.current).toBe("dark");
+        });
+        window.matchMedia = matchMedia;
+    });
+
+    it("缺失 config.theme 时按 system 解析", async () => {
+        install(undefined);
         const matchMedia = window.matchMedia;
         Object.defineProperty(window, "matchMedia", {
             configurable: true,

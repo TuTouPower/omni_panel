@@ -518,6 +518,53 @@ describe("config-store", () => {
         }
     });
 
+    it("prunes healthy manifest paths that are outside the discovered set", async () => {
+        const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-allowlist-"));
+        try {
+            const claude_dir = await write_connector_dir(connector_root, "claude", "claude");
+            const custom_dir = await write_connector_dir(connector_root, "custom", "claude");
+            const config_path = join(tempDir, "config.json");
+            await writeFile(
+                config_path,
+                JSON.stringify({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "claude-1",
+                            stateId: "claude-1",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: claude_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "custom-1",
+                            stateId: "custom-1",
+                            name: "Custom",
+                            enabled: true,
+                            executablePath: custom_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+                "utf8",
+            );
+
+            const store = createConfigStore(config_path);
+            const pruned = await store.prune_unhealthy_plugins(new Set([claude_dir]));
+
+            expect(pruned.plugins.map((plugin) => plugin.instanceId)).toEqual(["claude-1"]);
+        } finally {
+            await rm(connector_root, { recursive: true, force: true });
+        }
+    });
+
     it("prunes orphan plugins whose executablePath no longer exists", async () => {
         // If a connector directory has been deleted (or moved away, as
         // happened to test-observe), plugin entries pointing at it become

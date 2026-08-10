@@ -7,6 +7,7 @@ import {
     resolve_instance,
     post_control,
     run_control_command,
+    run_export_command,
 } from "../../../../src/main/cli/client";
 
 let tmp: string | undefined;
@@ -119,7 +120,9 @@ describe("run_control_command", () => {
                 {},
                 {
                     dataRoot: dir,
-                    write: (t) => writes.push(t),
+                    write: (t) => {
+                        writes.push(t);
+                    },
                 },
             );
             expect(code).toBe(0);
@@ -137,7 +140,9 @@ describe("run_control_command", () => {
             {},
             {
                 dataRoot: dir,
-                write: (t) => writes.push(t),
+                write: (t) => {
+                    writes.push(t);
+                },
             },
         );
         expect(code).toBe(0);
@@ -183,7 +188,9 @@ describe("run_control_command", () => {
                 {},
                 {
                     dataRoot: dir,
-                    write: (t) => writes.push(t),
+                    write: (t) => {
+                        writes.push(t);
+                    },
                 },
             );
             expect(code).toBe(0);
@@ -225,6 +232,102 @@ describe("run_control_command", () => {
             const code = await run_control_command("restart", {}, { dataRoot: dir });
             expect(code).toBe(0);
         } finally {
+            server.close();
+        }
+    });
+});
+
+describe("run_export_command（t277）", () => {
+    it("GET 导出端点并把原生 config JSON 写到 stdout", async () => {
+        const dir = makeDir();
+        const server = createServer((req, res) => {
+            expect(req.method).toBe("GET");
+            expect(req.url).toBe("/v1/config/export?includeSecrets=true");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ schemaVersion: 1, plugins: [] }));
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        writeCliJson(dir, port);
+        try {
+            const writes: string[] = [];
+            const code = await run_export_command(
+                { includeSecrets: true },
+                {
+                    dataRoot: dir,
+                    write: (text) => {
+                        writes.push(text);
+                    },
+                },
+            );
+            expect(code).toBe(0);
+            expect(JSON.parse(writes.join(""))).toEqual({ schemaVersion: 1, plugins: [] });
+        } finally {
+            server.close();
+        }
+    });
+
+    it("等待异步 stdout writer 完成后再返回成功", async () => {
+        const dir = makeDir();
+        const server = createServer((_req, res) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ schemaVersion: 1, plugins: [] }));
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        writeCliJson(dir, port);
+        let release_write!: () => void;
+        const write_gate = new Promise<void>((resolve) => {
+            release_write = resolve;
+        });
+        let writer_started!: () => void;
+        const writer_started_promise = new Promise<void>((resolve) => {
+            writer_started = resolve;
+        });
+        try {
+            const pending = run_export_command(
+                { includeSecrets: false },
+                {
+                    dataRoot: dir,
+                    write: async () => {
+                        writer_started();
+                        await write_gate;
+                    },
+                },
+            );
+            await writer_started_promise;
+            let settled = false;
+            void pending.then(() => {
+                settled = true;
+            });
+            await Promise.resolve();
+            expect(settled).toBe(false);
+            release_write();
+            await expect(pending).resolves.toBe(0);
+        } finally {
+            release_write();
+            server.close();
+        }
+    });
+
+    it("导出端点失败时返回非零并输出可读错误", async () => {
+        const dir = makeDir();
+        const server = createServer((_req, res) => {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end('{"message":"bad export"}');
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        writeCliJson(dir, port);
+        const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+        try {
+            const code = await run_export_command({ includeSecrets: false }, { dataRoot: dir });
+            expect(code).toBe(1);
+            expect(stderrSpy.mock.calls.map((call) => String(call[0])).join("")).toContain(
+                "导出端点返回 400",
+            );
+        } finally {
+            stderrSpy.mockRestore();
             server.close();
         }
     });

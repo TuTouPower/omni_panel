@@ -12,6 +12,7 @@ import { create_on_updated_subscriber } from "./token-stats-events";
 import type {
     UsageboardApi,
     ConnectorSnapshotDTO,
+    ConfigExportOptions,
     HistoryMessageLike,
     RendererLogPayload,
     RendererPlatform,
@@ -349,10 +350,12 @@ const config_full = {
             IPC_CHANNELS.CONFIG_CREATE_INSTANCE,
             manifestId,
         ),
-    export: () =>
-        invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
+    export: (options?: ConfigExportOptions) => {
+        void options;
+        return invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
             IPC_CHANNELS.CONFIG_EXPORT,
-        ),
+        );
+    },
     import: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["import"]>>>(
             IPC_CHANNELS.CONFIG_IMPORT,

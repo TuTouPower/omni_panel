@@ -12,6 +12,7 @@
  */
 import type {
     UsageboardApi,
+    ConfigExportOptions,
     ConnectorSnapshotDTO,
     HistoryMessageLike,
     RendererLogPayload,
@@ -33,9 +34,32 @@ import { notify_chart_palette_change } from "../renderer/lib/echarts_token_resol
 
 const POLL_MS = 10_000;
 
+function response_error_message(value: unknown): string | undefined {
+    if (typeof value !== "object" || value === null) return undefined;
+    const record = value as Record<string, unknown>;
+    if (typeof record["message"] === "string" && record["message"]) return record["message"];
+    if (typeof record["error"] === "string" && record["error"]) return record["error"];
+    const nested_error = record["error"];
+    if (typeof nested_error === "object" && nested_error !== null) {
+        const nested_message = (nested_error as Record<string, unknown>)["message"];
+        if (typeof nested_message === "string" && nested_message) return nested_message;
+    }
+    return undefined;
+}
+
+async function throw_http_error(res: Response, method: string, path: string): Promise<never> {
+    let detail: string | undefined;
+    try {
+        detail = response_error_message(await res.json());
+    } catch {
+        detail = undefined;
+    }
+    throw new Error(`${method} ${path} failed: ${detail ?? String(res.status)}`);
+}
+
 async function get_json<T>(path: string): Promise<T> {
     const res = await fetch(path);
-    if (!res.ok) throw new Error(`GET ${path} failed: ${String(res.status)}`);
+    if (!res.ok) await throw_http_error(res, "GET", path);
     return res.json() as Promise<T>;
 }
 
@@ -46,7 +70,7 @@ async function post_json(path: string, body: unknown, signal?: AbortSignal): Pro
         body: JSON.stringify(body),
         ...(signal !== undefined ? { signal } : {}),
     });
-    if (!res.ok) throw new Error(`POST ${path} failed: ${String(res.status)}`);
+    if (!res.ok) await throw_http_error(res, "POST", path);
     return res.json();
 }
 
@@ -86,6 +110,20 @@ const noop_promise_device_start = (): Promise<{
         interval: 0,
     });
 
+function download_json_file(data: unknown, filename: string): void {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 export function create_web_usageboard(): UsageboardApi {
     const token_stats_callbacks = new Set<(dataVersion: number) => void>();
     // t228: web 端无窗口广播，sessionHistory.open 直接分发给 onFocus 订阅者，
@@ -111,7 +149,7 @@ export function create_web_usageboard(): UsageboardApi {
     const state_change_cbs = new Set<(instanceId: string, state: ConnectorSnapshotDTO) => void>();
     let events_source: EventSource | null = null;
     function ensure_events(): void {
-        if (events_source) return;
+        if (events_source || typeof EventSource === "undefined") return;
         events_source = new EventSource("/v1/events");
         events_source.addEventListener("message", (ev: MessageEvent) => {
             try {
@@ -122,6 +160,38 @@ export function create_web_usageboard(): UsageboardApi {
                 for (const cb of state_change_cbs) {
                     cb(payload.instanceId, payload.state);
                 }
+            } catch {
+                /* ignore malformed SSE frame */
+            }
+        });
+    }
+    let config_event_registered = false;
+    let theme_event_registered = false;
+    function ensure_config_event(): void {
+        ensure_events();
+        const source = events_source;
+        if (config_event_registered || !source) return;
+        config_event_registered = true;
+        source.addEventListener("config", (ev: MessageEvent) => {
+            try {
+                const config = JSON.parse(ev.data as string) as AppConfiguration;
+                for (const cb of config_change_callbacks) cb(config);
+            } catch {
+                /* ignore malformed SSE frame */
+            }
+        });
+    }
+    function ensure_theme_event(): void {
+        ensure_events();
+        const source = events_source;
+        if (theme_event_registered || !source) return;
+        theme_event_registered = true;
+        source.addEventListener("theme", (ev: MessageEvent) => {
+            try {
+                const is_dark = JSON.parse(ev.data as string) as boolean;
+                if (typeof is_dark !== "boolean") return;
+                apply_theme_dom(is_dark);
+                for (const cb of theme_change_callbacks) cb(is_dark);
             } catch {
                 /* ignore malformed SSE frame */
             }
@@ -167,10 +237,58 @@ export function create_web_usageboard(): UsageboardApi {
             saveSecrets: async (payload: unknown) => {
                 await post_json("/v1/secrets", payload);
             },
-            duplicate: () => Promise.resolve({ instanceId: "" }),
-            createInstance: () => Promise.resolve({ instanceId: "" }),
-            export: () => Promise.resolve({ saved: false }),
-            import: () => Promise.resolve({ imported: false }),
+            duplicate: (instanceId: string) =>
+                post_json("/v1/config/duplicate", { instanceId }) as Promise<{
+                    instanceId: string;
+                }>,
+            createInstance: (manifestId: string) =>
+                post_json("/v1/config/createInstance", { manifestId }) as Promise<{
+                    instanceId: string;
+                }>,
+            export: async (options?: ConfigExportOptions) => {
+                const include_secrets = options?.includeSecrets === true;
+                const path = `/v1/config/export?includeSecrets=${String(include_secrets)}`;
+                const response = await fetch(path, { method: "GET" });
+                if (!response.ok) await throw_http_error(response, "GET", path);
+                const data: unknown = await response.json();
+                download_json_file(
+                    data,
+                    `omni-panel-config-${new Date().toISOString().slice(0, 10)}.json`,
+                );
+                return { saved: true };
+            },
+            import: async () => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = "application/json,.json";
+                const file = await new Promise<File | null>((resolve) => {
+                    let settled = false;
+                    const settle = (value: File | null): void => {
+                        if (settled) return;
+                        settled = true;
+                        input.onchange = null;
+                        input.oncancel = null;
+                        resolve(value);
+                    };
+                    input.onchange = () => {
+                        settle(input.files?.[0] ?? null);
+                    };
+                    input.oncancel = () => {
+                        settle(null);
+                    };
+                    input.click();
+                });
+                if (!file) return { imported: false };
+                let raw: unknown;
+                try {
+                    raw = JSON.parse(await file.text()) as unknown;
+                } catch {
+                    throw new Error("导入文件 JSON 无效");
+                }
+                return (await post_json("/v1/config/import", raw)) as {
+                    imported: boolean;
+                };
+            },
         },
         event: {
             onStateChange: (cb: (instanceId: string, state: ConnectorSnapshotDTO) => void) => {
@@ -181,12 +299,14 @@ export function create_web_usageboard(): UsageboardApi {
                 };
             },
             onConfigChange: (cb: (config: AppConfiguration) => void) => {
+                ensure_config_event();
                 config_change_callbacks.add(cb);
                 return () => {
                     config_change_callbacks.delete(cb);
                 };
             },
             onThemeChange: (cb: (isDark: boolean) => void) => {
+                ensure_theme_event();
                 theme_change_callbacks.add(cb);
                 return () => {
                     theme_change_callbacks.delete(cb);
