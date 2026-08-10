@@ -2,11 +2,11 @@
 tid: "t292"
 slug: "e2e_webserver_isolation"
 title: "e2e webServer 隔离：cli 不启闲置 + web 代理探测直连"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t292_e2e_webserver_isolation"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "fe46d0b7aff70b5cba35a735cadb76242b6d8261"
 depends_on: ""
 conflicts_with: "t281,t283,t288"
 schedule_status: "scheduled"
@@ -23,7 +23,10 @@ note: "merged from t287,t289"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- SPIKE 1：playwright 1.60 无 project 级 webServer 开关（类型仅顶层）；`--project=cli` 会触发全局 webServer。方案：config 条件化（E2E_NO_WEBSERVER=1 时展开省略 webServer 键），package.json test:e2e:cli 注入 env。
+- SPIKE 2：代理污染通道确认——http_proxy/https_proxy（本机 7890）下 DEBUG=pw:webserver 探测 5174 返回 400 误判「已可用」；config 加载期删除 6 个代理 env 变体根治（web e2e 全 mock 无外网，对 electron/cli 无外网依赖安全）。
+- 验证：AC-003 带代理 web spec 通过、AC-004 无代理通过、AC-001 cli 脚本 5174 无监听、全量单测 2841 passed。
+- 注意：`pnpm exec eslint playwright.config.ts` 单文件跑 lint=0，但全量 `pnpm lint` 会报动态 delete（no-dynamic-delete）——审阅 Round 1 抓出，展开为静态 delete 修复。
 
 ## Review 处置
 
@@ -45,14 +48,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-11 00:40 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity  | status | rationale                                                    | fix_ref                 |
+| ------------- | --------- | ------ | ------------------------------------------------------------ | ----------------------- |
+| t292_gen_f001 | important | 已修   | 动态 delete 展开为 6 条静态 delete（no-dynamic-delete lint） | playwright.config.ts:15 |
 
 ## 收尾报告
 
@@ -61,8 +61,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 cli 脚本 5174 无监听 + 4 passed；AC-003 带代理 web spec 通过（config 内清代理）；AC-004 无代理通过；AC-005 git status 无凭据文件改动。
 
 ### Reviewer verdict
 
@@ -70,15 +70,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：FAIL（f001 important 动态 delete lint）
+- Round 2 general：PASS（处置复核成立，0 新 finding）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- e2e webServer 隔离：config 加载期清代理 env（根治探测误判）+ cli 脚本关闭闲置 vite preview（E2E_NO_WEBSERVER=1）；双 SPIKE 结论入 spec；全量单测 2841 passed。

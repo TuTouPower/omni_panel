@@ -101,8 +101,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- playwright 是否支持按 project 禁用全局 webServer：`UNVERIFIED-SPIKE`，Step 1 查版本能力；不支持则维持现状并标注
-- playwright 探测读取代理的确切通道（`http_proxy` 大小写变体、`ALL_PROXY`）：`UNVERIFIED-SPIKE`，执行期以 `DEBUG=pw:webserver` 复验各变体后改为结论
+- playwright 是否支持按 project 禁用全局 webServer：**验证结论**（2026-08-11）——playwright 1.60 无 project 级 webServer 开关（类型仅顶层 TestConfigWebServer）；实测 `--project=cli` 会触发全局 webServer 启动。方案：config 条件化 `E2E_NO_WEBSERVER=1` 时 `webServer: undefined`，`pnpm test:e2e:cli` 脚本注入该 env（验证方式：脚本路径跑 cli 后 5174 无监听 + DEBUG 无启动日志）。
+- playwright 探测读取代理的确切通道：**验证结论**（2026-08-11）——设置 `http_proxy`/`https_proxy`（本机 7890）时 `DEBUG=pw:webserver` 探测 5174 返回 400 被误判「已可用」；unset 后正常。修复：config 加载期删除代理 env 大小写变体（http_proxy/https_proxy/HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/all_proxy）（验证方式：带代理跑 web spec 正常启动通过）。
 
 ### 风险与回退
 
