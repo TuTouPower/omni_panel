@@ -39,7 +39,7 @@
 | platform-services-api                | API                 | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
 | platform-services-electron           | Desktop             | 拆自 platform-services（t037）                                                                    | 2026-07-21   |
 | scheduler                            | API                 | 迁移自 omni_powers，t039，t155                                                                    | 2026-07-27   |
-| secret-vault                         | API                 | 迁移自 omni_powers，t045，t195                                                                    | 2026-08-03   |
+| secret-vault                         | API                 | 迁移自 omni_powers，t045，t195，t296                                                              | 2026-08-11   |
 | settings_design_migration            | Web+Desktop         | 设置窗口统一设计系统、组件与语义状态                                                              | 2026-08-09   |
 | agent_window_design_migration        | Web+Desktop         | Agent 统计窗口统一设计系统、组件与语义 token                                                      | 2026-08-09   |
 | session_window_design_migration      | Web+Desktop         | 会话历史窗口统一设计系统、组件与语义 token                                                        | 2026-08-09   |
