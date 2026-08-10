@@ -1,0 +1,36 @@
+{
+    "tid": "t281",
+    "attempt": 1,
+    "execution_id": "e98d8bb703bf43e1a2c586aa5746592c",
+    "status": "done",
+    "branch": "t281_e2e_synthetic_fixture_connector_rebuild",
+    "base_sha": "cec08dd25058dc99fed8c15b6c53d0bdcf13cd5b",
+    "tests": "pnpm test：2816 passed / 9 skipped；tests/unit/e2e/mock_server.test.ts 17 passed（含 t281 synthetic-only 保留与删除不复活）",
+    "blackbox": "MOCK_FIXTURE=synthetic pnpm test:e2e:web：70 passed（含 account_error_badge / opencode_go_usage）；pnpm e2e:gen-synthetic 双跑字节幂等且仍含 synthetic-kimi-failed / synthetic-opencode-go；npx prettier --check tests/e2e/fixtures/synthetic.json 通过",
+    "review": "Round 1 general PASS（0 finding，reviewed_scope ok）",
+    "ac_evidence": {
+        "AC-001": [
+            "MOCK_FIXTURE=synthetic pnpm test:e2e:web → 70 passed",
+            "account_error_badge.spec.ts 与 opencode_go_usage.spec.ts 通过"
+        ],
+        "AC-002": [
+            "tests/unit/e2e/mock_server.test.ts::sync_connectors keeps synthetic-only connectors not present in config plugins (t281)",
+            "tests/unit/e2e/mock_server.test.ts::sync_connectors does not re-add config-managed connectors after plugin removal (t281)"
+        ],
+        "AC-003": [
+            "pnpm e2e:gen-synthetic 后 GET /v1/connectors 仍含 synthetic-kimi-failed 与 synthetic-opencode-go"
+        ],
+        "AC-004": [
+            "pnpm e2e:gen-synthetic 后 npx prettier --check tests/e2e/fixtures/synthetic.json 通过"
+        ],
+        "AC-005": [
+            "连续两次 pnpm e2e:gen-synthetic 产物字节一致（幂等，无纯缩进噪声）",
+            "scripts/e2e/gen_synthetic.mjs 经 prettier.format 写出"
+        ],
+        "AC-006": [
+            "prettier --check tests/e2e/fixtures/synthetic.json 无 warn（format:check 同源）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
