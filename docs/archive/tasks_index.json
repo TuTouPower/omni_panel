@@ -4202,6 +4202,66 @@
             "schedule_status": "",
             "note": "single 理由：测试基建，不改生产行为面",
             "dir": "docs/archive/tasks/t280_e2e_headless_gate"
+        },
+        {
+            "tid": "t286",
+            "slug": "ui_component_visual_audit",
+            "title": "ui 组件视觉细节人工对照",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p098：DESIGN.md 像素级对照，人工项; dropped: merged into t283",
+            "dir": "docs/archive/tasks/t286_ui_component_visual_audit"
+        },
+        {
+            "tid": "t287",
+            "slug": "cli_e2e_webserver_isolate",
+            "title": "cli e2e 项目隔离全局 webServer",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "pending_clarification",
+            "note": "p096：playwright future 项，闲置 vite preview; dropped: merged into t292",
+            "dir": "docs/archive/tasks/t287_cli_e2e_webserver_isolate"
+        },
+        {
+            "tid": "t289",
+            "slug": "web_e2e_webserver_proxy_isolation",
+            "title": "web e2e webServer 探测隔离代理环境变量",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p097：web e2e webServer 探测被代理污染; dropped: merged into t292",
+            "dir": "docs/archive/tasks/t289_web_e2e_webserver_proxy_isolation"
+        },
+        {
+            "tid": "t291",
+            "slug": "gen_synthetic_prettier_indent",
+            "title": "gen_synthetic 产物缩进对齐 prettier 与再生成一致",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p091：gen_synthetic 产物缩进对齐 prettier; dropped: merged into t281",
+            "dir": "docs/archive/tasks/t291_gen_synthetic_prettier_indent"
         }
     ]
 }

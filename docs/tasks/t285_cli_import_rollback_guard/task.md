@@ -9,6 +9,7 @@ review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
+schedule_status: "scheduled"
 note: "p094：回滚删 vault 值风险；full（数据面）"
 ---
 

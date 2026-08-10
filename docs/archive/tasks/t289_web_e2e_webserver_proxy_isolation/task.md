@@ -1,15 +1,15 @@
 ---
-tid: "t287"
-slug: "cli_e2e_webserver_isolate"
-title: "cli e2e 项目隔离全局 webServer"
-status: "backlog"
+tid: "t289"
+slug: "web_e2e_webserver_proxy_isolation"
+title: "web e2e webServer 探测隔离代理环境变量"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t289"
-note: "p096：playwright future 项，闲置 vite preview"
+conflicts_with: ""
+note: "p097：web e2e webServer 探测被代理污染; dropped: merged into t292"
 ---
 
 # Task 过程总账
@@ -31,7 +31,7 @@ note: "p096：playwright future 项，闲置 vite preview"
 逐条对应当前 `review_level` 的 review finding（`full`：code/test；`single`：general）。`status` 只许：`已修` / `遗留` / `撤回`（全处理，不静默丢 finding）。
 
 - `已修`：本 task 内已按 finding 改完
-- `遗留`：本 task 不处理。**内容登记到 `docs/pending`「待办」节（普通模板）**，新条目先运行 `scripts/repo_template/pending.py next` 取编号，`fix_ref` 填该 `pNNN`（已有 follow-up task 则填 tid）；本表只留引用与一句话 rationale。critical / important 遗留仍阻断，minor 遗留不阻断。
+- `遗留`：本 task 不处理。**内容登记到 `docs/pending/todo/`**：用 `scripts/repo_template/pending.py new --slug <主题>` 建条目并填写，`fix_ref` 填该 `pNNN`（已有 follow-up task 则填 tid）；本表只留引用与一句话 rationale。critical / important 遗留仍阻断，minor 遗留不阻断。
 - `撤回`：误报；须原 reviewer 在对应 `review_*.md` 末尾追加撤回记录后，再在本表标 `撤回`
 
 本 task 目录会随 `finish` 归档，遗留正文留在这里等于丢失——`fix_ref` 为空的 `遗留` 行不算处置完成。
@@ -61,11 +61,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 - spec：[`spec.md`](spec.md)
 - 结果：全部满足 / 未满足
-- 证据：测试、黑盒或人工检查结果；按需引用 AC 编号，不复制 AC 正文
+- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-run` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
+取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
 `full`：
 
@@ -76,7 +76,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 - Round 1 general：PASS / FAIL
 
-遗留不在此列出——见 `docs/pending`「待办」，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 

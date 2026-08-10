@@ -9,6 +9,7 @@ review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
+schedule_status: "scheduled"
 note: "p106：t278 Round 3 遗留四项；认证面 full"
 ---
 
