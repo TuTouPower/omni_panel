@@ -2,6 +2,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { create_web_usageboard } from "../../../src/web/usageboard-web";
 
+/** 桥测试用假 EventSource：捕获连接与监听器，供订阅/推送/注销断言。 */
+class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    readonly url: string;
+    readonly listeners = new Map<string, ((ev: MessageEvent) => void)[]>();
+    closed = false;
+    constructor(url: string) {
+        this.url = url;
+        FakeEventSource.instances.push(this);
+    }
+    addEventListener(type: string, cb: (ev: MessageEvent) => void): void {
+        const list = this.listeners.get(type) ?? [];
+        list.push(cb);
+        this.listeners.set(type, list);
+    }
+    close(): void {
+        this.closed = true;
+    }
+}
+
 function mock_response(body: unknown): Response {
     return { ok: true, json: () => Promise.resolve(body) } as Response;
 }
@@ -747,5 +767,184 @@ describe("web usageboard bridge", () => {
 
         await api.config.save({ schemaVersion: 1 } as never);
         expect(received).toEqual([]);
+    });
+
+    it("sessionHistory.subscribe 开专属 SSE 连接，open 后 POST 订阅 (t279 AC1)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ subscribed: true, subscriber_id: "web-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        const result = await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+        expect(result).toEqual({ subscribed: true });
+        expect(FakeEventSource.instances).toHaveLength(1);
+        expect(FakeEventSource.instances[0]?.url).toContain("/v1/events?subscriberId=web-1");
+        // open 前不 POST（注册统一在连接建立后发送，f007）。
+        expect(fetch_mock).not.toHaveBeenCalled();
+
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        const open_listener = source.listeners.get("open")?.[0];
+        if (!open_listener) throw new Error("no open listener");
+        open_listener({} as MessageEvent);
+        await Promise.resolve();
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/subscribe",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-1",
+                }),
+            }),
+        );
+    });
+
+    it("onMessagesUpdated 收到 SSE messagesUpdated 事件 (t279 AC1)", async () => {
+        vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(mock_response({})));
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        const received: unknown[] = [];
+        const off = api.sessionHistory.onMessagesUpdated((payload) => received.push(payload));
+        await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        const listener = source.listeners.get("messagesUpdated")?.[0];
+        if (!listener) throw new Error("no messagesUpdated listener");
+        listener({
+            data: JSON.stringify({
+                source: "claude_code",
+                env: "win",
+                session_id: "sess-1",
+                messages: [{ id: "m2", role: "assistant", text: "world", timestamp: 200 }],
+            }),
+        } as MessageEvent);
+        expect(received).toEqual([
+            expect.objectContaining({ source: "claude_code", session_id: "sess-1" }),
+        ]);
+        off();
+    });
+
+    it("SSE 重连 open 时用同 subscriber_id 重挂订阅 (t279 AC3)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ subscribed: true, subscriber_id: "web-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        const open_listener = source.listeners.get("open")?.[0];
+        if (!open_listener) throw new Error("no open listener");
+        // 初次 open 完成注册（POST 1 次）。
+        open_listener({} as MessageEvent);
+        await Promise.resolve();
+        expect(fetch_mock).toHaveBeenCalledTimes(1);
+
+        // 断连重连：再次 open 以同 subscriber_id 幂等重挂（POST 第 2 次）。
+        open_listener({} as MessageEvent);
+        await Promise.resolve();
+        expect(fetch_mock).toHaveBeenCalledTimes(2);
+        expect(fetch_mock).toHaveBeenLastCalledWith(
+            "/v1/sessionHistory/subscribe",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "sess-1",
+                    subscriber_id: "web-1",
+                }),
+            }),
+        );
+    });
+
+    it("初始订阅 POST 失败时关闭连接并清理订阅条目 (t279 f002)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockRejectedValue(new Error("network down"));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        const open_listener = source.listeners.get("open")?.[0];
+        if (!open_listener) throw new Error("no open listener");
+        // 初始注册失败：连接关闭、条目清理。
+        open_listener({} as MessageEvent);
+        await vi.waitFor(() => {
+            expect(FakeEventSource.instances[0]?.closed).toBe(true);
+        });
+
+        // 失败后重新订阅应能开新连接（旧条目已清理）。
+        const fetch_ok = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ subscribed: true, subscriber_id: "web-2" }));
+        vi.stubGlobal("fetch", fetch_ok);
+        await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+        expect(FakeEventSource.instances).toHaveLength(2);
+    });
+
+    it("sessionHistory.unsubscribe 关闭专属连接并 POST 注销 (t279 AC1)", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(mock_response({ subscribed: true, subscriber_id: "web-1" }))
+            .mockResolvedValueOnce(mock_response({ unsubscribed: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.subscribe("claude_code", "win", "sess-1");
+        await api.sessionHistory.unsubscribe("claude_code", "win", "sess-1");
+        expect(FakeEventSource.instances[0]?.closed).toBe(true);
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/unsubscribe",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ subscriber_id: "web-1" }),
+            }),
+        );
+    });
+
+    it("logs.export 下载 /v1/logs/export 响应并返回 saved (t279 AC2)", async () => {
+        const blob = new Blob(["log-content"], { type: "text/plain" });
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) } as Response);
+        vi.stubGlobal("fetch", fetch_mock);
+        const create_object_url = vi.fn(() => "blob:fake");
+        const revoke_object_url = vi.fn();
+        vi.stubGlobal("URL", {
+            ...URL,
+            createObjectURL: create_object_url,
+            revokeObjectURL: revoke_object_url,
+        });
+        const click_spy = vi
+            .spyOn(HTMLAnchorElement.prototype, "click")
+            .mockImplementation(() => undefined);
+
+        const api = create_web_usageboard();
+        try {
+            const result = await api.logs.export();
+            expect(result).toEqual({ saved: true });
+            expect(fetch_mock).toHaveBeenCalledWith("/v1/logs/export");
+            expect(click_spy).toHaveBeenCalled();
+        } finally {
+            click_spy.mockRestore();
+        }
     });
 });

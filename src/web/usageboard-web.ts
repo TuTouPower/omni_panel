@@ -24,6 +24,7 @@ import type {
     HistoryMessageLike,
     RendererLogPayload,
     SessionHistoryLoc,
+    SessionHistoryMessagesUpdatedPayload,
     SessionHistorySearchContentRequest,
     SessionHistorySearchContentResponse,
 } from "../shared/types/ipc";
@@ -128,10 +129,7 @@ function apply_theme_dom(is_dark: boolean): void {
     notify_chart_palette_change();
 }
 
-function download_json_file(data: unknown, filename: string): void {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-    });
+function download_blob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -140,6 +138,13 @@ function download_json_file(data: unknown, filename: string): void {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+}
+
+function download_json_file(data: unknown, filename: string): void {
+    download_blob(
+        new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+        filename,
+    );
 }
 
 export function create_web_usageboard(): UsageboardApi {
@@ -159,6 +164,36 @@ export function create_web_usageboard(): UsageboardApi {
         // for version-based staleness, still triggers a refresh request).
         for (const cb of token_stats_callbacks) cb(0);
     }, POLL_MS);
+
+    // t279: web 会话实时订阅。每个订阅一个专属 SSE 连接（subscriber_id 查询参数），
+    // 服务端把 watcher 增量经该连接推 `messagesUpdated`；连接关闭即注销（防泄漏），
+    // 无需依赖 beforeunload 可靠送达。同 loc 重复 subscribe 幂等返回既有订阅。
+    // `registered` 标记首次 open 已完成订阅 POST，重连 open 时按 AC3 重挂。
+    interface WebSessionSubEntry {
+        readonly subscriber_id: string;
+        readonly source: string;
+        readonly env: string;
+        readonly session_id: string;
+        readonly events: EventSource;
+        registered: boolean;
+    }
+    const session_message_callbacks = new Set<
+        (payload: SessionHistoryMessagesUpdatedPayload) => void
+    >();
+    const web_session_subs = new Map<string, WebSessionSubEntry>();
+    let web_session_sub_seq = 0;
+
+    function unsubscribe_loc(key: string): void {
+        const sub = web_session_subs.get(key);
+        if (!sub) return;
+        web_session_subs.delete(key);
+        sub.events.close();
+        void post_json("/v1/sessionHistory/unsubscribe", {
+            subscriber_id: sub.subscriber_id,
+        }).catch(() => {
+            // 服务端在 SSE close 时已兜底注销，忽略注销失败。
+        });
+    }
 
     // SSE push channel — mirrors the desktop IPC EVENT_STATE_CHANGE broadcast.
     // local-api streams runtimeStore state changes over GET /v1/events; this
@@ -398,7 +433,18 @@ export function create_web_usageboard(): UsageboardApi {
         },
         grok: create_web_oauth_api("grok"),
         kimi: create_web_oauth_api("kimi"),
-        logs: { export: () => Promise.resolve({ saved: false }) },
+        logs: {
+            export: async () => {
+                const res = await fetch("/v1/logs/export");
+                if (!res.ok) {
+                    await throw_http_error(res, "GET", "/v1/logs/export");
+                }
+                const blob = await res.blob();
+                const date = new Date().toISOString().slice(0, 10);
+                download_blob(blob, `omni-panel-log-${date}.log`);
+                return { saved: true };
+            },
+        },
         log: (payload: RendererLogPayload) => {
             console.debug("[usageboard]", payload);
         },
@@ -577,8 +623,66 @@ export function create_web_usageboard(): UsageboardApi {
                 window.location.hash = "history";
                 return Promise.resolve();
             },
-            subscribe: () => Promise.resolve({ subscribed: false }),
-            unsubscribe: () => Promise.resolve({ unsubscribed: false }),
+            subscribe: (source: string, env: string, session_id: string) => {
+                const key = `${source}|${env}|${session_id}`;
+                const existing = web_session_subs.get(key);
+                if (existing) return Promise.resolve({ subscribed: true });
+                const subscriber_id = `web-${String(++web_session_sub_seq)}`;
+                const events = new EventSource(
+                    `/v1/events?subscriberId=${encodeURIComponent(subscriber_id)}`,
+                );
+                events.addEventListener("messagesUpdated", (ev: MessageEvent) => {
+                    try {
+                        const payload = JSON.parse(
+                            ev.data as string,
+                        ) as SessionHistoryMessagesUpdatedPayload;
+                        for (const cb of session_message_callbacks) cb(payload);
+                    } catch {
+                        /* ignore malformed SSE frame */
+                    }
+                });
+                // 初始与重连注册统一在 open 时机发送（f007）：初次 open 即注册，
+                // 断连重连 open 时以同 subscriber_id 幂等重挂（服务端对已存在订阅只换
+                // on_update）。POST 在 SSE 已连后发出，消除初始 POST 先于连接导致的
+                // 409 竞态；失败路径清理连接与条目，renderer catch 忽略 + 轮询兜底。
+                const sub_entry = {
+                    subscriber_id,
+                    source,
+                    env,
+                    session_id,
+                    events,
+                    registered: false,
+                };
+                events.addEventListener("open", () => {
+                    void post_json("/v1/sessionHistory/subscribe", {
+                        source,
+                        env,
+                        session_id,
+                        subscriber_id,
+                    })
+                        .then(() => {
+                            sub_entry.registered = true;
+                        })
+                        .catch(() => {
+                            if (!sub_entry.registered) {
+                                // 初始注册失败：关闭连接清理残留，服务端 SSE close 兜底注销。
+                                if (web_session_subs.get(key) === sub_entry) {
+                                    web_session_subs.delete(key);
+                                }
+                                sub_entry.events.close();
+                            }
+                            // 重连重挂失败：renderer 5s 轮询兜底，下次 open 再试。
+                        });
+                });
+                web_session_subs.set(key, sub_entry);
+                // 注册在 open 后异步完成；返回即视为已接受（失败由 renderer catch 忽略，
+                // 轮询兜底保证数据可达）。与桌面 subscribe 立即返回 subscribed 语义对齐。
+                return Promise.resolve({ subscribed: true });
+            },
+            unsubscribe: (source: string, env: string, session_id: string) => {
+                unsubscribe_loc(`${source}|${env}|${session_id}`);
+                return Promise.resolve({ unsubscribed: true });
+            },
             // t228/t237: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
             query: async (
                 source: string,
@@ -646,8 +750,13 @@ export function create_web_usageboard(): UsageboardApi {
                 })) as { summaries: Record<string, string> };
                 return data.summaries;
             },
-            onMessagesUpdated: () => () => {
-                /* web 端不暴露会话历史实时推送 */
+            onMessagesUpdated: (
+                callback: (payload: SessionHistoryMessagesUpdatedPayload) => void,
+            ) => {
+                session_message_callbacks.add(callback);
+                return () => {
+                    session_message_callbacks.delete(callback);
+                };
             },
             onFocus: (
                 fn: (loc: { source: string; env: string; session_id: string }) => void,
