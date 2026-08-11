@@ -359,4 +359,34 @@ describe("TokenStatsView header single row (t312)", () => {
         await user.click(screen.getByRole("button", { name: "Session面板" }));
         expect(open_history).toHaveBeenCalledWith("", "", "");
     });
+
+    it("web 态互跳按钮渲染为原生链接，href 精确且无 onClick（t311 AC-001/AC-004）", async () => {
+        document.documentElement.setAttribute("data-web", "1");
+        try {
+            render(<TokenStatsView />);
+            await screen.findByTestId("session-records");
+
+            const settings_link = screen.getByRole("link", { name: "Settings面板" });
+            expect(settings_link.tagName).toBe("A");
+            expect(settings_link).toHaveAttribute("href", "#setting");
+            const usage_link = screen.getByRole("link", { name: "Usage面板" });
+            expect(usage_link.tagName).toBe("A");
+            expect(usage_link).toHaveAttribute("href", "#usage");
+            const session_link = screen.getByRole("link", { name: "Session面板" });
+            expect(session_link.tagName).toBe("A");
+            expect(session_link).toHaveAttribute("href", "#session");
+            // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick
+            // attribute（恒真断言无意义）；可失败断言——点击链接不触发
+            // open 桥（若实现误在 <a> 上挂 onClick 会调 open_tray_panel/
+            // open_history），默认导航透传由 e2e hash 断言覆盖。
+            usage_link.click();
+            expect(open_tray_panel).not.toHaveBeenCalled();
+            session_link.click();
+            expect(open_history).not.toHaveBeenCalled();
+            // 刷新按钮与四个下拉保持原控件形态。
+            expect(screen.getByRole("button", { name: "刷新" })).toBeInTheDocument();
+        } finally {
+            document.documentElement.removeAttribute("data-web");
+        }
+    });
 });

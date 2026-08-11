@@ -1,0 +1,38 @@
+{
+    "tid": "t311",
+    "attempt": 1,
+    "execution_id": "e08a455ceac04d13b05390c439659cf4",
+    "status": "done",
+    "branch": "t311_web_panel_nav_buttons_middle_click",
+    "base_sha": "36245c06c7fb0ceb60a1a931337f6e3a580a7972",
+    "tests": "pnpm test：2936 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；4 测试文件 82 用例；web e2e 16 用例；typecheck、lint、prettier 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 16 用例",
+    "review": "code Round 1 FAIL（f001 important+f002/f003）→ Round 2-3 PASS；test Round 1 FAIL（f001）→ Round 2-3 PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "PanelTitleBar.test.tsx「web 态互跳图标渲染为原生链接」href #usage/#agent/#session + 点击不触发 onNavigate",
+            "token_stats_header.test.tsx「web 态互跳按钮渲染为原生链接」#setting/#usage/#session + 点击不触发 open 桥",
+            "e2e panel_navigation.spec hash 切换断言"
+        ],
+        "AC-002": [
+            "popup_view.test.tsx「web 态标题栏 设置/代理面板/会话历史 渲染为原生链接」#setting/#agent/#session + 点击不触发 open 桥",
+            "e2e popup_view.spec 会话链接 hash=#session + onFocus 零分发"
+        ],
+        "AC-003": [
+            "settings_view_general.test.tsx「web 态关于页外链卡片渲染为原生链接」7 卡 href/target=_blank/rel=noopener noreferrer + 点击不触发 window.open"
+        ],
+        "AC-004": [
+            "可失败断言（4 文件 82 用例）：点击 link 不触发对应 open 桥（onNavigate/window.open/token_stats_open/session_history_open/settings.open）",
+            "e2e 点击→hash 切换（真实浏览器无拦截证据）",
+            "[deploy] 真实中键/Ctrl+Click 浏览器原生"
+        ],
+        "AC-005": [
+            "PanelTitleBar/popup_view/settings_view_general/token_stats_header 桌面态用例：tagName BUTTON、无 href、onClick 调 navigate/open 桥/window.open/settings.open 断言全绿"
+        ],
+        "AC-006": [
+            "popup_view.test.tsx「web 态空态『添加服务』入口渲染为原生链接 #setting」+ 点击不调 settings.open"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": ["d036"]
+}

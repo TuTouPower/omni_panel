@@ -46,7 +46,40 @@ describe("PanelTitleBar (t252)", () => {
         expect(screen.queryByTitle("最小化")).toBeNull();
         expect(screen.queryByTitle("最大化/还原")).toBeNull();
         expect(screen.queryByTitle("关闭")).toBeNull();
-        expect(screen.getByRole("button", { name: "Usage面板" })).toBeInTheDocument();
+        // t311：web 下互跳入口为原生链接（不再是 button）。
+        expect(screen.getByRole("link", { name: "Usage面板" })).toBeInTheDocument();
+    });
+
+    it("web 态互跳图标渲染为原生链接，href 精确且无 onClick 拦截（t311 AC-001/AC-004）", () => {
+        document.documentElement.setAttribute("data-web", "1");
+        const onNavigate = vi.fn();
+        try {
+            render(<PanelTitleBar panel="Settings" onNavigate={onNavigate} />);
+            const usage = screen.getByRole("link", { name: "Usage面板" });
+            const agent = screen.getByRole("link", { name: "Agent面板" });
+            const session = screen.getByRole("link", { name: "Session面板" });
+            expect(usage.tagName).toBe("A");
+            expect(usage).toHaveAttribute("href", "#usage");
+            expect(agent).toHaveAttribute("href", "#agent");
+            expect(session).toHaveAttribute("href", "#session");
+            // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick
+            // attribute（hasAttribute 恒真断言无意义）；jsdom 无默认 hash 导航。
+            // 可失败断言：点击链接不触发 onNavigate（若实现误在 <a> 上挂 onClick
+            // 拦截会调它）——默认导航透传由 web e2e 真实浏览器 hash 切换断言覆盖。
+            usage.click();
+            expect(onNavigate).not.toHaveBeenCalled();
+        } finally {
+            document.documentElement.removeAttribute("data-web");
+        }
+    });
+
+    it("桌面态互跳图标保持按钮语义，无 href（t311 AC-005）", () => {
+        render(<PanelTitleBar panel="Settings" />);
+        const usage = screen.getByRole("button", { name: "Usage面板" });
+        expect(usage.tagName).toBe("BUTTON");
+        expect(usage.hasAttribute("href")).toBe(false);
+        const agent = screen.getByRole("button", { name: "Agent面板" });
+        expect(agent.tagName).toBe("BUTTON");
     });
 
     it("未传 onRefresh 时刷新按钮不渲染", () => {
