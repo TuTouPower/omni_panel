@@ -1,0 +1,23 @@
+{
+    "tid": "t306",
+    "attempt": 1,
+    "execution_id": "f206f6a08df345b391eaf363958614ca",
+    "status": "done",
+    "branch": "t306_add_account_auto_refresh",
+    "base_sha": "244419d4e0914d21549873e6a24658bd27edf6ed",
+    "tests": "pnpm test：2862 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；定向 19/19；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "Round 1 general PASS（2 minor）；Round 2 general PASS（minor 复核真修，0 新 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/hooks/use_connector_catalog.test.ts 断言 savePluginSettings 第 7 参 refresh_after_save=true（保存后经 trigger_background_refresh 触发采集）",
+            "tests/unit/renderer/views/settings_view_accounts.test.tsx「t306: new account save triggers background refresh for the created instance」通过：UI 链添加账号保存后 connector.refresh(\"deepseek-2\") 被调用"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/settings_view_accounts.test.tsx「t306: triggers refresh for the duplicated instance after copy」通过：点击复制后 connector.refresh(\"deepseek-2\") 被调用"
+        ],
+        "AC-003": ["全量 pnpm test 通过（2862 passed），定向 2 文件 19/19 通过"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

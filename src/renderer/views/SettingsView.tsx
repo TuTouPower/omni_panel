@@ -582,7 +582,9 @@ export function SettingsView() {
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
                         onSave={savePluginSettings}
                         onDuplicate={async (instanceId) => {
-                            await duplicate(instanceId);
+                            const result = await duplicate(instanceId);
+                            // t306: 复制账号成功后自动触发新实例用量采集（与编辑保存一致）。
+                            trigger_background_refresh(result.instanceId);
                             setDialog(null);
                         }}
                         onAddAccount={async (params) => {

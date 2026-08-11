@@ -309,6 +309,28 @@ describe("SettingsView", () => {
         expect(createInstance).toHaveBeenCalledTimes(1);
     });
 
+    it("t306: new account save triggers background refresh for the created instance", async () => {
+        const user = userEvent.setup();
+        const refresh_spy = vi.fn();
+        window.usageboard.connector.refresh = refresh_spy;
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+        await user.click(screen.getByRole("button", { name: /^添加$/ }));
+
+        const dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByText("CPA Manager"));
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText("cpa-…")).toBeInTheDocument();
+        });
+
+        await user.type(screen.getByPlaceholderText("cpa-…"), "cpa-secret");
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(refresh_spy).toHaveBeenCalledWith("deepseek-2");
+        });
+    });
+
     it("shows VendorMark in edit dialog header", async () => {
         const user = userEvent.setup();
         render(<SettingsView />);
@@ -360,5 +382,25 @@ describe("SettingsView", () => {
         for (const control of switches) {
             expect(control).not.toHaveClass("sw");
         }
+    });
+
+    it("t306: triggers refresh for the duplicated instance after copy", async () => {
+        const user = userEvent.setup();
+        const refresh_spy = vi.fn();
+        window.usageboard.connector.refresh = refresh_spy;
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        const edit_button = (await screen.findAllByTitle("编辑"))[0];
+        if (!edit_button) throw new Error("missing edit button");
+        await user.click(edit_button);
+
+        const dialog = await screen.findByRole("dialog");
+        const dup_button = within(dialog).getByTestId("settings-duplicate-btn-deepseek-1");
+        await user.click(dup_button);
+
+        await vi.waitFor(() => {
+            expect(refresh_spy).toHaveBeenCalledWith("deepseek-2");
+        });
     });
 });
