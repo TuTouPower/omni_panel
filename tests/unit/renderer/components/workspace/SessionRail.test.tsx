@@ -13,7 +13,7 @@ function sess(id: string, source: string): TokenStatsSession {
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "win",
+        env: "local",
         model: "model",
         title: `会话 ${id}`,
         directory: null,

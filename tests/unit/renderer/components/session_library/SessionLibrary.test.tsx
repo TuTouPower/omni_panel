@@ -61,7 +61,7 @@ function sess(
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "win",
+        env: "local",
         model: "model",
         title: `会话 ${id}`,
         directory: `/proj/${id}`,
@@ -324,7 +324,7 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
         ub.sessionHistory.summaries.mockResolvedValue({
-            "claude_code|win|a": "真正要显示的用户消息",
+            "claude_code|local|a": "真正要显示的用户消息",
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
@@ -915,9 +915,9 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         ub.sessionHistory.summaries.mockResolvedValue({
-            "claude_code|win|a": "摘要 a",
-            "opencode|win|b": "摘要 b",
-            "grok|win|c": "摘要 c",
+            "claude_code|local|a": "摘要 a",
+            "opencode|local|b": "摘要 b",
+            "grok|local|c": "摘要 c",
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
@@ -927,9 +927,9 @@ describe("SessionLibrary (t227)", () => {
         });
         expect(ub.sessionHistory.summaries).toHaveBeenCalledWith(
             expect.arrayContaining([
-                expect.objectContaining({ source: "claude_code", env: "win", session_id: "a" }),
-                expect.objectContaining({ source: "opencode", env: "win", session_id: "b" }),
-                expect.objectContaining({ source: "grok", env: "win", session_id: "c" }),
+                expect.objectContaining({ source: "claude_code", env: "local", session_id: "a" }),
+                expect.objectContaining({ source: "opencode", env: "local", session_id: "b" }),
+                expect.objectContaining({ source: "grok", env: "local", session_id: "c" }),
             ]),
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();

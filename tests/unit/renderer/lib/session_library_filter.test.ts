@@ -23,7 +23,7 @@ function sess(
     return {
         id,
         source,
-        env: "win",
+        env: "local",
         model: "model",
         title: `会话 ${id}`,
         directory: `/proj/${id}`,

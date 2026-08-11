@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import type {
     TokenStatsConfig,
     TokenStatsDailyUpsert,
@@ -7,6 +8,8 @@ import type {
     TokenStatsSource,
     TokenStatsUpdate,
 } from "../../../shared/types/token-stats";
+import * as paths from "./paths";
+import type { Host } from "./paths";
 import { read_costs_jsonl, scan_session_jsonls, create_session_scan_state } from "./claude-reader";
 import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
@@ -148,16 +151,22 @@ export async function load_state(state_path: string): Promise<void> {
 }
 
 const sources: SourceDef[] = [
-    { key: "claude_costs_win", source: "claude_code", kind: "costs", env: "win", wsl: false },
     {
-        key: "claude_jsonl_win",
+        key: "claude_costs_local",
         source: "claude_code",
-        kind: "session_jsonl",
-        env: "win",
+        kind: "costs",
+        env: "local",
         wsl: false,
     },
-    { key: "opencode_win", source: "opencode", kind: "opencode_db", env: "win", wsl: false },
-    { key: "kimi_win", source: "kimi_code", kind: "kimi_jsonl", env: "win", wsl: false },
+    {
+        key: "claude_jsonl_local",
+        source: "claude_code",
+        kind: "session_jsonl",
+        env: "local",
+        wsl: false,
+    },
+    { key: "opencode_local", source: "opencode", kind: "opencode_db", env: "local", wsl: false },
+    { key: "kimi_local", source: "kimi_code", kind: "kimi_jsonl", env: "local", wsl: false },
     { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", wsl: true },
     {
         key: "claude_jsonl_wsl",
@@ -210,49 +219,83 @@ function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_l
     return wsl_user_cache;
 }
 
-function claude_base(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.claude`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.claude`;
+/** Host the collector runs on, derived from process.platform (t308). */
+let collector_host: Host = paths.host_from_platform(process.platform);
+
+/**
+ * Test-only injection: the path layer is a pure function of (host, env, cfg),
+ * so tests simulate any host by overriding this. Production never calls it —
+ * the host is fixed at module load from process.platform.
+ */
+export function set_collector_host(host: Host): void {
+    collector_host = host;
 }
 
-function claude_costs_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${claude_base(cfg, env)}\\metrics\\costs.jsonl`;
+function path_input(
+    cfg: TokenStatsConfig,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): paths.TokenStatsPathInput {
+    return {
+        host,
+        homedir,
+        win_home: cfg.win_home,
+        wsl_distro: cfg.wsl_distro,
+        wsl_user: effective_wsl_user(cfg),
+    };
 }
 
-function claude_projects_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${claude_base(cfg, env)}\\projects`;
+function claude_costs_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.claude_costs_path(path_input(cfg, host, homedir), env);
 }
 
-function opencode_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.local\\share\\opencode\\opencode.db`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.local\\share\\opencode\\opencode.db`;
+function claude_projects_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.claude_projects_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_base(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.kimi-code`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.kimi-code`;
+function opencode_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.opencode_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_sessions_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${kimi_base(cfg, env)}\\sessions`;
+function kimi_sessions_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.kimi_sessions_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_index_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${kimi_base(cfg, env)}\\session_index.jsonl`;
+function kimi_index_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.kimi_index_path(path_input(cfg, host, homedir), env);
 }
 
-function grok_base(cfg: TokenStatsConfig): string {
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.grok`;
-}
-
-function grok_sessions_path(cfg: TokenStatsConfig): string {
-    return `${grok_base(cfg)}\\sessions`;
+function grok_sessions_path(
+    cfg: TokenStatsConfig,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.grok_sessions_path(path_input(cfg, host, homedir), "wsl");
 }
 
 // --- Source readers ---
@@ -266,49 +309,48 @@ interface SourceReadResult {
 function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
     try {
         if (src.kind === "costs") {
+            const costs_path = claude_costs_path(cfg, src.env);
+            if (costs_path === null) return { sessions: [], daily: [], records: [] };
             const s = costs_state.get(src.key) ?? { offset: 0, size: 0 };
-            const result = read_costs_jsonl(
-                claude_costs_path(cfg, src.env),
-                src.env,
-                s.offset,
-                s.size,
-            );
+            const result = read_costs_jsonl(costs_path, src.env, s.offset, s.size);
             costs_state.set(src.key, { offset: result.new_offset, size: result.new_size });
             return { sessions: result.sessions, daily: [], records: [] };
         }
         if (src.kind === "session_jsonl") {
+            const projects_path = claude_projects_path(cfg, src.env);
+            if (projects_path === null) return { sessions: [], daily: [], records: [] };
             const state = jsonl_states.get(src.key) ?? create_session_scan_state();
-            const result = scan_session_jsonls(claude_projects_path(cfg, src.env), src.env, state);
+            const result = scan_session_jsonls(projects_path, src.env, state);
             jsonl_states.set(src.key, result.new_state);
             return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
         if (src.kind === "kimi_jsonl") {
+            const sessions_path = kimi_sessions_path(cfg, src.env);
+            const index_path = kimi_index_path(cfg, src.env);
+            if (sessions_path === null || index_path === null) {
+                return { sessions: [], daily: [], records: [] };
+            }
             const state = kimi_states.get(src.key) ?? create_kimi_scan_state();
-            const result = scan_kimi_wire_jsonls(
-                kimi_sessions_path(cfg, src.env),
-                src.env,
-                kimi_index_path(cfg, src.env),
-                state,
-            );
+            const result = scan_kimi_wire_jsonls(sessions_path, src.env, index_path, state);
             kimi_states.set(src.key, result.new_state);
             return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
         if (src.kind === "grok_jsonl") {
+            const grok_path = grok_sessions_path(cfg);
+            if (grok_path === null) return { sessions: [], daily: [], records: [] };
             const state = grok_states.get(src.key) ?? create_grok_scan_state();
-            const result = scan_grok_updates(grok_sessions_path(cfg), src.env, state);
+            const result = scan_grok_updates(grok_path, src.env, state);
             grok_states.set(src.key, result.new_state);
             if (result.missing && !grok_missing_warned.has(src.key)) {
                 grok_missing_warned.add(src.key);
-                forward_log(
-                    "warn",
-                    "collector",
-                    `${src.key} sessions dir missing: ${grok_sessions_path(cfg)}`,
-                );
+                forward_log("warn", "collector", `${src.key} sessions dir missing: ${grok_path}`);
             }
             return { sessions: result.sessions, daily: result.daily, records: result.records };
         }
+        const opencode_db_path = opencode_path(cfg, src.env);
+        if (opencode_db_path === null) return { sessions: [], daily: [], records: [] };
         const max_updated = opencode_max_updated.get(src.key) ?? 0;
-        const result = read_opencode_sessions(opencode_path(cfg, src.env), src.env, max_updated);
+        const result = read_opencode_sessions(opencode_db_path, src.env, max_updated);
         for (const session of result.sessions) {
             if (session.ended_at > max_updated) {
                 opencode_max_updated.set(src.key, session.ended_at);

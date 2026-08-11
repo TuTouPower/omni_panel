@@ -3,7 +3,7 @@ import { z } from "zod/v3";
 // --- Enums ---
 
 export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code", "grok"]);
-export const tokenStatsEnvSchema = z.enum(["win", "wsl"]);
+export const tokenStatsEnvSchema = z.enum(["local", "wsl"]);
 
 // --- Stored row schemas (query results) ---
 
@@ -272,7 +272,7 @@ export const tokenStatsDashboardAgentSchema = z.enum([
     "kimi-code",
     "grok",
 ]);
-export const tokenStatsDashboardPlatformSchema = z.enum(["all", "win", "wsl"]);
+export const tokenStatsDashboardPlatformSchema = z.enum(["all", "local", "wsl"]);
 export const tokenStatsDashboardMetricSchema = z.enum(["tokens", "sessions", "calls"]);
 export const tokenStatsDashboardXAxisSchema = z.enum(["time", "project", "session"]);
 export const tokenStatsDashboardGranularitySchema = z.enum(["hour", "day"]);

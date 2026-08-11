@@ -161,11 +161,11 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions).toHaveLength(2);
         expect(sessions[0]!.id).toBe("sess-001");
         expect(sessions[0]!.source).toBe("opencode");
-        expect(sessions[0]!.env).toBe("win");
+        expect(sessions[0]!.env).toBe("local");
         expect(sessions[0]!.model).toBe("claude-sonnet-4-20250514");
         expect(sessions[0]!.input_tokens).toBe(1000);
         expect(sessions[0]!.output_tokens).toBe(500);
@@ -206,13 +206,13 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions, daily, records } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions, daily, records } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions[0]!.calls).toBe(2);
         expect(daily).toHaveLength(1);
         expect(daily[0]).toMatchObject({
             id: "sess-001",
             source: "opencode",
-            env: "win",
+            env: "local",
             model: "claude-sonnet-4-20250514",
             input_tokens: 300,
             output_tokens: 30,
@@ -247,7 +247,7 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions, daily, records } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions, daily, records } = read_opencode_sessions(db_path, "local", 0);
 
         expect(sessions[0]!.calls).toBe(1);
         expect(daily).toHaveLength(1);
@@ -273,7 +273,7 @@ describe("read_opencode_sessions", () => {
         ).run();
         db.close();
 
-        const { sessions, daily } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions, daily } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions[0]!.calls).toBe(0);
         expect(daily).toHaveLength(0);
     });
@@ -300,7 +300,7 @@ describe("read_opencode_sessions", () => {
         ).run();
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions).toHaveLength(1);
         expect(sessions[0]!.calls).toBeNull();
     });
@@ -311,7 +311,7 @@ describe("read_opencode_sessions", () => {
         insert_session(db, { id: "new", time_updated: 5000 });
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 3000);
+        const { sessions } = read_opencode_sessions(db_path, "local", 3000);
         expect(sessions).toHaveLength(1);
         expect(sessions[0]!.id).toBe("new");
     });
@@ -339,7 +339,7 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions).toHaveLength(2);
         const by_id = Object.fromEntries(sessions.map((s) => [s.id, s.model]));
         expect(by_id["sonnet"]).toBe("claude-sonnet-4-20250514");
@@ -361,14 +361,14 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "local", 0);
         // only the valid one should pass; null-model/empty/bad-json are filtered
         expect(sessions).toHaveLength(1);
         expect(sessions[0]!.id).toBe("valid");
     });
 
     it("returns empty array for missing database", () => {
-        const { sessions } = read_opencode_sessions("/nonexistent/path/db.sqlite", "win", 0);
+        const { sessions } = read_opencode_sessions("/nonexistent/path/db.sqlite", "local", 0);
         expect(sessions).toEqual([]);
     });
 
@@ -381,7 +381,7 @@ describe("read_opencode_sessions", () => {
         });
         db.close();
 
-        const { sessions } = read_opencode_sessions(db_path, "win", 0);
+        const { sessions } = read_opencode_sessions(db_path, "local", 0);
         expect(sessions).toHaveLength(1);
         expect(sessions[0]!.cache_read_tokens).toBe(0);
         expect(sessions[0]!.cache_write_tokens).toBe(0);

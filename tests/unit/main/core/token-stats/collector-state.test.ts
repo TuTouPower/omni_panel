@@ -42,6 +42,7 @@ import {
     save_state,
     load_state,
     serialize_state,
+    set_collector_host,
     jsonl_states,
     kimi_states,
     grok_states,
@@ -84,6 +85,8 @@ describe("collector scan-state persistence", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         reset_config();
+        // Simulate a Windows host so the wsl (grok) source stays reachable (t308).
+        set_collector_host("windows");
         tmp_file = path.join(
             os.tmpdir(),
             `t114-state-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
@@ -124,7 +127,7 @@ describe("collector scan-state persistence", () => {
     });
 
     it("serialize_state drops records and flattens daily", () => {
-        jsonl_states.set("claude_jsonl_win", {
+        jsonl_states.set("claude_jsonl_local", {
             mtimes: new Map([["proj/f1.jsonl", 1785000286795.3518]]),
             files: new Map([
                 ["proj/f1.jsonl", { session_id: "s1", facts: make_facts([{ id: "r1" }]) }],
@@ -132,7 +135,7 @@ describe("collector scan-state persistence", () => {
         } as any);
 
         const serialized = serialize_state();
-        const entry = (serialized as any).jsonl_states["claude_jsonl_win"].files["proj/f1.jsonl"];
+        const entry = (serialized as any).jsonl_states["claude_jsonl_local"].files["proj/f1.jsonl"];
         expect(entry.facts.records).toBeUndefined();
         expect(entry.facts.daily).toEqual({
             "2026-07-10|claude-x": { date: "2026-07-10", model: "claude-x", calls: 1 },
@@ -143,23 +146,25 @@ describe("collector scan-state persistence", () => {
 
     it("serialize_state keeps float mtime for strict equality round-trip", () => {
         const float_mtime = 1785000286795.3518;
-        jsonl_states.set("claude_jsonl_win", {
+        jsonl_states.set("claude_jsonl_local", {
             mtimes: new Map([["proj/f1.jsonl", float_mtime]]),
             files: new Map([["proj/f1.jsonl", { session_id: "s1", facts: make_facts([]) }]]),
         } as any);
         const serialized = serialize_state();
-        const mtimes = (serialized as any).jsonl_states["claude_jsonl_win"].mtimes["proj/f1.jsonl"];
+        const mtimes = (serialized as any).jsonl_states["claude_jsonl_local"].mtimes[
+            "proj/f1.jsonl"
+        ];
         expect(mtimes).toBe(float_mtime);
     });
 
     it("save then load round-trips full scan state", async () => {
-        jsonl_states.set("claude_jsonl_win", {
+        jsonl_states.set("claude_jsonl_local", {
             mtimes: new Map([["proj/f1.jsonl", 1785000286795.3518]]),
             files: new Map([
                 ["proj/f1.jsonl", { session_id: "s1", facts: make_facts([{ id: "r1" }]) }],
             ]),
         } as any);
-        kimi_states.set("kimi_win", {
+        kimi_states.set("kimi_local", {
             mtimes: new Map([["k.jsonl", 1700000000000]]),
             files: new Map([["k.jsonl", { session_id: "ks1", facts: make_facts([]) }]]),
         } as any);
@@ -169,8 +174,8 @@ describe("collector scan-state persistence", () => {
                 ["enc/sid/updates.jsonl", { session_id: "sid", facts: make_facts([]) }],
             ]),
         } as any);
-        costs_state.set("claude_costs_win", { offset: 42, size: 100 });
-        opencode_max_updated.set("opencode_win", 1700000000000);
+        costs_state.set("claude_costs_local", { offset: 42, size: 100 });
+        opencode_max_updated.set("opencode_local", 1700000000000);
 
         await save_state(tmp_file);
         expect(fs.existsSync(tmp_file)).toBe(true);
@@ -184,7 +189,7 @@ describe("collector scan-state persistence", () => {
 
         await load_state(tmp_file);
 
-        const claude_state = jsonl_states.get("claude_jsonl_win");
+        const claude_state = jsonl_states.get("claude_jsonl_local");
         expect(claude_state?.mtimes.get("proj/f1.jsonl")).toBe(1785000286795.3518);
         const claude_file = claude_state?.files.get("proj/f1.jsonl");
         expect(claude_file?.session_id).toBe("s1");
@@ -196,19 +201,19 @@ describe("collector scan-state persistence", () => {
             calls: 1,
         });
 
-        expect(kimi_states.get("kimi_win")?.files.get("k.jsonl")?.session_id).toBe("ks1");
+        expect(kimi_states.get("kimi_local")?.files.get("k.jsonl")?.session_id).toBe("ks1");
         // grok scan state round-trips with its float mtime intact (t197 AC4)
         const grok_state = grok_states.get("grok_wsl");
         expect(grok_state?.mtimes.get("enc/sid/updates.jsonl")).toBe(1785000286795.25);
         expect(grok_state?.files.get("enc/sid/updates.jsonl")?.session_id).toBe("sid");
-        expect(costs_state.get("claude_costs_win")).toEqual({ offset: 42, size: 100 });
-        expect(opencode_max_updated.get("opencode_win")).toBe(1700000000000);
+        expect(costs_state.get("claude_costs_local")).toEqual({ offset: 42, size: 100 });
+        expect(opencode_max_updated.get("opencode_local")).toBe(1700000000000);
     });
 
     it("load_state tolerates a corrupt file and leaves all state empty", async () => {
         // Pre-populate to prove load_state clears on corrupt input.
-        costs_state.set("claude_costs_win", { offset: 1, size: 1 });
-        jsonl_states.set("claude_jsonl_win", { mtimes: new Map(), files: new Map() } as any);
+        costs_state.set("claude_costs_local", { offset: 1, size: 1 });
+        jsonl_states.set("claude_jsonl_local", { mtimes: new Map(), files: new Map() } as any);
         grok_states.set("grok_wsl", { mtimes: new Map(), files: new Map() } as any);
         fs.writeFileSync(tmp_file, "{ this is not valid json");
         await load_state(tmp_file);
@@ -250,7 +255,9 @@ describe("collector scan-state persistence", () => {
         });
         configure(make_config("")); // no persistence path
         collect();
-        expect(jsonl_states.get("claude_jsonl_win")?.mtimes.get("proj/f1.jsonl")).toBe(float_mtime);
+        expect(jsonl_states.get("claude_jsonl_local")?.mtimes.get("proj/f1.jsonl")).toBe(
+            float_mtime,
+        );
 
         // Persist, wipe, reload — simulating a restart.
         await save_state(tmp_file);

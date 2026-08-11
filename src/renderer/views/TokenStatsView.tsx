@@ -38,7 +38,7 @@ const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
 
 const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [
     { value: "all", label: "全平台" },
-    { value: "win", label: "Win" },
+    { value: "local", label: "Local" },
     { value: "wsl", label: "WSL" },
 ];
 
