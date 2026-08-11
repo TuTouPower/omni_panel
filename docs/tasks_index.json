@@ -17,6 +17,21 @@
             "schedule_status": "",
             "note": "合并 p110-p113/p117-p118 六条 DESIGN 对照差异：Switch 尺寸/开态色、Badge count 配色、Progress 尺寸（未消费）、Button 字重规格矛盾、Menu hover、Dialog 动画缺失；含设计侧裁决点，对比度不退化",
             "dir": "docs/tasks/t301_ui_token_alignment_pack"
+        },
+        {
+            "tid": "t303",
+            "slug": "fix_text_label_sm_classes",
+            "title": "text-label-sm 失效类归级到九级字号档",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t303_fix_text_label_sm_classes"
         }
     ]
 }
