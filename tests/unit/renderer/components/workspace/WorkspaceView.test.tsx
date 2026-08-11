@@ -876,4 +876,33 @@ describe("WorkspaceView (t224)", () => {
 
         vi.useRealTimers();
     });
+
+    it("t315 AC2/AC3：根背景 surface-window、发丝线网格保留、卡片第二色 surface-raised", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        render(<WorkspaceView />);
+        const root = document.querySelector(".session-workspace");
+        expect(root?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(root?.className).not.toContain("bg-[var(--color-surface)]");
+        // 装入会话后出现网格：gap-px + bg-outline + p-px 发丝线网格保留。
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
+        });
+        const grid = document.querySelector(".session-grid");
+        expect(grid?.className).toContain("gap-px");
+        expect(grid?.className).toContain("bg-[var(--color-outline)]");
+        expect(grid?.className).toContain("p-px");
+        // 单元格与根同色（surface-window），卡片为第二色 surface-raised。
+        const cell = document.querySelector(".session-cell");
+        expect(cell?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(cell?.className).not.toContain("bg-[var(--color-surface)]");
+        const pane = document.querySelector(".conversation-pane");
+        expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
+    });
 });

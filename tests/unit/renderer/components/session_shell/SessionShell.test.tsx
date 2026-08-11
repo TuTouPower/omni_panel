@@ -192,4 +192,17 @@ describe("SessionShell (t223)", () => {
         // 页签叠在拖拽区上，须可点击（no-drag）。
         expect(tabs?.className).toContain("[-webkit-app-region:no-drag]");
     });
+
+    it("t315 AC1：根容器与顶栏背景为 surface-window（对齐用量/设置/代理面板）", async () => {
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const root = document.querySelector(".session-shell");
+        expect(root?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(root?.className).not.toContain("bg-[var(--color-surface)]");
+        const topbar = document.querySelector(".session-topbar");
+        expect(topbar?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(topbar?.className).not.toContain("bg-[var(--color-surface)]");
+    });
 });
