@@ -37,14 +37,14 @@ disable-model-invocation: true
 
 2. **跑机器门禁**（每个 task 各一次，只读，按有效状态与来源选择位置）：
 
-    | 有效状态 / 来源              | 命令                                                                                  |
-    | ---------------------------- | ------------------------------------------------------------------------------------- |
-    | 主干中尚未启动的 `backlog`   | `scripts/repo_template/task.py preflight {tid} --allow-backlog`                       |
-    | 未合并分支中的 `backlog`     | `scripts/repo_template/task.py preflight {tid} --allow-backlog --ref {branch}`        |
-    | 登记 worktree 中的 `active`  | 在该 worktree 执行 `scripts/repo_template/task.py preflight {tid}`                    |
-    | 登记 worktree 中的 `blocked` | 在该 worktree 执行 `scripts/repo_template/task.py preflight {tid}`，保留 blocked FAIL |
+| 有效状态 / 来源              | 命令                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| 主干中尚未启动的 `backlog`   | `scripts/repo_template/task.py preflight {tid} --allow-backlog`                       |
+| 未合并分支中的 `backlog`     | `scripts/repo_template/task.py preflight {tid} --allow-backlog --ref {branch}`        |
+| 登记 worktree 中的 `active`  | 在该 worktree 执行 `scripts/repo_template/task.py preflight {tid}`                    |
+| 登记 worktree 中的 `blocked` | 在该 worktree 执行 `scripts/repo_template/task.py preflight {tid}`，保留 blocked FAIL |
 
-    `--ref` 只检查快照状态、spec 与 front matter，不检查 worktree 和当前脏改动；输出该警告属预期，不算用户缺口。机器门禁检查状态、spec 完整、工作区一致性与未知契约分类。`UNVERIFIED-BLOCKING`、裸 `UNVERIFIED` 和其它 FAIL 项直接进输出表，标「阻塞」；`UNVERIFIED-SPIKE` 只警告，属于执行期 Step 1 工作。
+`--ref` 只检查快照状态、spec 与 front matter，不检查 worktree 和当前脏改动；输出该警告属预期，不算用户缺口。机器门禁检查状态、spec 完整、工作区一致性与未知契约分类。`UNVERIFIED-BLOCKING`、裸 `UNVERIFIED` 和其它 FAIL 项直接进输出表，标「阻塞」；`UNVERIFIED-SPIKE` 只警告，属于执行期 Step 1 工作。
 
 3. **baseline 健康检查**（一次，主干）：从 `docs/blueprint/testing.md` 读 `{doctor_cmd}`（写「无」则跳过并注明），在主干跑一次。绿 → 输出表注明 baseline 绿。红 → 输出表加一行 `baseline`，标「阻塞」：先确认是「先修基线再跑队列」还是「队列首 task 的目的即修复基线」（后者用户在输出表结论处明确放行后才可执行）。不预检的后果是 attempt 对注定失败的基线空转。
 
@@ -57,17 +57,17 @@ disable-model-invocation: true
 
     只记**必须用户提供、agent 不能编造**的缺口：
 
-    | 类型     | 举例                                      |
-    | -------- | ----------------------------------------- |
-    | 密钥     | API token、DB 密码                        |
-    | 环境     | 需启动的服务、端口、平台限制              |
-    | 账号权限 | 云控制台、第三方组织                      |
-    | 产品决策 | 方案 A/B、范围取舍、blocked 后加轮或 drop |
-    | 外部数据 | 样例文件、回调 URL                        |
+| 类型     | 举例                                      |
+| -------- | ----------------------------------------- |
+| 密钥     | API token、DB 密码                        |
+| 环境     | 需启动的服务、端口、平台限制              |
+| 账号权限 | 云控制台、第三方组织                      |
+| 产品决策 | 方案 A/B、范围取舍、blocked 后加轮或 drop |
+| 外部数据 | 样例文件、回调 URL                        |
 
-    不算缺口：读代码/文档能搞定的；agent 可装可查且不违硬约束的。
+不算缺口：读代码/文档能搞定的；agent 可装可查且不违硬约束的。
 
-    每条标严重度：**阻塞**（缺它执行跑不下去）/ **可后补**（能开干但某条 AC 或上线会缺）。
+每条标严重度：**阻塞**（缺它执行跑不下去）/ **可后补**（能开干但某条 AC 或上线会缺）。
 
 5. **输出缺口表**：
 
@@ -75,21 +75,23 @@ disable-model-invocation: true
     ## Preflight 结果
 
     范围：<实际查了什么>
-
-    | tid  | 标题 | 有效状态 | 来源                    | preflight           | 缺口              | 阻塞? | 请用户做什么            |
-    | ---- | ---- | -------- | ----------------------- | ------------------- | ----------------- | ----- | ----------------------- |
-    | t002 | …    | active   | worktree `../repo_t002` | PASS                | 缺 OPENAI_API_KEY | 是    | 写入本地 .env（勿提交） |
-    | t003 | …    | backlog  | ref `t002_xxx`          | FAIL：spec 缺契约区 | 无                | 是    | 补全 spec 契约区        |
-
-    跳过：
-
-    - t009：status=done，非待做
-
-    结论：
-
-    - 有阻塞：先补齐「是」的行，再执行
-    - 或：无阻塞；执行请 /task-run（可多会话手动并发各跑一段）
     ```
+
+| tid  | 标题 | 有效状态 | 来源                    | preflight           | 缺口              | 阻塞? | 请用户做什么            |
+| ---- | ---- | -------- | ----------------------- | ------------------- | ----------------- | ----- | ----------------------- |
+| t002 | …    | active   | worktree `../repo_t002` | PASS                | 缺 OPENAI_API_KEY | 是    | 写入本地 .env（勿提交） |
+| t003 | …    | backlog  | ref `t002_xxx`          | FAIL：spec 缺契约区 | 无                | 是    | 补全 spec 契约区        |
+
+跳过：
+
+- t009：status=done，非待做
+
+结论：
+
+- 有阻塞：先补齐「是」的行，再执行
+- 或：无阻塞；执行请 /task-run（可多会话手动并发各跑一段）
+
+```
 
 ## 边界
 
@@ -100,3 +102,4 @@ disable-model-invocation: true
 ## 完成
 
 输出缺口表 + 结论。有阻塞→先补齐再执行；无→提示 `/task-run`（多会话手动并发各跑一段）。
+```
