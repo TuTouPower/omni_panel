@@ -328,11 +328,11 @@ export function SettingsForm({
         >
             <div className="flex flex-col gap-1.5">
                 <label
-                    className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                    className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                     htmlFor="displayName"
                 >
                     备注
-                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                    <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                         显示用
                     </span>
                 </label>
@@ -425,7 +425,7 @@ export function SettingsForm({
             {visible_parameters.map((param) => (
                 <div className="flex flex-col gap-1.5" key={param.name}>
                     <label
-                        className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                        className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                         htmlFor={param.name}
                     >
                         {param["label@zh-Hans"] ?? param.label}
@@ -481,7 +481,7 @@ export function SettingsForm({
                         />
                     )}
                     {typeof param.description === "string" && (
-                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                        <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {param.description}
                         </p>
                     )}
@@ -490,7 +490,7 @@ export function SettingsForm({
             {providerId !== "grok" &&
                 Object.keys(endpoints ?? {}).map((endpointName) => (
                     <div className="flex flex-col gap-1.5" key={endpointName}>
-                        <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                        <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                             {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
                         </label>
                         <Input
@@ -515,12 +515,12 @@ export function SettingsForm({
                     </div>
                 ))}
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     刷新
                 </label>
                 {manualRefreshOnly ? (
                     <p
-                        className="text-body-sm text-[var(--color-on-surface-muted)]"
+                        className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                         data-testid={`settings-manual-only-${instanceId}`}
                     >
                         仅手动刷新（刷新时会消耗一次 API 配额）
@@ -528,7 +528,7 @@ export function SettingsForm({
                 ) : (
                     <>
                         <div className="mt-1 flex items-center gap-2">
-                            <span className="text-body-md text-[var(--color-on-surface)]">
+                            <span className="text-[length:var(--text-body-md)] text-[var(--color-on-surface)]">
                                 跟随全局自动刷新间隔
                             </span>
                             <Switch
@@ -544,7 +544,7 @@ export function SettingsForm({
                         </div>
                         {followGlobal ? (
                             <p
-                                className="text-body-sm text-[var(--color-on-surface-muted)]"
+                                className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                                 data-testid={`settings-global-label-${instanceId}`}
                             >
                                 当前全局为「{globalIntervalLabel}」自动刷新
@@ -574,7 +574,7 @@ export function SettingsForm({
             {providerId && onForcePercentChange && (
                 <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                        <span className="text-body-md text-[var(--color-on-surface)]">
+                        <span className="text-[length:var(--text-body-md)] text-[var(--color-on-surface)]">
                             用量数字统一为百分比
                         </span>
                         <Switch
@@ -588,28 +588,28 @@ export function SettingsForm({
                             aria-label="用量数字统一为百分比"
                         />
                     </div>
-                    <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                    <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         该厂商下所有账号用量统一显示为百分比
                     </p>
                 </div>
             )}
             {onSaveLabelMap && providerId && (
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         数据标签映射
                     </label>
                     <div className="mt-2">
                         {labelLoading ? (
-                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 加载标签数据…
                             </div>
                         ) : labelRows.length === 0 ? (
-                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 暂无可映射的数据标签
                             </div>
                         ) : (
                             <>
-                                <div className="mb-2 flex items-center gap-3 px-0.5 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                                <div className="mb-2 flex items-center gap-3 px-0.5 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                                     <span className="min-w-0 flex-1">原始标签</span>
                                     <span className="min-w-0 flex-1">显示名称</span>
                                 </div>
@@ -621,14 +621,14 @@ export function SettingsForm({
                                     );
                                     return (
                                         <div className="flex items-center gap-2" key={r.raw}>
-                                            <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-variant)]">
+                                            <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                                                 {r.raw}
                                             </code>
                                             <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                                 <Icon name="chevron" size={14} />
                                             </span>
                                             <Input
-                                                className="h-8 min-w-0 flex-1 font-[var(--font-code-md)] text-label-md"
+                                                className="h-8 min-w-0 flex-1 font-[var(--font-code-md)] text-[length:var(--text-label-md)]"
                                                 value={v}
                                                 placeholder={r.raw}
                                                 spellCheck={false}
@@ -702,7 +702,10 @@ export function SettingsForm({
                     {saving ? "保存中..." : saved ? "已保存" : "保存"}
                 </Button>
                 {saveError ? (
-                    <span className="text-body-sm text-[var(--color-error)]" role="alert">
+                    <span
+                        className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
+                        role="alert"
+                    >
                         {saveError}
                     </span>
                 ) : null}

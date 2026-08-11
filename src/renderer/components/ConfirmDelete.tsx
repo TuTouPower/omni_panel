@@ -49,8 +49,10 @@ export function ConfirmDelete({
                         <Icon name="trash" size={18} />
                     </span>
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">{title}</div>
-                        <div className="mt-0.5 text-body-sm text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
+                            {title}
+                        </div>
+                        <div className="mt-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             此操作无法撤销
                         </div>
                     </div>
@@ -67,7 +69,11 @@ export function ConfirmDelete({
                 </>
             }
         >
-            <div ref={containerRef} tabIndex={-1} className="text-body-md leading-relaxed">
+            <div
+                ref={containerRef}
+                tabIndex={-1}
+                className="text-[length:var(--text-body-md)] leading-relaxed"
+            >
                 确定要删除账号 <strong>{name}</strong>{" "}
                 吗？删除后该账号的所有本地用量记录将一并移除。
             </div>

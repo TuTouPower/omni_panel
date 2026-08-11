@@ -233,7 +233,7 @@ export function TrayMenu() {
                                     </span>
                                 )}
                                 {item.meta && !item.checked && (
-                                    <span className="ml-auto text-label-md text-[var(--color-on-surface-muted)] tabular-nums">
+                                    <span className="ml-auto text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)] tabular-nums">
                                         {item.meta}
                                     </span>
                                 )}

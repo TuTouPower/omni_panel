@@ -87,7 +87,7 @@ export function WorkspaceToolbar({
                                 role="menu"
                                 aria-label="视图选项"
                             >
-                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-body-sm text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                     <Checkbox
                                         checked={view.show_time}
                                         onChange={(e) => {
@@ -96,7 +96,7 @@ export function WorkspaceToolbar({
                                     />
                                     显示时间戳
                                 </label>
-                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-body-sm text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                     <Checkbox
                                         checked={view.compact}
                                         onChange={(e) => {
@@ -111,7 +111,7 @@ export function WorkspaceToolbar({
                                         role="group"
                                         aria-label="会话排布"
                                     >
-                                        <div className="history-layout-title px-2.5 py-1 text-label-md text-[var(--color-on-surface-muted)]">
+                                        <div className="history-layout-title px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                                             会话排布
                                         </div>
                                         {layout_choices.map((choice) => (
@@ -119,7 +119,7 @@ export function WorkspaceToolbar({
                                                 type="button"
                                                 key={`${String(choice.columns)}x${String(choice.rows)}`}
                                                 className={cn(
-                                                    "history-layout-choice w-full rounded-md px-2.5 py-1.5 text-left text-body-sm text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                                    "history-layout-choice w-full rounded-md px-2.5 py-1.5 text-left text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                                     layout === choice.columns &&
                                                         "bg-[var(--color-surface-raised)] text-[var(--color-on-surface)]",
                                                 )}

@@ -44,7 +44,7 @@ export function SessionRail({
         >
             <button
                 type="button"
-                className="history-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                className="history-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                 title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 onClick={on_toggle_collapse}
@@ -63,7 +63,7 @@ export function SessionRail({
                             type="button"
                             key={`empty-${String(index)}`}
                             className={cn(
-                                "history-slot history-slot-empty flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-body-sm font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                "history-slot history-slot-empty flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                 collapsed && "mx-auto min-h-9 w-9 rounded-lg p-0",
                             )}
                             aria-label={`槽位 ${String(index + 1)}（空）`}
@@ -101,12 +101,12 @@ export function SessionRail({
                             {!collapsed && (
                                 <div className="history-slot-body flex min-w-0 flex-1 flex-col gap-0.5">
                                     <div
-                                        className="history-slot-title truncate text-body-sm font-semibold text-[var(--color-on-surface)]"
+                                        className="history-slot-title truncate text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface)]"
                                         title={slot.title}
                                     >
                                         {slot.title}
                                     </div>
-                                    <div className="history-slot-meta whitespace-nowrap font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <div className="history-slot-meta whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                                         {String(slot.calls)} 轮 · {format_tokens(slot.tokens)}{" "}
                                         tokens
                                     </div>
@@ -115,7 +115,7 @@ export function SessionRail({
                             {!collapsed && (
                                 <button
                                     type="button"
-                                    className="history-slot-close flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                    className="history-slot-close flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                     aria-label="关闭会话"
                                     onClick={() => {
                                         on_close(index);

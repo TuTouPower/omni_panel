@@ -64,9 +64,9 @@ export function ExaServiceKeyForm({
     return (
         <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     备注
-                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                    <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                         显示用
                     </span>
                 </label>
@@ -83,7 +83,7 @@ export function ExaServiceKeyForm({
                 />
             </div>
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     Service Key
                 </label>
                 <SecretInput
@@ -92,13 +92,13 @@ export function ExaServiceKeyForm({
                     onChange={set_service_key}
                     placeholder="exa-…"
                 />
-                <div className="flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]">
+                <div className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     <Icon name="lock" size={12} strokeWidth={1.8} />
                     密钥仅加密保存在本地
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     API Key ID
                 </label>
                 <Input
@@ -114,9 +114,9 @@ export function ExaServiceKeyForm({
                 />
             </div>
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     限额
-                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                    <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                         可选
                     </span>
                 </label>
@@ -132,7 +132,10 @@ export function ExaServiceKeyForm({
                 />
             </div>
             {error_message && (
-                <div className="text-body-sm text-[var(--color-error)]" role="alert">
+                <div
+                    className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
+                    role="alert"
+                >
                     {error_message}
                 </div>
             )}

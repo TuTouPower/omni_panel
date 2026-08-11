@@ -32,14 +32,14 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
     return (
         <>
             <div className="mb-3.5 flex flex-col gap-1.5">
-                <span className="mb-0.5 flex items-center gap-1.5 text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <span className="mb-0.5 flex items-center gap-1.5 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     <Icon name="search" size={13} strokeWidth={1.8} />
                     扫描位置
                 </span>
                 {paths.map((p) => (
                     <code
                         key={p}
-                        className="break-all rounded-md bg-[var(--color-surface-raised)] px-2.5 py-1.5 font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-variant)]"
+                        className="break-all rounded-md bg-[var(--color-surface-raised)] px-2.5 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                     >
                         {p}
                     </code>
@@ -47,7 +47,7 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
             </div>
 
             {phase === "scanning" ? (
-                <div className="flex items-center justify-center gap-2 py-6 text-body-md text-[var(--color-on-surface-muted)]">
+                <div className="flex items-center justify-center gap-2 py-6 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <span className="flex animate-spin">
                         <Icon name="refresh" size={16} />
                     </span>
@@ -56,7 +56,7 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
             ) : (
                 <div className="flex flex-col">
                     <div className="mb-2.5 flex items-center gap-2">
-                        <span className="text-body-md font-semibold text-[var(--color-on-surface-variant)]">
+                        <span className="text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface-variant)]">
                             未发现有效凭证
                         </span>
                         <Button
@@ -76,10 +76,10 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
                         <span className="mb-2.5 text-[var(--color-on-surface-muted)]">
                             <Icon name="file" size={20} />
                         </span>
-                        <div className="mb-1 text-body-md font-semibold text-[var(--color-on-surface-variant)]">
+                        <div className="mb-1 text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface-variant)]">
                             未找到本地授权文件
                         </div>
-                        <div className="max-w-[260px] text-body-sm leading-relaxed text-[var(--color-on-surface-muted)]">
+                        <div className="max-w-[260px] text-[length:var(--text-body-sm)] leading-relaxed text-[var(--color-on-surface-muted)]">
                             请确保已安装对应的 CLI 工具并完成登录，然后点击重新扫描。
                         </div>
                     </div>

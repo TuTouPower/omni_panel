@@ -81,7 +81,7 @@ export function SessionPickerModal({
                     <Button
                         variant="icon"
                         size="sm"
-                        className="!h-7 !w-7 !p-0 text-title-sm"
+                        className="!h-7 !w-7 !p-0 text-[length:var(--text-title-sm)]"
                         aria-label="关闭"
                         onClick={on_close}
                     >
@@ -126,7 +126,7 @@ export function SessionPickerModal({
                 </div>
                 <div className="history-picker-list flex min-h-[200px] max-h-[46vh] min-w-0 flex-col gap-1 overflow-y-auto">
                     {filtered.length === 0 ? (
-                        <div className="history-picker-empty px-4 py-8 text-center text-body-md text-[var(--color-on-surface-muted)]">
+                        <div className="history-picker-empty px-4 py-8 text-center text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                             没有匹配的会话
                         </div>
                     ) : (
@@ -139,15 +139,15 @@ export function SessionPickerModal({
                                     open(s);
                                 }}
                             >
-                                <span className="history-picker-row-title flex min-w-0 items-center gap-2 truncate text-body-md font-medium text-[var(--color-on-surface)]">
+                                <span className="history-picker-row-title flex min-w-0 items-center gap-2 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
                                     <span className="min-w-0 truncate">{s.title ?? s.id}</span>
                                     {open_session_ids.has(s.id) && (
-                                        <span className="history-picker-open shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-label-caps font-semibold text-[var(--color-primary)]">
+                                        <span className="history-picker-open shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-[length:var(--text-label-caps)] font-semibold text-[var(--color-primary)]">
                                             已打开
                                         </span>
                                     )}
                                 </span>
-                                <span className="history-picker-meta flex min-w-0 items-center gap-2.5 text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                                <span className="history-picker-meta flex min-w-0 items-center gap-2.5 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                                     <span className="history-picker-source shrink-0">
                                         {agent_slug(s.source)}
                                     </span>

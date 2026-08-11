@@ -376,8 +376,10 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     return (
         <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface)] text-[var(--color-on-surface)]">
             <header className="library-header flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
-                <span className="library-title text-title-lg font-bold tracking-tight">会话库</span>
-                <span className="library-stats font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                <span className="library-title text-[length:var(--text-title-lg)] font-bold tracking-tight">
+                    会话库
+                </span>
+                <span className="library-stats font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                     {stats_text}
                 </span>
             </header>
@@ -391,7 +393,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         set_search(e.target.value);
                     }}
                 />
-                <label className="library-content-search inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-body-sm text-[var(--color-on-surface-variant)]">
+                <label className="library-content-search inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                     <Checkbox
                         checked={search_content}
                         aria-label="包含消息内容"
@@ -439,7 +441,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <button
                         type="button"
                         className={cn(
-                            "rounded px-2.5 py-1 text-label-md text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             view_mode === "grid" &&
                                 "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
                         )}
@@ -454,7 +456,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <button
                         type="button"
                         className={cn(
-                            "rounded px-2.5 py-1 text-label-md text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             view_mode === "list" &&
                                 "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
                         )}
@@ -478,24 +480,24 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             />
 
             {content_searching && (
-                <div className="library-content-searching px-[18px] py-2 text-body-sm text-[var(--color-on-surface-muted)]">
+                <div className="library-content-searching px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     搜索消息内容中…
                 </div>
             )}
             {content_search_error && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-body-sm text-[var(--color-error)]">
+                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
                     消息内容搜索失败
                 </div>
             )}
 
             {load_error && visible_sessions.length > 0 && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-body-sm text-[var(--color-error)]">
+                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
                     会话列表加载中断，已显示部分数据
                 </div>
             )}
 
             {visible_sessions.length === 0 ? (
-                <div className="library-empty flex flex-1 flex-col items-center justify-center gap-3 text-body-md text-[var(--color-on-surface-muted)]">
+                <div className="library-empty flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <p>{empty_text}</p>
                     {show_clear && (
                         <Button
@@ -562,7 +564,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 }}
             />
             {toast !== null && (
-                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-body-md font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
                     {toast}
                 </div>
             )}

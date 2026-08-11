@@ -40,7 +40,7 @@ export function Progress({ value, variant = "thin", label, className }: Progress
                     className="absolute inset-y-0 left-0 transition-[width]"
                     style={{ width, backgroundColor: fill }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-label-md text-[var(--color-on-surface)]">
+                <span className="absolute inset-0 flex items-center justify-center text-[length:var(--text-label-md)] text-[var(--color-on-surface)]">
                     {label ?? `${String(Math.round(clamped * 100))}%`}
                 </span>
             </div>

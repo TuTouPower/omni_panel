@@ -68,7 +68,7 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
                     }}
                 >
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-label-md text-[var(--color-on-surface-variant)]">
+                        <label className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                             开始
                             <Input
                                 type="datetime-local"
@@ -79,7 +79,7 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
                                 }}
                             />
                         </label>
-                        <label className="text-label-md text-[var(--color-on-surface-variant)]">
+                        <label className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                             结束
                             <Input
                                 type="datetime-local"

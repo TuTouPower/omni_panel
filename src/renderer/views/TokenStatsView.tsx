@@ -651,7 +651,7 @@ export function TokenStatsView() {
             <header className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[var(--color-primary)] shadow-[0_0_12px_var(--color-accent-ring)]" />
-                    <h1 className="m-0 flex flex-wrap items-center gap-2 text-title-lg font-bold tracking-tight">
+                    <h1 className="m-0 flex flex-wrap items-center gap-2 text-[length:var(--text-title-lg)] font-bold tracking-tight">
                         代理面板
                         {updatedAgo && (
                             <span className="font-mono text-label-sm font-medium text-[var(--color-on-surface-muted)]">
@@ -696,7 +696,7 @@ export function TokenStatsView() {
                         }}
                     />
                     <Select
-                        className="h-8 w-auto min-w-[128px] py-1 text-label-md"
+                        className="h-8 w-auto min-w-[128px] py-1 text-[length:var(--text-label-md)]"
                         aria-label="模型筛选"
                         value={model}
                         onChange={(e) => {
@@ -729,12 +729,12 @@ export function TokenStatsView() {
             </header>
 
             {loading ? (
-                <Card className="flex min-h-[180px] items-center justify-center text-label-md text-[var(--color-on-surface-muted)]">
+                <Card className="flex min-h-[180px] items-center justify-center text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                     加载中...
                 </Card>
             ) : error && !dashboard ? (
                 <Card
-                    className="flex flex-wrap items-center justify-center gap-3 text-label-md text-[var(--color-error)]"
+                    className="flex flex-wrap items-center justify-center gap-3 text-[length:var(--text-label-md)] text-[var(--color-error)]"
                     role="alert"
                 >
                     <span>查询失败：{error}</span>
@@ -749,7 +749,7 @@ export function TokenStatsView() {
                     </Button>
                 </Card>
             ) : !dashboard || dashboard.current.calls === 0 ? (
-                <Card className="flex min-h-[180px] items-center justify-center text-label-md text-[var(--color-on-surface-muted)]">
+                <Card className="flex min-h-[180px] items-center justify-center text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                     该筛选条件下暂无记录
                 </Card>
             ) : (
@@ -757,7 +757,7 @@ export function TokenStatsView() {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                         <Card className="min-w-0">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                <h3 className="m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                     总 Token 消耗
                                 </h3>
                                 {deltaHtml(totalTokens, prevTokens)}
@@ -771,7 +771,7 @@ export function TokenStatsView() {
                         </Card>
                         <Card className="min-w-0">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                <h3 className="m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                     会话数
                                 </h3>
                                 {deltaHtml(totalSessions, prevSessions)}
@@ -788,7 +788,7 @@ export function TokenStatsView() {
                         </Card>
                         <Card className="min-w-0">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                <h3 className="m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                     调用次数
                                 </h3>
                                 {deltaHtml(totalCalls, prevCalls)}
@@ -801,7 +801,7 @@ export function TokenStatsView() {
                             />
                         </Card>
                         <Card className="min-w-0">
-                            <h3 className="mb-2 m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                            <h3 className="mb-2 m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                 工具占比
                             </h3>
                             <MetricDonut
@@ -813,7 +813,7 @@ export function TokenStatsView() {
                         </Card>
                         <Card className="min-w-0">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                                <h3 className="m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                                <h3 className="m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                     缓存命中率
                                 </h3>
                                 {deltaHtml(hitRate, prevHitRate, true)}
@@ -882,7 +882,7 @@ export function TokenStatsView() {
                             />
                         </Card>
                         <Card className="min-w-0 xl:col-span-3">
-                            <h3 className="mb-2 m-0 text-label-caps font-semibold text-[var(--color-on-surface-variant)]">
+                            <h3 className="mb-2 m-0 text-[length:var(--text-label-caps)] font-semibold text-[var(--color-on-surface-variant)]">
                                 时段热力
                             </h3>
                             <Heatmap cells={dashboard.heatmap} metric={metric} theme={theme} />

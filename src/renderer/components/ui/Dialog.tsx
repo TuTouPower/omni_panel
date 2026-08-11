@@ -50,7 +50,7 @@ export function Dialog({
                 )}
             >
                 {title !== undefined && (
-                    <div className="border-b border-[var(--color-hairline)] px-[var(--spacing-card-padding)] py-3 text-title-sm">
+                    <div className="border-b border-[var(--color-hairline)] px-[var(--spacing-card-padding)] py-3 text-[length:var(--text-title-sm)]">
                         {title}
                     </div>
                 )}
