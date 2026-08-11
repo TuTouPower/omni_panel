@@ -58,11 +58,29 @@ const markdown_components: Components = {
             {children}
         </blockquote>
     ),
-    a: ({ href, children }: { href?: string | undefined; children?: ReactNode }) => (
-        <a className="text-[var(--color-accent)] underline" href={href}>
-            {children}
-        </a>
-    ),
+    a: ({ href, children }: { href?: string | undefined; children?: ReactNode }) => {
+        // t297: 消息内容不可信，链接仅允许 http:/https:（其余渲染为纯文本）；
+        // 允许链接新窗口打开 + noopener noreferrer，不导航会话历史窗口。
+        if (href === undefined) return <>{children}</>;
+        try {
+            const scheme = new URL(href).protocol;
+            if (scheme !== "http:" && scheme !== "https:") {
+                return <>{children}</>;
+            }
+        } catch {
+            return <>{children}</>;
+        }
+        return (
+            <a
+                className="text-[var(--color-accent)] underline"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {children}
+            </a>
+        );
+    },
 };
 
 /** 消息 Markdown 渲染：react-markdown + remark-gfm。 */

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CpaConnectorSettings } from "../../../../src/renderer/components/CpaConnectorSettings";
 import type { ConnectorInfo } from "../../../../src/shared/types/ipc";
@@ -101,7 +101,7 @@ function connector(overrides: Partial<ConnectorInfo> = {}): ConnectorInfo {
     };
 }
 
-function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSettings>[0]> = {}) {
+async function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSettings>[0]> = {}) {
     const props = {
         connector: connector(),
         config: {
@@ -121,7 +121,12 @@ function renderSettings(overrides: Partial<Parameters<typeof CpaConnectorSetting
         onRefresh: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         ...overrides,
     };
-    return { ...render(<CpaConnectorSettings {...props} />), props };
+    const result = render(<CpaConnectorSettings {...props} />);
+    // 挂载 effect 异步 getSecrets，mock 立即 resolve 落微任务；flush 使其在 act 内落地。
+    await act(async () => {
+        await Promise.resolve();
+    });
+    return { ...result, props };
 }
 
 describe("CpaConnectorSettings", () => {
@@ -137,7 +142,7 @@ describe("CpaConnectorSettings", () => {
     });
 
     it("renders config fields, connection status, and sync scope toggles in right panel", async () => {
-        renderSettings();
+        await renderSettings();
 
         // Config fields
         expect(screen.getByLabelText("备注")).toHaveValue("");
@@ -154,8 +159,8 @@ describe("CpaConnectorSettings", () => {
         expect(screen.queryByText("已发现账号")).not.toBeInTheDocument();
     });
 
-    it("renders partial failure and disconnected statuses", () => {
-        const { rerender } = renderSettings({
+    it("renders partial failure and disconnected statuses", async () => {
+        const { rerender } = await renderSettings({
             connector: connector({
                 snapshot: {
                     status: "failed",
@@ -186,6 +191,9 @@ describe("CpaConnectorSettings", () => {
                 onRefresh={vi.fn()}
             />,
         );
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(screen.getByText("未连接")).toBeInTheDocument();
     });
 
@@ -194,7 +202,7 @@ describe("CpaConnectorSettings", () => {
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
         const onSaved = vi.fn();
-        renderSettings({ onSave, onSaveSecrets, onSaved });
+        await renderSettings({ onSave, onSaveSecrets, onSaved });
 
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
 
@@ -208,7 +216,7 @@ describe("CpaConnectorSettings", () => {
     it("marks remark-only changes as not requiring refresh", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({ onSave });
+        await renderSettings({ onSave });
 
         await user.type(screen.getByLabelText("备注"), "公司 CPA");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -222,7 +230,7 @@ describe("CpaConnectorSettings", () => {
     it("marks endpoint changes as requiring refresh", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({ onSave });
+        await renderSettings({ onSave });
 
         await user.clear(screen.getByLabelText("CPA-Manager URL"));
         await user.type(screen.getByLabelText("CPA-Manager URL"), "http://new-cpa.example ");
@@ -237,7 +245,7 @@ describe("CpaConnectorSettings", () => {
     it("marks refresh interval changes as not requiring immediate refresh", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({ onSave });
+        await renderSettings({ onSave });
 
         const followRow = screen
             .getByText("跟随全局自动刷新间隔")
@@ -257,7 +265,7 @@ describe("CpaConnectorSettings", () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("save failed"));
         const onSaved = vi.fn();
-        renderSettings({ onSave, onSaved });
+        await renderSettings({ onSave, onSaved });
 
         await user.type(screen.getByLabelText("备注"), "公司 CPA");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -272,7 +280,7 @@ describe("CpaConnectorSettings", () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        renderSettings({ onSave, onSaveSecrets });
+        await renderSettings({ onSave, onSaveSecrets });
 
         // Find monitor toggle buttons by their row text
         const claude_matches = screen.getAllByText("Claude");
@@ -321,7 +329,7 @@ describe("CpaConnectorSettings", () => {
         window.usageboard.config.getSecrets = vi.fn().mockResolvedValue({});
         const onSaveSecrets = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
         const onSaved = vi.fn();
-        renderSettings({ hasSecrets: {}, onSaveSecrets, onSaved });
+        await renderSettings({ hasSecrets: {}, onSaveSecrets, onSaved });
 
         await waitFor(() => {
             expect(screen.getByLabelText("管理密钥")).toHaveValue("");
@@ -338,7 +346,7 @@ describe("CpaConnectorSettings", () => {
     it("does not preserve imported cpa_mgmt_key in non-secret config", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({
+        await renderSettings({
             onSave,
             config: {
                 enabled: true,
@@ -365,7 +373,7 @@ describe("CpaConnectorSettings", () => {
     it("shows an error when save fails", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockRejectedValue(new Error("save failed"));
-        renderSettings({ onSave });
+        await renderSettings({ onSave });
 
         await user.type(screen.getByLabelText("备注"), "失败测试");
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -376,9 +384,9 @@ describe("CpaConnectorSettings", () => {
         expect(screen.getByTestId("cpa-settings-save-btn")).not.toBeDisabled();
     });
 
-    it("renders remove data source button", () => {
+    it("renders remove data source button", async () => {
         const onRemove = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-        renderSettings({ onRemove });
+        await renderSettings({ onRemove });
 
         expect(screen.getByText("移除数据源")).toBeInTheDocument();
     });
@@ -386,7 +394,7 @@ describe("CpaConnectorSettings", () => {
     it("calls onToggleEnabled when clicking the enabled switch", async () => {
         const user = userEvent.setup();
         const onToggleEnabled = vi.fn();
-        renderSettings({ enabled: true, onToggleEnabled });
+        await renderSettings({ enabled: true, onToggleEnabled });
 
         const enabledRow = screen.getByText("启用").closest('[data-testid="cfg-row"]');
         const btn = enabledRow?.querySelector('[role="switch"]');
@@ -398,17 +406,17 @@ describe("CpaConnectorSettings", () => {
         expect(onToggleEnabled).toHaveBeenCalledWith(false);
     });
 
-    it("renders enabled switch as off when disabled", () => {
-        renderSettings({ enabled: false });
+    it("renders enabled switch as off when disabled", async () => {
+        await renderSettings({ enabled: false });
 
         const enabledRow = screen.getByText("启用").closest('[data-testid="cfg-row"]');
         const btn = enabledRow?.querySelector('[role="switch"]');
         expect(btn).toHaveAttribute("data-on", "0");
     });
 
-    it("renders label map edit buttons in sync scope rows", () => {
+    it("renders label map edit buttons in sync scope rows", async () => {
         const onEditLabelMap = vi.fn();
-        renderSettings({
+        await renderSettings({
             onEditLabelMap,
             connector: connector({
                 snapshot: {
@@ -427,14 +435,14 @@ describe("CpaConnectorSettings", () => {
         expect(tag_buttons.length).toBe(4);
     });
 
-    it("does not render discovered accounts section", () => {
-        renderSettings();
+    it("does not render discovered accounts section", async () => {
+        await renderSettings();
 
         expect(screen.queryByText("已发现账号")).not.toBeInTheDocument();
     });
 
-    it("renders all monitor toggles in sync scope regardless of selectedProvider", () => {
-        renderSettings({
+    it("renders all monitor toggles in sync scope regardless of selectedProvider", async () => {
+        await renderSettings({
             selectedProvider: "antigravity",
             onEditLabelMap: vi.fn(),
             connector: connector({
@@ -456,15 +464,15 @@ describe("CpaConnectorSettings", () => {
         expect(tag_buttons.length).toBe(4);
     });
 
-    it("renders 备注 field with display name", () => {
-        renderSettings({ displayName: "公司 CPA" });
+    it("renders 备注 field with display name", async () => {
+        await renderSettings({ displayName: "公司 CPA" });
         expect(screen.getByLabelText("备注")).toHaveValue("公司 CPA");
     });
 
     it("allows clearing the remark", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({ displayName: "公司 CPA", onSave });
+        await renderSettings({ displayName: "公司 CPA", onSave });
 
         await user.clear(screen.getByLabelText("备注"));
         await user.click(screen.getByTestId("cpa-settings-save-btn"));
@@ -475,13 +483,13 @@ describe("CpaConnectorSettings", () => {
         expect(onSave.mock.calls[0]?.[3]).toBe("");
     });
 
-    it("renders follow-global refresh toggle", () => {
-        renderSettings();
+    it("renders follow-global refresh toggle", async () => {
+        await renderSettings();
         expect(screen.getByText("跟随全局自动刷新间隔")).toBeInTheDocument();
     });
 
-    it("shows global interval label when follow-global is on", () => {
-        renderSettings({
+    it("shows global interval label when follow-global is on", async () => {
+        await renderSettings({
             config: {
                 endpointOverrides: { default: "http://cpa.example" },
                 parameterValues: {},
@@ -493,8 +501,8 @@ describe("CpaConnectorSettings", () => {
         expect(screen.getByText(/当前全局为.*5 分钟.*自动刷新/)).toBeInTheDocument();
     });
 
-    it("shows frequency selector when follow-global is off", () => {
-        renderSettings({
+    it("shows frequency selector when follow-global is off", async () => {
+        await renderSettings({
             config: {
                 endpointOverrides: { default: "http://cpa.example" },
                 parameterValues: {},
@@ -508,7 +516,7 @@ describe("CpaConnectorSettings", () => {
     it("calls onEditLabelMap when clicking sync scope edit button", async () => {
         const user = userEvent.setup();
         const onEditLabelMap = vi.fn();
-        renderSettings({ onEditLabelMap });
+        await renderSettings({ onEditLabelMap });
 
         const claude_btn = screen.getAllByTitle("编辑数据标签映射")[0];
         if (!claude_btn) return;
@@ -516,8 +524,8 @@ describe("CpaConnectorSettings", () => {
         expect(onEditLabelMap).toHaveBeenCalledWith("claude");
     });
 
-    it("does not render '自动同步' or '同步失败通知'", () => {
-        renderSettings();
+    it("does not render '自动同步' or '同步失败通知'", async () => {
+        await renderSettings();
         expect(screen.queryByText("自动同步")).not.toBeInTheDocument();
         expect(screen.queryByText("同步失败通知")).not.toBeInTheDocument();
     });
@@ -525,7 +533,7 @@ describe("CpaConnectorSettings", () => {
     it("saves with follow-global interval as 0", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({
+        await renderSettings({
             onSave,
             config: {
                 endpointOverrides: { default: "http://cpa.example" },
@@ -557,7 +565,7 @@ describe("CpaConnectorSettings", () => {
     it("calls onRemove when remove button is clicked and confirmed", async () => {
         const user = userEvent.setup();
         const onRemove = vi.fn();
-        renderSettings({ onRemove });
+        await renderSettings({ onRemove });
 
         await user.click(screen.getByText("移除数据源"));
         // ConfirmDelete dialog should appear
@@ -572,7 +580,7 @@ describe("CpaConnectorSettings", () => {
     it("does not call onRemove when remove is cancelled", async () => {
         const user = userEvent.setup();
         const onRemove = vi.fn();
-        renderSettings({ onRemove });
+        await renderSettings({ onRemove });
 
         await user.click(screen.getByText("移除数据源"));
         // Click cancel in the ConfirmDelete dialog
@@ -583,7 +591,7 @@ describe("CpaConnectorSettings", () => {
     it("shows error when CPA-Manager URL is empty on save", async () => {
         const user = userEvent.setup();
         const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
-        renderSettings({ onSave });
+        await renderSettings({ onSave });
 
         await user.clear(screen.getByLabelText("CPA-Manager URL"));
         await user.click(screen.getByTestId("cpa-settings-save-btn"));

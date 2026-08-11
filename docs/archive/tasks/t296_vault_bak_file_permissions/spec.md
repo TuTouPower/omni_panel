@@ -8,7 +8,7 @@
 
 ### 范围
 
-- vault `.bak` 写入走与主文件一致的原子路径 + `chmod 0o600` / `set_file_permissions`
+- vault `.bak` 写入后执行与主文件一致的 `chmod 0o600` / `set_file_permissions` 权限硬化
 
 ### 非范围
 

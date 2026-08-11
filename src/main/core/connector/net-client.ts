@@ -197,6 +197,16 @@ export async function build_request_context(
 ): Promise<RequestContext> {
     const base = resolve_endpoint_base(manifest, endpoint_name, options.endpoint_overrides);
     const url = new URL(options.path, base);
+    // 拒绝绝对 URL / protocol-relative path 越界到其它 origin：否则
+    // `new URL` 会用 path 替换 endpoint base 的主机，把后面注入的 vault
+    // 凭据（apikey/cookie）发往任意公网主机。
+    const base_url = new URL(base);
+    if (url.origin !== base_url.origin) {
+        throw new Error(
+            `Refusing connector request to origin outside endpoint: ${url.origin}` +
+                ` (endpoint origin ${base_url.origin})`,
+        );
+    }
     assert_safe_connector_host(url);
 
     const headers: Record<string, string> = { ...(options.initial_headers ?? {}) };
@@ -275,10 +285,9 @@ export function create_connector_context(
 
             if (response.statusCode >= 400) {
                 const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-                request_log.debug(`HTTP ${String(response.statusCode)} response body`, {
-                    body: body_text.slice(0, 200),
-                    url,
-                });
+                request_log.debug(
+                    `HTTP ${String(response.statusCode)} response (${String(body_text.length)} bytes)`,
+                );
                 throw new Error(
                     `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
                 );
@@ -318,7 +327,12 @@ export function create_connector_context(
             try {
                 return JSON.parse(text) as unknown;
             } catch (parse_error) {
-                request_log.warn(`JSON parse failed for ${url.origin}${url.pathname}: ${text}`);
+                // 不打响应体原文：错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
+                request_log.warn(`JSON parse failed for ${url.origin}${url.pathname}`, {
+                    status: response.statusCode,
+                    contentType: content_type,
+                    bodyBytes: text.length,
+                });
                 throw parse_error;
             }
         } finally {
@@ -391,11 +405,7 @@ export function create_connector_context(
                             MAX_RESPONSE_BYTES,
                         );
                         request_log.debug(
-                            `HTTP ${String(response.statusCode)} get_raw response body`,
-                            {
-                                body: body_text.slice(0, 200),
-                                url: url.toString(),
-                            },
+                            `HTTP ${String(response.statusCode)} get_raw response (${String(body_text.length)} bytes)`,
                         );
                         throw new Error(
                             `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,

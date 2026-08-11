@@ -77,6 +77,7 @@ beforeEach(async () => {
                     launchAtLogin: false,
                 }),
             save: () => Promise.resolve(),
+            saveIfBaseMatches: () => Promise.resolve("saved" as const),
             scheduleSave: () => undefined,
             flushPendingSave: () => Promise.resolve(),
             hasPendingSave: () => false,
@@ -760,6 +761,10 @@ describe("local-api config management", () => {
             save: vi.fn((next: AppConfiguration) => {
                 managed_config = structuredClone(next);
                 return Promise.resolve();
+            }),
+            saveIfBaseMatches: vi.fn((_base: AppConfiguration, next: AppConfiguration) => {
+                managed_config = structuredClone(next);
+                return Promise.resolve("saved" as const);
             }),
             scheduleSave: vi.fn(),
             flushPendingSave: vi.fn().mockResolvedValue(undefined),

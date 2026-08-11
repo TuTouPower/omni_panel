@@ -200,6 +200,29 @@ export function createWindowManager(opts: {
             return { action: "deny" };
         });
 
+        // t297: 面板窗口自身导航守卫。消息内容不可信，若 <a href> 未走外部打开
+        // 路径而触发同窗口导航，will-navigate 兜底拒绝非白名单导航。file: 放行
+        // （渲染入口为 file://，SettingsView 配置导入后的 location.reload() 属同
+        // 入口 reload，见 SettingsView.tsx:296）；http(s) 放行（外部打开路径）。
+        win.webContents.on("will-navigate", (event, url) => {
+            let parsed: URL;
+            try {
+                parsed = new URL(url);
+            } catch {
+                event.preventDefault();
+                log.warn(`Blocked navigation to malformed URL: ${url}`);
+                return;
+            }
+            if (
+                parsed.protocol !== "http:" &&
+                parsed.protocol !== "https:" &&
+                parsed.protocol !== "file:"
+            ) {
+                event.preventDefault();
+                log.warn(`Blocked navigation to non-whitelist URL: ${url}`);
+            }
+        });
+
         if (cfg.autoHideMenuBar) {
             win.setMenuBarVisibility(false);
         }

@@ -134,6 +134,127 @@ afterAll(async () => {
 });
 
 describe("net-client", () => {
+    it("does not log response body on JSON parse failure (t295)", async () => {
+        const { addTransport, getLogLevel, setLogLevel } =
+            await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        const previous_level = getLogLevel();
+        setLogLevel("debug");
+        const bad = createServer((_req, res) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end("{broken sensitive-leak-data-xyz");
+        });
+        try {
+            await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+            const addr = bad.address() as { port: number };
+            const ctx = create_connector_context(
+                {
+                    ...get_test_manifest(),
+                    endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                },
+                vault,
+                "test-1",
+                {},
+            );
+            await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow();
+            const joined = lines.join("\n");
+            // 响应体原文不得落入日志（可能含凭据/PII）
+            expect(joined).not.toContain("sensitive-leak-data-xyz");
+            // 诊断字段保留：path + status + contentType + bodyBytes（来自 warn meta）
+            expect(joined).toMatch(/JSON parse failed/);
+            expect(joined).toContain("/usage");
+            const warn_line = lines.find((l) => l.includes("JSON parse failed"));
+            expect(warn_line).toBeDefined();
+            expect(warn_line).toContain('"status":200');
+            expect(warn_line).toContain('"contentType":"application/json"');
+            expect(warn_line).toContain('"bodyBytes":');
+        } finally {
+            remove();
+            bad.close();
+            setLogLevel(previous_level);
+        }
+    });
+
+    it("does not log response body on HTTP error (t295)", async () => {
+        const { addTransport, getLogLevel, setLogLevel } =
+            await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        const previous_level = getLogLevel();
+        setLogLevel("debug");
+        const bad = createServer((_req, res) => {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end('{"error":"internal","trace":"leak-400-body-sensitive"}');
+        });
+        try {
+            await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+            const addr = bad.address() as { port: number };
+            const ctx = create_connector_context(
+                {
+                    ...get_test_manifest(),
+                    endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                },
+                vault,
+                "test-1",
+                {},
+            );
+            await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow(/HTTP 500/);
+            const joined = lines.join("\n");
+            // ≥400 响应体不得落日志（原 body_text.slice(0,200) 会含敏感串）
+            expect(joined).not.toContain("leak-400-body-sensitive");
+        } finally {
+            remove();
+            bad.close();
+            setLogLevel(previous_level);
+        }
+    });
+
+    it("does not log response body on get_raw HTTP error (t295)", async () => {
+        const { addTransport, getLogLevel, setLogLevel } =
+            await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove = addTransport({
+            write(level, module, message, meta) {
+                lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        const previous_level = getLogLevel();
+        setLogLevel("debug");
+        const bad = createServer((_req, res) => {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end('{"trace":"leak-getraw-body-sensitive"}');
+        });
+        try {
+            await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+            const addr = bad.address() as { port: number };
+            const ctx = create_connector_context(
+                {
+                    ...get_test_manifest(),
+                    endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                },
+                vault,
+                "test-1",
+                {},
+            );
+            await expect(ctx.http.get_raw("default", "/usage")).rejects.toThrow(/HTTP 500/);
+            const joined = lines.join("\n");
+            expect(joined).not.toContain("leak-getraw-body-sensitive");
+        } finally {
+            remove();
+            bad.close();
+            setLogLevel(previous_level);
+        }
+    });
+
     it("injects auth header from vault and returns JSON", async () => {
         const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
         const result = await ctx.http.get_json("default", "/usage");
@@ -184,6 +305,34 @@ describe("net-client", () => {
         );
         const result = await ctx.http.get_json("default", "/usage");
         expect(result).toEqual({ usage: { month: 42 }, plan: { limit: 1000 } });
+    });
+
+    it("rejects an absolute URL path so vault auth cannot be exfiltrated (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("default", "https://evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects a protocol-relative path so vault auth cannot be exfiltrated (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_json("default", "//evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects an out-of-origin path from get_raw too (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(ctx.http.get_raw("default", "https://evil.example/steal")).rejects.toThrow(
+            /origin|Refusing/,
+        );
+    });
+
+    it("rejects an out-of-origin protocol-relative path from post_json (poll channel) (t294)", async () => {
+        const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+        await expect(
+            ctx.http.post_json("default", "//evil.example/steal", { hello: "world" }),
+        ).rejects.toThrow(/Refusing connector request to origin outside endpoint/);
     });
 
     it("posts JSON body", async () => {
