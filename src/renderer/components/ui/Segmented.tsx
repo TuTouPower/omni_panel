@@ -39,7 +39,7 @@ export function Segmented<T extends string>({
                             "focus-visible:outline-none focus-visible:ring-2 " +
                             "focus-visible:ring-[var(--color-accent-ring)]",
                         size === "sm"
-                            ? "px-2 py-0.5 text-label-sm"
+                            ? "px-2 py-0.5 text-[length:var(--text-body-sm)]"
                             : "px-3 py-1 text-[length:var(--text-label-md)]",
                         value === opt.value
                             ? "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm"

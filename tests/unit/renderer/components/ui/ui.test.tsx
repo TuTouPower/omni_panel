@@ -346,7 +346,7 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
 
     it("全仓自定义字号 token 无裸类残留（t302 AC-002）", () => {
         // d032 规避统一：自定义字号一律 text-[length:var(--text-*)]，禁裸 text-body-*/label-*/title-*/code-md。
-        // 排除无 token 的存量 text-label-sm（未定义 --text-label-sm，Tailwind 下不生成字号类，见 p127）。
+        // 存量 text-label-sm 已归级清除（t303），无需再排除。
         const bare = /text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\b/;
         const length_form =
             /text-\[length:var\(--text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\)\]/g;
@@ -369,12 +369,34 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
                 if (line.trimStart().startsWith("//")) continue;
                 const stripped = line.replace(length_form, "");
                 const bareHit = bare.exec(stripped);
-                if (bareHit && !stripped.includes("text-label-sm")) {
+                if (bareHit) {
                     offenders.push(`${f}: ${line.trim().slice(0, 100)}`);
                 }
             }
         }
         expect(offenders).toEqual([]);
+    });
+
+    it("全仓无 text-label-sm 残留（t303 AC-001）", () => {
+        // p127：--text-label-sm 未定义（字号档仅九级），该类不生成字号 CSS；归级清除后不得复现。
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        walk("src/renderer");
+        const hits: string[] = [];
+        for (const f of files) {
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                if (line.includes("text-label-sm")) hits.push(`${f}: ${line.trim().slice(0, 100)}`);
+            }
+        }
+        expect(hits).toEqual([]);
     });
 
     it("danger 按钮暗色白字对比 ≥ 3.0（t298）", () => {

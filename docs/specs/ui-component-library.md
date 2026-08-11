@@ -11,6 +11,7 @@
     - **Menu**：菜单项 hover `menu-item-hover` primary 底 + on-primary 字；danger 项 hover error 底 + on-primary 字。
     - **Dialog**：卡片入场 `@keyframes dialogIn`（160ms 上浮淡入，`animate-[dialogIn_160ms_var(--motion-easing)]`），`motion-reduce:animate-none`。
 - 自定义字号类须用显式 `text-[length:var(--text-*)]`（d032 机制），避免 tailwind-merge 吞颜色类。
+- 字号档收敛九级（`@theme` 定义：display-num/title-lg/md/sm/body-md/sm/label-md/caps/code-md），不新增第九级以外字号档；未定义档（如 `text-label-sm`）属失效类，按语境归级到现有档（t303）。
 
 ## 验证
 
