@@ -17,21 +17,6 @@
             "schedule_status": "",
             "note": "合并 p110-p113/p117-p118 六条 DESIGN 对照差异：Switch 尺寸/开态色、Badge count 配色、Progress 尺寸（未消费）、Button 字重规格矛盾、Menu hover、Dialog 动画缺失；含设计侧裁决点，对比度不退化",
             "dir": "docs/tasks/t301_ui_token_alignment_pack"
-        },
-        {
-            "tid": "t302",
-            "slug": "ui_components_bare_font_size_twmerge",
-            "title": "ui 组件库批量清理：自定义字号类被 tailwind-merge 吞色（d032 机制扩展）",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "p126（t298 顺手发现）：d032 机制（tailwind-merge 吞自定义字号 token 颜色类）扩展清理 ui 组件库多组件；修法同 Button（text-[length:var(--text-*)]）",
-            "dir": "docs/tasks/t302_ui_components_bare_font_size_twmerge"
         }
     ]
 }
