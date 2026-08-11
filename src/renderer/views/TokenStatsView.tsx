@@ -262,6 +262,10 @@ export function TokenStatsView() {
         return fmtRelativeTime(Date.now() - status.last_updated);
     }, [status?.last_updated]);
 
+    // t309 AC-004: 源级采集状态（unavailable/failed 带原因）在新鲜度旁渲染；
+    // ok 源不产生标记。
+    const sourceIssues = (status?.sources_status ?? []).filter((s) => s.status !== "ok");
+
     const apply_query_data = useCallback((data: TokenStatsQueryData): void => {
         has_loaded_data.current = true;
         setError(null);
@@ -658,6 +662,17 @@ export function TokenStatsView() {
                                 {updatedAgo}
                             </span>
                         )}
+                        {sourceIssues.map((s) => (
+                            <span
+                                key={`${s.source}|${s.env}`}
+                                data-testid="token-stats-source-status"
+                                className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
+                                title={s.lastError}
+                                role="status"
+                            >
+                                {s.source} ({s.env}): {s.lastError ?? s.status}
+                            </span>
+                        ))}
                         {refreshing && (
                             <span
                                 className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]"

@@ -92,7 +92,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 面板源状态展示的具体 UI 形态（标记位置/文案）：`UNVERIFIED-SPIKE`，执行期在 renderer 现有 token-stats 视图结构内实现并自测，视觉细节留人工确认。
+- 面板源状态展示的具体 UI 形态（标记位置/文案）：已由 spike s026 确认——状态挂载面板 status 区（新鲜度旁），`ok` 无额外标记、`unavailable`/`failed` 显示原因文本；视觉像素细节留人工。结论入 finding d034。
 
 ### 风险与回退
 

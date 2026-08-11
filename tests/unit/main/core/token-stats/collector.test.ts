@@ -651,39 +651,6 @@ describe("collector", () => {
             expect(second.type).toBe("token_stats_update");
         });
 
-        it("one source failure doesn't prevent other sources from being collected", () => {
-            mock_read_costs.mockImplementation((_path: string, env: string) => {
-                if (env === "local") {
-                    throw new Error("file locked");
-                }
-                return { sessions: [], records: [], new_offset: 0, new_size: 0 };
-            });
-            mock_read_opencode_sessions.mockImplementation((_path: string, env: string) => {
-                if (env === "local")
-                    return {
-                        sessions: [upsert({ id: "win-ok", source: "opencode" })],
-                        daily: [],
-                        records: [],
-                    };
-                return { sessions: [], daily: [], records: [] };
-            });
-
-            configure(wsl_config);
-
-            // token_stats_update + one forwarded collector_log (D7)
-            expect(mock_post_message).toHaveBeenCalledTimes(2);
-            const log_msg = mock_post_message.mock.calls.find(
-                (c) => (c[0] as { type?: string }).type === "collector_log",
-            )?.[0] as { type: string; level: string; module: string; message: string } | undefined;
-            expect(log_msg?.level).toBe("error");
-            expect(log_msg?.message).toContain("claude_costs_local read failed");
-            const update = mock_post_message.mock.calls.find(
-                (c) => (c[0] as { type?: string }).type === "token_stats_update",
-            )?.[0] as { sessions: unknown[] };
-            expect(update.sessions).toHaveLength(1);
-            expect(update.sessions[0]).toMatchObject({ id: "win-ok" });
-        });
-
         it("sends empty update when no sessions found", () => {
             configure(base_config);
 
@@ -720,6 +687,145 @@ describe("collector", () => {
             )?.[0] as { level: string; message: string } | undefined;
             expect(log_msg?.level).toBe("warn");
             expect(log_msg?.message).toContain("exceed limit");
+        });
+    });
+
+    describe("source status visibility (t309)", () => {
+        function posted_updates(): {
+            sessions: { id: string }[];
+            sources_status: {
+                source: string;
+                env: string;
+                status: string;
+                lastError?: string;
+            }[];
+        }[] {
+            return mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "token_stats_update")
+                .map(
+                    (c) =>
+                        c[0] as {
+                            sessions: { id: string }[];
+                            sources_status: {
+                                source: string;
+                                env: string;
+                                status: string;
+                                lastError?: string;
+                            }[];
+                        },
+                );
+        }
+
+        function posted_logs(): { level: string; message: string }[] {
+            return mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "collector_log")
+                .map((c) => c[0] as { level: string; message: string });
+        }
+
+        it("AC-001: non-Windows host filters wsl sources out without reading them and marks them unavailable", () => {
+            set_collector_host("linux");
+            configure(wsl_config);
+
+            // wsl sources never reach the readers (no path building, no reads).
+            const read_calls = [
+                ...mock_read_costs.mock.calls,
+                ...mock_scan_jsonls.mock.calls,
+                ...mock_read_opencode_sessions.mock.calls,
+                ...mock_scan_kimi.mock.calls,
+                ...mock_scan_grok.mock.calls,
+            ];
+            expect(read_calls.some((c) => String(c[0]).includes("wsl.localhost"))).toBe(false);
+
+            const update = posted_updates()[0]!;
+            const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
+            expect(wsl_statuses).toHaveLength(5);
+            for (const s of wsl_statuses) {
+                expect(s.status).toBe("unavailable");
+                expect(s.lastError).toContain("windows host");
+            }
+            // Local sources stay healthy.
+            const local_statuses = update.sources_status.filter((s) => s.env === "local");
+            expect(local_statuses).toHaveLength(4);
+            expect(local_statuses.every((s) => s.status === "ok")).toBe(true);
+
+            // AC-003: one warn per unavailable source, keyed with source/env + reason.
+            const warns = posted_logs();
+            expect(warns).toHaveLength(5);
+            for (const w of warns) {
+                expect(w.level).toBe("warn");
+                expect(w.message).toMatch(/unavailable: wsl data requires a windows host/);
+            }
+        });
+
+        it("AC-002/AC-003: a throwing reader is marked failed with the error and warns once", () => {
+            set_collector_host("windows");
+            mock_read_costs.mockImplementation((_path: string, env: string) => {
+                if (env === "local") throw new Error("file locked");
+                return { sessions: [], records: [], new_offset: 0, new_size: 0 };
+            });
+            mock_read_opencode_sessions.mockImplementation((_path: string, env: string) => {
+                if (env === "local") {
+                    return {
+                        sessions: [upsert({ id: "win-ok", source: "opencode" })],
+                        daily: [],
+                        records: [],
+                    };
+                }
+                return { sessions: [], daily: [], records: [] };
+            });
+
+            configure(wsl_config);
+
+            const update = posted_updates()[0]!;
+            const failed = update.sources_status.find(
+                (s) => s.source === "claude_code" && s.env === "local",
+            );
+            expect(failed?.status).toBe("failed");
+            expect(failed?.lastError).toContain("file locked");
+            // Other sources still collected and reported ok.
+            expect(update.sessions.some((s) => s.id === "win-ok")).toBe(true);
+            const ok_source = update.sources_status.find(
+                (s) => s.source === "opencode" && s.env === "local",
+            );
+            expect(ok_source?.status).toBe("ok");
+
+            // AC-003: warn carries source key + reason; fires exactly once per source.
+            const warns = posted_logs();
+            expect(warns).toHaveLength(1);
+            expect(warns[0]?.level).toBe("warn");
+            expect(warns[0]?.message).toContain("claude_costs_local");
+            expect(warns[0]?.message).toContain("file locked");
+
+            mock_post_message.mockClear();
+            collect();
+            expect(posted_logs()).toHaveLength(0);
+        });
+
+        it("AC-002: a source whose path resolves to null is unavailable with the reason", () => {
+            set_collector_host("windows");
+            // Undetectable wsl user → every wsl path resolves to null (t308).
+            configure({ ...wsl_config, wsl_user: "" });
+
+            const update = posted_updates()[0]!;
+            const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
+            expect(wsl_statuses).toHaveLength(5);
+            for (const s of wsl_statuses) {
+                expect(s.status).toBe("unavailable");
+                expect(s.lastError).toBe("path unavailable");
+            }
+            const warns = posted_logs();
+            expect(warns).toHaveLength(5);
+            expect(warns[0]?.message).toContain("unavailable: path unavailable");
+        });
+
+        it("AC-003: healthy sources produce no warn logs and report ok status", () => {
+            set_collector_host("windows");
+            configure(base_config);
+
+            expect(posted_logs()).toHaveLength(0);
+            const update = posted_updates()[0]!;
+            expect(update.sources_status).toHaveLength(4);
+            expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
         });
     });
 });

@@ -198,6 +198,60 @@ describe("tokenStatsUpdateSchema", () => {
         });
         expect(result.success).toBe(false);
     });
+
+    it("accepts a sources_status array (t309 AC-002)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+            sources_status: [
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+                { source: "opencode", env: "local", status: "failed", lastError: "db locked" },
+                { source: "claude_code", env: "local", status: "ok" },
+            ],
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.sources_status[0]).toMatchObject({
+                source: "grok",
+                env: "wsl",
+                status: "unavailable",
+                lastError: "sessions dir missing",
+            });
+            expect(result.data.sources_status[2]).toEqual({
+                source: "claude_code",
+                env: "local",
+                status: "ok",
+            });
+        }
+    });
+
+    it("rejects an invalid source status value (t309)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+            sources_status: [{ source: "grok", env: "wsl", status: "unknown" }],
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("defaults sources_status to an empty array when absent (t309)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.sources_status).toEqual([]);
+        }
+    });
 });
 
 describe("tokenStatsDailyUpsertSchema", () => {

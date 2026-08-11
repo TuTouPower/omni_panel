@@ -485,6 +485,55 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("source status (t309)", () => {
+        it("returns what the manager reported via set_sources_status", () => {
+            expect(store.sources_status()).toEqual([]);
+            store.set_sources_status([
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+                { source: "claude_code", env: "local", status: "ok" },
+            ]);
+            expect(store.sources_status()).toEqual([
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+                { source: "claude_code", env: "local", status: "ok" },
+            ]);
+        });
+
+        it("embeds sources_status in the dashboard DTO status snapshot (AC-004)", () => {
+            store.set_sources_status([
+                { source: "opencode", env: "local", status: "failed", lastError: "db locked" },
+            ]);
+            const dto = store.query_dashboard(
+                {
+                    agent: "all",
+                    platform: "all",
+                    start: T0,
+                    end: T1,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                },
+                { running: true, last_updated: 42, sources_status: store.sources_status() },
+            );
+            expect(dto.status).toEqual({
+                running: true,
+                last_updated: 42,
+                sources_status: [
+                    { source: "opencode", env: "local", status: "failed", lastError: "db locked" },
+                ],
+            });
+        });
+    });
+
     describe("records (AgentSessionUsage contract)", () => {
         it("inserts and queries records", () => {
             store.upsert_records([record({ message_id: "m1" }), record({ message_id: "m2" })]);

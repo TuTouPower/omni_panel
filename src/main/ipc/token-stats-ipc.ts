@@ -130,7 +130,16 @@ export function registerTokenStatsIpc(
                     running: deps.manager.is_running(),
                     last_updated: deps.store.last_updated(),
                 };
-                const dto = await deps.dispatcher.request_dashboard(parsed_query.data, status);
+                // t309: 把最新一轮源级采集状态并入 status 快照透传给 query worker
+                // 与面板。采集开始前 store 无报告，省略字段（面板按空处理）。
+                const source_statuses = deps.store.sources_status();
+                const status_snapshot = source_statuses.length
+                    ? { ...status, sources_status: source_statuses }
+                    : status;
+                const dto = await deps.dispatcher.request_dashboard(
+                    parsed_query.data,
+                    status_snapshot,
+                );
                 const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
                 if (!parsed_dto.success) {
                     return fail("INVALID_RESPONSE", "Invalid token stats dashboard response");

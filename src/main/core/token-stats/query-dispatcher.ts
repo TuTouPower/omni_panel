@@ -5,10 +5,19 @@ import { createLogger } from "../../../shared/lib/logger";
 import type {
     TokenStatsDashboardDto,
     TokenStatsDashboardQuery,
+    TokenStatsSourceStatus,
 } from "../../../shared/types/token-stats";
 import type { QueryDashboardError, QueryDashboardResult } from "./query-worker";
 
 const log = createLogger("token-stats-query-dispatcher");
+
+/** Status snapshot forwarded verbatim into the dashboard DTO (t309). */
+export interface TokenStatsStatusSnapshot {
+    running: boolean;
+    last_updated: number | null;
+    /** Per-source collection status; omitted until the first collection reports it. */
+    sources_status?: TokenStatsSourceStatus[];
+}
 
 export interface TokenStatsQueryDispatcher {
     /**
@@ -18,7 +27,7 @@ export interface TokenStatsQueryDispatcher {
      */
     request_dashboard(
         query: TokenStatsDashboardQuery,
-        status: { running: boolean; last_updated: number | null },
+        status: TokenStatsStatusSnapshot,
     ): Promise<TokenStatsDashboardDto>;
     is_running(): boolean;
     /** Kill the worker and reject in-flight requests (AC5 graceful shutdown). */
@@ -65,7 +74,7 @@ function resolve_worker_path(): string {
 interface PendingQuery {
     request_id: number;
     query: TokenStatsDashboardQuery;
-    status: { running: boolean; last_updated: number | null };
+    status: TokenStatsStatusSnapshot;
     resolve: (dto: TokenStatsDashboardDto) => void;
     reject: (err: Error) => void;
     timer: ReturnType<typeof setTimeout> | null;

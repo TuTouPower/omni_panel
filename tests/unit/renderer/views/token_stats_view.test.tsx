@@ -831,6 +831,60 @@ describe("TokenStatsView dashboard query", () => {
 
         expect(open_history).toHaveBeenCalledWith("claude_code", "local", "initial");
     });
+
+    it("AC4: renders reason markers for unavailable and failed sources", async () => {
+        get_dashboard.mockResolvedValue(
+            dashboard("s1", {
+                status: {
+                    running: true,
+                    last_updated: 123,
+                    sources_status: [
+                        {
+                            source: "grok",
+                            env: "wsl",
+                            status: "unavailable",
+                            lastError: "sessions dir missing",
+                        },
+                        {
+                            source: "opencode",
+                            env: "local",
+                            status: "failed",
+                            lastError: "db locked",
+                        },
+                        { source: "claude_code", env: "local", status: "ok" },
+                    ],
+                },
+            }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const markers = screen.getAllByTestId("token-stats-source-status");
+        expect(markers).toHaveLength(2);
+        expect(markers[0]).toHaveTextContent("grok");
+        expect(markers[0]).toHaveTextContent("wsl");
+        expect(markers[0]).toHaveTextContent("sessions dir missing");
+        expect(markers[1]).toHaveTextContent("opencode");
+        expect(markers[1]).toHaveTextContent("db locked");
+        // The ok source produces no marker.
+        expect(screen.queryByText(/claude_code/)).toBeNull();
+    });
+
+    it("AC4: ok-only sources render no status markers", async () => {
+        get_dashboard.mockResolvedValue(
+            dashboard("s1", {
+                status: {
+                    running: true,
+                    last_updated: 123,
+                    sources_status: [{ source: "claude_code", env: "local", status: "ok" }],
+                },
+            }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        expect(screen.queryByTestId("token-stats-source-status")).toBeNull();
+    });
 });
 
 describe("TokenStatsView granularity preset switch (t229)", () => {
