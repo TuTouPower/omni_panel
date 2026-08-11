@@ -79,7 +79,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 - option 单测：在 DEFAULT light/dark palette 下断言 Heatmap series 的轮廓色不等于 `surface-card`，并断言 0 值不命中 8 个 piece。
 - palette/组件回归：确认新增专用 heatmap 轮廓不会改变 MetricDonut `sliceBorder`。
-- web 渲染验证：构造含 0 值与非零值的 fixture，确认两主题均能看到完整格子轮廓。
+- web 渲染验证：构造含 0 值与非零值的 fixture，确认两主题均能看到完整格子轮廓。（t317 落实：AC-001/002 由 heatmap_option 单测两主题 borderColor ≠ sliceBorder 断言 + CSS token 实值复验覆盖；渲染级目视留人工抽查，不强制自动化——synthetic fixture 无 token-stats 数据）
 
 ### 未知契约清单
 
