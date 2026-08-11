@@ -249,6 +249,52 @@ test.describe("session panel (web, t228)", () => {
     });
 });
 
+test.describe("session panel layout (web, t318)", () => {
+    test("工具栏占满/纵向紧凑，rail toggle 与工具栏同高，grid 与 rail 内容同基线", async ({
+        webPage,
+    }) => {
+        const page = webPage;
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "登录页 bug 修复");
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+
+        const box = (sel: string) =>
+            page
+                .locator(sel)
+                .first()
+                .evaluate((el) => {
+                    const r = el.getBoundingClientRect();
+                    return { top: r.top, bottom: r.bottom, right: r.right, height: r.height };
+                });
+
+        const toolbar = await box(".session-toolbar");
+        const actions = await box(".session-toolbar-actions");
+        const toggle = await box(".session-rail-toggle");
+        const body = await box(".session-workspace-body");
+        const grid = await box(".session-grid");
+        const rail_scroll = await box(".session-rail-scroll");
+
+        // AC1：actions 右边界接近工具栏右内边距（px-3 = 12px），控制组右侧不再留大段空白。
+        expect(Math.abs(toolbar.right - 12 - actions.right)).toBeLessThanOrEqual(1);
+        // AC2：工具栏底边与工作台 body 顶边相接，无额外空白行。
+        expect(Math.abs(body.top - toolbar.bottom)).toBeLessThanOrEqual(1);
+        // AC3：rail-toggle 与工具栏顶边、底边对齐，高度差 ≤1px。
+        expect(Math.abs(toggle.top - toolbar.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(toggle.bottom - toolbar.bottom)).toBeLessThanOrEqual(1);
+        expect(Math.abs(toggle.height - toolbar.height)).toBeLessThanOrEqual(1);
+        // AC3：grid 顶部与 rail 内容区从同一水平基线开始。
+        expect(Math.abs(grid.top - rail_scroll.top)).toBeLessThanOrEqual(1);
+        // AC4 回归防护：视图按钮靠右后，下拉菜单右锚定（right-0）不溢出窗口。
+        await page.getByRole("button", { name: /视图/ }).click();
+        await expect(page.locator(".session-view-menu")).toBeVisible();
+        const menu = await box(".session-view-menu");
+        expect(menu.right).toBeLessThanOrEqual(1280);
+        expect(menu.right).toBeGreaterThan(1200);
+    });
+});
+
 test.describe("session panel virtual list (web, t237)", () => {
     test.beforeEach(async ({ webPage }) => {
         await setup_large_session_routes(webPage);

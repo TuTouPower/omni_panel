@@ -1,0 +1,30 @@
+{
+    "tid": "t318",
+    "attempt": 1,
+    "execution_id": "9d990a92f2de4623b01679ef541573f3",
+    "status": "done",
+    "branch": "t318_session_toolbar_rail_alignment",
+    "base_sha": "855a1fd2770e23943cd45dbca8e5d500111c9d9c",
+    "tests": "pnpm test：2927 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；WorkspaceView 34/34、工具栏相关 9/9；web e2e session_panel 11/11；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 11/11（含 t318 几何断言）",
+    "review": "Round 1-2 general 全 PASS（f001 minor 修）",
+    "ac_evidence": {
+        "AC-001": [
+            "WorkspaceToolbar.test.tsx「AC1：工具栏与 actions 占满可用宽度，actions 靠右对齐（flex-1 + justify-end）」",
+            "e2e 断言 toolbar.right-12 == actions.right（实测 1268==1268）"
+        ],
+        "AC-002": [
+            "WorkspaceToolbar.test.tsx「AC2：工具栏纵向留白收紧为 py-1.5」",
+            "e2e body.top == toolbar.bottom（实测 90==90，无空行）"
+        ],
+        "AC-003": [
+            "WorkspaceView.test.tsx「AC3：rail-toggle 与工具栏同高、位于工作台顶栏行」（items-stretch 结构性断言 + rail 不含 toggle）",
+            "e2e 4 项几何断言：|toggle.top-toolbar.top|≤1、|toggle.bottom-toolbar.bottom|≤1、|toggle.height-toolbar.height|≤1、|grid.top-railScroll.top|≤1 全过（toggle 45px 与 toolbar 一致）"
+        ],
+        "AC-004": [
+            "既有 WorkspaceView 34 用例（最近会话/清空/视图/rail 折叠/布局联动）+ SessionRail 4 例 + e2e 11/11 行为回归全绿"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

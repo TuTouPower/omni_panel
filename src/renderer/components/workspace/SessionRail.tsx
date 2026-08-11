@@ -11,21 +11,13 @@ import { cn } from "../../lib/utils";
 interface SessionRailProps {
     readonly slots: SlotsState;
     readonly collapsed: boolean;
-    readonly on_toggle_collapse: () => void;
     readonly on_pick: (index: number) => void;
     readonly on_close: (index: number) => void;
     readonly on_move: (from: number, to: number) => void;
 }
 
 /** 左侧会话槽位栏：占用槽位显示 provider 标识与元数据，空槽提供装入入口。 */
-export function SessionRail({
-    slots,
-    collapsed,
-    on_toggle_collapse,
-    on_pick,
-    on_close,
-    on_move,
-}: SessionRailProps) {
+export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: SessionRailProps) {
     const [drag_from, set_drag_from] = useState<number | null>(null);
 
     function handle_drop(e: DragEvent, to: number): void {
@@ -42,15 +34,6 @@ export function SessionRail({
             )}
             data-collapsed={collapsed}
         >
-            <button
-                type="button"
-                className="session-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
-                title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                onClick={on_toggle_collapse}
-            >
-                {collapsed ? "»" : "«"}
-            </button>
             <div
                 className={cn(
                     "session-rail-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
