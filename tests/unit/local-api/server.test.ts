@@ -33,7 +33,7 @@ describe("is_within_web_root (path traversal guard)", () => {
 });
 
 describe("sse_cleanup_should_unsubscribe (t279 f005 race guard)", () => {
-    const env: Env = "win";
+    const env: Env = "local";
     const sub_entry = (client: unknown) => ({
         source: "claude_code",
         env,

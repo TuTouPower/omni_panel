@@ -91,7 +91,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- Windows 宿主上 `path.join` 与 UNC 前缀的组合行为：`UNVERIFIED-SPIKE`，执行期用注入 host 单测等价覆盖，Windows 真机留 `[deploy]` 人工验证。
+- Windows 宿主上 `path.join`（win32）与 UNC 前缀的组合行为：已由 spike s027 实测验证——`path.win32.join` 正确处理 UNC 前缀/盘符，空用户名片段拼出缺用户名 UNC（不可用）。结论入 finding d035，与 d033/t308 一致；Windows 真机行为留 `[deploy]`。
 
 ### 风险与回退
 

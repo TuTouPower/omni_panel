@@ -93,6 +93,8 @@ describe("session-history-ipc (t210)", () => {
     }
 
     async function register_with_paths(paths: {
+        host: "windows" | "linux" | "macos";
+        homedir: string;
         win_home: string;
         wsl_distro: string;
         wsl_user: string;
@@ -176,7 +178,13 @@ describe("session-history-ipc (t210)", () => {
             file_path: "/x/sess.jsonl",
             extractor_kind: "claude_code",
         });
-        const paths = { win_home: "C:/users/u", wsl_distro: "Ubuntu-22.04", wsl_user: "karon" };
+        const paths = {
+            host: "windows",
+            homedir: "/unused-homedir",
+            win_home: "C:/users/u",
+            wsl_distro: "Ubuntu-22.04",
+            wsl_user: "karon",
+        } as const;
         await register_with_paths(paths);
 
         const handler = get_handler("sessionHistory:subscribe");

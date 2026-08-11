@@ -1551,7 +1551,7 @@ describe("local-api session history endpoints (t259)", () => {
         return {
             id: "sess-1",
             source: "claude_code",
-            env: "win",
+            env: "local",
             title: "Test Session",
             model: null,
             started_at: 0,
@@ -1583,11 +1583,11 @@ describe("local-api session history endpoints (t259)", () => {
                     next_cursor: null,
                 }),
             ),
-            searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
+            searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|local|sess-1"]))),
             searchContentWithAbort: vi.fn<
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
-            >(() => Promise.resolve(new Set(["claude_code|win|sess-1"]))),
-            summaries: vi.fn(() => Promise.resolve({ "claude_code|win|sess-1": "hello world" })),
+            >(() => Promise.resolve(new Set(["claude_code|local|sess-1"]))),
+            summaries: vi.fn(() => Promise.resolve({ "claude_code|local|sess-1": "hello world" })),
             // t279: web 订阅。测试捕获 on_update 以便触发增量推送。
             subscribe: vi.fn(
                 (params: {
@@ -1600,7 +1600,7 @@ describe("local-api session history endpoints (t259)", () => {
                     on_update: (messages: unknown[]) => void;
                 }) => {
                     void params;
-                    return "claude_code|win|sess-1";
+                    return "claude_code|local|sess-1";
                 },
             ),
             unsubscribe: vi.fn(),
@@ -1638,6 +1638,8 @@ describe("local-api session history endpoints (t259)", () => {
                 service: service as unknown as SessionHistorySubscriptionService,
                 sessions_provider: provider,
                 locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
                     win_home: session_home,
                     wsl_distro: "Ubuntu-22.04",
                     wsl_user: "",
@@ -1652,7 +1654,7 @@ describe("local-api session history endpoints (t259)", () => {
         setup_session_api(service, provider);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=win&limit=10`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=10`,
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { messages: unknown[]; next_cursor: unknown };
@@ -1660,7 +1662,7 @@ describe("local-api session history endpoints (t259)", () => {
         expect(data.messages[0]).toMatchObject({ id: "m1", role: "user", text: "hello" });
         expect(data.next_cursor).toBeNull();
         expect(service.query).toHaveBeenCalledWith(
-            expect.objectContaining({ source: "claude_code", env: "win", session_id: "sess-1" }),
+            expect.objectContaining({ source: "claude_code", env: "local", session_id: "sess-1" }),
             expect.objectContaining({ limit: 10 }),
         );
     });
@@ -1691,7 +1693,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=win&limit=10&before_cursor=20`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=10&before_cursor=20`,
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { next_cursor: unknown };
@@ -1723,7 +1725,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing&source=claude_code&env=win`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing&source=claude_code&env=local`,
         );
         expect(res.status).toBe(404);
     });
@@ -1748,7 +1750,7 @@ describe("local-api session history endpoints (t259)", () => {
             hits: string[];
             sessions: { id: string; source: string }[];
         };
-        expect(data.hits).toEqual(["claude_code|win|sess-1"]);
+        expect(data.hits).toEqual(["claude_code|local|sess-1"]);
         expect(data.sessions).toHaveLength(1);
         expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
         expect(service.searchContentWithAbort).toHaveBeenCalledWith(
@@ -1854,7 +1856,7 @@ describe("local-api session history endpoints (t259)", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    locs: [null, { source: "claude_code", env: "win", session_id: "sess-1" }],
+                    locs: [null, { source: "claude_code", env: "local", session_id: "sess-1" }],
                 }),
             },
         );
@@ -1875,7 +1877,7 @@ describe("local-api session history endpoints (t259)", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    locs: [{ source: "claude_code", env: "win", session_id: "sess-1" }],
+                    locs: [{ source: "claude_code", env: "local", session_id: "sess-1" }],
                     keyword: "hello",
                 }),
             },
@@ -1898,15 +1900,15 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     locs: [
-                        { source: "claude_code", env: "win", session_id: "sess-1" },
-                        { source: "claude_code", env: "win", session_id: "missing" },
+                        { source: "claude_code", env: "local", session_id: "sess-1" },
+                        { source: "claude_code", env: "local", session_id: "missing" },
                     ],
                 }),
             },
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { summaries: Record<string, string> };
-        expect(data.summaries).toEqual({ "claude_code|win|sess-1": "hello world" });
+        expect(data.summaries).toEqual({ "claude_code|local|sess-1": "hello world" });
         expect(service.summaries).toHaveBeenCalledWith([
             expect.objectContaining({ session_id: "sess-1" }),
         ]);
@@ -1926,7 +1928,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-unconnected",
                 }),
@@ -1946,6 +1948,8 @@ describe("local-api session history endpoints (t259)", () => {
                 service: service as unknown as SessionHistorySubscriptionService,
                 sessions_provider: vi.fn(() => []),
                 locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
                     win_home: session_home,
                     wsl_distro: "Ubuntu-22.04",
                     wsl_user: "",
@@ -1966,7 +1970,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-sse-1",
                 }),
@@ -1977,7 +1981,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.subscribe).toHaveBeenCalledWith(
                 expect.objectContaining({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-sse-1",
                 }),
@@ -2017,6 +2021,8 @@ describe("local-api session history endpoints (t259)", () => {
                 service: service as unknown as SessionHistorySubscriptionService,
                 sessions_provider: vi.fn(() => []),
                 locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
                     win_home: session_home,
                     wsl_distro: "Ubuntu-22.04",
                     wsl_user: "",
@@ -2039,7 +2045,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "win",
+                        env: "local",
                         session_id: "sess-1",
                         subscriber_id,
                     }),
@@ -2057,7 +2063,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.unsubscribe).toHaveBeenCalledTimes(1);
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "win",
+                "local",
                 "sess-1",
                 "web-sub-b",
             );
@@ -2078,6 +2084,8 @@ describe("local-api session history endpoints (t259)", () => {
                 service: service as unknown as SessionHistorySubscriptionService,
                 sessions_provider: vi.fn(() => []),
                 locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
                     win_home: session_home,
                     wsl_distro: "Ubuntu-22.04",
                     wsl_user: "",
@@ -2095,7 +2103,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-leak-1",
                 }),
@@ -2110,7 +2118,7 @@ describe("local-api session history endpoints (t259)", () => {
             // close 触发 cleanup → 注销该订阅（不依赖显式 unsubscribe）。
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "win",
+                "local",
                 "sess-1",
                 "web-leak-1",
             );
@@ -2129,6 +2137,8 @@ describe("local-api session history endpoints (t259)", () => {
                 service: service as unknown as SessionHistorySubscriptionService,
                 sessions_provider: vi.fn(() => []),
                 locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
                     win_home: session_home,
                     wsl_distro: "Ubuntu-22.04",
                     wsl_user: "",
@@ -2147,7 +2157,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-race-1",
                 }),
@@ -2161,7 +2171,7 @@ describe("local-api session history endpoints (t259)", () => {
             });
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "win",
+                "local",
                 "sess-1",
                 "web-race-1",
             );
@@ -2175,7 +2185,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "sess-1",
                     subscriber_id: "web-race-1",
                 }),
