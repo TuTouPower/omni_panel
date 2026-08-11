@@ -28,7 +28,7 @@ const TAB_ACTIVE =
     "after:absolute after:inset-x-3 after:bottom-0 after:h-[2.5px] after:rounded-full " +
     "after:bg-[var(--color-accent)] after:content-['']";
 
-const TAB_LBL = "max-w-full truncate text-label-md font-medium";
+const TAB_LBL = "max-w-full truncate text-[length:var(--text-label-md)] font-medium";
 
 export function ProviderNav({
     activeTab,

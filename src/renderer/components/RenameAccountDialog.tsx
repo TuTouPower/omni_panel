@@ -40,8 +40,10 @@ export function RenameAccountDialog({
             title={
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">编辑备注</div>
-                        <div className="mt-0.5 truncate font-[var(--font-code-md)] text-body-sm text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
+                            编辑备注
+                        </div>
+                        <div className="mt-0.5 truncate font-[var(--font-code-md)] text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {account_id}
                         </div>
                     </div>
@@ -78,7 +80,7 @@ export function RenameAccountDialog({
         >
             <div className="flex flex-col gap-1.5">
                 <label
-                    className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                    className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                     htmlFor="rename-input"
                 >
                     备注

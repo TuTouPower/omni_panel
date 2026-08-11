@@ -43,14 +43,16 @@ export function BarSchemeField({
                         </span>
                         <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-2">
-                                <span className="text-body-md font-semibold">{scheme.title}</span>
+                                <span className="text-[length:var(--text-body-md)] font-semibold">
+                                    {scheme.title}
+                                </span>
                                 {scheme.badge && (
-                                    <span className="rounded bg-[var(--color-primary-container)] px-2 py-0.5 text-label-md text-[var(--color-accent)]">
+                                    <span className="rounded bg-[var(--color-primary-container)] px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-accent)]">
                                         {scheme.badge}
                                     </span>
                                 )}
                             </span>
-                            <span className="mt-0.5 block text-body-sm text-[var(--color-on-surface-variant)]">
+                            <span className="mt-0.5 block text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                                 {scheme.sub}
                             </span>
                         </span>

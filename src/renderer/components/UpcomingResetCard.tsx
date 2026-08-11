@@ -38,7 +38,7 @@ export function UpcomingResetCard({
             >
                 即将重置
             </span>
-            <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-label-md font-semibold leading-normal text-[var(--color-accent)]">
+            <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold leading-normal text-[var(--color-accent)]">
                 {items.length} 项
             </span>
         </>

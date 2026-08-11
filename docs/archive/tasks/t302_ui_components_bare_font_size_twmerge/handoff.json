@@ -1,0 +1,22 @@
+{
+    "tid": "t302",
+    "attempt": 1,
+    "execution_id": "a05644ac066c4511ae694ca12650bb42",
+    "status": "done",
+    "branch": "t302_ui_components_bare_font_size_twmerge",
+    "base_sha": "2e3f7322b192405b6f2489f0130bb2122135fb40",
+    "tests": "pnpm test：253 files passed / 1 skipped，2859 tests passed；renderer 定向 110 files / 1096 tests passed",
+    "blackbox": "pnpm test 全绿；typecheck 0 错误；e2e 选择器转义经真实 Chromium 验证",
+    "review": "第 4 轮 PASS（f001/f002 已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/ui/ui.test.tsx：Input/Textarea/Select/SecretInput/PanelTitleBar 渲染断言 cn() base 含 text-[length:var(--text-*)] 与颜色类共存；ListRow 静态源码断言"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/ui/ui.test.tsx「全仓自定义字号 token 无裸类残留」：node:fs 递归扫描 src/renderer，token 级剥离 length 形式后无裸类命中（排除 text-label-sm）"
+        ],
+        "AC-003": ["pnpm test 全量 253 files / 2859 tests passed；pnpm typecheck 0 错误"]
+    },
+    "pending": ["p127"],
+    "findings": []
+}

@@ -302,10 +302,10 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 >
                     {count === 0 ? (
                         <div className="history-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
-                            <p className="history-workspace-empty-title text-title-md font-semibold text-[var(--color-on-surface)]">
+                            <p className="history-workspace-empty-title text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                                 工作台为空
                             </p>
-                            <p className="history-workspace-empty-sub text-body-md text-[var(--color-on-surface-muted)]">
+                            <p className="history-workspace-empty-sub text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
                             <div className="history-workspace-empty-actions mt-3 flex gap-2.5">
@@ -429,7 +429,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 />
             )}
             {toast !== null && (
-                <div className="history-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-body-md font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                <div className="history-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
                     {toast}
                 </div>
             )}

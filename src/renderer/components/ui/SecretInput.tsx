@@ -18,7 +18,7 @@ export function SecretInput({ className, ...props }: SecretInputProps) {
                 autoCapitalize="off"
                 className={cn(
                     "h-9 w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] " +
-                        "pr-9 pl-3 font-[var(--font-code-md)] text-body-md text-[var(--color-on-surface)] " +
+                        "pr-9 pl-3 font-[var(--font-code-md)] text-[length:var(--text-body-md)] text-[var(--color-on-surface)] " +
                         "focus-visible:outline-none focus-visible:border-[var(--color-accent)] " +
                         "focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] disabled:opacity-50",
                     className,

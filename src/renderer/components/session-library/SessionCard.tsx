@@ -50,14 +50,14 @@ export const SessionCard = memo(function SessionCard({
                         {s.title ?? s.id}
                     </span>
                 </div>
-                <div className="library-card-summary mt-1.5 line-clamp-2 text-body-md leading-[1.5] text-[var(--color-on-surface-variant)]">
+                <div className="library-card-summary mt-1.5 line-clamp-2 text-[length:var(--text-body-md)] leading-[1.5] text-[var(--color-on-surface-variant)]">
                     {summary}
                 </div>
-                <div className="library-card-meta mt-1 font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                <div className="library-card-meta mt-1 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                     {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
                     {relative_date(s.ended_at)}
                 </div>
-                <div className="library-card-dir mt-0.5 truncate text-label-md text-[var(--color-on-surface-muted)]">
+                <div className="library-card-dir mt-0.5 truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                     {s.directory ?? "—"}
                 </div>
             </div>
@@ -85,7 +85,7 @@ export const SessionCard = memo(function SessionCard({
             <button
                 type="button"
                 className={cn(
-                    "library-card-select absolute right-2 top-2 flex h-[22px] w-[22px] items-center justify-center rounded-md border text-label-md font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                    "library-card-select absolute right-2 top-2 flex h-[22px] w-[22px] items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                     selected
                         ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
                         : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",

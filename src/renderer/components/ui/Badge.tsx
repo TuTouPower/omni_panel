@@ -17,7 +17,7 @@ export function Badge({ children, variant = "count", color, className }: BadgePr
             <span
                 className={cn(
                     "inline-flex min-w-[18px] items-center justify-center rounded-full " +
-                        "bg-[var(--color-accent)] px-1.5 py-px text-label-caps text-[var(--color-on-primary)]",
+                        "bg-[var(--color-accent)] px-1.5 py-px text-[length:var(--text-label-caps)] text-[var(--color-on-primary)]",
                     className,
                 )}
             >
@@ -28,7 +28,7 @@ export function Badge({ children, variant = "count", color, className }: BadgePr
     return (
         <span
             className={cn(
-                "inline-flex items-center gap-1 rounded-md px-1.5 py-px text-label-md",
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-px text-[length:var(--text-label-md)]",
                 className,
             )}
             style={

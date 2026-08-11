@@ -37,7 +37,7 @@ export function MenuItem({ children, onSelect, danger, disabled, className }: Me
             type="button"
             disabled={disabled}
             className={cn(
-                "flex w-full items-center gap-2 rounded px-3 py-1.5 text-body-sm " +
+                "flex w-full items-center gap-2 rounded px-3 py-1.5 text-[length:var(--text-body-sm)] " +
                     "text-[var(--color-on-surface)] hover:bg-[var(--color-surface-raised)] " +
                     "disabled:pointer-events-none disabled:opacity-50 " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",

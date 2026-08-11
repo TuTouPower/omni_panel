@@ -48,7 +48,7 @@ export function PanelTitleBar({
     const base = cn(
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
             "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
-            "px-[var(--spacing-panel-padding)] text-body-md text-[var(--color-on-surface)] " +
+            "px-[var(--spacing-panel-padding)] text-[length:var(--text-body-md)] text-[var(--color-on-surface)] " +
             "[-webkit-app-region:drag]",
         className,
     );
@@ -64,7 +64,7 @@ export function PanelTitleBar({
                         className="h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
                     />
                     <span
-                        className="truncate text-title-md font-bold tracking-[-0.01em]"
+                        className="truncate text-[length:var(--text-title-md)] font-bold tracking-[-0.01em]"
                         data-testid="app-title"
                     >
                         {`Omni Panel - ${panel}`}

@@ -17,13 +17,13 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                 <div className="relative mb-3 flex h-24 w-24 items-center justify-center rounded-2xl bg-[var(--color-primary-container)]">
                     <img src={logo} alt="OmniPanel" width="96" height="96" />
                 </div>
-                <div className="text-title-lg font-bold">OmniPanel</div>
-                <div className="mt-1 text-body-md text-[var(--color-on-surface-variant)]">
+                <div className="text-[length:var(--text-title-lg)] font-bold">OmniPanel</div>
+                <div className="mt-1 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)]">
                     版本 {version}
                 </div>
                 <div
                     data-testid="about-build"
-                    className="mt-1 max-w-full truncate font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-muted)]"
+                    className="mt-1 max-w-full truncate font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
                 >
                     {build_info
                         ? `${build_info.branch}@${build_info.commit} ${build_info.subject}`
@@ -31,16 +31,16 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                 </div>
                 <div
                     data-testid="about-platform"
-                    className="mt-1 text-body-sm text-[var(--color-on-surface-muted)]"
+                    className="mt-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                 >
                     {window.usageboard.platform === "darwin" ? "macOS" : "Windows"} · x64
                 </div>
                 <hr className="my-4 w-full border-[var(--color-hairline)]" />
-                <div className="max-w-[520px] text-body-md leading-relaxed text-[var(--color-on-surface-variant)]">
+                <div className="max-w-[520px] text-[length:var(--text-body-md)] leading-relaxed text-[var(--color-on-surface-variant)]">
                     跨平台的 AI 服务用量监控工具，实时查看 Claude、Codex 等各服务的用量限制与 Token
                     趋势。
                 </div>
-                <div className="mt-3 text-body-sm text-[var(--color-on-surface-muted)]">
+                <div className="mt-3 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     © 2026 OmniPanel · 保留所有权利
                 </div>
             </div>
@@ -144,12 +144,14 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                                 color={c.id === "update" ? "#fff" : c.tint}
                             />
                         </span>
-                        <span className="text-title-sm font-semibold">{c.label}</span>
+                        <span className="text-[length:var(--text-title-sm)] font-semibold">
+                            {c.label}
+                        </span>
                         <span
                             className={
                                 c.id === "update"
-                                    ? "text-body-sm opacity-80"
-                                    : "text-body-sm text-[var(--color-on-surface-muted)]"
+                                    ? "text-[length:var(--text-body-sm)] opacity-80"
+                                    : "text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                             }
                         >
                             {c.sub}

@@ -76,7 +76,7 @@ export function WebLoginSection({
 
     return (
         <div className="flex flex-col gap-1.5" data-testid={`web-login-section-${provider}`}>
-            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+            <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 网页登录授权
             </label>
             <Button
@@ -90,7 +90,7 @@ export function WebLoginSection({
             </Button>
             {error && (
                 <p
-                    className="flex items-center gap-1 text-body-sm text-[var(--color-error)]"
+                    className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-error)]"
                     data-testid={`web-login-error-${provider}`}
                 >
                     <Icon name="alert_circle" size={12} strokeWidth={1.8} />
@@ -99,7 +99,7 @@ export function WebLoginSection({
             )}
             {web_anon && (
                 <p
-                    className="flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]"
+                    className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                     data-testid={`web-login-anon-guide-${provider}`}
                 >
                     <Icon name="info" size={12} strokeWidth={1.8} />
@@ -107,7 +107,7 @@ export function WebLoginSection({
                 </p>
             )}
             <label
-                className="text-label-md font-semibold text-[var(--color-on-surface-variant)]"
+                className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                 htmlFor={`web-login-cookie-${provider}`}
             >
                 Cookie 字符串
@@ -125,7 +125,7 @@ export function WebLoginSection({
                 }}
                 placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
             />
-            <p className="flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]">
+            <p className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                 <Icon name="info" size={12} strokeWidth={1.8} />
                 可点击网页登录自动捕获，也可手动粘贴 Cookie 后保存。
             </p>

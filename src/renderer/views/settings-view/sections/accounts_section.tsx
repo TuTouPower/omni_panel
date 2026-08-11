@@ -91,7 +91,9 @@ export function AccountsSection({
                     <span className="flex text-[var(--color-on-surface-muted)]" aria-hidden="true">
                         <Icon name="chevron" size={15} />
                     </span>
-                    <span className="text-title-sm font-semibold">{editingInfo.displayName}</span>
+                    <span className="text-[length:var(--text-title-sm)] font-semibold">
+                        {editingInfo.displayName}
+                    </span>
                 </div>
                 <div className="flex flex-1">
                     <CpaConnectorSettings
@@ -166,7 +168,7 @@ export function AccountsSection({
     return (
         <>
             <div className="mb-4 flex items-center justify-between">
-                <span className="text-title-sm font-semibold">已添加</span>
+                <span className="text-[length:var(--text-title-sm)] font-semibold">已添加</span>
                 <Button
                     variant="primary"
                     size="sm"
@@ -183,7 +185,7 @@ export function AccountsSection({
                     添加
                 </Button>
             </div>
-            <div className="mb-2 mt-4 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+            <div className="mb-2 mt-4 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 已添加
             </div>
             {config.plugins.length === 0 ? (

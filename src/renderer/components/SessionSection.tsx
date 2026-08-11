@@ -29,7 +29,7 @@ export function SessionSection({ secret_name, value, onChange, onLogin }: Sessio
 
     return (
         <div className="flex flex-col gap-1.5" data-testid={`session-section-${secret_name}`}>
-            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+            <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 Cookie 字符串
             </label>
             {onLogin && (
@@ -46,7 +46,7 @@ export function SessionSection({ secret_name, value, onChange, onLogin }: Sessio
             )}
             {login_error && (
                 <p
-                    className="flex items-center gap-1 text-body-sm text-[var(--color-error)]"
+                    className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-error)]"
                     role="alert"
                     data-testid={`session-login-error-${secret_name}`}
                 >
@@ -65,7 +65,7 @@ export function SessionSection({ secret_name, value, onChange, onLogin }: Sessio
                 }}
                 placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
             />
-            <div className="mt-1 flex items-center gap-1 text-body-sm text-[var(--color-on-surface-muted)]">
+            <div className="mt-1 flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                 <Icon name="info" size={12} strokeWidth={1.8} />
                 {onLogin
                     ? "可点击网页登录自动捕获，也可手动粘贴 Cookie"
