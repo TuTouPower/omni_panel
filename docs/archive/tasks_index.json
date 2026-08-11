@@ -4547,6 +4547,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t303_fix_text_label_sm_classes"
+        },
+        {
+            "tid": "t304",
+            "slug": "panel_switch_icon_fix_and_back_remove",
+            "title": "修复面板切换按钮 icon（t274 收口回归）+ 移除设置面板返回按钮",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t313",
+            "dir": "docs/archive/tasks/t304_panel_switch_icon_fix_and_back_remove"
         }
     ]
 }
