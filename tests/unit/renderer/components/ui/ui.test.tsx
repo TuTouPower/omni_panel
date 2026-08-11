@@ -379,13 +379,14 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
 
     it("全仓无 text-label-sm 残留（t303 AC-001）", () => {
         // p127：--text-label-sm 未定义（字号档仅九级），该类不生成字号 CSS；归级清除后不得复现。
+        // 扫全部文件类型（含 css/json），使「全仓」与 AC-001 措辞一致（p130）。
         const files: string[] = [];
         const walk = (dir: string) => {
             for (const e of readdirSync(dir)) {
                 const p = join(dir, e);
                 const st = statSync(p);
                 if (st.isDirectory()) walk(p);
-                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+                else files.push(p);
             }
         };
         walk("src/renderer");

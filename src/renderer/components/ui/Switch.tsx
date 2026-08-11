@@ -26,7 +26,7 @@ export function Switch({ checked, onChange, className, ...props }: SwitchProps) 
         >
             <span
                 className={cn(
-                    "pointer-events-none block h-[18px] w-[18px] rounded-full bg-[var(--color-surface-window)] shadow transition-transform",
+                    "pointer-events-none block h-[18px] w-[18px] rounded-full bg-[var(--color-on-surface)] shadow transition-transform",
                     checked ? "translate-x-[18px]" : "translate-x-0.5",
                 )}
             />
