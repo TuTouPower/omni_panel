@@ -1,0 +1,31 @@
+{
+    "tid": "t303",
+    "attempt": 1,
+    "execution_id": "4ff984fdbbe045eea7eb78d4a269755d",
+    "status": "done",
+    "branch": "t303_fix_text_label_sm_classes",
+    "base_sha": "3996224c7a07602a6282c667d8de5e238b560fdc",
+    "tests": "pnpm test：2867 passed | 2 skipped（254 files）；受影响组件 41 passed",
+    "blackbox": "MOCK_FIXTURE=synthetic pnpm test:e2e:web 74 passed；pnpm designmd:check drift passed",
+    "review": "single：Round 1 general PASS（1 minor 遗留 p130）",
+    "ac_evidence": {
+        "AC-001": [
+            "grep -rn text-label-sm src/renderer：0 命中",
+            "ui.test.tsx 新增「全仓无 text-label-sm 残留」断言通过"
+        ],
+        "AC-002": [
+            "pnpm designmd:check drift passed",
+            "globals.css @theme 字号档保持九级，未新增 --text-label-sm（ui.test.tsx t302 扫描收紧后仍绿）"
+        ],
+        "AC-003": [
+            "docs/tasks/t303_fix_text_label_sm_classes/task.md 实施笔记归级映射表：11 处替换逐处与 spec 一致",
+            "ui.test.tsx t302 全仓扫描移除 text-label-sm 排除后仍绿（全部用 d032 显式 length 形式）"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/token-stats/Segmented.test.tsx + session_table.test.tsx + token_stats_view.test.tsx：41 passed",
+            "pnpm test 全量 2867 passed | 2 skipped"
+        ]
+    },
+    "pending": ["p130"],
+    "findings": []
+}
