@@ -53,11 +53,11 @@ describe("createWindowManager", () => {
         willNavigateListeners.length = 0;
     });
 
-    it("setting/agent/history 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {
+    it("setting/agent/session 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {
         const manager = await load_manager();
         manager.createWindowFor("setting", { load: false });
         manager.createWindowFor("agent", { load: false });
-        manager.createWindowFor("history", { load: false });
+        manager.createWindowFor("session", { load: false });
 
         expect(created_args).toHaveLength(3);
         for (const arg of created_args) {
@@ -145,11 +145,11 @@ describe("createWindowManager", () => {
             session_id: "s1 x&y",
         });
 
-        const url = manager.getRendererUrl("history", { loc });
+        const url = manager.getRendererUrl("session", { loc });
 
         // 主题参数 + 路由 hash + 编码后的 loc query 一并出现。
         expect(url).toContain("ou_theme=light");
-        expect(url).toContain("#history");
+        expect(url).toContain("#session");
         expect(url).toContain(`loc=${encodeURIComponent(loc)}`);
         // 原样 JSON 不得直接泄漏进 URL（含空格/& 等需编码）。
         expect(url).not.toContain(`loc=${loc}`);

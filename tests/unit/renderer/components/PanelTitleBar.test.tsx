@@ -33,7 +33,7 @@ describe("PanelTitleBar (t252)", () => {
 
     it("点击刷新调用 onRefresh；refreshing 时图标旋转", () => {
         const onRefresh = vi.fn();
-        render(<PanelTitleBar panel="Settings" onRefresh={onRefresh} refreshing />);
+        render(<PanelTitleBar panel="Session" onRefresh={onRefresh} refreshing />);
         const btn = screen.getByTitle("刷新当前面板");
         expect(btn.querySelector("svg")).toHaveClass("animate-spin");
         fireEvent.click(btn);
@@ -50,7 +50,42 @@ describe("PanelTitleBar (t252)", () => {
     });
 
     it("未传 onRefresh 时刷新按钮不渲染", () => {
-        render(<PanelTitleBar panel="Settings" />);
+        render(<PanelTitleBar panel="Session" />);
         expect(screen.queryByTitle("刷新当前面板")).toBeNull();
+    });
+
+    it("切换按钮固定序「设置 用量 代理 会话」，排除当前面板（AC-001）", () => {
+        render(<PanelTitleBar panel="Usage" onRefresh={vi.fn()} />);
+        const panel_buttons = screen
+            .getAllByRole("button")
+            .map((b) => b.getAttribute("aria-label"))
+            .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
+        expect(panel_buttons).toEqual(["Settings面板", "Agent面板", "Session面板"]);
+    });
+
+    it("设置面板切换按钮为「用量 代理 会话」且刷新按钮恒不渲染（AC-001）", () => {
+        render(<PanelTitleBar panel="Settings" onRefresh={vi.fn()} />);
+        const panel_buttons = screen
+            .getAllByRole("button")
+            .map((b) => b.getAttribute("aria-label"))
+            .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
+        expect(panel_buttons).toEqual(["Usage面板", "Agent面板", "Session面板"]);
+        expect(screen.queryByTitle("刷新当前面板")).toBeNull();
+    });
+
+    it("非设置面板刷新按钮在首位（AC-001）", () => {
+        render(<PanelTitleBar panel="Session" onRefresh={vi.fn()} />);
+        const buttons = screen.getAllByRole("button");
+        expect(buttons[0]?.getAttribute("aria-label")).toBe("刷新");
+    });
+
+    it("Usage 切换按钮 icon 为 clock_forward（lucide ClockArrowUp，无 dashboard 矩形）（AC-006）", () => {
+        render(<PanelTitleBar panel="Session" />);
+        const usage_btn = screen.getByRole("button", { name: "Usage面板" });
+        const svg = usage_btn.querySelector("svg");
+        expect(svg).not.toBeNull();
+        // ClockArrowUp 特征 path（时间快进上箭头）；LayoutDashboard 为四个 rect，无此 path。
+        expect(svg?.innerHTML).toContain('d="m14 18 4-4 4 4"');
+        expect(svg?.innerHTML).not.toContain("<rect");
     });
 });

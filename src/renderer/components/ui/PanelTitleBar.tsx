@@ -95,7 +95,7 @@ export function PanelTitleBar({
     is_live = true,
     onClose,
 }: PanelTitleBarProps) {
-    const panels: PanelName[] = ["Usage", "Agent", "Session", "Settings"];
+    const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session"];
     const base = cn(
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
             "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
@@ -122,7 +122,7 @@ export function PanelTitleBar({
                     </span>
                 </div>
                 <div className={actions_cls}>
-                    {onRefresh && (
+                    {onRefresh && panel !== "Settings" && (
                         <Button
                             variant="icon"
                             size="sm"
@@ -152,7 +152,7 @@ export function PanelTitleBar({
                                     onNavigate?.(p);
                                 }}
                             >
-                                {p === "Usage" && <Icon name="dashboard" size={16} />}
+                                {p === "Usage" && <Icon name="clock_forward" size={16} />}
                                 {p === "Agent" && <Icon name="chart" size={16} />}
                                 {p === "Session" && <Icon name="chat_square" size={16} />}
                                 {p === "Settings" && <Icon name="gear" size={16} />}

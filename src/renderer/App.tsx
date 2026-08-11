@@ -26,7 +26,7 @@ export function App() {
         case "agent":
             view = <TokenStatsView />;
             break;
-        case "history":
+        case "session":
             view = <SessionShell />;
             break;
         default:

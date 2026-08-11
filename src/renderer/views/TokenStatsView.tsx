@@ -809,7 +809,7 @@ export function TokenStatsView() {
                     navigate("Usage");
                 }}
             >
-                <Icon name="dashboard" size={16} />
+                <Icon name="clock_forward" size={16} />
             </Button>
             <Button
                 variant="icon"

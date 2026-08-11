@@ -132,8 +132,8 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
                 on_move={() => undefined}
             />,
         );
-        const title = require_el(".history-slot-title");
-        const meta = require_el(".history-slot-meta");
+        const title = require_el(".session-slot-title");
+        const meta = require_el(".session-slot-meta");
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
         expect(title_px).toBe(12.5);

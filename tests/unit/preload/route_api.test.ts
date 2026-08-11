@@ -143,8 +143,8 @@ describe("select_session_history_api", () => {
         return { full_api, open_api, disabled_api, open_spy };
     }
 
-    // AC9: 会话历史 API 仅对 history 与 agent route 暴露真实 IPC。
-    it.each(["history", "agent"])("exposes full session-history API to %s route", (route) => {
+    // AC9: 会话历史 API 仅对 session 与 agent route 暴露真实 IPC。
+    it.each(["session", "agent"])("exposes full session-history API to %s route", (route) => {
         const { full_api, open_api, disabled_api } = create_session_history_apis();
 
         const api = select_session_history_api(route, full_api, open_api, disabled_api);

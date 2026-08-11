@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
 import { PanelTitleBar } from "../components/ui/PanelTitleBar";
-import { Button } from "../components/ui/Button";
 import { use_panel_navigation } from "../lib/panel-navigation";
 import { refresh_seconds_to_label } from "../lib/refresh-intervals";
 import {
@@ -387,10 +386,6 @@ export function SettingsView() {
         await window.usageboard.connector.refresh(instanceId);
     }, []);
 
-    const goBack = () => {
-        window.close();
-    };
-
     if (loading) {
         return (
             <div
@@ -433,12 +428,6 @@ export function SettingsView() {
                         void reload();
                     }}
                 />
-                {/* header */}
-                <div className="flex shrink-0 items-center gap-[10px] px-[14px] pb-3 pt-[14px]">
-                    <Button variant="ghost" size="sm" onClick={goBack} aria-label="返回">
-                        <Icon name="back" size={20} />
-                    </Button>
-                </div>
 
                 <div className="flex min-h-0 flex-1">
                     {/* left nav */}

@@ -37,14 +37,14 @@ export function SessionRail({
     return (
         <div
             className={cn(
-                "history-rail flex w-[220px] shrink-0 flex-col border-r border-[var(--color-outline)] bg-[var(--color-surface)] transition-[width] duration-200",
+                "session-rail flex w-[220px] shrink-0 flex-col border-r border-[var(--color-outline)] bg-[var(--color-surface)] transition-[width] duration-200",
                 collapsed && "collapsed w-11",
             )}
             data-collapsed={collapsed}
         >
             <button
                 type="button"
-                className="history-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                className="session-rail-toggle h-[34px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                 title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
                 onClick={on_toggle_collapse}
@@ -53,7 +53,7 @@ export function SessionRail({
             </button>
             <div
                 className={cn(
-                    "history-rail-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
+                    "session-rail-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
                     collapsed && "px-1.5",
                 )}
             >
@@ -63,7 +63,7 @@ export function SessionRail({
                             type="button"
                             key={`empty-${String(index)}`}
                             className={cn(
-                                "history-slot history-slot-empty flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                "session-slot session-slot-empty flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                 collapsed && "mx-auto min-h-9 w-9 rounded-lg p-0",
                             )}
                             aria-label={`槽位 ${String(index + 1)}（空）`}
@@ -77,7 +77,7 @@ export function SessionRail({
                         <div
                             key={`${slot.loc.source}|${slot.loc.env}|${slot.loc.session_id}`}
                             className={cn(
-                                "history-slot group flex min-h-12 cursor-grab items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-window)] px-2 py-1.5 text-left hover:border-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] active:cursor-grabbing",
+                                "session-slot group flex min-h-12 cursor-grab items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-window)] px-2 py-1.5 text-left hover:border-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] active:cursor-grabbing",
                                 collapsed && "mx-auto min-h-9 w-9 justify-center rounded-lg p-0",
                             )}
                             style={
@@ -95,18 +95,18 @@ export function SessionRail({
                                 handle_drop(e, index);
                             }}
                         >
-                            <span className="history-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)] ring-1 ring-[var(--agent-accent)]">
+                            <span className="session-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)] ring-1 ring-[var(--agent-accent)]">
                                 <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
                             {!collapsed && (
-                                <div className="history-slot-body flex min-w-0 flex-1 flex-col gap-0.5">
+                                <div className="session-slot-body flex min-w-0 flex-1 flex-col gap-0.5">
                                     <div
-                                        className="history-slot-title truncate text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface)]"
+                                        className="session-slot-title truncate text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface)]"
                                         title={slot.title}
                                     >
                                         {slot.title}
                                     </div>
-                                    <div className="history-slot-meta whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <div className="session-slot-meta whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                                         {String(slot.calls)} 轮 · {format_tokens(slot.tokens)}{" "}
                                         tokens
                                     </div>
@@ -115,7 +115,7 @@ export function SessionRail({
                             {!collapsed && (
                                 <button
                                     type="button"
-                                    className="history-slot-close flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                    className="session-slot-close flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                     aria-label="关闭会话"
                                     onClick={() => {
                                         on_close(index);

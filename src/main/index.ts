@@ -412,7 +412,7 @@ void app.whenReady().then(async () => {
         // t251: 会话/代理面板窗口 bounds 保存与恢复（复用设置窗口先例）。
         // createWindowFor 后应用保存的 bounds + 注册 move/resize 保存。
         const create_panel_window = (
-            key: "agent" | "history",
+            key: "agent" | "session",
             route_query?: Record<string, string>,
         ) => {
             const bounds_key = key === "agent" ? "agentWindowBounds" : "historyWindowBounds";
@@ -441,7 +441,7 @@ void app.whenReady().then(async () => {
                 // 首次创建时经 URL query 传初始定位参数，renderer 启动同步读（见
                 // spec 上下文区已核实契约；window 已存在时走 send_focus，不重复传）。
                 return create_panel_window(
-                    "history",
+                    "session",
                     loc ? { loc: JSON.stringify(loc) } : undefined,
                 );
             },

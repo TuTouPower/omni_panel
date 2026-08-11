@@ -175,4 +175,21 @@ describe("SessionShell (t223)", () => {
         expect(screen.queryByText(/⌘/)).toBeNull();
         expect(screen.queryByText(/拖文件|拖拽导入|import/i)).toBeNull();
     });
+
+    it("header 布局让面板按钮区贴窗口右上角：标题栏 flex-1、页签绝对水平居中（AC-003）", async () => {
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const topbar = document.querySelector(".session-topbar");
+        expect(topbar?.className).toContain("relative");
+        const titlebar = document.querySelector("[data-panel-titlebar=Session]");
+        expect(titlebar?.className).toContain("flex-1");
+        const tabs = document.querySelector(".session-tabs");
+        expect(tabs?.className).toContain("absolute");
+        expect(tabs?.className).toContain("left-1/2");
+        expect(tabs?.className).toContain("-translate-x-1/2");
+        // 页签叠在拖拽区上，须可点击（no-drag）。
+        expect(tabs?.className).toContain("[-webkit-app-region:no-drag]");
+    });
 });
