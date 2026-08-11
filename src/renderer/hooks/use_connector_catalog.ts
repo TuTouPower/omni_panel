@@ -64,7 +64,7 @@ export async function create_instance_and_save(
         params.endpoint_overrides ?? {},
         0,
         params.account_name,
-        false,
+        true,
         latest.config,
     );
     if (params.auth_method === "oauth_device" && params.oauth_source_instance_id) {
