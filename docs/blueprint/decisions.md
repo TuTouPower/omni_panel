@@ -154,3 +154,11 @@
 - 替代：手工 CSS 变量（无 drift 门禁，易失同步）；全量迁移窗口后再建 token（迁移无 token 可取）。
 - 落地：t268（designmd.ts + globals.css token 层 + theme.ts accent + 兼容桥 + 字体 + drift 门禁）。
 - 遗留：无。
+
+## 015 自定义字号类一律用 `text-[length:var(--text-*)]` 显式形式（2026-08-11）
+
+- 背景：tailwind-merge 的 `text-*` 冲突组同时承载 font-size 与 text-color 两个子组；对不在内置 scale 中的自定义字号 token（`text-body-md` 等，来自 `--text-*` 主题变量），twMerge 会归入 text-color 子组，与同组 `text-[var(--color-*)]` 颜色任意值冲突合并、后者被丢弃（d032）。t283 实测复现（对比度从 3.13 跌至 2.65），t298 修 Button。
+- 选项：A) 自定义字号继续用裸类名（遇 cn() 组合才冲突）；B) 一律显式 `text-[length:var(--text-*)]`。
+- 结论：选 B。显式 `length` 明确归入 font-size 子组，不与颜色冲突，且未来任何组件并入 cn() 都不踩坑。纯 className 字面量虽不经 twMerge 无冲突，但统一形式防退化。
+- 落地：t298（Button）+ t302（全仓 ui/会话侧组件 59 文件统一）。
+- 遗留：`text-label-sm` 无 `--text-label-sm` token，Tailwind 不生成字号类（存量失效），登记 p127。

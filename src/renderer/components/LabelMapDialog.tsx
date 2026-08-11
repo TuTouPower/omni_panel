@@ -123,8 +123,10 @@ export function LabelMapDialog({
                         <Icon name="tag" size={20} strokeWidth={1.7} />
                     </span>
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">数据标签映射</div>
-                        <div className="mt-0.5 truncate text-body-sm text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
+                            数据标签映射
+                        </div>
+                        <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {vendor_id} · {account_name}
                         </div>
                     </div>
@@ -172,7 +174,7 @@ export function LabelMapDialog({
             }
         >
             {loading ? (
-                <div className="flex items-center justify-center gap-2 py-6 text-body-md text-[var(--color-on-surface-muted)]">
+                <div className="flex items-center justify-center gap-2 py-6 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <span className="flex animate-spin">
                         <Icon name="refresh" size={16} />
                     </span>
@@ -183,21 +185,21 @@ export function LabelMapDialog({
                     <span className="mb-2.5 text-[var(--color-on-surface-muted)]">
                         <Icon name="tag" size={20} />
                     </span>
-                    <div className="mb-1 text-body-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <div className="mb-1 text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         该服务暂无可映射的数据标签
                     </div>
-                    <div className="max-w-[260px] text-body-sm leading-relaxed text-[var(--color-on-surface-muted)]">
+                    <div className="max-w-[260px] text-[length:var(--text-body-sm)] leading-relaxed text-[var(--color-on-surface-muted)]">
                         完成一次成功同步后，接口返回的标签会显示在这里。
                     </div>
                 </div>
             ) : (
                 <>
-                    <div className="mb-3.5 flex items-center gap-1.5 text-body-sm text-[var(--color-on-surface-muted)]">
+                    <div className="mb-3.5 flex items-center gap-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         <Icon name="info" size={13} />
                         以下标签来自接口最近一次返回
                         {synced ? ` · ${synced}` : ""}
                     </div>
-                    <div className="mb-2 flex items-center gap-3 px-0.5 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                    <div className="mb-2 flex items-center gap-3 px-0.5 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                         <span className="min-w-0 flex-1">原始标签（来自接口）</span>
                         <span className="w-[140px] shrink-0">显示名称</span>
                     </div>
@@ -214,7 +216,7 @@ export function LabelMapDialog({
                             return (
                                 <div className="flex items-center gap-2" key={r.raw}>
                                     <code
-                                        className="min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-label-md text-[var(--color-on-surface-variant)]"
+                                        className="min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                                         title={r.raw}
                                     >
                                         {r.raw}
@@ -224,7 +226,7 @@ export function LabelMapDialog({
                                     </span>
                                     <div className="relative w-[140px] shrink-0">
                                         <Input
-                                            className="h-8 pr-8 font-[var(--font-code-md)] text-label-md"
+                                            className="h-8 pr-8 font-[var(--font-code-md)] text-[length:var(--text-label-md)]"
                                             spellCheck={false}
                                             autoCorrect="off"
                                             autoCapitalize="off"

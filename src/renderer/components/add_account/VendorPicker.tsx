@@ -15,7 +15,7 @@ export function VendorPicker({ on_select }: VendorPickerProps) {
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+            <div className="text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 常用服务
             </div>
             <div className="grid grid-cols-3 gap-2.5">
@@ -38,7 +38,7 @@ export function VendorPicker({ on_select }: VendorPickerProps) {
                     );
                 })}
             </div>
-            <div className="mt-1 flex items-center gap-2 text-label-md font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+            <div className="mt-1 flex items-center gap-2 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                 <Icon name="folder" size={13} strokeWidth={1.8} />
                 <Button
                     variant="ghost"

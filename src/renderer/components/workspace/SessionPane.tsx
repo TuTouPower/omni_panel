@@ -146,7 +146,7 @@ export function SessionPane({
                 <div className="conversation-head-actions flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="大纲"
                         aria-label="大纲"
                         onClick={on_toggle_outline}
@@ -155,7 +155,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="全选可见"
                         aria-label="全选可见"
                         onClick={on_select_all}
@@ -164,7 +164,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="清空选择"
                         aria-label="清空选择"
                         onClick={on_clear_select}
@@ -173,7 +173,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="聚焦此面板"
                         aria-label="聚焦此面板"
                         onClick={on_focus}
@@ -182,7 +182,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-body-md text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="关闭"
                         aria-label="关闭面板"
                         onClick={on_close}
@@ -193,7 +193,7 @@ export function SessionPane({
             </header>
             <div className="conversation-body relative flex min-h-0 flex-1">
                 {column.status === "missing" ? (
-                    <div className="conversation-empty flex flex-1 items-center justify-center px-4 py-2.5 text-center text-body-sm text-[var(--color-on-surface-muted)]">
+                    <div className="conversation-empty flex flex-1 items-center justify-center px-4 py-2.5 text-center text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         该会话的原始记录文件不存在或已删除
                     </div>
                 ) : (
@@ -223,7 +223,7 @@ export function SessionPane({
                                 return (
                                     <>
                                         {divider && (
-                                            <div className="conversation-divider my-2 flex items-center gap-2.5 text-label-caps tabular-nums text-[var(--color-on-surface-muted)] after:h-px after:flex-1 after:bg-[var(--color-outline)]">
+                                            <div className="conversation-divider my-2 flex items-center gap-2.5 text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)] after:h-px after:flex-1 after:bg-[var(--color-outline)]">
                                                 <span>
                                                     {m.timestamp !== null
                                                         ? format_time_short(m.timestamp)
@@ -245,12 +245,12 @@ export function SessionPane({
                             scrollToId={locate_target}
                         />
                         {column.loading_older && (
-                            <div className="conversation-loading px-1 py-2.5 text-center text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="conversation-loading px-1 py-2.5 text-center text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 加载更早…
                             </div>
                         )}
                         {!column.next_cursor && column.messages.length > 0 && (
-                            <div className="conversation-end px-1 py-2.5 text-center text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="conversation-end px-1 py-2.5 text-center text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 — 已到最早消息 —
                             </div>
                         )}
@@ -268,7 +268,7 @@ export function SessionPane({
                 )}
                 {outline_open && (
                     <div className="conversation-outline absolute bottom-0 right-0 top-0 z-20 flex w-60 min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-[-10px_0_30px_-14px_rgba(0,0,0,0.35)]">
-                        <div className="conversation-outline-head shrink-0 border-b border-[var(--color-outline)] px-3.5 py-2.5 text-body-sm font-semibold text-[var(--color-on-surface-variant)]">
+                        <div className="conversation-outline-head shrink-0 border-b border-[var(--color-outline)] px-3.5 py-2.5 text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                             大纲
                         </div>
                         <div className="conversation-outline-list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
@@ -282,14 +282,14 @@ export function SessionPane({
                                         locate_message(item.id);
                                     }}
                                 >
-                                    <span className="conversation-outline-index w-[30px] shrink-0 text-label-caps font-bold tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <span className="conversation-outline-index w-[30px] shrink-0 text-[length:var(--text-label-caps)] font-bold tabular-nums text-[var(--color-on-surface-muted)]">
                                         {item.role === "user" ? "U" : "A"}
                                         {String(item.index)}
                                     </span>
-                                    <span className="conversation-outline-summary min-w-0 flex-1 truncate text-body-sm text-[var(--color-on-surface)]">
+                                    <span className="conversation-outline-summary min-w-0 flex-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface)]">
                                         {item.summary}
                                     </span>
-                                    <span className="conversation-outline-time shrink-0 font-code-md text-label-caps tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <span className="conversation-outline-time shrink-0 font-code-md text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)]">
                                         {item.timestamp !== null
                                             ? format_time_short(item.timestamp)
                                             : ""}
@@ -300,7 +300,7 @@ export function SessionPane({
                     </div>
                 )}
             </div>
-            <footer className="conversation-foot flex shrink-0 items-center gap-3 border-t border-[var(--color-outline)] px-3 py-1.5 font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+            <footer className="conversation-foot flex shrink-0 items-center gap-3 border-t border-[var(--color-outline)] px-3 py-1.5 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                 <span className="conversation-foot-slot font-semibold">槽位 {slot_index + 1}</span>
                 <span className="conversation-foot-count">
                     用户 {String(counts.user)} · Agent {String(counts.assistant)}

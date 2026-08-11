@@ -266,9 +266,11 @@ export function AddAccountDialog({
                         />
                     </span>
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">{title}</div>
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
+                            {title}
+                        </div>
                         {sub && (
-                            <div className="mt-0.5 truncate text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 {sub}
                             </div>
                         )}
@@ -302,7 +304,7 @@ export function AddAccountDialog({
                     <>
                         {error_message && (
                             <div
-                                className="mr-auto text-body-sm text-[var(--color-error)]"
+                                className="mr-auto text-[length:var(--text-body-sm)] text-[var(--color-error)]"
                                 role="alert"
                             >
                                 {error_message}

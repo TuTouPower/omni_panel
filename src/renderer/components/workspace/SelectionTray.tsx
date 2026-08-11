@@ -98,7 +98,7 @@ export function SelectionTray() {
                 onMouseDown={start_drag}
             />
             {!expanded ? (
-                <div className="selection-tray-collapsed px-3.5 py-2 text-body-sm text-[var(--color-on-surface-muted)]">
+                <div className="selection-tray-collapsed px-3.5 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     摘选托盘（空）
                 </div>
             ) : (
@@ -109,13 +109,13 @@ export function SelectionTray() {
                                 className="selection-tray-group"
                                 key={`${g.loc.source}|${g.loc.env}|${g.loc.session_id}`}
                             >
-                                <div className="selection-tray-group-head mb-1 text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                                <div className="selection-tray-group-head mb-1 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                                     {g.title || g.loc.session_id}
                                 </div>
                                 <div className="selection-tray-group-chips flex flex-wrap gap-1.5">
                                     {g.items.map((item) => (
                                         <div
-                                            className="selection-chip inline-flex max-w-[320px] items-center gap-1.5 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-label-md text-[var(--color-on-surface-variant)]"
+                                            className="selection-chip inline-flex max-w-[320px] items-center gap-1.5 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                                             key={item.key}
                                             title={item.message.text}
                                             style={
@@ -139,7 +139,7 @@ export function SelectionTray() {
                                             </span>
                                             <button
                                                 type="button"
-                                                className="selection-chip-remove flex h-4 w-4 shrink-0 items-center justify-center rounded text-body-sm leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                                className="selection-chip-remove flex h-4 w-4 shrink-0 items-center justify-center rounded text-[length:var(--text-body-sm)] leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                                 aria-label={`移除片段 ${item.key}`}
                                                 onClick={() => {
                                                     selection_store.toggle(item);
@@ -154,7 +154,7 @@ export function SelectionTray() {
                         ))}
                     </div>
                     <div className="selection-tray-footer flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-1.5">
-                        <span className="selection-tray-count text-body-sm tabular-nums text-[var(--color-on-surface-variant)]">
+                        <span className="selection-tray-count text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-variant)]">
                             {String(items.length)} 片段 · {String(total_tokens)} tokens
                         </span>
                         <Select

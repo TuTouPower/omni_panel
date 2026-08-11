@@ -35,8 +35,10 @@ export function CpaAddDialog({ onClose }: { onClose: () => void }) {
             title={
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">添加 CPA Manager</div>
-                        <div className="mt-0.5 text-body-sm text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
+                            添加 CPA Manager
+                        </div>
+                        <div className="mt-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             批量接入多个服务商账号
                         </div>
                     </div>
@@ -69,7 +71,7 @@ export function CpaAddDialog({ onClose }: { onClose: () => void }) {
         >
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         CPA-Manager URL
                     </label>
                     <Input
@@ -86,7 +88,7 @@ export function CpaAddDialog({ onClose }: { onClose: () => void }) {
                     />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         管理密钥
                     </label>
                     <SecretInput
@@ -97,7 +99,7 @@ export function CpaAddDialog({ onClose }: { onClose: () => void }) {
                     />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         同步范围
                     </label>
                     <div className="flex flex-col">
@@ -107,7 +109,7 @@ export function CpaAddDialog({ onClose }: { onClose: () => void }) {
                                 key={id}
                             >
                                 <VendorMark id={id} size={20} />
-                                <span className="text-body-md font-medium text-[var(--color-on-surface)]">
+                                <span className="text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
                                     {PROVIDER_LABELS[id]}
                                 </span>
                                 <Toggle

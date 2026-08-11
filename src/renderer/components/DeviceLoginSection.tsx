@@ -118,7 +118,9 @@ export function DeviceLoginSection({
                 className="flex flex-col gap-1.5"
                 data-testid={`device-login-checking-${instance_id}`}
             >
-                <p className="text-body-sm text-[var(--color-on-surface-muted)]">检查登录状态...</p>
+                <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                    检查登录状态...
+                </p>
             </div>
         );
     }
@@ -129,15 +131,15 @@ export function DeviceLoginSection({
                 className="flex flex-col gap-1.5"
                 data-testid={`device-login-logged-in-${instance_id}`}
             >
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     {vendor_label[vendor]} 授权
                 </label>
-                <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     {phase === "success" ? "登录成功" : "已授权"}
                 </p>
                 {error && (
                     <p
-                        className="text-body-sm text-[var(--color-error)]"
+                        className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
                         data-testid={`device-login-error-${instance_id}`}
                     >
                         退出登录失败：{error}
@@ -157,7 +159,7 @@ export function DeviceLoginSection({
 
     return (
         <div className="flex flex-col gap-1.5" data-testid={`device-login-section-${instance_id}`}>
-            <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+            <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 {vendor_label[vendor]} 授权
             </label>
             {phase === "idle" && (
@@ -171,14 +173,14 @@ export function DeviceLoginSection({
                 </Button>
             )}
             {phase === "starting" && (
-                <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     正在获取设备码...
                 </p>
             )}
             {phase === "polling" && device_code && (
                 <div className="flex flex-col gap-1">
                     {device_code.user_code ? (
-                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                        <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             请访问{" "}
                             <a
                                 className="text-[var(--color-accent)] underline"
@@ -190,21 +192,23 @@ export function DeviceLoginSection({
                             </a>
                         </p>
                     ) : (
-                        <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                        <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             输入代码：<code>{device_code.user_code}</code>
                         </p>
                     )}
-                    <p className="text-body-sm text-[var(--color-on-surface-muted)]">
+                    <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         等待授权完成...
                     </p>
                 </div>
             )}
             {phase === "success" && (
-                <p className="text-body-sm text-[var(--color-success)]">登录成功</p>
+                <p className="text-[length:var(--text-body-sm)] text-[var(--color-success)]">
+                    登录成功
+                </p>
             )}
             {phase === "error" && (
                 <p
-                    className="flex items-center gap-1 text-body-sm text-[var(--color-error)]"
+                    className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-error)]"
                     data-testid={`device-login-error-${instance_id}`}
                 >
                     <Icon name="alert_circle" size={12} strokeWidth={1.8} />

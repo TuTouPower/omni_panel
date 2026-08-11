@@ -83,11 +83,11 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                         compact ? "inline-flex" : "mb-0.5 flex",
                     )}
                 >
-                    <span className="conversation-message-role text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                    <span className="conversation-message-role text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         {message.role === "user" ? "用户" : "Agent"}
                     </span>
                     {show_time && message.timestamp !== null && (
-                        <span className="conversation-message-time font-code-md text-label-caps tabular-nums text-[var(--color-on-surface-muted)]">
+                        <span className="conversation-message-time font-code-md text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)]">
                             {format_time_short(message.timestamp)}
                         </span>
                     )}
@@ -104,7 +104,7 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                 {overflows && (
                     <button
                         type="button"
-                        className="conversation-message-expand mt-0.5 rounded px-1.5 py-px text-label-md text-[var(--color-primary)] hover:bg-[var(--color-primary-container)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-message-expand mt-0.5 rounded px-1.5 py-px text-[length:var(--text-label-md)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         aria-label={expanded ? "折叠消息" : "展开消息"}
                         onClick={() => {
                             set_expanded((v) => !v);

@@ -50,7 +50,7 @@ export function UpcomingResetRow({
                         {item.metricLabel}
                     </span>
                 </span>
-                <span className="whitespace-nowrap text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+                <span className="whitespace-nowrap text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                     {format_reset_time(item.resetAt)}
                 </span>
             </span>

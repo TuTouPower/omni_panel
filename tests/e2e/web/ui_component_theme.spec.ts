@@ -187,8 +187,11 @@ test.describe("ui 组件明暗主题渲染抽查 (t283)", () => {
             ).trim();
             expect(dialog_bg).not.toBe("rgba(0, 0, 0, 0)");
             expect(dialog_bg).not.toBe("transparent");
-            // 对话框标题（on-surface）vs 卡片底 ≥ 4.5。
-            const dialog_title = await sample_contrast(dialog.locator(".text-title-sm").first());
+            // 对话框标题（on-surface）vs 卡片底 ≥ 4.5。字号类 text-[length:var(--text-title-sm)]
+            // 是 arbitrary 形式，CSS 选择器需转义方括号/冒号/括号。
+            const dialog_title = await sample_contrast(
+                dialog.locator(".text-\\[length\\:var\\(--text-title-sm\\)\\]").first(),
+            );
             expect(
                 dialog_title.ratio,
                 `Dialog 标题 ${theme_label} 对比 ${dialog_title.fg}/${dialog_title.bg}`,

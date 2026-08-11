@@ -46,7 +46,7 @@ export function TitleBar(props: TitleBarProps) {
                 style={{ borderRadius: 9 }}
             />
             <span
-                className="text-title-md font-bold tracking-[-0.01em] text-[var(--color-on-surface)]"
+                className="text-[length:var(--text-title-md)] font-bold tracking-[-0.01em] text-[var(--color-on-surface)]"
                 data-testid="app-title"
             >
                 Omni Panel - Usage

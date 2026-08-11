@@ -117,9 +117,9 @@ export function SessionTable({
     return (
         <Card className="col-span-12 overflow-hidden">
             <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="m-0 text-title-md font-semibold text-[var(--color-on-surface)]">
+                <h3 className="m-0 text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                     会话明细{" "}
-                    <span className="text-label-md font-normal text-[var(--color-on-surface-muted)]">
+                    <span className="text-[length:var(--text-label-md)] font-normal text-[var(--color-on-surface-muted)]">
                         点击表头排序
                     </span>
                 </h3>
@@ -135,7 +135,7 @@ export function SessionTable({
                 </Button>
             </div>
             <div className="overflow-x-auto rounded-md border border-[var(--color-outline)]">
-                <table className="w-full min-w-[900px] border-collapse text-body-md">
+                <table className="w-full min-w-[900px] border-collapse text-[length:var(--text-body-md)]">
                     <thead className="bg-[var(--color-surface-raised)]">
                         <tr>
                             <th className="w-10 px-2 py-2" aria-hidden="true" />
@@ -202,7 +202,7 @@ export function SessionTable({
                             <tr>
                                 <td
                                     colSpan={9}
-                                    className="px-3 py-8 text-center text-label-md text-[var(--color-on-surface-muted)]"
+                                    className="px-3 py-8 text-center text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
                                 >
                                     该筛选条件下暂无记录
                                 </td>
@@ -267,7 +267,7 @@ export function SessionTable({
                                                     : "OpenCode"}
                                         </Badge>
                                     </td>
-                                    <td className="max-w-[240px] truncate px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                    <td className="max-w-[240px] truncate px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                                         {r.directory}
                                     </td>
                                     <td className="px-3 py-2">
@@ -279,7 +279,7 @@ export function SessionTable({
                                             ))}
                                         </div>
                                     </td>
-                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                                         {r.calls}
                                     </td>
                                     <td className="whitespace-nowrap px-3 py-2">
@@ -290,7 +290,7 @@ export function SessionTable({
                                                     width: `${String(Math.max(2, (r.tokens / maxTokens) * 90))}px`,
                                                 }}
                                             />
-                                            <span className="font-mono text-label-md text-[var(--color-on-surface)]">
+                                            <span className="font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface)]">
                                                 {fmtTok(r.tokens)}
                                             </span>
                                         </div>
@@ -298,15 +298,15 @@ export function SessionTable({
                                     <td
                                         className={
                                             r.cacheRate > 0.7
-                                                ? "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-success)]"
+                                                ? "whitespace-nowrap px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-success)]"
                                                 : r.cacheRate > 0.4
-                                                  ? "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-warning)]"
-                                                  : "whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]"
+                                                  ? "whitespace-nowrap px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-warning)]"
+                                                  : "whitespace-nowrap px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                                         }
                                     >
                                         {(r.cacheRate * 100).toFixed(0)}%
                                     </td>
-                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                                         {fmtTime(r.lastTs)}
                                     </td>
                                 </tr>
@@ -317,7 +317,7 @@ export function SessionTable({
             </div>
             <div className="mt-3 flex items-center justify-end gap-2">
                 <Select
-                    className="h-8 w-auto min-w-[96px] py-1 text-label-md"
+                    className="h-8 w-auto min-w-[96px] py-1 text-[length:var(--text-label-md)]"
                     value={pageSize}
                     onChange={(e) => {
                         setPageSize(Number(e.target.value) as PageSize);
@@ -342,7 +342,7 @@ export function SessionTable({
                 >
                     ‹ 上一页
                 </Button>
-                <span className="min-w-[64px] text-center font-mono text-label-md text-[var(--color-on-surface-variant)]">
+                <span className="min-w-[64px] text-center font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                     {safePage} / {pages}
                 </span>
                 <Button
@@ -376,7 +376,7 @@ function SortHeader({
     const active = sortKey === k;
     return (
         <th
-            className="cursor-pointer whitespace-nowrap px-3 py-2 text-left text-label-md font-medium text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)]"
+            className="cursor-pointer whitespace-nowrap px-3 py-2 text-left text-[length:var(--text-label-md)] font-medium text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)]"
             onClick={() => {
                 onSort(k);
             }}

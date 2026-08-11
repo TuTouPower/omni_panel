@@ -26,7 +26,7 @@ export function SelectionDock({
             <div className="selection-dock-slots flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
                 {selected.map((s) => (
                     <span
-                        className="selection-dock-slot inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-label-md text-[var(--color-on-surface-variant)]"
+                        className="selection-dock-slot inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                         style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
                         key={key_of(s)}
                         title={s.title ?? s.id}
@@ -46,7 +46,7 @@ export function SelectionDock({
                     </span>
                 ))}
             </div>
-            <span className="selection-dock-count shrink-0 font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+            <span className="selection-dock-count shrink-0 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                 {String(selected.length)}/{String(max_select)}
             </span>
             <Button
