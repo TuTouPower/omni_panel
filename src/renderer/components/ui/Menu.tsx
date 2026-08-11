@@ -38,10 +38,11 @@ export function MenuItem({ children, onSelect, danger, disabled, className }: Me
             disabled={disabled}
             className={cn(
                 "flex w-full items-center gap-2 rounded px-3 py-1.5 text-[length:var(--text-body-sm)] " +
-                    "text-[var(--color-on-surface)] hover:bg-[var(--color-surface-raised)] " +
+                    "text-[var(--color-on-surface)] hover:bg-[var(--color-primary)] hover:text-[var(--color-on-primary)] " +
                     "disabled:pointer-events-none disabled:opacity-50 " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                danger && "text-[var(--color-error)]",
+                danger &&
+                    "text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-[var(--color-on-primary)]",
                 className,
             )}
             onClick={onSelect}
