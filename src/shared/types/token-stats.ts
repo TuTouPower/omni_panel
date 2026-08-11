@@ -122,11 +122,27 @@ export const tokenStatsDailyUpsertSchema = z.object({
 
 // --- Collector → main process message ---
 
+/**
+ * Per-source status of one collection round (t309). The collector reports every
+ * source it participates in: healthy sources are `ok`; sources whose data is
+ * unreachable (host mismatch, null path, missing dir) are `unavailable` with a
+ * reason; sources whose reader threw are `failed` with the error message.
+ */
+export const tokenStatsSourceStatusSchema = z.object({
+    source: tokenStatsSourceSchema,
+    env: tokenStatsEnvSchema,
+    status: z.enum(["ok", "unavailable", "failed"]),
+    /** Human-readable reason for unavailable/failed; absent for ok. */
+    lastError: z.string().optional(),
+});
+
 export const tokenStatsUpdateSchema = z.object({
     type: z.literal("token_stats_update"),
     sessions: z.array(tokenStatsSessionUpsertSchema),
     daily: z.array(tokenStatsDailyUpsertSchema),
     records: z.array(agentSessionUsageRecordSchema).default([]),
+    /** Per-source status of this collection round (t309). */
+    sources_status: z.array(tokenStatsSourceStatusSchema).default([]),
 });
 
 // --- Collector config ---
@@ -149,6 +165,7 @@ export const tokenStatsConfigSchema = z.object({
 
 export type TokenStatsSource = z.infer<typeof tokenStatsSourceSchema>;
 export type TokenStatsEnv = z.infer<typeof tokenStatsEnvSchema>;
+export type TokenStatsSourceStatus = z.infer<typeof tokenStatsSourceStatusSchema>;
 export type TokenStatsBucket = z.infer<typeof tokenStatsBucketSchema>;
 export type TokenStatsSession = z.infer<typeof tokenStatsSessionSchema>;
 export type TokenStatsSessionUpsert = z.infer<typeof tokenStatsSessionUpsertSchema>;
@@ -452,6 +469,12 @@ export const tokenStatsDashboardDtoSchema = z.object({
     status: z.object({
         running: z.boolean(),
         last_updated: z.number().nullable(),
+        /**
+         * Per-source status from the latest collection round (t309); absent
+         * until the first collection reports it. The renderer treats absence
+         * as "no source status yet".
+         */
+        sources_status: z.array(tokenStatsSourceStatusSchema).optional(),
     }),
     freshness: z.object({
         queried_at: z.number().nonnegative(),

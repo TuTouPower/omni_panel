@@ -44,6 +44,10 @@
 
 `source` 取值：`poll` / `local` / `session` / `probe` / `wrapper` / `gateway`（CPA 走 `gateway`）。
 
+### 3.3 token-stats 源级状态（t309）
+
+token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailable|failed, lastError?}`，经 `TokenStatsUpdate.sources_status` 同步主进程与面板。语义：源路径解析为 `null`（如非 Windows 宿主的 wsl 源）→ `unavailable` + 原因；读取抛错（如 ENOENT）→ `failed` + 错误信息；正常读取 → `ok`。不可用/失败源输出 warn 日志（含 source/env/原因），采集失败不再无解释。面板 status 区（新鲜度旁）渲染非 ok 源的原因标记；`ok` 源不显示额外标记，正常源行为不变。
+
 ## 3.1 Kimi 用量字段口径（t113）
 
 `connectors/kimi/connector.ts` 解析 `/coding/v1/usages` 响应，参考实现 `vendors/KimiCodeBar/macOS/KimiCodeBar/KimiCodeBarQuotaService.swift`：

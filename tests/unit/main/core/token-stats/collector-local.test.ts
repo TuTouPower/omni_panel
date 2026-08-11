@@ -21,7 +21,12 @@ const mock_post_message = vi.fn();
 };
 
 // Import after mocks
-import { configure, reset_config } from "../../../../../src/main/core/token-stats/collector";
+import {
+    configure,
+    reset_config,
+    set_collector_host,
+} from "../../../../../src/main/core/token-stats/collector";
+import { host_from_platform } from "../../../../../src/main/core/token-stats/paths";
 import type {
     AgentSessionUsage,
     TokenStatsConfig,
@@ -50,11 +55,19 @@ const SESSION_JSONL = JSON.stringify({
 describe("collector on a non-Windows host (t308 AC-001)", () => {
     afterEach(() => {
         reset_config();
+        // t309_code_f002/f002-test: set_collector_host 不随 reset_config 复位，
+        // afterEach 用生产推导 host_from_platform 恢复，避免文件内测试顺序依赖。
+        set_collector_host(host_from_platform(process.platform));
 
         mock_post_message.mockClear();
     });
 
-    it("reads local claude jsonl from os.homedir() and posts the session", () => {
+    // t309 note: the old "reads local claude jsonl and posts the session" test
+    // asserted total silence for the missing costs.jsonl (1 postMessage). AC-003
+    // replaces that ENOENT silence with a per-source warn + failed status, so
+    // the silence expectation is superseded — the session-posting core is kept
+    // below with the new source-status semantics.
+    it("t309: posts local claude jsonl sessions and reports the missing costs source failed", () => {
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
@@ -64,12 +77,22 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
 
             configure({ ...base_config, win_home: home });
 
-            expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0] as {
-                type: string;
-                sessions: { id: string; env: string; input_tokens: number }[];
-                records: AgentSessionUsage[];
-            };
+            const update = mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "token_stats_update")
+                .map(
+                    (c) =>
+                        c[0] as {
+                            type: string;
+                            sessions: { id: string; env: string; input_tokens: number }[];
+                            records: AgentSessionUsage[];
+                            sources_status: {
+                                source: string;
+                                env: string;
+                                status: string;
+                                lastError?: string;
+                            }[];
+                        },
+                )[0]!;
             expect(update.type).toBe("token_stats_update");
             expect(update.sessions).toHaveLength(1);
             expect(update.sessions[0]).toMatchObject({
@@ -85,42 +108,108 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
                 session_id: "s1",
                 agent: "claude-code",
             });
+            // costs.jsonl is absent on this fresh home → the real reader throws
+            // ENOENT → the source is reported failed with the error (AC-002/003).
+            const costs = update.sources_status.find(
+                (s) => s.source === "claude_code" && s.env === "local",
+            );
+            expect(costs?.status).toBe("failed");
+            expect(costs?.lastError).toContain("ENOENT");
+            const warns = mock_post_message.mock.calls.filter(
+                (c) => (c[0] as { type?: string }).type === "collector_log",
+            );
+            expect(
+                warns.some(
+                    (c) =>
+                        (c[0] as { level: string; message: string }).level === "warn" &&
+                        (c[0] as { message: string }).message.includes("claude_costs_local") &&
+                        (c[0] as { message: string }).message.includes("ENOENT"),
+                ),
+            ).toBe(true);
         } finally {
             fs.rmSync(home, { recursive: true, force: true });
         }
     });
 
-    it("skips unreachable wsl sources without errors (paths resolve to null)", () => {
+    it("t309: marks unreachable wsl sources unavailable on a non-Windows host", () => {
+        // t309_code_f001: 显式注入 host，避免 CI 矩阵 Windows job 上
+        // process.platform 推导为 windows 导致 host 过滤分支不执行而挂。
+        set_collector_host("linux");
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
-            // No wsl data present anywhere; wsl_enabled=true would try to read
-            // the wsl sources, but on this host their paths are null and the
-            // collector must stay silent (no crash, no reads, empty update).
+            // No wsl data present anywhere; on this host the wsl sources are
+            // host-filtered (declarative hosts list), never read, and reported
+            // unavailable with a reason instead of failing silently.
             configure({ ...base_config, wsl_enabled: true });
 
-            expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0] as {
-                type: string;
-                sessions: unknown[];
-                records: unknown[];
-            };
+            const update = mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "token_stats_update")
+                .map(
+                    (c) =>
+                        c[0] as {
+                            type: string;
+                            sessions: unknown[];
+                            records: unknown[];
+                            sources_status: {
+                                source: string;
+                                env: string;
+                                status: string;
+                                lastError?: string;
+                            }[];
+                        },
+                )[0]!;
             expect(update.type).toBe("token_stats_update");
             expect(update.sessions).toEqual([]);
             expect(update.records).toEqual([]);
+            const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
+            expect(wsl_statuses).toHaveLength(5);
+            expect(wsl_statuses.every((s) => s.status === "unavailable")).toBe(true);
+            // AC-003: each host-filtered wsl source emits a warn log carrying the
+            // reason (the missing costs.jsonl also warns — filter to wsl ones).
+            const wsl_warns = mock_post_message.mock.calls.filter(
+                (c) =>
+                    (c[0] as { type?: string }).type === "collector_log" &&
+                    (c[0] as { message: string }).message.includes(
+                        "unavailable: wsl data requires a windows host",
+                    ),
+            );
+            expect(wsl_warns).toHaveLength(5);
         } finally {
             fs.rmSync(home, { recursive: true, force: true });
         }
     });
 
-    it("collect() no-ops when homedir lacks any install data", () => {
+    // t309 note: the old "collect() no-ops when homedir lacks any install data"
+    // test expected a single silent message; the empty-update core is kept below
+    // with the new source-status semantics (missing data → failed status + warn).
+    it("t309: an empty home collects without crashing and reports the missing source failed", () => {
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
             configure(base_config);
-            expect(mock_post_message).toHaveBeenCalledTimes(1);
-            const update = mock_post_message.mock.calls[0]![0] as { sessions: unknown[] };
+            const update = mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "token_stats_update")
+                .map(
+                    (c) =>
+                        c[0] as {
+                            sessions: unknown[];
+                            records: unknown[];
+                            sources_status: {
+                                source: string;
+                                env: string;
+                                status: string;
+                                lastError?: string;
+                            }[];
+                        },
+                )[0]!;
             expect(update.sessions).toEqual([]);
+            expect(update.records).toEqual([]);
+            const costs = update.sources_status.find(
+                (s) => s.source === "claude_code" && s.env === "local",
+            );
+            expect(costs?.status).toBe("failed");
+            expect(costs?.lastError).toContain("ENOENT");
         } finally {
             fs.rmSync(home, { recursive: true, force: true });
         }
