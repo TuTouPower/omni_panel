@@ -14,7 +14,7 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t305_provider_tab_active_state"
         },
@@ -29,7 +29,7 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t306_add_account_auto_refresh"
         },
@@ -44,7 +44,7 @@
             "diff_anchor": "",
             "depends_on": "t313",
             "conflicts_with": "",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t307_web_session_history_button"
         },
@@ -58,8 +58,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t312,t313",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t308_token_stats_env_local_paths"
         },
@@ -73,8 +73,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "t308",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t312",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t309_token_stats_source_visibility"
         },
@@ -88,8 +88,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "t308",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t313",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t310_session_history_shared_paths"
         },
@@ -103,8 +103,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "t307,t313",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t312",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t311_web_panel_nav_buttons_middle_click"
         },
@@ -118,8 +118,8 @@
             "review_level": "full",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t308,t309,t311,t313",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t312_token_stats_header_single_row"
         },
@@ -133,8 +133,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t308,t310,t312,t316",
+            "schedule_status": "scheduled",
             "note": "merged from t304",
             "dir": "docs/tasks/t313_panel_buttons_and_session_route_rename"
         },
@@ -148,8 +148,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "t313",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t318",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t314_session_rail_badge_no_ring"
         },
@@ -164,7 +164,7 @@
             "diff_anchor": "",
             "depends_on": "t313",
             "conflicts_with": "t318",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t315_session_panel_bg_unify"
         },
@@ -178,8 +178,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
+            "conflicts_with": "t313",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t316_vendor_logo_theme_visibility"
         },
@@ -194,7 +194,7 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t317_heatmap_zero_cell_outline"
         },
@@ -208,8 +208,8 @@
             "review_level": "single",
             "diff_anchor": "",
             "depends_on": "t313",
-            "conflicts_with": "t315",
-            "schedule_status": "",
+            "conflicts_with": "t314,t315",
+            "schedule_status": "scheduled",
             "note": "",
             "dir": "docs/tasks/t318_session_toolbar_rail_alignment"
         }
