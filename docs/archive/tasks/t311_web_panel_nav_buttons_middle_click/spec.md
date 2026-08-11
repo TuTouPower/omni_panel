@@ -98,7 +98,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- web 端 `sessionHistory.open("","","")` 在无具体会话时对 onFocus 订阅者的分发是否产生可见副作用：`UNVERIFIED-SPIKE`，执行期用最小对照（空 loc 分发为空）核实后删除标记。
+- web 端 `sessionHistory.open("","","")` 在无具体会话时对 onFocus 订阅者的分发是否产生可见副作用：已由 spike s028 核实——空 loc 分发仅 onFocus 通知空 loc + hash 切 session，loc 写 URL 分支短路，无网络请求/URL 污染。结论入 finding d036。
 
 ### 风险与回退
 

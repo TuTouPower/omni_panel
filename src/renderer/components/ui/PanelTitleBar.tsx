@@ -5,6 +5,7 @@ import { is_web } from "../../lib/is-web";
 import type { PanelName } from "../../lib/panel-navigation";
 import logo from "../../assets/logo.svg";
 import { Button } from "./Button";
+import { ICON_LINK_CLS } from "./icon-link";
 
 interface PanelTitleBarProps {
     /** 通用形态：标题内容（与 panel 形态二选一）。 */
@@ -96,6 +97,14 @@ export function PanelTitleBar({
     onClose,
 }: PanelTitleBarProps) {
     const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session"];
+    // t311：web 端互跳入口为原生 `<a href="#{route}">`（中键/Ctrl+Click 由浏览器新开标签页），
+    // 桌面端保持 Button + onNavigate。路由名映射与 use-route.ts VALID_ROUTES / App.tsx 挂载一致。
+    const panel_routes: Record<PanelName, string> = {
+        Settings: "setting",
+        Usage: "usage",
+        Agent: "agent",
+        Session: "session",
+    };
     const base = cn(
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
             "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
@@ -140,24 +149,44 @@ export function PanelTitleBar({
                     )}
                     {panels
                         .filter((p) => p !== panel)
-                        .map((p) => (
-                            <Button
-                                key={p}
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title={`${p}面板`}
-                                aria-label={`${p}面板`}
-                                onClick={() => {
-                                    onNavigate?.(p);
-                                }}
-                            >
-                                {p === "Usage" && <Icon name="clock_forward" size={16} />}
-                                {p === "Agent" && <Icon name="chart" size={16} />}
-                                {p === "Session" && <Icon name="chat_square" size={16} />}
-                                {p === "Settings" && <Icon name="gear" size={16} />}
-                            </Button>
-                        ))}
+                        .map((p) => {
+                            const icon = (
+                                <>
+                                    {p === "Usage" && <Icon name="clock_forward" size={16} />}
+                                    {p === "Agent" && <Icon name="chart" size={16} />}
+                                    {p === "Session" && <Icon name="chat_square" size={16} />}
+                                    {p === "Settings" && <Icon name="gear" size={16} />}
+                                </>
+                            );
+                            if (is_web()) {
+                                return (
+                                    <a
+                                        key={p}
+                                        className={ICON_LINK_CLS}
+                                        title={`${p}面板`}
+                                        aria-label={`${p}面板`}
+                                        href={`#${panel_routes[p]}`}
+                                    >
+                                        {icon}
+                                    </a>
+                                );
+                            }
+                            return (
+                                <Button
+                                    key={p}
+                                    variant="icon"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    title={`${p}面板`}
+                                    aria-label={`${p}面板`}
+                                    onClick={() => {
+                                        onNavigate?.(p);
+                                    }}
+                                >
+                                    {icon}
+                                </Button>
+                            );
+                        })}
                     <WindowControls onClose={onClose} />
                 </div>
             </div>

@@ -13,6 +13,8 @@ import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { RangePicker } from "../components/token-stats/RangePicker";
 import { Button, Card, PanelTitleBar, Segmented, Select, WindowControls } from "../components/ui";
+import { ICON_LINK_CLS } from "../components/ui/icon-link";
+import { is_web } from "../lib/is-web";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
@@ -787,42 +789,70 @@ export function TokenStatsView() {
                     {...(refreshing ? { className: "animate-spin" } : {})}
                 />
             </Button>
-            <Button
-                variant="icon"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Settings面板"
-                aria-label="Settings面板"
-                onClick={() => {
-                    navigate("Settings");
-                }}
-            >
-                <Icon name="gear" size={16} />
-            </Button>
-            <Button
-                variant="icon"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Usage面板"
-                aria-label="Usage面板"
-                onClick={() => {
-                    navigate("Usage");
-                }}
-            >
-                <Icon name="clock_forward" size={16} />
-            </Button>
-            <Button
-                variant="icon"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Session面板"
-                aria-label="Session面板"
-                onClick={() => {
-                    navigate("Session");
-                }}
-            >
-                <Icon name="chat_square" size={16} />
-            </Button>
+            {is_web() ? (
+                <a
+                    className={ICON_LINK_CLS}
+                    title="Settings面板"
+                    aria-label="Settings面板"
+                    href="#setting"
+                >
+                    <Icon name="gear" size={16} />
+                </a>
+            ) : (
+                <Button
+                    variant="icon"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="Settings面板"
+                    aria-label="Settings面板"
+                    onClick={() => {
+                        navigate("Settings");
+                    }}
+                >
+                    <Icon name="gear" size={16} />
+                </Button>
+            )}
+            {is_web() ? (
+                <a className={ICON_LINK_CLS} title="Usage面板" aria-label="Usage面板" href="#usage">
+                    <Icon name="clock_forward" size={16} />
+                </a>
+            ) : (
+                <Button
+                    variant="icon"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="Usage面板"
+                    aria-label="Usage面板"
+                    onClick={() => {
+                        navigate("Usage");
+                    }}
+                >
+                    <Icon name="clock_forward" size={16} />
+                </Button>
+            )}
+            {is_web() ? (
+                <a
+                    className={ICON_LINK_CLS}
+                    title="Session面板"
+                    aria-label="Session面板"
+                    href="#session"
+                >
+                    <Icon name="chat_square" size={16} />
+                </a>
+            ) : (
+                <Button
+                    variant="icon"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="Session面板"
+                    aria-label="Session面板"
+                    onClick={() => {
+                        navigate("Session");
+                    }}
+                >
+                    <Icon name="chat_square" size={16} />
+                </Button>
+            )}
             <WindowControls />
         </div>
     );

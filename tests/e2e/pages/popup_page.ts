@@ -20,7 +20,8 @@ export class PopupPage {
     }
 
     async clickSettings() {
-        await this.live.getByRole("button", { name: "设置" }).click();
+        // t311：web 下设置入口为原生链接、桌面为按钮；title 属性两态一致，据此跨态定位。
+        await this.live.getByTitle("设置").click();
     }
 
     refresh_all_button() {
