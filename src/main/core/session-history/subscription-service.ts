@@ -4,7 +4,7 @@
  * 职责：
  * - 维护订阅表 (source, env, session_id) → 单个订阅，每订阅一个源文件监听器。
  * - 监听策略（决策 5）：
- *   - win + claude_code（本地 JSONL）→ fs.watch；
+ *   - local + claude_code（本机 JSONL）→ fs.watch；
  *   - opencode（SQLite）+ kimi/grok（WSL 9P）→ 2s mtime 轮询。
  * - 变化时调对应 t209 提取器做增量提取，推 messages 给订阅方 on_update。
  * - query：全量提取 + 内存切片分页（决策 17 后端部分）。
@@ -40,8 +40,8 @@ const log = createLogger("session-history-subscription");
 /** 端类型，与 t209 四端提取器一一对应。 */
 export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok";
 
-/** 运行环境，对齐 token-stats 的 TokenStatsEnv。 */
-export type Env = "win" | "wsl";
+/** 运行环境，与 t308 的 TokenStatsEnv 对齐（旧 `win` 并入 `local`）。 */
+export type Env = "local" | "wsl";
 
 /** 订阅键组成部分：source 与 extractor_kind 同形，但保留独立字段以便后续多实例分离。 */
 export interface SessionLoc {
@@ -173,11 +173,11 @@ function loc_key(loc: SessionLoc): string {
 
 /**
  * 选择监听策略。决策 5：
- * - win + claude_code → fs.watch；
+ * - local + claude_code → fs.watch；
  * - 其余（wsl 任意 / opencode sqlite / kimi / grok 9P）→ 2s 轮询 mtime。
  */
 export function pick_strategy(env: Env, extractor_kind: ExtractorKind): "watch" | "poll" {
-    if (env === "win" && extractor_kind === "claude_code") return "watch";
+    if (env === "local" && extractor_kind === "claude_code") return "watch";
     return "poll";
 }
 

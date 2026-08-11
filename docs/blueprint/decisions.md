@@ -169,3 +169,10 @@
 - 选项：A) 继续枚举 `win|wsl`，各 builder 内加 `process.platform` 判断；B) env 重构为 `local|wsl`（`local` = 本机宿主，`win` 语义并入），路径解析抽成 `(host, env, cfg) -> path|null` 纯函数（新 `paths.ts`）。
 - 结论：选 B。env 语义从「OS 猜测」变为「数据所在环境」，`local` 源对任意宿主返回本机路径（`homedir()` 只服务 local），`wsl` 源仅 `host === "windows"` 且 `wsl_user` 非空才构造 UNC（否则 `null` 跳过该源）。host 由 `process.platform` 映射（win32→windows / darwin→macos / 其余→linux，d033 spike 验证）。DB 迁移 v7 把历史 `env='win'` 行改写为 `env='local'`（幂等 UPDATE）。平台假设从业务代码消失，t309/t310 复用路径层。
 - 替代：无
+
+## 017 平台感知路径层在 session-history 的应用（2026-08-11）
+
+- 背景：ADR 016（t308）建了 token-stats 平台感知路径层（host×env 纯函数）。session-history 系统（session-locator/subscription-service/session-path-index）与 collector 同源路径 bug：`win_home: homedir()` 在 Linux/WSL 返回 POSIX home 后与 `\` 字面量/UNC 拼接失效，Windows 宿主行为与 t308 前一致。
+- 选项：A) locator 保留自己的 win/wsl 分支继续手拼路径；B) locator 改走 t308 路径层，`LocatorPaths` 增必填 host/homedir 由调用方注入。
+- 结论：选 B。locator 复用 t308 路径层 builder（新增 `locator_source_path` 纯映射），env 对齐 `local|wsl`；`locator_paths_key` 签名扩展为 host/homedir/win_home/wsl_distro/wsl_user 五段，`SESSION_INDEX_VERSION` bump 2 整体丢弃旧索引重建（防 win env 死条目膨胀）。WSL 用户名探测仍留在 locator（路径层视其为输入），探测失败（空串）wsl 源返回 null。
+- 替代：无

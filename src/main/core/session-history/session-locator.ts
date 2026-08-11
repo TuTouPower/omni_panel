@@ -8,6 +8,12 @@
  * 各 reader（claude/grok/kimi/opencode-reader.ts）；scan_jsonl 系列函数在 collector
  * utility 进程里运行，主进程无法直接复用，故在此独立实现最小的 session_id 匹配扫描。
  *
+ * t310：路径构建改走 t308 平台感知路径层（src/main/core/token-stats/paths.ts）——
+ * (host, homedir, win_home, wsl_distro, wsl_user) → path|null 纯函数，消除
+ * `win_home: homedir()` 在非 Windows 宿主拼 `\`/UNC 失效的同源 bug（p132/d035）。
+ * env 语义与 t308 对齐：`local|wsl`（旧 `win` 并入 `local`）；host 由调用方注入
+ * （index.ts 从 process.platform 推导），测试注入任意宿主。
+ *
  * t254：解析结果持久化到 `<index_dir>/session-path-index.json`，跨重启命中免整目录
  * 递归扫描；索引失效（文件移动/删除/内容变化）时回退扫描并更新索引。
  */
@@ -17,6 +23,7 @@ import { join } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Env, ExtractorKind } from "./subscription-service";
 import { getDataRoot } from "../paths";
+import * as path_layer from "../token-stats/paths";
 import {
     load_session_index,
     load_wsl_user_cache,
@@ -48,7 +55,9 @@ let index_dirty_map: Map<string, SessionIndexEntry> | null = null;
 let index_flush_timer: ReturnType<typeof setTimeout> | null = null;
 
 function locator_paths_key(paths: LocatorPaths): string {
-    return `${paths.win_home}|${paths.wsl_distro}|${paths.wsl_user}`;
+    // 签名覆盖路径层全部输入：host/homedir/win_home/wsl_distro/wsl_user。
+    // 任一变化（含 host 切换）→ 旧签名不命中 → 索引条目失效重建（AC-004）。
+    return `${paths.host}|${paths.homedir}|${paths.win_home}|${paths.wsl_distro}|${paths.wsl_user}`;
 }
 
 function safe_file_stat(file_path: string): { mtime_ms: number; size: number } | null {
@@ -84,7 +93,11 @@ export interface ResolvedSession {
 }
 
 export interface LocatorPaths {
-    /** win 环境下用户家目录（collector 用 win_home）。 */
+    /** 运行宿主（t308 路径层 host；index.ts 从 process.platform 推导，测试注入任意值）。 */
+    readonly host: path_layer.Host;
+    /** os.homedir()；非 Windows 宿主 local 源基路径。 */
+    readonly homedir: string;
+    /** Windows 宿主 user home（win_home；非 Windows 宿主 local 源不用）。 */
     readonly win_home: string;
     /** wsl distro 名（如 "Ubuntu-22.04"）。 */
     readonly wsl_distro: string;
@@ -95,6 +108,8 @@ export interface LocatorPaths {
 }
 
 export const DEFAULT_LOCATOR_PATHS: Readonly<LocatorPaths> = Object.freeze({
+    host: path_layer.host_from_platform(process.platform),
+    homedir: homedir(),
     win_home: homedir(),
     wsl_distro: "Ubuntu-22.04",
     wsl_user: "",
@@ -176,34 +191,42 @@ function session_id_of_claude_file(file_path: string): string | null {
     return null;
 }
 
-function claude_projects_dir(paths: LocatorPaths, env: Env): string | null {
-    if (env === "win") return join(paths.win_home, ".claude", "projects");
-    return wsl_home(paths, ".claude", "projects");
+/**
+ * 路径层输入（t310）：host/homedir/win_home/wsl_* 透传；wsl 源才解析有效用户名。
+ */
+function locator_path_input(paths: LocatorPaths, env: Env): path_layer.TokenStatsPathInput {
+    return {
+        host: paths.host,
+        homedir: paths.homedir,
+        win_home: paths.win_home,
+        wsl_distro: paths.wsl_distro,
+        // wsl 源才需要有效用户名：探测只在 wsl resolve 时触发，local 源不探测
+        // （避免无 WSL 宿主上 local 解析引入不必要的 UNC 探测）。
+        wsl_user: env === "wsl" ? effective_wsl_user(paths) : paths.wsl_user,
+    };
 }
 
-function opencode_db_path(paths: LocatorPaths, env: Env): string | null {
-    if (env === "win") {
-        return join(paths.win_home, ".local", "share", "opencode", "opencode.db");
+/**
+ * source → 源文件/db 路径（t310：复用 t308 路径层，纯函数不碰 fs）。
+ * 返回 null = 该 (source, env) 在当前宿主不可达（非 Windows 宿主 wsl 源 /
+ * wsl_user 探测失败，AC-001/003）。
+ */
+export function locator_source_path(
+    source: HistorySource,
+    env: Env,
+    paths: LocatorPaths,
+): string | null {
+    const input = locator_path_input(paths, env);
+    switch (source) {
+        case "claude_code":
+            return path_layer.claude_projects_path(input, env);
+        case "opencode":
+            return path_layer.opencode_path(input, env);
+        case "kimi_code":
+            return path_layer.kimi_sessions_path(input, env);
+        case "grok":
+            return path_layer.grok_sessions_path(input, env);
     }
-    return wsl_home(paths, ".local", "share", "opencode", "opencode.db");
-}
-
-function kimi_sessions_dir(paths: LocatorPaths, env: Env): string | null {
-    if (env === "win") return join(paths.win_home, ".kimi-code", "sessions");
-    return wsl_home(paths, ".kimi-code", "sessions");
-}
-
-function grok_sessions_dir(paths: LocatorPaths): string | null {
-    // grok 在 d017 仅 WSL 有数据；与 collector grok_sessions_path 一致。
-    return wsl_home(paths, ".grok", "sessions");
-}
-
-function wsl_home(paths: LocatorPaths, ...segments: string[]): string | null {
-    const user = effective_wsl_user(paths);
-    if (!user) {
-        return null;
-    }
-    return join(`\\\\wsl.localhost\\${paths.wsl_distro}\\home\\${user}`, ...segments);
 }
 
 /**
@@ -250,7 +273,7 @@ function resolve_claude_code(
     env: Env,
     session_id: string,
 ): ResolvedSession | null {
-    const root = claude_projects_dir(paths, env);
+    const root = locator_source_path("claude_code", env, paths);
     if (root === null) return null;
     const files: string[] = [];
     collect_jsonls(root, 0, files);
@@ -272,7 +295,7 @@ function resolve_claude_code(
 }
 
 function resolve_opencode(paths: LocatorPaths, env: Env): ResolvedSession | null {
-    const db = opencode_db_path(paths, env);
+    const db = locator_source_path("opencode", env, paths);
     if (db === null) return null;
     try {
         statSync(db);
@@ -288,7 +311,7 @@ function resolve_kimi_code(
     env: Env,
     session_id: string,
 ): ResolvedSession | null {
-    const root = kimi_sessions_dir(paths, env);
+    const root = locator_source_path("kimi_code", env, paths);
     if (root === null) return null;
     const files: string[] = [];
     collect_files_named(root, "wire.jsonl", 0, files);
@@ -303,8 +326,10 @@ function resolve_kimi_code(
     return null;
 }
 
-function resolve_grok(paths: LocatorPaths, session_id: string): ResolvedSession | null {
-    const root = grok_sessions_dir(paths);
+function resolve_grok(paths: LocatorPaths, env: Env, session_id: string): ResolvedSession | null {
+    // grok 数据侧仅 WSL（d017），但路径解析跟随 env（t310 对齐路径层：非 Windows
+    // 宿主 local env 亦可解析到 ~/.grok/sessions，AC-001）。
+    const root = locator_source_path("grok", env, paths);
     if (root === null) return null;
     const files: string[] = [];
     // grok 提取器读 chat_history.jsonl（见 grok-extractor.ts），与 token-stats 的
@@ -465,9 +490,7 @@ export function resolve_session_file(
             case "kimi_code":
                 return resolve_kimi_code(paths, env, session_id);
             case "grok":
-                // grok 仅 WSL（d017）；env 仍接收以便未来扩展，但路径解析固定走 WSL。
-                void env;
-                return resolve_grok(paths, session_id);
+                return resolve_grok(paths, env, session_id);
         }
     })();
 

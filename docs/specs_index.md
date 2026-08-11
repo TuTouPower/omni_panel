@@ -72,7 +72,7 @@
 | draggable_provider_tabs              | Web                 | t242                                                                                              | 2026-08-07   |
 | provider-tab-active-state            | Web                 | t305                                                                                              | 2026-08-11   |
 | renderer-bundle-code-split           | Web+Desktop         | t249                                                                                              | 2026-08-07   |
-| session-path-index                   | Desktop             | t254，t264                                                                                        | 2026-08-08   |
+| session-path-index                   | Desktop             | t254，t264，t310                                                                                  | 2026-08-11   |
 | session-summary-head-read            | Desktop             | t255                                                                                              | 2026-08-07   |
 | session-first-open-main-unblock      | Desktop             | t256                                                                                              | 2026-08-08   |
 | usage-panel-selection-persist        | Web+Desktop         | t250                                                                                              | 2026-08-08   |
