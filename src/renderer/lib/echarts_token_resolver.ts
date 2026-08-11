@@ -40,14 +40,14 @@ const TOP_SERIES_TOKENS = [
 ] as const;
 
 const HEAT_TOKENS = [
-    "--color-usage-1",
-    "--color-usage-2",
-    "--color-usage-3",
-    "--color-usage-4",
-    "--color-usage-5",
-    "--color-usage-6",
-    "--color-usage-7",
-    "--color-usage-8",
+    "--color-heat-1",
+    "--color-heat-2",
+    "--color-heat-3",
+    "--color-heat-4",
+    "--color-heat-5",
+    "--color-heat-6",
+    "--color-heat-7",
+    "--color-heat-8",
 ] as const;
 
 const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
@@ -66,14 +66,14 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
         centerL: "#9aa2b2",
         sliceBorder: "#ffffff",
         heat: [
-            "#5b8cff",
-            "#8b72f8",
-            "#46c7c7",
-            "#7ea2ff",
-            "#a18cff",
-            "#72d4d1",
-            "#9cb8ff",
-            "#b6a7ff",
+            "#e8f0ff",
+            "#cfe0ff",
+            "#b6d0f8",
+            "#9dc0ef",
+            "#84b0e6",
+            "#6ba0dd",
+            "#5290d4",
+            "#3980cb",
         ],
         series: ["#5b8cff", "#8b72f8", "#46c7c7", "#7ea2ff", "#a18cff"],
         agents: {
@@ -111,14 +111,14 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
         centerL: "#6c7382",
         sliceBorder: "#1f232c",
         heat: [
-            "#5b8cff",
-            "#8b72f8",
-            "#46c7c7",
-            "#7ea2ff",
-            "#a18cff",
-            "#72d4d1",
-            "#9cb8ff",
-            "#b6a7ff",
+            "#1a2f4e",
+            "#24406a",
+            "#2e5186",
+            "#3862a2",
+            "#4273be",
+            "#4c84da",
+            "#5695f6",
+            "#60a6ff",
         ],
         series: ["#5b8cff", "#8b72f8", "#46c7c7", "#7ea2ff", "#a18cff"],
         agents: {

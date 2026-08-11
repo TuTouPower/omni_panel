@@ -44,6 +44,23 @@
     --color-usage-7: #9cb8ff;
     --color-usage-8: #b6a7ff;
     --color-usage-9: #a7d8d8;
+    /* 热力图强度梯度（light 浅→深，dark 暗→亮），单色相避免分类色横跳 */
+    --color-heat-1: #e8f0ff;
+    --color-heat-2: #cfe0ff;
+    --color-heat-3: #b6d0f8;
+    --color-heat-4: #9dc0ef;
+    --color-heat-5: #84b0e6;
+    --color-heat-6: #6ba0dd;
+    --color-heat-7: #5290d4;
+    --color-heat-8: #3980cb;
+    --color-heat-1-dark: #1a2f4e;
+    --color-heat-2-dark: #24406a;
+    --color-heat-3-dark: #2e5186;
+    --color-heat-4-dark: #3862a2;
+    --color-heat-5-dark: #4273be;
+    --color-heat-6-dark: #4c84da;
+    --color-heat-7-dark: #5695f6;
+    --color-heat-8-dark: #60a6ff;
     --color-agent-claude: #e85d3d;
     --color-agent-grok: #3b6fe0;
     --color-agent-opencode: #1f9d66;
@@ -223,6 +240,14 @@
     --color-agent-grok: var(--color-agent-grok-dark);
     --color-agent-opencode: var(--color-agent-opencode-dark);
     --color-agent-kimi: var(--color-agent-kimi-dark);
+    --color-heat-1: var(--color-heat-1-dark);
+    --color-heat-2: var(--color-heat-2-dark);
+    --color-heat-3: var(--color-heat-3-dark);
+    --color-heat-4: var(--color-heat-4-dark);
+    --color-heat-5: var(--color-heat-5-dark);
+    --color-heat-6: var(--color-heat-6-dark);
+    --color-heat-7: var(--color-heat-7-dark);
+    --color-heat-8: var(--color-heat-8-dark);
 }
 
 * {
