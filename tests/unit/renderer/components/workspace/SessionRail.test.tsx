@@ -60,6 +60,10 @@ describe("SessionRail provider 徽标", () => {
 
         const badges = Array.from(document.querySelectorAll(".session-badge"));
         expect(badges).toHaveLength(5);
+        // t314: badge 无 accent 圆环描边（防「icon 套圈」回归）。
+        for (const badge of badges) {
+            expect(badge.className).not.toMatch(/\bring-/);
+        }
         const expected = [
             { light: "claude" },
             { light: "kimi" },

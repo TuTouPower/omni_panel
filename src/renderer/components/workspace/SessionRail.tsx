@@ -95,7 +95,7 @@ export function SessionRail({
                                 handle_drop(e, index);
                             }}
                         >
-                            <span className="session-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)] ring-1 ring-[var(--agent-accent)]">
+                            <span className="session-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)]">
                                 <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
                             {!collapsed && (

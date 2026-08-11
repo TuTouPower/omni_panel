@@ -2,11 +2,11 @@
 tid: "t314"
 slug: "session_rail_badge_no_ring"
 title: "会话槽 agent icon 去 accent 圆环（session-badge ring）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t314_session_rail_badge_no_ring"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "38d2ce2420e908267415d453039856b9c290699d"
 depends_on: "t313"
 conflicts_with: "t318"
 schedule_status: "scheduled"
@@ -61,24 +61,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 SessionRail.test.tsx「四个已知 source 与未知 source 都使用 VendorMark」用例（5 badge 无 ring 断言 + VendorMark 存在断言）覆盖；AC-003 为该测试新增断言本身。详见 `handoff.json` ac_evidence。
 
 ### Reviewer verdict
 
 取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（0 finding）
+
+`full`：
+
+- N/A（single 级）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- SessionRail session-badge 去掉 accent 圆环完成：单行 ring class 移除，VendorMark 与 rounded-md/text-accent 保留；AC 三条全绿，review 1 轮 PASS 零 finding。存量 designmd 失败见 p142。
