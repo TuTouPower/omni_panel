@@ -66,21 +66,21 @@
 
 用户入口：
 
-| skill                | 职责                                                     |
-| -------------------- | -------------------------------------------------------- |
-| `task-create`        | 按需求拆 backlog task，批量落盘后统一创建 commit         |
-| `task-schedule`      | 分析依赖/冲突并落盘；可跑集由 `task.py view` 计算        |
-| `task-run`           | 链式串行跑 task，链尾 `integrate-chain` 合主干           |
-| `task-preflight`     | 只读汇总待做 task 缺口                                   |
-| `task-bug`           | 复现/根因/同类位点扫描（仅 `.scratch/`）后建修复 task    |
-| `pending-record`     | 持续澄清后派子代理登记 pending；bug 走 task-bug 分析再记 |
-| `task-from-pending`  | 从 `docs/pending/todo/` 建 task 并归档条目               |
-| `task-merge`         | 合并多个 backlog task（edit 目标 + drop 源）             |
-| `repo-hygiene`       | 过时 handoff/pending 等迁 archive                        |
-| `repo-cleanup`       | 清缓存等无用文件，默认 dry-run                           |
-| `repo-template-sync` | 消费项目从模板仓同步工具链；审批通过后才 commit          |
+| skill                | 职责                                                                            |
+| -------------------- | ------------------------------------------------------------------------------- |
+| `task-create`        | 按需求拆 backlog task，批量落盘后统一创建 commit                                |
+| `task-schedule`      | 分析依赖/冲突并落盘；可跑集由 `task.py view` 计算；本波链由 `task.py plan` 重算 |
+| `task-run`           | 链式串行跑 task，链尾 `integrate-chain` 合主干                                  |
+| `task-preflight`     | 只读汇总待做 task 缺口                                                          |
+| `task-bug`           | 复现/根因/同类位点扫描（仅 `.scratch/`）后建修复 task                           |
+| `pending-record`     | 持续澄清后派子代理登记 pending；bug 走 task-bug 分析再记                        |
+| `task-from-pending`  | 从 `docs/pending/todo/` 建 task 并归档条目                                      |
+| `task-merge`         | 合并多个 backlog task（edit 目标 + drop 源）                                    |
+| `repo-hygiene`       | 过时 handoff/pending 等迁 archive                                               |
+| `repo-cleanup`       | 清缓存等无用文件，默认 dry-run                                                  |
+| `repo-template-sync` | 消费项目从模板仓同步工具链；审批通过后才 commit                                 |
 
-多会话并发：用户自决开多个会话各跑 `task-run`；`task.py view --serve` 看看板。无自动调度器。
+多会话并发：用户自决开多个会话各跑 `task-run`；`task.py plan` 取本波并发链，`task.py view --serve` 看看板。无自动调度器。
 
 内部调用：
 
@@ -89,55 +89,14 @@
 | `task-work`      | 在 task worktree 实施并写 `handoff.json`（由 `task-run` 调用） |
 | `task-integrate` | 单 task 或链式合并回主干（由 `task-run` 调用）                 |
 
-典型路径：`/task-create` → `/task-schedule` → `task.py view --serve` 起看板 → 一个或多个会话 `/task-run`（多会话手动并发各跑一段）。goal 模式自治跑队列：先 `task.py goal` 冻结队列并粘贴其输出的 `/goal` 行，终态以 `task.py goal-check` marker 判定。
+典型路径：`/task-create` → `/task-schedule` → `task.py plan`（本波链）/ `view --serve` → 一个或多个会话 `/task-run`（多会话手动并发各跑一段；状态变后重跑 `plan` 得下一批）。goal 模式自治跑队列：先 `task.py goal` 冻结队列并粘贴其输出的 `/goal` 行，终态以 `task.py goal-check` marker 判定。
 
 ### `scripts/repo_template/task.py` 使用示例
 
 ```bash
 python3 scripts/repo_template/task.py --help        # 所有子命令、参数与用法
-python3 scripts/repo_template/task.py list          # 当前工作区所有 task
-python3 scripts/repo_template/task.py list --status backlog   # 按状态过滤
-python3 scripts/repo_template/task.py show t001     # 当前工作区某 task 详情
-python3 scripts/repo_template/task.py show t001 --ref t003_x  # 某本地分支中的累计状态
-python3 scripts/repo_template/task.py preflight t002 --allow-backlog --ref t001_x  # 只读检查链中 backlog
-python3 scripts/repo_template/task.py start t002 --base t001_x  # 从上一已完成 task 分支启动
-python3 scripts/repo_template/task.py cleanup-worktree t001     # task commit 后清理 worktree，保留分支
-python3 scripts/repo_template/task.py edit t001 --title "新标题" --review-level single
-python3 scripts/repo_template/task.py integrate t001            # 单 task 合并回主干
-python3 scripts/repo_template/task.py integrate-chain           # 链尾整链合并
-python3 scripts/repo_template/task.py view --serve              # 看板
-python3 scripts/repo_template/task.py goal                      # goal 模式冻结队列并输出 /goal 行
-python3 scripts/repo_template/pending.py --help     # 待办总账（一条目一文件）
-python3 scripts/repo_template/pending.py new --slug cli_exit_code
-python3 scripts/repo_template/pending.py archive p112 p113 --fix-ref t012 --write
+python3 scripts/repo_template/pending.py --help     # 待办总账
 python3 scripts/repo_template/findings.py --help    # 技术发现
 python3 scripts/repo_template/spikes.py --help      # 技术 spike
 python3 scripts/repo_template/repo_state.py --help  # 完整工作树 vs baseline 取数（清洁度/deliverable 核对）
 ```
-
-## 命名
-
-- `{tid}`：task 编号，形如 `t001`、`t042`（小写 `t` + 数字）。目录 / 分支 / finding / worktree：`docs/tasks/{tid}_{slug}/`、`{tid}_{slug}`、`{tid}_code_fNNN`、`../omni_usage_{tid}`。
-- `{sid}`：spike 编号，形如 `s001`、`s003`（小写 `s` + 数字）。目录：`docs/spikes/{sid}_{slug}/`。
-- `{slug}`：小写 `snake_case`。
-- `docs/pending/` 条目统一 `pNNN`；`docs/findings/` 用 `dNNN`。编号递增不复用，新增前用 `scripts/repo_template/pending.py new` / `scripts/repo_template/findings.py new` 取号（锁内扫描，禁止手工建条目文件）。
-
-## 硬约束
-
-- `docs/tasks_index.json` 与 `docs/archive/tasks_index.json` 只能由 `scripts/repo_template/task.py` 修改。agent 禁止直接编辑这两个 JSON。脚本失败必须停下提示用户，禁止在未告知用户的情况下手工修 JSON。
-- 密钥规则：公网开放的密钥、token、密码、secret 必须由用户提供随机生成值，禁止自设默认值/示例值/弱口令。日常只拿 `hasSecret` 布尔；设置编辑时经 `config:getSecrets` 按实例拉明文回填；用量面板/托盘不拉密钥；日志强制脱敏，开发期同样生效。
-- 禁写路径：未经用户允许绝不写 `D:\Dev\Code\omni_usage\` 以外路径（读不受限）。
-- WSL 禁 Docker；Docker 服务在宿主机 Win 运行。
-- `{doctor_cmd}` / `{test_cmd}` / `{blackbox_verify}` 见 `docs/blueprint/testing.md`。日常测试分层命令见 `docs/guides/testing.md`（人读清单，权威定义在 blueprint）。
-- `{blackbox_cmd}` 速查：`pnpm test`（主）；涉及打包须真实启动 `artifacts/win-unpacked/OmniPanel.exe`（`pnpm test:packaged` 打包 smoke）；涉及连接器 live 契约用 `pnpm test:contract:live`。
-- 测试规范（命名、层级、回归规则、覆盖率）见 `docs/blueprint/conventions.md`「编码与测试」小节。
-- 门禁默认上限：`max_verify_round = 5`（黑盒）；`max_review_round = 5`（审阅）。两数与状态机、blocked 处置等权威规则见 `task-run` skill。
-
-## 文档规范
-
-- 结构或语义变化时，先确定最终表述，修改最小完整语义块，禁止逐句打补丁。
-- 同一事实、规则或结论只保留一个权威定义；其他位置使用稳定标题或标识引用，避免复制正文和可能失效的编号引用。
-- 文档正文直接陈述事实，禁止元引用：不嵌入决策/spike/ticket/task 编号（`(D24-N3)` `(S15)` `(t012)`）；不嵌入来源或实现位置标注（`(根据 D24 决定)` `(D25 wrapper)` `(impl at ts/X.ts)`）；不嵌入「本节根据 X 决定 Y」式叙述。结构化字段（表格列、`fix_ref`、spec 上下文区的 `来源`、commit subject、测试文件名）按各文件格式约定使用，不受此限。
-- 存在多种合理理解时，先澄清再做跨文档修改。
-- 优先使用正向描述；仅安全、不可逆操作、明确禁区三类场景使用否定句。
-- 完成后检查：旧表述、重复内容、矛盾结论、失效引用、遗漏同步、元引用残留。

@@ -30,6 +30,7 @@ disable-model-invocation: true
 - **禁止自动 commit**。apply 写盘与 state 更新完成后，必须进入「审批门禁」：展示变更摘要，**询问用户是否审批通过**；仅当用户明确表示审批通过（如「审批通过」「approve」「可以 commit」）后才可 `git add` + `git commit`。用户未表态、只说「好的/继续/知道了」、或明确拒绝 → **不 commit**。
 - **不碰业务与项目状态**：`src/`、`assets/`、`schemas/`、`config/`、非 `repo_template` 的 `scripts/`、`docs/tasks/{tid}_*`、`docs/archive/`、`docs/pending/{todo,parked}/`、`docs/findings/dNNN_*`、`docs/specs*`、`docs/handoff.md`、`docs/runtime/`、`docs/reviews/review_*/`、`docs/spikes/{sid}_*`、`docs_repo/`、`README.md`（业务介绍）。
 - **禁止整树/整文件静默硬盖** skill、MCP、宿主配置、以及常被项目改写的共享文稿（`AGENTS.md`、`conventions.md`、`.gitignore` 等）——一律走「裁定同步」。
+- **合并共享文稿禁止格式化**：合并 `AGENTS.md`、`conventions.md` 等共享文稿时，禁止运行任何 Markdown 格式化 / 表格对齐工具（prettier 等），保持模板原格式（紧凑表格，单元格不做空格 pad 填充）。
 - **有差异就必须裁定并报告**。不存在「只展示 diff、默认可永久不处理」的桶；差异要么写入（`update` / `merge`）、要么明确 `keep_consumer`（写清为什么保留）、要么 `ask_user`。禁止用「只 diff」当借口跳过该更新的模板演进。
 - 消费侧 `sync_state.json` **永不**被模板侧文件覆盖或删除（模板本就不带该文件；更新 skill 时 rsync 须 `--exclude 'repo-template-sync/sync_state.json'`）。
 - **`status` / `dry-run` 默认同步零写盘**：不 rsync、不改业务文件；缺源或缺 state → 报告并要求 `init`。例外：登记站立指令时仅允许**字段级**改 state（见「state 写入纪律」）。

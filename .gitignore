@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# 例外：审计日志必须入库
+!docs/archive/tasks_audit.log
+
 # 覆盖率
 coverage/
 *.lcov
@@ -40,6 +43,7 @@ coverage/
 .eslintcache
 .cache/
 .pytest_cache/
+*.py[cod]
 
 # TypeScript
 *.tsbuildinfo
@@ -67,6 +71,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # review 会话过程文件（报告入库，_meta 不入库）
 docs/reviews/review_*/_meta/
+docs/archive/reviews/review_*/_meta/
 
 # 垃圾/临时文件
 report
