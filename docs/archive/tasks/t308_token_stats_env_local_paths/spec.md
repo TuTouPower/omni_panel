@@ -94,7 +94,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- `process.platform` 在 Windows 上的实际取值与 `path.join` 分隔符行为：`UNVERIFIED-SPIKE`，执行期用注入 host 单测等价覆盖，Windows 真机行为留 `[deploy]` 人工验证。
+- `process.platform` 映射与 `path.join`/`path.win32.join` 分隔符行为：已由 spike s025 实测验证（Linux 本机 `linux`；`path.win32.join` 可在 Linux 上构造 UNC）。结论入 finding d033。Windows 宿主 `process.platform==='win32'` 为 Node 既定契约，真机验证留 `[deploy]`。
 
 ### 风险与回退
 

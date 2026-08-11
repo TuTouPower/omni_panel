@@ -758,6 +758,20 @@ export function create_token_stats_store(
         db.exec(ROLLUP_INIT_SQL);
         db.pragma("user_version = 6");
     }
+    // Migration v7 (t308): the env enum dropped `win` in favor of `local`
+    // (collector now resolves paths per host, so the Windows-native source is
+    // "local", not "win"). Rewrite historical rows so env='local' queries see
+    // them; idempotent (WHERE env='win'), row counts and aggregates unchanged.
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 7) {
+        db.exec(
+            "UPDATE token_stats_records SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_sessions SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_daily SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_buckets SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_hour_rollup SET env='local' WHERE env='win';",
+        );
+        db.pragma("user_version = 7");
+    }
     if (readonly) {
         log.debug(`Token stats read-only store initialized: ${db_path}`);
     } else {

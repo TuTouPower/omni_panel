@@ -65,7 +65,7 @@ describe("web usageboard bridge", () => {
         const api = create_web_usageboard();
         const cells = await api.tokenStats.getHeatmap({
             agent: "claude-code",
-            env: "win",
+            env: "local",
             start: 100,
             end: 200,
         });
@@ -73,7 +73,7 @@ describe("web usageboard bridge", () => {
         const url = fetch_mock.mock.calls[0]?.[0] as string;
         expect(url).toContain("/v1/heatmap");
         expect(url).toContain("agent=claude-code");
-        expect(url).toContain("env=win");
+        expect(url).toContain("env=local");
         expect(url).toContain("start=100");
         expect(url).toContain("end=200");
     });
@@ -94,7 +94,7 @@ describe("web usageboard bridge", () => {
         const api = create_web_usageboard();
         const buckets = await api.tokenStats.getHourBuckets({
             agent: "claude-code",
-            env: "win",
+            env: "local",
             start: 100,
             end: 200,
         });
@@ -102,7 +102,7 @@ describe("web usageboard bridge", () => {
         const url = fetch_mock.mock.calls[0]?.[0] as string;
         expect(url).toContain("/v1/hourBuckets");
         expect(url).toContain("agent=claude-code");
-        expect(url).toContain("env=win");
+        expect(url).toContain("env=local");
         expect(url).toContain("start=100");
         expect(url).toContain("end=200");
     });

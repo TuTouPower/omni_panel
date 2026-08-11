@@ -469,7 +469,10 @@ void app.whenReady().then(async () => {
             return tokenStatsStore.query_sessions(filters).map((s) => ({
                 id: s.id,
                 source: s.source,
-                env: s.env,
+                // t308: token-stats env enum is local|wsl; session-history's own
+                // Env type still mirrors the old win|wsl shape and is adapted in
+                // t310. Cast only — the runtime value passes through unchanged.
+                env: s.env as Env,
                 title: s.title,
                 model: s.model,
                 started_at: s.started_at,

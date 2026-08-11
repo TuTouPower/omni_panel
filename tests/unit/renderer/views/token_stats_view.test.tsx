@@ -70,7 +70,7 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
                 type="button"
                 data-testid="open-session-row"
                 onClick={() => {
-                    onOpenSession?.("claude_code|win|initial");
+                    onOpenSession?.("claude_code|local|initial");
                 }}
             >
                 open-session
@@ -128,7 +128,7 @@ function dashboard(
             rollup: [
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     model: "sonnet",
                     directory: "/project",
                     session_id,
@@ -148,7 +148,7 @@ function dashboard(
                 {
                     session_id,
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -257,13 +257,13 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Win" }));
+        await user.click(screen.getByRole("button", { name: "Local" }));
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
 
         const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
-        expect(request.platform).toBe("win");
+        expect(request.platform).toBe("local");
         expect(get_records).not.toHaveBeenCalled();
         expect(get_sessions).not.toHaveBeenCalled();
         expect(get_heatmap).not.toHaveBeenCalled();
@@ -402,14 +402,14 @@ describe("TokenStatsView dashboard query", () => {
     it("reuses a cached dashboard when returning to the same filter combination", async () => {
         get_dashboard
             .mockResolvedValueOnce(dashboard("all"))
-            .mockResolvedValueOnce(dashboard("win"));
+            .mockResolvedValueOnce(dashboard("local"));
         render(<TokenStatsView />);
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Win" }));
+        await user.click(screen.getByRole("button", { name: "Local" }));
         await waitFor(() => {
-            expect(screen.getByTestId("session-records")).toHaveTextContent("win");
+            expect(screen.getByTestId("session-records")).toHaveTextContent("local");
         });
         await user.click(screen.getByRole("button", { name: "全平台" }));
         await waitFor(() => expect(screen.getByTestId("session-records")).toHaveTextContent("all"));
@@ -603,7 +603,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -645,7 +645,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -694,7 +694,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -829,7 +829,7 @@ describe("TokenStatsView dashboard query", () => {
 
         fireEvent.click(screen.getByTestId("open-session-row"));
 
-        expect(open_history).toHaveBeenCalledWith("claude_code", "win", "initial");
+        expect(open_history).toHaveBeenCalledWith("claude_code", "local", "initial");
     });
 });
 

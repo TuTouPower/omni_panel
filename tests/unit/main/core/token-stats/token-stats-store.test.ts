@@ -31,7 +31,7 @@ function delta(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSess
     return {
         id: "s1",
         source: "claude_code",
-        env: "win",
+        env: "local",
         model: "sonnet-4",
         title: null,
         directory: null,
@@ -50,7 +50,7 @@ function daily(overrides: Partial<TokenStatsDailyUpsert> = {}): TokenStatsDailyU
     return {
         id: "s1",
         source: "claude_code",
-        env: "win",
+        env: "local",
         model: "sonnet-4",
         date: "2026-07-10",
         input_tokens: 1000,
@@ -80,7 +80,7 @@ function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionU
         cache_write_tokens: 5,
         agent: "claude-code",
         source: "claude_code",
-        env: "win",
+        env: "local",
         ...overrides,
     };
 }
@@ -205,7 +205,7 @@ describe("token-stats-store", () => {
             expect(buckets).toHaveLength(1);
             expect(buckets[0]).toMatchObject({
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 bucket_date: "2026-07-10",
                 model: "sonnet-4",
                 input_tokens: 1000,
@@ -602,7 +602,7 @@ describe("token-stats-store", () => {
 
         it("filters records by platform and combines with other filters", () => {
             store.upsert_records([
-                record({ message_id: "win-claude", env: "win", timestamp: T0 }),
+                record({ message_id: "win-claude", env: "local", timestamp: T0 }),
                 record({
                     message_id: "wsl-claude",
                     env: "wsl",
@@ -618,7 +618,7 @@ describe("token-stats-store", () => {
             ]);
 
             expect(store.query_records({})).toHaveLength(3);
-            expect(store.query_records({ env: "win" })).toHaveLength(1);
+            expect(store.query_records({ env: "local" })).toHaveLength(1);
             expect(store.query_records({ env: "wsl" })).toHaveLength(2);
             expect(
                 store.query_records({
@@ -667,7 +667,7 @@ describe("token-stats-store", () => {
                     cache_write_tokens: -1,
                     agent: "claude-code",
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                 } as unknown as AgentSessionUsageRecord,
             ]);
 
@@ -750,7 +750,7 @@ describe("token-stats-store", () => {
 
         it("同 session_id 跨 env 不合并：rollup 行含 env 区分 win/wsl", () => {
             store.upsert_records([
-                record({ message_id: "w1", session_id: "s1", env: "win", timestamp: T0 }),
+                record({ message_id: "w1", session_id: "s1", env: "local", timestamp: T0 }),
                 record({ message_id: "w2", session_id: "s1", env: "wsl", timestamp: T1 }),
             ]);
 
@@ -758,7 +758,7 @@ describe("token-stats-store", () => {
             // GROUP BY 含 env：同 session_id 不同 env 拆成两行，且每行含 env 字段
             expect(rows).toHaveLength(2);
             const envs = rows.map((r) => r.env).sort();
-            expect(envs).toEqual(["win", "wsl"]);
+            expect(envs).toEqual(["local", "wsl"]);
         });
 
         it("uses half-open [start, end) so boundary records fall in one window", () => {
@@ -830,7 +830,7 @@ describe("token-stats-store", () => {
                 record({
                     message_id: "claude-win",
                     agent: "claude-code",
-                    env: "win",
+                    env: "local",
                     timestamp: T0,
                 }),
                 record({
@@ -843,7 +843,9 @@ describe("token-stats-store", () => {
 
             expect(store.query_range_rollup({ agent: "claude-code" })).toHaveLength(1);
             expect(store.query_range_rollup({ env: "wsl" })).toHaveLength(1);
-            expect(store.query_range_rollup({ agent: "claude-code", env: "win" })).toHaveLength(1);
+            expect(store.query_range_rollup({ agent: "claude-code", env: "local" })).toHaveLength(
+                1,
+            );
         });
 
         it("filters rollup rows by model (t206 AC5)", () => {
@@ -966,7 +968,7 @@ describe("token-stats-store", () => {
             try {
                 const db_path = path.join(dir, "obs.sqlite");
                 const legacy = create_token_stats_store(db_path);
-                legacy.upsert_records([record({ env: "win", timestamp: T0 })]);
+                legacy.upsert_records([record({ env: "local", timestamp: T0 })]);
                 legacy.close();
                 // Simulate a v3 DB (index not yet present)
                 const raw = new Database(db_path);
@@ -978,9 +980,9 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                // Latest migration is v6 (t192 rollup/version tables) since this
+                // Latest migration is v7 (t308 env win→local) since this
                 // test was written; "bumps through latest" semantics unchanged.
-                expect(check.pragma("user_version", { simple: true })).toBe(6);
+                expect(check.pragma("user_version", { simple: true })).toBe(7);
                 const idx = check
                     .prepare(
                         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_records_env_ts'",
@@ -1025,7 +1027,7 @@ describe("token-stats-store", () => {
                     recs.push(
                         record({
                             message_id: `m${String(i)}`,
-                            env: i % 2 === 0 ? "win" : "wsl",
+                            env: i % 2 === 0 ? "local" : "wsl",
                             timestamp: T0 + i * 1000,
                         }),
                     );
@@ -1070,6 +1072,148 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("migration v7 (env win→local, t308)", () => {
+        it("rewrites env='win' rows to 'local' in all five tables, preserving row counts and aggregates (AC-005/006)", () => {
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-store-mig7-"));
+            try {
+                const db_path = path.join(dir, "obs.sqlite");
+                // Seed a fresh store with local rows, then rewind the env column
+                // to 'win' via raw SQL to simulate a pre-t308 database (the
+                // upsert API no longer accepts env='win').
+                const seed = create_token_stats_store(db_path);
+                seed.upsert_sessions(
+                    [delta({ id: "s1" }), delta({ id: "s2", source: "opencode" })],
+                    [daily({ id: "s1" }), daily({ id: "s2", source: "opencode" })],
+                );
+                seed.upsert_records([
+                    record({ message_id: "r1" }),
+                    record({ message_id: "r2", env: "wsl" }),
+                ]);
+                seed.backfill_hour_rollup();
+                seed.close();
+
+                const raw = new Database(db_path);
+                raw.exec(
+                    "UPDATE token_stats_records SET env='win' WHERE env='local';" +
+                        "UPDATE token_stats_sessions SET env='win' WHERE env='local';" +
+                        "UPDATE token_stats_daily SET env='win' WHERE env='local';" +
+                        "UPDATE token_stats_buckets SET env='win' WHERE env='local';" +
+                        "UPDATE token_stats_hour_rollup SET env='win' WHERE env='local';",
+                );
+                const win_before = {
+                    records: (
+                        raw
+                            .prepare(
+                                "SELECT COUNT(*) AS n FROM token_stats_records WHERE env='win'",
+                            )
+                            .get() as { n: number }
+                    ).n,
+                    sessions: (
+                        raw
+                            .prepare(
+                                "SELECT COUNT(*) AS n FROM token_stats_sessions WHERE env='win'",
+                            )
+                            .get() as { n: number }
+                    ).n,
+                    daily: (
+                        raw
+                            .prepare("SELECT COUNT(*) AS n FROM token_stats_daily WHERE env='win'")
+                            .get() as { n: number }
+                    ).n,
+                    buckets: (
+                        raw
+                            .prepare(
+                                "SELECT COUNT(*) AS n FROM token_stats_buckets WHERE env='win'",
+                            )
+                            .get() as { n: number }
+                    ).n,
+                    hour_rollup: (
+                        raw
+                            .prepare(
+                                "SELECT COUNT(*) AS n FROM token_stats_hour_rollup WHERE env='win'",
+                            )
+                            .get() as { n: number }
+                    ).n,
+                };
+                const sum_of = (table: string, column: string): number | null =>
+                    (
+                        raw
+                            .prepare(`SELECT SUM(${column}) AS t FROM ${table} WHERE env='win'`)
+                            .get() as { t: number | null }
+                    ).t;
+                const records_tokens_before = sum_of("token_stats_records", "input_tokens");
+                const daily_tokens_before = sum_of("token_stats_daily", "input_tokens");
+                raw.pragma("user_version = 6");
+                raw.close();
+
+                const migrated = create_token_stats_store(db_path);
+                migrated.close();
+
+                const check = new Database(db_path);
+                check.pragma("wal_checkpoint(TRUNCATE)");
+                expect(check.pragma("user_version", { simple: true })).toBe(7);
+                const win_count = (table: string): number =>
+                    (
+                        check
+                            .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE env='win'`)
+                            .get() as { n: number }
+                    ).n;
+                expect(win_count("token_stats_records")).toBe(0);
+                expect(win_count("token_stats_sessions")).toBe(0);
+                expect(win_count("token_stats_daily")).toBe(0);
+                expect(win_count("token_stats_buckets")).toBe(0);
+                expect(win_count("token_stats_hour_rollup")).toBe(0);
+                // Row counts preserved (AC-005).
+                const local_count = (table: string): number =>
+                    (
+                        check
+                            .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE env='local'`)
+                            .get() as { n: number }
+                    ).n;
+                expect(local_count("token_stats_records")).toBe(win_before.records);
+                expect(local_count("token_stats_sessions")).toBe(win_before.sessions);
+                expect(local_count("token_stats_daily")).toBe(win_before.daily);
+                expect(local_count("token_stats_buckets")).toBe(win_before.buckets);
+                expect(local_count("token_stats_hour_rollup")).toBe(win_before.hour_rollup);
+                // Aggregates preserved (AC-006).
+                const local_sum = (table: string, column: string): number | null =>
+                    (
+                        check
+                            .prepare(`SELECT SUM(${column}) AS t FROM ${table} WHERE env='local'`)
+                            .get() as { t: number | null }
+                    ).t;
+                expect(local_sum("token_stats_records", "input_tokens")).toBe(
+                    records_tokens_before,
+                );
+                expect(local_sum("token_stats_daily", "input_tokens")).toBe(daily_tokens_before);
+                check.close();
+            } finally {
+                // Windows may hold WAL handles briefly after close; retry, but
+                // downgrade a lingering cleanup failure to a warning so the
+                // assertion result is not masked by an EBUSY on temp teardown.
+                let cleanup_err: Error | undefined;
+                for (let i = 0; i < 20; i++) {
+                    try {
+                        fs.rmSync(dir, { recursive: true, force: true });
+                        cleanup_err = undefined;
+                        break;
+                    } catch (err) {
+                        cleanup_err = err as Error;
+                        if (i < 19) {
+                            const until = Date.now() + 100;
+                            while (Date.now() < until) {
+                                /* spin */
+                            }
+                        }
+                    }
+                }
+                if (cleanup_err) {
+                    console.warn(`[t308] temp cleanup retry exhausted: ${cleanup_err.message}`);
+                }
+            }
+        });
+    });
+
     it("close() works without error", () => {
         const temp_store = create_token_stats_store(":memory:");
         expect(() => {
@@ -1097,8 +1241,8 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                // Pre-migration DB reopened → all migrations run to latest (v6).
-                expect(check.pragma("user_version", { simple: true })).toBe(6);
+                // Pre-migration DB reopened → all migrations run to latest (v7).
+                expect(check.pragma("user_version", { simple: true })).toBe(7);
                 for (const table of [
                     "token_stats_daily",
                     "token_stats_buckets",
@@ -1228,15 +1372,15 @@ describe("token-stats-store", () => {
             const t2 = bj("2026-07-07 10:00:00");
             const t3 = bj("2026-07-08 10:00:00");
             store.upsert_records([
-                record({ message_id: "m1", timestamp: t1, env: "win", agent: "claude-code" }),
+                record({ message_id: "m1", timestamp: t1, env: "local", agent: "claude-code" }),
                 record({ message_id: "m2", timestamp: t2, env: "wsl", agent: "opencode" }),
-                record({ message_id: "m3", timestamp: t3, env: "win", agent: "claude-code" }),
+                record({ message_id: "m3", timestamp: t3, env: "local", agent: "claude-code" }),
             ]);
 
             expect(store.query_heatmap({ start: t2, end: t3 })).toHaveLength(2);
-            expect(store.query_heatmap({ env: "win" })).toHaveLength(2);
+            expect(store.query_heatmap({ env: "local" })).toHaveLength(2);
             expect(store.query_heatmap({ agent: "opencode" })).toHaveLength(1);
-            expect(store.query_heatmap({ env: "win", agent: "claude-code" })).toHaveLength(2);
+            expect(store.query_heatmap({ env: "local", agent: "claude-code" })).toHaveLength(2);
         });
 
         it("reports weekday as strftime('%w') 0=Sunday", () => {
@@ -1342,15 +1486,17 @@ describe("token-stats-store", () => {
             const t2 = bj("2026-07-25 10:00:00");
             const t3 = bj("2026-07-26 10:00:00");
             store.upsert_records([
-                record({ message_id: "m1", timestamp: t1, env: "win", agent: "claude-code" }),
+                record({ message_id: "m1", timestamp: t1, env: "local", agent: "claude-code" }),
                 record({ message_id: "m2", timestamp: t2, env: "wsl", agent: "opencode" }),
-                record({ message_id: "m3", timestamp: t3, env: "win", agent: "claude-code" }),
+                record({ message_id: "m3", timestamp: t3, env: "local", agent: "claude-code" }),
             ]);
 
             expect(store.query_hour_buckets({ start: t2, end: t3 })).toHaveLength(2);
-            expect(store.query_hour_buckets({ env: "win" })).toHaveLength(2);
+            expect(store.query_hour_buckets({ env: "local" })).toHaveLength(2);
             expect(store.query_hour_buckets({ agent: "opencode" })).toHaveLength(1);
-            expect(store.query_hour_buckets({ env: "win", agent: "claude-code" })).toHaveLength(2);
+            expect(store.query_hour_buckets({ env: "local", agent: "claude-code" })).toHaveLength(
+                2,
+            );
         });
 
         it("shifts the hour boundary by +8 across the UTC hour boundary", () => {
@@ -1452,7 +1598,7 @@ describe("token-stats-store", () => {
 
                 const check = new Database(db_path);
                 check.pragma("wal_checkpoint(TRUNCATE)");
-                expect(check.pragma("user_version", { simple: true })).toBe(6);
+                expect(check.pragma("user_version", { simple: true })).toBe(7);
                 const rollup_rows = check
                     .prepare("SELECT COUNT(*) AS c FROM token_stats_hour_rollup")
                     .get() as { c: number };
@@ -1498,7 +1644,7 @@ describe("token-stats-store", () => {
                 expect(rows).toHaveLength(2);
                 expect(rows[0]).toMatchObject({
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "s1",
                     hour_start: hs(T0),
                     model: "sonnet-4",
@@ -1817,7 +1963,7 @@ describe("token-stats-store", () => {
                 directory: "/proj/c",
                 input_tokens: 50,
                 source: "kimi_code",
-                env: "win",
+                env: "local",
                 agent: "kimi-code",
             }),
             // 当天尾（本地 23:59）
@@ -1860,7 +2006,7 @@ describe("token-stats-store", () => {
                 directory: "/proj/c",
                 input_tokens: 90,
                 source: "kimi_code",
-                env: "win",
+                env: "local",
                 agent: "kimi-code",
             }),
             // previous 窗口 [S-width, S) 内一条，使 previous summary 非空
@@ -1942,7 +2088,7 @@ describe("token-stats-store", () => {
             },
             {
                 agent: "all",
-                platform: "win",
+                platform: "local",
                 start: S,
                 end: E,
                 metric: "tokens",
@@ -2119,7 +2265,7 @@ describe("token-stats-store", () => {
                 const store = create_token_stats_store(db_path);
                 store.upsert_records([record({ message_id: "a1" })]);
                 expect(store.get_data_version()).toBe(1);
-                expect(store.query_records({ env: "win" })).toHaveLength(1);
+                expect(store.query_records({ env: "local" })).toHaveLength(1);
 
                 // A NOT NULL violation (message_id is NOT NULL) mid-transaction
                 // must roll the whole batch back: version and records stay at
@@ -2134,7 +2280,7 @@ describe("token-stats-store", () => {
                     ]);
                 }).toThrow();
                 expect(store.get_data_version()).toBe(1);
-                expect(store.query_records({ env: "win" })).toHaveLength(1);
+                expect(store.query_records({ env: "local" })).toHaveLength(1);
                 store.close();
             });
         });

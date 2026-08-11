@@ -30,7 +30,7 @@ describe("token-stats-baseline", () => {
         const expected_scenario_keys = [
             ...(["24h", "7d", "30d"] as const).flatMap((range) =>
                 (["all", ...["claude-code", "opencode", "kimi-code"]] as const).flatMap((agent) =>
-                    (["all", "win", "wsl"] as const).map(
+                    (["all", "local", "wsl"] as const).map(
                         (platform) => `${range}|${agent}|${platform}`,
                     ),
                 ),
@@ -45,7 +45,7 @@ describe("token-stats-baseline", () => {
             new Set(["all", "claude-code", "opencode", "kimi-code"]),
         );
         expect(new Set(report.scenarios.map((scenario) => scenario.platform))).toEqual(
-            new Set(["all", "win", "wsl"]),
+            new Set(["all", "local", "wsl"]),
         );
 
         for (const scenario of report.scenarios) {

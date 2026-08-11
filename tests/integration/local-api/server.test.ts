@@ -994,7 +994,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "dashboard-session",
                 title: "Dashboard",
                 directory: "/project",
@@ -1211,7 +1211,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "alias-session",
                 title: "Dashboard",
                 directory: "/project",
@@ -1276,7 +1276,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1308,7 +1308,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1328,7 +1328,7 @@ describe("local-api web read endpoints", () => {
         ]);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/heatmap?env=win&start=${String(
+            `http://127.0.0.1:${String(api.get_port())}/v1/heatmap?env=local&start=${String(
                 ts - 1,
             )}&end=${String(ts + 1)}`,
         );
@@ -1349,7 +1349,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1369,7 +1369,7 @@ describe("local-api web read endpoints", () => {
         ]);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/hourBuckets?env=win&start=${String(
+            `http://127.0.0.1:${String(api.get_port())}/v1/hourBuckets?env=local&start=${String(
                 ts - 1,
             )}&end=${String(ts + 1)}`,
         );
@@ -1559,7 +1559,7 @@ describe("local-api session history endpoints (t259)", () => {
             session: {
                 id: "sess-1",
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 model: "sonnet",
                 title: "Test Session",
                 directory: "/proj",

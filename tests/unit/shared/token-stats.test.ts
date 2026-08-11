@@ -11,7 +11,7 @@ import {
 const validDaily = {
     id: "sess-abc123",
     source: "claude_code",
-    env: "win",
+    env: "local",
     model: "claude-sonnet-4-20250514",
     date: "2026-07-17",
     input_tokens: 500,
@@ -23,7 +23,7 @@ const validDaily = {
 
 const validBucket = {
     source: "claude_code",
-    env: "win",
+    env: "local",
     bucket_date: "2026-07-17",
     model: "claude-sonnet-4-20250514",
     input_tokens: 1500,
@@ -86,7 +86,7 @@ describe("tokenStatsBucketSchema", () => {
     it("rejects missing required fields", () => {
         const result = tokenStatsBucketSchema.safeParse({
             source: "claude_code",
-            env: "win",
+            env: "local",
         });
         expect(result.success).toBe(false);
     });
@@ -140,7 +140,7 @@ describe("tokenStatsSessionUpsertSchema", () => {
         const result = tokenStatsSessionUpsertSchema.safeParse({
             id: "sess-abc123",
             source: "claude_code",
-            env: "win",
+            env: "local",
             model: null,
             title: null,
             directory: null,

@@ -38,6 +38,7 @@ import {
     collect,
     configure,
     reset_config,
+    set_collector_host,
     costs_state,
     opencode_max_updated,
     jsonl_states,
@@ -76,7 +77,7 @@ function upsert(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSes
     return {
         id: "s1",
         source: "claude_code",
-        env: "win",
+        env: "local",
         model: "claude-sonnet-4-20250514",
         title: null,
         directory: null,
@@ -94,11 +95,11 @@ function upsert(overrides: Partial<TokenStatsSessionUpsert> = {}): TokenStatsSes
 function record(
     overrides: Partial<AgentSessionUsage> & {
         source?: "claude_code" | "opencode" | "kimi_code" | "grok";
-        env?: "win" | "wsl";
+        env?: "local" | "wsl";
     } = {},
 ): AgentSessionUsage & {
     source: "claude_code" | "opencode" | "kimi_code" | "grok";
-    env: "win" | "wsl";
+    env: "local" | "wsl";
 } {
     return {
         session_id: "s1",
@@ -117,7 +118,7 @@ function record(
         cache_write_tokens: 5,
         agent: "claude-code",
         source: "claude_code",
-        env: "win",
+        env: "local",
         ...overrides,
     };
 }
@@ -131,6 +132,10 @@ describe("collector", () => {
         opencode_max_updated.clear();
         jsonl_states.clear();
         reset_config();
+        // Simulate a Windows host so the wsl sources are reachable (t308);
+        // non-Windows host behaviour is covered by paths.test.ts and
+        // collector-local.test.ts.
+        set_collector_host("windows");
 
         mock_read_costs.mockReturnValue({ sessions: [], records: [], new_offset: 0, new_size: 0 });
         mock_scan_jsonls.mockReturnValue({
@@ -154,68 +159,83 @@ describe("collector", () => {
         });
     });
 
-    describe("path builders", () => {
-        it("builds Win Claude costs path", () => {
-            expect(claude_costs_path(base_config, "win")).toBe(
+    describe("path builders (t308: host-injected)", () => {
+        it("builds local paths from win_home on a windows host", () => {
+            expect(claude_costs_path(base_config, "local", "windows")).toBe(
                 "C:\\Users\\Test\\.claude\\metrics\\costs.jsonl",
             );
-        });
-
-        it("builds WSL Claude costs path", () => {
-            expect(claude_costs_path(wsl_config, "wsl")).toBe(
-                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.claude\\metrics\\costs.jsonl",
-            );
-        });
-
-        it("builds Win Claude projects path", () => {
-            expect(claude_projects_path(base_config, "win")).toBe(
+            expect(claude_projects_path(base_config, "local", "windows")).toBe(
                 "C:\\Users\\Test\\.claude\\projects",
             );
-        });
-
-        it("builds WSL Claude projects path", () => {
-            expect(claude_projects_path(wsl_config, "wsl")).toBe(
-                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.claude\\projects",
-            );
-        });
-
-        it("builds Win OpenCode path", () => {
-            expect(opencode_path(base_config, "win")).toBe(
+            expect(opencode_path(base_config, "local", "windows")).toBe(
                 "C:\\Users\\Test\\.local\\share\\opencode\\opencode.db",
             );
-        });
-
-        it("builds WSL OpenCode path", () => {
-            expect(opencode_path(wsl_config, "wsl")).toBe(
-                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.local\\share\\opencode\\opencode.db",
-            );
-        });
-
-        it("builds Win Kimi sessions path", () => {
-            expect(kimi_sessions_path(base_config, "win")).toBe(
+            expect(kimi_sessions_path(base_config, "local", "windows")).toBe(
                 "C:\\Users\\Test\\.kimi-code\\sessions",
             );
-        });
-
-        it("builds WSL Kimi sessions path", () => {
-            expect(kimi_sessions_path(wsl_config, "wsl")).toBe(
-                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\sessions",
-            );
-        });
-
-        it("builds Kimi session_index path", () => {
-            expect(kimi_index_path(base_config, "win")).toBe(
+            expect(kimi_index_path(base_config, "local", "windows")).toBe(
                 "C:\\Users\\Test\\.kimi-code\\session_index.jsonl",
             );
-            expect(kimi_index_path(wsl_config, "wsl")).toBe(
+        });
+
+        it("builds POSIX paths from homedir on a non-Windows host (AC-001)", () => {
+            expect(claude_costs_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.claude/metrics/costs.jsonl",
+            );
+            expect(claude_projects_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.claude/projects",
+            );
+            expect(opencode_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.local/share/opencode/opencode.db",
+            );
+            expect(kimi_sessions_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.kimi-code/sessions",
+            );
+            expect(kimi_index_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.kimi-code/session_index.jsonl",
+            );
+        });
+
+        it("builds WSL UNC paths on a windows host (AC-002)", () => {
+            expect(claude_costs_path(wsl_config, "wsl", "windows")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.claude\\metrics\\costs.jsonl",
+            );
+            expect(claude_projects_path(wsl_config, "wsl", "windows")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.claude\\projects",
+            );
+            expect(opencode_path(wsl_config, "wsl", "windows")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.local\\share\\opencode\\opencode.db",
+            );
+            expect(kimi_sessions_path(wsl_config, "wsl", "windows")).toBe(
+                "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\sessions",
+            );
+            expect(kimi_index_path(wsl_config, "wsl", "windows")).toBe(
                 "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.kimi-code\\session_index.jsonl",
             );
         });
 
-        it("builds WSL grok sessions path (t197)", () => {
-            expect(grok_sessions_path(wsl_config)).toBe(
+        it("returns null for wsl sources on a non-Windows host (AC-001)", () => {
+            expect(claude_costs_path(wsl_config, "wsl", "linux")).toBeNull();
+            expect(claude_projects_path(wsl_config, "wsl", "linux")).toBeNull();
+            expect(opencode_path(wsl_config, "wsl", "linux")).toBeNull();
+            expect(kimi_sessions_path(wsl_config, "wsl", "linux")).toBeNull();
+            expect(kimi_index_path(wsl_config, "wsl", "linux")).toBeNull();
+        });
+
+        it("returns null for wsl sources when wsl_user is undetectable on a windows host (AC-003)", () => {
+            const cfg = { ...wsl_config, wsl_user: "" };
+            expect(claude_costs_path(cfg, "wsl", "windows")).toBeNull();
+            expect(claude_projects_path(cfg, "wsl", "windows")).toBeNull();
+            expect(opencode_path(cfg, "wsl", "windows")).toBeNull();
+            expect(kimi_sessions_path(cfg, "wsl", "windows")).toBeNull();
+            expect(kimi_index_path(cfg, "wsl", "windows")).toBeNull();
+        });
+
+        it("builds WSL grok sessions path (t197); null on non-Windows hosts", () => {
+            expect(grok_sessions_path(wsl_config, "windows")).toBe(
                 "\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.grok\\sessions",
             );
+            expect(grok_sessions_path(wsl_config, "linux")).toBeNull();
         });
     });
 
@@ -244,7 +264,7 @@ describe("collector", () => {
     });
 
     describe("collect()", () => {
-        it("reads all Win sources and posts update", () => {
+        it("reads all local sources and posts update", () => {
             mock_read_costs.mockReturnValue({
                 sessions: [upsert({ id: "c1" })],
                 records: [record({ message_id: "costs-r1", agent: "claude-code" })],
@@ -257,7 +277,7 @@ describe("collector", () => {
                     {
                         id: "c1",
                         source: "claude_code",
-                        env: "win",
+                        env: "local",
                         model: "m",
                         date: "2026-07-10",
                         input_tokens: 10,
@@ -310,8 +330,8 @@ describe("collector", () => {
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
                 records: [
-                    record({ message_id: "m1", source: "claude_code", env: "win" }),
-                    record({ message_id: "m2", source: "claude_code", env: "win" }),
+                    record({ message_id: "m1", source: "claude_code", env: "local" }),
+                    record({ message_id: "m2", source: "claude_code", env: "local" }),
                 ],
                 new_state: { mtimes: new Map(), files: new Map() },
             });
@@ -328,9 +348,9 @@ describe("collector", () => {
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
                 records: [
-                    record({ message_id: "m1", source: "claude_code", env: "win" }),
-                    record({ message_id: "m2", source: "claude_code", env: "win" }),
-                    record({ message_id: "m3", source: "claude_code", env: "win" }),
+                    record({ message_id: "m1", source: "claude_code", env: "local" }),
+                    record({ message_id: "m2", source: "claude_code", env: "local" }),
+                    record({ message_id: "m3", source: "claude_code", env: "local" }),
                 ],
                 new_state: { mtimes: new Map(), files: new Map() },
             });
@@ -347,8 +367,8 @@ describe("collector", () => {
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
                 records: [
-                    record({ message_id: "m1", source: "claude_code", env: "win" }),
-                    record({ message_id: "m2", source: "claude_code", env: "win" }),
+                    record({ message_id: "m1", source: "claude_code", env: "local" }),
+                    record({ message_id: "m2", source: "claude_code", env: "local" }),
                 ],
                 new_state: { mtimes: new Map(), files: new Map() },
             });
@@ -374,7 +394,7 @@ describe("collector", () => {
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
                 records: [
-                    record({ message_id: "shared", source: "claude_code", env: "win" }),
+                    record({ message_id: "shared", source: "claude_code", env: "local" }),
                     record({
                         message_id: "shared",
                         source: "claude_code",
@@ -384,7 +404,7 @@ describe("collector", () => {
                     record({
                         message_id: "shared",
                         source: "opencode",
-                        env: "win",
+                        env: "local",
                         agent: "opencode",
                     }),
                 ],
@@ -404,7 +424,7 @@ describe("collector", () => {
             mock_scan_jsonls.mockReturnValue({
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
-                records: [record({ message_id: "m1", source: "claude_code", env: "win" })],
+                records: [record({ message_id: "m1", source: "claude_code", env: "local" })],
                 new_state: { mtimes: new Map(), files: new Map() },
             });
             configure(base_config);
@@ -416,7 +436,7 @@ describe("collector", () => {
             mock_scan_jsonls.mockReturnValue({
                 sessions: [upsert({ id: "s1" })],
                 daily: [],
-                records: [record({ message_id: "m1", source: "claude_code", env: "win" })],
+                records: [record({ message_id: "m1", source: "claude_code", env: "local" })],
                 new_state: { mtimes: new Map(), files: new Map() },
             });
             configure(base_config);
@@ -440,15 +460,15 @@ describe("collector", () => {
 
             configure(base_config);
 
-            expect(mock_read_costs).toHaveBeenLastCalledWith(expect.any(String), "win", 0, 0);
+            expect(mock_read_costs).toHaveBeenLastCalledWith(expect.any(String), "local", 0, 0);
             expect(mock_read_opencode_sessions).toHaveBeenLastCalledWith(
                 expect.any(String),
-                "win",
+                "local",
                 0,
             );
             expect(mock_scan_jsonls).toHaveBeenLastCalledWith(
                 expect.any(String),
-                "win",
+                "local",
                 expect.objectContaining({ mtimes: expect.any(Map), files: expect.any(Map) }),
             );
 
@@ -467,10 +487,10 @@ describe("collector", () => {
 
             collect();
 
-            expect(mock_read_costs).toHaveBeenLastCalledWith(expect.any(String), "win", 100, 100);
+            expect(mock_read_costs).toHaveBeenLastCalledWith(expect.any(String), "local", 100, 100);
             expect(mock_read_opencode_sessions).toHaveBeenLastCalledWith(
                 expect.any(String),
-                "win",
+                "local",
                 1000,
             );
         });
@@ -488,7 +508,7 @@ describe("collector", () => {
             mock_post_message.mockClear();
             collect();
 
-            expect(mock_scan_jsonls).toHaveBeenLastCalledWith(expect.any(String), "win", state);
+            expect(mock_scan_jsonls).toHaveBeenLastCalledWith(expect.any(String), "local", state);
         });
 
         it("skips WSL sources when wsl_enabled=false", () => {
@@ -502,7 +522,7 @@ describe("collector", () => {
             expect(mock_scan_grok).not.toHaveBeenCalled();
             expect(mock_read_costs).toHaveBeenCalledWith(
                 expect.stringContaining("Users"),
-                "win",
+                "local",
                 0,
                 0,
             );
@@ -633,13 +653,13 @@ describe("collector", () => {
 
         it("one source failure doesn't prevent other sources from being collected", () => {
             mock_read_costs.mockImplementation((_path: string, env: string) => {
-                if (env === "win") {
+                if (env === "local") {
                     throw new Error("file locked");
                 }
                 return { sessions: [], records: [], new_offset: 0, new_size: 0 };
             });
             mock_read_opencode_sessions.mockImplementation((_path: string, env: string) => {
-                if (env === "win")
+                if (env === "local")
                     return {
                         sessions: [upsert({ id: "win-ok", source: "opencode" })],
                         daily: [],
@@ -656,7 +676,7 @@ describe("collector", () => {
                 (c) => (c[0] as { type?: string }).type === "collector_log",
             )?.[0] as { type: string; level: string; module: string; message: string } | undefined;
             expect(log_msg?.level).toBe("error");
-            expect(log_msg?.message).toContain("claude_costs_win read failed");
+            expect(log_msg?.message).toContain("claude_costs_local read failed");
             const update = mock_post_message.mock.calls.find(
                 (c) => (c[0] as { type?: string }).type === "token_stats_update",
             )?.[0] as { sessions: unknown[] };

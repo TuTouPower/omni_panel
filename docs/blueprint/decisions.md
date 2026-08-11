@@ -162,3 +162,10 @@
 - 结论：选 B。显式 `length` 明确归入 font-size 子组，不与颜色冲突，且未来任何组件并入 cn() 都不踩坑。纯 className 字面量虽不经 twMerge 无冲突，但统一形式防退化。
 - 落地：t298（Button）+ t302（全仓 ui/会话侧组件 59 文件统一）。
 - 遗留：`text-label-sm` 无 `--text-label-sm` token，Tailwind 不生成字号类（存量失效），登记 p127。
+
+## 016 平台感知路径层：env 分离 local|wsl、host×env 纯函数（2026-08-11）
+
+- 背景：collector 路径构建硬编码 Windows 宿主假设：`TokenStatsEnv` 只有 `win|wsl`，`win_home: homedir()` 在 Linux/WSL 返回 POSIX home 后与反斜杠字面量拼接出坏路径，wsl 源 UNC 在 Linux 内不可达，`wsl_user` 探测失败静默返回空（p132：Linux/macOS/WSL 宿主全源采集 0 且无可见告警）。路径构建散落在 collector/reader 各 builder 中，无统一平台层。
+- 选项：A) 继续枚举 `win|wsl`，各 builder 内加 `process.platform` 判断；B) env 重构为 `local|wsl`（`local` = 本机宿主，`win` 语义并入），路径解析抽成 `(host, env, cfg) -> path|null` 纯函数（新 `paths.ts`）。
+- 结论：选 B。env 语义从「OS 猜测」变为「数据所在环境」，`local` 源对任意宿主返回本机路径（`homedir()` 只服务 local），`wsl` 源仅 `host === "windows"` 且 `wsl_user` 非空才构造 UNC（否则 `null` 跳过该源）。host 由 `process.platform` 映射（win32→windows / darwin→macos / 其余→linux，d033 spike 验证）。DB 迁移 v7 把历史 `env='win'` 行改写为 `env='local'`（幂等 UPDATE）。平台假设从业务代码消失，t309/t310 复用路径层。
+- 替代：无
