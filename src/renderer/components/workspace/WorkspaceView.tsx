@@ -273,7 +273,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
     }, []);
 
     return (
-        <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface)]">
+        <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
             <WorkspaceToolbar
                 layout={layout}
                 count={count}
@@ -339,7 +339,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                                 slot === null ? null : (
                                     <div
                                         className={
-                                            "session-cell flex min-h-0 min-w-0 bg-[var(--color-surface)]" +
+                                            "session-cell flex min-h-0 min-w-0 bg-[var(--color-surface-window)]" +
                                             (focused_index !== null && focused_index !== index
                                                 ? " hidden"
                                                 : "") +

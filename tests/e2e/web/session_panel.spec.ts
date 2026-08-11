@@ -221,6 +221,32 @@ test.describe("session panel (web, t228)", () => {
         await expect(page.locator(".session-cell")).toHaveCount(2);
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
     });
+
+    test("t315：会话窗口根背景统一 surface-window，卡片为第二色 surface-raised（computed 两色可辨）", async ({
+        webPage,
+    }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "登录页 bug 修复");
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+        const bg = async (sel: string): Promise<string> =>
+            page
+                .locator(sel)
+                .first()
+                .evaluate((el) => getComputedStyle(el).backgroundColor);
+        const shell_bg = await bg(".session-shell");
+        const workspace_bg = await bg(".session-workspace");
+        const library_bg = await bg(".library-view");
+        const pane_bg = await bg(".conversation-pane");
+        const card_bg = await bg(".library-card");
+        // 三个根容器背景一致（surface-window），卡片/内容区第二色（surface-raised），两色可辨。
+        expect(workspace_bg).toBe(shell_bg);
+        expect(library_bg).toBe(shell_bg);
+        expect(pane_bg).not.toBe(shell_bg);
+        expect(card_bg).not.toBe(library_bg);
+        expect(pane_bg).toBe(card_bg);
+    });
 });
 
 test.describe("session panel virtual list (web, t237)", () => {

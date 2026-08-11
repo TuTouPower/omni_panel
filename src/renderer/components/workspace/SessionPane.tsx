@@ -110,7 +110,7 @@ export function SessionPane({
     return (
         <section
             className={cn(
-                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-window)]",
+                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-raised)]",
                 focused && "focused absolute inset-0 z-10 rounded-none",
             )}
             style={{ "--agent-accent": agent_accent(column.loc.source) } as CSSProperties}
@@ -146,7 +146,7 @@ export function SessionPane({
                 <div className="conversation-head-actions flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="大纲"
                         aria-label="大纲"
                         onClick={on_toggle_outline}
@@ -155,7 +155,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="全选可见"
                         aria-label="全选可见"
                         onClick={on_select_all}
@@ -164,7 +164,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="清空选择"
                         aria-label="清空选择"
                         onClick={on_clear_select}
@@ -173,7 +173,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="聚焦此面板"
                         aria-label="聚焦此面板"
                         onClick={on_focus}
@@ -182,7 +182,7 @@ export function SessionPane({
                     </button>
                     <button
                         type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                         title="关闭"
                         aria-label="关闭面板"
                         onClick={on_close}
@@ -276,7 +276,7 @@ export function SessionPane({
                                 <button
                                     type="button"
                                     key={item.id}
-                                    className="conversation-outline-row flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                    className="conversation-outline-row flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                     data-message-id={item.id}
                                     onClick={() => {
                                         locate_message(item.id);

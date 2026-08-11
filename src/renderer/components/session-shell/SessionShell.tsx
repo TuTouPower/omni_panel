@@ -17,8 +17,8 @@ export function SessionShell() {
     const navigate = use_panel_navigation();
 
     return (
-        <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface)] text-[var(--color-on-surface)]">
-            <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface)]">
+        <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
+            <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]">
                 <PanelTitleBar
                     panel="Session"
                     className="min-w-0 flex-1"

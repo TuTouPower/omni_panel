@@ -1065,4 +1065,24 @@ describe("SessionLibrary (t227)", () => {
         fireEvent.click(getByRole("button", { name: "update" }));
         expect(counts).toEqual({ a: 1, b: 2 });
     });
+
+    it("t315 AC2：根背景 surface-window，网格卡片/列表行为第二色 surface-raised", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => {
+            expect(document.querySelectorAll(".library-card").length).toBe(3);
+        });
+        const root = document.querySelector(".library-view");
+        expect(root?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(root?.className).not.toContain("bg-[var(--color-surface)]");
+        // 网格视图：卡片为第二色 surface-raised。
+        const card = document.querySelector(".library-card");
+        expect(card?.className).toContain("bg-[var(--color-surface-raised)]");
+        // 列表视图：行同样为第二色 surface-raised。
+        fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
+        expect(document.querySelector(".library-list")).toBeTruthy();
+        const row = document.querySelector(".library-row");
+        expect(row?.className).toContain("bg-[var(--color-surface-raised)]");
+    });
 });
