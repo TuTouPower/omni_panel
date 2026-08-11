@@ -4504,6 +4504,21 @@
             "dir": "docs/archive/tasks/t300_renderer_act_warnings_cleanup"
         },
         {
+            "tid": "t301",
+            "slug": "ui_token_alignment_pack",
+            "title": "ui 组件 token 对齐包（Switch/Badge/Progress/Button 字重/Menu hover/Dialog 动画）",
+            "status": "done",
+            "branch": "t301_ui_token_alignment_pack",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "5eee818d6ee62562c218e25896dd0640c8ed76e0",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "合并 p110-p113/p117-p118 六条 DESIGN 对照差异：Switch 尺寸/开态色、Badge count 配色、Progress 尺寸（未消费）、Button 字重规格矛盾、Menu hover、Dialog 动画缺失；含设计侧裁决点，对比度不退化",
+            "dir": "docs/archive/tasks/t301_ui_token_alignment_pack"
+        },
+        {
             "tid": "t302",
             "slug": "ui_components_bare_font_size_twmerge",
             "title": "ui 组件库批量清理：自定义字号类被 tailwind-merge 吞色（d032 机制扩展）",
@@ -4517,6 +4532,21 @@
             "schedule_status": "",
             "note": "p126（t298 顺手发现）：d032 机制（tailwind-merge 吞自定义字号 token 颜色类）扩展清理 ui 组件库多组件；修法同 Button（text-[length:var(--text-*)]）",
             "dir": "docs/archive/tasks/t302_ui_components_bare_font_size_twmerge"
+        },
+        {
+            "tid": "t303",
+            "slug": "fix_text_label_sm_classes",
+            "title": "text-label-sm 失效类归级到九级字号档",
+            "status": "done",
+            "branch": "t303_fix_text_label_sm_classes",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "3996224c7a07602a6282c667d8de5e238b560fdc",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t303_fix_text_label_sm_classes"
         }
     ]
 }
