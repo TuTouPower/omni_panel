@@ -545,6 +545,40 @@
                     }
                 ]
             }
+        },
+        {
+            "instanceId": "synthetic-exa",
+            "sourceInstanceId": "synthetic-exa",
+            "stateId": "synthetic-exa",
+            "name": "exa",
+            "displayName": "Exa",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["exa"],
+            "activeProviders": ["exa"],
+            "metadata": null,
+            "snapshot": {
+                "status": "ready",
+                "updatedAt": "2026-08-01T00:00:00Z",
+                "items": []
+            }
+        },
+        {
+            "instanceId": "synthetic-grok",
+            "sourceInstanceId": "synthetic-grok",
+            "stateId": "synthetic-grok",
+            "name": "grok",
+            "displayName": "Grok",
+            "enabled": true,
+            "source": "poll",
+            "supportedProviders": ["grok"],
+            "activeProviders": ["grok"],
+            "metadata": null,
+            "snapshot": {
+                "status": "ready",
+                "updatedAt": "2026-08-01T00:00:00Z",
+                "items": []
+            }
         }
     ],
     "GET /v1/connectors/c77fb063-2ea2-47c7-b638-2086656e8f47/state": {
@@ -1790,6 +1824,14 @@
                 "unit": "percent"
             }
         ]
+    },
+    "GET /v1/connectors/synthetic-exa/state": {
+        "status": "ready",
+        "items": []
+    },
+    "GET /v1/connectors/synthetic-grok/state": {
+        "status": "ready",
+        "items": []
     },
     "GET /v1/sessions": [
         {
