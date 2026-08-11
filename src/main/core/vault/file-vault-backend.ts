@@ -159,6 +159,7 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
         // main file intact, rather than .bak holding newer data than a half-written main.
         try {
             await writeFile(`${vault_path}.bak`, JSON.stringify(data, null, 2), "utf8");
+            await set_file_permissions(`${vault_path}.bak`);
         } catch {
             // non-critical
         }

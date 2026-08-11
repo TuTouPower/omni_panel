@@ -806,6 +806,71 @@ describe("config-store", () => {
             }
         });
 
+        it("rejects an overlapping save that committed after the caller loaded (lost update guard)", async () => {
+            const configPath = join(tempDir, "config.json");
+            const store = createConfigStore(configPath);
+            const baseConfig: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                plugins: [
+                    {
+                        instanceId: "claude",
+                        stateId: "claude",
+                        name: "Claude",
+                        enabled: true,
+                        executablePath: "/plugins/claude.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: { MODEL: "gpt-4" },
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            };
+            await store.save(baseConfig);
+
+            // Two overlapping windows both read the same committed base, then
+            // each merges a different field and writes.
+            const base = await store.load();
+            const incomingA: AppConfiguration = { ...base, language: "zh-Hans" };
+            const incomingB: AppConfiguration = { ...base, launchAtLogin: true };
+
+            const [a, b] = await Promise.all([
+                store.saveIfBaseMatches(base, incomingA),
+                store.saveIfBaseMatches(base, incomingB),
+            ]);
+
+            // Exactly one write wins; the other is rejected, not silently
+            // overwritten (the earlier save's change is preserved).
+            expect([a, b].filter((r) => r === "saved")).toHaveLength(1);
+            expect([a, b].filter((r) => r === "conflict")).toHaveLength(1);
+
+            const final = await store.load();
+            if (a === "saved") {
+                expect(final.language).toBe("zh-Hans");
+                expect(final.launchAtLogin).toBe(false);
+            } else {
+                expect(final.language).toBe("en");
+                expect(final.launchAtLogin).toBe(true);
+            }
+        });
+
+        it("saveIfBaseMatches saves when no intervening save committed", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            await store.save({
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            });
+            const base = await store.load();
+            const outcome = await store.saveIfBaseMatches(base, {
+                ...base,
+                language: "zh-Hans",
+            });
+            expect(outcome).toBe("saved");
+            expect((await store.load()).language).toBe("zh-Hans");
+        });
+
         it("prune_unhealthy_plugins keeps all plugins when healthy and updates cache", async () => {
             const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-healthy-"));
             try {

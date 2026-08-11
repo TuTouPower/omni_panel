@@ -1,0 +1,23 @@
+{
+    "tid": "t293",
+    "attempt": 1,
+    "execution_id": "e3b81fc11f8c473d917e1acb14e1bb47",
+    "status": "done",
+    "branch": "t293_config_save_conflict_cache_stale",
+    "base_sha": "4c98f4f789c6d73c4b874df28948fcd3df3388fc",
+    "tests": "pnpm test：254 files / 2840 passed，0 failed",
+    "blackbox": "pnpm test 全绿（含 local-api server.test POST /v1/config 路径）",
+    "review": "Round 1 code PASS + test PASS，零 finding",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/config/config-store.test.ts::rejects an overlapping save that committed after the caller loaded 断言恰一 saved 一 conflict",
+            "tests/unit/ipc/config-ipc.test.ts::handleConfigSave returns CONFLICT when a concurrent save committed 断言 saveIfBaseMatches conflict 映射 CONFLICT fail"
+        ],
+        "AC-002": [
+            "tests/integration/config/config-store.test.ts::rejects an overlapping save that committed after the caller loaded 断言胜者版本（语言/launchAtLogin）落盘，先写变更保留"
+        ],
+        "AC-003": ["pnpm test 全量 254 files / 2840 passed，0 failed"]
+    },
+    "pending": [],
+    "findings": []
+}

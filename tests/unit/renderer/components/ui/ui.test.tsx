@@ -257,4 +257,43 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
             expect(css).toContain(escaped);
         }
     });
+
+    it("Button standard 字号类不被 tailwind-merge 吞（t298）", () => {
+        // d032：自定义字号 token 若用 text-body-md 裸名会被 twMerge 误判为颜色类吞掉；
+        // 显式任意值 text-[length:var(--text-body-md)] 与文字色类共存。
+        for (const variant of ["primary", "secondary", "danger"] as const) {
+            const { container } = render(<Button variant={variant}>save</Button>);
+            const btn = container.querySelector("button");
+            expect(btn?.className).toContain("text-[length:var(--text-body-md)]");
+            if (variant === "secondary") {
+                expect(btn?.className).toContain("text-[var(--color-on-surface)]");
+            } else {
+                expect(btn?.className).toContain("text-[var(--color-on-primary)]");
+            }
+        }
+    });
+
+    it("danger 按钮暗色白字对比 ≥ 3.0（t298）", () => {
+        // error-dark 同时用于错误文字；取暗色 token 值算与 #fff 的对比。
+        const globals = readFileSync("src/renderer/styles/globals.css", "utf8");
+        const m = /--color-error-dark:\s*(#[0-9a-fA-F]{6})/.exec(globals);
+        expect(m).not.toBeNull();
+        const bg = m?.[1] ?? "";
+        // danger 按钮类链：bg 用 --color-error（暗色 = error-dark），文字白。
+        const { container } = render(<Button variant="danger">del</Button>);
+        const btn = container.querySelector("button");
+        expect(btn?.className).toContain("bg-[var(--color-error)]");
+        expect(btn?.className).toContain("text-[var(--color-on-primary)]");
+        const lum = (hex: string): number => {
+            const n = Number.parseInt(hex.slice(1), 16);
+            const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+                const s = v / 255;
+                return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+            });
+            const [r, g, b] = ch;
+            return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
+        };
+        const contrast = (1.0 + 0.05) / (lum(bg) + 0.05);
+        expect(contrast).toBeGreaterThanOrEqual(3.0);
+    });
 });

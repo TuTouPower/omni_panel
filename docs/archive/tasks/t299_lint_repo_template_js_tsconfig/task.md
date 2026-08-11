@@ -1,15 +1,15 @@
 ---
-tid: "t297"
-slug: "markdown_link_scheme_allowlist"
-title: "MarkdownMessage 链接 scheme 白名单 + 面板 will-navigate 守卫"
-status: "backlog"
-branch: ""
+tid: "t299"
+slug: "lint_repo_template_js_tsconfig"
+title: "lint 存量失败：repo_template JS 文件收编 tsconfig"
+status: "done"
+branch: "t299_lint_repo_template_js_tsconfig"
 worktree: ""
-review_level: "full"
-diff_anchor: ""
+review_level: "single"
+diff_anchor: "0bb142023b7f0d34ca84c093bb07cc5b22747e96"
 depends_on: ""
 conflicts_with: ""
-note: "Grok Issue 6：会话历史 markdown 渲染 a href 无 scheme 白名单/rel 加固，内容不可信；panel 窗口无 will-navigate 守卫；仅允许 http/https"
+note: "p114：pnpm lint 全量 3 个 Parsing error（scripts/repo_template/repo_task/view_static/board.js、chain_plan.js、tests/repo_template/test_chain_plan_cases.js not found by project service），repo_template sync（5229b98e）引入未纳入 tsconfig"
 ---
 
 # Task 过程总账
@@ -21,6 +21,20 @@ note: "Grok Issue 6：会话历史 markdown 渲染 a href 无 scheme 白名单/r
 执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
+
+## 根因
+
+repo_template sync 引入 3 个静态 CommonJS JS（`scripts/repo_template/repo_task/view_static/board.js` / `chain_plan.js`、`tests/repo_template/test_chain_plan_cases.js`），不在 tsconfig include，eslint type-checked 报「not found by the project service」，lint 门禁全量失败。
+
+## 方案
+
+3 个 JS 加入 eslint.config.ts `ignores`——静态工具/测试数据，不在 tsconfig 范围，排除比 allowDefaultProject 收编更干净（后者会触发 type-checked unsafe 报错）。其余 lint 配置不动。
+
+## 验证记录
+
+- RED：`pnpm lint` 3 个 Parsing error（复现 p114）。
+- GREEN：`pnpm lint` 退出 0，零 warning。
+- typecheck：`tsc --noEmit` 0 错误。
 
 无
 
@@ -44,14 +58,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-11 04:28 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id    | severity | status | rationale                                                                            | fix_ref          |
+| ------------- | -------- | ------ | ------------------------------------------------------------------------------------ | ---------------- |
+| t299_gen_f001 | minor    | 已修   | eslint.config.ts 注释 chain_plan.js 误标「测试数据」，实为看板核心规划模块，区分三者 | eslint.config.ts |
 
 ## 收尾报告
 
@@ -60,24 +71,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 `pnpm lint` 退出 0（零 Parsing error）；AC-002 `tsc --noEmit` 0 错误；AC-003 全量 `pnpm test` 2857 passed
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（1 minor）
+- Round 2 general：PASS（f001 已修）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+repo_template 3 个静态 CommonJS JS（board.js 看板脚本 / chain_plan.js 规划模块 / test_chain_plan_cases.js 测试数据）加入 eslint.config.ts ignores，lint 门禁恢复全绿。全量测试 2857 passed + typecheck 绿。

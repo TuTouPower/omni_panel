@@ -47,6 +47,10 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 
 `SECURE_WEB_PREFS`：contextIsolation / no nodeIntegration / sandbox / webSecurity / no insecure content。详见 `ipc-electron.md` 安全段。
 
+## 导航守卫（t297）
+
+`createWindowFor` 注册 `will-navigate` 守卫：非 `http:`/`https:`/`file:` 导航 `preventDefault` 拒绝（消息内容不可信，兜底同窗口导航）。`file:` 放行因渲染入口为 file://（SettingsView 配置导入后 `location.reload()` 属同入口 reload）；`http(s)` 放行（外部打开路径）。`setWindowOpenHandler` 另管新窗口：http(s) 转 `shell.openExternal`，其余 deny。
+
 ## close-action
 
 `src/main/core/settings-close-action.ts`（commit `17639de`）—— 纯函数决定设置窗关闭行为，可测。返回 `"hide" | "proceed"` 两种决策：运行中关闭=隐藏以便复用（防 open-flash）；退出流程中关闭=继续退出。

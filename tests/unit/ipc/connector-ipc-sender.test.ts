@@ -40,6 +40,7 @@ function createMockDeps() {
     const configStore = {
         load: vi.fn<() => Promise<AppConfiguration>>().mockResolvedValue(config),
         save: vi.fn(),
+        saveIfBaseMatches: vi.fn().mockResolvedValue("saved"),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn().mockReturnValue(false),

@@ -37,3 +37,41 @@ describe("MarkdownMessage memo (t237)", () => {
         expect(count).toBe(1);
     });
 });
+
+describe("MarkdownMessage link scheme allowlist (t297)", () => {
+    it("renders http link as an anchor with noopener noreferrer", () => {
+        const { container } = render(<MarkdownMessage text="[site](http://example.com)" />);
+        const anchor = container.querySelector("a");
+        expect(anchor).not.toBeNull();
+        expect(anchor?.getAttribute("href")).toBe("http://example.com");
+        expect(anchor?.getAttribute("rel")).toBe("noopener noreferrer");
+        expect(anchor?.getAttribute("target")).toBe("_blank");
+    });
+
+    it("renders https link as an anchor with noopener noreferrer", () => {
+        const { container } = render(<MarkdownMessage text="[docs](https://example.com/page)" />);
+        const anchor = container.querySelector("a");
+        expect(anchor).not.toBeNull();
+        expect(anchor?.getAttribute("href")).toBe("https://example.com/page");
+        expect(anchor?.getAttribute("rel")).toBe("noopener noreferrer");
+        expect(anchor?.getAttribute("target")).toBe("_blank");
+    });
+
+    it("renders javascript: link as plain text (no anchor)", () => {
+        const { container } = render(<MarkdownMessage text="[click](javascript:alert(1))" />);
+        expect(container.querySelector("a")).toBeNull();
+        expect(container.textContent).toContain("click");
+    });
+
+    it("renders file: link as plain text (no anchor)", () => {
+        const { container } = render(<MarkdownMessage text="[local](file:///etc/passwd)" />);
+        expect(container.querySelector("a")).toBeNull();
+        expect(container.textContent).toContain("local");
+    });
+
+    it("renders unknown scheme link as plain text (no anchor)", () => {
+        const { container } = render(<MarkdownMessage text="[app](custom-scheme://x)" />);
+        expect(container.querySelector("a")).toBeNull();
+        expect(container.textContent).toContain("app");
+    });
+});

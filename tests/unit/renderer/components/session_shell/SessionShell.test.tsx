@@ -49,8 +49,11 @@ beforeEach(() => {
 });
 
 describe("SessionShell (t223)", () => {
-    it("默认落在工作台页签，渲染工作台视图", () => {
+    it("默认落在工作台页签，渲染工作台视图", async () => {
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(screen.getByRole("button", { name: "工作台" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "会话库" })).toBeTruthy();
         expect(screen.getByText("工作台为空")).toBeTruthy();
@@ -62,8 +65,11 @@ describe("SessionShell (t223)", () => {
         );
     });
 
-    it("切换到会话库显示会话库视图，工作台隐藏但保持挂载", () => {
+    it("切换到会话库显示会话库视图，工作台隐藏但保持挂载", async () => {
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         fireEvent.click(screen.getByRole("button", { name: "会话库" }));
         // t227 会话库为真实视图（.library-view），非空态占位。
         expect(document.querySelector(".library-view")).toBeTruthy();
@@ -84,6 +90,9 @@ describe("SessionShell (t223)", () => {
             next_cursor: null,
         });
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -102,8 +111,11 @@ describe("SessionShell (t223)", () => {
         expect(ub.sessionHistory.unsubscribe).not.toHaveBeenCalled();
     });
 
-    it("顶栏移除主题切换按钮与未生效的摘选托盘按钮", () => {
+    it("顶栏移除主题切换按钮与未生效的摘选托盘按钮", async () => {
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(screen.queryByRole("button", { name: /切换到浅色模式|切换到暗色模式/ })).toBeNull();
         expect(screen.queryByRole("button", { name: "摘选托盘" })).toBeNull();
     });
@@ -118,6 +130,9 @@ describe("SessionShell (t223)", () => {
             theme: "light",
         }));
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
 
         await waitFor(() => {
             expect(document.documentElement.getAttribute("data-theme")).toBe("light");
@@ -138,9 +153,12 @@ describe("SessionShell (t223)", () => {
         expect(localStorage.getItem(THEME_KEY)).toBe("dark");
     });
 
-    it("标题栏面板切换图标调用对应面板 open", () => {
+    it("标题栏面板切换图标调用对应面板 open", async () => {
         const ub = usageboard();
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         // t252: 原 shell-actions 跳转按钮被统一控制区吸收；点击切换图标跳转目标面板。
         fireEvent.click(screen.getByRole("button", { name: "Usage面板" }));
         expect(ub.tray.open_panel).toHaveBeenCalled();
@@ -148,8 +166,11 @@ describe("SessionShell (t223)", () => {
         expect(ub.tokenStats.open).toHaveBeenCalled();
     });
 
-    it("窗口内无命令面板与拖文件导入入口", () => {
+    it("窗口内无命令面板与拖文件导入入口", async () => {
         render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(screen.queryByText("命令面板")).toBeNull();
         expect(screen.queryByText(/⌘/)).toBeNull();
         expect(screen.queryByText(/拖文件|拖拽导入|import/i)).toBeNull();

@@ -1,0 +1,18 @@
+{
+    "tid": "t299",
+    "attempt": 1,
+    "execution_id": "eadedbb2050f46d2b49ef775e5335c59",
+    "status": "done",
+    "branch": "t299_lint_repo_template_js_tsconfig",
+    "base_sha": "0bb142023b7f0d34ca84c093bb07cc5b22747e96",
+    "tests": "pnpm test：254 files / 2857 passed，0 failed",
+    "blackbox": "pnpm lint 退出 0 零 Parsing error",
+    "review": "Round 2 general PASS，1 条 minor 已修",
+    "ac_evidence": {
+        "AC-001": ["pnpm lint 退出 0，零 Parsing error（3 个 JS 不再报 not found）"],
+        "AC-002": ["pnpm typecheck（tsc --noEmit）0 错误"],
+        "AC-003": ["全量 pnpm test 254 files / 2857 passed 0 failed"]
+    },
+    "pending": [],
+    "findings": []
+}

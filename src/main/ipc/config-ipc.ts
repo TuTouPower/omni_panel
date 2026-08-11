@@ -186,18 +186,17 @@ export async function handleConfigSave(
         }
         const validated = mergedValidated.data as AppConfiguration;
 
-        // Re-load to detect concurrent writes from another window between
-        // our initial load and save. If the on-disk config changed, abort
-        // and ask the caller to retry — silently overwriting would lose
-        // the other window's changes.
-        const reloaded = await deps.configStore.load();
-        if (JSON.stringify(reloaded) !== JSON.stringify(current)) {
-            log.warn("Config changed on disk during save — aborting to avoid overwrite");
+        // Conflict check runs inside the store's save serialization, so an
+        // overlapping CONFIG_SAVE / POST /v1/config that committed between our
+        // load and here is observed via the committed state — the memory cache
+        // can no longer hide it. A stale writer is rejected instead of silently
+        // overwriting the earlier writer's changes.
+        const stripped = stripSecrets(validated, deps.secretParamKeys);
+        const outcome = await deps.configStore.saveIfBaseMatches(current, stripped);
+        if (outcome === "conflict") {
+            log.warn("Config changed by a concurrent save — aborting to avoid lost update");
             return fail("CONFLICT", "配置已被其他窗口修改，请重试");
         }
-
-        const stripped = stripSecrets(validated, deps.secretParamKeys);
-        await deps.configStore.save(stripped);
         deps.onConfigSaved?.(stripped);
         return ok(undefined);
     } catch (err: unknown) {

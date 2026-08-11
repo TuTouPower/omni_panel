@@ -63,6 +63,15 @@ export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
     save(config: AppConfiguration): Promise<void>;
     /**
+     * Serialized compare-and-save. Returns `"conflict"` (without writing) when
+     * the committed config has diverged from `base` since the caller loaded it,
+     * so an overlapping save cannot silently overwrite an earlier one.
+     */
+    saveIfBaseMatches(
+        base: AppConfiguration,
+        config: AppConfiguration,
+    ): Promise<"saved" | "conflict">;
+    /**
      * Debounced save. `config` may be a thunk, which is resolved when the
      * debounce fires rather than when it is scheduled — callers that merge a
      * single field (window bounds) MUST pass a thunk, otherwise a config saved
@@ -230,23 +239,51 @@ export function createConfigStore(configPath: string): AppConfigStore {
         log.debug(`Config saved to ${configPath} (${String(config.plugins.length)} plugins)`);
     }
 
-    function enqueueSave(config: AppConfiguration): Promise<void> {
+    function enqueue<T>(task: () => Promise<T>): Promise<T> {
         inflightSaves++;
-        const run = saveTail.then(
-            () => doSave(config),
-            () => doSave(config),
-        );
+        const run = saveTail.then(task, task);
         // Swallow rejection at the chain level so a failed save does not break
         // the queue. The original caller still sees the rejection via `run`.
-        saveTail = run.catch(() => {
-            /* chain continues regardless of individual save failures */
-        });
+        saveTail = run.then(
+            () => undefined,
+            () => undefined,
+        );
         // Decrement only after the chain settles, so hasPendingSave sees the
         // in-flight window even when the debounce timer has already cleared.
         saveTail = saveTail.then(() => {
             inflightSaves--;
         });
         return run;
+    }
+
+    function enqueueSave(config: AppConfiguration): Promise<void> {
+        return enqueue(() => doSave(config));
+    }
+
+    /**
+     * Compare-and-save: serialized with every other save. The conflict check
+     * runs inside the queue rather than on a stale `load()` snapshot, so an
+     * overlapping save that committed between the caller's `load()` and this
+     * call is observed via the committed cache and the write is rejected — a
+     * later save cannot silently overwrite an earlier one.
+     */
+    function enqueueCompareAndSave(
+        base: AppConfiguration,
+        config: AppConfiguration,
+    ): Promise<"saved" | "conflict"> {
+        return enqueue(async () => {
+            // cached_config mirrors the last committed save (doSave sets it) and
+            // is filled from disk on a cold cache. Reading it here — after all
+            // prior queued saves have committed — surfaces a concurrent write
+            // that the caller's load() snapshot did not see.
+            const committed = cached_config ?? (await load_uncached());
+            if (JSON.stringify(committed) !== JSON.stringify(base)) {
+                log.warn("Config changed by another save — rejecting to avoid lost update");
+                return "conflict";
+            }
+            await doSave(config);
+            return "saved";
+        });
     }
 
     async function load_uncached(): Promise<AppConfiguration> {
@@ -396,6 +433,13 @@ export function createConfigStore(configPath: string): AppConfigStore {
 
         async save(config: AppConfiguration): Promise<void> {
             await enqueueSave(config);
+        },
+
+        async saveIfBaseMatches(
+            base: AppConfiguration,
+            config: AppConfiguration,
+        ): Promise<"saved" | "conflict"> {
+            return enqueueCompareAndSave(base, config);
         },
 
         scheduleSave(config: AppConfiguration | (() => AppConfiguration), delayMs = 500): void {
