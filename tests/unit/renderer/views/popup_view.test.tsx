@@ -373,14 +373,36 @@ describe("PopupView", () => {
         expect(token_stats_open).toHaveBeenCalled();
     });
 
-    it("hides the session history button in web mode", async () => {
+    // t307：旧「web 隐藏会话历史按钮」用例语义被推翻（spec AC-001 改为 web 也显示），
+    // 整体删除；web 渲染与点击由下方两用例覆盖新语义（禁止改写旧用例预期迁就实现）。
+    it("renders the session history button in web mode (t307 AC-001)", async () => {
         document.documentElement.dataset["web"] = "1";
         try {
             render(<PopupView />);
             await waitFor(() => {
                 expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
             });
-            expect(screen.queryByRole("button", { name: "会话历史" })).toBeNull();
+            expect(screen.getByRole("button", { name: "会话历史" })).toBeInTheDocument();
+            // 窗口控制按钮在 web 下仍隐藏（t307 只放开会话历史按钮那处守卫）。
+            expect(screen.queryByRole("button", { name: "最小化" })).toBeNull();
+            expect(screen.queryByRole("button", { name: "最大化/还原" })).toBeNull();
+            expect(screen.queryByRole("button", { name: "关闭" })).toBeNull();
+        } finally {
+            delete document.documentElement.dataset["web"];
+        }
+    });
+
+    it("opens session history from the title bar button in web mode (t307 AC-002)", async () => {
+        document.documentElement.dataset["web"] = "1";
+        try {
+            session_history_open.mockClear();
+            render(<PopupView />);
+            await waitFor(() => {
+                expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
+            });
+            const btn = screen.getByRole("button", { name: "会话历史" });
+            fireEvent.click(btn);
+            expect(session_history_open).toHaveBeenCalledWith("", "", "");
         } finally {
             delete document.documentElement.dataset["web"];
         }

@@ -2,11 +2,11 @@
 tid: "t307"
 slug: "web_session_history_button"
 title: "web 面板右上角显示会话历史按钮"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t307_web_session_history_button"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "862f2a48503c8d4705aefd5706525bf9a1c82e10"
 depends_on: "t313"
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -23,7 +23,9 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- TDD 先红后绿。红：单测 `popup_view.test.tsx` 删旧「web 隐藏会话历史按钮」用例（断言语义被 AC-001 推翻，整体删除不改写预期），新增 web 渲染（AC-001）+ web 点击调 `sessionHistory.open("", "", "")`（AC-002 单测级）两用例；e2e `popup_view.spec.ts` 新增按钮可见（AC-001）+ 点击后 onFocus 订阅者收到 `{source:"",env:"",session_id:""}` 且 hash 变 `#session`（AC-002）两用例。红确认：单测 2 新用例失败、其余 23 通过。
+- 绿：`TitleBar.tsx` 仅移除会话历史按钮那处 `!is_web() && (...)` 守卫（124 行窗口控制 `!is_web() && !is_floating` 守卫不动），`onOpenHistory` 注释更新为 web 同样显示。`is_web` import 仍被窗口控制处使用，保留。
+- 验证：单测 25/25 绿；web e2e 7/7 绿（2 新用例验证 AC-001/AC-002 真实 web bridge onFocus 分发与 `#session` 路由挂载）；typecheck、lint（--max-warnings=0）通过。桌面行为由既有用例回归（按钮序 + 点击调 open），AC-003 覆盖。
 
 ## Review 处置
 
@@ -61,24 +63,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 popup_view.test.tsx 新 2 用例 + web e2e popup_view.spec.ts 新 2 用例覆盖；AC-003 由既有桌面按钮用例回归；AC-004 全量测试绿。详见 `handoff.json` ac_evidence。
 
 ### Reviewer verdict
 
 取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（0 finding）
+
+`full`：
+
+- N/A（single 级）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- web 面板右上角会话历史按钮完成：TitleBar 移除该按钮 !is_web() 守卫（窗口控制保持隐藏），web 点击走既有 bridge 进入 #session 路由；AC 四条全绿，review 1 轮 PASS 零 finding。存量 designmd 失败见 p142。

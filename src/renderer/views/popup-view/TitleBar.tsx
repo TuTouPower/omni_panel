@@ -13,7 +13,7 @@ interface TitleBarProps {
     onOpenSettings: () => void;
     is_floating: boolean;
     onHidePanel: () => void;
-    /** 打开/聚焦会话历史窗口（t212；web 模式隐藏按钮）。 */
+    /** 打开/聚焦会话历史窗口（t212；web 面板同样显示并走 web bridge onFocus 分发，t307）。 */
     onOpenHistory?: () => void;
 }
 
@@ -96,18 +96,16 @@ export function TitleBar(props: TitleBarProps) {
                 >
                     <Icon name="chart" size={18} />
                 </Button>
-                {!is_web() && (
-                    <Button
-                        variant="icon"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        title="会话历史"
-                        aria-label="会话历史"
-                        onClick={is_live ? onOpenHistory : undefined}
-                    >
-                        <Icon name="chat_square" size={18} />
-                    </Button>
-                )}
+                <Button
+                    variant="icon"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="会话历史"
+                    aria-label="会话历史"
+                    onClick={is_live ? onOpenHistory : undefined}
+                >
+                    <Icon name="chat_square" size={18} />
+                </Button>
                 {is_live && is_floating && (
                     <Button
                         variant="icon"
