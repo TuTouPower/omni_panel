@@ -1,0 +1,27 @@
+{
+    "tid": "t301",
+    "attempt": 1,
+    "execution_id": "2fd490d0aaae4c32a5326ba74caa110b",
+    "status": "done",
+    "branch": "t301_ui_token_alignment_pack",
+    "base_sha": "5eee818d6ee62562c218e25896dd0640c8ed76e0",
+    "tests": "pnpm test：2866 passed | 2 skipped（254 files）",
+    "blackbox": "pnpm designmd:check drift passed；MOCK_FIXTURE=synthetic pnpm test:e2e:web 74 passed（ui_component_theme 明暗对比度 4 项全绿）",
+    "review": "full：Round 1 code FAIL→Round 2 code PASS；Round 1/2 test PASS（overall PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "docs/tasks/t301_ui_token_alignment_pack/task.md 实施笔记六项裁决对照表（Switch/Badge/Progress/Button 字重/Menu hover/Dialog 动画逐项对齐 token 或记录裁决）",
+            "ui.test.tsx 六项对齐断言（Switch 两态+尺寸+圆钮、Badge count、Progress h-[6px]/h-[22px]、Button font-semibold、Menu hover、Dialog 动画）24 passed"
+        ],
+        "AC-002": [
+            "pnpm designmd:check drift passed（未改 DESIGN.md token 值）",
+            "MOCK_FIXTURE=synthetic pnpm test:e2e:web 74 passed：ui_component_theme.spec.ts 浅色/深色两态对比度断言 4 项全绿、Switch 两态 track 底色不同"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/ui/ui.test.tsx 24 passed（Switch/Badge/Button/Menu/Dialog 单测）",
+            "pnpm test 全量 2866 passed | 2 skipped"
+        ]
+    },
+    "pending": ["p128", "p129"],
+    "findings": []
+}

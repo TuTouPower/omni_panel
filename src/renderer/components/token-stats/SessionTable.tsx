@@ -243,13 +243,13 @@ export function SessionTable({
                                         <div className="truncate text-[var(--color-on-surface)]">
                                             {r.title}
                                         </div>
-                                        <div className="mt-0.5 truncate font-mono text-label-sm text-[var(--color-on-surface-muted)]">
+                                        <div className="mt-0.5 truncate font-mono text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                             {r.slug ?? ""}
                                             {r.sub && (
                                                 <Badge
                                                     variant="label"
                                                     color="var(--color-primary)"
-                                                    className="ml-1 border border-[var(--color-accent-ring)] text-label-sm"
+                                                    className="ml-1 border border-[var(--color-accent-ring)] text-[length:var(--text-label-caps)]"
                                                 >
                                                     sub-agent
                                                 </Badge>

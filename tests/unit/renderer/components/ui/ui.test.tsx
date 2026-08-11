@@ -32,6 +32,8 @@ describe("ui 组件库（t269）", () => {
         // primary 默认 variant
         expect(btn?.className).toContain("bg-[var(--color-primary)]");
         expect(btn?.className).toContain("text-[var(--color-on-primary)]");
+        // t301：按钮字重对齐 DESIGN（600，font-semibold）
+        expect(btn?.className).toContain("font-semibold");
         rerender(
             <Button variant="ghost" size="sm" disabled>
                 g
@@ -104,14 +106,27 @@ describe("ui 组件库（t269）", () => {
 
     it("Switch 点击切换 checked 状态", () => {
         let checked = false;
-        const { container } = render(
+        const { container, rerender } = render(
             <Switch checked={checked} onChange={(v) => (checked = v)} aria-label="sw" />,
         );
         const btn = container.querySelector("button");
         expect(btn?.getAttribute("aria-checked")).toBe("false");
         if (!btn) throw new Error("switch button missing");
+        // t301 token 对齐：关态 surface-raised、尺寸 38×22（DESIGN switch-track）
+        expect(btn.className).toContain("h-[22px]");
+        expect(btn.className).toContain("w-[38px]");
+        expect(btn.className).toContain("bg-[var(--color-surface-raised)]");
         fireEvent.click(btn);
         expect(checked).toBe(true);
+        // 开态 success 绿（DESIGN switch-track-on）
+        rerender(<Switch checked onChange={(v) => (checked = v)} aria-label="sw" />);
+        const on_btn = container.querySelector("button");
+        expect(on_btn?.className).toContain("bg-[var(--color-success)]");
+        // 圆钮：18px，关态留白 0.5 起步，开态对称到右缘（38−18−2=18px，轨道无边框）
+        const knob = on_btn?.querySelector("span");
+        expect(knob?.className).toContain("translate-x-[18px]");
+        expect(knob?.className).toContain("h-[18px]");
+        expect(knob?.className).toContain("w-[18px]");
     });
 
     it("Segmented 高亮选中项并回调", () => {
@@ -146,7 +161,12 @@ describe("ui 组件库（t269）", () => {
         );
         const items = container.querySelectorAll("button");
         expect(items).toHaveLength(2);
+        // t301 token 对齐：普通项 hover 蓝底白字、危险项红底白字（DESIGN menu-item-hover）
+        expect(items[0]?.className).toContain("hover:bg-[var(--color-primary)]");
+        expect(items[0]?.className).toContain("hover:text-[var(--color-on-primary)]");
         expect(items[1]?.className).toContain("text-[var(--color-error)]");
+        expect(items[1]?.className).toContain("hover:bg-[var(--color-error)]");
+        expect(items[1]?.className).toContain("hover:text-[var(--color-on-primary)]");
     });
 
     it("Dialog 关闭时不渲染，open 时渲染 372 宽度", () => {
@@ -160,6 +180,8 @@ describe("ui 组件库（t269）", () => {
         expect(screen.getByText("t")).not.toBeNull();
         expect(screen.getByText("body")).not.toBeNull();
         expect(container.innerHTML).toContain("w-[372px]");
+        // t301：Dialog 入场动画类（DESIGN Motion：160ms 上浮淡入）
+        expect(container.innerHTML).toContain("animate-[dialogIn");
     });
 
     it("Dialog 420 宽度", () => {
@@ -174,10 +196,11 @@ describe("ui 组件库（t269）", () => {
     it("Progress 细线与胶囊形态并存，填充色按风险阶梯", () => {
         const { container, rerender } = render(<Progress value={0.3} />);
         const thin = container.querySelector('[role="progressbar"]');
-        expect(thin?.className).toContain("h-1");
+        // t301 token 对齐：细线 6px、胶囊 22px（DESIGN progress-track/capsule）
+        expect(thin?.className).toContain("h-[6px]");
         rerender(<Progress value={0.3} variant="capsule" label="30%" />);
         const cap = container.querySelector('[role="progressbar"]');
-        expect(cap?.className).toContain("h-6");
+        expect(cap?.className).toContain("h-[22px]");
         expect(screen.getByText("30%")).not.toBeNull();
         // 0.3 → success 色（低风险）
         const fill = cap?.querySelector("div");
@@ -186,7 +209,11 @@ describe("ui 组件库（t269）", () => {
 
     it("Badge count/label 双形态", () => {
         const { container, rerender } = render(<Badge>5</Badge>);
-        expect(container.querySelector("span")?.className).toContain("rounded-full");
+        const count = container.querySelector("span");
+        expect(count?.className).toContain("rounded-full");
+        // t301 token 对齐：count 浅底 primary 字（DESIGN badge-count）
+        expect(count?.className).toContain("bg-[var(--color-primary-container)]");
+        expect(count?.className).toContain("text-[var(--color-primary)]");
         rerender(
             <Badge variant="label" color="#e85d3d">
                 claude
@@ -319,7 +346,7 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
 
     it("全仓自定义字号 token 无裸类残留（t302 AC-002）", () => {
         // d032 规避统一：自定义字号一律 text-[length:var(--text-*)]，禁裸 text-body-*/label-*/title-*/code-md。
-        // 排除无 token 的存量 text-label-sm（未定义 --text-label-sm，Tailwind 下不生成字号类，见 p127）。
+        // 存量 text-label-sm 已归级清除（t303），无需再排除。
         const bare = /text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\b/;
         const length_form =
             /text-\[length:var\(--text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\)\]/g;
@@ -342,12 +369,34 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
                 if (line.trimStart().startsWith("//")) continue;
                 const stripped = line.replace(length_form, "");
                 const bareHit = bare.exec(stripped);
-                if (bareHit && !stripped.includes("text-label-sm")) {
+                if (bareHit) {
                     offenders.push(`${f}: ${line.trim().slice(0, 100)}`);
                 }
             }
         }
         expect(offenders).toEqual([]);
+    });
+
+    it("全仓无 text-label-sm 残留（t303 AC-001）", () => {
+        // p127：--text-label-sm 未定义（字号档仅九级），该类不生成字号 CSS；归级清除后不得复现。
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        walk("src/renderer");
+        const hits: string[] = [];
+        for (const f of files) {
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                if (line.includes("text-label-sm")) hits.push(`${f}: ${line.trim().slice(0, 100)}`);
+            }
+        }
+        expect(hits).toEqual([]);
     });
 
     it("danger 按钮暗色白字对比 ≥ 3.0（t298）", () => {

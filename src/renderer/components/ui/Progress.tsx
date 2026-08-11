@@ -28,7 +28,7 @@ export function Progress({ value, variant = "thin", label, className }: Progress
         return (
             <div
                 className={cn(
-                    "relative h-6 overflow-hidden rounded-full bg-[var(--color-surface-raised)]",
+                    "relative h-[22px] overflow-hidden rounded-full bg-[var(--color-surface-raised)]",
                     className,
                 )}
                 role="progressbar"
@@ -49,7 +49,7 @@ export function Progress({ value, variant = "thin", label, className }: Progress
     return (
         <div
             className={cn(
-                "h-1 w-full overflow-hidden rounded-full bg-[var(--color-surface-raised)]",
+                "h-[6px] w-full overflow-hidden rounded-full bg-[var(--color-surface-raised)]",
                 className,
             )}
             role="progressbar"
