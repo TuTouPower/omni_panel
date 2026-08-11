@@ -50,6 +50,16 @@ describe("Icon", () => {
         expect(svg).not.toBeNull();
         expect(svg?.innerHTML).toBe("");
     });
+
+    it("chat_square 渲染 t274 前手绘聊天气泡特征 path（非 lucide MessageSquare）（AC-007）", () => {
+        const { container } = render(<Icon name="chat_square" />);
+        const svg = container.querySelector("svg");
+        expect(svg).not.toBeNull();
+        // message-chat-square.svg 手绘双气泡 path 起始段（t274 前资产特征数据）。
+        expect(svg?.innerHTML).toContain('d="M10 15L6.92474 18.1137');
+        // 手绘气泡用 fill="none" + stroke，无 lucide MessageSquare 的矩形/缺角形状特征。
+        expect(svg?.innerHTML).not.toContain("M21 15a2 2 0 0 1-2 2H7l-4 4V5");
+    });
 });
 
 describe("Icon 来源守卫（t274 AC2）", () => {

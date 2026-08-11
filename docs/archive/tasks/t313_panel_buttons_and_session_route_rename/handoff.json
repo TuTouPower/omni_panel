@@ -1,0 +1,41 @@
+{
+    "tid": "t313",
+    "attempt": 1,
+    "execution_id": "4c5283cdc8994fd393509e4d2cd7e081",
+    "status": "done",
+    "branch": "t313_panel_buttons_and_session_route_rename",
+    "base_sha": "5732998b98dd6af8a95de86dfaa4994efe25a27f",
+    "tests": "pnpm test：2919 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；typecheck、lint 通过；web e2e panel_navigation/session_panel 13/13",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 13/13",
+    "review": "Round 1 general PASS（2 minor：f001 遗留→p142、f002 已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "PanelTitleBar.test.tsx「切换按钮固定序…排除当前面板」「设置面板切换按钮为『用量 代理 会话』且刷新按钮恒不渲染」「非设置面板刷新按钮在首位」"
+        ],
+        "AC-002": [
+            "popup_view.test.tsx「标题栏按钮序与 PanelTitleBar 语义一致：刷新 设置 代理面板 会话历史」"
+        ],
+        "AC-003": [
+            "SessionShell.test.tsx「header 布局让面板按钮区贴窗口右上角：标题栏 flex-1、页签绝对水平居中」"
+        ],
+        "AC-004": [
+            "window_manager.test.ts「getRendererUrl 附带 route_query…#session」",
+            "usageboard-web.test.ts「sessionHistory.open switches to the session hash route」",
+            "route_api.test.ts「exposes full session-history API to session route」",
+            "e2e panel_navigation.spec.ts「标题栏互跳图标…hash 为 #session」"
+        ],
+        "AC-005": [
+            "src 与 tests/e2e grep 路由字面量/#history/history- CSS 类零残留（history-window-controller 内部命名按 spec 非范围豁免）",
+            "全量 pnpm test + lint 通过（唯一失败为存量 designmd drift，p142）"
+        ],
+        "AC-006": [
+            "PanelTitleBar.test.tsx「Usage 切换按钮 icon 为 clock_forward…无 dashboard 矩形」"
+        ],
+        "AC-007": [
+            "icon.test.tsx「chat_square 渲染 t274 前手绘聊天气泡特征 path（非 lucide MessageSquare）」特征 d=\"M10 15L6.92474 18.1137\"；popup/托盘/Agent 头部同步生效"
+        ],
+        "AC-008": ["settings_view_general.test.tsx「无返回按钮，返回导航（goBack）不再可达」"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

@@ -18,7 +18,7 @@ describe("preload tokenStats session-library contract (t248)", () => {
         vi.resetModules();
         vi.clearAllMocks();
         vi.stubGlobal("window", {
-            location: { href: "file:///app/index.html#history", hash: "#history" },
+            location: { href: "file:///app/index.html#session", hash: "#session" },
         });
         vi.stubGlobal("document", {
             documentElement: { setAttribute: vi.fn(), style: {} },

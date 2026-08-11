@@ -117,15 +117,13 @@ describe("SettingsView", () => {
         });
     });
 
-    it("calls window.close when back button is clicked", async () => {
-        const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
-        const user = userEvent.setup();
+    it("无返回按钮，返回导航（goBack）不再可达（AC-008）", async () => {
         render(<SettingsView />);
-        // t271: back-btn 迁移到 ui/Button，定位改 aria-label。
-        const backBtn = screen.getByLabelText("返回");
-        await user.click(backBtn);
-        expect(closeSpy).toHaveBeenCalled();
-        closeSpy.mockRestore();
+        // 标题栏右侧为面板切换 + 窗口控制，左上角不得再有 aria-label="返回" 的 ghost 按钮。
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByLabelText("返回")).not.toBeInTheDocument();
     });
 
     it("saves main panel mode", async () => {

@@ -17,23 +17,24 @@ export function SessionShell() {
     const navigate = use_panel_navigation();
 
     return (
-        <div className="history-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface)] text-[var(--color-on-surface)]">
-            <header className="history-topbar flex shrink-0 items-center gap-3 border-b border-[var(--color-hairline)] bg-[var(--color-surface)] px-3">
+        <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface)] text-[var(--color-on-surface)]">
+            <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface)]">
                 <PanelTitleBar
                     panel="Session"
+                    className="min-w-0 flex-1"
                     onNavigate={navigate}
                     onRefresh={() => {
                         set_refresh_token((k) => k + 1);
                     }}
                 />
                 <nav
-                    className="history-tabs ml-auto mr-auto flex h-full items-stretch gap-1"
+                    className="session-tabs absolute left-1/2 top-1/2 flex h-full -translate-x-1/2 -translate-y-1/2 items-stretch gap-1 [-webkit-app-region:no-drag]"
                     aria-label="面板页签"
                 >
                     <button
                         type="button"
                         className={cn(
-                            "history-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "session-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             tab === "workspace" &&
                                 "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                         )}
@@ -48,7 +49,7 @@ export function SessionShell() {
                     <button
                         type="button"
                         className={cn(
-                            "history-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "session-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             tab === "library" &&
                                 "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                         )}
@@ -62,9 +63,9 @@ export function SessionShell() {
                     </button>
                 </nav>
             </header>
-            <main className="history-body flex min-h-0 flex-1">
+            <main className="session-body flex min-h-0 flex-1">
                 <section
-                    className={cn("history-panel min-w-0 flex-1", tab !== "workspace" && "hidden")}
+                    className={cn("session-panel min-w-0 flex-1", tab !== "workspace" && "hidden")}
                     data-pane="workspace"
                     data-active={tab === "workspace"}
                     aria-hidden={tab !== "workspace"}
@@ -72,7 +73,7 @@ export function SessionShell() {
                     <WorkspaceView refresh_token={refresh_token} />
                 </section>
                 <section
-                    className={cn("history-panel min-w-0 flex-1", tab !== "library" && "hidden")}
+                    className={cn("session-panel min-w-0 flex-1", tab !== "library" && "hidden")}
                     data-pane="library"
                     data-active={tab === "library"}
                     aria-hidden={tab !== "library"}

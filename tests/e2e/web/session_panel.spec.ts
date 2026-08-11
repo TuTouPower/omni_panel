@@ -65,8 +65,8 @@ async function setup_large_session_routes(page: Page): Promise<void> {
  */
 
 async function open_history(page: Page): Promise<void> {
-    await page.goto("/#history");
-    await page.locator(".history-shell").first().waitFor({ state: "visible" });
+    await page.goto("/#session");
+    await page.locator(".session-shell").first().waitFor({ state: "visible" });
 }
 
 /** 从会话库把指定标题的会话单独打开，等待工作台出现槽位。 */
@@ -88,9 +88,9 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "登录页 bug 修复");
         // 工作台出现槽位与消息。
-        await expect(page.locator(".history-cell").first()).toBeVisible();
+        await expect(page.locator(".session-cell").first()).toBeVisible();
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
-        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
+        const loc_key = await page.locator(".session-cell").first().getAttribute("data-loc-key");
         // 勾选第一条消息产生已选状态。
         await page.locator(".conversation-message-check").first().click();
         await expect(page.locator(".selection-tray.expanded")).toBeVisible();
@@ -99,8 +99,8 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await expect(page.locator(".library-view").first()).toBeVisible();
         await page.getByRole("button", { name: "工作台", exact: true }).click();
-        await expect(page.locator(".history-cell").first()).toBeVisible();
-        expect(await page.locator(".history-cell").first().getAttribute("data-loc-key")).toBe(
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        expect(await page.locator(".session-cell").first().getAttribute("data-loc-key")).toBe(
             loc_key,
         );
         expect(loc_key).toBeTruthy();
@@ -128,10 +128,10 @@ test.describe("session panel (web, t228)", () => {
         await page.evaluate(() => {
             void window.usageboard.sessionHistory.open("claude_code", "win", "s1");
         });
-        // open 切到 history 路由，会话面板挂载并定位 s1。
-        await page.locator(".history-shell").first().waitFor({ state: "visible" });
-        await expect(page.locator(".history-cell").first()).toBeVisible();
-        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
+        // open 切到 session 路由，会话面板挂载并定位 s1。
+        await page.locator(".session-shell").first().waitFor({ state: "visible" });
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        const loc_key = await page.locator(".session-cell").first().getAttribute("data-loc-key");
         expect(loc_key).toBe("claude_code|win|s1");
     });
 
@@ -147,7 +147,7 @@ test.describe("session panel (web, t228)", () => {
         await expect(page.getByText("8/8")).toBeVisible();
         // 并排打开 → 工作台 8 槽满。
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".history-cell")).toHaveCount(8);
+        await expect(page.locator(".session-cell")).toHaveCount(8);
         // 再打开第 9 个（s9，不在已勾选的 8 个里）→ toast 槽位已满。
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         const card = page.locator(".library-card").filter({
@@ -155,7 +155,7 @@ test.describe("session panel (web, t228)", () => {
         });
         await card.hover();
         await card.getByRole("button", { name: "单独打开" }).first().click();
-        await expect(page.locator(".history-toast")).toContainText("槽位已满");
+        await expect(page.locator(".session-toast")).toContainText("槽位已满");
     });
 
     test("摘选后三种格式复制内容正确", async ({ webPage }) => {
@@ -218,7 +218,7 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话 s1" }).click();
         await page.getByRole("button", { name: "会话 s2" }).click();
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".history-cell")).toHaveCount(2);
+        await expect(page.locator(".session-cell")).toHaveCount(2);
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
     });
 });
@@ -270,7 +270,7 @@ test.describe("session panel virtual list (web, t237)", () => {
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
 
         // 打开大纲。
-        await page.locator(".history-cell .conversation-action[title='大纲']").first().click();
+        await page.locator(".session-cell .conversation-action[title='大纲']").first().click();
         await expect(page.locator(".conversation-outline")).toBeVisible();
 
         // 点击远离可视区的「消息 450」（首页为后 200 条 400–599，450 在可视区外但在首页内）。

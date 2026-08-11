@@ -575,10 +575,10 @@ describe("web usageboard bridge", () => {
         expect(url).toContain("sourceInstanceId=inst-a");
     });
 
-    it("sessionHistory.open switches to the history hash route (t259 AC2)", async () => {
+    it("sessionHistory.open switches to the session hash route (t259 AC2)", async () => {
         const api = create_web_usageboard();
         await api.sessionHistory.open("claude_code", "win", "sess-1");
-        expect(window.location.hash).toBe("#history");
+        expect(window.location.hash).toBe("#session");
     });
 
     it("sessionHistory.open 把 loc 编码进 URL search 供会话面板初始定位 (t263)", async () => {

@@ -618,9 +618,9 @@ export function create_web_usageboard(): UsageboardApi {
                     url.searchParams.set("loc", JSON.stringify({ source, env, session_id }));
                     window.history.replaceState(null, "", url);
                 }
-                // t259: web 端 Session 面板互跳 = 浏览器内切到 history 路由
+                // t259: web 端 Session 面板互跳 = 浏览器内切到 session 路由
                 // （t252 遗留 minor：只分发 onFocus 不切 hash，Session 入口失效）。
-                window.location.hash = "history";
+                window.location.hash = "session";
                 return Promise.resolve();
             },
             subscribe: (source: string, env: string, session_id: string) => {

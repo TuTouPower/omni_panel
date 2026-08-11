@@ -72,8 +72,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         minWidth: 480,
         minHeight: 360,
     },
-    history: {
-        route: "history",
+    session: {
+        route: "session",
         width: 1000,
         height: 720,
         frame: false,
@@ -92,7 +92,7 @@ const PANEL_TITLES: Record<string, string> = {
     usage: "Omni Panel - Usage",
     setting: "Omni Panel - Settings",
     agent: "Omni Panel - Agent",
-    history: "Omni Panel - Session",
+    session: "Omni Panel - Session",
 };
 
 export interface WindowManager {

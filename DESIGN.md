@@ -402,7 +402,7 @@ Inter Variable 的字重轴用 450/550/600/650/700 五档。数字一律 `tabula
 | 用量面板 usage   | 482×480                    | 无边框浮动/托盘弹出双形态，可置顶；窗口 minWidth 472，持久化尺寸钳制下限 480×360 |
 | 设置 setting     | 820×660                    | 无边框 + 统一标题栏，圆角                                                        |
 | Agent 统计 agent | 900×700                    | 同 setting                                                                       |
-| 会话历史 history | 1000×720                   | 同 setting                                                                       |
+| 会话面板 session | 1000×720                   | 同 setting                                                                       |
 | 托盘菜单 tray    | 内容自适应（兜底 184×340） | 透明、置顶、毛玻璃                                                               |
 
 - **网格:** Tailwind v4 默认 4px 间距基网（`--spacing`），布局层的 `p-*`/`gap-*`/`m-*` 直接用整数倍。语义间距另设 token：卡片间距 `{spacing.card-gap}`、卡片内边距 `{spacing.card-padding}`、分区间隔 `{spacing.section-gap}`。组件内部 padding 以 `components` token 的定义值为准（如按钮 9px 18px、输入框 9px 12px、列表行 10px 12px），属组件 token，不受基网约束。

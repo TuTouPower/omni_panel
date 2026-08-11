@@ -76,7 +76,7 @@ export function SessionPickerModal({
             width={420}
             ariaLabel="选择会话"
             title={
-                <div className="history-modal-title flex items-center justify-between gap-2">
+                <div className="session-modal-title flex items-center justify-between gap-2">
                     <span>选择会话装入槽位 {target_index + 1}</span>
                     <Button
                         variant="icon"
@@ -90,20 +90,20 @@ export function SessionPickerModal({
                 </div>
             }
         >
-            <div className="history-picker-body flex max-h-[calc(76vh-110px)] min-h-0 flex-col gap-2.5">
+            <div className="session-picker-body flex max-h-[calc(76vh-110px)] min-h-0 flex-col gap-2.5">
                 <Input
-                    className="history-picker-search"
+                    className="session-picker-search"
                     placeholder="搜索标题 / 路径 / 会话 ID"
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
                     }}
                 />
-                <div className="history-picker-filters flex flex-wrap gap-1.5">
+                <div className="session-picker-filters flex flex-wrap gap-1.5">
                     <Button
                         variant={agent === null ? "primary" : "secondary"}
                         size="sm"
-                        className="history-picker-filter !h-7 !rounded-full !px-2.5"
+                        className="session-picker-filter !h-7 !rounded-full !px-2.5"
                         onClick={() => {
                             set_agent(null);
                         }}
@@ -114,7 +114,7 @@ export function SessionPickerModal({
                         <Button
                             variant={agent === source ? "primary" : "secondary"}
                             size="sm"
-                            className="history-picker-filter !h-7 !rounded-full !px-2.5"
+                            className="session-picker-filter !h-7 !rounded-full !px-2.5"
                             key={source}
                             onClick={() => {
                                 set_agent(source);
@@ -124,9 +124,9 @@ export function SessionPickerModal({
                         </Button>
                     ))}
                 </div>
-                <div className="history-picker-list flex min-h-[200px] max-h-[46vh] min-w-0 flex-col gap-1 overflow-y-auto">
+                <div className="session-picker-list flex min-h-[200px] max-h-[46vh] min-w-0 flex-col gap-1 overflow-y-auto">
                     {filtered.length === 0 ? (
-                        <div className="history-picker-empty px-4 py-8 text-center text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                        <div className="session-picker-empty px-4 py-8 text-center text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                             没有匹配的会话
                         </div>
                     ) : (
@@ -134,30 +134,30 @@ export function SessionPickerModal({
                             <button
                                 type="button"
                                 key={`${s.source}|${s.env}|${s.id}`}
-                                className="history-picker-row flex min-w-0 flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                className="session-picker-row flex min-w-0 flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                 onClick={() => {
                                     open(s);
                                 }}
                             >
-                                <span className="history-picker-row-title flex min-w-0 items-center gap-2 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
+                                <span className="session-picker-row-title flex min-w-0 items-center gap-2 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
                                     <span className="min-w-0 truncate">{s.title ?? s.id}</span>
                                     {open_session_ids.has(s.id) && (
-                                        <span className="history-picker-open shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-[length:var(--text-label-caps)] font-semibold text-[var(--color-primary)]">
+                                        <span className="session-picker-open shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-[length:var(--text-label-caps)] font-semibold text-[var(--color-primary)]">
                                             已打开
                                         </span>
                                     )}
                                 </span>
-                                <span className="history-picker-meta flex min-w-0 items-center gap-2.5 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
-                                    <span className="history-picker-source shrink-0">
+                                <span className="session-picker-meta flex min-w-0 items-center gap-2.5 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <span className="session-picker-source shrink-0">
                                         {agent_slug(s.source)}
                                     </span>
-                                    <span className="history-picker-dir min-w-0 truncate">
+                                    <span className="session-picker-dir min-w-0 truncate">
                                         {s.directory ?? "—"}
                                     </span>
-                                    <span className="history-picker-date shrink-0">
+                                    <span className="session-picker-date shrink-0">
                                         {format_date(s.ended_at)}
                                     </span>
-                                    <span className="history-picker-tokens ml-auto shrink-0">
+                                    <span className="session-picker-tokens ml-auto shrink-0">
                                         {format_tokens(
                                             s.input_tokens +
                                                 s.output_tokens +
