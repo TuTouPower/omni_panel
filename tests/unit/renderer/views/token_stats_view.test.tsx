@@ -257,7 +257,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Local" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -300,9 +300,10 @@ describe("TokenStatsView dashboard query", () => {
         await screen.findByTestId("session-records");
 
         // Filter control exposes a Grok entry (t198 AC1).
-        expect(screen.getByRole("button", { name: "Grok" })).toBeInTheDocument();
+        const agentSelect = screen.getByLabelText<HTMLSelectElement>("工具筛选");
+        expect([...agentSelect.options].map((option) => option.textContent)).toContain("Grok");
 
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(agentSelect, "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -316,7 +317,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(screen.getByLabelText("工具筛选"), "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -337,7 +338,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         expect(await screen.findByTestId("session-records")).toHaveTextContent("before");
 
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "wsl");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -407,11 +408,11 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Local" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
         await waitFor(() => {
             expect(screen.getByTestId("session-records")).toHaveTextContent("local");
         });
-        await user.click(screen.getByRole("button", { name: "全平台" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "all");
         await waitFor(() => expect(screen.getByTestId("session-records")).toHaveTextContent("all"));
         expect(get_dashboard).toHaveBeenCalledTimes(2);
     });
@@ -520,7 +521,7 @@ describe("TokenStatsView dashboard query", () => {
                 expect.objectContaining({ model: "sonnet" }),
             );
         });
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(screen.getByLabelText("工具筛选"), "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenLastCalledWith(
                 expect.objectContaining({ agent: "grok", model: "sonnet" }),
@@ -530,7 +531,7 @@ describe("TokenStatsView dashboard query", () => {
         // Switching the time range refetches; the returned models list drives
         // the dropdown (here still [opus, sonnet] from the mock).
         get_dashboard.mockClear();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalled();
         });
@@ -575,7 +576,7 @@ describe("TokenStatsView dashboard query", () => {
         const config_calls_at_mount = get_config.mock.calls.length;
         expect(config_calls_at_mount).toBeGreaterThanOrEqual(1);
 
-        await userEvent.setup().click(screen.getByRole("button", { name: "7 天" }));
+        await userEvent.setup().selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -745,7 +746,7 @@ describe("TokenStatsView dashboard query", () => {
         render(<TokenStatsView />);
         const user = userEvent.setup();
 
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "wsl");
         wsl_pending.resolve(dashboard("wsl"));
         await waitFor(() => {
             expect(screen.getByTestId("session-records")).toHaveTextContent("wsl");
@@ -936,7 +937,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         await screen.findByTestId("session-records");
 
         // Switching to 7d fires a day-granularity request (default for non-24h).
-        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -973,7 +974,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "24h");
         await waitFor(() => {
             expect(last_dashboard_gran()).toBe("hour");
         });

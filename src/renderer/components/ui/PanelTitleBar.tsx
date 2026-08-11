@@ -28,6 +28,57 @@ interface PanelTitleBarProps {
 }
 
 /**
+ * 窗口控制按钮组（最小化/最大化/关闭），面板形态与通用形态共用。
+ * Web 构建不渲染（无窗口 API）。
+ */
+export function WindowControls({ onClose }: { onClose?: (() => void) | undefined }): ReactNode {
+    if (is_web()) return null;
+    return (
+        <>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="最小化"
+                aria-label="最小化"
+                onClick={() => {
+                    window.usageboard.window.minimize();
+                }}
+            >
+                <Icon name="minus" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="最大化/还原"
+                aria-label="最大化/还原"
+                onClick={() => {
+                    window.usageboard.window.maximize();
+                }}
+            >
+                <Icon name="maximize" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="关闭"
+                aria-label="关闭"
+                onClick={
+                    onClose ??
+                    (() => {
+                        window.usageboard.window.close();
+                    })
+                }
+            >
+                <Icon name="close" size={16} />
+            </Button>
+        </>
+    );
+}
+
+/**
  * t269 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。
  * 通用形态 = title/actions；t252 面板形态 = panel/onNavigate/onRefresh（品牌区 + 面板切换 +
  * 窗口控制），四面板（Settings/Session/Agent）共用，避免重复实现。
@@ -107,49 +158,7 @@ export function PanelTitleBar({
                                 {p === "Settings" && <Icon name="gear" size={16} />}
                             </Button>
                         ))}
-                    {!is_web() && (
-                        <>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="最小化"
-                                aria-label="最小化"
-                                onClick={() => {
-                                    window.usageboard.window.minimize();
-                                }}
-                            >
-                                <Icon name="minus" size={16} />
-                            </Button>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="最大化/还原"
-                                aria-label="最大化/还原"
-                                onClick={() => {
-                                    window.usageboard.window.maximize();
-                                }}
-                            >
-                                <Icon name="maximize" size={16} />
-                            </Button>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="关闭"
-                                aria-label="关闭"
-                                onClick={
-                                    onClose ??
-                                    (() => {
-                                        window.usageboard.window.close();
-                                    })
-                                }
-                            >
-                                <Icon name="close" size={16} />
-                            </Button>
-                        </>
-                    )}
+                    <WindowControls onClose={onClose} />
                 </div>
             </div>
         );
