@@ -4502,6 +4502,21 @@
             "schedule_status": "",
             "note": "p119：全量 pnpm test 约 80 条 not wrapped in act 警告（settings_form/cpa_connector_settings/provider_card_label_map/label_map_dialog 等），单文件不现全量现，疑似跨用例污染；按 t290 方式清理或定位污染源",
             "dir": "docs/archive/tasks/t300_renderer_act_warnings_cleanup"
+        },
+        {
+            "tid": "t302",
+            "slug": "ui_components_bare_font_size_twmerge",
+            "title": "ui 组件库批量清理：自定义字号类被 tailwind-merge 吞色（d032 机制扩展）",
+            "status": "done",
+            "branch": "t302_ui_components_bare_font_size_twmerge",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "2e3f7322b192405b6f2489f0130bb2122135fb40",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p126（t298 顺手发现）：d032 机制（tailwind-merge 吞自定义字号 token 颜色类）扩展清理 ui 组件库多组件；修法同 Button（text-[length:var(--text-*)]）",
+            "dir": "docs/archive/tasks/t302_ui_components_bare_font_size_twmerge"
         }
     ]
 }
