@@ -243,6 +243,45 @@ describe("VendorMark", () => {
         expect(dark_image).toHaveClass("dark:block");
     });
 
+    it("keeps wrapper display rules from overriding img theme states (t316)", () => {
+        // t316：`[&_img]:block` 编译为 `.\[\&_img\]\:block img`（特异性 (0,1,1)），
+        // 高于 img 自身 `hidden`/`dark:hidden`/`dark:block`（(0,1,0)），light/dark
+        // 两主题下两张 logo 同时显示。修复：wrapper 不再声明 img display，
+        // 基础 `block` 下沉到 img 自身与状态类同层，后者才能覆盖 display。
+        const { container } = render(<VendorMark id="exa" />);
+        const wrap = container.querySelector('[data-testid="vendor-mark"]');
+        const light_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="exa_light"]',
+        );
+        const dark_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="exa_dark"]',
+        );
+
+        expect(wrap?.getAttribute("class")).not.toContain("[&_img]:block");
+        expect(wrap?.getAttribute("class")).toContain("[&_svg]:block");
+        expect(light_image).toHaveClass("block");
+        expect(dark_image).toHaveClass("block");
+        expect(light_image).toHaveClass("dark:hidden");
+        expect(dark_image).toHaveClass("hidden");
+        expect(dark_image).toHaveClass("dark:block");
+    });
+
+    it("keeps single-logo provider rendering intact (t316 AC-004)", () => {
+        const { container } = render(<VendorMark id="deepseek" size={26} />);
+        const wrap = container.querySelector('[data-testid="vendor-mark"]');
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
+
+        // 单图分支同样受益：无 hidden 状态类时 img 自身 `block` 保证布局，
+        // 不依赖 wrapper 的 `[&_img]:block`（t316 已移除）。
+        expect(image).toHaveClass("block");
+        expect(image).toHaveClass("h-full");
+        expect(image).toHaveClass("object-contain");
+        expect(wrap?.getAttribute("style")).toContain("width: 26px");
+        expect(wrap?.getAttribute("style")).toContain("height: 26px");
+        expect(image).not.toHaveAttribute("width");
+        expect(image).not.toHaveAttribute("height");
+    });
+
     it("stores the official Zhipu logo asset for glm", () => {
         const svg = readFileSync(
             join(process.cwd(), "src/renderer/assets/vendor_logos/glm.svg"),

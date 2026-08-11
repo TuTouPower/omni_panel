@@ -283,8 +283,12 @@ interface VendorMarkProps {
 export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     // wrapper：t274 由全局 .vicon 迁为组件内 utility。logo 明暗切换用 dark:
     // 变体（t268 @custom-variant）在组件内封装，globals.css 不再保留业务选择器。
-    const wrap = "flex shrink-0 items-center justify-center [&_svg]:block [&_img]:block";
-    const logo_img = "h-full w-full object-contain";
+    // t316：wrapper 不再声明 `[&_img]:block`——它编译为 `.\[\&_img\]\:block img`
+    // （特异性 (0,1,1)），高于 img 自身 hidden/dark:hidden/dark:block（(0,1,0)），
+    // 导致亮暗两主题下两张 logo 同时显示。基础 `block` 下沉到 logo_img 与状态类
+    // 同层（(0,1,0)），同层后声明的 hidden 才能正确覆盖 display。
+    const wrap = "flex shrink-0 items-center justify-center [&_svg]:block";
+    const logo_img = "block h-full w-full object-contain";
     const theme_logo = VENDOR_THEME_LOGOS[id];
     if (theme_logo) {
         return (
