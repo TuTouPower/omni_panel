@@ -8,7 +8,8 @@ worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: "t307,t313"
-conflicts_with: ""
+conflicts_with: "t312"
+schedule_status: "scheduled"
 note: ""
 ---
 
