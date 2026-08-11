@@ -6,12 +6,13 @@ import type {
     TokenStatsEnv,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
+import { Icon } from "../components/Icon";
 import { MetricDonut } from "../components/token-stats/MetricDonut";
 import { BarChart } from "../components/token-stats/BarChart";
 import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { RangePicker } from "../components/token-stats/RangePicker";
-import { Button, Card, PanelTitleBar, Segmented, Select } from "../components/ui";
+import { Button, Card, PanelTitleBar, Segmented, Select, WindowControls } from "../components/ui";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
@@ -21,6 +22,7 @@ import {
 import { useGlobalTheme, useTheme } from "../lib/theme";
 import { use_chart_palette, type ChartPalette } from "../lib/echarts_token_resolver";
 import { use_panel_navigation } from "../lib/panel-navigation";
+import logo from "../assets/logo.svg";
 
 const MODULE = "TokenStatsView";
 
@@ -185,6 +187,8 @@ export function TokenStatsView() {
     const [platform, setPlatform] = useState<PlatformFilter>(saved.platform ?? "all");
     const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
     const [custom, setCustom] = useState<{ start: number; end: number } | null>(null);
+    // t312: 时间范围下拉「自定义」触发 RangePicker 面板（受控开关）。
+    const [rangePickerOpen, setRangePickerOpen] = useState(false);
     const [metric, setMetric] = useState<Metric>(saved.metric ?? "tokens");
     const [xaxis, setXaxis] = useState<XAxis>(saved.xaxis ?? "time");
     const [gran, setGran] = useState<Granularity>(saved.gran ?? "day");
@@ -641,107 +645,195 @@ export function TokenStatsView() {
         if (m === "sessions") setXaxis("time");
     };
 
+    const select_range_value: string = custom !== null ? "custom" : (preset ?? "30d");
+
+    const header_title = (
+        <div className="flex min-w-0 items-center gap-2">
+            <img
+                src={logo}
+                alt="OmniPanel"
+                className="h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+            />
+            <span
+                className="truncate text-[length:var(--text-title-md)] font-bold tracking-[-0.01em]"
+                data-testid="app-title"
+            >
+                Omni Panel - Agent
+            </span>
+            {updatedAgo && (
+                <span className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]">
+                    {updatedAgo}
+                </span>
+            )}
+            {sourceIssues.map((s) => (
+                <span
+                    key={`${s.source}|${s.env}`}
+                    data-testid="token-stats-source-status"
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
+                    title={s.lastError}
+                    role="status"
+                >
+                    {s.source} ({s.env}): {s.lastError ?? s.status}
+                </span>
+            ))}
+            {refreshing && (
+                <span
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]"
+                    data-testid="token-stats-refreshing"
+                >
+                    刷新中...
+                </span>
+            )}
+            {error && dashboard && (
+                <span
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
+                    role="status"
+                >
+                    刷新失败
+                </span>
+            )}
+        </div>
+    );
+
+    const header_actions = (
+        <div className="flex items-center gap-2">
+            <Select
+                className="h-8 w-auto min-w-[112px] py-1 text-[length:var(--text-label-md)]"
+                aria-label="工具筛选"
+                value={agent}
+                onChange={(e) => {
+                    setAgent(e.target.value as AgentFilter);
+                }}
+            >
+                {AGENT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+            </Select>
+            <Select
+                className="h-8 w-auto min-w-[88px] py-1 text-[length:var(--text-label-md)]"
+                aria-label="平台筛选"
+                value={platform}
+                onChange={(e) => {
+                    setPlatform(e.target.value as PlatformFilter);
+                }}
+            >
+                {PLATFORM_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+            </Select>
+            <Select
+                className="h-8 w-auto min-w-[128px] py-1 text-[length:var(--text-label-md)]"
+                aria-label="模型筛选"
+                value={model}
+                onChange={(e) => {
+                    setModel(e.target.value);
+                }}
+            >
+                <option value="all">全部模型</option>
+                {modelOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+            </Select>
+            <Select
+                className="h-8 w-auto min-w-[104px] py-1 text-[length:var(--text-label-md)]"
+                aria-label="时间范围"
+                value={select_range_value}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "custom") {
+                        setRangePickerOpen(true);
+                    } else {
+                        handlePresetChange(v as RangePreset);
+                    }
+                }}
+            >
+                {RANGE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+                <option value="custom">自定义</option>
+            </Select>
+            <RangePicker
+                start={currentRange.start}
+                end={currentRange.end}
+                active={custom !== null}
+                open={rangePickerOpen}
+                onOpenChange={setRangePickerOpen}
+                onApply={(range) => {
+                    handleCustomApply(range);
+                    setRangePickerOpen(false);
+                }}
+            />
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="刷新当前面板"
+                aria-label="刷新"
+                onClick={() => {
+                    void loadData(false);
+                }}
+            >
+                <Icon
+                    name="refresh"
+                    size={16}
+                    {...(refreshing ? { className: "animate-spin" } : {})}
+                />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Settings面板"
+                aria-label="Settings面板"
+                onClick={() => {
+                    navigate("Settings");
+                }}
+            >
+                <Icon name="gear" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Usage面板"
+                aria-label="Usage面板"
+                onClick={() => {
+                    navigate("Usage");
+                }}
+            >
+                <Icon name="dashboard" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Session面板"
+                aria-label="Session面板"
+                onClick={() => {
+                    navigate("Session");
+                }}
+            >
+                <Icon name="chat_square" size={16} />
+            </Button>
+            <WindowControls />
+        </div>
+    );
+
     return (
         <div className="token-stats flex min-h-full flex-col gap-4 bg-[var(--color-surface-window)] p-4 text-[var(--color-on-surface)] md:p-6">
             <PanelTitleBar
-                panel="Agent"
+                title={header_title}
+                actions={header_actions}
                 data-panel-titlebar="Agent"
-                refreshing={refreshing}
-                onRefresh={() => {
-                    void loadData(false);
-                }}
-                onNavigate={navigate}
             />
-            <header className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[var(--color-primary)] shadow-[0_0_12px_var(--color-accent-ring)]" />
-                    <h1 className="m-0 flex flex-wrap items-center gap-2 text-[length:var(--text-title-lg)] font-bold tracking-tight">
-                        代理面板
-                        {updatedAgo && (
-                            <span className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]">
-                                {updatedAgo}
-                            </span>
-                        )}
-                        {sourceIssues.map((s) => (
-                            <span
-                                key={`${s.source}|${s.env}`}
-                                data-testid="token-stats-source-status"
-                                className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
-                                title={s.lastError}
-                                role="status"
-                            >
-                                {s.source} ({s.env}): {s.lastError ?? s.status}
-                            </span>
-                        ))}
-                        {refreshing && (
-                            <span
-                                className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]"
-                                data-testid="token-stats-refreshing"
-                            >
-                                刷新中...
-                            </span>
-                        )}
-                        {error && dashboard && (
-                            <span
-                                className="font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
-                                role="status"
-                            >
-                                刷新失败
-                            </span>
-                        )}
-                    </h1>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Segmented
-                        options={AGENT_OPTIONS}
-                        value={agent}
-                        size="sm"
-                        aria-label="工具筛选"
-                        onChange={(v) => {
-                            setAgent(v);
-                        }}
-                    />
-                    <Segmented
-                        options={PLATFORM_OPTIONS}
-                        value={platform}
-                        size="sm"
-                        aria-label="平台筛选"
-                        onChange={(v) => {
-                            setPlatform(v);
-                        }}
-                    />
-                    <Select
-                        className="h-8 w-auto min-w-[128px] py-1 text-[length:var(--text-label-md)]"
-                        aria-label="模型筛选"
-                        value={model}
-                        onChange={(e) => {
-                            setModel(e.target.value);
-                        }}
-                    >
-                        <option value="all">全部模型</option>
-                        {modelOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </Select>
-                    <Segmented
-                        options={RANGE_OPTIONS}
-                        value={preset}
-                        size="sm"
-                        aria-label="时间范围"
-                        onChange={(v) => {
-                            handlePresetChange(v);
-                        }}
-                    />
-                    <RangePicker
-                        start={currentRange.start}
-                        end={currentRange.end}
-                        active={custom !== null}
-                        onApply={handleCustomApply}
-                    />
-                </div>
-            </header>
 
             {loading ? (
                 <Card className="flex min-h-[180px] items-center justify-center text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">

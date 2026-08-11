@@ -9,7 +9,7 @@
 ### 范围
 
 - 代理面板标题区从两行合并为一行，一行内容从左到右：logo + "Omni Panel - Agent" + 刷新时间（updatedAgo/刷新中/刷新失败）+ Coding agent 下拉 + 平台下拉 + 模型下拉 + 时间范围下拉（24小时/7天/1月/自定义）+ 刷新按钮 + 设置按钮 + 用量面板按钮 + 会话历史按钮。
-- 工具筛选（AGENT_OPTIONS：全部工具/Claude Code/OpenCode/Kimi Code/Grok）、平台筛选（PLATFORM_OPTIONS：全平台/Win/WSL）从 Segmented 改为 Select 下拉。
+- 工具筛选（AGENT_OPTIONS：全部工具/Claude Code/OpenCode/Kimi Code/Grok）、平台筛选（PLATFORM_OPTIONS：全平台/Local/WSL——t308 后 env 枚举为 local|wsl）从 Segmented 改为 Select 下拉。
 - 时间范围（RANGE_OPTIONS：24小时/7天/1月）从 Segmented 改为 Select 下拉，下拉含「自定义」项；选中「自定义」弹出现有 RangePicker 面板。
 - 保留 agent/platform/model/preset/custom 状态的持久化（save_prefs）与查询行为不变。
 
