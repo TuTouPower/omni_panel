@@ -88,7 +88,7 @@ export function buildHeatmapOption(
             {
                 type: "heatmap",
                 data,
-                itemStyle: { borderColor: pal.sliceBorder, borderWidth: 2, borderRadius: 3 },
+                itemStyle: { borderColor: pal.heatCellBorder, borderWidth: 2, borderRadius: 3 },
             },
         ],
     };
