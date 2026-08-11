@@ -69,6 +69,7 @@
 | session-shell                        | Desktop             | t223，t224，t245                                                                                  | 2026-08-07   |
 | workspace                            | Desktop             | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297                            | 2026-08-11   |
 | draggable_provider_tabs              | Web                 | t242                                                                                              | 2026-08-07   |
+| provider-tab-active-state            | Web                 | t305                                                                                              | 2026-08-11   |
 | renderer-bundle-code-split           | Web+Desktop         | t249                                                                                              | 2026-08-07   |
 | session-path-index                   | Desktop             | t254，t264                                                                                        | 2026-08-08   |
 | session-summary-head-read            | Desktop             | t255                                                                                              | 2026-08-07   |
