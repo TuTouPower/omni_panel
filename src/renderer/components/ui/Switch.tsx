@@ -14,9 +14,9 @@ export function Switch({ checked, onChange, className, ...props }: SwitchProps) 
             role="switch"
             aria-checked={checked}
             className={cn(
-                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-feedback " +
+                "relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full transition-feedback " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] " +
-                    (checked ? "bg-[var(--color-accent)]" : "bg-[var(--color-on-surface-muted)]"),
+                    (checked ? "bg-[var(--color-success)]" : "bg-[var(--color-surface-raised)]"),
                 className,
             )}
             onClick={() => {
@@ -26,7 +26,7 @@ export function Switch({ checked, onChange, className, ...props }: SwitchProps) 
         >
             <span
                 className={cn(
-                    "pointer-events-none block h-4 w-4 rounded-full bg-[var(--color-surface-window)] shadow transition-transform",
+                    "pointer-events-none block h-[18px] w-[18px] rounded-full bg-[var(--color-surface-window)] shadow transition-transform",
                     checked ? "translate-x-[18px]" : "translate-x-0.5",
                 )}
             />

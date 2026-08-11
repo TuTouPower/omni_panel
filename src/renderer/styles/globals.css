@@ -264,6 +264,18 @@ html[data-window="tray"] #root {
     }
 }
 
+/* 对话框入场（DESIGN.md Motion：浮层 ≤200ms 透明度 + ≤8px 位移；Components 规定 160ms 上浮淡入）。 */
+@keyframes dialogIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 /* 账号展开抽屉动画（ProviderCardAccountDetail）。 */
 @media (prefers-reduced-motion: no-preference) {
     @keyframes maDrawer {
