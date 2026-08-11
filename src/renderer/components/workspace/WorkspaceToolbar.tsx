@@ -43,8 +43,8 @@ export function WorkspaceToolbar({
     }
 
     return (
-        <header className="session-toolbar flex shrink-0 items-center gap-2 border-b border-[var(--color-hairline)] px-3 py-2">
-            <div className="session-toolbar-actions flex shrink-0 items-center gap-2">
+        <header className="session-toolbar flex min-w-0 flex-1 items-center gap-2 border-b border-[var(--color-hairline)] px-3 py-1.5">
+            <div className="session-toolbar-actions flex flex-1 items-center justify-end gap-2">
                 <Button
                     variant="secondary"
                     size="sm"
@@ -83,7 +83,7 @@ export function WorkspaceToolbar({
                                 }}
                             />
                             <div
-                                className="session-view-menu glass-menu absolute left-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
+                                className="session-view-menu glass-menu absolute right-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
                                 role="menu"
                                 aria-label="视图选项"
                             >

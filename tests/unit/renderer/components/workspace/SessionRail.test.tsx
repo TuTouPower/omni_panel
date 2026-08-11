@@ -51,7 +51,6 @@ describe("SessionRail provider 徽标", () => {
                     "unknown",
                 ])}
                 collapsed={false}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
@@ -93,7 +92,6 @@ describe("SessionRail t257 展示调整", () => {
     const base = {
         slots: slots_with_sources(["claude_code", "kimi_code"]),
         collapsed: false,
-        on_toggle_collapse: () => undefined,
         on_pick: () => undefined,
         on_close: () => undefined,
         on_move: () => undefined,
@@ -115,7 +113,6 @@ describe("SessionRail t257 展示调整", () => {
                 {...base}
                 slots={empty_slots()}
                 collapsed={true}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
@@ -134,7 +131,6 @@ describe("SessionRail t257 展示调整", () => {
                 {...base}
                 slots={empty_slots()}
                 collapsed={false}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}

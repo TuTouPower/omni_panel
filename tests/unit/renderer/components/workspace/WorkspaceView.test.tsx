@@ -906,3 +906,25 @@ describe("WorkspaceView (t224)", () => {
         expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
     });
 });
+
+describe("WorkspaceView (t318 布局对齐)", () => {
+    it("AC3：rail-toggle 与工具栏同高、位于工作台顶栏行，rail 内容区直顶 body", () => {
+        render(<WorkspaceView />);
+        const toggle = document.querySelector(".session-rail-toggle");
+        const topbar = document.querySelector(".session-workspace-topbar");
+        const toolbar = document.querySelector(".session-toolbar");
+        const rail = document.querySelector(".session-rail");
+        expect(toggle).toBeTruthy();
+        expect(topbar).toBeTruthy();
+        // t318_gen_f001: 同高由 topbar items-stretch 结构性保证（不锚定 h-[45px]
+        // 像素巧合值——该值 = py-1.5 + Button sm h-8 + border，Button 尺寸调整
+        // 时无上下文失效）；像素级高度差由 e2e 几何断言覆盖。
+        expect(topbar?.className).toContain("items-stretch");
+        expect(toggle?.className).not.toContain("h-[34px]");
+        // toggle 与工具栏同处顶栏行（顶边/底边对齐前提）。
+        expect(topbar?.contains(toggle)).toBe(true);
+        expect(topbar?.contains(toolbar)).toBe(true);
+        // rail 不再内嵌 toggle：rail 内容区顶部即 body 顶部，与 grid 同基线。
+        expect(rail?.contains(toggle)).toBe(false);
+    });
+});

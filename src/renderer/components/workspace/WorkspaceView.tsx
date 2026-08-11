@@ -11,6 +11,7 @@ import {
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { SessionRail } from "./SessionRail";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
@@ -274,24 +275,37 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
 
     return (
         <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
-            <WorkspaceToolbar
-                layout={layout}
-                count={count}
-                view={view}
-                on_view_change={set_view}
-                on_layout_change={set_layout}
-                on_recent={() => {
-                    set_recent_open(true);
-                }}
-                on_clear={clear_all}
-            />
+            <div className="session-workspace-topbar flex shrink-0 items-stretch">
+                <button
+                    type="button"
+                    className={cn(
+                        "session-rail-toggle h-[45px] w-[220px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        rail_collapsed && "w-11",
+                    )}
+                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    onClick={() => {
+                        set_rail_collapsed((v) => !v);
+                    }}
+                >
+                    {rail_collapsed ? "»" : "«"}
+                </button>
+                <WorkspaceToolbar
+                    layout={layout}
+                    count={count}
+                    view={view}
+                    on_view_change={set_view}
+                    on_layout_change={set_layout}
+                    on_recent={() => {
+                        set_recent_open(true);
+                    }}
+                    on_clear={clear_all}
+                />
+            </div>
             <div className="session-workspace-body flex min-h-0 flex-1">
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
-                    on_toggle_collapse={() => {
-                        set_rail_collapsed((v) => !v);
-                    }}
                     on_pick={open_picker}
                     on_close={close_slot}
                     on_move={move_slot_ui}
