@@ -70,4 +70,39 @@ test.describe("popup view (web)", () => {
         const settings = await SettingsPage.open_via_hash(webPage);
         await expect(settings.page.locator('[data-testid="settings-sidebar"]')).toBeVisible();
     });
+
+    test("session history button is visible in web titlebar (t307 AC-001)", async ({ webPage }) => {
+        const popup = new PopupPage(webPage);
+        await popup.waitReady();
+        await expect(webPage.getByRole("button", { name: "会话历史" })).toBeVisible();
+        // 窗口控制按钮仍隐藏（t307 只放开会话历史按钮那处守卫）。
+        await expect(webPage.getByRole("button", { name: "最小化" })).toHaveCount(0);
+        await expect(webPage.getByRole("button", { name: "最大化/还原" })).toHaveCount(0);
+        await expect(webPage.getByRole("button", { name: "关闭" })).toHaveCount(0);
+    });
+
+    test("session history button dispatches onFocus and enters #session route (t307 AC-002)", async ({
+        webPage,
+    }) => {
+        const popup = new PopupPage(webPage);
+        await popup.waitReady();
+        // 注册 onFocus 订阅者，验证 open 分发（web bridge：open → onFocus → hash=session）。
+        await webPage.evaluate(() => {
+            (window as unknown as { __t307_focus: unknown[] }).__t307_focus = [];
+            window.usageboard.sessionHistory.onFocus((loc) => {
+                (window as unknown as { __t307_focus: unknown[] }).__t307_focus.push(loc);
+            });
+        });
+
+        await webPage.getByRole("button", { name: "会话历史" }).click();
+
+        await expect
+            .poll(async () => webPage.evaluate(() => window.location.hash))
+            .toBe("#session");
+        await expect(webPage.locator(".session-shell").first()).toBeVisible();
+        const received = await webPage.evaluate(
+            () => (window as unknown as { __t307_focus: unknown[] }).__t307_focus,
+        );
+        expect(received).toEqual([{ source: "", env: "", session_id: "" }]);
+    });
 });
