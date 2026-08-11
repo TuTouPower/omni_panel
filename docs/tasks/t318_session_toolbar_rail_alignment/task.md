@@ -1,14 +1,14 @@
 ---
-tid: "t311"
-slug: "web_panel_nav_buttons_middle_click"
-title: "web 端面板跳转/外链按钮支持中键新开标签页（原生 a href）"
+tid: "t318"
+slug: "session_toolbar_rail_alignment"
+title: "会话工作台工具栏占满与 rail 纵向对齐"
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "full"
+review_level: "single"
 diff_anchor: ""
-depends_on: "t313"
-conflicts_with: ""
+depends_on: ""
+conflicts_with: "t315"
 note: ""
 ---
 

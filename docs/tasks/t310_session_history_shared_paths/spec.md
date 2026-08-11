@@ -40,7 +40,7 @@ session-history 系统（`session-locator.ts`/`subscription-service.ts`/`session
 
 <!-- /规范 -->
 
-- [ ] AC-001：非 Windows 宿主下，session-locator 对本机 `local` 源返回 POSIX 路径（`~/.claude/projects`、`~/.kimi-code/sessions`、`~/.grok/sessions`、`~/.local/share/opencode/opencode.db`），不构造 UNC；`wsl`/`win` 源返回不可用。
+- [ ] AC-001：非 Windows 宿主下，session-locator 对本机 `local` 源返回 POSIX 路径（`~/.claude/projects`、`~/.kimi-code/sessions`、`~/.grok/sessions`、`~/.local/share/opencode/opencode.db`），不构造 UNC；`wsl` 源返回不可用。
 - [ ] AC-002：Windows 宿主下，local 源基于 `win_home`、wsl 源基于 UNC 解析，解析结果与 t308 前一致。
 - [ ] AC-003：`wsl_user` 探测失败（空串）时，wsl 源解析返回不可用，不生成缺用户名的 UNC 路径。
 - [ ] AC-004：`session-path-index` 的 `paths_key` 签名随 host/env 路径输入变化而改变，命中旧签名时正确失效并重建索引。

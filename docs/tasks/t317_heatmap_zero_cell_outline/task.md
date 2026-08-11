@@ -1,13 +1,13 @@
 ---
-tid: "t311"
-slug: "web_panel_nav_buttons_middle_click"
-title: "web 端面板跳转/外链按钮支持中键新开标签页（原生 a href）"
+tid: "t317"
+slug: "heatmap_zero_cell_outline"
+title: "热力图 0 值格补可见轮廓"
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "full"
+review_level: "single"
 diff_anchor: ""
-depends_on: "t313"
+depends_on: ""
 conflicts_with: ""
 note: ""
 ---
