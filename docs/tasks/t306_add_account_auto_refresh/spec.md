@@ -2,14 +2,15 @@
 
 ## 背景
 
-添加账号保存后不自动采集该账号用量，需手动点刷新；旧账号编辑保存则自动刷新，行为不一致。根因：`create_instance_and_save` 调 `savePluginSettings` 时传 `refresh_after_save=false`。见 p133。
+添加或复制账号后不自动采集该账号用量，需手动点刷新；旧账号编辑保存则自动刷新，行为不一致。普通新建根因是 `create_instance_and_save` 调 `savePluginSettings` 时传 `refresh_after_save=false`；复制路径 `handleConfigDuplicate` 落盘后同样未触发刷新。见 p133。
 
 ## 契约区
 
 ### 范围
 
-- 新建账号保存后自动触发该账号用量采集（与编辑保存行为一致）。
-- 同步补测试覆盖「新建账号后触发刷新」。
+- 普通新建账号保存后自动触发该账号用量采集（与编辑保存行为一致）。
+- 复制账号完成后自动触发新实例用量采集。
+- 同步补测试覆盖普通新建与复制账号两条路径。
 
 ### 非范围
 
@@ -36,8 +37,9 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：添加账号保存成功后自动触发该账号的用量采集（无需手动点刷新）。
-- [ ] AC-002：相关测试全绿（含「新建账号后触发刷新」断言）。
+- [ ] AC-001：普通添加账号保存成功后自动触发该账号的用量采集（无需手动点刷新）。
+- [ ] AC-002：复制账号成功后自动触发新实例的用量采集（无需手动点刷新）。
+- [ ] AC-003：相关测试全绿（含普通新建与复制账号两条刷新断言）。
 
 ### 可测试性声明
 
@@ -47,11 +49,12 @@
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试：单测断言 `create_instance_and_save` 后调用 `trigger_background_refresh`。
+- 全部 AC 可自动测试：分别断言 `create_instance_and_save` 与 duplicate 完成后触发新实例刷新。
 
 ## 上下文区
 
-- 来源：p133（2026-08-11 复现确认：kimi 第 3 账号添加后无数据，需手动刷新）
+- 来源：p133（2026-08-11 复现确认：kimi 第 3 账号添加后无数据，需手动刷新；同类扫描发现 duplicate 复制账号也不立即采集，用户确认合并修复）
+- 已确认修复面：普通新建通过 `refresh_after_save=false` 抑制刷新；duplicate 为独立入口，落盘后未调用新实例刷新。两者用户可观察现象相同，统一由本 task 覆盖。
 
 ### 有意不测
 
@@ -71,7 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 单测：mock `savePluginSettings` 与 `trigger_background_refresh`，断言 create 后 refresh 被调用一次。
+- 普通新建：修改固化 `refresh_after_save=false` 的既有单测，断言保存后刷新新 instanceId；补集成断言 connector refresh 被调用。
+- 复制账号：断言 duplicate 返回新 instanceId 后触发该实例刷新，避免只验证配置落盘。
 
 ### 未知契约清单
 

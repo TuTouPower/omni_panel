@@ -36,8 +36,8 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：accountCount>1 且展开态下，「概览」tab 有强调样式、「N账号」tab 无强调样式（仅激活 tab 高亮）。
-- [ ] AC-002：accountCount>1 且概览态（l2Open=false）下，「概览」tab 无强调样式、「N账号」tab 无强调样式（概览为默认视图，无 tab 激活强调）。
+- [ ] AC-001：accountCount>1 且账号明细态（l2Open=true）下，「N账号」tab 有强调样式、「概览」tab 无强调样式（仅当前 tab 高亮）。
+- [ ] AC-002：accountCount>1 且概览态（l2Open=false）下，「概览」tab 有强调样式、「N账号」tab 无强调样式（仅当前 tab 高亮）。
 - [ ] AC-003：相关组件测试全绿（含新增选中态断言）。
 
 ### 可测试性声明

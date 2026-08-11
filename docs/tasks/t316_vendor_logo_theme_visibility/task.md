@@ -1,13 +1,13 @@
 ---
-tid: "t311"
-slug: "web_panel_nav_buttons_middle_click"
-title: "web 端面板跳转/外链按钮支持中键新开标签页（原生 a href）"
+tid: "t316"
+slug: "vendor_logo_theme_visibility"
+title: "修复 provider 亮暗 logo 双图叠加"
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "full"
+review_level: "single"
 diff_anchor: ""
-depends_on: "t313"
+depends_on: ""
 conflicts_with: ""
 note: ""
 ---

@@ -109,8 +109,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 依赖与约束
 
-- 无
+- t311 依赖本 task 的最终 `#session` 路由；本 task 合入后再实施 t311 的 web 原生链接。
+- `historyWindowBounds` 为持久化配置键，不属于用户可见路由或 CSS 标识；为保留已有窗口位置，默认不随路由改名。
 
 ### Finalization 时更新的 blueprint
 
-- 无
+- `DESIGN.md`：窗口目录表将「会话历史 history」同步为当前“会话面板 / session”命名。

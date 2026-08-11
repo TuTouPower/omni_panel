@@ -1,14 +1,14 @@
 ---
-tid: "t311"
-slug: "web_panel_nav_buttons_middle_click"
-title: "web 端面板跳转/外链按钮支持中键新开标签页（原生 a href）"
+tid: "t315"
+slug: "session_panel_bg_unify"
+title: "会话面板背景与间距对齐其他面板（根背景 surface-window + 卡片双色）"
 status: "backlog"
 branch: ""
 worktree: ""
-review_level: "full"
+review_level: "single"
 diff_anchor: ""
-depends_on: "t313"
-conflicts_with: ""
+depends_on: ""
+conflicts_with: "t318"
 note: ""
 ---
 
