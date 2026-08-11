@@ -2,11 +2,11 @@
 tid: "t305"
 slug: "provider_tab_active_state"
 title: "概览/N账号 tab 选中态修复（l2Open 双高亮）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t305_provider_tab_active_state"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "507fcedb9659cc0b29dc1610f5650374da549179"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -23,7 +23,12 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 复现定位：`ProviderCard.tsx` 两个分段 tab 按钮 className 均只依赖 `l2Open` 单一布尔，选中态不互斥（l2Open=true 双高亮、false 双透明），与 p134 一致。
+- 修复：概览 tab 高亮条件改为 `!l2Open`，账号明细 tab 保持 `l2Open`，两分支互斥；onClick 切换逻辑与 l2Open 语义未动。
+- 测试：`provider_card_overview.test.tsx` 新增 2 条用例，在 l2Open 两态下断言激活 tab 类含 `bg-[var(--color-surface-window)]`+`text-[var(--color-accent)]`、非激活 tab 含 `bg-transparent`。
+- 环境：worktree 首次安装缺 electron 二进制（pnpm 忽略 build scripts），手动复制主仓 `node_modules/electron/dist` + `path.txt` 补齐；`src/generated/build-info.ts` 由 `pnpm exec tsx scripts/gen-build-info.ts` 生成（gitignore 产物）。
+- 验证：单文件 12/12 通过；全量 `pnpm test` 2861 passed / 1 failed / 9 skipped，唯一失败为 `designmd.test.ts` drift 门禁——主仓同基线复现（diff 0 行），属存量漂移，登记 p142。typecheck、lint 通过。
+- 顺手发现：designmd drift 门禁存量失败（globals.css 导出区 vs DESIGN.md 漂移），登记 p142。
 
 ## Review 处置
 
@@ -41,9 +46,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 1 场景说明
 
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
+- **无 finding**：Round 1 零 finding，未进处置表。
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -61,24 +64,19 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/AC-002 由新增两态选中态单测覆盖（`provider_card_overview.test.tsx`）；AC-003 全量 `pnpm test` 通过（除存量 designmd drift 失败，登记 p142）。详见 `handoff.json` ac_evidence。
 
 ### Reviewer verdict
 
 取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
 
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- ProviderCard 概览/N账号 tab 选中态互斥修复完成，2 条新单测覆盖两态，review 零 finding。登记 p142（designmd drift 存量失败）。
