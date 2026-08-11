@@ -9,7 +9,7 @@ web 端（浏览器连 local-api）右上角面板互跳按钮、Usage 标题栏
 ### 范围
 
 - web 端（`is_web()` 为真）面板互跳按钮渲染为原生 `<a href="#{route}">`：PanelTitleBar 的 Usage/Agent/Session/Settings 互跳图标（Usage→`#usage`、Agent→`#agent`、Session→`#session`、Settings→`#setting`）。
-- web 端 popup-view/TitleBar 的设置与代理面板按钮渲染为 `<a href="#setting">` / `<a href="#agent">`。
+- web 端 popup-view/TitleBar 的设置、代理面板、会话面板按钮分别渲染为 `<a href="#setting">`、`<a href="#agent">`、`<a href="#session">`。
 - web 端设置-关于页外链卡片渲染为 `<a href target="_blank" rel="noopener noreferrer">`。
 - web 端 Usage 空态“添加服务”入口渲染为 `<a href="#setting">`。
 - 桌面端（非 web）上述入口行为不变：仍为 `<button onClick>` 调用 window.open 系列桥方法。
@@ -42,10 +42,10 @@ web 端（浏览器连 local-api）右上角面板互跳按钮、Usage 标题栏
 <!-- /规范 -->
 
 - [ ] AC-001：web 端 Agent 面板互跳图标（Usage/Session/Settings 三个）均渲染为带 `href` 的原生链接，href 分别为 `#usage`、`#session`、`#setting`；左键点击后 hash 切换至对应路由且对应面板挂载。
-- [ ] AC-002：web 端 Usage 面板标题栏的设置、代理面板按钮渲染为带 `href` 的原生链接（`#setting`、`#agent`），左键点击后 hash 切换至对应路由。
+- [ ] AC-002：web 端 Usage 面板标题栏的设置、代理、会话按钮均渲染为带 `href` 的原生链接（`#setting`、`#agent`、`#session`），左键点击后 hash 切换至对应路由。
 - [ ] AC-003：web 端设置-关于页各外链卡片渲染为带 `target="_blank" rel="noopener noreferrer"` 的原生链接，href 指向对应 `omnipanel.app` 页面；左键点击在新标签打开。
 - [ ] AC-004：web 端所有链接的鼠标中键 / Ctrl+Click 可被浏览器按原语义处理（新开标签页），不触发 JS onClick 拦截。
-- [ ] AC-005：桌面端（`data-web` 不存在）PanelTitleBar 互跳按钮、popup TitleBar 设置/代理按钮、about 外链卡片、Usage 空态“添加服务”入口仍为按钮点击行为，中键无链接语义（与现状一致）。
+- [ ] AC-005：桌面端（`data-web` 不存在）PanelTitleBar 互跳按钮、popup TitleBar 设置/代理/会话按钮、about 外链卡片、Usage 空态“添加服务”入口仍为按钮点击行为，中键无链接语义（与现状一致）。
 - [ ] AC-006：web 端 Usage 空态“添加服务”入口渲染为 `<a href="#setting">`，左键进入设置面板，中键/Ctrl+Click 保留浏览器原生新标签语义。
 
 ### 可测试性声明
@@ -62,6 +62,7 @@ web 端（浏览器连 local-api）右上角面板互跳按钮、Usage 标题栏
 ## 上下文区
 
 - 来源：p137（2026-08-11，task-bug 核实确认 PanelTitleBar、popup TitleBar、about_section、EmptyState 共 4 个同因位点）
+- 联动范围：t307 放开 popup 会话按钮后，该入口也属于同一原生链接语义，合并进 popup TitleBar 修复面。
 - 路由约束：依赖 t313 将会话路由从 `#history` 改为 `#session`，本 task 链接直接使用最终 `#session`。
 
 ### 有意不测
@@ -84,7 +85,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 <!-- /规范 -->
 
 - PanelTitleBar：组件测试在 `data-web` 存在/缺失两态断言互跳元素 tagName 为 A（web，断言 href/target/rel）或 BUTTON（桌面）；`data-web` 用 `document.documentElement.setAttribute/removeAttribute` 控制。
-- popup TitleBar：复用现有 popup 视图测试工具，断言 web 态设置/代理按钮为 `<a>`（href/target/rel）、桌面态为 `<button>` 且 onClick 仍调用对应 open。
+- popup TitleBar：复用现有 popup 视图测试工具，断言 web 态设置/代理/会话按钮为 `<a>`（分别指向 `#setting`/`#agent`/`#session`）、桌面态为 `<button>` 且 onClick 仍调用对应 open。
 - about_section：断言外链卡片 web 态为 `<a>` 且 href/target/rel 正确；桌面态仍为 `<button>` 且 onClick 调用 `window.open`。
 - EmptyState：补 web/桌面双分支测试，断言 web 为 `<a href="#setting">`、桌面仍调用 settings.open。
 - web e2e：`panel_navigation.spec.ts` 互跳断言从 `getByRole("button")` 改为 `getByRole("link")`；补左键点击后 hash 断言（沿用现有 hash poll）。
@@ -106,7 +107,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 依赖与约束
 
-- 无。`is_web()` 已存在（`data-web` attr），web/桌面分支已有先例。
+- 依赖 t313 提供最终 `#session` 路由。
+- 依赖 t307 先在 web popup 标题栏放开会话入口，再统一改为原生链接。
 
 ### Finalization 时更新的 blueprint
 

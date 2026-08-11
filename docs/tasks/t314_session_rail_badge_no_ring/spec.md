@@ -8,8 +8,8 @@
 
 ### 范围
 
-- `src/renderer/components/workspace/SessionRail.tsx:98` 的 `history-badge` 容器去掉 `ring-1 ring-[var(--agent-accent)]`，保留 `rounded-md`、`text-[var(--agent-accent)]` 与内部 VendorMark 渲染。
-- `tests/unit/renderer/components/workspace/SessionRail.test.tsx` 补断言：`history-badge` 不含 ring class，防「套圈」回归。
+- `src/renderer/components/workspace/SessionRail.tsx:98` 的 `session-badge` 容器去掉 `ring-1 ring-[var(--agent-accent)]`，保留 `rounded-md`、`text-[var(--agent-accent)]` 与内部 VendorMark 渲染。
+- `tests/unit/renderer/components/workspace/SessionRail.test.tsx` 补断言：`session-badge` 不含 ring class，防「套圈」回归。
 
 ### 非范围
 
@@ -37,7 +37,7 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：会话窗口工作台 tab 会话槽 rail 中每个 `history-badge` 元素不含 `ring-1 ring-[var(--agent-accent)]` 类，agent logo 无 accent 圆环描边。
+- [ ] AC-001：会话窗口工作台 tab 会话槽 rail 中每个 `session-badge` 元素不含 `ring-1 ring-[var(--agent-accent)]` 类，agent logo 无 accent 圆环描边。
 - [ ] AC-002：badge 仍渲染 VendorMark（logo 图标），各 source（claude_code/kimi_code/grok/opencode/未知）图标不因去圈而消失或变形。
 - [ ] AC-003：`SessionRail.test.tsx` 新增断言覆盖 badge 无 ring 类（`className` 不含 `ring-` 前缀或明确断言无 ring class）。
 
@@ -49,11 +49,11 @@
 
 <!-- /规范 -->
 
-全部 AC 可自动测试。AC-001/002 用 renderer 组件测试断言 `history-badge` className 与 VendorMark 渲染；AC-003 为测试本身新增断言。
+全部 AC 可自动测试。AC-001/002 用 renderer 组件测试断言 `session-badge` className 与 VendorMark 渲染；AC-003 为测试本身新增断言。
 
 ## 上下文区
 
-- 来源：p140（2026-08-11 核实：SessionRail.tsx:98 `history-badge` ring class；同类扫描仅此一处，SessionCard:39 为选中态卡片描边语义不同）
+- 来源：p140（2026-08-11 核实：SessionRail.tsx:98 `session-badge` ring class；同类扫描仅此一处，SessionCard:39 为选中态卡片描边语义不同）
 
 ### 有意不测
 
@@ -92,8 +92,9 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 依赖与约束
 
-- 无前置 task；不依赖 t308/t309/t310（本次为独立视觉修复）。
+- 依赖 t313 先完成 `history-*` → `session-*` CSS 类名改名；本 task 按最终 `session-badge` 类验收。
+- 不依赖 t308/t309/t310，除 t313 外为独立视觉修复。
 
 ### Finalization 时更新的 blueprint
 
-- `docs/blueprint/architecture.md`：无（纯 UI 样式，不改架构；如涉及组件样式约定可补一句「无」）。
+- 无。

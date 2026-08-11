@@ -1,13 +1,13 @@
 ---
 tid: "t314"
 slug: "session_rail_badge_no_ring"
-title: "会话槽 agent icon 去 accent 圆环(history-badge ring)"
+title: "会话槽 agent icon 去 accent 圆环（session-badge ring）"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
-depends_on: ""
+depends_on: "t313"
 conflicts_with: ""
 note: ""
 ---
