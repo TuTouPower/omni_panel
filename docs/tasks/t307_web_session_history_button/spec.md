@@ -8,8 +8,8 @@ web 面板（WSL 无头运行时的唯一 UI）右上角没有「会话历史」
 
 ### 范围
 
-- 用量面板右上角会话历史按钮在 web 模式（data-web=1）下也渲染。
-- 点击按钮在 web 模式下正常触发会话历史打开（走既有 web sessionHistory.open → onFocus 分发）。
+- 用量面板右上角“会话历史”按钮在 web 模式（data-web=1）下也渲染。
+- 点击按钮在 web 模式下正常触发会话历史打开（走既有 web sessionHistory.open → onFocus 分发），并进入 t313 定义的 `#session` 路由。
 
 ### 非范围
 
@@ -37,7 +37,7 @@ web 面板（WSL 无头运行时的唯一 UI）右上角没有「会话历史」
 <!-- /规范 -->
 
 - [ ] AC-001：web 面板（data-web=1）右上角渲染「会话历史」按钮。
-- [ ] AC-002：web 面板点击「会话历史」按钮触发会话历史打开（onFocus 分发，无报错）。
+- [ ] AC-002：web 面板点击「会话历史」按钮触发 onFocus 分发并进入 `#session` 路由，无报错。
 - [ ] AC-003：桌面模式（非 web）按钮行为不变（仍打开会话历史窗口）。
 - [ ] AC-004：相关测试全绿。
 
@@ -49,11 +49,12 @@ web 面板（WSL 无头运行时的唯一 UI）右上角没有「会话历史」
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试：web e2e 断言按钮可见 + 点击触发；桌面 e2e 断言按钮行为不变。
+- 全部 AC 可自动测试：web e2e 断言按钮可见、点击触发并进入 `#session`；桌面 e2e 断言按钮行为不变。
 
 ## 上下文区
 
 - 来源：p136（2026-08-11 用户确认 web 也显示会话历史）
+- 路由约束：依赖 t313 完成 `#history` → `#session`，本 task 按最终路由验收。
 
 ### 有意不测
 
@@ -73,7 +74,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- web e2e：断言 titlebar 会话按钮在 web 渲染、点击无报错（onFocus 订阅者收到）。
+- web e2e：断言 titlebar 会话按钮在 web 渲染，点击后 onFocus 订阅者收到事件且 hash 为 `#session`。
 - 桌面 e2e/单测：断言非 web 下按钮仍渲染且 onClick 调 sessionHistory.open。
 
 ### 未知契约清单
@@ -88,12 +89,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 ### 风险与回退
 
-- 风险：web 点击按钮后会话面板懒挂载失败（t263/t252 遗留 minor，只分发 onFocus 不切 hash）。
+- 风险：t313 路由改名若有残留，按钮点击可能分发 onFocus 但未挂载 `#session` 面板。
 - 回退：恢复 `!is_web()` 条件。
 
 ### 依赖与约束
 
-- 无
+- 依赖 t313 完成 `#session` 路由与会话面板挂载。
+- t311 在本 task 后把 web 标题栏导航入口改为原生链接。
 
 ### Finalization 时更新的 blueprint
 

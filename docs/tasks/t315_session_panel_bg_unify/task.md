@@ -7,7 +7,7 @@ branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
-depends_on: ""
+depends_on: "t313"
 conflicts_with: "t318"
 note: ""
 ---
