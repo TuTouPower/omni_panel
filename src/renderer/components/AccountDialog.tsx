@@ -98,10 +98,10 @@ export function AccountDialog({
                         </span>
                     )}
                     <div className="min-w-0">
-                        <div className="text-title-sm font-semibold">
+                        <div className="text-[length:var(--text-title-sm)] font-semibold">
                             {isEdit ? "编辑账号" : "添加账号"}
                         </div>
-                        <div className="mt-0.5 truncate text-body-sm text-[var(--color-on-surface-muted)]">
+                        <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
                         </div>
                     </div>
@@ -158,11 +158,11 @@ export function AccountDialog({
                             onToggleWatched={onToggleWatched}
                         />
                     ) : mode === "edit" ? (
-                        <div className="text-body-md text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                             加载中...
                         </div>
                     ) : (
-                        <div className="text-body-md text-[var(--color-on-surface-muted)]">
+                        <div className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                             暂不支持在此添加新账号
                         </div>
                     )}

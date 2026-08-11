@@ -33,7 +33,7 @@ export function SessionShell() {
                     <button
                         type="button"
                         className={cn(
-                            "history-tab h-full border-b-2 border-transparent px-4 text-body-md text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "history-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             tab === "workspace" &&
                                 "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                         )}
@@ -48,7 +48,7 @@ export function SessionShell() {
                     <button
                         type="button"
                         className={cn(
-                            "history-tab h-full border-b-2 border-transparent px-4 text-body-md text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                            "history-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             tab === "library" &&
                                 "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                         )}

@@ -11,11 +11,11 @@ interface KpiProps {
 export function Kpi({ value, label, className }: KpiProps) {
     return (
         <div className={cn("flex flex-col", className)}>
-            <span className="metric-num text-display-num font-bold tracking-tight text-[var(--color-on-surface)]">
+            <span className="metric-num text-[length:var(--text-display-num)] font-bold tracking-tight text-[var(--color-on-surface)]">
                 {value}
             </span>
             {label !== undefined && (
-                <span className="text-label-md text-[var(--color-on-surface-variant)]">
+                <span className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                     {label}
                 </span>
             )}

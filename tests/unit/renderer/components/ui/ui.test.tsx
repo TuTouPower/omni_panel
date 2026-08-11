@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
     Button,
@@ -271,6 +271,83 @@ describe("ui 组件库构建产物（t269 AC4）", () => {
                 expect(btn?.className).toContain("text-[var(--color-on-primary)]");
             }
         }
+    });
+
+    it("受影响 ui 组件字号类不被 tailwind-merge 吞（t302 d032 扩展）", () => {
+        // p126：d032 机制（自定义字号 token 被 twMerge 误判颜色类吞色）扩展清理。
+        // 断言 cn() base 内字号类为显式 length 形式、颜色类共存，覆盖 Input/Textarea/
+        // Select/SecretInput/PanelTitleBar/Menu/ListRow 等受影响组件。
+        const { container: in_c } = render(<Input placeholder="x" />);
+        expect(in_c.querySelector("input")?.className).toContain(
+            "text-[length:var(--text-body-md)]",
+        );
+        expect(in_c.querySelector("input")?.className).toContain("text-[var(--color-on-surface)]");
+
+        const { container: ta_c } = render(<Textarea placeholder="x" />);
+        expect(ta_c.querySelector("textarea")?.className).toContain(
+            "text-[length:var(--text-body-md)]",
+        );
+
+        const { container: sel_c } = render(
+            <Select>
+                <option>a</option>
+            </Select>,
+        );
+        expect(sel_c.querySelector("select")?.className).toContain(
+            "text-[length:var(--text-body-md)]",
+        );
+
+        const { container: sec_c } = render(<SecretInput aria-label="s" />);
+        expect(sec_c.querySelector("input")?.className).toContain(
+            "text-[length:var(--text-body-md)]",
+        );
+
+        const { container: ptb_c } = render(<PanelTitleBar title="t" panel="Session" />);
+        expect(ptb_c.querySelector("[data-panel-titlebar]")?.className).toContain(
+            "text-[length:var(--text-body-md)]",
+        );
+        expect(ptb_c.querySelector("[data-panel-titlebar]")?.className).toContain(
+            "text-[var(--color-on-surface)]",
+        );
+
+        // ListRow subtitle：渲染断言易受容器状态影响，改静态源码断言（p126 明确列举组件）。
+        const listrow_src = readFileSync(join("src/renderer/components/ui", "ListRow.tsx"), "utf8");
+        expect(listrow_src).toContain(
+            "text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]",
+        );
+    });
+
+    it("全仓自定义字号 token 无裸类残留（t302 AC-002）", () => {
+        // d032 规避统一：自定义字号一律 text-[length:var(--text-*)]，禁裸 text-body-*/label-*/title-*/code-md。
+        // 排除无 token 的存量 text-label-sm（未定义 --text-label-sm，Tailwind 下不生成字号类，见 p127）。
+        const bare = /text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\b/;
+        const length_form =
+            /text-\[length:var\(--text-(body|label|display|title|code)-(md|sm|lg|xs|xl|num|2xl|3xl|caps)\)\]/g;
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        walk("src/renderer");
+        const offenders: string[] = [];
+        for (const f of files) {
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                // token 级匹配：length 形式与裸类各自提取，避免整行 includes 守卫漏报。
+                // 跳过注释行（// 前缀）：注释里的 token 名（如说明 d032 机制的注释）非实际类。
+                if (line.trimStart().startsWith("//")) continue;
+                const stripped = line.replace(length_form, "");
+                const bareHit = bare.exec(stripped);
+                if (bareHit && !stripped.includes("text-label-sm")) {
+                    offenders.push(`${f}: ${line.trim().slice(0, 100)}`);
+                }
+            }
+        }
+        expect(offenders).toEqual([]);
     });
 
     it("danger 按钮暗色白字对比 ≥ 3.0（t298）", () => {

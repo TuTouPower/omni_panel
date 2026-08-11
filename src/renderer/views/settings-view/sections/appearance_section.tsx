@@ -85,10 +85,10 @@ export function AppearanceSection({
             </SetRow>
             <div className="flex flex-col gap-3 border-b border-[var(--color-hairline)] py-3">
                 <div>
-                    <div className="text-body-md font-medium text-[var(--color-on-surface)]">
+                    <div className="text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
                         用量条颜色方案
                     </div>
-                    <div className="mt-0.5 text-body-sm text-[var(--color-on-surface-muted)]">
+                    <div className="mt-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         控制所有用量条的取色方式。默认按当前用量显示风险色。
                     </div>
                 </div>

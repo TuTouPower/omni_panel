@@ -31,9 +31,9 @@ export function SessionForm({
     return (
         <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-                <label className="text-label-md font-semibold text-[var(--color-on-surface-variant)]">
+                <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     备注
-                    <span className="ml-1 text-label-md text-[var(--color-on-surface-muted)]">
+                    <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                         显示用
                     </span>
                 </label>

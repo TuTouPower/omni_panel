@@ -36,9 +36,9 @@ export function ListRow({
         >
             {leading !== undefined && <div className="shrink-0">{leading}</div>}
             <div className="min-w-0 flex-1">
-                <div className="truncate text-body-md">{title}</div>
+                <div className="truncate text-[length:var(--text-body-md)]">{title}</div>
                 {subtitle !== undefined && (
-                    <div className="truncate text-body-sm text-[var(--color-on-surface-variant)]">
+                    <div className="truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                         {subtitle}
                     </div>
                 )}

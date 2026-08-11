@@ -391,7 +391,7 @@ export function CpaConnectorSettings({
                         data-testid="cfg-row"
                     >
                         <div className="min-w-0">
-                            <div className="text-body-sm text-[var(--color-on-surface-muted)]">
+                            <div className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 当前全局为「{globalIntervalLabel}」自动刷新
                             </div>
                         </div>
@@ -426,7 +426,10 @@ export function CpaConnectorSettings({
                 )}
 
                 {error && (
-                    <div className="text-body-sm text-[var(--color-error)]" role="alert">
+                    <div
+                        className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
+                        role="alert"
+                    >
                         {error}
                     </div>
                 )}

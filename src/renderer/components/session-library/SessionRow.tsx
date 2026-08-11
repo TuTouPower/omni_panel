@@ -38,7 +38,7 @@ export const SessionRow = memo(function SessionRow({
             <button
                 type="button"
                 className={cn(
-                    "library-row-select flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-label-md font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                    "library-row-select flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                     selected
                         ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
                         : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",
@@ -54,17 +54,17 @@ export const SessionRow = memo(function SessionRow({
             <span className="library-row-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]">
                 {agent_abbrev(s.source)}
             </span>
-            <span className="library-row-title min-w-0 flex-1 truncate text-body-md font-medium text-[var(--color-on-surface)]">
+            <span className="library-row-title min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
                 {s.title ?? s.id}
             </span>
-            <span className="library-row-summary max-w-[200px] min-w-0 truncate text-label-md text-[var(--color-on-surface-variant)]">
+            <span className="library-row-summary max-w-[200px] min-w-0 truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                 {summary}
             </span>
-            <span className="library-row-meta shrink-0 whitespace-nowrap font-code-md text-label-md tabular-nums text-[var(--color-on-surface-muted)]">
+            <span className="library-row-meta shrink-0 whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                 {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
                 {relative_date(s.ended_at)}
             </span>
-            <span className="library-row-dir max-w-[160px] min-w-0 shrink truncate text-label-md text-[var(--color-on-surface-muted)]">
+            <span className="library-row-dir max-w-[160px] min-w-0 shrink truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                 {s.directory ?? "—"}
             </span>
             <Button
