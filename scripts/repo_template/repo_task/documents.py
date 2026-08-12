@@ -297,6 +297,10 @@ def _extract_guide_blocks(text: str) -> list[str]:
         if stripped == ctx.SPEC_GUIDE_OPEN:
             current = [stripped]
         elif current is not None:
+            # prettier 在 markdown 块注释间插空行（lint-staged md 规则），
+            # 逐字比较会误判「缺规范块」；空行不参与内容比对。
+            if stripped == "":
+                continue
             current.append(stripped)
             if stripped == ctx.SPEC_GUIDE_CLOSE:
                 blocks.append("\n".join(current))
