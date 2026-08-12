@@ -20,6 +20,7 @@
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { spawn } from "node:child_process";
+import { get as httpGet } from "node:http";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -63,6 +64,49 @@ const data_root = user_data_dir
     ? resolve(user_data_dir)
     : join(homedir(), ".config", "OmniPanel");
 
+/**
+ * 探测 dataRoot 下 cli.json 记录的实例是否仍在运行。可达返回实例信息，否则 null。
+ * cli.json 在实例退出后保留（见 cli-json.ts 注释），所以不可达 = 残留文件 = 无实例。
+ */
+function probe_running_instance(data_root) {
+    let info;
+    try {
+        info = JSON.parse(readFileSync(join(data_root, "cli.json"), "utf8"));
+    } catch {
+        return Promise.resolve(null);
+    }
+    if (!info?.port || typeof info.pid !== "number") return Promise.resolve(null);
+    return new Promise((resolve) => {
+        const req = httpGet(
+            { host: "localhost", port: info.port, path: "/v1/health", timeout: 1500 },
+            (res) => {
+                res.resume();
+                resolve(info);
+            },
+        );
+        req.on("timeout", () => {
+            req.destroy();
+            resolve(null);
+        });
+        req.on("error", () => {
+            resolve(null);
+        });
+    });
+}
+
+// serve 启动前：已有可达实例则提示并退出（避免 Electron 单实例锁静默失败后 launcher
+// 轮询 15s 报笼统「等待 serve 启动超时」，用户无从得知真实原因）。
+if (is_serve) {
+    const running = await probe_running_instance(data_root);
+    if (running) {
+        console.error(
+            `[omni_panel] 实例已在运行（pid=${String(running.pid)}，port=${String(running.port)}）。如需重启请先停止：\n` +
+                `  omni_panel --cli quit --port ${String(running.port)}`,
+        );
+        process.exit(1);
+    }
+}
+
 if (is_background) {
     // 后台：detached spawn，stdout/stderr 直接落 <dataRoot>/logs/serve-*.log
     // （无 pipe，无 EPIPE/孤儿句柄问题）。launcher 轮询 <dataRoot>/cli.json
@@ -102,7 +146,7 @@ if (is_background) {
             if (info?.url && info?.pid === child.pid) {
                 clearInterval(poll);
                 process.stdout.write(`OmniPanel CLI mode listening on ${info.url}\n`);
-                console.log(`[omni_panel] 后台运行中（pid=${String(child.pid)}）；日志：`);
+                console.log(`[omni_panel] 已启动新实例（pid=${String(child.pid)}）；日志：`);
                 console.log(`  ${log_path}`);
                 console.log(`  停止：omni_panel --cli quit --port ${String(info.port)}`);
                 child.unref();
