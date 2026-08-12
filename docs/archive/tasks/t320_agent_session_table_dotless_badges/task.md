@@ -2,11 +2,11 @@
 tid: "t320"
 slug: "agent_session_table_dotless_badges"
 title: "代理面板会话明细去 badge 圆点 + 删表头排序提示"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t320_agent_session_table_dotless_badges"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "534a199dbc23ea228f7cf66e41f86aeab9625200"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,11 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实施：Badge label 形态新增 `dot` 开关（默认 true），dot=false 时不渲染前置圆形点 span；SessionTable 删除标题「点击表头排序」span，三处 label Badge（sub-agent、工具列 agent、模型列）传 dot={false}。补 AC-001~005 断言。
+
+环境：worktree 首次 pnpm install 后 electron dist 缺，从主仓复制 42.2.0 dist/path.txt 补齐；build-info 生成（src/generated gitignore）。同 t319。
+
+验证：红→绿（先 2 failed 后 34 passed）；全量 pnpm test 257 files / 2944 passed / 9 skipped 全绿。审阅 single 级 general，Round 1 零 finding PASS。
 
 ## Review 处置
 
@@ -60,8 +64,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~005 由新增断言覆盖，AC-006 既有行为测试通过；全量 pnpm test 2944 passed；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +78,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话明细表标题去排序提示；Badge 加 dot 开关，SessionTable 三处 label 标签去前置圆点，默认行为不变

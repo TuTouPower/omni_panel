@@ -7,11 +7,13 @@ interface BadgeProps {
     variant?: "count" | "label";
     /** label 形态的着色 key（DESIGN.md 分类色）。 */
     color?: string;
+    /** label 形态前置圆点开关（默认开启；t320 会话明细表关闭）。 */
+    dot?: boolean;
     className?: string;
 }
 
 /** t269: 统一 Badge——count 计数 / label 来源标签双形态。 */
-export function Badge({ children, variant = "count", color, className }: BadgeProps) {
+export function Badge({ children, variant = "count", color, dot = true, className }: BadgeProps) {
     if (variant === "count") {
         return (
             <span
@@ -37,10 +39,12 @@ export function Badge({ children, variant = "count", color, className }: BadgePr
                     : undefined
             }
         >
-            <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={color ? { backgroundColor: color } : undefined}
-            />
+            {dot && (
+                <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={color ? { backgroundColor: color } : undefined}
+                />
+            )}
             {children}
         </span>
     );
