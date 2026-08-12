@@ -2,11 +2,11 @@
 tid: "t327"
 slug: "session_library_card_squash_fix"
 title: "会话库网格卡片高度坍塌修复(align-items)"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t327_session_library_card_squash_fix"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "8fd0d3f9256d34e854ac7d8a3235499602201545"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-12 21:45 UTC+8)
+
+| finding_id    | severity  | status | rationale                                                                                                                       | fix_ref                                                  |
+| ------------- | --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| t327_gen_f001 | important | 已修   | e2e 补卡片不重叠断言（同列上张 bottom ≤ 当前卡 top），能挡住「仅 items-start」行压缩重叠回归（实测删 auto-rows-max 后断言失败） | tests/e2e/web/session_library_grid_squash.spec.ts:97-117 |
+| t327_gen_f002 | minor     | 已修   | spec 背景段数字矛盾修正（行距 ~14px、卡片 2px；修复=auto-rows-max + items-start）                                               | spec.md:5                                                |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002/003 由 session_library_grid_squash e2e 覆盖（卡高>50、等高、无重叠、scrollHeight>clientHeight）；全量 2976 passed；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +81,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话库网格 grid 容器补 `items-start auto-rows-max`，修复超一屏后卡片压扁成 2px 细条（grid-auto-rows:auto + stretch 致行压缩塌陷）；e2e 补卡高/等高/无重叠/滚动断言
