@@ -1,0 +1,25 @@
+{
+    "tid": "t330",
+    "attempt": 1,
+    "execution_id": "c61ecf6822fb49c995b8a3af322d90d6",
+    "status": "done",
+    "branch": "t330_panel_titlebar_show_current",
+    "base_sha": "8423d7f26e7c17ea2715a1ab4919df64fd065bcf",
+    "tests": "pnpm test：2988 passed / 9 skipped；tsc --noEmit exit 0；panel_navigation e2e 4 passed",
+    "blackbox": "全量单测 2988 passed + tsc 0 + panel_navigation e2e 4 passed（四面板按钮恒定 + Session 面板 count 1）",
+    "review": "single 级 general：Round 1 FAIL（f001 important e2e 遗留断言 + f002 minor spec 措辞）→ Round 2 PASS（f001 改 count 1 + f002 spec 收窄）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::恒定渲染四个切换按钮含当前面板 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::固定序「设置 用量 代理 会话」+ panel_navigation e2e 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::点击当前面板自身按钮调用 onNavigate 不抛错 通过"
+        ],
+        "AC-004": ["全量 pnpm test 2988 passed + tsc 0 + panel_navigation e2e 4 passed 通过"]
+    },
+    "pending": [],
+    "findings": []
+}

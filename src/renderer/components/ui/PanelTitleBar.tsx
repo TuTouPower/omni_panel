@@ -12,6 +12,8 @@ interface PanelTitleBarProps {
     title?: ReactNode;
     /** 通用形态：右侧动作区（关闭/最小化等）。 */
     actions?: ReactNode;
+    /** 面板形态：刷新按钮左侧的前置动作区（t323 会话工作台三按钮）。 */
+    before_actions?: ReactNode;
     className?: string;
     "data-panel-titlebar"?: string;
     /** 面板形态：当前面板名（品牌标题 `Omni Panel - <name>`）。 */
@@ -20,7 +22,7 @@ interface PanelTitleBarProps {
     refreshing?: boolean;
     /** 面板形态：刷新当前面板。 */
     onRefresh?: () => void;
-    /** 面板形态：面板切换（当前面板对应图标隐藏）。 */
+    /** 面板形态：面板切换（四面板恒定显示，含当前面板）。 */
     onNavigate?: (panel: PanelName) => void;
     /** 面板形态：刷新按钮仅 live 模式可用。 */
     is_live?: boolean;
@@ -87,6 +89,7 @@ export function WindowControls({ onClose }: { onClose?: (() => void) | undefined
 export function PanelTitleBar({
     title,
     actions,
+    before_actions,
     className,
     "data-panel-titlebar": dataPanelTitlebar,
     panel,
@@ -131,6 +134,7 @@ export function PanelTitleBar({
                     </span>
                 </div>
                 <div className={actions_cls}>
+                    {before_actions}
                     {onRefresh && panel !== "Settings" && (
                         <Button
                             variant="icon"
@@ -147,46 +151,44 @@ export function PanelTitleBar({
                             />
                         </Button>
                     )}
-                    {panels
-                        .filter((p) => p !== panel)
-                        .map((p) => {
-                            const icon = (
-                                <>
-                                    {p === "Usage" && <Icon name="clock_forward" size={16} />}
-                                    {p === "Agent" && <Icon name="chart" size={16} />}
-                                    {p === "Session" && <Icon name="chat_square" size={16} />}
-                                    {p === "Settings" && <Icon name="gear" size={16} />}
-                                </>
-                            );
-                            if (is_web()) {
-                                return (
-                                    <a
-                                        key={p}
-                                        className={ICON_LINK_CLS}
-                                        title={`${p}面板`}
-                                        aria-label={`${p}面板`}
-                                        href={`#${panel_routes[p]}`}
-                                    >
-                                        {icon}
-                                    </a>
-                                );
-                            }
+                    {panels.map((p) => {
+                        const icon = (
+                            <>
+                                {p === "Usage" && <Icon name="clock_forward" size={16} />}
+                                {p === "Agent" && <Icon name="chart" size={16} />}
+                                {p === "Session" && <Icon name="chat_square" size={16} />}
+                                {p === "Settings" && <Icon name="gear" size={16} />}
+                            </>
+                        );
+                        if (is_web()) {
                             return (
-                                <Button
+                                <a
                                     key={p}
-                                    variant="icon"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
+                                    className={ICON_LINK_CLS}
                                     title={`${p}面板`}
                                     aria-label={`${p}面板`}
-                                    onClick={() => {
-                                        onNavigate?.(p);
-                                    }}
+                                    href={`#${panel_routes[p]}`}
                                 >
                                     {icon}
-                                </Button>
+                                </a>
                             );
-                        })}
+                        }
+                        return (
+                            <Button
+                                key={p}
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title={`${p}面板`}
+                                aria-label={`${p}面板`}
+                                onClick={() => {
+                                    onNavigate?.(p);
+                                }}
+                            >
+                                {icon}
+                            </Button>
+                        );
+                    })}
                     <WindowControls onClose={onClose} />
                 </div>
             </div>

@@ -41,6 +41,46 @@ describe("SessionTable agent chip", () => {
         expect(screen.getByText("Kimi Code")).toBeInTheDocument();
         expect(screen.getByText("Grok")).toBeInTheDocument();
     });
+
+    // t320: 会话明细表标题不再渲染"点击表头排序"；三处 Badge label 去前置圆点。
+    it("AC-001: renders 会话明细 title without the sort hint text", () => {
+        render(<SessionTable rows={[]} theme="dark" modelColors={new Map()} />);
+        expect(screen.getByText("会话明细")).toBeInTheDocument();
+        expect(screen.queryByText("点击表头排序")).not.toBeInTheDocument();
+    });
+
+    it("AC-002/003/004: agent, model and sub-agent labels render no leading dot", () => {
+        render(
+            <SessionTable
+                rows={[
+                    row({
+                        session_id: "s1",
+                        agent: "claude-code",
+                        sub: true,
+                        models: ["m1", "m2"],
+                    }),
+                ]}
+                theme="dark"
+                modelColors={
+                    new Map([
+                        ["m1", "#f00"],
+                        ["m2", "#0f0"],
+                    ])
+                }
+            />,
+        );
+        // 工具列 agent 标签（Badge label）内不得有圆形点 span
+        const agent = screen.getByText("Claude Code");
+        expect(agent.closest("span")?.querySelector(".rounded-full")).not.toBeInTheDocument();
+        // 模型列标签内不得有圆形点 span
+        for (const m of ["m1", "m2"]) {
+            const model = screen.getByText(m);
+            expect(model.closest("span")?.querySelector(".rounded-full")).not.toBeInTheDocument();
+        }
+        // sub-agent 标签内不得有圆形点 span
+        const sub = screen.getByText("sub-agent");
+        expect(sub.closest("span")?.querySelector(".rounded-full")).not.toBeInTheDocument();
+    });
 });
 
 describe("SessionTable session-history open", () => {

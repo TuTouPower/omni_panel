@@ -265,6 +265,8 @@ export interface SessionLoginRequest {
     readonly provider: string;
     readonly login_url: string;
     readonly cookie_names: readonly string[];
+    /** 登录成功捕获 Cookie 后自动关闭登录窗口的延迟（ms）；不传则不自动关闭（t331）。 */
+    readonly auto_close_ms?: number;
 }
 
 export interface SessionLoginResult {

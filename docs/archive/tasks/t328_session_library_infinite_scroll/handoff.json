@@ -1,0 +1,27 @@
+{
+    "tid": "t328",
+    "attempt": 1,
+    "execution_id": "89dcd5fa5795461a83c3dd77d8772891",
+    "status": "done",
+    "branch": "t328_session_library_infinite_scroll",
+    "base_sha": "99048f7b0b278110a7931e455bcdbcb107b58860",
+    "tests": "pnpm test：2980 passed / 9 skipped；tsc --noEmit exit 0；e2e infinite_scroll 2 passed + grid_squash 1 passed",
+    "blackbox": "全量单测 2980 passed + tsc 0 + e2e 87 passed（含无限滚动网格/列表、grid squash 不回归）",
+    "review": "full 级 code+test：Round1 双 PASS（各 2 minor）→ Round2 code FAIL（f003 首屏 effect 写反）→ Round2 test PASS → Round3 双 PASS（f003 已修；f004/f003 minor 遗留 p146）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/e2e/web/session_library_infinite_scroll.spec.ts + SessionLibrary.test.tsx::无「加载更多」按钮 通过"
+        ],
+        "AC-002": ["tests/e2e/web/session_library_infinite_scroll.spec.ts::滚动到底自动加载 通过"],
+        "AC-003": [
+            "tests/e2e/web/session_library_infinite_scroll.spec.ts::has_more=false 后停止请求 通过"
+        ],
+        "AC-004": ["SessionLibrary.test.tsx::并发锁 offset=50 仅一次 通过"],
+        "AC-005": ["SessionLibrary.test.tsx::筛选/搜索重置后触底继续加载 通过"],
+        "AC-006": [
+            "tests/e2e/web/session_library_infinite_scroll.spec.ts::grid/list 两视图无限滚动一致 通过"
+        ]
+    },
+    "pending": ["p146"],
+    "findings": []
+}

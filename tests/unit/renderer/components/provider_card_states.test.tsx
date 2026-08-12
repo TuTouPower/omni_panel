@@ -80,6 +80,42 @@ describe("ProviderCard - states", () => {
         expect(onRefresh).toHaveBeenCalledWith("deepseek");
     });
 
+    // p143: STATE_BASE 的灰色 text-[var(--color-on-surface-variant)] 后声明胜出，
+    // 覆盖裸拼接的 text-[var(--color-error)]（t274 回归）。err 分支最终色必须是 error。
+    it("AC-001: failed provider state text resolves to --color-error, not the STATE_BASE grey", () => {
+        render(
+            <ProviderCard
+                provider="deepseek"
+                connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }}
+            />,
+        );
+        const err = screen.getByTestId("card-state");
+        expect(err).toHaveAttribute("data-variant", "err");
+        const cls = err.getAttribute("class") ?? "";
+        // error 类必须在最终类中生效
+        expect(cls).toMatch(/text-\[var\(--color-error\)\]/);
+        // STATE_BASE 灰色类不得残留（否则 tailwind-merge 后仍可能被后声明覆盖）
+        expect(cls).not.toMatch(/text-\[var\(--color-on-surface-variant\)\]/);
+    });
+
+    // p143: 同机制，ProviderCardErrorBanner（缓存数据上方横幅）err 分支同样被灰覆盖。
+    it("AC-002: error banner text resolves to --color-error, not the STATE_BASE grey", () => {
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={makeGroup()}
+                connectorError={{ displayName: "DeepSeek", error: "网络超时", instanceIds: [] }}
+            />,
+        );
+        const banner = screen.getByText(/采集失败：/);
+        const err = banner.closest("[data-testid='card-state']");
+        expect(err).not.toBeNull();
+        expect(err).toHaveAttribute("data-variant", "err");
+        const cls = (err as HTMLElement).getAttribute("class") ?? "";
+        expect(cls).toMatch(/text-\[var\(--color-error\)\]/);
+        expect(cls).not.toMatch(/text-\[var\(--color-on-surface-variant\)\]/);
+    });
+
     it("failed provider card is collapsible even without accounts", () => {
         const onToggleExpand = vi.fn();
         render(

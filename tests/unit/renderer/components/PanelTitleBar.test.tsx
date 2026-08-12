@@ -16,12 +16,21 @@ describe("PanelTitleBar (t252)", () => {
         expect(screen.getByAltText("OmniPanel")).toBeInTheDocument();
     });
 
-    it("隐藏当前面板切换图标，显示其余三个（AC1）", () => {
+    it("面板形态恒定渲染四个切换按钮，含当前面板（AC-001）", () => {
         render(<PanelTitleBar panel="Session" />);
-        expect(screen.queryByRole("button", { name: "Session面板" })).toBeNull();
+        expect(screen.getByRole("button", { name: "Session面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Usage面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Agent面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Settings面板" })).toBeInTheDocument();
+    });
+
+    it("点击当前面板自身按钮调用 onNavigate 不抛错（AC-003）", () => {
+        const onNavigate = vi.fn();
+        render(<PanelTitleBar panel="Usage" onNavigate={onNavigate} />);
+        expect(() => {
+            fireEvent.click(screen.getByRole("button", { name: "Usage面板" }));
+        }).not.toThrow();
+        expect(onNavigate).toHaveBeenCalledWith("Usage");
     });
 
     it("点击切换图标调用 onNavigate 并携带目标面板名", () => {
@@ -58,10 +67,12 @@ describe("PanelTitleBar (t252)", () => {
             const usage = screen.getByRole("link", { name: "Usage面板" });
             const agent = screen.getByRole("link", { name: "Agent面板" });
             const session = screen.getByRole("link", { name: "Session面板" });
+            const settings = screen.getByRole("link", { name: "Settings面板" });
             expect(usage.tagName).toBe("A");
             expect(usage).toHaveAttribute("href", "#usage");
             expect(agent).toHaveAttribute("href", "#agent");
             expect(session).toHaveAttribute("href", "#session");
+            expect(settings).toHaveAttribute("href", "#setting");
             // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick
             // attribute（hasAttribute 恒真断言无意义）；jsdom 无默认 hash 导航。
             // 可失败断言：点击链接不触发 onNavigate（若实现误在 <a> 上挂 onClick
@@ -87,22 +98,22 @@ describe("PanelTitleBar (t252)", () => {
         expect(screen.queryByTitle("刷新当前面板")).toBeNull();
     });
 
-    it("切换按钮固定序「设置 用量 代理 会话」，排除当前面板（AC-001）", () => {
+    it("切换按钮固定序「设置 用量 代理 会话」，含当前面板（AC-001）", () => {
         render(<PanelTitleBar panel="Usage" onRefresh={vi.fn()} />);
         const panel_buttons = screen
             .getAllByRole("button")
             .map((b) => b.getAttribute("aria-label"))
             .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
-        expect(panel_buttons).toEqual(["Settings面板", "Agent面板", "Session面板"]);
+        expect(panel_buttons).toEqual(["Settings面板", "Usage面板", "Agent面板", "Session面板"]);
     });
 
-    it("设置面板切换按钮为「用量 代理 会话」且刷新按钮恒不渲染（AC-001）", () => {
+    it("设置面板切换按钮恒定四枚「设置 用量 代理 会话」且刷新按钮恒不渲染（AC-001）", () => {
         render(<PanelTitleBar panel="Settings" onRefresh={vi.fn()} />);
         const panel_buttons = screen
             .getAllByRole("button")
             .map((b) => b.getAttribute("aria-label"))
             .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
-        expect(panel_buttons).toEqual(["Usage面板", "Agent面板", "Session面板"]);
+        expect(panel_buttons).toEqual(["Settings面板", "Usage面板", "Agent面板", "Session面板"]);
         expect(screen.queryByTitle("刷新当前面板")).toBeNull();
     });
 
@@ -110,6 +121,35 @@ describe("PanelTitleBar (t252)", () => {
         render(<PanelTitleBar panel="Session" onRefresh={vi.fn()} />);
         const buttons = screen.getAllByRole("button");
         expect(buttons[0]?.getAttribute("aria-label")).toBe("刷新");
+    });
+
+    it("before_actions 渲染于刷新按钮左侧（t323 三按钮插槽）", () => {
+        render(
+            <PanelTitleBar
+                panel="Session"
+                onRefresh={vi.fn()}
+                before_actions={
+                    <>
+                        <button type="button">最近会话</button>
+                        <button type="button">清空</button>
+                        <button type="button">视图 ▾</button>
+                    </>
+                }
+            />,
+        );
+        const recent = screen.getByRole("button", { name: "最近会话" });
+        const view = screen.getByRole("button", { name: /视图/ });
+        const refresh = screen.getByTitle("刷新当前面板");
+        const in_titlebar = (el: HTMLElement): boolean =>
+            document.querySelector("[data-panel-titlebar=Session]")?.contains(el) ?? false;
+        expect(in_titlebar(recent)).toBe(true);
+        // 最近会话在视图前，视图在刷新前（全部左侧）。
+        expect(
+            recent.compareDocumentPosition(view) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            view.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
     });
 
     it("Usage 切换按钮 icon 为 clock_forward（lucide ClockArrowUp，无 dashboard 矩形）（AC-006）", () => {

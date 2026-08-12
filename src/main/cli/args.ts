@@ -16,6 +16,8 @@
 export interface CliServeOptions {
     configPath?: string;
     port?: number;
+    /** 覆盖 userData 目录（`--user-data-dir <path>`）；serve 时生效，影响 getDataRoot。 */
+    userDataDir?: string;
 }
 
 export interface CliControlOptions {
@@ -98,6 +100,13 @@ export function parse_cli_args(argv: readonly string[]): CliArgs {
                 i += 2;
             } else if (tok === "--port") {
                 options.port = parse_port(rest[i + 1], "--port");
+                i += 2;
+            } else if (tok === "--user-data-dir") {
+                const val = rest[i + 1];
+                if (val === undefined || val.startsWith("--")) {
+                    throw new CliUsageError("--user-data-dir 需要一个目录路径参数");
+                }
+                options.userDataDir = val;
                 i += 2;
             } else if (tok.startsWith("--")) {
                 // 未知 `--` 开关视为 Electron/Chromium 级参数，跳过。

@@ -48,6 +48,41 @@ describe("handleSessionLogin", () => {
         });
     });
 
+    it("t331 AC-001: 传入 auto_close_ms 时透传给 start_login", async () => {
+        const mod = await import("../../../src/main/ipc/session-ipc");
+        const result = await mod.handleSessionLogin(
+            { sessionManager: mock_session_manager },
+            {
+                instance_id: "test-instance",
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["SESSION"],
+                auto_close_ms: 1500,
+            },
+        );
+        expect(result.ok).toBe(true);
+        expect(mock_session_manager.start_login).toHaveBeenCalledWith(
+            expect.objectContaining({ auto_close_ms: 1500 }),
+        );
+    });
+
+    it("t331 AC-002: 未传 auto_close_ms 时 start_login 不携带该字段", async () => {
+        const mod = await import("../../../src/main/ipc/session-ipc");
+        await mod.handleSessionLogin(
+            { sessionManager: mock_session_manager },
+            {
+                provider: "mimo",
+                login_url: "https://example.com/login",
+                cookie_names: ["SESSION"],
+            },
+        );
+        expect(mock_session_manager.start_login).toHaveBeenCalledWith({
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["SESSION"],
+        });
+    });
+
     it("returns saved:false when no cookies captured", async () => {
         vi.mocked(mock_session_manager.start_login).mockResolvedValue({ saved: false });
 

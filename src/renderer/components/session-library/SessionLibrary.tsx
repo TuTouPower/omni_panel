@@ -51,7 +51,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const flush_scheduled_ref = useRef(false);
     const request_seq_ref = useRef(0);
     const load_more_inflight_ref = useRef(false);
-    const [loading_more, set_loading_more] = useState(false);
     const flush_summaries = useCallback((): void => {
         flush_scheduled_ref.current = false;
         const pending = pending_summaries_ref.current;
@@ -129,7 +128,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         let disposed = false;
         const seq = ++request_seq_ref.current;
         load_more_inflight_ref.current = false;
-        set_loading_more(false);
         set_visible(PAGE_SIZE);
         set_has_more(false);
         set_all([]);
@@ -159,14 +157,19 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
 
     const load_more = useCallback((): void => {
         const content_mode = Boolean(search && search_content);
+        if (load_more_inflight_ref.current) return;
         if (content_mode) {
-            if (content_sessions.length <= visible || load_more_inflight_ref.current) return;
+            if (content_sessions.length <= visible) return;
+            load_more_inflight_ref.current = true;
             set_visible((current) => current + PAGE_SIZE);
+            // 展示分页同步完成，无需异步请求；下个 tick 释放锁避免滚动突发叠加。
+            queueMicrotask(() => {
+                load_more_inflight_ref.current = false;
+            });
             return;
         }
-        if (!has_more || load_more_inflight_ref.current) return;
+        if (!has_more) return;
         load_more_inflight_ref.current = true;
-        set_loading_more(true);
         const seq = request_seq_ref.current;
         const offset = all.length;
         void window.usageboard.tokenStats
@@ -183,7 +186,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             .finally(() => {
                 if (request_seq_ref.current !== seq) return;
                 load_more_inflight_ref.current = false;
-                set_loading_more(false);
             });
     }, [
         all.length,
@@ -280,7 +282,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     }, [search, search_content, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
-    const can_load_more = search && search_content ? content_filtered.length > visible : has_more;
 
     // 批量加载可见会话的首条用户消息摘要（t239）。
     useEffect(() => {
@@ -523,18 +524,9 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     on_toggle={toggle_select}
                     on_preview={open_preview}
                     on_open={open_session}
+                    on_show_toast={show_toast}
+                    on_scroll_to_bottom={load_more}
                 />
-            )}
-
-            {can_load_more && (
-                <Button
-                    variant="secondary"
-                    className="library-load-more mx-auto my-1 shrink-0"
-                    disabled={loading_more}
-                    onClick={load_more}
-                >
-                    加载更多
-                </Button>
             )}
 
             {preview && (

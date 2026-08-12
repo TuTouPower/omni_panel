@@ -1,0 +1,27 @@
+{
+    "tid": "t321",
+    "attempt": 1,
+    "execution_id": "6082629170b541feb267d4f8cac95245",
+    "status": "done",
+    "branch": "t321_fix_trend_window_btn_selected_invisible",
+    "base_sha": "022b83e82d8981de43d6294504e800564a919dd3",
+    "tests": "pnpm test：257 files / 2944 tests passed / 9 skipped；tsc --noEmit exit 0；e2e 趋势按钮 light/dark 2 passed",
+    "blackbox": "全量单测 2944 passed；趋势按钮 e2e 浅/深两主题 2 passed（真切主题+亮度守卫+accent 实底+对比度≥3.0+未选中护栏）",
+    "review": "single 级 general：Round 1 FAIL → Round 2 PASS → Round 3 PASS；8 findings 全处置（f005 撤回）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/e2e/web/trend_window_button_contrast.spec.ts::选中按钮背景非透明且解析后=accent 通过"
+        ],
+        "AC-002": [
+            "tests/e2e/web/trend_window_button_contrast.spec.ts::浅/深两主题对比度≥3.0 通过"
+        ],
+        "AC-003": [
+            "tests/e2e/web/trend_window_button_contrast.spec.ts::选中文字与最终背景非同色 通过"
+        ],
+        "AC-004": [
+            "tests/e2e/web/trend_window_button_contrast.spec.ts::未选中按钮透明底/浅灰字/outline 护栏 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

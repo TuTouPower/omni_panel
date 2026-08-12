@@ -7,9 +7,7 @@ import {
     COOKIE_LOGIN_POLL_TIMEOUT_MS,
 } from "../../../../src/renderer/lib/cookie_login_poll";
 
-function render_section(
-    overrides: Partial<React.ComponentProps<typeof WebLoginSection>> = {},
-) {
+function render_section(overrides: Partial<React.ComponentProps<typeof WebLoginSection>> = {}) {
     const onChange = vi.fn();
     const onSecrets = vi.fn().mockResolvedValue(undefined);
     const onSaved = vi.fn().mockResolvedValue(undefined);
@@ -152,6 +150,29 @@ describe("WebLoginSection cookie login parity (t282)", () => {
         expect(cookie_login).not.toHaveBeenCalled();
         expect(onSaved).not.toHaveBeenCalled();
         expect(screen.queryByTestId("web-login-anon-guide-opencode_go")).not.toBeInTheDocument();
+    });
+
+    it("t331 AC-003: web add path 登录成功 UI 恢复 + auto_close_ms 透传", async () => {
+        document.documentElement.dataset["web"] = "";
+        session_login.mockResolvedValue({ saved: true, cookie: "session=webadd" });
+        const { onSecrets } = render_section();
+        const user = userEvent.setup();
+
+        await user.click(screen.getByText("网页登录"));
+
+        await waitFor(() => {
+            expect(session_login).toHaveBeenCalledWith({
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+                auto_close_ms: 1500,
+            });
+        });
+        await waitFor(() => {
+            // UI 从「正在打开登录窗口…」恢复（AC-003），登录成功触发 onSecrets。
+            expect(screen.getByText("网页登录")).toBeTruthy();
+            expect(onSecrets).toHaveBeenCalledWith({ SESSION_COOKIE: "session=webadd" });
+        });
     });
 
     it("web add path maps concurrent session.login English error to Chinese", async () => {

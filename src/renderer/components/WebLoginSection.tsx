@@ -9,6 +9,10 @@ import {
     poll_cookie_login,
 } from "../lib/cookie_login_poll";
 
+/** t331: 登录成功捕获 Cookie 后自动关闭登录窗口延迟（ms）。
+ * 数值须与 src/main/ipc/auth-ipc.ts 的 AUTO_CLOSE_MS（编辑路径）保持一致。 */
+const SESSION_LOGIN_AUTO_CLOSE_MS = 1500;
+
 export interface WebLoginSectionProps {
     readonly provider: string;
     readonly login_url: string;
@@ -52,11 +56,13 @@ export function WebLoginSection({
             // Desktop (any path) and web add-account (no instance_id): blocking session.login.
             // Web add path cannot use cookieLogin (needs config instance); capture returns in
             // response only — AC-001 degrade guide warns not to refresh; manual paste recovers.
+            // t331: 登录成功捕获 Cookie 后按 auto_close_ms 自动关闭登录窗口（对齐编辑路径 1500ms）。
             const result = await window.usageboard.session.login({
                 provider,
                 login_url,
                 cookie_names: cookie_names ?? ["*"],
                 ...(instance_id ? { instance_id } : {}),
+                ...(instance_id ? {} : { auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS }),
             });
             if (!result.saved) {
                 set_error(COOKIE_LOGIN_MESSAGES.no_cookie);

@@ -1,0 +1,33 @@
+{
+    "tid": "t326",
+    "attempt": 1,
+    "execution_id": "a3269c8b64d1462ea809e26ad4b2dd94",
+    "status": "done",
+    "branch": "t326_session_library_card_rerank_vendor_icon_copy",
+    "base_sha": "b7fd060bade9e96b45719807d2f6cf856c8fe855",
+    "tests": "pnpm test：2976 passed / 9 skipped；tsc --noEmit exit 0；e2e session_panel 11 passed",
+    "blackbox": "全量单测 2976 passed + tsc 0 + e2e session_panel 11 passed（含会话库搜索筛选排序预览闭环 AC-006）",
+    "review": "single 级 general：Round 1 PASS（1 minor f001 spec 澄清）→ Round 2 PASS（f001 已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::第一行 cwd 末级 + format_precise_datetime 时间 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::第二行 N轮/tokens/session id 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::第三行会话名 + 无摘要行 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::VendorMark 渲染无 agent_abbrev 通过"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::session id 复制命令 + toast 通过"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx 34 passed + e2e session_panel 11 passed::交互保留 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

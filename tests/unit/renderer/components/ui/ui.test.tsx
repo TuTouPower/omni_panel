@@ -222,6 +222,22 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector("span")?.className).toContain("rounded-md");
     });
 
+    // AC-005: Badge label 未传 dot 时保留前置圆点（t320 去圆点是调用侧显式关闭）。
+    it("Badge label keeps leading dot by default and hides it when dot=false", () => {
+        const { container, rerender } = render(
+            <Badge variant="label" color="#e85d3d">
+                claude
+            </Badge>,
+        );
+        expect(container.querySelector(".rounded-full")).not.toBeNull();
+        rerender(
+            <Badge variant="label" color="#e85d3d" dot={false}>
+                claude
+            </Badge>,
+        );
+        expect(container.querySelector(".rounded-full")).toBeNull();
+    });
+
     it("StatusDot tone 类", () => {
         const { container } = render(<StatusDot tone="success" />);
         expect(container.querySelector("span")?.className).toContain("bg-[var(--color-success)]");

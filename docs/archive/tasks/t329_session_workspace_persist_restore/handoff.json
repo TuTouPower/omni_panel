@@ -1,0 +1,30 @@
+{
+    "tid": "t329",
+    "attempt": 1,
+    "execution_id": "3007a760bc4841d28c98b348fde3a375",
+    "status": "done",
+    "branch": "t329_session_workspace_persist_restore",
+    "base_sha": "f41bc10ebb13d5461d0997abb88202df2b6dede8",
+    "tests": "pnpm test：2987 passed / 9 skipped；tsc --noEmit exit 0；e2e session_panel reload 通过（popup_demo_alignment 隔离复跑 3 passed 确认为预置 flake）",
+    "blackbox": "全量单测 2987 passed + tsc 0 + e2e 87 passed（含 session_panel reload 真实恢复）",
+    "review": "full 级 code+test：Round1 双 PASS（各 2 minor）→ Round2 双 PASS（f001/f002 code+test 已修，新 f003 minor）→ f003 修后 scope 保持 ok",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::打开→重挂载恢复数量与顺序 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::预置 localStorage→恢复后 subscribe+query 调用、消息渲染 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::layout+view 切换→重挂载恢复 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::清空→持久化清空→重挂载空 通过"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::拖换序→重挂载恢复新序 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

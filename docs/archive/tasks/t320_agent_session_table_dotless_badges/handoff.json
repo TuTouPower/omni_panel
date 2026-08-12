@@ -1,0 +1,33 @@
+{
+    "tid": "t320",
+    "attempt": 1,
+    "execution_id": "c48a63e966f44c40a85e53a126f4321b",
+    "status": "done",
+    "branch": "t320_agent_session_table_dotless_badges",
+    "base_sha": "534a199dbc23ea228f7cf66e41f86aeab9625200",
+    "tests": "pnpm test：257 files passed / 2944 tests passed / 9 skipped 全绿",
+    "blackbox": "全量 pnpm test 通过；AC-001~005 断言独立复验（标题无排序提示、三处标签无圆点、Badge 默认圆点保留）",
+    "review": "single 级 general Round 1 PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/token-stats/session_table.test.tsx::AC-001 断言标题无「点击表头排序」 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/token-stats/session_table.test.tsx::AC-002/003/004 断言工具列 agent 标签无圆点 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/token-stats/session_table.test.tsx::AC-002/003/004 断言模型标签无圆点 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/token-stats/session_table.test.tsx::AC-002/003/004 断言 sub-agent 标签无圆点 通过"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/ui/ui.test.tsx::Badge label 默认保留圆点、dot=false 隐藏 通过"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/components/token-stats/session_table.test.tsx 既有 7 条行为测试保持通过；全量 pnpm test 2944 passed"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
