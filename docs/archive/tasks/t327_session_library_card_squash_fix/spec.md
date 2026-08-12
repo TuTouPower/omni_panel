@@ -2,7 +2,7 @@
 
 ## 背景
 
-会话库网格视图（`SessionList.tsx` grid）在加载超过一屏的会话后，卡片被压扁成 2px 高的灰色细条，标题/摘要/按钮全部不可见。实测根因：grid 容器 `grid items` 默认 `align-items: stretch`，当内容总高（scrollHeight）超过容器可视高（clientHeight）且容器本身被 flex 父链 `min-h-0` 限制时，stretch 把每行高度撑到异常、行内子项塌陷为 0 高；补 `align-items: start`（或用等价的 `content-start` 语义）后卡片恢复 157px 正常高度并可正常滚动。
+会话库网格视图（`SessionList.tsx` grid）在加载超过一屏的会话后，卡片被压扁成 2px 高的灰色细条，标题/摘要/按钮全部不可见。实测根因：grid 容器 `grid-auto-rows: auto`（默认）在内容超高时把行距压缩到 ~14px（卡片内容 125px），`align-items: stretch`（默认）使卡片拉伸塌成行内 2px 高 → 细条。修复：补 `grid-auto-rows: max-content`（`auto-rows-max`，行=内容高）+ `align-items: start`（`items-start`，卡片内容高对齐）；仅 `items-start` 会致卡片溢出行与下邻重叠（实测回归），须两者配合。
 
 ## 契约区
 

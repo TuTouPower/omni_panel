@@ -47,7 +47,7 @@ export function SessionList({
 
     if (view_mode === "grid") {
         return (
-            <div className="library-grid grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start gap-3 overflow-y-auto px-[18px] py-3.5">
+            <div className="library-grid grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5">
                 {sessions.map((s) => (
                     <SessionCard
                         key={`${s.source}|${s.env}|${s.id}`}
