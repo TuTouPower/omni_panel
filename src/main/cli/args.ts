@@ -32,6 +32,7 @@ export interface CliExportOptions {
 export type CliCommand =
     | { type: "serve"; options: CliServeOptions }
     | { type: "export"; options: CliExportOptions }
+    | { type: "help" }
     | {
           type: "open" | "refresh-all" | "pause" | "resume" | "restart" | "quit" | "autostart";
           options: CliControlOptions;
@@ -82,6 +83,11 @@ export function parse_cli_args(argv: readonly string[]): CliArgs {
         throw new CliUsageError(
             "--cli 需要子命令（serve / open / refresh-all / pause / resume / restart / quit / autostart）",
         );
+    }
+
+    // help：打印 CLI 子命令清单（t335）。
+    if (sub === "help") {
+        return { cli: true, command: { type: "help" } };
     }
 
     // serve：常驻子命令，支持 --config 与 --port。

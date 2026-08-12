@@ -35,6 +35,25 @@ const RELEASE_BIN =
 
 const args = process.argv.slice(2);
 
+const is_cli = args.includes("--cli");
+
+// t335: 顶层 --help / -h（无 --cli）打印全局用法，不启动服务。
+// 置于 RELEASE_BIN 检查前：无产物时也能查看帮助（f001）。
+if (!is_cli && (args.includes("--help") || args.includes("-h"))) {
+    console.log(
+        "OmniPanel CLI\n" +
+            "用法：\n" +
+            "  omni_panel --cli serve [--port <n>] [--user-data-dir <dir>]   无窗口常驻服务（默认后台；--foreground 前台）\n" +
+            "  omni_panel --cli open|refresh-all|pause|resume|restart|quit|autostart [--port <n>]\n" +
+            "                                                                瘦客户端控制\n" +
+            "  omni_panel --cli export                                       导出配置\n" +
+            "  omni_panel --cli help                                         子命令帮助\n" +
+            "停止后台服务：omni_panel --cli quit --port <n>\n" +
+            "数据：全局命令使用真实用户数据（~/.config/OmniPanel，可用 --user-data-dir 覆盖）\n",
+    );
+    process.exit(0);
+}
+
 if (!existsSync(RELEASE_BIN)) {
     console.error(
         `[omni_panel] release 产物缺失：${RELEASE_BIN}\n` +
@@ -44,7 +63,6 @@ if (!existsSync(RELEASE_BIN)) {
     process.exit(1);
 }
 
-const is_cli = args.includes("--cli");
 const is_serve = is_cli && args.includes("serve");
 const is_foreground = args.includes("--foreground");
 const is_background = is_serve && !is_foreground;
