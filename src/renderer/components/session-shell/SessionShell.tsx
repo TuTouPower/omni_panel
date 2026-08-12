@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { PanelTitleBar } from "../ui/PanelTitleBar";
 import { useTheme } from "../../lib/theme";
 import { use_panel_navigation } from "../../lib/panel-navigation";
 import { cn } from "../../lib/utils";
 import { WorkspaceView } from "../workspace/WorkspaceView";
+import { WorkspaceToolbar } from "../workspace/WorkspaceToolbar";
 import { SessionLibrary } from "../session-library/SessionLibrary";
+import type { LayoutCount } from "../../lib/workspace/slots";
+import type { PaneView } from "../workspace/SessionPane";
 
 type ShellTab = "workspace" | "library";
 
@@ -13,12 +16,38 @@ export function SessionShell() {
     const [tab, set_tab] = useState<ShellTab>("workspace");
     // 标题栏刷新按钮递增 token，触发工作台槽位消息立即重拉。
     const [refresh_token, set_refresh_token] = useState(0);
+    // t323：三按钮状态提升到外壳，WorkspaceView 受控；rail-toggle 折叠状态同步上移。
+    const [layout, set_layout] = useState<LayoutCount>(3);
+    const [view, set_view] = useState<PaneView>({ show_time: false, compact: false });
+    const [recent_open, set_recent_open] = useState(false);
+    const [rail_collapsed, set_rail_collapsed] = useState(false);
+    // WorkspaceView 经 on_count_change 上报占用槽位数，供视图下拉排布。
+    const [count, set_count] = useState(0);
+    // 清空动作作用于槽位模型，状态在 WorkspaceView 内部，由其上抛注册。
+    const clear_workspace_ref = useRef<(() => void) | null>(null);
+    const register_clear = useCallback((fn: (() => void) | null): void => {
+        clear_workspace_ref.current = fn;
+    }, []);
     useTheme();
     const navigate = use_panel_navigation();
 
     return (
         <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
             <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]">
+                <button
+                    type="button"
+                    className={cn(
+                        "session-rail-toggle h-11 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[var(--color-surface)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        rail_collapsed && "w-11",
+                    )}
+                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    onClick={() => {
+                        set_rail_collapsed((v) => !v);
+                    }}
+                >
+                    {rail_collapsed ? "»" : "«"}
+                </button>
                 <PanelTitleBar
                     panel="Session"
                     className="min-w-0 flex-1"
@@ -26,6 +55,21 @@ export function SessionShell() {
                     onRefresh={() => {
                         set_refresh_token((k) => k + 1);
                     }}
+                    before_actions={
+                        <WorkspaceToolbar
+                            layout={layout}
+                            count={count}
+                            view={view}
+                            on_view_change={set_view}
+                            on_layout_change={set_layout}
+                            on_recent={() => {
+                                set_recent_open(true);
+                            }}
+                            on_clear={() => {
+                                clear_workspace_ref.current?.();
+                            }}
+                        />
+                    }
                 />
                 <nav
                     className="session-tabs absolute left-1/2 top-1/2 flex h-full -translate-x-1/2 -translate-y-1/2 items-stretch gap-1 [-webkit-app-region:no-drag]"
@@ -70,7 +114,22 @@ export function SessionShell() {
                     data-active={tab === "workspace"}
                     aria-hidden={tab !== "workspace"}
                 >
-                    <WorkspaceView refresh_token={refresh_token} />
+                    <WorkspaceView
+                        refresh_token={refresh_token}
+                        layout={layout}
+                        view={view}
+                        recent_open={recent_open}
+                        rail_collapsed={rail_collapsed}
+                        on_layout_change={set_layout}
+                        on_recent={() => {
+                            set_recent_open(true);
+                        }}
+                        on_recent_close={() => {
+                            set_recent_open(false);
+                        }}
+                        on_count_change={set_count}
+                        on_register_clear={register_clear}
+                    />
                 </section>
                 <section
                     className={cn("session-panel min-w-0 flex-1", tab !== "library" && "hidden")}

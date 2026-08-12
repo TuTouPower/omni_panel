@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import { WorkspaceView } from "../../../../../src/renderer/components/workspace/WorkspaceView";
+import { SessionShell } from "../../../../../src/renderer/components/session-shell/SessionShell";
 import {
     reset_selection_store,
     selection_store,
@@ -11,6 +13,9 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
  * t224 工作台槽位模型测试（取代 t211 6 栏模型语义）。
  * 覆盖：槽位装入/移除/换位、超位 toast、布局切换、入口重接（onFocus/URL loc）、
  * 消息推送追加、选择与复制、全空空态、最近会话替换全部、picker 弹窗。
+ *
+ * t323：三按钮与 rail-toggle 上移顶栏后，涉及工具栏/rail-toggle/最近会话/视图的
+ * 交互测试改经 SessionShell 渲染；纯槽位/消息/选择测试用 render_workspace 提供受控 props。
  */
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -80,6 +85,32 @@ function ts_sess(
     };
 }
 
+/** t323：受控 WorkspaceView 默认 props，测试聚焦槽位/消息逻辑。 */
+function render_workspace(overrides: Partial<ComponentProps<typeof WorkspaceView>> = {}) {
+    return render(
+        <WorkspaceView
+            layout={3}
+            view={{ show_time: false, compact: false }}
+            recent_open={false}
+            rail_collapsed={false}
+            on_layout_change={() => undefined}
+            on_recent={() => undefined}
+            on_recent_close={() => undefined}
+            on_count_change={() => undefined}
+            on_register_clear={() => undefined}
+            {...overrides}
+        />,
+    );
+}
+
+/** t323：工具栏交互经 SessionShell 渲染（三按钮/rail-toggle 在顶栏）。 */
+async function render_shell() {
+    render(<SessionShell />);
+    await act(async () => {
+        await Promise.resolve();
+    });
+}
+
 beforeEach(() => {
     localStorage.clear();
     window.history.replaceState({}, "", "/");
@@ -89,7 +120,7 @@ beforeEach(() => {
 
 describe("WorkspaceView (t224)", () => {
     it("全空空态：无槽位占用时显示引导，含去会话库/打开最近会话入口", () => {
-        render(<WorkspaceView />);
+        render_workspace();
         expect(screen.getByText("工作台为空")).toBeTruthy();
         expect(screen.getByText("打开最近会话")).toBeTruthy();
         expect(screen.getByText("去会话库")).toBeTruthy();
@@ -99,7 +130,7 @@ describe("WorkspaceView (t224)", () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
         ub.tokenStats.getSessions.mockResolvedValue([ts_sess("sess_a", "claude_code")]);
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -115,7 +146,7 @@ describe("WorkspaceView (t224)", () => {
     it("重复打开同一会话不重复装入槽位", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         const cb = focus_cb();
         act(() => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
@@ -137,15 +168,15 @@ describe("WorkspaceView (t224)", () => {
                     JSON.stringify({ source: "grok", env: "win", session_id: "sess_g" }),
                 ),
         );
-        render(<WorkspaceView />);
+        render_workspace();
         await waitFor(() => {
             expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
         });
         window.history.replaceState({}, "", "/");
     });
 
-    it("工作台工具条移除数字布局按钮与会话计数，保留主要操作入口", () => {
-        render(<WorkspaceView />);
+    it("t323 顶栏三按钮保留主要操作入口，无布局数字按钮与会话计数", async () => {
+        await render_shell();
         const toolbar = document.querySelector(".session-toolbar");
         expect(toolbar).toBeTruthy();
         expect(toolbar?.querySelector(".session-layout-switch")).toBeNull();
@@ -164,7 +195,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [msg("m1", "user", "你好", 100)],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -186,7 +217,7 @@ describe("WorkspaceView (t224)", () => {
     it("关闭槽位移除会话并退订", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -208,7 +239,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [msg("m1", "user", "你好", 100)],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -227,7 +258,7 @@ describe("WorkspaceView (t224)", () => {
     it("清空按钮退订全部并回到空态", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        await render_shell();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
             focus_cb()({ source: "opencode", env: "win", session_id: "sess_b" });
@@ -251,7 +282,7 @@ describe("WorkspaceView (t224)", () => {
             ts_sess("s2", "opencode", { ended_at: 2000 }),
             ts_sess("s3", "grok", { ended_at: 1000 }),
         ]);
-        render(<WorkspaceView />);
+        await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => {
             expect(screen.getByText("最近 2 个")).toBeTruthy();
@@ -275,7 +306,7 @@ describe("WorkspaceView (t224)", () => {
             ts_sess("s4", "opencode", { ended_at: 4000 }),
             ts_sess("s3", "claude_code", { ended_at: 5000 }),
         ]);
-        render(<WorkspaceView />);
+        await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => {
             expect(screen.getByRole("button", { name: "最近 6 个" })).toBeTruthy();
@@ -299,7 +330,7 @@ describe("WorkspaceView (t224)", () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
         ub.tokenStats.getSessions.mockResolvedValue([ts_sess("s1", "claude_code")]);
-        render(<WorkspaceView />);
+        render_workspace();
         fireEvent.click(screen.getByLabelText("槽位 1（空）"));
         await waitFor(() => {
             expect(screen.getByRole("dialog", { name: "选择会话" })).toBeTruthy();
@@ -313,7 +344,7 @@ describe("WorkspaceView (t224)", () => {
     it("rail 拖拽换位顺序同步网格", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         const cb = focus_cb();
         act(() => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
@@ -353,7 +384,7 @@ describe("WorkspaceView (t224)", () => {
     it("槽位全满后 onFocus 新会话 toast 拒绝", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         const cb = focus_cb();
         act(() => {
             for (let i = 0; i < 8; i += 1) {
@@ -377,7 +408,7 @@ describe("WorkspaceView (t224)", () => {
                 next_cursor: "c1",
             })
             .mockResolvedValueOnce({ messages: [msg("m0", "user", "更早", 0)], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -413,7 +444,7 @@ describe("WorkspaceView (t224)", () => {
             ts_sess("s2", "opencode", { title: "会话二" }),
             ts_sess("s3", "grok", { title: "会话三" }),
         ]);
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "s1" });
         });
@@ -446,7 +477,7 @@ describe("WorkspaceView (t224)", () => {
             ts_sess("mid", "opencode", { ended_at: 2000 }),
             ts_sess("new", "grok", { ended_at: 3000 }),
         ]);
-        render(<WorkspaceView />);
+        await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => screen.getByRole("dialog", { name: "最近会话" }));
         const titles = [...document.querySelectorAll(".session-recent-title")].map(
@@ -476,7 +507,7 @@ describe("WorkspaceView (t224)", () => {
             ts_sess(`s${String(i)}`, "claude_code", { ended_at: 9000 - i }),
         );
         ub.tokenStats.getSessions.mockResolvedValue(list);
-        render(<WorkspaceView />);
+        await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => screen.getByRole("dialog", { name: "最近会话" }));
         const rows = [...document.querySelectorAll<HTMLElement>(".session-recent-row")];
@@ -493,7 +524,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [msg("m1", "user", "你好", 100)],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         const cb = focus_cb();
         act(() => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
@@ -520,8 +551,8 @@ describe("WorkspaceView (t224)", () => {
         });
     });
 
-    it("rail 可折叠/展开", () => {
-        render(<WorkspaceView />);
+    it("rail 可折叠/展开（t323 上移顶栏后行为不变）", async () => {
+        await render_shell();
         expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
         fireEvent.click(screen.getByRole("button", { name: "折叠槽位栏" }));
         expect(document.querySelector(".session-rail")?.className).toContain("collapsed");
@@ -539,7 +570,7 @@ describe("WorkspaceView (t224)", () => {
             ],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -579,7 +610,7 @@ describe("WorkspaceView (t224)", () => {
             ],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -648,7 +679,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [msg("m1", "user", "你好", 100)],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -672,7 +703,7 @@ describe("WorkspaceView (t224)", () => {
     it("视图菜单按当前会话数提供排布选项并可切换网格列数", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        await render_shell();
         const cb = focus_cb();
         act(() => {
             for (let i = 0; i < 6; i += 1) {
@@ -700,7 +731,7 @@ describe("WorkspaceView (t224)", () => {
     it("8 个会话时视图菜单选中当前有效排布", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        await render_shell();
         const cb = focus_cb();
         act(() => {
             for (let i = 0; i < 8; i += 1) {
@@ -719,7 +750,7 @@ describe("WorkspaceView (t224)", () => {
     it("视图菜单排布选择联动网格列数（--cols）", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        await render_shell();
         const cb = focus_cb();
         act(() => {
             cb({ source: "claude_code", env: "win", session_id: "sess_a" });
@@ -742,7 +773,7 @@ describe("WorkspaceView (t224)", () => {
     it("聚焦：点聚焦按钮后网格聚焦该面板，再点退出", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -759,7 +790,7 @@ describe("WorkspaceView (t224)", () => {
     it("快捷键 1-8 聚焦对应槽位，[ ] 循环切换，Esc 退出聚焦", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
             focus_cb()({ source: "opencode", env: "win", session_id: "sess_b" });
@@ -787,7 +818,7 @@ describe("WorkspaceView (t224)", () => {
     it("快捷键 Esc 逐层退出：大纲 → 聚焦 → 普通态", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -811,7 +842,7 @@ describe("WorkspaceView (t224)", () => {
     it("关闭聚焦槽位后网格不残留聚焦态", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -832,7 +863,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [{ id: "m1", role: "user", text: "你好", timestamp: 100 }],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        await render_shell();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -851,7 +882,7 @@ describe("WorkspaceView (t224)", () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
-        render(<WorkspaceView />);
+        render_workspace();
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
@@ -883,7 +914,7 @@ describe("WorkspaceView (t224)", () => {
             messages: [msg("m1", "user", "你好", 100)],
             next_cursor: null,
         });
-        render(<WorkspaceView />);
+        render_workspace();
         const root = document.querySelector(".session-workspace");
         expect(root?.className).toContain("bg-[var(--color-surface-window)]");
         expect(root?.className).not.toContain("bg-[var(--color-surface)]");
@@ -907,24 +938,25 @@ describe("WorkspaceView (t224)", () => {
     });
 });
 
-describe("WorkspaceView (t318 布局对齐)", () => {
-    it("AC3：rail-toggle 与工具栏同高、位于工作台顶栏行，rail 内容区直顶 body", () => {
-        render(<WorkspaceView />);
-        const toggle = document.querySelector(".session-rail-toggle");
-        const topbar = document.querySelector(".session-workspace-topbar");
-        const toolbar = document.querySelector(".session-toolbar");
-        const rail = document.querySelector(".session-rail");
-        expect(toggle).toBeTruthy();
-        expect(topbar).toBeTruthy();
-        // t318_gen_f001: 同高由 topbar items-stretch 结构性保证（不锚定 h-[45px]
-        // 像素巧合值——该值 = py-1.5 + Button sm h-8 + border，Button 尺寸调整
-        // 时无上下文失效）；像素级高度差由 e2e 几何断言覆盖。
-        expect(topbar?.className).toContain("items-stretch");
-        expect(toggle?.className).not.toContain("h-[34px]");
-        // toggle 与工具栏同处顶栏行（顶边/底边对齐前提）。
-        expect(topbar?.contains(toggle)).toBe(true);
-        expect(topbar?.contains(toolbar)).toBe(true);
-        // rail 不再内嵌 toggle：rail 内容区顶部即 body 顶部，与 grid 同基线。
-        expect(rail?.contains(toggle)).toBe(false);
+describe("WorkspaceView (t323 顶栏按钮上移后布局)", () => {
+    it("AC-003：次级 topbar 行移除，body 直顶容器，grid 与 rail 并列同基线", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render_workspace();
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => {
+            expect(document.querySelector(".session-slot-title")).toBeTruthy();
+        });
+        // 无独立次级 topbar 行（三按钮与 rail-toggle 已上移顶栏）。
+        expect(document.querySelector(".session-workspace-topbar")).toBeNull();
+        // body 为根容器首个子元素（上方无 topbar 占位行，grid 顶边直顶顶栏下边）。
+        const root = document.querySelector(".session-workspace");
+        const body = document.querySelector(".session-workspace-body");
+        expect(root?.firstElementChild).toBe(body);
+        // rail 与 grid 并列于 body，同一水平基线。
+        expect(body?.querySelector(".session-rail")).toBeTruthy();
+        expect(body?.querySelector(".session-grid")).toBeTruthy();
     });
 });

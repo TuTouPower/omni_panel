@@ -112,6 +112,35 @@ describe("PanelTitleBar (t252)", () => {
         expect(buttons[0]?.getAttribute("aria-label")).toBe("刷新");
     });
 
+    it("before_actions 渲染于刷新按钮左侧（t323 三按钮插槽）", () => {
+        render(
+            <PanelTitleBar
+                panel="Session"
+                onRefresh={vi.fn()}
+                before_actions={
+                    <>
+                        <button type="button">最近会话</button>
+                        <button type="button">清空</button>
+                        <button type="button">视图 ▾</button>
+                    </>
+                }
+            />,
+        );
+        const recent = screen.getByRole("button", { name: "最近会话" });
+        const view = screen.getByRole("button", { name: /视图/ });
+        const refresh = screen.getByTitle("刷新当前面板");
+        const in_titlebar = (el: HTMLElement): boolean =>
+            document.querySelector("[data-panel-titlebar=Session]")?.contains(el) ?? false;
+        expect(in_titlebar(recent)).toBe(true);
+        // 最近会话在视图前，视图在刷新前（全部左侧）。
+        expect(
+            recent.compareDocumentPosition(view) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            view.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
     it("Usage 切换按钮 icon 为 clock_forward（lucide ClockArrowUp，无 dashboard 矩形）（AC-006）", () => {
         render(<PanelTitleBar panel="Session" />);
         const usage_btn = screen.getByRole("button", { name: "Usage面板" });

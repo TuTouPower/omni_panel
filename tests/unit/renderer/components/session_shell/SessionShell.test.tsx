@@ -206,3 +206,49 @@ describe("SessionShell (t223)", () => {
         expect(topbar?.className).not.toContain("bg-[var(--color-surface)]");
     });
 });
+
+function before(a: HTMLElement, b: HTMLElement): boolean {
+    return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+}
+
+describe("SessionShell (t323 顶栏三按钮上移)", () => {
+    it("AC-001：三按钮渲染于刷新按钮左侧，顺序 最近会话/清空/视图", async () => {
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const titlebar = document.querySelector("[data-panel-titlebar=Session]");
+        expect(titlebar).toBeTruthy();
+        const recent = screen.getByRole("button", { name: "最近会话" });
+        const clear = screen.getByRole("button", { name: "清空" });
+        const view = screen.getByRole("button", { name: /视图/ });
+        const refresh = screen.getByTitle("刷新当前面板");
+        // 三按钮位于面板顶栏（PanelTitleBar）内。
+        for (const el of [recent, clear, view]) {
+            expect(titlebar?.contains(el)).toBe(true);
+        }
+        // 顺序：最近会话 → 清空 → 视图 → 刷新。
+        expect(before(recent, clear)).toBe(true);
+        expect(before(clear, view)).toBe(true);
+        expect(before(view, refresh)).toBe(true);
+    });
+
+    it("AC-004：rail-toggle 上移至 header，折叠/展开行为不变", async () => {
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const topbar = document.querySelector(".session-topbar");
+        expect(topbar).toBeTruthy();
+        const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
+        // toggle 在 header 内（顶栏行），不在工作台 body 内。
+        expect(topbar?.contains(toggle)).toBe(true);
+        expect(document.querySelector(".session-workspace")?.contains(toggle)).toBe(false);
+        // 折叠行为不变。
+        expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
+        fireEvent.click(toggle);
+        expect(document.querySelector(".session-rail")?.className).toContain("collapsed");
+        fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
+        expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
+    });
+});

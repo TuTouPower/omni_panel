@@ -2,11 +2,11 @@
 tid: "t323"
 slug: "session_topbar_buttons_to_titlebar"
 title: "会话顶栏三按钮移到刷新按钮左侧 + 消除卡片上方空行"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t323_session_topbar_buttons_to_titlebar"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "20751dc1994d4b0630af70179ed360b74725dd17"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,13 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 三按钮与 rail-toggle 上移顶栏：SessionShell header 左侧渲染 rail-toggle（w-[220px]↔w-11，与 rail 左缘同列对齐），PanelTitleBar 新 `before_actions` 插槽渲染 WorkspaceToolbar（最近会话→清空→视图，刷新按钮左侧，顺序保持）。
+- state 提升到 SessionShell：`layout`/`view`/`recent_open`/`rail_collapsed`/`count`；WorkspaceView 受控化（props：layout/view/recent_open/rail_collapsed + on_layout_change/on_recent/on_recent_close/on_count_change/on_register_clear）。移除 `session-workspace-topbar` 行，body 直顶容器，grid 顶边与顶栏下边相接（AC-003）。
+- clear 动作：槽位模型状态在 WorkspaceView（useWorkspaceColumns）内部，WorkspaceView 经 `on_register_clear` 把 clear_all 注册进 SessionShell 的 ref，顶栏「清空」按钮调用之；recent modal 由 `recent_open` prop 受控，confirm 仍在 WorkspaceView（需 hook_clear_all + open_session）。
+- count 上报：WorkspaceView 经 `on_count_change` 上报 `occupied_count(slots_state)`，顶栏视图下拉据此出排布选项。
+- rail-toggle 位置决策：移入 header 与 rail 对齐（折叠宽度动画 220px↔44px 保留）；`rail_collapsed` 相应提升到 SessionShell（spec 点 3 原文「保留在 WorkspaceView 内管理」，但 toggle 移至 header 需要该值渲染，故提升；AC-004 折叠行为不变，由测试覆盖）。toggle 用 rail 同色 bg-surface + border-r outline，与下方 rail 视觉连续。
+- `on_view_change` 未作为 WorkspaceView prop：view 仅由顶栏「视图」下拉修改（on_view_change 在 SessionShell 供 WorkspaceToolbar 用），WorkspaceView 只读 view prop、内部无修改点，故移除该死 prop（spec 点 3 列出但为死 prop，tsc noUnusedParameters 门禁）。
+- 旧测试语义处置：t318 工具栏「占满整行/纵向紧凑/同高」断言随三按钮上移作废，按 TDD 纪律改为 t323 新语义断言（WorkspaceToolbar 按钮顺序、SessionShell AC-001/AC-004、WorkspaceView 无 topbar 行 + grid/rail 同基线、PanelTitleBar before_actions 插槽）；e2e t318 布局测试改为 t323 几何断言（grid 顶边 vs 顶栏下边 ≤1px、rail/grid 同基线、视图菜单右锚定不溢出）。
 
 ## Review 处置
 
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 SessionShell 单测覆盖（三按钮顶栏刷新左侧、功能保留）；AC-003 由 e2e 几何断言（grid 顶边 vs 顶栏下边 ≤1px）；AC-004 rail 折叠单测；全量 2950 passed；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +80,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话面板三按钮（最近会话/清空/视图）上移顶栏刷新按钮左侧（PanelTitleBar before_actions 插槽），rail-toggle 同步上移 header 最左；WorkspaceView 移除次级 topbar 消除空行，grid 顶边直贴顶栏
