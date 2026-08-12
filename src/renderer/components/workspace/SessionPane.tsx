@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
 import { format_time_short } from "../../lib/session-history/markdown";
+import { resume_command } from "../../lib/session-resume";
 import { agent_accent, vendor_id_for_source, type SlotSession } from "../../lib/workspace/slots";
 import {
     format_precise_datetime,
@@ -358,22 +359,6 @@ export function SessionPane({
             </footer>
         </section>
     );
-}
-
-/** t324：会话来源 → 续接命令；未知来源返回 null（点击 session id 无效果）。 */
-function resume_command(source: string, session_id: string): string | null {
-    switch (source) {
-        case "claude_code":
-            return `claude --resume ${session_id}`;
-        case "kimi_code":
-            return `kimi -r ${session_id}`;
-        case "grok":
-            return `grok --resume ${session_id}`;
-        case "opencode":
-            return `opencode -s ${session_id}`;
-        default:
-            return null;
-    }
 }
 
 function format_tokens(n: number): string {
