@@ -1,0 +1,23 @@
+{
+    "tid": "t335",
+    "attempt": 1,
+    "execution_id": "9044ef6e9c2645eca7e25f764f2fba20",
+    "status": "done",
+    "branch": "t335_cli_help",
+    "base_sha": "152ade521e99d8918f64eed5f52a66934a1c6600",
+    "tests": "pnpm test：2992 passed / 9 skipped；tsc --noEmit exit 0",
+    "blackbox": "全量单测 2992 passed + tsc 0；launcher 顶层 help 实机验证（无产物 --help/-h exit 0 打印用法）",
+    "review": "single 级 general：Round 1 PASS（2 minor f001/f002）→ Round 2 PASS（f001 移 RELEASE_BIN 前实证复验、f002 接受）",
+    "ac_evidence": {
+        "AC-001": [
+            "launcher 实机：无产物 node scripts/omni_panel.mjs --help/-h 打印全局用法 exit 0 通过"
+        ],
+        "AC-002": [
+            "tests/unit/main/cli/args.test.ts::--cli help 解析为 help 命令 通过 + index.ts 打印子命令清单"
+        ],
+        "AC-003": ["tests/unit/main/cli/args.test.ts::未知子命令 deploy 仍抛 CliUsageError 通过"],
+        "AC-004": ["args 测试 29 passed 含 serve/控制分支回归；launcher 无 --cli 才拦截 help 通过"]
+    },
+    "pending": [],
+    "findings": []
+}

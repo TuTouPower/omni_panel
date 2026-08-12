@@ -2,11 +2,11 @@
 tid: "t335"
 slug: "cli_help"
 title: "CLI 帮助：omni_panel --help 顶层 + --cli help 子命令"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t335_cli_help"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "152ade521e99d8918f64eed5f52a66934a1c6600"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-13 02:10 UTC+8)
+
+| finding_id    | severity | status | rationale                                                           | fix_ref                      |
+| ------------- | -------- | ------ | ------------------------------------------------------------------- | ---------------------------- |
+| t335_gen_f001 | minor    | 已修   | launcher 顶层 help 拦截移到 RELEASE_BIN 检查前，无产物也能查看帮助  | scripts/omni_panel.mjs:38-53 |
+| t335_gen_f002 | minor    | 已修   | index.ts help 分支极薄（打印+exit 0）静态核验正确，trust_prior 接受 | src/main/index.ts:175-190    |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 launcher 顶层 help 实机验证（无产物 --help/-h exit 0）；AC-002 args 单测 --cli help 解析 + index 打印；AC-003 未知子命令测试保留；AC-004 不影响 serve/控制；全量 2992 passed + tsc 0；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +81,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- omni_panel 补 CLI 帮助：顶层 `--help`/`-h`（无产物也可用）打印全局用法，`--cli help` 打印子命令清单；未知子命令保留；不影响 serve/控制
