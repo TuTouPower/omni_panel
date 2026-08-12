@@ -36,6 +36,23 @@ describe("buildHeatmapOption (t205)", () => {
         }
     });
 
+    it("cell border color differs from surface-card in both themes (t317 AC-001/002)", () => {
+        for (const theme of ["dark", "light"] as const) {
+            const option = buildHeatmapOption(
+                data,
+                quantiles,
+                metric,
+                DEFAULT_CHART_PALETTES[theme],
+            );
+            const series = option.series as { itemStyle?: { borderColor?: string } }[];
+            const borderColor = series[0]?.itemStyle?.borderColor;
+            expect(borderColor).toBeDefined();
+            // Zero cells are transparent and expose the card background; their
+            // outline must stay visible, i.e. differ from surface-card.
+            expect(borderColor).not.toBe(DEFAULT_CHART_PALETTES[theme].sliceBorder);
+        }
+    });
+
     it("pieces use the 8 heat colors in order and span the positive range", () => {
         const option = buildHeatmapOption(data, quantiles, metric, DEFAULT_CHART_PALETTES.dark);
         const pieces = (option.visualMap as { pieces: Record<string, unknown>[] }).pieces;

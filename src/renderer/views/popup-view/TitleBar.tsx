@@ -1,6 +1,7 @@
 import { Icon } from "../../components/Icon";
 import { is_web } from "../../lib/is-web";
 import { Button } from "../../components/ui/Button";
+import { ICON_LINK_CLS } from "../../components/ui/icon-link";
 import logo from "../../assets/logo.svg";
 
 interface TitleBarProps {
@@ -13,7 +14,7 @@ interface TitleBarProps {
     onOpenSettings: () => void;
     is_floating: boolean;
     onHidePanel: () => void;
-    /** 打开/聚焦会话历史窗口（t212；web 模式隐藏按钮）。 */
+    /** 打开/聚焦会话历史窗口（t212；web 面板同样显示并走 web bridge onFocus 分发，t307）。 */
     onOpenHistory?: () => void;
 }
 
@@ -29,6 +30,8 @@ export function TitleBar(props: TitleBarProps) {
         onHidePanel,
         onOpenHistory,
     } = props;
+    // t311：web 端设置/代理面板/会话按钮为原生 `<a href="#route">`（中键/Ctrl+Click
+    // 由浏览器新开标签页，左键 hash 切换路由），桌面端保持 Button + 桥方法调用。
     return (
         <div
             className={
@@ -75,28 +78,54 @@ export function TitleBar(props: TitleBarProps) {
                         {...(refreshing ? { className: "animate-spin" } : {})}
                     />
                 </Button>
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="设置"
-                    onClick={is_live ? onOpenSettings : undefined}
-                >
-                    <Icon name="gear" size={18} />
-                </Button>
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="代理面板"
-                    aria-label="代理面板"
-                    onClick={() => {
-                        window.usageboard.tokenStats.open();
-                    }}
-                >
-                    <Icon name="chart" size={18} />
-                </Button>
-                {!is_web() && (
+                {is_web() ? (
+                    <a className={ICON_LINK_CLS} title="设置" href="#setting">
+                        <Icon name="gear" size={18} />
+                    </a>
+                ) : (
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="设置"
+                        onClick={is_live ? onOpenSettings : undefined}
+                    >
+                        <Icon name="gear" size={18} />
+                    </Button>
+                )}
+                {is_web() ? (
+                    <a
+                        className={ICON_LINK_CLS}
+                        title="代理面板"
+                        aria-label="代理面板"
+                        href="#agent"
+                    >
+                        <Icon name="chart" size={18} />
+                    </a>
+                ) : (
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="代理面板"
+                        aria-label="代理面板"
+                        onClick={() => {
+                            window.usageboard.tokenStats.open();
+                        }}
+                    >
+                        <Icon name="chart" size={18} />
+                    </Button>
+                )}
+                {is_web() ? (
+                    <a
+                        className={ICON_LINK_CLS}
+                        title="会话历史"
+                        aria-label="会话历史"
+                        href="#session"
+                    >
+                        <Icon name="chat_square" size={18} />
+                    </a>
+                ) : (
                     <Button
                         variant="icon"
                         size="sm"

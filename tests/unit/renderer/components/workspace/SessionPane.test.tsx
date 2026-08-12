@@ -232,6 +232,13 @@ describe("SessionPane (t225)", () => {
         // 虚拟列表将 scrollTop 设为第一条消息偏移（jsdom 无测量，按估计高度 80）。
         expect((container as HTMLElement).scrollTop).toBe(0);
     });
+
+    it("t315 AC2：卡片背景为第二色 surface-raised（与根 surface-window 两色可辨）", () => {
+        render(<SessionPane {...PROPS} />);
+        const pane = document.querySelector(".conversation-pane");
+        expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(pane?.className).not.toContain("bg-[var(--color-surface-window)]");
+    });
 });
 
 describe("SessionPane 滚动定位与重渲染 (t265)", () => {

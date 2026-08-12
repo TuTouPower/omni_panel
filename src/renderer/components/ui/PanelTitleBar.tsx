@@ -5,6 +5,7 @@ import { is_web } from "../../lib/is-web";
 import type { PanelName } from "../../lib/panel-navigation";
 import logo from "../../assets/logo.svg";
 import { Button } from "./Button";
+import { ICON_LINK_CLS } from "./icon-link";
 
 interface PanelTitleBarProps {
     /** 通用形态：标题内容（与 panel 形态二选一）。 */
@@ -28,6 +29,57 @@ interface PanelTitleBarProps {
 }
 
 /**
+ * 窗口控制按钮组（最小化/最大化/关闭），面板形态与通用形态共用。
+ * Web 构建不渲染（无窗口 API）。
+ */
+export function WindowControls({ onClose }: { onClose?: (() => void) | undefined }): ReactNode {
+    if (is_web()) return null;
+    return (
+        <>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="最小化"
+                aria-label="最小化"
+                onClick={() => {
+                    window.usageboard.window.minimize();
+                }}
+            >
+                <Icon name="minus" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="最大化/还原"
+                aria-label="最大化/还原"
+                onClick={() => {
+                    window.usageboard.window.maximize();
+                }}
+            >
+                <Icon name="maximize" size={16} />
+            </Button>
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="关闭"
+                aria-label="关闭"
+                onClick={
+                    onClose ??
+                    (() => {
+                        window.usageboard.window.close();
+                    })
+                }
+            >
+                <Icon name="close" size={16} />
+            </Button>
+        </>
+    );
+}
+
+/**
  * t269 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。
  * 通用形态 = title/actions；t252 面板形态 = panel/onNavigate/onRefresh（品牌区 + 面板切换 +
  * 窗口控制），四面板（Settings/Session/Agent）共用，避免重复实现。
@@ -44,7 +96,15 @@ export function PanelTitleBar({
     is_live = true,
     onClose,
 }: PanelTitleBarProps) {
-    const panels: PanelName[] = ["Usage", "Agent", "Session", "Settings"];
+    const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session"];
+    // t311：web 端互跳入口为原生 `<a href="#{route}">`（中键/Ctrl+Click 由浏览器新开标签页），
+    // 桌面端保持 Button + onNavigate。路由名映射与 use-route.ts VALID_ROUTES / App.tsx 挂载一致。
+    const panel_routes: Record<PanelName, string> = {
+        Settings: "setting",
+        Usage: "usage",
+        Agent: "agent",
+        Session: "session",
+    };
     const base = cn(
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
             "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
@@ -71,7 +131,7 @@ export function PanelTitleBar({
                     </span>
                 </div>
                 <div className={actions_cls}>
-                    {onRefresh && (
+                    {onRefresh && panel !== "Settings" && (
                         <Button
                             variant="icon"
                             size="sm"
@@ -89,67 +149,45 @@ export function PanelTitleBar({
                     )}
                     {panels
                         .filter((p) => p !== panel)
-                        .map((p) => (
-                            <Button
-                                key={p}
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title={`${p}面板`}
-                                aria-label={`${p}面板`}
-                                onClick={() => {
-                                    onNavigate?.(p);
-                                }}
-                            >
-                                {p === "Usage" && <Icon name="dashboard" size={16} />}
-                                {p === "Agent" && <Icon name="chart" size={16} />}
-                                {p === "Session" && <Icon name="chat_square" size={16} />}
-                                {p === "Settings" && <Icon name="gear" size={16} />}
-                            </Button>
-                        ))}
-                    {!is_web() && (
-                        <>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="最小化"
-                                aria-label="最小化"
-                                onClick={() => {
-                                    window.usageboard.window.minimize();
-                                }}
-                            >
-                                <Icon name="minus" size={16} />
-                            </Button>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="最大化/还原"
-                                aria-label="最大化/还原"
-                                onClick={() => {
-                                    window.usageboard.window.maximize();
-                                }}
-                            >
-                                <Icon name="maximize" size={16} />
-                            </Button>
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="关闭"
-                                aria-label="关闭"
-                                onClick={
-                                    onClose ??
-                                    (() => {
-                                        window.usageboard.window.close();
-                                    })
-                                }
-                            >
-                                <Icon name="close" size={16} />
-                            </Button>
-                        </>
-                    )}
+                        .map((p) => {
+                            const icon = (
+                                <>
+                                    {p === "Usage" && <Icon name="clock_forward" size={16} />}
+                                    {p === "Agent" && <Icon name="chart" size={16} />}
+                                    {p === "Session" && <Icon name="chat_square" size={16} />}
+                                    {p === "Settings" && <Icon name="gear" size={16} />}
+                                </>
+                            );
+                            if (is_web()) {
+                                return (
+                                    <a
+                                        key={p}
+                                        className={ICON_LINK_CLS}
+                                        title={`${p}面板`}
+                                        aria-label={`${p}面板`}
+                                        href={`#${panel_routes[p]}`}
+                                    >
+                                        {icon}
+                                    </a>
+                                );
+                            }
+                            return (
+                                <Button
+                                    key={p}
+                                    variant="icon"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    title={`${p}面板`}
+                                    aria-label={`${p}面板`}
+                                    onClick={() => {
+                                        onNavigate?.(p);
+                                    }}
+                                >
+                                    {icon}
+                                </Button>
+                            );
+                        })}
+                    <WindowControls onClose={onClose} />
                 </div>
             </div>
         );

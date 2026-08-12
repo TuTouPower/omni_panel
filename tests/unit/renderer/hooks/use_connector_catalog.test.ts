@@ -74,7 +74,7 @@ describe("create_instance_and_save", () => {
             {},
             0,
             "Grok account",
-            false,
+            true,
             config,
         );
         expect(api.grok_logout).toHaveBeenCalledWith("grok-temp-instance");

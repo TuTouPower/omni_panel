@@ -44,6 +44,10 @@
 
 `source` 取值：`poll` / `local` / `session` / `probe` / `wrapper` / `gateway`（CPA 走 `gateway`）。
 
+### 3.3 token-stats 源级状态（t309）
+
+token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailable|failed, lastError?}`，经 `TokenStatsUpdate.sources_status` 同步主进程与面板。语义：源路径解析为 `null`（如非 Windows 宿主的 wsl 源）→ `unavailable` + 原因；读取抛错（如 ENOENT）→ `failed` + 错误信息；正常读取 → `ok`。不可用/失败源输出 warn 日志（含 source/env/原因），采集失败不再无解释。面板 status 区（新鲜度旁）渲染非 ok 源的原因标记；`ok` 源不显示额外标记，正常源行为不变。
+
 ## 3.1 Kimi 用量字段口径（t113）
 
 `connectors/kimi/connector.ts` 解析 `/coding/v1/usages` 响应，参考实现 `vendors/KimiCodeBar/macOS/KimiCodeBar/KimiCodeBarQuotaService.swift`：
@@ -56,7 +60,7 @@
 
 token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），仅 WSL（Windows 无 grok CLI 数据），与连接器 `connectors/grok`（billing 百分比）互不相干。
 
-- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。Windows 侧经 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...` 读取。
+- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。grok 数据仅存在于 WSL（`env='wsl'`，t308 起路径经平台感知层 `paths.ts` 解析，Windows 宿主 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...`，非 Windows 宿主 `~/.grok/sessions/...` 走 `local` 源）。
 - **事件口径**：`turn_completed` 事件的 `usage` 是【该 user prompt 一轮的独立总量】，跨 inference loop 累加、下一轮从零起算，**勿用相邻事件差分**（会把每轮总量误当累计快照造成巨量漏记）。`reasoningTokens ⊂ outputTokens` 不计费，output 直接映射、reasoning 不单独记账。`costUsdTicks` 不入账。
 - **records agent 值约定**：kebab-case，`agent="grok"`，与 `source="grok"` 一致。
 - **展示层映射**（t198）：label `"Grok"`、color `#b687f0`（紫），records 侧 `AGENT_*` 与 buckets/rollup 侧 `BUCKET_AGENT_*`/`ROLLUP_AGENT_*` 三组映射同构扩展；`AgentFilter` 含 `"grok"`；SessionTable chip class `gk`。展示层权威映射在 `src/renderer/lib/token-stats/chart-data.ts` 与 `src/renderer/views/TokenStatsView.tsx` 的 `AGENT_OPTIONS`。

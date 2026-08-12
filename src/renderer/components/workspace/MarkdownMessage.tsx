@@ -36,7 +36,7 @@ const markdown_components: Components = {
         <table className="my-1.5 border-collapse text-[12.5px]">{children}</table>
     ),
     th: ({ children }: { children?: ReactNode }) => (
-        <th className="border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-[9px] py-1 font-semibold">
+        <th className="border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-[9px] py-1 font-semibold">
             {children}
         </th>
     ),
@@ -44,12 +44,12 @@ const markdown_components: Components = {
         <td className="border border-[var(--color-outline)] px-[9px] py-1">{children}</td>
     ),
     code: ({ children }: { children?: ReactNode }) => (
-        <code className="rounded-[4px] bg-[var(--color-surface-raised)] px-[5px] py-px font-[var(--font-code-md)] text-[12px]">
+        <code className="rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-[5px] py-px font-[var(--font-code-md)] text-[12px]">
             {children}
         </code>
     ),
     pre: ({ children }: { children?: ReactNode }) => (
-        <pre className="my-1.5 overflow-x-auto rounded-lg border border-[var(--color-outline)] bg-[var(--color-field-bg)] p-[10px_12px] [&_code]:bg-transparent [&_code]:p-0">
+        <pre className="my-1.5 overflow-x-auto rounded-lg border border-[var(--color-outline)] bg-[var(--color-field-bg)] p-[10px_12px] [&_code]:border-0 [&_code]:bg-transparent [&_code]:p-0">
             {children}
         </pre>
     ),

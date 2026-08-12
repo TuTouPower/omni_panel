@@ -115,7 +115,7 @@ function turn_completed(
 }
 
 const ENC_CWD = "%2Fhome%2Fkaron%2Fgithub_repo";
-const ENV: TokenStatsEnv = "win";
+const ENV: TokenStatsEnv = "local";
 const T0_MS = 1785093854000;
 
 describe("scan_grok_updates", () => {
@@ -139,7 +139,7 @@ describe("scan_grok_updates", () => {
         expect(result.records).toHaveLength(1);
         expect(result.records[0]).toMatchObject({
             source: "grok",
-            env: "win",
+            env: "local",
             agent: "grok",
             session_id: "session_abc",
             message_id: "019f9fe0-cae5-7d31-bf17-d3292a086bcc",
@@ -157,7 +157,7 @@ describe("scan_grok_updates", () => {
         expect(result.sessions[0]).toMatchObject({
             id: "session_abc",
             source: "grok",
-            env: "win",
+            env: "local",
             model: "grok-4.5-build",
             calls: 1,
             input_tokens: 3464,
@@ -173,7 +173,7 @@ describe("scan_grok_updates", () => {
         expect(result.daily[0]).toMatchObject({
             id: "session_abc",
             source: "grok",
-            env: "win",
+            env: "local",
             model: "grok-4.5-build",
             calls: 1,
             input_tokens: 3464,

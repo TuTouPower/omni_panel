@@ -36,6 +36,7 @@ function createMockDeps() {
             has_more: false,
         }),
         last_updated: vi.fn().mockReturnValue(null),
+        sources_status: vi.fn().mockReturnValue([]),
     } as unknown as TokenStatsStore;
     const manager = {
         is_running: vi.fn().mockReturnValue(false),
@@ -56,6 +57,59 @@ function good_event(): Electron.IpcMainInvokeEvent {
     return {
         senderFrame: { url: "file:///D:/app/out/renderer/index.html" },
     } as unknown as Electron.IpcMainInvokeEvent;
+}
+
+// t309_code_f003: dashboard fixture 工厂，避免三处 verbatim 重复。
+function make_dashboard(): TokenStatsDashboardDto {
+    return {
+        query: {
+            agent: "all",
+            platform: "all",
+            start: 1,
+            end: 2,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        },
+        current: {
+            tokens: 0,
+            sessions: 0,
+            calls: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            agent_totals: [],
+            model_token_totals: [],
+            model_call_totals: [],
+            project_session_totals: [],
+        },
+        previous: {
+            tokens: 0,
+            sessions: 0,
+            calls: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            agent_totals: [],
+            model_token_totals: [],
+            model_call_totals: [],
+            project_session_totals: [],
+        },
+        chart_data: {
+            axis: { labels: [], bucket_starts: [] },
+            metric_buckets: [],
+            session_buckets: [],
+            rollup: [],
+        },
+        heatmap: [],
+        models: [],
+        sessions: { items: [], total: 0, has_more: false },
+        status: { running: false, last_updated: null },
+        freshness: { queried_at: 3, stale: false },
+        data_version: 0,
+    };
 }
 
 function pick_handler(channel: string): Ipc_handler {
@@ -174,55 +228,7 @@ describe("token-stats-ipc sender validation", () => {
 
     it("TOKEN_STATS_DASHBOARD delegates a valid query to the isolated dispatcher", async () => {
         const deps = createMockDeps();
-        const dashboard: TokenStatsDashboardDto = {
-            query: {
-                agent: "all",
-                platform: "all",
-                start: 1,
-                end: 2,
-                metric: "tokens",
-                xaxis: "time",
-                gran: "hour",
-            },
-            current: {
-                tokens: 0,
-                sessions: 0,
-                calls: 0,
-                input_tokens: 0,
-                output_tokens: 0,
-                cache_read_tokens: 0,
-                cache_write_tokens: 0,
-                agent_totals: [],
-                model_token_totals: [],
-                model_call_totals: [],
-                project_session_totals: [],
-            },
-            previous: {
-                tokens: 0,
-                sessions: 0,
-                calls: 0,
-                input_tokens: 0,
-                output_tokens: 0,
-                cache_read_tokens: 0,
-                cache_write_tokens: 0,
-                agent_totals: [],
-                model_token_totals: [],
-                model_call_totals: [],
-                project_session_totals: [],
-            },
-            chart_data: {
-                axis: { labels: [], bucket_starts: [] },
-                metric_buckets: [],
-                session_buckets: [],
-                rollup: [],
-            },
-            heatmap: [],
-            models: [],
-            sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
-            freshness: { queried_at: 3, stale: false },
-            data_version: 0,
-        };
+        const dashboard = make_dashboard();
         // eslint-disable-next-line @typescript-eslint/unbound-method
         vi.mocked(deps.dispatcher.request_dashboard).mockResolvedValue(dashboard);
         // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -248,6 +254,74 @@ describe("token-stats-ipc sender validation", () => {
             last_updated: 42,
         });
         expect(result).toEqual({ ok: true, data: dashboard });
+    });
+
+    it("TOKEN_STATS_DASHBOARD includes sources_status in the status snapshot when the store has reports (t309)", async () => {
+        const deps = createMockDeps();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        vi.mocked(deps.store.sources_status).mockReturnValue([
+            {
+                source: "grok",
+                env: "wsl",
+                status: "unavailable",
+                lastError: "sessions dir missing",
+            },
+        ]);
+        const dashboard = make_dashboard();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        vi.mocked(deps.dispatcher.request_dashboard).mockResolvedValue(dashboard);
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const request = {
+            agent: "all",
+            platform: "all",
+            start: 1,
+            end: 2,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        };
+        await pick_handler("tokenStats:dashboard")(good_event(), request);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.dispatcher.request_dashboard)).toHaveBeenCalledWith(request, {
+            running: false,
+            last_updated: null,
+            sources_status: [
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+            ],
+        });
+    });
+
+    it("TOKEN_STATS_DASHBOARD omits sources_status when the store has no reports (t309)", async () => {
+        const deps = createMockDeps();
+        // createMockDeps 默认 sources_status 返回 []（39 行）。
+        const dashboard = make_dashboard();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        vi.mocked(deps.dispatcher.request_dashboard).mockResolvedValue(dashboard);
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const request = {
+            agent: "all",
+            platform: "all",
+            start: 1,
+            end: 2,
+            metric: "tokens",
+            xaxis: "time",
+            gran: "hour",
+        };
+        await pick_handler("tokenStats:dashboard")(good_event(), request);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(vi.mocked(deps.dispatcher.request_dashboard)).toHaveBeenCalledWith(request, {
+            running: false,
+            last_updated: null,
+        });
     });
 
     it("TOKEN_STATS_DASHBOARD returns QUERY_FAILED when the dispatcher rejects", async () => {

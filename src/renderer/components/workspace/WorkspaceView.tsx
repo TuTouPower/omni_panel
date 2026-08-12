@@ -11,6 +11,7 @@ import {
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { SessionRail } from "./SessionRail";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
@@ -273,42 +274,55 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
     }, []);
 
     return (
-        <div className="history-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface)]">
-            <WorkspaceToolbar
-                layout={layout}
-                count={count}
-                view={view}
-                on_view_change={set_view}
-                on_layout_change={set_layout}
-                on_recent={() => {
-                    set_recent_open(true);
-                }}
-                on_clear={clear_all}
-            />
-            <div className="history-workspace-body flex min-h-0 flex-1">
+        <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
+            <div className="session-workspace-topbar flex shrink-0 items-stretch">
+                <button
+                    type="button"
+                    className={cn(
+                        "session-rail-toggle h-[45px] w-[220px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        rail_collapsed && "w-11",
+                    )}
+                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    onClick={() => {
+                        set_rail_collapsed((v) => !v);
+                    }}
+                >
+                    {rail_collapsed ? "»" : "«"}
+                </button>
+                <WorkspaceToolbar
+                    layout={layout}
+                    count={count}
+                    view={view}
+                    on_view_change={set_view}
+                    on_layout_change={set_layout}
+                    on_recent={() => {
+                        set_recent_open(true);
+                    }}
+                    on_clear={clear_all}
+                />
+            </div>
+            <div className="session-workspace-body flex min-h-0 flex-1">
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
-                    on_toggle_collapse={() => {
-                        set_rail_collapsed((v) => !v);
-                    }}
                     on_pick={open_picker}
                     on_close={close_slot}
                     on_move={move_slot_ui}
                 />
                 <div
-                    className="history-workspace-main flex min-w-0 flex-1 overflow-auto"
+                    className="session-workspace-main flex min-w-0 flex-1 overflow-auto"
                     ref={container_ref}
                 >
                     {count === 0 ? (
-                        <div className="history-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
-                            <p className="history-workspace-empty-title text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
+                        <div className="session-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
+                            <p className="session-workspace-empty-title text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                                 工作台为空
                             </p>
-                            <p className="history-workspace-empty-sub text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                            <p className="session-workspace-empty-sub text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
-                            <div className="history-workspace-empty-actions mt-3 flex gap-2.5">
+                            <div className="session-workspace-empty-actions mt-3 flex gap-2.5">
                                 <Button
                                     variant="secondary"
                                     onClick={() => {
@@ -330,7 +344,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                     ) : (
                         <div
                             className={
-                                "history-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-px bg-[var(--color-outline)] p-px" +
+                                "session-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-px bg-[var(--color-outline)] p-px" +
                                 (focused_index !== null ? " focused" : "")
                             }
                             style={{ "--cols": String(cols) } as CSSProperties}
@@ -339,7 +353,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                                 slot === null ? null : (
                                     <div
                                         className={
-                                            "history-cell flex min-h-0 min-w-0 bg-[var(--color-surface)]" +
+                                            "session-cell flex min-h-0 min-w-0 bg-[var(--color-surface-window)]" +
                                             (focused_index !== null && focused_index !== index
                                                 ? " hidden"
                                                 : "") +
@@ -429,7 +443,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 />
             )}
             {toast !== null && (
-                <div className="history-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                <div className="session-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
                     {toast}
                 </div>
             )}

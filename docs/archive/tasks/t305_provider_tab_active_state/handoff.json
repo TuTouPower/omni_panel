@@ -1,0 +1,22 @@
+{
+    "tid": "t305",
+    "attempt": 1,
+    "execution_id": "9a35dfca62b245468fd2975ba8a66d29",
+    "status": "done",
+    "branch": "t305_provider_tab_active_state",
+    "base_sha": "507fcedb9659cc0b29dc1610f5650374da549179",
+    "tests": "pnpm test：2861 passed / 1 failed（存量 designmd drift，登记 p142）/ 9 skipped；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "Round 1 general PASS，零 finding",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/provider_card_overview.test.tsx::t305: l2Open=true 时仅「N账号」tab 高亮（互斥选中态）通过：detail_tab 含 bg-surface-window+text-accent、overview_tab 含 bg-transparent 且不含 accent"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/provider_card_overview.test.tsx::t305: l2Open=false 时仅「概览」tab 高亮（互斥选中态）通过：overview_tab 含 bg-surface-window+text-accent、detail_tab 含 bg-transparent 且不含 accent"
+        ],
+        "AC-003": ["全量 pnpm test 通过（2861 passed），provider_card_overview.test.tsx 12/12 通过"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

@@ -1,0 +1,35 @@
+{
+    "tid": "t309",
+    "attempt": 1,
+    "execution_id": "f33d5a97d92d4d999beabcdb2744e26f",
+    "status": "done",
+    "branch": "t309_token_stats_source_visibility",
+    "base_sha": "1842d8e4ac09acf97b6e75c0c607b316bcf4eb17",
+    "tests": "pnpm test：2887 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；token-stats 相关 536 通过；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "code Round 1 FAIL（f001 important）→ Round 2-4 PASS（f002/f003 minor 修）；test Round 1-4 PASS（f001/f002 minor 修）",
+    "ac_evidence": {
+        "AC-001": [
+            "collector.test.ts「AC-001: non-Windows host filters wsl sources out without reading them and marks them unavailable」：reader 零 wsl 调用、5 wsl 源 unavailable+原因、local 源 ok",
+            "collector-local.test.ts「marks unreachable wsl sources unavailable on a non-Windows host」（显式 set_collector_host(\"linux\")）"
+        ],
+        "AC-002": [
+            "collector.test.ts「AC-002/AC-003: a throwing reader is marked failed with the error and warns once」failed+lastError",
+            "collector-local.test.ts 真实 reader ENOENT→failed",
+            "shared/token-stats.test.ts tokenStatsUpdateSchema 三用例（接受/拒绝非法 status/缺省 []）"
+        ],
+        "AC-003": [
+            "collector.test.ts「AC-003: healthy sources produce no warn logs and report ok status」",
+            "unavailable/failed 源 warn 计数与文案断言；t197 grok 去重 warn 测试原样保留通过"
+        ],
+        "AC-004": [
+            "token_stats_view.test.tsx「AC4: renders reason markers for unavailable and failed sources」（2 标记含 source/env/原因）",
+            "「AC4: ok-only sources render no status markers」"
+        ],
+        "AC-005": [
+            "既有 collector collect() 全组（reads all local sources / grok posts rows / incremental state / record diff）+ token-stats-store/dashboard 回归全部原样通过"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": ["d034"]
+}

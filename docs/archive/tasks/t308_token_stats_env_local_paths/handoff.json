@@ -1,0 +1,36 @@
+{
+    "tid": "t308",
+    "attempt": 1,
+    "execution_id": "a48b3d1a10be45b89092c14a3fe845ad",
+    "status": "done",
+    "branch": "t308_token_stats_env_local_paths",
+    "base_sha": "a5962cfab4c269c4e7627a7b7c74c5ae8b66c588",
+    "tests": "pnpm test：2873 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；token-stats 相关 257/257；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "code Round 1-4 全 PASS（f001/f002/f003 minor 均修）；test Round 1-2 全 PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/paths.test.ts「local sources on non-Windows hosts (AC-001)」linux/macos POSIX 路径 + wsl null",
+            "tests/unit/main/core/token-stats/collector-local.test.ts「reads local claude jsonl from os.homedir() and posts the session」真实读取"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/paths.test.ts「windows host (AC-002)」win_home local 反斜杠路径 + UNC 精确 toBe",
+            "tests/unit/main/core/token-stats/collector.test.ts「builds WSL UNC paths on a windows host (AC-002)」"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/paths.test.ts「undetectable wsl_user on windows host (AC-003)」wsl_user 空串六 builder 全 null",
+            "collector.test.ts 同名用例"
+        ],
+        "AC-004": [
+            "tokenStatsEnvSchema.options toEqual [\"local\",\"wsl\"] + safeParse(\"win\") 拒绝（paths.test.ts schema 断言）",
+            "「no win env literal remains in collector/ipc/readers (AC-004)」守卫断言 12 文件六形态正则零命中",
+            "全仓 grep 无 env='win' 残留（session-history 属 t310 范围）"
+        ],
+        "AC-005": [
+            "token-stats-store.test.ts「migration v7 … preserving row counts (AC-005/006)」五表 win_count=0、local_count=迁移前 win_count、user_version=7"
+        ],
+        "AC-006": ["同用例 records/daily SUM(input_tokens) 迁移前后一致"]
+    },
+    "pending": ["p142"],
+    "findings": ["d033"]
+}

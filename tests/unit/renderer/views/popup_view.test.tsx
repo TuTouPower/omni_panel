@@ -337,6 +337,20 @@ describe("PopupView", () => {
         expect(add_btn).toBeInTheDocument();
     });
 
+    it("标题栏按钮序与 PanelTitleBar 语义一致：刷新 设置 代理面板 会话历史（AC-002）", async () => {
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
+        });
+        const titlebar = document.querySelector('[data-testid="popup-titlebar"]');
+        expect(titlebar).not.toBeNull();
+        const buttons = Array.from(titlebar?.querySelectorAll("button") ?? []).map(
+            (b) => b.getAttribute("aria-label") ?? b.getAttribute("title") ?? "",
+        );
+        // 用量面板为当前面板：排除自身后为 设置 代理 会话，刷新恒在首位。
+        expect(buttons.slice(0, 4)).toEqual(["刷新", "设置", "代理面板", "会话历史"]);
+    });
+
     it("opens the session history window from the title bar button", async () => {
         session_history_open.mockClear();
         render(<PopupView />);
@@ -359,17 +373,81 @@ describe("PopupView", () => {
         expect(token_stats_open).toHaveBeenCalled();
     });
 
-    it("hides the session history button in web mode", async () => {
+    // t307：旧「web 隐藏会话历史按钮」用例语义被推翻（spec AC-001 改为 web 也显示），
+    // 整体删除；web 渲染与点击由下方用例覆盖新语义（禁止改写旧用例预期迁就实现）。
+    // t311：web 会话按钮语义再次被推翻——从 button + open 桥改为原生链接（AC-002/AC-004），
+    // t307 遗留的「web 点击会话历史按钮调 sessionHistory.open」用例（AC-002 旧语义）整体删除；
+    // 旧「web 渲染 button」断言改为 link（按钮形态变更为链接，属同一功能迁移）。
+    it("web 态标题栏 设置/代理面板/会话历史 渲染为原生链接（t311 AC-002/AC-004）", async () => {
         document.documentElement.dataset["web"] = "1";
         try {
             render(<PopupView />);
             await waitFor(() => {
                 expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
             });
-            expect(screen.queryByRole("button", { name: "会话历史" })).toBeNull();
+            const settings_link = screen.getByRole("link", { name: "设置" });
+            expect(settings_link.tagName).toBe("A");
+            expect(settings_link).toHaveAttribute("href", "#setting");
+            const agent_link = screen.getByRole("link", { name: "代理面板" });
+            expect(agent_link.tagName).toBe("A");
+            expect(agent_link).toHaveAttribute("href", "#agent");
+            const session_link = screen.getByRole("link", { name: "会话历史" });
+            expect(session_link.tagName).toBe("A");
+            expect(session_link).toHaveAttribute("href", "#session");
+            // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick
+            // attribute（恒真断言无意义）；可失败断言——点击链接不触发
+            // open 桥（若实现误在 <a> 上挂 onClick 会调 token_stats_open/
+            // session_history_open），默认导航透传由 e2e hash 断言覆盖。
+            session_history_open.mockClear();
+            token_stats_open.mockClear();
+            agent_link.click();
+            expect(token_stats_open).not.toHaveBeenCalled();
+            session_link.click();
+            expect(session_history_open).not.toHaveBeenCalled();
+            // 窗口控制按钮在 web 下仍隐藏（t307 只放开会话历史按钮那处守卫）。
+            expect(screen.queryByRole("button", { name: "最小化" })).toBeNull();
+            expect(screen.queryByRole("button", { name: "最大化/还原" })).toBeNull();
+            expect(screen.queryByRole("button", { name: "关闭" })).toBeNull();
         } finally {
             delete document.documentElement.dataset["web"];
         }
+    });
+
+    it("web 态空态「添加服务」入口渲染为原生链接 #setting（t311 AC-006）", async () => {
+        plugin_list.mockResolvedValue([]);
+        document.documentElement.dataset["web"] = "1";
+        try {
+            render(<PopupView />);
+            await waitFor(() => {
+                expect(screen.getByText("还没有添加任何服务")).toBeInTheDocument();
+            });
+            const add_link = screen.getByRole("link", { name: "添加服务" });
+            expect(add_link.tagName).toBe("A");
+            expect(add_link).toHaveAttribute("href", "#setting");
+            // AC-004 静态前提：无 onClick 拦截——点击不触发 settings.open
+            // （若实现误挂 onClick 会调；React 不渲染 onclick attribute，
+            // hasAttribute 恒真断言无意义）。
+            const settings_open = vi.fn();
+            window.usageboard.settings.open = settings_open;
+            add_link.click();
+            expect(settings_open).not.toHaveBeenCalled();
+        } finally {
+            delete document.documentElement.dataset["web"];
+        }
+    });
+
+    it("桌面态空态「添加服务」入口点击调用 settings.open（t311 AC-005）", async () => {
+        const settings_open = vi.fn();
+        window.usageboard.settings.open = settings_open;
+        plugin_list.mockResolvedValue([]);
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(screen.getByText("还没有添加任何服务")).toBeInTheDocument();
+        });
+        const add_btn = screen.getByRole("button", { name: "添加服务" });
+        expect(add_btn.tagName).toBe("BUTTON");
+        fireEvent.click(add_btn);
+        expect(settings_open).toHaveBeenCalledTimes(1);
     });
 });
 

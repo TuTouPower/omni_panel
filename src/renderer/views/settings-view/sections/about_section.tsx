@@ -1,6 +1,7 @@
 import { Button } from "../../../components/ui/Button";
 import { Icon } from "../../../components/Icon";
 import logo from "../../../assets/logo.svg";
+import { is_web } from "../../../lib/is-web";
 import package_json from "../../../../../package.json";
 
 type BuildInfo = {
@@ -8,6 +9,16 @@ type BuildInfo = {
     commit: string;
     subject: string;
 } | null;
+
+const ABOUT_URLS: Record<string, string> = {
+    site: "https://omnipanel.app",
+    docs: "https://omnipanel.app/docs",
+    contact: "https://omnipanel.app/feedback",
+    donate: "https://omnipanel.app/sponsor",
+    privacy: "https://omnipanel.app/privacy",
+    terms: "https://omnipanel.app/terms",
+    oss: "https://omnipanel.app/oss",
+};
 
 export function AboutSection({ build_info }: { build_info: BuildInfo }) {
     const version = package_json.version;
@@ -104,60 +115,84 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             tint: "#0ea5a3",
                         },
                     ] as const
-                ).map((c) => (
-                    <Button
-                        key={c.id}
-                        variant={c.id === "update" ? "primary" : "secondary"}
-                        className="h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-normal"
-                        data-testid={`about-card-${c.id}`}
-                        type="button"
-                        onClick={() => {
-                            const urls: Record<string, string> = {
-                                site: "https://omnipanel.app",
-                                docs: "https://omnipanel.app/docs",
-                                contact: "https://omnipanel.app/feedback",
-                                donate: "https://omnipanel.app/sponsor",
-                                privacy: "https://omnipanel.app/privacy",
-                                terms: "https://omnipanel.app/terms",
-                                oss: "https://omnipanel.app/oss",
-                            };
-                            const url = urls[c.id];
-                            if (url) {
-                                const win = window.open(url, "_blank", "noopener,noreferrer");
-                                if (!win) window.location.href = url;
-                            }
-                        }}
-                    >
-                        <span
-                            className="flex h-11 w-11 items-center justify-center rounded-xl"
-                            style={{
-                                background:
+                ).map((c) => {
+                    const url = ABOUT_URLS[c.id];
+                    // t311：web 端有外链地址的卡片渲染为原生 `<a target="_blank" rel="noopener noreferrer">`
+                    // （中键/Ctrl+Click 由浏览器新开标签页）；「检查更新」无外链地址与桌面端保持 Button。
+                    const card_class =
+                        (c.id === "update"
+                            ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-strong)]"
+                            : "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] border border-[var(--color-outline)] hover:bg-[var(--color-surface-raised)]") +
+                        // t311_code_f002: 只保留意图类——去掉 Button base 复制的
+                        // font-semibold/rounded-md（web <a> 不经 twMerge，同名
+                        // utility 由 CSS 源顺序决胜导致字重/圆角回归桌面端）。
+                        " inline-flex items-center justify-center transition-feedback " +
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] " +
+                        "h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-normal";
+                    const content = (
+                        <>
+                            <span
+                                className="flex h-11 w-11 items-center justify-center rounded-xl"
+                                style={{
+                                    background:
+                                        c.id === "update"
+                                            ? "rgba(255,255,255,0.2)"
+                                            : `color-mix(in srgb, ${c.tint} 12%, transparent)`,
+                                }}
+                            >
+                                <Icon
+                                    name={c.icon}
+                                    size={23}
+                                    strokeWidth={1.7}
+                                    color={c.id === "update" ? "#fff" : c.tint}
+                                />
+                            </span>
+                            <span className="text-[length:var(--text-title-sm)] font-semibold">
+                                {c.label}
+                            </span>
+                            <span
+                                className={
                                     c.id === "update"
-                                        ? "rgba(255,255,255,0.2)"
-                                        : `color-mix(in srgb, ${c.tint} 12%, transparent)`,
+                                        ? "text-[length:var(--text-body-sm)] opacity-80"
+                                        : "text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
+                                }
+                            >
+                                {c.sub}
+                            </span>
+                        </>
+                    );
+                    if (is_web() && url) {
+                        return (
+                            <a
+                                key={c.id}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`${card_class} no-underline`}
+                                data-testid={`about-card-${c.id}`}
+                            >
+                                {content}
+                            </a>
+                        );
+                    }
+                    return (
+                        <Button
+                            key={c.id}
+                            variant={c.id === "update" ? "primary" : "secondary"}
+                            className={card_class}
+                            data-testid={`about-card-${c.id}`}
+                            type="button"
+                            onClick={() => {
+                                if (url) {
+                                    const win = window.open(url, "_blank", "noopener,noreferrer");
+                                    if (!win) window.location.href = url;
+                                }
                             }}
                         >
-                            <Icon
-                                name={c.icon}
-                                size={23}
-                                strokeWidth={1.7}
-                                color={c.id === "update" ? "#fff" : c.tint}
-                            />
-                        </span>
-                        <span className="text-[length:var(--text-title-sm)] font-semibold">
-                            {c.label}
-                        </span>
-                        <span
-                            className={
-                                c.id === "update"
-                                    ? "text-[length:var(--text-body-sm)] opacity-80"
-                                    : "text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
-                            }
-                        >
-                            {c.sub}
-                        </span>
-                    </Button>
-                ))}
+                            {content}
+                        </Button>
+                    );
+                })}
             </div>
         </div>
     );

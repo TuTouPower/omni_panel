@@ -2,7 +2,11 @@ import { app, utilityProcess, type UtilityProcess } from "electron";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
-import type { TokenStatsConfig, TokenStatsUpdate } from "../../../shared/types/token-stats";
+import type {
+    TokenStatsConfig,
+    TokenStatsSourceStatus,
+    TokenStatsUpdate,
+} from "../../../shared/types/token-stats";
 import type { TokenStatsStore } from "./token-stats-store";
 
 const log = createLogger("token-stats-manager");
@@ -120,6 +124,7 @@ export function create_token_stats_manager(deps: {
                 sessions?: unknown[];
                 daily?: unknown[];
                 records?: unknown[];
+                sources_status?: unknown[];
                 level?: string;
                 module?: string;
                 message?: string;
@@ -146,6 +151,9 @@ export function create_token_stats_manager(deps: {
                 const sessions = (msg.sessions ?? []) as TokenStatsUpdate["sessions"];
                 const daily = (msg.daily ?? []) as TokenStatsUpdate["daily"];
                 const records = (msg.records ?? []) as TokenStatsUpdate["records"];
+                // t309: 源级采集状态随 update 上抛，落到 store 供面板读取。
+                const sources_status = (msg.sources_status ?? []) as TokenStatsSourceStatus[];
+                deps.store.set_sources_status(sources_status);
                 apply_batches(sessions, daily, records);
             },
         );

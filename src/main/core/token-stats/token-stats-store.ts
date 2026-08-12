@@ -15,6 +15,7 @@ import type {
     TokenStatsDashboardSessionsQuery,
     TokenStatsEnv,
     TokenStatsSource,
+    TokenStatsSourceStatus,
     TokenStatsHeatmapCell,
     TokenStatsHeatmapFilters,
     TokenStatsHourBucket,
@@ -84,7 +85,12 @@ export interface TokenStatsStore {
     /** Unified bounded dashboard aggregate; never returns per-message records. */
     query_dashboard(
         query: TokenStatsDashboardQuery,
-        status: { running: boolean; last_updated: number | null },
+        status: {
+            running: boolean;
+            last_updated: number | null;
+            /** Per-source status snapshot (t309); omitted until the first collection reports it. */
+            sources_status?: TokenStatsSourceStatus[];
+        },
     ): TokenStatsDashboardDto;
     /** Bounded session page for dashboard pagination (t200); never recomputes
      *  the summary/chart/heatmap regions. */
@@ -102,6 +108,12 @@ export interface TokenStatsStore {
      */
     backfill_hour_rollup(): void;
     last_updated(): number | null;
+    /**
+     * Report the collector's latest per-source status (t309); the dashboard IPC
+     * snapshot carries it to the panel (AC-004).
+     */
+    set_sources_status(status: TokenStatsSourceStatus[]): void;
+    sources_status(): TokenStatsSourceStatus[];
     close(): void;
 }
 
@@ -758,6 +770,20 @@ export function create_token_stats_store(
         db.exec(ROLLUP_INIT_SQL);
         db.pragma("user_version = 6");
     }
+    // Migration v7 (t308): the env enum dropped `win` in favor of `local`
+    // (collector now resolves paths per host, so the Windows-native source is
+    // "local", not "win"). Rewrite historical rows so env='local' queries see
+    // them; idempotent (WHERE env='win'), row counts and aggregates unchanged.
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 7) {
+        db.exec(
+            "UPDATE token_stats_records SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_sessions SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_daily SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_buckets SET env='local' WHERE env='win';" +
+                "UPDATE token_stats_hour_rollup SET env='local' WHERE env='win';",
+        );
+        db.pragma("user_version = 7");
+    }
     if (readonly) {
         log.debug(`Token stats read-only store initialized: ${db_path}`);
     } else {
@@ -894,6 +920,12 @@ export function create_token_stats_store(
     const get_rollup_ready_stmt = db.prepare(
         `SELECT hour_rollup_ready FROM token_stats_meta WHERE id = 1`,
     );
+
+    // Latest per-source collection status reported by the collector (t309).
+    // Ephemeral by design — reflects the most recent collection round and
+    // resets on process restart; the dashboard/status IPC reads it to surface
+    // unavailable/failed sources to the panel.
+    let latest_sources_status: TokenStatsSourceStatus[] = [];
 
     return {
         upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void {
@@ -1478,6 +1510,14 @@ export function create_token_stats_store(
                 .prepare("SELECT MAX(updated_at) AS ts FROM token_stats_sessions")
                 .get() as { ts: number | null };
             return row.ts;
+        },
+
+        set_sources_status(status: TokenStatsSourceStatus[]): void {
+            latest_sources_status = status.map((s) => ({ ...s }));
+        },
+
+        sources_status(): TokenStatsSourceStatus[] {
+            return latest_sources_status;
         },
 
         close() {

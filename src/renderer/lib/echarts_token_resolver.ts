@@ -18,6 +18,7 @@ export interface ChartPalette {
     centerV: string;
     centerL: string;
     sliceBorder: string;
+    heatCellBorder: string;
     heat: string[];
     series: string[];
     agents: Record<string, string>;
@@ -65,6 +66,9 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
         centerV: "#232a38",
         centerL: "#9aa2b2",
         sliceBorder: "#ffffff",
+        // Heatmap zero cells are transparent and expose the card background;
+        // their outline must stay visible in light theme (t317).
+        heatCellBorder: "#c9ced6",
         heat: [
             "#e8f0ff",
             "#cfe0ff",
@@ -110,6 +114,8 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
         centerV: "#e9ecf3",
         centerL: "#6c7382",
         sliceBorder: "#1f232c",
+        // Heatmap zero-cell outline must stay visible on the dark card too.
+        heatCellBorder: "#3a4150",
         heat: [
             "#1a2f4e",
             "#24406a",
@@ -303,6 +309,9 @@ export function resolve_chart_palette(
     ensure_observer();
     const fallback = FALLBACK_PALETTES[theme];
     const surface_card = resolved_token(root, ["--color-surface-card"], fallback.sliceBorder);
+    // Heatmap zero-cell outline: --color-outline differs from surface-card in
+    // both themes, keeping transparent zero cells visibly bounded (t317).
+    const heat_cell_border = resolved_token(root, ["--color-outline"], fallback.heatCellBorder);
     const accent = resolved_token(root, ["--color-accent", "--accent"], fallback.accent);
     const series = TOP_SERIES_TOKENS.map((name, index) =>
         resolved_token(root, [name], fallback.series[index] ?? fallback.accent),
@@ -365,6 +374,7 @@ export function resolve_chart_palette(
         centerV: resolved_token(root, ["--color-on-surface"], fallback.centerV),
         centerL: resolved_token(root, ["--color-on-surface-muted"], fallback.centerL),
         sliceBorder: surface_card,
+        heatCellBorder: heat_cell_border,
         heat,
         series,
         agents,

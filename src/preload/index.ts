@@ -195,7 +195,7 @@ const trend_disabled_methods = {
     getBulk: (): Promise<TrendBulkResponse> => Promise.resolve({ series: [] }),
 };
 
-// 会话历史（t210）：history/agent route 暴露真实 IPC，其余 route 用 disabled 栈。
+// 会话历史（t210）：session/agent route 暴露真实 IPC，其余 route 用 disabled 栈。
 const session_history_full_methods = {
     open: (source: string, env: string, session_id: string) =>
         invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
@@ -610,8 +610,8 @@ const api: UsageboardApi = (() => {
                 sessionHistory: route_session_history_api,
                 buildInfo: build_info_methods,
             };
-        case "history":
-            // 会话历史窗口：只读 config；tokenStats（标题解析 / 最近 6 条）+ sessionHistory 真实 IPC。
+        case "session":
+            // 会话面板窗口：只读 config；tokenStats（标题解析 / 最近 6 条）+ sessionHistory 真实 IPC。
             return {
                 platform: renderer_platform,
                 connector: connector_methods,
@@ -619,10 +619,10 @@ const api: UsageboardApi = (() => {
                 config: {
                     ...config_readonly,
                     save: async () => {
-                        /* no-op: history 只读 */
+                        /* no-op: session 只读 */
                     },
                     saveSecrets: async () => {
-                        /* no-op: history 只读 */
+                        /* no-op: session 只读 */
                     },
                     getSecrets: () => Promise.resolve({}),
                     duplicate: () => Promise.resolve({ instanceId: "" }),

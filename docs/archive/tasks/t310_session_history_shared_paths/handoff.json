@@ -1,0 +1,32 @@
+{
+    "tid": "t310",
+    "attempt": 1,
+    "execution_id": "362eb93a55f24c4b9eece410368c5659",
+    "status": "done",
+    "branch": "t310_session_history_shared_paths",
+    "base_sha": "8793c4804c7941102ce8f4569519f781c32e2669",
+    "tests": "pnpm test：2898 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；session-history 138/139；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "code Round 1-2 PASS（f001 minor 修）；test Round 1-2 PASS（f001 minor 修）",
+    "ac_evidence": {
+        "AC-001": [
+            "session-locator.test.ts「AC-001：非 Windows 宿主 local 源返回 POSIX 路径、wsl 源不可用」linux/macos host 四源 local 按 homedir 解析、wsl null"
+        ],
+        "AC-002": [
+            "session-locator.test.ts「AC-002：Windows 宿主 local 基于 win_home、wsl 基于 UNC（纯映射）」win32 join 精确字符串断言"
+        ],
+        "AC-003": [
+            "session-locator.test.ts「AC-003：wsl_user 探测失败（空串）时 wsl 源不可用」wsl 源 null、local 不受影响"
+        ],
+        "AC-004": [
+            "session-path-index.test.ts「AC-004：host 变化使 paths_key 签名变化，旧签名条目失效并重建索引」readdir 重扫 + 新签名落盘",
+            "「t310_code_f001：旧版本索引（含 win env 死条目）整体丢弃重建」version=2、win 键清除",
+            "「t310_test_f001：wsl_distro/win_home 单变量变化改变 locator_source_path 解析结果」"
+        ],
+        "AC-005": [
+            "subscription-service.test.ts「t310 非 Windows 宿主本机会话（AC-005）」host=linux/macos 真实 locator 解析 + query 非空列表"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": ["d035"]
+}

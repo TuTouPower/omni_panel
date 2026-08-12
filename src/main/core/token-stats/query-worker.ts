@@ -1,6 +1,7 @@
 import type {
     TokenStatsDashboardDto,
     TokenStatsDashboardQuery,
+    TokenStatsSourceStatus,
 } from "../../../shared/types/token-stats";
 import { createLogger } from "../../../shared/lib/logger";
 import { create_token_stats_store } from "./token-stats-store";
@@ -32,7 +33,12 @@ export interface QueryDashboardRequest {
     type: "query_dashboard";
     request_id: number;
     query: TokenStatsDashboardQuery;
-    status: { running: boolean; last_updated: number | null };
+    status: {
+        running: boolean;
+        last_updated: number | null;
+        /** Per-source collection status; omitted until the first collection reports it (t309). */
+        sources_status?: TokenStatsSourceStatus[];
+    };
 }
 export interface QueryDashboardResult {
     type: "query_dashboard_result";

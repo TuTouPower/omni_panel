@@ -75,7 +75,7 @@ function sess(id: string, source: string): TokenStatsSession {
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "win",
+        env: "local",
         model: "model",
         title: `会话 ${id}`,
         directory: null,
@@ -126,14 +126,13 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
             <SessionRail
                 slots={slots}
                 collapsed={false}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
             />,
         );
-        const title = require_el(".history-slot-title");
-        const meta = require_el(".history-slot-meta");
+        const title = require_el(".session-slot-title");
+        const meta = require_el(".session-slot-meta");
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
         expect(title_px).toBe(12.5);

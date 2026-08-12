@@ -176,7 +176,7 @@ export const ProviderCard = memo(function ProviderCard({
                     <button
                         className={
                             "rounded-[7px] border-0 px-[9px] py-[3px] text-[length:var(--text-label-md)] font-semibold leading-normal whitespace-nowrap " +
-                            (l2Open
+                            (!l2Open
                                 ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-[0_1px_2px_rgba(20,24,38,0.07)]"
                                 : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
                         }

@@ -15,5 +15,5 @@ export { Badge } from "./Badge";
 export { StatusDot } from "./StatusDot";
 export { Kpi } from "./Kpi";
 export { Skeleton } from "./Skeleton";
-export { PanelTitleBar } from "./PanelTitleBar";
+export { PanelTitleBar, WindowControls } from "./PanelTitleBar";
 export { ListRow } from "./ListRow";

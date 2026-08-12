@@ -12,10 +12,13 @@ import { join } from "node:path";
 import type { Env, ExtractorKind } from "./subscription-service";
 
 export const SESSION_INDEX_FILE = "session-path-index.json";
-export const SESSION_INDEX_VERSION = 1;
+export const SESSION_INDEX_VERSION = 2;
 
 export interface SessionIndexEntry {
-    /** paths 签名（win_home|wsl_distro|wsl_user），命中时校验防跨配置命中旧路径。 */
+    /**
+     * paths 签名（host|homedir|win_home|wsl_distro|wsl_user，t310），
+     * 命中时校验防跨配置命中旧路径（任一输入变化 → 旧签名失效重建）。
+     */
     readonly paths_key: string;
     readonly file_path: string;
     readonly extractor_kind: ExtractorKind;

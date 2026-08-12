@@ -1,0 +1,36 @@
+{
+    "tid": "t312",
+    "attempt": 1,
+    "execution_id": "d4904c96b57c4c5d98ccf74bcc4db37d",
+    "status": "done",
+    "branch": "t312_token_stats_header_single_row",
+    "base_sha": "e2039aacd962f382f294ea4abc6fb98bb5029d7e",
+    "tests": "pnpm test：2912 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；token_stats_header 12/12 连跑稳定；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "code Round 1-4 PASS（f001/f002/f003 minor 修）；test Round 1 FAIL（f001 critical）→ Round 2-3 PASS（f001/f002 修）",
+    "ac_evidence": {
+        "AC-001": [
+            "token_stats_header.test.tsx「AC-001: 标题栏单行包含 logo/标题/刷新时间/四个下拉/四个按钮」同容器断言",
+            "「AC-001: 工具/平台/时间范围为 Select 下拉（非 Segmented）」、「时间范围下拉含 24小时/7天/1月/自定义」、「刷新时间（刷新中）在标题栏内渲染」（事件 pending 驱动）"
+        ],
+        "AC-002": [
+            "「AC-002: 工具下拉选择 Claude Code 过滤生效」get_dashboard agent=claude-code",
+            "「平台下拉选择 WSL 过滤生效」platform=wsl"
+        ],
+        "AC-003": [
+            "「AC-003: 时间范围下拉选择 7 天生效」窗口 7×24h + gran day",
+            "「挂载默认即 1月（30d）窗口」",
+            "「选择自定义弹出 RangePicker，应用后按自定义范围查询」真实面板弹出 + 下拉保持 custom"
+        ],
+        "AC-004": [
+            "「AC-004: fresh 缓存下点刷新不重复请求」计数不变",
+            "「缓存失效后点刷新触发新请求并上屏」事件 reject 后点击 call3 + after 上屏",
+            "「设置/用量面板/会话历史按钮导航」open_settings/open_tray_panel/open_history 各被调"
+        ],
+        "AC-005": [
+            "全量 pnpm test 通过（2912 passed），token_stats_view.test.tsx 33 适配用例 + header 12 用例全绿"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": []
+}
