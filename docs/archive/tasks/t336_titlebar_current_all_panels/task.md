@@ -2,11 +2,11 @@
 tid: "t336"
 slug: "titlebar_current_all_panels"
 title: "Agent/Usage 标题栏补当前面板自身按钮（p147）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t336_titlebar_current_all_panels"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "d2a7cad8a1e16651e3688bc42f45d96c2f02c696"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -53,6 +53,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1 (2026-08-13 03:35 UTC+8)
+
+| finding_id    | severity | status | rationale                                                                             | fix_ref                                                   |
+| ------------- | -------- | ------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| t336_gen_f001 | minor    | 已修   | token_stats_header.test.tsx 断言改命名 spy open_token_stats（消 unbound-method lint） | tests/unit/renderer/views/token_stats_header.test.tsx:363 |
+| t336_gen_f002 | minor    | 已修   | TitleBar.tsx prettier 修复                                                            | src/renderer/views/popup-view/TitleBar.tsx                |
+| t336_gen_f003 | minor    | 已修   | popup_view.test.tsx prettier 修复                                                     | tests/unit/renderer/views/popup_view.test.tsx             |
+| t336_gen_f004 | minor    | 已修   | token_stats_header.test.tsx prettier 修复                                             | tests/unit/renderer/views/token_stats_header.test.tsx     |
+| t336_gen_f005 | minor    | 已修   | panel_navigation.spec.ts 文件头过期注释更新                                           | tests/e2e/web/panel_navigation.spec.ts                    |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -60,8 +70,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 token_stats_header.test.tsx（Agent 自身按钮 + 导航）与 popup_view.test.tsx（用量自身按钮 + 按钮序）覆盖；AC-003 由 web e2e panel_navigation（agent/session/usage 四面板恒定含当前自身）覆盖；AC-004 由既有 PanelTitleBar 测试回归 + 全量测试。
 
 ### Reviewer verdict
 
@@ -74,10 +84,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（5 条 minor：f001 lint、f002-f004 prettier、f005 注释）
+- Round 2 general：PASS（5 条 minor 全部已修，scope=ok）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- Agent 面板（TokenStatsView）标题栏补 Agent 自身按钮、Usage 面板（TitleBar）补用量自身按钮，四面板标题栏按钮恒定含当前面板；设置面板无刷新不回归。

@@ -79,6 +79,29 @@ export function TitleBar(props: TitleBarProps) {
                     />
                 </Button>
                 {is_web() ? (
+                    <a
+                        className={ICON_LINK_CLS}
+                        title="用量面板"
+                        aria-label="用量面板"
+                        href="#usage"
+                    >
+                        <Icon name="clock_forward" size={18} />
+                    </a>
+                ) : (
+                    <Button
+                        variant="icon"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="用量面板"
+                        aria-label="用量面板"
+                        onClick={() => {
+                            window.usageboard.tray.open_panel();
+                        }}
+                    >
+                        <Icon name="clock_forward" size={18} />
+                    </Button>
+                )}
+                {is_web() ? (
                     <a className={ICON_LINK_CLS} title="设置" href="#setting">
                         <Icon name="gear" size={18} />
                     </a>
