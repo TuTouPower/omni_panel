@@ -111,3 +111,33 @@ omni-panel --cli autostart       # Linux 返回 unsupported；Windows 切换开�
 - 实例发现：默认读 `<dataRoot>/cli.json` 取得端口；`--port <n>` 可覆盖（桌面/自建实例）。
 - 实例未运行时给出「实例未运行」可读错误 + 非零退出码。
 - 控制子命令与桌面 tray 菜单动作走同一份 main 侧能力，行为一致。
+
+## 开发/测试启动 vs 全局 CLI（重要：不要用 `pnpm start` 开窗口）
+
+`pnpm start` 是 **GUI 开发模式**（`electron-vite dev`）——必然打开 Electron 窗口，且 dev server 与 Electron 生命周期耦合：dev server 退出后 Electron 仍存活但加载不到 renderer，窗口白屏（2026-08-12 实测踩坑）。**开发/测试启动一律走无窗口 CLI 模式**：
+
+```bash
+pnpm cli:serve    # 开发/测试无窗口实例：沙盒 userData（.scratch/dev-serve）+ 端口 17864
+pnpm cli:quit     # 停掉该实例（瘦客户端，--port 17864 对齐）
+```
+
+`pnpm cli:serve` 内部：ensure ABI → gen build-info → `electron-vite build` → `electron out/main/index.js --cli serve --port 17864 --user-data-dir=.scratch/dev-serve`。沙盒 userData 保证**不触碰真实用户数据**（`~/.config/OmniPanel`）；开发构建只写 `out/`。
+
+### 全局命令 `omni_panel`（release 产物专用）
+
+全局 CLI 命令名 `omni_panel`（下划线），由 `scripts/omni_panel.mjs` launcher 提供，**永远指向 electron-builder 打包产物**（`artifacts/linux-unpacked/omni_panel`，`pnpm make:linux` 生成），**不回退 dev 产物（`out/`）**：
+
+- 全局用户：`omni_panel --cli serve [--port <n>]`（真实数据目录）——稳定版，不受开发构建影响。
+- release 产物缺失时 launcher 明确报错「先 `pnpm make:linux`」，不回退。
+- serve 默认沙盒 userData（`.scratch/global-serve/`），真实数据需显式 `--user-data-dir`。
+- 开发/测试不要用 `omni_panel`（它是给全局稳定版用户的），用 `pnpm cli:serve`。
+
+### 产物与数据隔离矩阵
+
+| 用途          | 命令                   | 产物                    | userData                   | 窗口             |
+| ------------- | ---------------------- | ----------------------- | -------------------------- | ---------------- |
+| GUI 开发      | `pnpm start`           | `out/`（dev）           | 真实                       | 开窗口（调试用） |
+| 开发/测试 CLI | `pnpm cli:serve`       | `out/`（build）         | `.scratch/dev-serve` 沙盒  | 无               |
+| 全局稳定版    | `omni_panel --cli ...` | `artifacts/`（release） | 真实（显式）或沙盒（默认） | 无               |
+
+开发（改 `out/`）与全局（用 `artifacts/`）产物隔离，互不影响；`pnpm make:linux` 打包新稳定版后全局自动用新版本。
