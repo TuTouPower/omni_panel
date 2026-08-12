@@ -2,11 +2,11 @@
 tid: "t319"
 slug: "collector_error_banner_color"
 title: "采集失败提示颜色修复（STATE_BASE 双 color 类冲突）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t319_collector_error_banner_color"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "91999104981fc8d5690614f49932ade3ca7e977c"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "pending_clarification"
@@ -23,7 +23,13 @@ note: "rewound: effective=active -> backlog（main 记录为 backlog）; 误启�
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实施：两处 err 分支（ProviderCardState、ProviderCardErrorBanner）className 由 `STATE_BASE + " text-[var(--color-error)]"` 裸拼接改为 `cn(STATE_BASE, "text-[var(--color-error)]")`（tailwind-merge 去重灰类、保留 error），并 import `cn`。补 AC-001/AC-002 两处颜色断言。
+
+环境：worktree 首次 pnpm install 后 electron dist 未完整下载（postinstall 被忽略），从主仓复制 electron 42.2.0 dist/path.txt 补齐；build-info 产物缺失，mkdir src/generated 后 npx tsx scripts/gen-build-info.ts 生成（均环境产物，非本 task 改动，src/generated 已 gitignore）。
+
+验证：红→绿（先 2 failed 后 11 passed）；全量 pnpm test 257 files / 2941 passed / 9 skipped 全绿。审阅 single 级 general，Round 1 零 finding PASS。
+
+merge 说明：执行期用户要求同步主分支 defce544（repo_template 工具链同步，审阅提示词七视角），已 merge 进 worktree 分支，仅工具链文件，不涉本 task 实现。
 
 ## Review 处置
 
@@ -61,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由新增颜色断言覆盖（cn 去重灰类、error 生效），AC-003 全量 pnpm test 257 passed 通过；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -75,10 +81,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 两处采集失败提示改用 cn() 合并色类，tailwind-merge 去重 STATE_BASE 灰类、保留 error，修复「灰覆盖红」；补两处颜色断言防回归
