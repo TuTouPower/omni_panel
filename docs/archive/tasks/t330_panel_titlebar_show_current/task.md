@@ -2,11 +2,11 @@
 tid: "t330"
 slug: "panel_titlebar_show_current"
 title: "PanelTitleBar 显示当前面板按钮（取消隐藏机制）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t330_panel_titlebar_show_current"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "8423d7f26e7c17ea2715a1ab4919df64fd065bcf"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-13 00:05 UTC+8)
+
+| finding_id    | severity  | status | rationale                                                                                                                            | fix_ref                                      |
+| ------------- | --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| t330_gen_f001 | important | 已修   | web e2e panel_navigation 遗留「Session 面板 count 0」改 count 1（t330 取消隐藏），标题更新；Agent 面板走自定义按钮组保持 0（非范围） | tests/e2e/web/panel_navigation.spec.ts:34-45 |
+| t330_gen_f002 | minor     | 已修   | spec AC-001/002 措辞收窄为面板形态标题栏（Session/Settings）显示四按钮；Usage/Agent 非范围                                           | spec.md AC-001/002                           |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 PanelTitleBar.test.tsx 四按钮恒定 + 顺序断言 + panel_navigation e2e 4 passed；AC-003 点击自身不抛错用例；AC-004 全量 2988 passed + tsc 0；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +81,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- PanelTitleBar 面板形态移除当前面板隐藏机制，四面板按钮恒定显示（含自身），点击自身幂等；更新单测 + panel_navigation e2e

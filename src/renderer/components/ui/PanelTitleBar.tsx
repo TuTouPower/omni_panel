@@ -22,7 +22,7 @@ interface PanelTitleBarProps {
     refreshing?: boolean;
     /** 面板形态：刷新当前面板。 */
     onRefresh?: () => void;
-    /** 面板形态：面板切换（当前面板对应图标隐藏）。 */
+    /** 面板形态：面板切换（四面板恒定显示，含当前面板）。 */
     onNavigate?: (panel: PanelName) => void;
     /** 面板形态：刷新按钮仅 live 模式可用。 */
     is_live?: boolean;
@@ -151,46 +151,44 @@ export function PanelTitleBar({
                             />
                         </Button>
                     )}
-                    {panels
-                        .filter((p) => p !== panel)
-                        .map((p) => {
-                            const icon = (
-                                <>
-                                    {p === "Usage" && <Icon name="clock_forward" size={16} />}
-                                    {p === "Agent" && <Icon name="chart" size={16} />}
-                                    {p === "Session" && <Icon name="chat_square" size={16} />}
-                                    {p === "Settings" && <Icon name="gear" size={16} />}
-                                </>
-                            );
-                            if (is_web()) {
-                                return (
-                                    <a
-                                        key={p}
-                                        className={ICON_LINK_CLS}
-                                        title={`${p}面板`}
-                                        aria-label={`${p}面板`}
-                                        href={`#${panel_routes[p]}`}
-                                    >
-                                        {icon}
-                                    </a>
-                                );
-                            }
+                    {panels.map((p) => {
+                        const icon = (
+                            <>
+                                {p === "Usage" && <Icon name="clock_forward" size={16} />}
+                                {p === "Agent" && <Icon name="chart" size={16} />}
+                                {p === "Session" && <Icon name="chat_square" size={16} />}
+                                {p === "Settings" && <Icon name="gear" size={16} />}
+                            </>
+                        );
+                        if (is_web()) {
                             return (
-                                <Button
+                                <a
                                     key={p}
-                                    variant="icon"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
+                                    className={ICON_LINK_CLS}
                                     title={`${p}面板`}
                                     aria-label={`${p}面板`}
-                                    onClick={() => {
-                                        onNavigate?.(p);
-                                    }}
+                                    href={`#${panel_routes[p]}`}
                                 >
                                     {icon}
-                                </Button>
+                                </a>
                             );
-                        })}
+                        }
+                        return (
+                            <Button
+                                key={p}
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title={`${p}面板`}
+                                aria-label={`${p}面板`}
+                                onClick={() => {
+                                    onNavigate?.(p);
+                                }}
+                            >
+                                {icon}
+                            </Button>
+                        );
+                    })}
                     <WindowControls onClose={onClose} />
                 </div>
             </div>
