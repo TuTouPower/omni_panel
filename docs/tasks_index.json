@@ -32,6 +32,21 @@
             "schedule_status": "",
             "note": "用户需求：AccountDialog/SettingsForm 与 CpaLabelMapDialog/LabelMapDialog 两处铃铛按钮，未监控状态叠加斜线（类似静音符号）",
             "dir": "docs/tasks/t333_settings_reset_watch_bell_off_slash"
+        },
+        {
+            "tid": "t335",
+            "slug": "cli_help",
+            "title": "CLI 帮助：omni_panel --help 顶层 + --cli help 子命令",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t335_cli_help"
         }
     ]
 }
