@@ -58,6 +58,7 @@ import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
 import type { ConnectorSnapshotState } from "../scheduler/types";
 import type { IpcResult, SessionLoginRequest } from "../../../shared/types/ipc";
+import { handleRendererLog } from "../../ipc/log-ipc";
 import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
@@ -986,6 +987,18 @@ export function create_local_api_server(
         });
     }
 
+    /**
+     * t325: POST /v1/logs/renderer —— web 面板 renderer 日志接收。复用桌面
+     * handleRendererLog（renderer:* 前缀 + 既有 logger scrub），非法 payload
+     * 由 handleRendererLog 内部容错为 ok 不落盘不抛错；HTTP 层始终返回成功，
+     * web log 桥 fire-and-forget 无需关心错误分支。
+     */
+    async function handle_renderer_log(req: IncomingMessage, res: ServerResponse): Promise<void> {
+        const parsed = await read_json_body(req, res);
+        if (!parsed.ok) return;
+        send_result(res, handleRendererLog(parsed.value));
+    }
+
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
         void (async () => {
             const url = new URL(req.url ?? "/", "http://local");
@@ -1003,7 +1016,9 @@ export function create_local_api_server(
             }
 
             // Web read endpoints serve the panel UI without auth (intranet use
-            // per project decision). ingest stays token-gated below.
+            // per project decision). ingest stays token-gated below. Renderer
+            // log ingest (/v1/logs/renderer) also sits pre-auth: the web
+            // renderer has no token and must be able to POST logs regardless.
             if (
                 is_get &&
                 token_stats_store &&
@@ -1044,6 +1059,12 @@ export function create_local_api_server(
 
             if (url.pathname === "/v1/logs/export" && is_get) {
                 handle_logs_export(res);
+                return;
+            }
+
+            // t325: web renderer 无 token，日志接收放 check_auth 之前（与 /v1/events、/v1/logs/export 同层）。
+            if (url.pathname === "/v1/logs/renderer" && req.method === "POST") {
+                await handle_renderer_log(req, res);
                 return;
             }
 

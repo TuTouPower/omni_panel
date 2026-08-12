@@ -23,6 +23,7 @@ import type {
     SessionsProvider,
 } from "../../../src/main/core/session-history/subscription-service";
 import { clear_resolution_cache } from "../../../src/main/core/session-history/session-locator";
+import { addTransport, scrubber, setLogLevel } from "../../../src/shared/lib/logger";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
@@ -2280,6 +2281,124 @@ describe("local-api logs export (t279)", () => {
             expect(res.status).toBe(503);
         } finally {
             await plain_api.stop();
+        }
+    });
+});
+
+describe("local-api renderer log ingest (t325)", () => {
+    it("POST /v1/logs/renderer 无鉴权写 renderer:* 日志 (AC-001)", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "development";
+        const log_lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                log_lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            await api.start();
+            const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/logs/renderer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    level: "info",
+                    module: "web-panel",
+                    message: "renderer log line",
+                    meta: { source: "web" },
+                }),
+            });
+            expect(res.status).toBe(200);
+            const output = log_lines.join("\n");
+            expect(output).toContain("renderer:web-panel");
+            expect(output).toContain("renderer log line");
+            expect(output).toContain('"source":"web"');
+        } finally {
+            remove_transport();
+            setLogLevel("debug");
+            process.env["NODE_ENV"] = original_node_env;
+        }
+    });
+
+    it("POST /v1/logs/renderer 非法 payload 返回成功且不落盘不抛错 (AC-002)", async () => {
+        const log_lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                log_lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+        try {
+            await api.start();
+            const base = `http://127.0.0.1:${String(api.get_port())}/v1/logs/renderer`;
+            const bad_bodies: unknown[] = [
+                { level: "info", module: "web-panel", message: 42 },
+                { level: "info", message: "no module" },
+                { level: "info", module: 42, message: "bad module" },
+                null,
+                "plain string",
+                42,
+            ];
+            for (const body of bad_bodies) {
+                const res = await fetch(base, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+                expect(res.status, JSON.stringify(body)).toBe(200);
+            }
+            // api.start() 本身会经全局 logger 写一条 local-api 启动日志，只断言无 renderer:* 落盘。
+            expect(log_lines.filter((line) => line.includes("renderer:"))).toHaveLength(0);
+        } finally {
+            remove_transport();
+            setLogLevel("debug");
+        }
+    });
+
+    it("POST /v1/logs/renderer 非法 JSON 返回 400", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/logs/renderer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{",
+        });
+        expect(res.status).toBe(400);
+    });
+
+    it("POST /v1/logs/renderer 已注册 secret 值被 scrub 不落明文 (AC-003)", async () => {
+        const original_node_env = process.env["NODE_ENV"];
+        process.env["NODE_ENV"] = "development";
+        scrubber.register("renderer-secret-token-abc");
+        const log_lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message, meta) {
+                log_lines.push(`${level}:${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        setLogLevel("debug");
+
+        try {
+            await api.start();
+            const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/logs/renderer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    level: "error",
+                    module: "web-panel",
+                    message: "failed with token renderer-secret-token-abc",
+                    meta: { token: "renderer-secret-token-abc" },
+                }),
+            });
+            expect(res.status).toBe(200);
+            const output = log_lines.join("\n");
+            expect(output).toContain("renderer:web-panel");
+            expect(output).not.toContain("renderer-secret-token-abc");
+        } finally {
+            remove_transport();
+            scrubber.unregister("renderer-secret-token-abc");
+            setLogLevel("debug");
+            process.env["NODE_ENV"] = original_node_env;
         }
     });
 });

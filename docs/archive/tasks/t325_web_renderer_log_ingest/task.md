@@ -2,11 +2,11 @@
 tid: "t325"
 slug: "web_renderer_log_ingest"
 title: "web 前端日志经 local-api 落盘"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t325_web_renderer_log_ingest"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "bfd2b6678e001a2b1575b0888f9ac4726a7499df"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-12 20:55 UTC+8)
+
+| finding_id    | severity | status | rationale                                                                        | fix_ref                                |
+| ------------- | -------- | ------ | -------------------------------------------------------------------------------- | -------------------------------------- |
+| t325_gen_f001 | minor    | 已修   | server.ts 顶部策略注释补 renderer 日志端点无鉴权说明（消除歧义，防误移入鉴权区） | src/main/core/local-api/server.ts:1018 |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 local-api 端点单测（renderer:\* 落盘、非法 payload 容错）；AC-003 脱敏断言；AC-004 端点 + web 桥测试全绿；全量 2964 passed；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +80,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- local-api 新增 POST /v1/logs/renderer（无鉴权，复用 handleRendererLog），web log 桥改 POST 落盘 renderer:\* 前缀；桌面 IPC 路径不变
