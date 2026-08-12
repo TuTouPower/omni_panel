@@ -127,17 +127,17 @@ pnpm cli:quit     # 停掉该实例（瘦客户端，--port 17864 对齐）
 
 全局 CLI 命令名 `omni_panel`（下划线），由 `scripts/omni_panel.mjs` launcher 提供，**永远指向 electron-builder 打包产物**（`artifacts/linux-unpacked/omni_panel`，`pnpm make:linux` 生成），**不回退 dev 产物（`out/`）**：
 
-- 全局用户：`omni_panel --cli serve [--port <n>]`（真实数据目录）——稳定版，不受开发构建影响。
+- 全局用户：`omni_panel --cli serve [--port <n>]`（**真实用户数据** `~/.config/OmniPanel`）——稳定版，不受开发构建影响。
 - release 产物缺失时 launcher 明确报错「先 `pnpm make:linux`」，不回退。
-- serve 默认沙盒 userData（`.scratch/global-serve/`），真实数据需显式 `--user-data-dir`。
+- 全局命令始终使用真实用户数据（可用 `--user-data-dir` 显式指向其他目录）；**沙盒只属于开发命令** `pnpm cli:serve`（`.scratch/dev-serve`）。
 - 开发/测试不要用 `omni_panel`（它是给全局稳定版用户的），用 `pnpm cli:serve`。
 
 ### 产物与数据隔离矩阵
 
-| 用途          | 命令                   | 产物                    | userData                   | 窗口             |
-| ------------- | ---------------------- | ----------------------- | -------------------------- | ---------------- |
-| GUI 开发      | `pnpm start`           | `out/`（dev）           | 真实                       | 开窗口（调试用） |
-| 开发/测试 CLI | `pnpm cli:serve`       | `out/`（build）         | `.scratch/dev-serve` 沙盒  | 无               |
-| 全局稳定版    | `omni_panel --cli ...` | `artifacts/`（release） | 真实（显式）或沙盒（默认） | 无               |
+| 用途          | 命令                   | 产物                    | userData                         | 窗口             |
+| ------------- | ---------------------- | ----------------------- | -------------------------------- | ---------------- |
+| GUI 开发      | `pnpm start`           | `out/`（dev）           | 真实                             | 开窗口（调试用） |
+| 开发/测试 CLI | `pnpm cli:serve`       | `out/`（build）         | `.scratch/dev-serve` 沙盒        | 无               |
+| 全局稳定版    | `omni_panel --cli ...` | `artifacts/`（release） | 真实（`--user-data-dir` 可覆盖） | 无               |
 
 开发（改 `out/`）与全局（用 `artifacts/`）产物隔离，互不影响；`pnpm make:linux` 打包新稳定版后全局自动用新版本。
