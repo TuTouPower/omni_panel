@@ -52,6 +52,7 @@ typings/
 # 环境 / 凭据
 .env
 .env.*
+!.env.example
 
 # 系统
 .DS_Store
@@ -68,6 +69,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .superpowers/
 .reasonix/
 .playwright-mcp/
+.commandcode/
 
 # review 会话过程文件（报告入库，_meta 不入库）
 docs/reviews/review_*/_meta/
