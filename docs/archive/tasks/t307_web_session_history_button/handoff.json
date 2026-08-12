@@ -1,0 +1,28 @@
+{
+    "tid": "t307",
+    "attempt": 2,
+    "execution_id": "8916dd999a794d3cbd90cfd1958367b9",
+    "status": "done",
+    "branch": "t307_web_session_history_button",
+    "base_sha": "862f2a48503c8d4705aefd5706525bf9a1c82e10",
+    "tests": "pnpm test：2920 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；popup_view 25/25；web e2e popup_view 7/7；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 7/7",
+    "review": "Round 1 general PASS（0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "popup_view.test.tsx「renders the session history button in web mode (t307 AC-001)」含最小化/最大化/关闭仍不渲染断言",
+            "web e2e popup_view.spec.ts「session history button is visible in web titlebar (t307 AC-001)」"
+        ],
+        "AC-002": [
+            "popup_view.test.tsx「opens session history from the title bar button in web mode (t307 AC-002)」点击调 sessionHistory.open(\"\",\"\",\"\")",
+            "web e2e「session history button dispatches onFocus and enters #session route (t307 AC-002)」onFocus 收到事件 + hash=#session + .session-shell 挂载"
+        ],
+        "AC-003": [
+            "既有用例「opens the session history window from the title bar button」桌面 onClick 调 session_history_open 回归通过",
+            "「标题栏按钮序…（AC-002）」桌面按钮序含会话历史"
+        ],
+        "AC-004": ["全量 pnpm test 通过（2920 passed），popup_view.test.tsx 25/25 + web e2e 7/7"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

@@ -65,8 +65,8 @@ async function setup_large_session_routes(page: Page): Promise<void> {
  */
 
 async function open_history(page: Page): Promise<void> {
-    await page.goto("/#history");
-    await page.locator(".history-shell").first().waitFor({ state: "visible" });
+    await page.goto("/#session");
+    await page.locator(".session-shell").first().waitFor({ state: "visible" });
 }
 
 /** 从会话库把指定标题的会话单独打开，等待工作台出现槽位。 */
@@ -88,9 +88,9 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await open_session_from_library(page, "登录页 bug 修复");
         // 工作台出现槽位与消息。
-        await expect(page.locator(".history-cell").first()).toBeVisible();
+        await expect(page.locator(".session-cell").first()).toBeVisible();
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
-        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
+        const loc_key = await page.locator(".session-cell").first().getAttribute("data-loc-key");
         // 勾选第一条消息产生已选状态。
         await page.locator(".conversation-message-check").first().click();
         await expect(page.locator(".selection-tray.expanded")).toBeVisible();
@@ -99,8 +99,8 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         await expect(page.locator(".library-view").first()).toBeVisible();
         await page.getByRole("button", { name: "工作台", exact: true }).click();
-        await expect(page.locator(".history-cell").first()).toBeVisible();
-        expect(await page.locator(".history-cell").first().getAttribute("data-loc-key")).toBe(
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        expect(await page.locator(".session-cell").first().getAttribute("data-loc-key")).toBe(
             loc_key,
         );
         expect(loc_key).toBeTruthy();
@@ -128,10 +128,10 @@ test.describe("session panel (web, t228)", () => {
         await page.evaluate(() => {
             void window.usageboard.sessionHistory.open("claude_code", "win", "s1");
         });
-        // open 切到 history 路由，会话面板挂载并定位 s1。
-        await page.locator(".history-shell").first().waitFor({ state: "visible" });
-        await expect(page.locator(".history-cell").first()).toBeVisible();
-        const loc_key = await page.locator(".history-cell").first().getAttribute("data-loc-key");
+        // open 切到 session 路由，会话面板挂载并定位 s1。
+        await page.locator(".session-shell").first().waitFor({ state: "visible" });
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        const loc_key = await page.locator(".session-cell").first().getAttribute("data-loc-key");
         expect(loc_key).toBe("claude_code|win|s1");
     });
 
@@ -147,7 +147,7 @@ test.describe("session panel (web, t228)", () => {
         await expect(page.getByText("8/8")).toBeVisible();
         // 并排打开 → 工作台 8 槽满。
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".history-cell")).toHaveCount(8);
+        await expect(page.locator(".session-cell")).toHaveCount(8);
         // 再打开第 9 个（s9，不在已勾选的 8 个里）→ toast 槽位已满。
         await page.getByRole("button", { name: "会话库", exact: true }).click();
         const card = page.locator(".library-card").filter({
@@ -155,7 +155,7 @@ test.describe("session panel (web, t228)", () => {
         });
         await card.hover();
         await card.getByRole("button", { name: "单独打开" }).first().click();
-        await expect(page.locator(".history-toast")).toContainText("槽位已满");
+        await expect(page.locator(".session-toast")).toContainText("槽位已满");
     });
 
     test("摘选后三种格式复制内容正确", async ({ webPage }) => {
@@ -218,8 +218,80 @@ test.describe("session panel (web, t228)", () => {
         await page.getByRole("button", { name: "会话 s1" }).click();
         await page.getByRole("button", { name: "会话 s2" }).click();
         await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator(".history-cell")).toHaveCount(2);
+        await expect(page.locator(".session-cell")).toHaveCount(2);
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+    });
+
+    test("t315：会话窗口根背景统一 surface-window，卡片为第二色 surface-raised（computed 两色可辨）", async ({
+        webPage,
+    }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "登录页 bug 修复");
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+        const bg = async (sel: string): Promise<string> =>
+            page
+                .locator(sel)
+                .first()
+                .evaluate((el) => getComputedStyle(el).backgroundColor);
+        const shell_bg = await bg(".session-shell");
+        const workspace_bg = await bg(".session-workspace");
+        const library_bg = await bg(".library-view");
+        const pane_bg = await bg(".conversation-pane");
+        const card_bg = await bg(".library-card");
+        // 三个根容器背景一致（surface-window），卡片/内容区第二色（surface-raised），两色可辨。
+        expect(workspace_bg).toBe(shell_bg);
+        expect(library_bg).toBe(shell_bg);
+        expect(pane_bg).not.toBe(shell_bg);
+        expect(card_bg).not.toBe(library_bg);
+        expect(pane_bg).toBe(card_bg);
+    });
+});
+
+test.describe("session panel layout (web, t318)", () => {
+    test("工具栏占满/纵向紧凑，rail toggle 与工具栏同高，grid 与 rail 内容同基线", async ({
+        webPage,
+    }) => {
+        const page = webPage;
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "登录页 bug 修复");
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+
+        const box = (sel: string) =>
+            page
+                .locator(sel)
+                .first()
+                .evaluate((el) => {
+                    const r = el.getBoundingClientRect();
+                    return { top: r.top, bottom: r.bottom, right: r.right, height: r.height };
+                });
+
+        const toolbar = await box(".session-toolbar");
+        const actions = await box(".session-toolbar-actions");
+        const toggle = await box(".session-rail-toggle");
+        const body = await box(".session-workspace-body");
+        const grid = await box(".session-grid");
+        const rail_scroll = await box(".session-rail-scroll");
+
+        // AC1：actions 右边界接近工具栏右内边距（px-3 = 12px），控制组右侧不再留大段空白。
+        expect(Math.abs(toolbar.right - 12 - actions.right)).toBeLessThanOrEqual(1);
+        // AC2：工具栏底边与工作台 body 顶边相接，无额外空白行。
+        expect(Math.abs(body.top - toolbar.bottom)).toBeLessThanOrEqual(1);
+        // AC3：rail-toggle 与工具栏顶边、底边对齐，高度差 ≤1px。
+        expect(Math.abs(toggle.top - toolbar.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(toggle.bottom - toolbar.bottom)).toBeLessThanOrEqual(1);
+        expect(Math.abs(toggle.height - toolbar.height)).toBeLessThanOrEqual(1);
+        // AC3：grid 顶部与 rail 内容区从同一水平基线开始。
+        expect(Math.abs(grid.top - rail_scroll.top)).toBeLessThanOrEqual(1);
+        // AC4 回归防护：视图按钮靠右后，下拉菜单右锚定（right-0）不溢出窗口。
+        await page.getByRole("button", { name: /视图/ }).click();
+        await expect(page.locator(".session-view-menu")).toBeVisible();
+        const menu = await box(".session-view-menu");
+        expect(menu.right).toBeLessThanOrEqual(1280);
+        expect(menu.right).toBeGreaterThan(1200);
     });
 });
 
@@ -270,7 +342,7 @@ test.describe("session panel virtual list (web, t237)", () => {
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
 
         // 打开大纲。
-        await page.locator(".history-cell .conversation-action[title='大纲']").first().click();
+        await page.locator(".session-cell .conversation-action[title='大纲']").first().click();
         await expect(page.locator(".conversation-outline")).toBeVisible();
 
         // 点击远离可视区的「消息 450」（首页为后 200 条 400–599，450 在可视区外但在首页内）。

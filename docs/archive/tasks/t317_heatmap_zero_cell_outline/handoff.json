@@ -1,0 +1,29 @@
+{
+    "tid": "t317",
+    "attempt": 1,
+    "execution_id": "ac74d83f152b45df9a632264621488fb",
+    "status": "done",
+    "branch": "t317_heatmap_zero_cell_outline",
+    "base_sha": "9830ab2d6e9087cc2c48a82daa8118cee85b48da",
+    "tests": "pnpm test：2930 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；heatmap_option 4/4 + palette 回归；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "Round 1-2 general 全 PASS（f001 minor 修）",
+    "ac_evidence": {
+        "AC-001": [
+            "heatmap_option.test.ts「cell border color differs from surface-card in both themes (t317 AC-001/002)」light 循环断言 borderColor ≠ sliceBorder；CSS token 实值 light outline #e6eaf1 ≠ surface-card #ffffff"
+        ],
+        "AC-002": [
+            "同测试 dark 断言 borderColor ≠ sliceBorder；CSS token 实值 dark outline #2a2f3a ≠ surface-card #1f232c"
+        ],
+        "AC-003": [
+            "既有「no piece covers the zero value (zero renders as background)」各 piece 下限 ≥0、无 min 捕获 0",
+            "「pieces use the 8 heat colors in order and span the positive range」8 色顺序 gt:0/lte:20、末档无上限"
+        ],
+        "AC-004": [
+            "MetricDonut.tsx 零改动（diff 清单不含）",
+            "palette.test.ts 回归：sliceBorder 仍解析原值、palette 与 FALLBACK toEqual 全等"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

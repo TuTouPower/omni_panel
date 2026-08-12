@@ -26,7 +26,7 @@ function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionU
         cache_write_tokens: 1,
         agent: "claude-code",
         source: "claude_code",
-        env: "win",
+        env: "local",
         ...overrides,
     };
 }
@@ -374,7 +374,7 @@ describe("token stats dashboard query", () => {
     });
     it("counts sessions by source and platform identity in time chart and heatmap", () => {
         store.upsert_records([
-            record({ message_id: "same-win", source: "claude_code", env: "win" }),
+            record({ message_id: "same-win", source: "claude_code", env: "local" }),
             record({ message_id: "same-wsl", source: "opencode", env: "wsl", agent: "opencode" }),
         ]);
 
@@ -400,7 +400,12 @@ describe("token stats dashboard query", () => {
 
     it("uses one range and filter semantic across platform and agent", () => {
         store.upsert_records([
-            record({ message_id: "win", agent: "claude-code", source: "claude_code", env: "win" }),
+            record({
+                message_id: "local",
+                agent: "claude-code",
+                source: "claude_code",
+                env: "local",
+            }),
             record({
                 message_id: "wsl",
                 agent: "opencode",

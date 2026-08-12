@@ -92,6 +92,46 @@ describe("ProviderCard - overview", () => {
         expect(screen.getByText("2账号")).toBeInTheDocument();
     });
 
+    it("t305: l2Open=false 时仅「概览」tab 高亮（互斥选中态）", () => {
+        const group = makeGroup({ accountCount: 3 });
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                l2Open={false}
+                onToggleL2Open={vi.fn()}
+            />,
+        );
+        const overview_tab = screen.getByTitle("概览");
+        const detail_tab = screen.getByTitle("账号明细");
+        expect(overview_tab.className).toContain("text-[var(--color-accent)]");
+        expect(overview_tab.className).toContain("bg-[var(--color-surface-window)]");
+        expect(detail_tab.className).toContain("bg-transparent");
+        expect(detail_tab.className).not.toContain("text-[var(--color-accent)]");
+    });
+
+    it("t305: l2Open=true 时仅「N账号」tab 高亮（互斥选中态）", () => {
+        const group = makeGroup({ accountCount: 3 });
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={vi.fn()}
+                l2Open={true}
+                onToggleL2Open={vi.fn()}
+            />,
+        );
+        const overview_tab = screen.getByTitle("概览");
+        const detail_tab = screen.getByTitle("账号明细");
+        expect(detail_tab.className).toContain("text-[var(--color-accent)]");
+        expect(detail_tab.className).toContain("bg-[var(--color-surface-window)]");
+        expect(overview_tab.className).toContain("bg-transparent");
+        expect(overview_tab.className).not.toContain("text-[var(--color-accent)]");
+    });
+
     it("renders short usage period labels", () => {
         const periods = [
             makePeriod({ id: "long-5h", name: "5小时", used: 10, limit: 100 }),

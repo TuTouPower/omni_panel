@@ -136,7 +136,7 @@ describe("token stats dashboard DTO schema", () => {
                     {
                         session_id: "s1",
                         source: "claude_code",
-                        env: "win",
+                        env: "local",
                         title: "title",
                         directory: "/p",
                         models: ["sonnet"],
@@ -176,7 +176,7 @@ describe("token stats dashboard DTO schema", () => {
         const session_item = {
             session_id: "s1",
             source: "claude_code",
-            env: "win",
+            env: "local",
             title: "title",
             directory: "/p",
             models: ["sonnet"],

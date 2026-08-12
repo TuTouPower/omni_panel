@@ -13,7 +13,8 @@ test.describe("app lifecycle (web)", () => {
 
         const title = await popup.getTitle();
         expect(title).toContain("Omni Panel");
-        await expect(popup.root().getByRole("button", { name: "设置" })).toBeVisible();
+        // t311：web 下设置入口为原生链接（title 属性两态一致，跨 web/桌面定位稳定）。
+        await expect(popup.root().getByTitle("设置")).toBeVisible();
     });
 
     test("refresh button is visible", async ({ webPage }) => {

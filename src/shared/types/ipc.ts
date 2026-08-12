@@ -2,6 +2,7 @@ import type { MetricRecord, PluginChart, UsageSource } from "../schemas/plugin-o
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
 import type { GrokLoginResult, KimiLoginResult } from "./oauth";
+import type { TokenStatsSourceStatus } from "./token-stats";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
@@ -26,6 +27,11 @@ export interface TokenStatsStatus {
     running: boolean;
     /** Latest session upsert time (ms epoch), null when no data yet. */
     last_updated: number | null;
+    /**
+     * Per-source status from the latest collection round (t309); absent until
+     * the first collection reports it.
+     */
+    sources_status?: TokenStatsSourceStatus[] | undefined;
 }
 export type { AppConfiguration } from "./config";
 export type { GrokLoginResult, KimiLoginResult } from "./oauth";

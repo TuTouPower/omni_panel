@@ -374,7 +374,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
               ? "统计加载中…"
               : "统计不可用";
     return (
-        <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface)] text-[var(--color-on-surface)]">
+        <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
             <header className="library-header flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
                 <span className="library-title text-[length:var(--text-title-lg)] font-bold tracking-tight">
                     会话库

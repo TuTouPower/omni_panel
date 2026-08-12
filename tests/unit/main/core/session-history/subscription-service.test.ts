@@ -7,6 +7,7 @@ import {
     writeFileSync,
     readdirSync,
     readFileSync,
+    mkdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
@@ -14,6 +15,11 @@ import {
     SessionHistorySubscriptionService,
     type SessionRow,
 } from "../../../../../src/main/core/session-history/subscription-service";
+import {
+    clear_resolution_cache,
+    resolve_session_file,
+    type LocatorPaths,
+} from "../../../../../src/main/core/session-history/session-locator";
 import type { HistoryMessage } from "../../../../../src/main/core/session-history/types";
 
 /**
@@ -580,7 +586,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const received: HistoryMessage[][] = [];
         service.subscribe({
             source: "opencode",
-            env: "win",
+            env: "local",
             session_id: "sess_op",
             file_path: db_path,
             extractor_kind: "opencode",
@@ -615,7 +621,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
 
         const result = service.query({
             source: "claude_code",
-            env: "win",
+            env: "local",
             session_id: "s5",
             file_path: file,
             extractor_kind: "claude_code",
@@ -645,7 +651,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const page1 = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s6",
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -659,7 +665,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const page2 = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s6",
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -673,7 +679,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const page3 = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s6",
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -704,7 +710,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const page1 = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s7",
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -724,7 +730,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const page2 = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "s7",
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -740,7 +746,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             {
                 id: "old",
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 title: "旧会话",
                 model: "claude",
                 started_at: 1,
@@ -749,7 +755,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             {
                 id: "new",
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 title: "新会话",
                 model: "claude",
                 started_at: 2,
@@ -765,8 +771,8 @@ describe("SessionHistorySubscriptionService (t210)", () => {
                 ended_at: 150,
             },
         ];
-        const result = service.recent_sessions("claude_code", "win", 10, () =>
-            rows.filter((r) => r.source === "claude_code" && r.env === "win"),
+        const result = service.recent_sessions("claude_code", "local", 10, () =>
+            rows.filter((r) => r.source === "claude_code" && r.env === "local"),
         );
         expect(result).toHaveLength(2);
         expect(result[0]?.session_id).toBe("new");
@@ -774,7 +780,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result[0]?.agent).toBe("claude-code");
         expect(result[0]?.title).toBe("新会话");
         expect(result[0]?.source).toBe("claude_code");
-        expect(result[0]?.env).toBe("win");
+        expect(result[0]?.env).toBe("local");
     });
 
     it("recent_sessions limit 截断", () => {
@@ -821,7 +827,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const first = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -833,13 +839,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const cache = (
             service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }
         ).extract_cache;
-        const key = "claude_code|win|cache_sid";
+        const key = "claude_code|local|cache_sid";
         expect(cache.get(key)?.messages).toHaveLength(1);
 
         const second = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -856,7 +862,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const third = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -874,7 +880,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
 
         service.subscribe({
             source: "claude_code",
-            env: "win",
+            env: "local",
             session_id: sid,
             file_path: file,
             extractor_kind: "claude_code",
@@ -884,13 +890,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const cache = (
             service as unknown as { extract_cache: Map<string, { messages: HistoryMessage[] }> }
         ).extract_cache;
-        const key = "claude_code|win|sub_cache_sid";
+        const key = "claude_code|local|sub_cache_sid";
         expect(cache.get(key)?.messages).toHaveLength(1);
 
         const result = service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -914,14 +920,14 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             [
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "a",
                     file_path: s1,
                     extractor_kind: "claude_code",
                 },
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "b",
                     file_path: s2,
                     extractor_kind: "claude_code",
@@ -929,7 +935,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             ],
             "world",
         );
-        expect([...hits]).toEqual(["claude_code|win|a"]);
+        expect([...hits]).toEqual(["claude_code|local|a"]);
     });
 
     it("searchContent：并发上限不超过 3", async () => {
@@ -952,7 +958,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const counting_service = new CountingService();
         const locs: {
             source: "claude_code";
-            env: "win";
+            env: "local";
             session_id: string;
             file_path: string;
             extractor_kind: "claude_code";
@@ -970,7 +976,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             );
             locs.push({
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: `s${String(i)}`,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -1002,7 +1008,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             [
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: "abort",
                     file_path: file,
                     extractor_kind: "claude_code",
@@ -1039,7 +1045,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         counting_service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -1052,7 +1058,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             [
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     session_id: sid,
                     file_path: file,
                     extractor_kind: "claude_code",
@@ -1060,7 +1066,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
             ],
             "cached",
         );
-        expect([...hits]).toEqual([`claude_code|win|${sid}`]);
+        expect([...hits]).toEqual([`claude_code|local|${sid}`]);
         expect(counting_service.extract_count).toBe(1);
     });
 
@@ -1077,13 +1083,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const result = await service.summaries([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "sum",
                 file_path: file,
                 extractor_kind: "claude_code",
             },
         ]);
-        expect(result["claude_code|win|sum"]).toBe("u".repeat(80));
+        expect(result["claude_code|local|sum"]).toBe("u".repeat(80));
     });
 
     it("summaries：无 user 消息时返回空串", async () => {
@@ -1096,13 +1102,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const result = await service.summaries([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: "none",
                 file_path: file,
                 extractor_kind: "claude_code",
             },
         ]);
-        expect(result["claude_code|win|none"]).toBe("");
+        expect(result["claude_code|local|none"]).toBe("");
     });
 
     it("summaries：缓存命中时不调用轻量扫描", async () => {
@@ -1130,7 +1136,7 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         counting_service.query(
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
@@ -1141,13 +1147,13 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         const result = await counting_service.summaries([
             {
                 source: "claude_code",
-                env: "win",
+                env: "local",
                 session_id: sid,
                 file_path: file,
                 extractor_kind: "claude_code",
             },
         ]);
-        expect(result[`claude_code|win|${sid}`]).toBe("cached summary");
+        expect(result[`claude_code|local|${sid}`]).toBe("cached summary");
         expect(counting_service.first_user_count).toBe(0);
     });
 });
@@ -1205,3 +1211,76 @@ describe("summaries 异步让出 (t256)", () => {
         }
     });
 }, 30000);
+
+describe("t310 非 Windows 宿主本机会话（AC-005）", () => {
+    let tmp_dir: string;
+    let service: SessionHistorySubscriptionService;
+
+    beforeEach(() => {
+        tmp_dir = mkdtempSync(join(tmpdir(), "t310-sub-"));
+        service = new SessionHistorySubscriptionService({ poll_interval_ms: 30 });
+        clear_resolution_cache();
+    });
+
+    afterEach(() => {
+        service.unsubscribe_all();
+        rmSync(tmp_dir, { recursive: true, force: true });
+        clear_resolution_cache();
+    });
+
+    it("host=linux 时 locator 解析本机 local 会话，subscription query 返回非空消息列表", () => {
+        const proj = join(tmp_dir, ".claude", "projects", "proj");
+        mkdirSync(proj, { recursive: true });
+        const file = join(proj, "sess_local.jsonl");
+        writeFileSync(file, make_jsonl_line("user", "你好", "u1", "2026-08-05T10:00:00Z") + "\n");
+
+        const linux_paths: LocatorPaths = {
+            host: "linux",
+            homedir: tmp_dir,
+            // win_home 指向不存在目录：若实现误用 win_home 作 local 根则定位失败返回空。
+            win_home: join(tmp_dir, "win-home-unused"),
+            wsl_distro: "Ubuntu-22.04",
+            wsl_user: "",
+        };
+        const resolved = resolve_session_file("claude_code", "local", "sess_local", linux_paths);
+        expect(resolved).not.toBeNull();
+        expect(resolved?.file_path).toBe(file);
+
+        const result = service.query({
+            source: "claude_code",
+            env: "local",
+            session_id: "sess_local",
+            file_path: file,
+            extractor_kind: "claude_code",
+        });
+        // 不再因路径失效返回空列表。
+        expect(result.messages).not.toHaveLength(0);
+        expect(result.messages[0]?.text).toBe("你好");
+    });
+
+    it("host=macos 时同样可读取本机 local 会话", () => {
+        const proj = join(tmp_dir, ".claude", "projects", "proj");
+        mkdirSync(proj, { recursive: true });
+        const file = join(proj, "sess_mac.jsonl");
+        writeFileSync(file, make_jsonl_line("user", "你好", "u1", "2026-08-05T10:00:01Z") + "\n");
+
+        const macos_paths: LocatorPaths = {
+            host: "macos",
+            homedir: tmp_dir,
+            win_home: join(tmp_dir, "win-home-unused"),
+            wsl_distro: "Ubuntu-22.04",
+            wsl_user: "",
+        };
+        const resolved = resolve_session_file("claude_code", "local", "sess_mac", macos_paths);
+        expect(resolved).not.toBeNull();
+
+        const result = service.query({
+            source: "claude_code",
+            env: "local",
+            session_id: "sess_mac",
+            file_path: resolved?.file_path ?? file,
+            extractor_kind: "claude_code",
+        });
+        expect(result.messages).not.toHaveLength(0);
+    });
+});

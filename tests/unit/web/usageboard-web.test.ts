@@ -65,7 +65,7 @@ describe("web usageboard bridge", () => {
         const api = create_web_usageboard();
         const cells = await api.tokenStats.getHeatmap({
             agent: "claude-code",
-            env: "win",
+            env: "local",
             start: 100,
             end: 200,
         });
@@ -73,7 +73,7 @@ describe("web usageboard bridge", () => {
         const url = fetch_mock.mock.calls[0]?.[0] as string;
         expect(url).toContain("/v1/heatmap");
         expect(url).toContain("agent=claude-code");
-        expect(url).toContain("env=win");
+        expect(url).toContain("env=local");
         expect(url).toContain("start=100");
         expect(url).toContain("end=200");
     });
@@ -94,7 +94,7 @@ describe("web usageboard bridge", () => {
         const api = create_web_usageboard();
         const buckets = await api.tokenStats.getHourBuckets({
             agent: "claude-code",
-            env: "win",
+            env: "local",
             start: 100,
             end: 200,
         });
@@ -102,7 +102,7 @@ describe("web usageboard bridge", () => {
         const url = fetch_mock.mock.calls[0]?.[0] as string;
         expect(url).toContain("/v1/hourBuckets");
         expect(url).toContain("agent=claude-code");
-        expect(url).toContain("env=win");
+        expect(url).toContain("env=local");
         expect(url).toContain("start=100");
         expect(url).toContain("end=200");
     });
@@ -575,10 +575,10 @@ describe("web usageboard bridge", () => {
         expect(url).toContain("sourceInstanceId=inst-a");
     });
 
-    it("sessionHistory.open switches to the history hash route (t259 AC2)", async () => {
+    it("sessionHistory.open switches to the session hash route (t259 AC2)", async () => {
         const api = create_web_usageboard();
         await api.sessionHistory.open("claude_code", "win", "sess-1");
-        expect(window.location.hash).toBe("#history");
+        expect(window.location.hash).toBe("#session");
     });
 
     it("sessionHistory.open 把 loc 编码进 URL search 供会话面板初始定位 (t263)", async () => {

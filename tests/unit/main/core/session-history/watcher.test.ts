@@ -50,10 +50,10 @@ function install_watch(fake: FakeWatcher): void {
 
 describe("pick_strategy (t210)", () => {
     it.each([
-        ["win", "claude_code", "watch"],
-        ["win", "opencode", "poll"],
-        ["win", "kimi", "poll"],
-        ["win", "grok", "poll"],
+        ["local", "claude_code", "watch"],
+        ["local", "opencode", "poll"],
+        ["local", "kimi", "poll"],
+        ["local", "grok", "poll"],
         ["wsl", "claude_code", "poll"],
         ["wsl", "opencode", "poll"],
         ["wsl", "kimi", "poll"],

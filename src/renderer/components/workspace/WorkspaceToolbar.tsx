@@ -43,12 +43,12 @@ export function WorkspaceToolbar({
     }
 
     return (
-        <header className="history-toolbar flex shrink-0 items-center gap-2 border-b border-[var(--color-hairline)] px-3 py-2">
-            <div className="history-toolbar-actions flex shrink-0 items-center gap-2">
+        <header className="session-toolbar flex min-w-0 flex-1 items-center gap-2 border-b border-[var(--color-hairline)] px-3 py-1.5">
+            <div className="session-toolbar-actions flex flex-1 items-center justify-end gap-2">
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="history-toolbar-button"
+                    className="session-toolbar-button"
                     onClick={on_recent}
                 >
                     最近会话
@@ -56,16 +56,16 @@ export function WorkspaceToolbar({
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="history-toolbar-button"
+                    className="session-toolbar-button"
                     onClick={on_clear}
                 >
                     清空
                 </Button>
-                <div className="history-view-wrap relative">
+                <div className="session-view-wrap relative">
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="history-toolbar-button"
+                        className="session-toolbar-button"
                         aria-haspopup="menu"
                         aria-expanded={view_open}
                         onClick={() => {
@@ -77,17 +77,17 @@ export function WorkspaceToolbar({
                     {view_open && (
                         <>
                             <div
-                                className="history-view-overlay fixed inset-0 z-[var(--z-menu)]"
+                                className="session-view-overlay fixed inset-0 z-[var(--z-menu)]"
                                 onClick={() => {
                                     set_view_open(false);
                                 }}
                             />
                             <div
-                                className="history-view-menu glass-menu absolute left-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
+                                className="session-view-menu glass-menu absolute right-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
                                 role="menu"
                                 aria-label="视图选项"
                             >
-                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                                <label className="session-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                     <Checkbox
                                         checked={view.show_time}
                                         onChange={(e) => {
@@ -96,7 +96,7 @@ export function WorkspaceToolbar({
                                     />
                                     显示时间戳
                                 </label>
-                                <label className="history-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                                <label className="session-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                     <Checkbox
                                         checked={view.compact}
                                         onChange={(e) => {
@@ -107,11 +107,11 @@ export function WorkspaceToolbar({
                                 </label>
                                 {layout_choices.length > 0 && (
                                     <div
-                                        className="history-layout-choices mt-1 flex flex-col gap-0.5 border-t border-[var(--color-hairline)] pt-1"
+                                        className="session-layout-choices mt-1 flex flex-col gap-0.5 border-t border-[var(--color-hairline)] pt-1"
                                         role="group"
                                         aria-label="会话排布"
                                     >
-                                        <div className="history-layout-title px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
+                                        <div className="session-layout-title px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                                             会话排布
                                         </div>
                                         {layout_choices.map((choice) => (
@@ -119,7 +119,7 @@ export function WorkspaceToolbar({
                                                 type="button"
                                                 key={`${String(choice.columns)}x${String(choice.rows)}`}
                                                 className={cn(
-                                                    "history-layout-choice w-full rounded-md px-2.5 py-1.5 text-left text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                                    "session-layout-choice w-full rounded-md px-2.5 py-1.5 text-left text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                                     layout === choice.columns &&
                                                         "bg-[var(--color-surface-raised)] text-[var(--color-on-surface)]",
                                                 )}

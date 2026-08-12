@@ -1,0 +1,28 @@
+{
+    "tid": "t316",
+    "attempt": 1,
+    "execution_id": "b1bd63d07f65401b89c6a3302a9ffeb9",
+    "status": "done",
+    "branch": "t316_vendor_logo_theme_visibility",
+    "base_sha": "acdcfaae10b6b290daddd98639b1730a0f47e7cc",
+    "tests": "pnpm test：2936 passed / 1 failed（存量 designmd drift，见 p142）/ 2 skipped；icon 24/24；web e2e 全项目 82 passed（含 vendor_logo_theme 4 条）；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 82 passed",
+    "review": "Round 1-2 general 全 PASS（f001 minor 留痕登记）",
+    "ac_evidence": {
+        "AC-001": [
+            "web e2e vendor_logo_theme.spec.ts「AC-001 light 主题下仅显示 light 图，dark 图 display none」4/4：exa/grok/opencode_go light img=block、dark img=none（真实构建 CSS computed display）"
+        ],
+        "AC-002": [
+            "「AC-002 dark 主题下仅显示 dark 图，light 图 display none」4/4：light img=none、dark img=block"
+        ],
+        "AC-003": [
+            "「AC-003 同主题下两张图不同时可见」light/dark × 3 provider 可见图数恰 1；renderer 构建产物 CSS 同效（.block/.hidden/.dark:block 同层，Icon.tsx 无 web/electron 分叉）"
+        ],
+        "AC-004": [
+            "「AC-004 单图 provider（deepseek）两主题均显示原 logo」display=block + wrapper 22px + object-contain",
+            "icon.test.tsx「keeps single-logo provider rendering intact (t316 AC-004)」"
+        ]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

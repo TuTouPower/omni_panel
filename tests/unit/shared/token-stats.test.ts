@@ -11,7 +11,7 @@ import {
 const validDaily = {
     id: "sess-abc123",
     source: "claude_code",
-    env: "win",
+    env: "local",
     model: "claude-sonnet-4-20250514",
     date: "2026-07-17",
     input_tokens: 500,
@@ -23,7 +23,7 @@ const validDaily = {
 
 const validBucket = {
     source: "claude_code",
-    env: "win",
+    env: "local",
     bucket_date: "2026-07-17",
     model: "claude-sonnet-4-20250514",
     input_tokens: 1500,
@@ -86,7 +86,7 @@ describe("tokenStatsBucketSchema", () => {
     it("rejects missing required fields", () => {
         const result = tokenStatsBucketSchema.safeParse({
             source: "claude_code",
-            env: "win",
+            env: "local",
         });
         expect(result.success).toBe(false);
     });
@@ -140,7 +140,7 @@ describe("tokenStatsSessionUpsertSchema", () => {
         const result = tokenStatsSessionUpsertSchema.safeParse({
             id: "sess-abc123",
             source: "claude_code",
-            env: "win",
+            env: "local",
             model: null,
             title: null,
             directory: null,
@@ -197,6 +197,60 @@ describe("tokenStatsUpdateSchema", () => {
             daily: [],
         });
         expect(result.success).toBe(false);
+    });
+
+    it("accepts a sources_status array (t309 AC-002)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+            sources_status: [
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+                { source: "opencode", env: "local", status: "failed", lastError: "db locked" },
+                { source: "claude_code", env: "local", status: "ok" },
+            ],
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.sources_status[0]).toMatchObject({
+                source: "grok",
+                env: "wsl",
+                status: "unavailable",
+                lastError: "sessions dir missing",
+            });
+            expect(result.data.sources_status[2]).toEqual({
+                source: "claude_code",
+                env: "local",
+                status: "ok",
+            });
+        }
+    });
+
+    it("rejects an invalid source status value (t309)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+            sources_status: [{ source: "grok", env: "wsl", status: "unknown" }],
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("defaults sources_status to an empty array when absent (t309)", () => {
+        const result = tokenStatsUpdateSchema.safeParse({
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.sources_status).toEqual([]);
+        }
     });
 });
 

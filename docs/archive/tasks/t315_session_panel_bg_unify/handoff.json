@@ -1,0 +1,30 @@
+{
+    "tid": "t315",
+    "attempt": 1,
+    "execution_id": "b9dedfb9791948839eec01dbae4601d4",
+    "status": "done",
+    "branch": "t315_session_panel_bg_unify",
+    "base_sha": "0373cbc6eac0a255d2acc873f95dc890a45820e2",
+    "tests": "pnpm test：2924 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；4 单测文件 90/90；web e2e session_panel 10/10；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）；web e2e 10/10",
+    "review": "Round 1-4 general 全 PASS（f001-f005 minor 均修）",
+    "ac_evidence": {
+        "AC-001": [
+            "SessionShell.test.tsx「t315 AC1：根容器与顶栏背景为 surface-window」含 not.toContain(bg-surface) 反断言",
+            "web e2e computed 根背景断言（shell/workspace/library 三根同色）"
+        ],
+        "AC-002": [
+            "SessionPane.test.tsx「t315 AC2：卡片背景为第二色 surface-raised」",
+            "WorkspaceView.test.tsx「t315 AC2/AC3：…卡片第二色 surface-raised」",
+            "SessionLibrary.test.tsx「t315 AC2：根背景 surface-window，网格卡片/列表行为第二色 surface-raised」",
+            "e2e computed pane/card 同色且 ≠ 根"
+        ],
+        "AC-003": [
+            "WorkspaceView.test.tsx 断言 .session-grid 含 gap-px + bg-outline + p-px（发丝线网格保留）",
+            "e2e computed 两色可辨"
+        ],
+        "AC-004": ["4 单测文件 90/90 + web e2e 10/10 全绿；typecheck、lint 通过"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

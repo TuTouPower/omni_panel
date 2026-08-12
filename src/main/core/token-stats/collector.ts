@@ -1,12 +1,16 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import type {
     TokenStatsConfig,
     TokenStatsDailyUpsert,
     TokenStatsEnv,
     TokenStatsSessionUpsert,
     TokenStatsSource,
+    TokenStatsSourceStatus,
     TokenStatsUpdate,
 } from "../../../shared/types/token-stats";
+import * as paths from "./paths";
+import type { Host } from "./paths";
 import { read_costs_jsonl, scan_session_jsonls, create_session_scan_state } from "./claude-reader";
 import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
@@ -37,7 +41,13 @@ interface SourceDef {
     source: TokenStatsSource;
     kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl" | "grok_jsonl";
     env: TokenStatsEnv;
-    wsl: boolean;
+    /**
+     * Hosts that can host this source (t309). The collector filters the
+     * declarative list by the host it runs on: a source whose hosts do not
+     * include the current host never builds paths or reads — it is reported
+     * `unavailable`. WSL data only exists on Windows hosts (UNC share).
+     */
+    hosts: Host[];
 }
 
 // --- Module state ---
@@ -95,9 +105,12 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
-// Warn once per source when its sessions dir is missing (t197 AC5); without
-// this the collector would log every poll for users who never install grok.
-const grok_missing_warned = new Set<string>();
+// Warn once per source per process run when its collection round ends
+// unavailable or failed (t309). Without this the collector would log every
+// poll for users who never install a tool (e.g. grok) or on hosts where a
+// source cannot exist (e.g. wsl on linux) — the pre-t309 grok dedup (t197 AC5)
+// generalized to every source.
+const source_warned = new Set<string>();
 
 // Records the collector has already emitted (by PK source|env|message_id).
 // A dirty session re-merge re-derives the session's full record set; without
@@ -147,29 +160,54 @@ export async function load_state(state_path: string): Promise<void> {
     );
 }
 
+const LOCAL_HOSTS: Host[] = ["windows", "linux", "macos"];
+const WSL_HOSTS: Host[] = ["windows"];
+
+// Declarative source list (t309): each entry declares the hosts it exists on;
+// the collector filters by the host it runs on (AC-001). Local installs exist
+// on every host; WSL data (including Grok CLI, which only ships under WSL) is
+// a Windows-only UNC share.
 const sources: SourceDef[] = [
-    { key: "claude_costs_win", source: "claude_code", kind: "costs", env: "win", wsl: false },
     {
-        key: "claude_jsonl_win",
+        key: "claude_costs_local",
+        source: "claude_code",
+        kind: "costs",
+        env: "local",
+        hosts: LOCAL_HOSTS,
+    },
+    {
+        key: "claude_jsonl_local",
         source: "claude_code",
         kind: "session_jsonl",
-        env: "win",
-        wsl: false,
+        env: "local",
+        hosts: LOCAL_HOSTS,
     },
-    { key: "opencode_win", source: "opencode", kind: "opencode_db", env: "win", wsl: false },
-    { key: "kimi_win", source: "kimi_code", kind: "kimi_jsonl", env: "win", wsl: false },
-    { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", wsl: true },
+    {
+        key: "opencode_local",
+        source: "opencode",
+        kind: "opencode_db",
+        env: "local",
+        hosts: LOCAL_HOSTS,
+    },
+    {
+        key: "kimi_local",
+        source: "kimi_code",
+        kind: "kimi_jsonl",
+        env: "local",
+        hosts: LOCAL_HOSTS,
+    },
+    { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", hosts: WSL_HOSTS },
     {
         key: "claude_jsonl_wsl",
         source: "claude_code",
         kind: "session_jsonl",
         env: "wsl",
-        wsl: true,
+        hosts: WSL_HOSTS,
     },
-    { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", wsl: true },
-    { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", wsl: true },
+    { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", hosts: WSL_HOSTS },
+    { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", hosts: WSL_HOSTS },
     // Grok CLI data exists only under WSL (~/.grok/sessions).
-    { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", wsl: true },
+    { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", hosts: WSL_HOSTS },
 ];
 
 // --- Path builders ---
@@ -210,121 +248,216 @@ function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_l
     return wsl_user_cache;
 }
 
-function claude_base(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.claude`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.claude`;
+/** Host the collector runs on, derived from process.platform (t308). */
+let collector_host: Host = paths.host_from_platform(process.platform);
+
+/**
+ * Test-only injection: the path layer is a pure function of (host, env, cfg),
+ * so tests simulate any host by overriding this. Production never calls it —
+ * the host is fixed at module load from process.platform.
+ */
+export function set_collector_host(host: Host): void {
+    collector_host = host;
 }
 
-function claude_costs_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${claude_base(cfg, env)}\\metrics\\costs.jsonl`;
+function path_input(
+    cfg: TokenStatsConfig,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): paths.TokenStatsPathInput {
+    return {
+        host,
+        homedir,
+        win_home: cfg.win_home,
+        wsl_distro: cfg.wsl_distro,
+        wsl_user: effective_wsl_user(cfg),
+    };
 }
 
-function claude_projects_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${claude_base(cfg, env)}\\projects`;
+function claude_costs_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.claude_costs_path(path_input(cfg, host, homedir), env);
 }
 
-function opencode_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.local\\share\\opencode\\opencode.db`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.local\\share\\opencode\\opencode.db`;
+function claude_projects_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.claude_projects_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_base(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    if (env === "win") {
-        return `${cfg.win_home}\\.kimi-code`;
-    }
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.kimi-code`;
+function opencode_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.opencode_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_sessions_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${kimi_base(cfg, env)}\\sessions`;
+function kimi_sessions_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.kimi_sessions_path(path_input(cfg, host, homedir), env);
 }
 
-function kimi_index_path(cfg: TokenStatsConfig, env: TokenStatsEnv): string {
-    return `${kimi_base(cfg, env)}\\session_index.jsonl`;
+function kimi_index_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.kimi_index_path(path_input(cfg, host, homedir), env);
 }
 
-function grok_base(cfg: TokenStatsConfig): string {
-    return `\\\\wsl.localhost\\${cfg.wsl_distro}\\home\\${effective_wsl_user(cfg)}\\.grok`;
-}
-
-function grok_sessions_path(cfg: TokenStatsConfig): string {
-    return `${grok_base(cfg)}\\sessions`;
+function grok_sessions_path(
+    cfg: TokenStatsConfig,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.grok_sessions_path(path_input(cfg, host, homedir), "wsl");
 }
 
 // --- Source readers ---
 
+/** Result of one source's collection round, extended with its status (t309). */
 interface SourceReadResult {
     sessions: TokenStatsSessionUpsert[];
     daily: TokenStatsDailyUpsert[];
     records: TokenStatsUpdate["records"];
 }
 
-function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceReadResult {
+interface SourceOutcome extends SourceReadResult {
+    status: "ok" | "unavailable" | "failed";
+    /** Reason for unavailable/failed; absent for ok (AC-002). */
+    lastError?: string;
+    /**
+     * Exact warn text for this round (AC-003). Built where the reason is known
+     * so the established phrasings (e.g. grok's "sessions dir missing") are
+     * preserved; the collector emits it at most once per source per run.
+     */
+    logMessage?: string;
+}
+
+const EMPTY_READ: SourceReadResult = { sessions: [], daily: [], records: [] };
+
+function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
     try {
         if (src.kind === "costs") {
+            const costs_path = claude_costs_path(cfg, src.env);
+            if (costs_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
             const s = costs_state.get(src.key) ?? { offset: 0, size: 0 };
-            const result = read_costs_jsonl(
-                claude_costs_path(cfg, src.env),
-                src.env,
-                s.offset,
-                s.size,
-            );
+            const result = read_costs_jsonl(costs_path, src.env, s.offset, s.size);
             costs_state.set(src.key, { offset: result.new_offset, size: result.new_size });
-            return { sessions: result.sessions, daily: [], records: [] };
+            return {
+                sessions: result.sessions,
+                daily: [],
+                records: [],
+                status: "ok",
+            };
         }
         if (src.kind === "session_jsonl") {
+            const projects_path = claude_projects_path(cfg, src.env);
+            if (projects_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
             const state = jsonl_states.get(src.key) ?? create_session_scan_state();
-            const result = scan_session_jsonls(claude_projects_path(cfg, src.env), src.env, state);
+            const result = scan_session_jsonls(projects_path, src.env, state);
             jsonl_states.set(src.key, result.new_state);
-            return { sessions: result.sessions, daily: result.daily, records: result.records };
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
         }
         if (src.kind === "kimi_jsonl") {
+            const sessions_path = kimi_sessions_path(cfg, src.env);
+            const index_path = kimi_index_path(cfg, src.env);
+            if (sessions_path === null || index_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
             const state = kimi_states.get(src.key) ?? create_kimi_scan_state();
-            const result = scan_kimi_wire_jsonls(
-                kimi_sessions_path(cfg, src.env),
-                src.env,
-                kimi_index_path(cfg, src.env),
-                state,
-            );
+            const result = scan_kimi_wire_jsonls(sessions_path, src.env, index_path, state);
             kimi_states.set(src.key, result.new_state);
-            return { sessions: result.sessions, daily: result.daily, records: result.records };
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
         }
         if (src.kind === "grok_jsonl") {
-            const state = grok_states.get(src.key) ?? create_grok_scan_state();
-            const result = scan_grok_updates(grok_sessions_path(cfg), src.env, state);
-            grok_states.set(src.key, result.new_state);
-            if (result.missing && !grok_missing_warned.has(src.key)) {
-                grok_missing_warned.add(src.key);
-                forward_log(
-                    "warn",
-                    "collector",
-                    `${src.key} sessions dir missing: ${grok_sessions_path(cfg)}`,
-                );
+            const grok_path = grok_sessions_path(cfg);
+            if (grok_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
             }
-            return { sessions: result.sessions, daily: result.daily, records: result.records };
+            const state = grok_states.get(src.key) ?? create_grok_scan_state();
+            const result = scan_grok_updates(grok_path, src.env, state);
+            grok_states.set(src.key, result.new_state);
+            if (result.missing) {
+                // Keep the established warn phrasing (t197 AC5): the old test
+                // asserts the "sessions dir missing" message.
+                const lastError = `sessions dir missing: ${grok_path}`;
+                return {
+                    ...EMPTY_READ,
+                    status: "unavailable",
+                    lastError,
+                    logMessage: `${src.key} ${lastError}`,
+                };
+            }
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
+        }
+        const opencode_db_path = opencode_path(cfg, src.env);
+        if (opencode_db_path === null) {
+            return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
         }
         const max_updated = opencode_max_updated.get(src.key) ?? 0;
-        const result = read_opencode_sessions(opencode_path(cfg, src.env), src.env, max_updated);
+        const result = read_opencode_sessions(opencode_db_path, src.env, max_updated);
         for (const session of result.sessions) {
             if (session.ended_at > max_updated) {
                 opencode_max_updated.set(src.key, session.ended_at);
             }
         }
-        return result;
+        return { ...result, status: "ok" };
     } catch (err: unknown) {
+        // t309: previously ENOENT failures were silent and non-ENOENT failures
+        // logged at error level; both now surface as a per-source warn.
         const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("ENOENT")) {
-            forward_log("error", "collector", `${src.key} read failed: ${msg}`);
-        }
-        return { sessions: [], daily: [], records: [] };
+        return {
+            ...EMPTY_READ,
+            status: "failed",
+            lastError: msg,
+            logMessage: `${src.key} read failed: ${msg}`,
+        };
     }
 }
 
 // --- Main collection ---
+
+/** Emit a warn log for an unavailable/failed source, at most once per source
+ *  per process run (AC-003; extends the t197 grok dedup to every source). */
+function warn_source(src: SourceDef, message: string): void {
+    if (source_warned.has(src.key)) return;
+    source_warned.add(src.key);
+    forward_log("warn", "collector", message);
+}
 
 function collect(): void {
     if (!config) return;
@@ -332,10 +465,41 @@ function collect(): void {
     const all_sessions: TokenStatsSessionUpsert[] = [];
     const all_daily: TokenStatsDailyUpsert[] = [];
     const all_records: TokenStatsUpdate["records"] = [];
+    // Per-source status of this round (AC-002): every participating source is
+    // reported; unavailable/failed entries carry the reason text.
+    const all_sources_status: TokenStatsSourceStatus[] = [];
 
     for (const src of sources) {
-        if (src.wsl && !config.wsl_enabled) continue;
+        // Config-disabled sources (wsl_enabled=false) do not participate at
+        // all — no read, no status entry (an intentional config choice, not an
+        // availability problem).
+        if (src.env === "wsl" && !config.wsl_enabled) continue;
+        // Declarative host filter (AC-001): sources that cannot exist on this
+        // host never build paths or read; they are reported unavailable.
+        if (!src.hosts.includes(collector_host)) {
+            const lastError = `wsl data requires a windows host (host=${collector_host})`;
+            warn_source(src, `${src.key} unavailable: ${lastError}`);
+            all_sources_status.push({
+                source: src.source,
+                env: src.env,
+                status: "unavailable",
+                lastError,
+            });
+            continue;
+        }
         const result = read_source(src, config);
+        if (result.status === "ok") {
+            all_sources_status.push({ source: src.source, env: src.env, status: "ok" });
+        } else {
+            const lastError = result.lastError ?? result.status;
+            warn_source(src, result.logMessage ?? `${src.key} ${result.status}: ${lastError}`);
+            all_sources_status.push({
+                source: src.source,
+                env: src.env,
+                status: result.status,
+                lastError,
+            });
+        }
         for (const s of result.sessions) {
             if (all_sessions.length >= MAX_RECORDS) break;
             all_sessions.push(s);
@@ -370,6 +534,7 @@ function collect(): void {
         sessions: all_sessions,
         daily: all_daily,
         records: all_records,
+        sources_status: all_sources_status,
     };
 
     try {
@@ -399,7 +564,7 @@ function reset_config(): void {
     jsonl_states.clear();
     kimi_states.clear();
     grok_states.clear();
-    grok_missing_warned.clear();
+    source_warned.clear();
     emitted_record_keys.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;

@@ -1,0 +1,22 @@
+{
+    "tid": "t314",
+    "attempt": 1,
+    "execution_id": "bdccae3f5b90452ebc6afe27ec56e2b5",
+    "status": "done",
+    "branch": "t314_session_rail_badge_no_ring",
+    "base_sha": "38d2ce2420e908267415d453039856b9c290699d",
+    "tests": "pnpm test：2920 passed / 1 failed（存量 designmd drift，见 p142）/ 9 skipped；SessionRail 4/4；typecheck、lint 通过",
+    "blackbox": "pnpm test 主黑盒通过（存量 designmd drift 除外）",
+    "review": "Round 1 general PASS（0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "SessionRail.test.tsx「四个已知 source 与未知 source 都使用 VendorMark」：5 个 session-badge className 均 not.toMatch(/\\bring-/)（无 ring class）"
+        ],
+        "AC-002": [
+            "同用例：badge.querySelector('[data-testid=\"vendor-mark\"]') 为真（各 source logo 渲染），claude/kimi/grok/opencode 图源与未知 fallback svg 断言保留"
+        ],
+        "AC-003": ["测试新增断言本身：expect(badge.className).not.toMatch(/\\bring-/) 覆盖 5 badge"]
+    },
+    "pending": ["p142"],
+    "findings": []
+}

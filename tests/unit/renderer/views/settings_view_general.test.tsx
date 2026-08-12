@@ -117,15 +117,13 @@ describe("SettingsView", () => {
         });
     });
 
-    it("calls window.close when back button is clicked", async () => {
-        const closeSpy = vi.spyOn(window, "close").mockImplementation(() => undefined);
-        const user = userEvent.setup();
+    it("无返回按钮，返回导航（goBack）不再可达（AC-008）", async () => {
         render(<SettingsView />);
-        // t271: back-btn 迁移到 ui/Button，定位改 aria-label。
-        const backBtn = screen.getByLabelText("返回");
-        await user.click(backBtn);
-        expect(closeSpy).toHaveBeenCalled();
-        closeSpy.mockRestore();
+        // 标题栏右侧为面板切换 + 窗口控制，左上角不得再有 aria-label="返回" 的 ghost 按钮。
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByLabelText("返回")).not.toBeInTheDocument();
     });
 
     it("saves main panel mode", async () => {
@@ -327,6 +325,63 @@ describe("SettingsView", () => {
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
         const cards = document.querySelectorAll('[data-testid^="about-card-"]');
         expect(cards).toHaveLength(8);
+    });
+
+    it("web 态关于页外链卡片渲染为原生链接，href/target/rel 正确且无 onClick（t311 AC-003/AC-004）", async () => {
+        const open_spy = vi.spyOn(window, "open").mockImplementation(() => ({}) as Window);
+        document.documentElement.setAttribute("data-web", "1");
+        try {
+            const user = userEvent.setup();
+            render(<SettingsView />);
+            await user.click(screen.getByTestId("settings-plugin-nav-about"));
+
+            const expected_urls: Record<string, string> = {
+                site: "https://omnipanel.app",
+                docs: "https://omnipanel.app/docs",
+                contact: "https://omnipanel.app/feedback",
+                donate: "https://omnipanel.app/sponsor",
+                privacy: "https://omnipanel.app/privacy",
+                terms: "https://omnipanel.app/terms",
+                oss: "https://omnipanel.app/oss",
+            };
+            for (const [id, url] of Object.entries(expected_urls)) {
+                const link = screen.getByTestId(`about-card-${id}`);
+                expect(link.tagName).toBe("A");
+                expect(link).toHaveAttribute("href", url);
+                expect(link).toHaveAttribute("target", "_blank");
+                expect(link).toHaveAttribute("rel", "noopener noreferrer");
+                // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick
+                // attribute（恒真断言无意义）；可失败断言——点击外链不触发
+                // window.open（若实现误在 <a> 上挂 onClick 拦截会调它）。
+                link.click();
+                expect(open_spy).not.toHaveBeenCalled();
+            }
+            // 「检查更新」卡无外链地址，保持按钮形态。
+            const update = screen.getByTestId("about-card-update");
+            expect(update.tagName).toBe("BUTTON");
+        } finally {
+            open_spy.mockRestore();
+            document.documentElement.removeAttribute("data-web");
+        }
+    });
+
+    it("桌面态点击关于页外链卡片调用 window.open（t311 AC-005）", async () => {
+        const open_spy = vi.spyOn(window, "open").mockImplementation(() => ({}) as Window);
+        try {
+            const user = userEvent.setup();
+            render(<SettingsView />);
+            await user.click(screen.getByTestId("settings-plugin-nav-about"));
+            await user.click(screen.getByTestId("about-card-site"));
+            expect(open_spy).toHaveBeenCalledWith(
+                "https://omnipanel.app",
+                "_blank",
+                "noopener,noreferrer",
+            );
+            const site_card = screen.getByTestId("about-card-site");
+            expect(site_card.tagName).toBe("BUTTON");
+        } finally {
+            open_spy.mockRestore();
+        }
     });
 
     it("shows platform info in separate meta line", async () => {

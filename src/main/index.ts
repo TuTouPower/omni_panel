@@ -72,6 +72,7 @@ import { create_history_window_controller } from "./core/main-panel/history-wind
 import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
+import { host_from_platform } from "./core/token-stats/paths";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
@@ -411,7 +412,7 @@ void app.whenReady().then(async () => {
         // t251: 会话/代理面板窗口 bounds 保存与恢复（复用设置窗口先例）。
         // createWindowFor 后应用保存的 bounds + 注册 move/resize 保存。
         const create_panel_window = (
-            key: "agent" | "history",
+            key: "agent" | "session",
             route_query?: Record<string, string>,
         ) => {
             const bounds_key = key === "agent" ? "agentWindowBounds" : "historyWindowBounds";
@@ -440,7 +441,7 @@ void app.whenReady().then(async () => {
                 // 首次创建时经 URL query 传初始定位参数，renderer 启动同步读（见
                 // spec 上下文区已核实契约；window 已存在时走 send_focus，不重复传）。
                 return create_panel_window(
-                    "history",
+                    "session",
                     loc ? { loc: JSON.stringify(loc) } : undefined,
                 );
             },
@@ -448,7 +449,12 @@ void app.whenReady().then(async () => {
         // 会话历史 IPC 通道组。sessions_provider 把 token-stats store 的
         // query_sessions 结果映射为 SessionRow（服务层不依赖 store 类型）。
         // t259: 与 web local-api 会话历史端点共享同一 provider/locator，保证同源。
+        // t310: locator 路径输入与 t308 路径层对齐——host 从 process.platform 推导，
+        // homedir 供非 Windows 宿主 local 源，win_home 供 Windows 宿主 local 源；
+        // wsl_* 显式值优先，空串由 locator 自动探测。
         const session_history_locator_paths = {
+            host: host_from_platform(process.platform),
+            homedir: homedir(),
             win_home: homedir(),
             wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
             wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
@@ -469,6 +475,7 @@ void app.whenReady().then(async () => {
             return tokenStatsStore.query_sessions(filters).map((s) => ({
                 id: s.id,
                 source: s.source,
+                // t310: session-history Env 已与 token-stats 对齐为 local|wsl，直接透传。
                 env: s.env,
                 title: s.title,
                 model: s.model,

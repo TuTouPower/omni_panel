@@ -8,13 +8,40 @@ interface RangePickerProps {
     end: number;
     active: boolean;
     onApply: (range: { start: number; end: number }) => void;
+    /** t312: 受控面板开关（时间范围下拉「自定义」触发）；缺省用内部状态。 */
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
-    const [open, setOpen] = useState(false);
+export function RangePicker({
+    start,
+    end,
+    active,
+    onApply,
+    open: openProp,
+    onOpenChange,
+}: RangePickerProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = openProp ?? internalOpen;
     const [localStart, setLocalStart] = useState(toLocalInput(start));
     const [localEnd, setLocalEnd] = useState(toLocalInput(end));
     const wrapRef = useRef<HTMLDivElement>(null);
+
+    const toggleOpen = () => {
+        if (openProp === undefined) {
+            setInternalOpen((v) => !v);
+        } else {
+            onOpenChange?.(!open);
+        }
+    };
+
+    const closeOpen = () => {
+        if (openProp === undefined) {
+            setInternalOpen(false);
+        } else {
+            onOpenChange?.(false);
+        }
+    };
 
     useEffect(() => {
         setLocalStart(toLocalInput(start));
@@ -25,14 +52,18 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
         if (!open) return undefined;
         const handler = (e: MouseEvent) => {
             if (!wrapRef.current?.contains(e.target as Node)) {
-                setOpen(false);
+                if (openProp === undefined) {
+                    setInternalOpen(false);
+                } else {
+                    onOpenChange?.(false);
+                }
             }
         };
         document.addEventListener("click", handler);
         return () => {
             document.removeEventListener("click", handler);
         };
-    }, [open]);
+    }, [open, openProp, onOpenChange]);
 
     const apply = () => {
         const s = new Date(localStart).getTime();
@@ -55,7 +86,7 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
                 title="自定义时间范围"
                 onClick={(e) => {
                     e.stopPropagation();
-                    setOpen((v) => !v);
+                    toggleOpen();
                 }}
             >
                 📅 自定义
@@ -95,7 +126,7 @@ export function RangePicker({ start, end, active, onApply }: RangePickerProps) {
                             className="mt-1 self-end"
                             onClick={() => {
                                 apply();
-                                setOpen(false);
+                                closeOpen();
                             }}
                         >
                             应用

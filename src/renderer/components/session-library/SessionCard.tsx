@@ -34,6 +34,7 @@ export const SessionCard = memo(function SessionCard({
     onRender?.();
     return (
         <Card
+            raised
             className={cn(
                 "library-card group relative flex min-w-0 flex-col overflow-hidden p-0 transition-shadow hover:shadow-[var(--shadow-card)]",
                 selected && "ring-1 ring-[var(--agent-accent)]",

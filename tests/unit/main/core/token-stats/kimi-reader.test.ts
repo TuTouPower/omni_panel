@@ -72,7 +72,7 @@ function user_msg(text: string, time = 1784217963000): string {
     });
 }
 
-const ENV: TokenStatsEnv = "win";
+const ENV: TokenStatsEnv = "local";
 const T0 = 1784217963778;
 const T1 = 1784304000000;
 
@@ -105,7 +105,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.records).toHaveLength(1);
         expect(result.records[0]).toMatchObject({
             source: "kimi_code",
-            env: "win",
+            env: "local",
             agent: "kimi-code",
             session_id: "session_abc",
             model: "kimi-code/k3",
@@ -121,7 +121,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.sessions[0]).toMatchObject({
             id: "session_abc",
             source: "kimi_code",
-            env: "win",
+            env: "local",
             model: "kimi-code/k3",
             calls: 1,
             input_tokens: 3464,
@@ -137,7 +137,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.daily[0]).toMatchObject({
             id: "session_abc",
             source: "kimi_code",
-            env: "win",
+            env: "local",
             model: "kimi-code/k3",
             calls: 1,
             input_tokens: 3464,

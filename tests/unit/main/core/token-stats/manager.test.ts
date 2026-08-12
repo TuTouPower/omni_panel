@@ -68,6 +68,8 @@ function create_mock_store() {
         is_hour_rollup_ready: vi.fn(() => false),
         backfill_hour_rollup: vi.fn(),
         last_updated: vi.fn(() => null),
+        set_sources_status: vi.fn(),
+        sources_status: vi.fn(() => []),
         close: vi.fn(),
     } satisfies TokenStatsStore;
 }
@@ -165,6 +167,51 @@ describe("token-stats manager", () => {
         expect(store.upsert_records).toHaveBeenNthCalledWith(3, records.slice(4000, 5000));
         expect(store.upsert_sessions).toHaveBeenCalledTimes(3);
         expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("forwards sources_status from update messages to the store (t309)", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+            sources_status: [
+                {
+                    source: "grok",
+                    env: "wsl",
+                    status: "unavailable",
+                    lastError: "sessions dir missing",
+                },
+            ],
+        });
+
+        expect(store.set_sources_status).toHaveBeenCalledWith([
+            {
+                source: "grok",
+                env: "wsl",
+                status: "unavailable",
+                lastError: "sessions dir missing",
+            },
+        ]);
+        manager.stop();
+    });
+
+    it("defaults sources_status to [] when the update omits it (t309)", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions: [],
+            daily: [],
+        });
+
+        expect(store.set_sources_status).toHaveBeenCalledWith([]);
         manager.stop();
     });
 

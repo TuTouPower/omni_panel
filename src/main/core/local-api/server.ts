@@ -1169,7 +1169,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
                     }),
@@ -1183,7 +1183,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
@@ -1198,7 +1198,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),
@@ -1213,7 +1213,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "win" | "wsl" } : {}),
+                        ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
                         ...(start ? { start: Number(start) } : {}),
                         ...(end ? { end: Number(end) } : {}),

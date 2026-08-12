@@ -192,7 +192,7 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
             const existing = find_slot_by_loc(slots_ref.current, loc);
             if (existing !== null) {
                 const el = document.querySelector<HTMLElement>(
-                    `.history-cell[data-loc-key="${CSS.escape(loc_key(loc))}"]`,
+                    `.session-cell[data-loc-key="${CSS.escape(loc_key(loc))}"]`,
                 );
                 el?.scrollIntoView({ block: "nearest" });
                 return;

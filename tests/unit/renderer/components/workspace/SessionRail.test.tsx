@@ -13,7 +13,7 @@ function sess(id: string, source: string): TokenStatsSession {
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "win",
+        env: "local",
         model: "model",
         title: `会话 ${id}`,
         directory: null,
@@ -51,15 +51,18 @@ describe("SessionRail provider 徽标", () => {
                     "unknown",
                 ])}
                 collapsed={false}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
             />,
         );
 
-        const badges = Array.from(document.querySelectorAll(".history-badge"));
+        const badges = Array.from(document.querySelectorAll(".session-badge"));
         expect(badges).toHaveLength(5);
+        // t314: badge 无 accent 圆环描边（防「icon 套圈」回归）。
+        for (const badge of badges) {
+            expect(badge.className).not.toMatch(/\bring-/);
+        }
         const expected = [
             { light: "claude" },
             { light: "kimi" },
@@ -89,21 +92,20 @@ describe("SessionRail t257 展示调整", () => {
     const base = {
         slots: slots_with_sources(["claude_code", "kimi_code"]),
         collapsed: false,
-        on_toggle_collapse: () => undefined,
         on_pick: () => undefined,
         on_close: () => undefined,
         on_move: () => undefined,
     };
 
-    it("AC5：槽位不渲染 provider 颜色条（history-slot-accent）", () => {
+    it("AC5：槽位不渲染 provider 颜色条（session-slot-accent）", () => {
         render(<SessionRail {...base} />);
-        expect(document.querySelector(".history-slot-accent")).toBeNull();
+        expect(document.querySelector(".session-slot-accent")).toBeNull();
     });
 
     it("AC6：折叠态空槽只显示「+」；AC7：底部无「添加会话」按钮", () => {
         render(<SessionRail {...base} collapsed={false} />);
         // AC7：底部添加按钮移除。
-        expect(document.querySelector(".history-slot-add")).toBeNull();
+        expect(document.querySelector(".session-slot-add")).toBeNull();
 
         // AC6：折叠态空槽按钮文案为「+」。
         const { container } = render(
@@ -111,13 +113,12 @@ describe("SessionRail t257 展示调整", () => {
                 {...base}
                 slots={empty_slots()}
                 collapsed={true}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
             />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".history-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+");
@@ -130,13 +131,12 @@ describe("SessionRail t257 展示调整", () => {
                 {...base}
                 slots={empty_slots()}
                 collapsed={false}
-                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
             />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".history-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+ 添加会话");

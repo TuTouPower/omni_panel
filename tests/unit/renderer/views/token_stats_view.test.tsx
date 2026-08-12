@@ -70,7 +70,7 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
                 type="button"
                 data-testid="open-session-row"
                 onClick={() => {
-                    onOpenSession?.("claude_code|win|initial");
+                    onOpenSession?.("claude_code|local|initial");
                 }}
             >
                 open-session
@@ -128,7 +128,7 @@ function dashboard(
             rollup: [
                 {
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     model: "sonnet",
                     directory: "/project",
                     session_id,
@@ -148,7 +148,7 @@ function dashboard(
                 {
                     session_id,
                     source: "claude_code",
-                    env: "win",
+                    env: "local",
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -257,13 +257,13 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Win" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
 
         const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
-        expect(request.platform).toBe("win");
+        expect(request.platform).toBe("local");
         expect(get_records).not.toHaveBeenCalled();
         expect(get_sessions).not.toHaveBeenCalled();
         expect(get_heatmap).not.toHaveBeenCalled();
@@ -300,9 +300,10 @@ describe("TokenStatsView dashboard query", () => {
         await screen.findByTestId("session-records");
 
         // Filter control exposes a Grok entry (t198 AC1).
-        expect(screen.getByRole("button", { name: "Grok" })).toBeInTheDocument();
+        const agentSelect = screen.getByLabelText<HTMLSelectElement>("工具筛选");
+        expect([...agentSelect.options].map((option) => option.textContent)).toContain("Grok");
 
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(agentSelect, "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -316,7 +317,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(screen.getByLabelText("工具筛选"), "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -337,7 +338,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         expect(await screen.findByTestId("session-records")).toHaveTextContent("before");
 
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "wsl");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -402,16 +403,16 @@ describe("TokenStatsView dashboard query", () => {
     it("reuses a cached dashboard when returning to the same filter combination", async () => {
         get_dashboard
             .mockResolvedValueOnce(dashboard("all"))
-            .mockResolvedValueOnce(dashboard("win"));
+            .mockResolvedValueOnce(dashboard("local"));
         render(<TokenStatsView />);
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "Win" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
         await waitFor(() => {
-            expect(screen.getByTestId("session-records")).toHaveTextContent("win");
+            expect(screen.getByTestId("session-records")).toHaveTextContent("local");
         });
-        await user.click(screen.getByRole("button", { name: "全平台" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "all");
         await waitFor(() => expect(screen.getByTestId("session-records")).toHaveTextContent("all"));
         expect(get_dashboard).toHaveBeenCalledTimes(2);
     });
@@ -520,7 +521,7 @@ describe("TokenStatsView dashboard query", () => {
                 expect.objectContaining({ model: "sonnet" }),
             );
         });
-        await user.click(screen.getByRole("button", { name: "Grok" }));
+        await user.selectOptions(screen.getByLabelText("工具筛选"), "grok");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenLastCalledWith(
                 expect.objectContaining({ agent: "grok", model: "sonnet" }),
@@ -530,7 +531,7 @@ describe("TokenStatsView dashboard query", () => {
         // Switching the time range refetches; the returned models list drives
         // the dropdown (here still [opus, sonnet] from the mock).
         get_dashboard.mockClear();
-        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalled();
         });
@@ -575,7 +576,7 @@ describe("TokenStatsView dashboard query", () => {
         const config_calls_at_mount = get_config.mock.calls.length;
         expect(config_calls_at_mount).toBeGreaterThanOrEqual(1);
 
-        await userEvent.setup().click(screen.getByRole("button", { name: "7 天" }));
+        await userEvent.setup().selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -603,7 +604,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -645,7 +646,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -694,7 +695,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "win" as const,
+                    env: "local" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -745,7 +746,7 @@ describe("TokenStatsView dashboard query", () => {
         render(<TokenStatsView />);
         const user = userEvent.setup();
 
-        await user.click(screen.getByRole("button", { name: "WSL" }));
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "wsl");
         wsl_pending.resolve(dashboard("wsl"));
         await waitFor(() => {
             expect(screen.getByTestId("session-records")).toHaveTextContent("wsl");
@@ -829,7 +830,61 @@ describe("TokenStatsView dashboard query", () => {
 
         fireEvent.click(screen.getByTestId("open-session-row"));
 
-        expect(open_history).toHaveBeenCalledWith("claude_code", "win", "initial");
+        expect(open_history).toHaveBeenCalledWith("claude_code", "local", "initial");
+    });
+
+    it("AC4: renders reason markers for unavailable and failed sources", async () => {
+        get_dashboard.mockResolvedValue(
+            dashboard("s1", {
+                status: {
+                    running: true,
+                    last_updated: 123,
+                    sources_status: [
+                        {
+                            source: "grok",
+                            env: "wsl",
+                            status: "unavailable",
+                            lastError: "sessions dir missing",
+                        },
+                        {
+                            source: "opencode",
+                            env: "local",
+                            status: "failed",
+                            lastError: "db locked",
+                        },
+                        { source: "claude_code", env: "local", status: "ok" },
+                    ],
+                },
+            }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const markers = screen.getAllByTestId("token-stats-source-status");
+        expect(markers).toHaveLength(2);
+        expect(markers[0]).toHaveTextContent("grok");
+        expect(markers[0]).toHaveTextContent("wsl");
+        expect(markers[0]).toHaveTextContent("sessions dir missing");
+        expect(markers[1]).toHaveTextContent("opencode");
+        expect(markers[1]).toHaveTextContent("db locked");
+        // The ok source produces no marker.
+        expect(screen.queryByText(/claude_code/)).toBeNull();
+    });
+
+    it("AC4: ok-only sources render no status markers", async () => {
+        get_dashboard.mockResolvedValue(
+            dashboard("s1", {
+                status: {
+                    running: true,
+                    last_updated: 123,
+                    sources_status: [{ source: "claude_code", env: "local", status: "ok" }],
+                },
+            }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        expect(screen.queryByTestId("token-stats-source-status")).toBeNull();
     });
 });
 
@@ -882,7 +937,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         await screen.findByTestId("session-records");
 
         // Switching to 7d fires a day-granularity request (default for non-24h).
-        await user.click(screen.getByRole("button", { name: "7 天" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "7d");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
@@ -919,7 +974,7 @@ describe("TokenStatsView granularity preset switch (t229)", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.click(screen.getByRole("button", { name: "24 小时" }));
+        await user.selectOptions(screen.getByLabelText("时间范围"), "24h");
         await waitFor(() => {
             expect(last_dashboard_gran()).toBe("hour");
         });

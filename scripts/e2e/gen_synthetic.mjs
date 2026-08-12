@@ -164,6 +164,29 @@ out["GET /v1/connectors"].push({
 });
 out["GET /v1/connectors/synthetic-opencode-go/state"] = { status: "ready", items: opencode_items };
 
+// 固化注入：exa / grok 空 snapshot connector（t316 vendor_logo_theme e2e 需要
+// exa/grok 亮暗双图 vendor mark 的 tab；真实数据不保证含对应 enabled connector）。
+// 空 items 只让 tab 与空 card 出现，不影响其它 spec 的断言。
+for (const [pid, label] of [
+    ["exa", "Exa"],
+    ["grok", "Grok"],
+]) {
+    out["GET /v1/connectors"].push({
+        instanceId: `synthetic-${pid}`,
+        sourceInstanceId: `synthetic-${pid}`,
+        stateId: `synthetic-${pid}`,
+        name: pid,
+        displayName: label,
+        enabled: true,
+        source: "poll",
+        supportedProviders: [pid],
+        activeProviders: [pid],
+        metadata: null,
+        snapshot: { status: "ready", updatedAt: "2026-08-01T00:00:00Z", items: [] },
+    });
+    out[`GET /v1/connectors/synthetic-${pid}/state`] = { status: "ready", items: [] };
+}
+
 // t228：并入会话面板 web e2e 的合成会话与消息数据（独立于真实响应，保证可重建）。
 Object.assign(out, build_session_responses());
 
