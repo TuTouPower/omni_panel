@@ -118,10 +118,7 @@ export function SessionTable({
         <Card className="col-span-12 overflow-hidden">
             <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="m-0 text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
-                    会话明细{" "}
-                    <span className="text-[length:var(--text-label-md)] font-normal text-[var(--color-on-surface-muted)]">
-                        点击表头排序
-                    </span>
+                    会话明细
                 </h3>
                 <Button
                     variant="secondary"
@@ -249,6 +246,7 @@ export function SessionTable({
                                                 <Badge
                                                     variant="label"
                                                     color="var(--color-primary)"
+                                                    dot={false}
                                                     className="ml-1 border border-[var(--color-accent-ring)] text-[length:var(--text-label-caps)]"
                                                 >
                                                     sub-agent
@@ -257,7 +255,11 @@ export function SessionTable({
                                         </div>
                                     </td>
                                     <td className="whitespace-nowrap px-3 py-2">
-                                        <Badge variant="label" color={agent_color(r.agent, theme)}>
+                                        <Badge
+                                            variant="label"
+                                            color={agent_color(r.agent, theme)}
+                                            dot={false}
+                                        >
                                             {r.agent === "claude-code"
                                                 ? "Claude Code"
                                                 : r.agent === "kimi-code"
@@ -273,7 +275,12 @@ export function SessionTable({
                                     <td className="px-3 py-2">
                                         <div className="flex flex-wrap gap-1">
                                             {display_models(r.models).map(({ label, color: c }) => (
-                                                <Badge key={label} variant="label" color={c}>
+                                                <Badge
+                                                    key={label}
+                                                    variant="label"
+                                                    color={c}
+                                                    dot={false}
+                                                >
                                                     {label}
                                                 </Badge>
                                             ))}
