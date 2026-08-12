@@ -52,5 +52,28 @@ if (args.includes("serve") && !args.some((a) => a.startsWith("--user-data-dir"))
     );
 }
 
-const child = spawn(RELEASE_BIN, args, { stdio: "inherit" });
+const is_cli = args.includes("--cli");
+const child = spawn(RELEASE_BIN, args, { stdio: is_cli ? ["inherit", "inherit", "pipe"] : "inherit" });
+
+if (is_cli) {
+    // Electron/Chromium 在无图形会话（headless/WSL 无 dbus）下会向 stderr 打
+    // "Failed to connect to the bus" 噪音；应用自身日志已走文件（CLI 模式不刷
+    // stdout）。CLI 场景过滤掉 dbus 噪音，用户终端只看到干净输出。
+    let stderrBuf = "";
+    child.stderr?.on("data", (/** @type {Buffer} */ d) => {
+        stderrBuf += d.toString();
+        const lines = stderrBuf.split("\n");
+        stderrBuf = lines.pop() ?? "";
+        for (const line of lines) {
+            if (/dbus|DBus|object_proxy|bus\.cc/i.test(line)) continue;
+            process.stderr.write(line + "\n");
+        }
+    });
+    child.stderr?.on("end", () => {
+        if (stderrBuf && !/dbus|DBus|object_proxy|bus\.cc/i.test(stderrBuf)) {
+            process.stderr.write(stderrBuf);
+        }
+    });
+}
+
 child.on("exit", (code) => process.exit(code ?? 0));

@@ -69,7 +69,13 @@ export async function exportCurrentLog(userDataPath: string, targetPath: string)
 
 export async function initLogging(
     userDataPath: string,
-    options: { logLevel?: LogLevel; maxLogFileBytes?: number; maxSegments?: number } = {},
+    options: {
+        logLevel?: LogLevel;
+        maxLogFileBytes?: number;
+        maxSegments?: number;
+        /** 是否把日志同时输出到 stdout（开发默认 true；CLI 模式 false 保持 stdout 干净）。 */
+        consoleOutput?: boolean;
+    } = {},
 ): Promise<() => Promise<void>> {
     const logDir = getLogDir(userDataPath);
     await mkdir(logDir, { recursive: true });
@@ -123,7 +129,8 @@ export async function initLogging(
     );
 
     let removeConsoleTransport: (() => void) | undefined;
-    if (process.env["NODE_ENV"] !== "production") {
+    const console_output = options.consoleOutput ?? process.env["NODE_ENV"] !== "production";
+    if (console_output) {
         removeConsoleTransport = addTransport(createConsoleTransport());
     }
 
