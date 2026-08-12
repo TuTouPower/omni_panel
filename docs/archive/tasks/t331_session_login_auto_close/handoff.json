@@ -1,0 +1,23 @@
+{
+    "tid": "t331",
+    "attempt": 1,
+    "execution_id": "277442d255724f8bab7b45a6d1c3c225",
+    "status": "done",
+    "branch": "t331_session_login_auto_close",
+    "base_sha": "9d871706fa570a6c846e9292f7b82cb33788b9ce",
+    "tests": "pnpm test：2992 passed / 9 skipped；tsc --noEmit exit 0；e2e add_account_dialog_first_frame + opencode_go_usage 2 passed",
+    "blackbox": "全量单测 2992 passed + tsc 0 + 登录相关 e2e 2 passed",
+    "review": "full 级 code+test：Round1 双 PASS（各 1 minor）→ Round2 双 PASS（f001 注释对齐 + f002 删冗余测试）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/ipc/session-ipc.test.ts::auto_close_ms 透传 start_login 通过 + tests/unit/session/session-manager.test.ts 既有关窗测试 通过"
+        ],
+        "AC-002": ["tests/unit/ipc/session-ipc.test.ts::未传 auto_close_ms 不携带字段 通过"],
+        "AC-003": [
+            "tests/unit/renderer/components/web_login_section.test.tsx::web add path 登录成功 UI 恢复 + auto_close_ms:1500 透传 通过"
+        ],
+        "AC-004": ["session.refresh 走共享 handleSessionLogin 同链路透传（code 审阅核验）通过"]
+    },
+    "pending": [],
+    "findings": []
+}
