@@ -47,6 +47,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t336_titlebar_current_all_panels"
+        },
+        {
+            "tid": "t337",
+            "slug": "opencode_web_login_cookie_validate",
+            "title": "Opencode 网页登录捕获无效 cookie 校验（p148）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t337_opencode_web_login_cookie_validate"
         }
     ]
 }
