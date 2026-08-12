@@ -5,7 +5,7 @@ import { expect, test } from "../fixtures/test_web";
  * Web e2e：会话库网格视图卡片高度防压扁（t327）。
  * 根因：grid 容器默认 align-items:stretch，内容超高时把行内卡片拉伸塌陷为 2px 细条，
  * 标题/摘要/按钮不可见；修复补 align-items:start。本 spec 用 page.route 注入 360 个
- * 会话，走会话库真实分页（50/页）+「加载更多」连续加载至 350+，断言：
+ * 会话，走会话库真实分页（50/页）+ 无限滚动（t328 滚到底自动加载）连续加载至 350+，断言：
  *  - AC-001/003：卡片 offsetHeight 保持内容自然高度（非 2px 细条），前 N 张高度固定一致；
  *  - AC-002：内容超高时网格容器 scrollHeight > clientHeight（可滚动不压扁）。
  */
@@ -46,6 +46,18 @@ async function route_many_sessions(page: Page, total: number): Promise<void> {
     });
 }
 
+/** 滚到底并派发 scroll 事件（t328 无限滚动；scrollTop 赋值触发原生 scroll）。 */
+async function scroll_grid_to_bottom(page: Page): Promise<void> {
+    await page
+        .locator(".library-grid")
+        .first()
+        .evaluate((el) => {
+            const target = el as HTMLElement;
+            target.scrollTop = target.scrollHeight;
+            target.dispatchEvent(new Event("scroll"));
+        });
+}
+
 async function open_library_grid(page: Page): Promise<void> {
     await page.goto("/#session");
     await page.locator(".session-shell").first().waitFor({ state: "visible" });
@@ -68,13 +80,11 @@ test.describe("session library grid card height (web, t327)", () => {
             .evaluate((el) => (el as HTMLElement).offsetHeight);
         expect(first_h).toBeGreaterThan(50);
 
-        // AC-003：连续点「加载更多」直至 350+ 卡片。
-        const load_more = page.getByRole("button", { name: /加载更多/ });
+        // AC-003：连续滚到底自动加载直至 350+ 卡片。
         for (let i = 0; i < 20; i += 1) {
             const count = await page.locator(".library-card").count();
             if (count >= 350) break;
-            if (!(await load_more.isVisible().catch(() => false))) break;
-            await load_more.click();
+            await scroll_grid_to_bottom(page);
             await expect
                 .poll(async () => page.locator(".library-card").count(), { timeout: 5000 })
                 .toBeGreaterThan(count);
