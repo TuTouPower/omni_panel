@@ -88,7 +88,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- `Icon` 组件 bell 图标的具体渲染方式（内联 SVG / CSS mask / 字体）与斜杠叠加的可行方案：`UNVERIFIED-SPIKE`，`task-work` Step 1 实验确认后再实现。
+- `Icon` 组件 bell 图标渲染机制：已由 d037 验证——lucide-react 提供 `BellOff`（`bell-off.mjs`），未监控用 `Icon name="bell_off"` 得铃铛带斜线，无需自绘叠加；Icon 已加 `bell_off` 映射与 `data-slash` 透传（结论 + 验证方式见 d037）。
 
 ### 风险与回退
 

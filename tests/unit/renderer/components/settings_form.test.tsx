@@ -1014,6 +1014,9 @@ describe("SettingsForm label-map watch bell (t048)", () => {
         const bells = screen.getAllByRole("button", { name: "监控该数据标签的即将重置" });
         expect(bells[0]).toHaveAttribute("aria-pressed", "true");
         expect(bells[1]).toHaveAttribute("aria-pressed", "false");
+        // t333: 已监控（five_hour）无斜杠；未监控（seven_day）叠斜杠。
+        expect(bells[0]?.querySelector('[data-slash="true"]')).toBeNull();
+        expect(bells[1]?.querySelector('[data-slash="true"]')).not.toBeNull();
     });
 
     it("marks aria-pressed=false when only some account_keys are watched (t048 review test f002)", async () => {
