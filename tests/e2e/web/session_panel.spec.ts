@@ -247,6 +247,25 @@ test.describe("session panel (web, t228)", () => {
         expect(card_bg).not.toBe(library_bg);
         expect(pane_bg).toBe(card_bg);
     });
+
+    test("重载后工作台槽位持久化恢复并重新拉取消息（t329 AC-001/002）", async ({ webPage }) => {
+        const page = webPage;
+        await open_history(page);
+        await page.getByRole("button", { name: "会话库", exact: true }).click();
+        await open_session_from_library(page, "登录页 bug 修复");
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+        const loc_key = await page.locator(".session-cell").first().getAttribute("data-loc-key");
+        expect(loc_key).toBeTruthy();
+        // 真实重载：localStorage 槽位/布局持久化 → 槽位恢复，消息重新 query 渲染。
+        await page.reload();
+        await page.locator(".session-shell").first().waitFor({ state: "visible" });
+        await expect(page.locator(".session-cell").first()).toBeVisible();
+        expect(await page.locator(".session-cell").first().getAttribute("data-loc-key")).toBe(
+            loc_key,
+        );
+        await expect(page.locator(".conversation-message-row").first()).toBeVisible();
+    });
 });
 
 test.describe("session panel layout (web, t323)", () => {

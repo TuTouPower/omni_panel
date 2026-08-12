@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelTitleBar } from "../ui/PanelTitleBar";
 import { useTheme } from "../../lib/theme";
 import { use_panel_navigation } from "../../lib/panel-navigation";
@@ -7,6 +7,7 @@ import { WorkspaceView } from "../workspace/WorkspaceView";
 import { WorkspaceToolbar } from "../workspace/WorkspaceToolbar";
 import { SessionLibrary } from "../session-library/SessionLibrary";
 import type { LayoutCount } from "../../lib/workspace/slots";
+import { load_saved_layout, save_layout } from "../../lib/workspace/workspace-storage";
 import type { PaneView } from "../workspace/SessionPane";
 
 type ShellTab = "workspace" | "library";
@@ -17,8 +18,12 @@ export function SessionShell() {
     // 标题栏刷新按钮递增 token，触发工作台槽位消息立即重拉。
     const [refresh_token, set_refresh_token] = useState(0);
     // t323：三按钮状态提升到外壳，WorkspaceView 受控；rail-toggle 折叠状态同步上移。
-    const [layout, set_layout] = useState<LayoutCount>(3);
-    const [view, set_view] = useState<PaneView>({ show_time: false, compact: false });
+    // t329：布局/视图开关持久化——首次渲染从 localStorage 恢复。
+    const saved_layout = useMemo(() => load_saved_layout(), []);
+    const [layout, set_layout] = useState<LayoutCount>(saved_layout?.layout ?? 3);
+    const [view, set_view] = useState<PaneView>(
+        saved_layout?.view ?? { show_time: false, compact: false },
+    );
     const [recent_open, set_recent_open] = useState(false);
     const [rail_collapsed, set_rail_collapsed] = useState(false);
     // WorkspaceView 经 on_count_change 上报占用槽位数，供视图下拉排布。
@@ -28,6 +33,12 @@ export function SessionShell() {
     const register_clear = useCallback((fn: (() => void) | null): void => {
         clear_workspace_ref.current = fn;
     }, []);
+
+    // t329: 布局/视图变化即持久化（重开恢复）。
+    useEffect(() => {
+        save_layout(layout, view);
+    }, [layout, view]);
+
     useTheme();
     const navigate = use_panel_navigation();
 

@@ -68,7 +68,7 @@
 | unify_account_auth_forms             | Web                 | t157                                                                                                          | 2026-07-27   |
 | session-history-window               | Desktop             | t211，t212，t213                                                                                              | 2026-08-05   |
 | session-shell                        | Desktop             | t223，t224，t245，t326，t327，t328                                                                            | 2026-08-12   |
-| workspace                            | Desktop             | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324                            | 2026-08-12   |
+| workspace                            | Desktop             | t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329                      | 2026-08-12   |
 | draggable_provider_tabs              | Web                 | t242                                                                                                          | 2026-08-07   |
 | provider-tab-active-state            | Web                 | t305                                                                                                          | 2026-08-11   |
 | renderer-bundle-code-split           | Web+Desktop         | t249                                                                                                          | 2026-08-07   |
