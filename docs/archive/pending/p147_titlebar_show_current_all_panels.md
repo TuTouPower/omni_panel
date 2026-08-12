@@ -9,4 +9,4 @@
 - 根因：产品缺陷（t330 范围不完整）。t330「取消隐藏当前面板」只改了 `PanelTitleBar` 面板形态（Session/Settings 走该形态，四面板恒定）；Agent 用 PanelTitleBar **通用形态** + header_actions 手写互跳（漏自身），Usage 用**独立 TitleBar 组件**（无面板切换）。t330 非范围明确「不改 popup TitleBar / TokenStatsView 的互跳按钮」，两处从未纳入修复。
 - 测试缺口：t330 测试只覆盖 PanelTitleBar（PanelTitleBar.test.tsx + panel_navigation e2e 断言 Session/Settings 面板按钮）；TokenStatsView/TitleBar 的标题栏按钮无测试断言「当前面板按钮存在」，因此 Agent/Usage 缺自身未被捕获。补测：对 TokenStatsView 与 popup TitleBar 断言标题栏含全部四面板按钮（含当前面板），Settings 面板无刷新。
 - 线索：`.scratch/` 无（playwright 实测 4 面板按钮清单见「现象」，已清理临时 spec）
-- 处理：未开
+- 处理：t336

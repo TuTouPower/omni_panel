@@ -831,6 +831,24 @@ export function TokenStatsView() {
                 </Button>
             )}
             {is_web() ? (
+                <a className={ICON_LINK_CLS} title="Agent面板" aria-label="Agent面板" href="#agent">
+                    <Icon name="chart" size={16} />
+                </a>
+            ) : (
+                <Button
+                    variant="icon"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    title="Agent面板"
+                    aria-label="Agent面板"
+                    onClick={() => {
+                        navigate("Agent");
+                    }}
+                >
+                    <Icon name="chart" size={16} />
+                </Button>
+            )}
+            {is_web() ? (
                 <a
                     className={ICON_LINK_CLS}
                     title="Session面板"

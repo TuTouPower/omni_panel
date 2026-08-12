@@ -337,7 +337,7 @@ describe("PopupView", () => {
         expect(add_btn).toBeInTheDocument();
     });
 
-    it("标题栏按钮序与 PanelTitleBar 语义一致：刷新 设置 代理面板 会话历史（AC-002）", async () => {
+    it("标题栏按钮序与 PanelTitleBar 语义一致：刷新 用量面板 设置 代理面板 会话历史（AC-002）", async () => {
         render(<PopupView />);
         await waitFor(() => {
             expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
@@ -347,8 +347,8 @@ describe("PopupView", () => {
         const buttons = Array.from(titlebar?.querySelectorAll("button") ?? []).map(
             (b) => b.getAttribute("aria-label") ?? b.getAttribute("title") ?? "",
         );
-        // 用量面板为当前面板：排除自身后为 设置 代理 会话，刷新恒在首位。
-        expect(buttons.slice(0, 4)).toEqual(["刷新", "设置", "代理面板", "会话历史"]);
+        // 用量面板为当前面板：含自身「用量面板」按钮（不隐藏），刷新恒在首位。
+        expect(buttons.slice(0, 5)).toEqual(["刷新", "用量面板", "设置", "代理面板", "会话历史"]);
     });
 
     it("opens the session history window from the title bar button", async () => {
@@ -385,6 +385,9 @@ describe("PopupView", () => {
             await waitFor(() => {
                 expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
             });
+            const usage_link = screen.getByRole("link", { name: "用量面板" });
+            expect(usage_link.tagName).toBe("A");
+            expect(usage_link).toHaveAttribute("href", "#usage");
             const settings_link = screen.getByRole("link", { name: "设置" });
             expect(settings_link.tagName).toBe("A");
             expect(settings_link).toHaveAttribute("href", "#setting");

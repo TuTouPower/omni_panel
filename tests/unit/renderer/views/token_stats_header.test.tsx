@@ -92,6 +92,7 @@ describe("TokenStatsView header single row (t312)", () => {
     const open_settings = vi.fn();
     const open_tray_panel = vi.fn();
     const open_history = vi.fn();
+    const open_token_stats = vi.fn();
     let updated_listener: ((dataVersion: number) => void) | null = null;
 
     beforeEach(() => {
@@ -101,6 +102,7 @@ describe("TokenStatsView header single row (t312)", () => {
         open_settings.mockReset();
         open_tray_panel.mockReset();
         open_history.mockReset();
+        open_token_stats.mockReset();
         updated_listener = null;
         get_dashboard.mockResolvedValue(dashboard("initial"));
         get_config.mockResolvedValue({
@@ -109,7 +111,7 @@ describe("TokenStatsView header single row (t312)", () => {
         });
         window.usageboard = {
             tokenStats: {
-                open: vi.fn(),
+                open: open_token_stats,
                 getSessionStats: vi.fn().mockResolvedValue({ sessions: 0, agents: 0, tokens: 0 }),
                 getDashboard: get_dashboard,
                 getBuckets: vi.fn(),
@@ -149,6 +151,7 @@ describe("TokenStatsView header single row (t312)", () => {
         const refreshBtn = screen.getByRole("button", { name: "刷新" });
         const settingsBtn = screen.getByRole("button", { name: "Settings面板" });
         const usageBtn = screen.getByRole("button", { name: "Usage面板" });
+        const agentBtn = screen.getByRole("button", { name: "Agent面板" });
         const sessionBtn = screen.getByRole("button", { name: "Session面板" });
 
         // 单行：所有元素落在同一个标题栏容器内。
@@ -163,6 +166,7 @@ describe("TokenStatsView header single row (t312)", () => {
             refreshBtn,
             settingsBtn,
             usageBtn,
+            agentBtn,
             sessionBtn,
         ]) {
             expect(el.closest("[data-panel-titlebar]")).toBe(titlebar);
@@ -356,6 +360,10 @@ describe("TokenStatsView header single row (t312)", () => {
         await user.click(screen.getByRole("button", { name: "Usage面板" }));
         expect(open_tray_panel).toHaveBeenCalled();
 
+        // Agent 自身按钮：聚焦本面板（tokenStats.open），不关面板。
+        await user.click(screen.getByRole("button", { name: "Agent面板" }));
+        expect(open_token_stats).toHaveBeenCalled();
+
         await user.click(screen.getByRole("button", { name: "Session面板" }));
         expect(open_history).toHaveBeenCalledWith("", "", "");
     });
@@ -372,6 +380,9 @@ describe("TokenStatsView header single row (t312)", () => {
             const usage_link = screen.getByRole("link", { name: "Usage面板" });
             expect(usage_link.tagName).toBe("A");
             expect(usage_link).toHaveAttribute("href", "#usage");
+            const agent_link = screen.getByRole("link", { name: "Agent面板" });
+            expect(agent_link.tagName).toBe("A");
+            expect(agent_link).toHaveAttribute("href", "#agent");
             const session_link = screen.getByRole("link", { name: "Session面板" });
             expect(session_link.tagName).toBe("A");
             expect(session_link).toHaveAttribute("href", "#session");
@@ -382,8 +393,7 @@ describe("TokenStatsView header single row (t312)", () => {
             usage_link.click();
             expect(open_tray_panel).not.toHaveBeenCalled();
             session_link.click();
-            expect(open_history).not.toHaveBeenCalled();
-            // 刷新按钮与四个下拉保持原控件形态。
+            expect(open_history).not.toHaveBeenCalled(); // 刷新按钮与四个下拉保持原控件形态。
             expect(screen.getByRole("button", { name: "刷新" })).toBeInTheDocument();
         } finally {
             document.documentElement.removeAttribute("data-web");
