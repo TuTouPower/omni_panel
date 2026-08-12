@@ -82,6 +82,13 @@ describe("parse_cli_args", () => {
         expect(() => parse_cli_args(["electron", "index.js", "--cli"])).toThrow(CliUsageError);
     });
 
+    it("t335 AC-002: --cli help 解析为 help 命令", () => {
+        expect(parse_cli_args(["electron", "index.js", "--cli", "help"])).toEqual({
+            cli: true,
+            command: { type: "help" },
+        });
+    });
+
     it("未知子命令抛 CliUsageError", () => {
         expect(() => parse_cli_args(["electron", "index.js", "--cli", "deploy"])).toThrow(
             /未知的 --cli 子命令/,
