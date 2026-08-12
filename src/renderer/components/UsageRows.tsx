@@ -7,7 +7,6 @@ import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
 import { bar_fill_color, DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
-import { Icon } from "./Icon";
 
 interface UsageBarRowProps {
     period: Pick<
@@ -26,10 +25,6 @@ interface UsageBarRowProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     forcePercent?: boolean | undefined;
-    /** t043: 该 (provider, accountKey, raw_label) 是否监控即将重置。 */
-    watched?: boolean | undefined;
-    /** t043: 切换该 period 的即将重置监控。 */
-    on_toggle_watched?: (() => void) | undefined;
 }
 
 export function split_reset_time(value: string): { date: string; clock: string } {
@@ -68,8 +63,6 @@ export const UsageBarRow = memo(function UsageBarRow({
     barStyle = "thin",
     labelMap,
     forcePercent = false,
-    watched = false,
-    on_toggle_watched,
 }: UsageBarRowProps) {
     const label = format_usage_period_label(period.raw_label, period.name, labelMap);
     const elapsed =
@@ -167,18 +160,6 @@ export const UsageBarRow = memo(function UsageBarRow({
             <span className={META_CLS} data-testid="bar-clock">
                 {clock}
             </span>
-            {on_toggle_watched && (
-                <button
-                    className="inline-flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-[var(--color-on-surface-muted)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)]"
-                    title="监控该数据标签的即将重置"
-                    aria-label="监控该数据标签的即将重置"
-                    aria-pressed={watched}
-                    data-testid="bar-watch"
-                    onClick={on_toggle_watched}
-                >
-                    <Icon name="bell" size={15} style={{ opacity: watched ? 1 : 0.5 }} />
-                </button>
-            )}
         </div>
     );
 });
@@ -192,10 +173,6 @@ interface AccountUsageRowProps {
     labelMap?: Readonly<Record<string, string>> | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
-    /** t046: 当前 account 下已监控的 raw_label 集合。 */
-    watched_labels?: ReadonlySet<string> | undefined;
-    /** t046: 切换某 raw_label 的即将重置监控。 */
-    on_toggle_watched?: ((raw_label: string) => void) | undefined;
 }
 
 export function AccountUsageRow({
@@ -207,8 +184,6 @@ export function AccountUsageRow({
     labelMap,
     desensitizeRemarks = false,
     forcePercent = false,
-    watched_labels,
-    on_toggle_watched,
 }: AccountUsageRowProps) {
     const display_label = desensitizeRemarks ? "" : account.accountLabel;
     return (
@@ -244,14 +219,6 @@ export function AccountUsageRow({
                         barStyle={barStyle}
                         forcePercent={forcePercent}
                         labelMap={labelMap}
-                        watched={watched_labels?.has(period.raw_label) ?? false}
-                        on_toggle_watched={
-                            on_toggle_watched
-                                ? () => {
-                                      on_toggle_watched(period.raw_label);
-                                  }
-                                : undefined
-                        }
                     />
                 ))}
             </div>

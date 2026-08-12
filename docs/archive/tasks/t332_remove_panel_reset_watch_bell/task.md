@@ -2,11 +2,11 @@
 tid: "t332"
 slug: "remove_panel_reset_watch_bell"
 title: "删除用量面板用量条右侧的「即将重置」监控铃铛按钮"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t332_remove_panel_reset_watch_bell"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "661e3cf8bc7c42379f81b15488ce2f328f5fe6f6"
 depends_on: ""
 conflicts_with: ""
 note: "用户需求：用量面板两处（概览+账号列表）用量条右侧的 bell 监控按钮移除；监控入口保留设置侧"
@@ -53,6 +53,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1 (2026-08-13 02:57 UTC+8)
+
+| finding_id    | severity  | status | rationale                                                     | fix_ref                                       |
+| ------------- | --------- | ------ | ------------------------------------------------------------- | --------------------------------------------- |
+| t332_gen_f001 | important | 已修   | popup_view.test.tsx 新增 AC-001/002 两处 bar-watch 不存在断言 | tests/unit/renderer/views/popup_view.test.tsx |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 popup_view.test.tsx 新增「概览/账号列表不渲染 bar-watch」断言覆盖；AC-003 由 settings_form.test.tsx / settings_view_watched.test.tsx 保留断言覆盖；AC-004 由 typecheck + 全量测试（2986 passed）覆盖。
 
 ### Reviewer verdict
 
@@ -74,10 +80,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（t332_gen_f001：AC-001/002 缺面板渲染树 absence 断言）
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 移除用量面板两处用量条（概览 + 账号列表）的「即将重置」监控铃铛按钮及整条透传链（use_watched_metric_toggler 连带删除）；设置侧监控入口与 upcomingResetWatched 逻辑保留。

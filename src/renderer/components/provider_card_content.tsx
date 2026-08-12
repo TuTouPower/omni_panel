@@ -4,11 +4,9 @@ import type {
     ProviderUsageGroup,
 } from "../lib/provider-usage";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
-import type { AccountOverrides } from "../../shared/types/config";
 import { UsageBarList } from "./UsageBarList";
 import { AccountUsageRow } from "./UsageRows";
 import { Skeleton } from "./ui/Skeleton";
-import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 
 interface ProviderCardOverviewProps {
     isRefreshing: boolean;
@@ -56,7 +54,6 @@ export function ProviderCardOverview({
 }
 
 interface ProviderCardAccountDetailProps {
-    provider: string;
     group: ProviderUsageGroup;
     barColorScheme?: UsageBarColorScheme | undefined;
     barStyle?: UsageBarStyle | undefined;
@@ -65,20 +62,15 @@ interface ProviderCardAccountDetailProps {
     ) => Readonly<Record<string, string>> | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
-    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
-    onToggleWatched?: ToggleWatchedMetric | undefined;
 }
 
 export function ProviderCardAccountDetail({
-    provider,
     group,
     barColorScheme,
     barStyle,
     labelMapForAccount,
     desensitizeRemarks,
     forcePercent,
-    watchedMetrics,
-    onToggleWatched,
 }: ProviderCardAccountDetailProps) {
     return (
         <div
@@ -94,18 +86,6 @@ export function ProviderCardAccountDetail({
                     labelMap={labelMapForAccount(account)}
                     desensitizeRemarks={desensitizeRemarks}
                     forcePercent={forcePercent}
-                    watched_labels={new Set(watchedMetrics?.[provider]?.[account.id] ?? [])}
-                    on_toggle_watched={
-                        onToggleWatched
-                            ? (raw_label) => {
-                                  onToggleWatched({
-                                      provider,
-                                      accountKey: account.id,
-                                      raw_label,
-                                  });
-                              }
-                            : undefined
-                    }
                 />
             ))}
         </div>

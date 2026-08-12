@@ -6,11 +6,7 @@ import {
     resolve_convergent_time,
 } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
-import type {
-    AccountOverrides,
-    UsageBarColorScheme,
-    UsageBarStyle,
-} from "../../shared/types/config";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
@@ -18,7 +14,6 @@ import { Button } from "./ui/Button";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
-import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 import { is_auth_error, ProviderCardState, ProviderCardErrorBanner } from "./provider_card_states";
 import { ProviderCardOverview, ProviderCardAccountDetail } from "./provider_card_content";
 
@@ -55,10 +50,6 @@ interface ProviderCardProps {
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
-    /** t046: account 级即将重置监控（upcomingResetWatched）。 */
-    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
-    /** t046: 切换 (provider, accountKey, raw_label) 监控。 */
-    on_toggle_watched?: ToggleWatchedMetric | undefined;
 }
 
 type CardStatus = "loading" | "ready" | "failed" | "empty";
@@ -86,8 +77,6 @@ export const ProviderCard = memo(function ProviderCard({
     convergentTimeMinutes,
     desensitizeRemarks = false,
     forcePercent = false,
-    watchedMetrics,
-    on_toggle_watched,
 }: ProviderCardProps) {
     const accountCount = group?.accountCount ?? 0;
     const hasUsage = (group?.periods.length ?? 0) > 0;
@@ -286,15 +275,12 @@ export const ProviderCard = memo(function ProviderCard({
     const usage_content =
         is_multi && l2Open && group ? (
             <ProviderCardAccountDetail
-                provider={provider}
                 group={group}
                 barColorScheme={barColorScheme}
                 barStyle={barStyle}
                 labelMapForAccount={label_map_for_account}
                 desensitizeRemarks={desensitizeRemarks}
                 forcePercent={forcePercent}
-                watchedMetrics={watchedMetrics}
-                onToggleWatched={on_toggle_watched}
             />
         ) : is_multi && !l2Open ? (
             <ProviderCardOverview
