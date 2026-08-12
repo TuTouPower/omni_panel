@@ -47,6 +47,51 @@
             "schedule_status": "",
             "note": "p144：选中态 bg-transparent 层叠覆盖 accent 底 + text-surface-card 文字色语义错",
             "dir": "docs/tasks/t321_fix_trend_window_btn_selected_invisible"
+        },
+        {
+            "tid": "t322",
+            "slug": "cli_serve_background",
+            "title": "omni_panel serve 默认后台运行 + --foreground 前台",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t322_cli_serve_background"
+        },
+        {
+            "tid": "t323",
+            "slug": "session_topbar_buttons_to_titlebar",
+            "title": "会话顶栏三按钮移到刷新按钮左侧 + 消除卡片上方空行",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t323_session_topbar_buttons_to_titlebar"
+        },
+        {
+            "tid": "t324",
+            "slug": "session_card_meta_rerank_copy",
+            "title": "会话卡片信息栏重排 + session id 点击复制 provider 命令",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t324_session_card_meta_rerank_copy"
         }
     ]
 }
