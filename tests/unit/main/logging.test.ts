@@ -47,6 +47,35 @@ describe("initLogging", () => {
         expect(defaultLogLevelForEnv({ NODE_ENV: "production" })).toBe("info");
     });
 
+    it("consoleOutput=false suppresses console transport (CLI 模式 stdout 干净)", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
+        const console_spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        try {
+            remove_logging = await initLogging(temp_dir, { consoleOutput: false });
+            createLogger("test").info("cli message");
+            // flush：文件 transport 异步，等一拍确保 console 若挂着会触发。
+            await new Promise((r) => setTimeout(r, 50));
+            expect(console_spy).not.toHaveBeenCalled();
+        } finally {
+            console_spy.mockRestore();
+        }
+    });
+
+    it("consoleOutput 默认挂 console transport（dev 刷终端）", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
+        const console_spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        try {
+            remove_logging = await initLogging(temp_dir);
+            createLogger("test").info("dev message");
+            await new Promise((r) => setTimeout(r, 50));
+            expect(console_spy).toHaveBeenCalled();
+        } finally {
+            console_spy.mockRestore();
+        }
+    });
+
     it("cleanup flushes queued file writes", async () => {
         temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
 
