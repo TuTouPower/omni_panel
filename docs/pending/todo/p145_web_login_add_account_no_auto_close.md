@@ -1,0 +1,8 @@
+# p145 web 添加账号网页登录后窗口不自动关闭、无完成反馈（白屏停留）
+
+- 现象：web 版（`--cli serve`，浏览器访问 local-api）添加 opencode 账号，点「网页登录」→ 主进程弹 Electron 登录窗口，用户经 GitHub/Google 登录 opencode.ai 后，**窗口白屏停留、不自动关闭**，web 界面无任何完成反馈（按钮停留在「正在打开登录窗口…」，无错误无成功）。用户手动关窗后才触发结果。期望：登录成功捕获 Cookie 后窗口自动关闭，web 端得到明确完成/失败反馈。
+- 影响：web 添加账号（`session.login`）完整链路；opencode_go 是当前唯一 `web_login` connector，影响面集中。桌面版添加账号同样走 `session.login`（同缺陷但窗口在眼前，用户可手动关窗，影响小）。已确认同类位点：无——`auth.cookieLogin`（编辑已有账号）显式传 `auto_close_ms:1500`，登录成功自动关窗，不受影响。
+- 根因：`SessionLoginRequest`（src/shared/types/ipc.ts:263）**无 `auto_close_ms` 字段**，`session.login` / `session.refresh`（add-account / refresh 路径）登录窗口捕获 Cookie 后**不自动关闭**；对照 `handleCookieLogin`（src/main/ipc/auth-ipc.ts:84，编辑路径）显式传 `auto_close_ms:1500`。机制：`session-manager.start_login`（src/main/core/session/session-manager.ts:191）在捕获 Cookie 后仅当 `request.auto_close_ms` 非空才 `window.close()`。web 端与登录窗口不在同一界面（窗口在宿主 Electron），窗口停留 + opencode.ai 登录后页面白屏 → 用户无任何反馈，误以为失败。分类：产品缺陷（web 登录完成链路不闭环）。
+- 测试缺口：`tests/unit/ipc/session-ipc.test.ts` 只断言 `start_login` 收到 request 透传与错误映射，**未断言 `auto_close_ms` 透传**（类型层缺失该字段，无从断言）；`tests/unit/renderer/components/web_login_section.test.tsx` 覆盖 web add path 的错误映射与降级引导，**未测「登录成功后的完成反馈/自动关窗」**；`tests/unit/session/session-manager.test.ts` 覆盖 wildcard 捕获单元逻辑（模拟事件），无真实多跳转 OAuth 流集成测试。补测方向：① session-ipc 断言 `auto_close_ms` 透传；② session-manager 断言捕获 Cookie 后按 `auto_close_ms` 自动 close；③ web_login_section 断言登录成功后 UI 反馈。
+- 线索：`.scratch/electron_probe/`（Electron probe：opencode.ai/auth → 302 `opencode.ai/auth/authorize`[HAS COOKIE] → `auth.opencode.ai/authorize`，Electron 42 渲染 auth 页正常，白屏在登录后环节）
+- 处理：未开
