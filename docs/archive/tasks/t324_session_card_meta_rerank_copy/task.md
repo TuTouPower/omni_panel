@@ -2,11 +2,11 @@
 tid: "t324"
 slug: "session_card_meta_rerank_copy"
 title: "会话卡片信息栏重排 + session id 点击复制 provider 命令"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t324_session_card_meta_rerank_copy"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "5770ed049661d35a2c7a3bd8dd0af6907fd1c63b"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-12 20:45 UTC+8)
+
+| finding_id    | severity | status | rationale                                                                                                             | fix_ref                                                                      |
+| ------------- | -------- | ------ | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| t324_gen_f001 | minor    | 已修   | copy_session_command 加 `typeof navigator.clipboard === "undefined"` 守卫，web 非安全上下文不抛 TypeError；补对应单测 | src/renderer/components/workspace/SessionPane.tsx:117 + SessionPane.test.tsx |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -61,7 +67,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 - spec：[`spec.md`](spec.md)
 - 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001/002 由 SessionPane.test.tsx 两行内容 + VendorMark 断言覆盖；AC-003/004 复制命令与未知来源无效果断言；AC-005 会话名字 + 五按钮断言；全量 2958 passed；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -74,10 +82,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话卡片头部信息栏重排：第一行 cwd末段·最后消息时间·session id（可点击复制续接命令），第二行 模型·N轮·tokens·会话名字；provider icon 与五按钮不变
