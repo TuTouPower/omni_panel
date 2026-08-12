@@ -4982,6 +4982,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t334_session_library_mount_refill"
+        },
+        {
+            "tid": "t335",
+            "slug": "cli_help",
+            "title": "CLI 帮助：omni_panel --help 顶层 + --cli help 子命令",
+            "status": "done",
+            "branch": "t335_cli_help",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "152ade521e99d8918f64eed5f52a66934a1c6600",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t335_cli_help"
         }
     ]
 }
