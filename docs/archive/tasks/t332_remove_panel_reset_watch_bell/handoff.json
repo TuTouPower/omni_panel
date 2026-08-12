@@ -1,0 +1,25 @@
+{
+    "tid": "t332",
+    "attempt": 1,
+    "execution_id": "321b6a25ff7d40578e2f74f56bc1947a",
+    "status": "done",
+    "branch": "t332_remove_panel_reset_watch_bell",
+    "base_sha": "661e3cf8bc7c42379f81b15488ce2f328f5fe6f6",
+    "tests": "pnpm test：2986 passed / 9 skipped",
+    "blackbox": "typecheck + 全量测试通过；纯 UI 移除无 electron 运行黑盒，以组件层 absence 断言代替",
+    "review": "single；Round 1 general FAIL（t332_gen_f001 缺 AC-001/002 absence 断言）→ Round 2 general PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/popup_view.test.tsx::概览视图用量条不渲染铃铛监控按钮 通过（bar-watch 不存在）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/popup_view.test.tsx::账号列表视图用量条不渲染铃铛监控按钮 通过（bar-watch 不存在）"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/settings_form.test.tsx 39 passed；settings_view_watched.test.tsx 3 passed（设置侧铃铛保留）"
+        ],
+        "AC-004": ["pnpm typecheck 通过；pnpm test 2986 passed（无残留死引用）"]
+    },
+    "pending": [],
+    "findings": []
+}

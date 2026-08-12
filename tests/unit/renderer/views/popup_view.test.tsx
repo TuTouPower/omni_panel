@@ -449,6 +449,22 @@ describe("PopupView", () => {
         fireEvent.click(add_btn);
         expect(settings_open).toHaveBeenCalledTimes(1);
     });
+
+    it("概览视图用量条不渲染铃铛监控按钮（t332 AC-001）", async () => {
+        const { container } = render(<PopupView />);
+        await screen.findByTestId("overview-grid");
+        // 移除后概览用量条（ProviderOverview → UsageBarList）不再渲染 bar-watch。
+        expect(container.querySelectorAll('[data-testid="bar-watch"]')).toHaveLength(0);
+    });
+
+    it("账号列表视图用量条不渲染铃铛监控按钮（t332 AC-002）", async () => {
+        const { container } = render(<PopupView />);
+        const claude_tab = await screen.findByRole("button", { name: /^Claude$/ });
+        fireEvent.click(claude_tab);
+        await screen.findByTestId("provider-account-list");
+        // 移除后账号列表（ProviderAccountList → ProviderAccountRow）不再渲染 bar-watch。
+        expect(container.querySelectorAll('[data-testid="bar-watch"]')).toHaveLength(0);
+    });
 });
 
 describe("record_bool_equal", () => {

@@ -6,7 +6,6 @@ import { usePopupUiConfig } from "../hooks/use-popup-ui-config";
 import { use_popup_derived } from "../hooks/use_popup_derived";
 import { use_dnd_handlers } from "../hooks/use_dnd_handlers";
 import { use_provider_tab_drag } from "../hooks/use_provider_tab_drag";
-import { use_watched_metric_toggler } from "../hooks/use_watched_metric_toggler";
 import { use_tab_navigation } from "../hooks/use_tab_navigation";
 import { create_debounced_config_patcher } from "../lib/config-debounce";
 import { useTheme } from "../lib/theme";
@@ -621,12 +620,6 @@ export function PopupView() {
         }
     };
 
-    const handle_toggle_watched = use_watched_metric_toggler({
-        account_overrides,
-        set_account_overrides,
-        patchConfig,
-    });
-
     const {
         drag_id,
         account_drag_id,
@@ -821,8 +814,6 @@ export function PopupView() {
                                 convergentTimeMinutes={convergent_time_minutes}
                                 desensitizeRemarks={ui_desensitize_remarks}
                                 providerForcePercent={provider_force_percent}
-                                watchedMetrics={account_overrides?.upcomingResetWatched}
-                                on_toggle_watched={is_live ? handle_toggle_watched : undefined}
                             />
                         )}
 
@@ -860,8 +851,6 @@ export function PopupView() {
                                         true
                                     }
                                     accountErrors={accountErrors}
-                                    watchedMetrics={account_overrides?.upcomingResetWatched}
-                                    on_toggle_watched={is_live ? handle_toggle_watched : undefined}
                                     sparklineWindowDays={sparkline_window_days}
                                     onSparklineWindowChange={
                                         is_live ? set_sparkline_window_days : undefined

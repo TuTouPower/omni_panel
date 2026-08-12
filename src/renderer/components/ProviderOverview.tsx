@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
-import type {
-    AccountOverrides,
-    UsageBarColorScheme,
-    UsageBarStyle,
-} from "../../shared/types/config";
+import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { ProviderCard } from "./ProviderCard";
-import type { ToggleWatchedMetric } from "../hooks/use_watched_metric_toggler";
 
 export interface ProviderError {
     displayName: string;
@@ -55,10 +50,6 @@ interface ProviderOverviewProps {
     convergentTimeMinutes?: number | undefined;
     desensitizeRemarks?: boolean | undefined;
     providerForcePercent?: Readonly<Partial<Record<string, boolean>>> | undefined;
-    /** t046: account 级即将重置监控。 */
-    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
-    /** t046: 切换 (provider, accountKey, raw_label) 监控。 */
-    on_toggle_watched?: ToggleWatchedMetric | undefined;
 }
 
 export function ProviderOverview({
@@ -86,8 +77,6 @@ export function ProviderOverview({
     convergentTimeMinutes,
     desensitizeRemarks = false,
     providerForcePercent,
-    watchedMetrics,
-    on_toggle_watched,
 }: ProviderOverviewProps) {
     const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
     const card_order = overviewCardOrder ?? visibleProviders;
@@ -132,8 +121,6 @@ export function ProviderOverview({
                             convergentTimeMinutes={convergentTimeMinutes}
                             desensitizeRemarks={desensitizeRemarks}
                             forcePercent={providerForcePercent?.[provider] === true}
-                            watchedMetrics={watchedMetrics}
-                            on_toggle_watched={on_toggle_watched}
                         />
                     );
                 }

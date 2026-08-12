@@ -1,5 +1,4 @@
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
-import type { AccountOverrides } from "../../shared/types/config";
 import type { AccountError, ProviderUsageGroup } from "../lib/provider-usage";
 import { ProviderAccountRow } from "./ProviderAccountRow";
 
@@ -29,12 +28,6 @@ interface ProviderAccountListProps {
     desensitizeRemarks?: boolean | undefined;
     forcePercent?: boolean | undefined;
     accountErrors?: Readonly<Map<string, AccountError>> | undefined;
-    /** t043: 即将重置监控的 metric 白名单（provider → accountKey → raw_label[]）。 */
-    watchedMetrics?: AccountOverrides["upcomingResetWatched"] | undefined;
-    /** t043: 切换某个 (provider, accountKey, raw_label) 的即将重置监控。 */
-    on_toggle_watched?:
-        | ((target: { provider: string; accountKey: string; raw_label: string }) => void)
-        | undefined;
     /** t222: sparkline 窗口偏好（1/7/30 天，全局共享）；缺省 7 天。 */
     sparklineWindowDays?: number | undefined;
     /** t222: 变更 sparkline 窗口时写回 config。 */
@@ -58,8 +51,6 @@ export function ProviderAccountList({
     desensitizeRemarks = false,
     forcePercent = false,
     accountErrors,
-    watchedMetrics,
-    on_toggle_watched,
     sparklineWindowDays,
     onSparklineWindowChange,
 }: ProviderAccountListProps) {
@@ -88,18 +79,6 @@ export function ProviderAccountList({
                         ? { ...labelMap, ...per_account_map, ...per_provider_map }
                         : labelMap;
 
-                const watched_for_account = watchedMetrics?.[group.provider]?.[account.id];
-                const watched_set = watched_for_account ? new Set(watched_for_account) : undefined;
-                const toggle_for_account = on_toggle_watched
-                    ? (raw_label: string) => {
-                          on_toggle_watched({
-                              provider: group.provider,
-                              accountKey: account.id,
-                              raw_label,
-                          });
-                      }
-                    : undefined;
-
                 if (!onToggleAccount) {
                     return (
                         <ProviderAccountRow
@@ -113,8 +92,6 @@ export function ProviderAccountList({
                             forcePercent={forcePercent}
                             error={accountErrors?.get(account.id)?.error}
                             onReLogin={handleRowReLogin}
-                            watched_labels={watched_set}
-                            on_toggle_watched={toggle_for_account}
                             sparklineWindowDays={sparklineWindowDays}
                             onSparklineWindowChange={onSparklineWindowChange}
                         />
@@ -153,8 +130,6 @@ export function ProviderAccountList({
                         forcePercent={forcePercent}
                         error={accountErrors?.get(account.id)?.error}
                         onReLogin={handleRowReLogin}
-                        watched_labels={watched_set}
-                        on_toggle_watched={toggle_for_account}
                         sparklineWindowDays={sparklineWindowDays}
                         onSparklineWindowChange={onSparklineWindowChange}
                     />
