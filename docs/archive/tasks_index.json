@@ -4967,6 +4967,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t331_session_login_auto_close"
+        },
+        {
+            "tid": "t334",
+            "slug": "session_library_mount_refill",
+            "title": "会话库首屏挂载自动补满（极端大屏重查）",
+            "status": "done",
+            "branch": "t334_session_library_mount_refill",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "2575ef77ce8ce5a1af5b2e07dc9be73cdf3af466",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t334_session_library_mount_refill"
         }
     ]
 }
