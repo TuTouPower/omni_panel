@@ -3,6 +3,7 @@ import {
     type LucideIcon,
     BarChart3,
     Bell,
+    BellOff,
     BookOpen,
     Check,
     ChevronDown,
@@ -90,6 +91,7 @@ const UI_ICONS: Record<string, LucideIcon> = {
     check: Check,
     exit: LogOut,
     bell: Bell,
+    bell_off: BellOff,
     palette: Palette,
     shield: Shield,
     grid_nav: LayoutGrid,
@@ -152,9 +154,19 @@ interface IconProps {
     color?: string;
     style?: CSSProperties;
     className?: string;
+    /** t333: 状态驱动标记，透传到 svg（如斜杠显隐断言）。 */
+    "data-slash"?: string | undefined;
 }
 
-export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, className }: IconProps) {
+export function Icon({
+    name,
+    size = 18,
+    strokeWidth = 1.7,
+    color,
+    style,
+    className,
+    "data-slash": data_slash,
+}: IconProps) {
     if (name === "chat_square") {
         // t313: chat_square 手绘气泡例外（见 ChatSquareIcon）；其余参数对齐 lucide 渲染。
         return <ChatSquareIcon size={size} />;
@@ -174,6 +186,7 @@ export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, classNa
                 strokeLinejoin="round"
                 className={className}
                 style={style}
+                data-slash={data_slash}
             />
         );
     }
@@ -184,6 +197,7 @@ export function Icon({ name, size = 18, strokeWidth = 1.7, color, style, classNa
             color={color}
             className={className}
             style={style}
+            data-slash={data_slash}
         />
     );
 }

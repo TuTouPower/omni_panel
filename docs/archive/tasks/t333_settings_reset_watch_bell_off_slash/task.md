@@ -2,11 +2,11 @@
 tid: "t333"
 slug: "settings_reset_watch_bell_off_slash"
 title: "设置侧提醒铃铛按钮关闭状态叠加斜杠表示停用"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t333_settings_reset_watch_bell_off_slash"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "90bc99395c531c8d51e8eef1ff746a3aa8c62d9b"
 depends_on: ""
 conflicts_with: ""
 note: "用户需求：AccountDialog/SettingsForm 与 CpaLabelMapDialog/LabelMapDialog 两处铃铛按钮，未监控状态叠加斜线（类似静音符号）"
@@ -53,6 +53,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 | t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
 | t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
 
+### Round 1-2 (2026-08-13 03:10-03:50 UTC+8)
+
+| finding_id    | severity | status | rationale                                                                                                                                                                 | fix_ref                                                          |
+| ------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| t333_gen_f001 | minor    | 已修   | settings_view_watched 两用例标注 AC-002 → 改 AC-001（实走 AccountDialog→SettingsForm 内嵌 labelRows）；AC-002 由 e2e cpa_label_map_watch data-slash 断言覆盖              | tests/unit/renderer/views/settings_view_watched.test.tsx:165,185 |
+| t333_gen_f002 | minor    | 遗留   | spec 测试策略清单的 label_map_dialog/settings_view_cpa 未加 data-slash 断言（AC-002 组件层仅靠 e2e）；SettingsForm AC-004 即时更新无组件测试（mock 不更新 watched props） | p149                                                             |
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -60,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 由 settings_form.test.tsx「marks the bell aria-pressed=true...」+ settings_view_watched.test.tsx 两用例（斜杠显隐）覆盖；AC-002 由 e2e cpa_label_map_watch data-slash 断言覆盖；AC-003 由既有 t048 persist 测试（settings_view_watched/settings_view_cpa）覆盖；AC-004 由 e2e 切换后斜杠消失断言覆盖。
 
 ### Reviewer verdict
 
@@ -74,10 +81,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（2 条 minor：f001 AC 锚定、f002 测试覆盖）
+- Round 2 general：PASS（f001 复核不撤回，f002 保留）
+- Round 3 general：PASS（f001 已修、f002 遗留 p149；scope=ok）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 设置侧两处铃铛按钮（SettingsForm + LabelMapDialog）未监控状态改用 lucide BellOff 图标（自带斜线）+ data-slash 标记，已监控保持 bell；监控 toggle 逻辑与 upcomingResetWatched 未动。
