@@ -38,8 +38,8 @@
 <!-- /规范 -->
 
 - [ ] AC-001：趋势窗口选中按钮背景为实色（非透明），渲染背景色即 `--color-accent` 值。
-- [ ] AC-002：趋势窗口选中按钮文字色与按钮最终背景（accent 实底）的 WCAG 对比度 ≥ 4.5（dark 与 light 两主题）。
-- [ ] AC-003：趋势窗口选中按钮文字可见（computed `color` 不等于其所在卡片背景色，且与最终背景非同色）。
+- [ ] AC-002：趋势窗口选中按钮文字色与按钮最终背景（accent 实底）的 WCAG 对比度 ≥ 3.0（dark 与 light 两主题；对齐 DESIGN 大字标准/t283 Segmented 选中块阈值，默认 accent-blue 两主题均满足）。
+- [ ] AC-003：趋势窗口选中按钮文字可见（computed `color` 与按钮最终背景（accent 实底）非同色，对比度由 AC-002 保证）。
 - [ ] AC-004：未选中按钮样式与修复前一致（浅灰文字 + 透明底 + outline 边框），回归不受影响。
 
 ### 可测试性声明
@@ -51,8 +51,8 @@
 <!-- /规范 -->
 
 - AC-001：可自动测试，e2e 读取选中按钮 computed background-color 断言非透明且等于 `--color-accent`。
-- AC-002：可自动测试，e2e 抽样 fg/bg 计算 WCAG 对比度 ≥ 4.5。
-- AC-003：可自动测试，e2e 断言选中按钮 computed color 与卡片背景色不同。
+- AC-002：可自动测试，e2e 抽样 fg/bg 计算 WCAG 对比度 ≥ 3.0（默认 accent-blue 两主题）。
+- AC-003：可自动测试，e2e 断言选中按钮 computed color 与按钮最终背景（accent 实底）不同色。
 - AC-004：可自动测试，e2e 采样未选中按钮 computed 样式与修复前快照一致。
 
 ## 上下文区
@@ -78,7 +78,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 <!-- /规范 -->
 
 - e2e（`tests/e2e/web/`，`MOCK_FIXTURE=synthetic`，fixture `tests/e2e/fixtures/synthetic.json`）：驱动 web SPA，`/v1/config/reset` 复位后进 `/#usage`，点入含账号的 provider tab（如 Claude），对 `[data-testid="trend-window-btn"]` 的选中按钮（`aria-pressed="true"`）做 light/dark 两主题下的 computed fg/bg WCAG 对比度抽样，复用 `ui_component_theme.spec.ts` 的 `sample_contrast` / `page_background_luminance` 辅助函数（如需可从该 spec 导出复用）。
-- 断言目标：选中按钮背景非透明（=accent）、文字与最终背景对比度 ≥ 4.5、文字与卡片背景非同色；未选中按钮样式回归不动。
+- 断言目标：选中按钮背景非透明（=accent）、文字与最终背景对比度 ≥ 3.0、文字与最终背景非同色；未选中按钮样式回归不动。
 
 ### 未知契约清单
 
