@@ -38,6 +38,8 @@ export interface SessionPaneProps {
     readonly on_load_older: () => void;
     readonly on_focus: () => void;
     readonly on_toggle_outline: () => void;
+    /** t324：复制续接命令成功后提示（复用 WorkspaceView 的 show_toast）。 */
+    readonly show_toast?: (message: string) => void;
 }
 
 const OLDER_THRESHOLD_PX = 120;
@@ -60,6 +62,7 @@ export function SessionPane({
     on_load_older,
     on_focus,
     on_toggle_outline,
+    show_toast,
 }: SessionPaneProps) {
     const [scroll_el, set_scroll_el] = useState<HTMLDivElement | null>(null);
     const [at_bottom, set_at_bottom] = useState(true);
@@ -107,6 +110,22 @@ export function SessionPane({
         set_locate_target(id);
     }
 
+    const session_command = resume_command(column.loc.source, column.loc.session_id);
+
+    function copy_session_command(): void {
+        if (session_command === null) return;
+        // web 非安全上下文（HTTP）无 clipboard API，同步 TypeError 需前置守卫。
+        if (typeof navigator.clipboard === "undefined") return;
+        void navigator.clipboard
+            .writeText(session_command)
+            .then(() => {
+                show_toast?.("已复制");
+            })
+            .catch(() => {
+                // 忽略剪贴板拒绝。
+            });
+    }
+
     return (
         <section
             className={cn(
@@ -126,22 +145,53 @@ export function SessionPane({
                     <VendorMark id={vendor_id_for_source(column.loc.source)} size={22} />
                 </span>
                 <div className="conversation-head-text flex min-w-0 flex-1 flex-col gap-px">
-                    <span
-                        className="conversation-title truncate text-[11px] font-semibold text-[var(--color-on-surface)]"
-                        title={column.title}
-                    >
-                        {column.title}
-                    </span>
-                    <span
-                        className="conversation-meta truncate whitespace-nowrap font-code-md text-[13px] tabular-nums text-[var(--color-on-surface-muted)]"
-                        title={slot_meta.cwd ?? undefined}
-                    >
-                        {slot_meta.model ? slot_meta.model : ""}
-                        {slot_meta.cwd ? ` · ${last_dir_segment(slot_meta.cwd)}` : ""}
-                        {` · ${String(slot_meta.calls)} 轮`}
-                        {` · ${format_tokens(slot_meta.tokens)} tokens`}
-                        {` · ${format_precise_datetime(last_message_time(column))}`}
-                    </span>
+                    <div className="conversation-title flex min-w-0 items-center gap-1 text-[11px] font-semibold text-[var(--color-on-surface)]">
+                        {slot_meta.cwd ? (
+                            <>
+                                <span
+                                    className="conversation-title-cwd min-w-0 truncate"
+                                    title={slot_meta.cwd}
+                                >
+                                    {last_dir_segment(slot_meta.cwd)}
+                                </span>
+                                <span className="shrink-0 text-[var(--color-on-surface-muted)]">
+                                    ·
+                                </span>
+                            </>
+                        ) : null}
+                        <span className="conversation-title-time shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]">
+                            {format_precise_datetime(last_message_time(column))}
+                        </span>
+                        <span className="shrink-0 text-[var(--color-on-surface-muted)]">·</span>
+                        <button
+                            type="button"
+                            className="conversation-session-id min-w-0 cursor-pointer truncate rounded border-0 bg-transparent p-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                            title={session_command ?? undefined}
+                            onClick={copy_session_command}
+                        >
+                            {column.loc.session_id}
+                        </button>
+                    </div>
+                    <div className="conversation-meta flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[13px] tabular-nums text-[var(--color-on-surface-muted)]">
+                        {slot_meta.model ? (
+                            <span className="conversation-meta-model shrink-0">
+                                {slot_meta.model}
+                            </span>
+                        ) : null}
+                        <span className="conversation-meta-calls shrink-0">
+                            {` · ${String(slot_meta.calls)} 轮`}
+                        </span>
+                        <span className="conversation-meta-tokens shrink-0">
+                            {` · ${format_tokens(slot_meta.tokens)} tokens`}
+                        </span>
+                        <span className="shrink-0"> · </span>
+                        <span
+                            className="conversation-meta-title min-w-0 truncate"
+                            title={column.title}
+                        >
+                            {column.title}
+                        </span>
+                    </div>
                 </div>
                 <div className="conversation-head-actions flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
@@ -308,6 +358,22 @@ export function SessionPane({
             </footer>
         </section>
     );
+}
+
+/** t324：会话来源 → 续接命令；未知来源返回 null（点击 session id 无效果）。 */
+function resume_command(source: string, session_id: string): string | null {
+    switch (source) {
+        case "claude_code":
+            return `claude --resume ${session_id}`;
+        case "kimi_code":
+            return `kimi -r ${session_id}`;
+        case "grok":
+            return `grok --resume ${session_id}`;
+        case "opencode":
+            return `opencode -s ${session_id}`;
+        default:
+            return null;
+    }
 }
 
 function format_tokens(n: number): string {

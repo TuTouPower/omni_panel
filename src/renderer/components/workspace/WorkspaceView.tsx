@@ -51,6 +51,7 @@ export function WorkspaceView({
         slots_state,
         columns,
         toast,
+        show_toast,
         open_session,
         add_session: hook_add_session,
         close_slot: hook_close_slot,
@@ -408,6 +409,7 @@ export function WorkspaceView({
                                                     prev === index ? null : index,
                                                 );
                                             }}
+                                            show_toast={show_toast}
                                         />
                                     </div>
                                 ),
