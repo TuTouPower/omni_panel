@@ -27,21 +27,21 @@ description: none
 
 ```json
 {
-    "tid": "t001",
-    "attempt": 1,
-    "execution_id": "0123456789abcdef0123456789abcdef",
-    "status": "done",
-    "branch": "t001_example",
-    "base_sha": "0123456789abcdef0123456789abcdef01234567",
-    "tests": "pytest -q：120 passed",
-    "blackbox": "黑盒命令通过",
-    "review": "第 2 轮 PASS",
-    "ac_evidence": {
-        "AC-001": ["tests/test_x.py::test_y 通过"],
-        "AC-002": ["黑盒输出：返回 200"]
-    },
-    "pending": ["p047"],
-    "findings": ["d012"]
+  "tid": "t001",
+  "attempt": 1,
+  "execution_id": "0123456789abcdef0123456789abcdef",
+  "status": "done",
+  "branch": "t001_example",
+  "base_sha": "0123456789abcdef0123456789abcdef01234567",
+  "tests": "pytest -q：120 passed",
+  "blackbox": "黑盒命令通过",
+  "review": "第 2 轮 PASS",
+  "ac_evidence": {
+    "AC-001": ["tests/test_x.py::test_y 通过"],
+    "AC-002": ["黑盒输出：返回 200"]
+  },
+  "pending": ["p047"],
+  "findings": ["d012"]
 }
 ```
 
@@ -151,13 +151,13 @@ scripts/repo_template/task.py integrate-chain {TAIL_TID} --continue
 
 ## 冲突处置
 
-| 冲突位置                                           | 处置                                                |
-| -------------------------------------------------- | --------------------------------------------------- |
-| `docs/blueprint/`                                  | 真语义冲突。读双方意图后合成一致表述，不叠加两段    |
-| `docs/specs_index.md`                              | 两侧各加一行；保留双方，按 slug 排序                |
-| `docs/tasks_index.json`                            | 派生缓存。先解决为可继续状态，成功后由脚本重建覆盖  |
-| `docs/tasks/{tid}/` 与 `docs/archive/tasks/{tid}/` | task 归档是 rename；保留 archive 侧、删除 active 侧 |
-| 源码 / 测试                                        | 读双方改动意图；无法确定时停止，报告给用户          |
+|冲突位置|处置|
+|------|------|
+|`docs/blueprint/`|真语义冲突。读双方意图后合成一致表述，不叠加两段|
+|`docs/specs_index.md`|两侧各加一行；保留双方，按 slug 排序|
+|`docs/tasks_index.json`|派生缓存。先解决为可继续状态，成功后由脚本重建覆盖|
+|`docs/tasks/{tid}/` 与 `docs/archive/tasks/{tid}/`|task 归档是 rename；保留 archive 侧、删除 active 侧|
+|源码 / 测试|读双方改动意图；无法确定时停止，报告给用户|
 
 条目化账本（`docs/pending/`、`docs/findings/`）为一条目一文件，正常不冲突；若出现同号不同文件，说明取号锁被绕过，停止并报告。
 
