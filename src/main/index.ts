@@ -171,6 +171,23 @@ let local_api: LocalAPIServer | null = null;
 
 void app.whenReady().then(async () => {
     try {
+        // t335: --cli help 打印子命令清单，不启动服务。
+        if (cliMode && cli_args.command?.type === "help") {
+            process.stdout.write(
+                "OmniPanel CLI 子命令：\n" +
+                    "  serve         无窗口常驻服务（默认后台；--foreground 前台，--port/--user-data-dir 可选）\n" +
+                    "  open          打开面板\n" +
+                    "  refresh-all   刷新全部数据源\n" +
+                    "  pause / resume 暂停 / 恢复采集\n" +
+                    "  restart       重启实例\n" +
+                    "  quit          停止实例（--port 指定，默认读 cli.json）\n" +
+                    "  autostart     开机自启开关\n" +
+                    "  export        导出配置\n" +
+                    "帮助：omni_panel --help 或 omni_panel --cli help\n",
+            );
+            app.exit(0);
+            return;
+        }
         if (cliMode && cli_args.command?.type === "export") {
             const { run_export_command } = await import("./cli/client");
             const exitCode = await run_export_command(cli_args.command.options);
@@ -182,7 +199,8 @@ void app.whenReady().then(async () => {
             cliMode &&
             cli_args.command &&
             cli_args.command.type !== "serve" &&
-            cli_args.command.type !== "export"
+            cli_args.command.type !== "export" &&
+            cli_args.command.type !== "help"
         ) {
             const { run_control_command } = await import("./cli/client");
             const cmd = cli_args.command;
