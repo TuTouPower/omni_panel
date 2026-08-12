@@ -44,7 +44,10 @@
     --color-usage-7: #9cb8ff;
     --color-usage-8: #b6a7ff;
     --color-usage-9: #a7d8d8;
-    /* 热力图强度梯度（light 浅→深，dark 暗→亮），单色相避免分类色横跳 */
+    --color-agent-claude: #e85d3d;
+    --color-agent-grok: #3b6fe0;
+    --color-agent-opencode: #1f9d66;
+    --color-agent-kimi: #4f6fe0;
     --color-heat-1: #e8f0ff;
     --color-heat-2: #cfe0ff;
     --color-heat-3: #b6d0f8;
@@ -61,10 +64,6 @@
     --color-heat-6-dark: #4c84da;
     --color-heat-7-dark: #5695f6;
     --color-heat-8-dark: #60a6ff;
-    --color-agent-claude: #e85d3d;
-    --color-agent-grok: #3b6fe0;
-    --color-agent-opencode: #1f9d66;
-    --color-agent-kimi: #4f6fe0;
     --color-brand-cyan: #00d5ff;
     --color-brand-blue: #1482ff;
     --color-brand-violet: #4e5bff;
