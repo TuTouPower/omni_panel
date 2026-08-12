@@ -6,6 +6,8 @@ import { createServer } from "node:http";
 import {
     resolve_instance,
     post_control,
+    check_health,
+    wait_quit_confirmed,
     run_control_command,
     run_export_command,
 } from "../../../../src/main/cli/client";
@@ -96,6 +98,61 @@ describe("post_control", () => {
         const port = (server.address() as { port: number }).port;
         try {
             await expect(post_control(port, "quit")).rejects.toThrow(/控制端点返回 400/);
+        } finally {
+            server.close();
+        }
+    });
+});
+
+describe("check_health", () => {
+    it("可达端口返回 true", async () => {
+        const server = createServer((_req, res) => {
+            res.writeHead(200);
+            res.end();
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        try {
+            expect(await check_health(port)).toBe(true);
+        } finally {
+            server.close();
+        }
+    });
+
+    it("不可达端口返回 false", async () => {
+        expect(await check_health(1)).toBe(false);
+    });
+});
+
+describe("wait_quit_confirmed", () => {
+    it("实例退出（连接失败）返回 true", async () => {
+        const server = createServer((_req, res) => {
+            res.writeHead(200);
+            res.end();
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        // 短暂健康后关闭，模拟进程退出使 health 不可达。
+        const timer = setTimeout(() => {
+            server.close();
+        }, 100);
+        try {
+            await expect(wait_quit_confirmed(port, 5000)).resolves.toBe(true);
+        } finally {
+            clearTimeout(timer);
+            server.close();
+        }
+    });
+
+    it("超时仍未退出返回 false", async () => {
+        const server = createServer((_req, res) => {
+            res.writeHead(200);
+            res.end();
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        try {
+            await expect(wait_quit_confirmed(port, 100)).resolves.toBe(false);
         } finally {
             server.close();
         }
@@ -200,10 +257,19 @@ describe("run_control_command", () => {
         }
     });
 
-    it("quit 发请求到 cli.json 端口", async () => {
+    it("quit 发请求后轮询 health 确认实例退出", async () => {
         const dir = makeDir();
         const server = createServer((req, res) => {
-            expect(req.url).toBe("/v1/control/quit");
+            if (req.url === "/v1/control/quit") {
+                // Connection: close 防止 quit 连接回流 keep-alive 池被 health 复用，
+                // 否则 server.close() 不断 keep-alive 连接，health 持续可达。
+                res.writeHead(200, { Connection: "close" });
+                res.end();
+                // 模拟实例退出：停止监听，后续 health 连接失败 → 判定已退出。
+                // 闭包捕获变量绑定：请求到达时 server 已初始化。
+                server.close();
+                return;
+            }
             res.writeHead(200);
             res.end();
         });
@@ -211,8 +277,19 @@ describe("run_control_command", () => {
         const port = (server.address() as { port: number }).port;
         writeCliJson(dir, port);
         try {
-            const code = await run_control_command("quit", {}, { dataRoot: dir });
+            const writes: string[] = [];
+            const code = await run_control_command(
+                "quit",
+                {},
+                {
+                    dataRoot: dir,
+                    write: (t) => {
+                        writes.push(t);
+                    },
+                },
+            );
             expect(code).toBe(0);
+            expect(writes.join("")).toContain("quit 已发送，实例已退出");
         } finally {
             server.close();
         }

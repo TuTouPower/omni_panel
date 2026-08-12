@@ -100,6 +100,52 @@ export function post_control(port: number, action: string): Promise<string> {
     });
 }
 
+/** GET /v1/health；可达（收到任何响应）返回 true，连接失败/超时返回 false。 */
+export function check_health(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const req = httpGet(
+            {
+                host: "localhost",
+                port,
+                path: "/v1/health",
+                timeout: 2000,
+            },
+            (res) => {
+                res.resume();
+                resolve(true);
+            },
+        );
+        req.on("timeout", () => {
+            req.destroy();
+            resolve(false);
+        });
+        req.on("error", () => {
+            resolve(false);
+        });
+    });
+}
+
+/** 轮询 health 直到实例退出（连接失败）或超时。返回是否确认退出。 */
+export async function wait_quit_confirmed(port: number, timeoutMs = 10000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (!(await check_health(port))) return true;
+        await new Promise((r) => setTimeout(r, 500));
+    }
+    return false;
+}
+
+/** 从 cli.json 读 pid；缺失/损坏返回 undefined（提示信息用，非关键）。 */
+export function read_cli_pid(deps: ControlClientDeps): number | undefined {
+    try {
+        const dataRoot = deps.dataRoot ?? getDataRoot();
+        const info = JSON.parse(readFileSync(cli_json_path(dataRoot), "utf8")) as CliInstanceInfo;
+        return typeof info.pid === "number" ? info.pid : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export function get_config_export(port: number, include_secrets: boolean): Promise<string> {
     return new Promise((resolve, reject) => {
         const req = httpGet(
@@ -204,11 +250,25 @@ export async function run_control_command(
             case "refresh-all":
             case "pause":
             case "resume":
-            case "restart":
-            case "quit": {
+            case "restart": {
                 const inst = resolve_instance(deps, options.port);
                 await post_control(inst.port, command);
                 await write(`${command} 已发送\n`);
+                return 0;
+            }
+            case "quit": {
+                // app.quit() 异步退出（before-quit 清理 + flush），POST 200 不代表
+                // 进程已退；轮询 health 确认，避免用户紧接着 serve 时误判旧实例未退。
+                const inst = resolve_instance(deps, options.port);
+                await post_control(inst.port, command);
+                if (await wait_quit_confirmed(inst.port)) {
+                    const pid = read_cli_pid(deps);
+                    await write(
+                        `quit 已发送，实例已退出${pid === undefined ? "" : `（pid=${String(pid)}）`}\n`,
+                    );
+                } else {
+                    await write("quit 已发送，但实例未在 10s 内退出，请检查日志\n");
+                }
                 return 0;
             }
         }
