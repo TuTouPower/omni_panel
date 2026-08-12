@@ -35,12 +35,12 @@
 
 ## 3. 四种采集能力（capability）
 
-| 英文      | 中文 | 含义                             | 例                                             |
-| --------- | ---- | -------------------------------- | ---------------------------------------------- |
-| `poll`    | 轮询 | 按声明发 HTTP 拉官方用量 API     | Tavily、Firecrawl、DeepSeek、GLM、MiniMax、CPA |
-| `local`   | 本地 | 读本地凭证/用量文件              | Claude（`~/.claude`）、Codex（`~/.codex`）     |
-| `session` | 会话 | 受控网页登录，捕获 Cookie 后采集 | MiMo、OpenCode Go、Kimi                        |
-| `observe` | 探测 | 发最小请求从响应头提取用量       | Brave 型（有运行时代码，无内置连接器）         |
+| 英文      | 中文 | 含义                                                                                   | 例                                             |
+| --------- | ---- | -------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `poll`    | 轮询 | 按声明发 HTTP 拉官方用量 API                                                           | Tavily、Firecrawl、DeepSeek、GLM、MiniMax、CPA |
+| `local`   | 本地 | 读本地凭证/用量文件                                                                    | Claude（`~/.claude`）、Codex（`~/.codex`）     |
+| `session` | 会话 | 受控网页登录，捕获 Cookie 后采集；捕获后有效性探测（t337：/auth 3xx+workspace 才落库） | MiMo、OpenCode Go、Kimi                        |
+| `observe` | 探测 | 发最小请求从响应头提取用量                                                             | Brave 型（有运行时代码，无内置连接器）         |
 
 `source` 取值：`poll` / `local` / `session` / `probe` / `wrapper` / `gateway`（CPA 走 `gateway`）。
 

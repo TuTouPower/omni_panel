@@ -37,6 +37,11 @@ export interface SessionManagerDeps {
     readonly vault: VaultBackend;
     /** Linux 无 DISPLAY/WAYLAND_DISPLAY 时阻止 Electron 在 app ready 前崩溃。 */
     readonly has_display?: () => boolean;
+    /**
+     * t337: 捕获 cookie 后的有效性探测。web_login provider 捕获点早于认证 cookie
+     * 生效（on_before_send_headers），返回 false 时判定登录无效、不落库。缺省跳过。
+     */
+    readonly verify_cookie?: (cookie: string, login_url: string) => Promise<boolean>;
     create_window(partition: string): SessionWindow;
     create_session(partition: string): SessionController;
 }
@@ -52,6 +57,8 @@ export interface LoginRequest {
 export interface LoginResult {
     readonly saved: boolean;
     readonly cookie?: string;
+    /** t337: saved=false 时区分原因（验证失败 vs 未捕获到 cookie）。 */
+    readonly reason?: "invalid_cookie" | "no_cookie";
 }
 
 export interface SessionManager {
@@ -142,8 +149,25 @@ export function create_session_manager(
                         // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
                         if (!captured_cookie) {
                             log.warn(`No matching cookies captured for ${login_id}`);
-                            resolve({ saved: false });
+                            resolve({ saved: false, reason: "no_cookie" });
                             return;
+                        }
+
+                        // t337: 捕获后有效性探测。web_login 捕获点早于认证 cookie 生效，
+                        // 匿名/旧 cookie 被判有效会存库导致 connector /auth 判定失效；
+                        // 探测失败按「无效」处理不落库，返回可读提示。
+                        if (deps.verify_cookie) {
+                            const valid = await deps.verify_cookie(
+                                captured_cookie,
+                                request.login_url,
+                            );
+                            if (!valid) {
+                                log.warn(
+                                    `Captured cookie failed validation for ${login_id}, not saving`,
+                                );
+                                resolve({ saved: false, reason: "invalid_cookie" });
+                                return;
+                            }
                         }
 
                         if (!instance_id) {
@@ -244,6 +268,15 @@ function extract_cookie_header(headers: Record<string, string>): string | null {
 
 function to_error(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
+}
+
+/**
+ * t337: opencode_go web_login cookie 有效性判定——对 login_url 的 /auth 请求
+ * 返回 3xx 且 Location 为 workspace 路由（含 workspace id）视为有效（对齐
+ * connector 的 /auth 判定：`/\/workspace\/([^/?#]+)/`）。
+ */
+export function is_valid_opencode_login(status: number, location: string | null): boolean {
+    return status >= 300 && status < 400 && Boolean(location?.match(/\/workspace\/([^/?#]+)/));
 }
 
 function select_cookie_header_values(
