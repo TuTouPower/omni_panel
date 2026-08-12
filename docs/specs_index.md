@@ -50,7 +50,7 @@
 | ui-component-theme-contrast          | Web                 | t283，t298，t302，t301                                                                                        | 2026-08-11   |
 | legacy_css_cleanup                   | Web+Desktop         | t274                                                                                                          | 2026-08-09   |
 | ui-views-desktop                     | Desktop             | 拆自 ui-views（t037），t153                                                                                   | 2026-07-27   |
-| cli-mode                             | Desktop             | t275, t285                                                                                                    | 2026-08-10   |
+| cli-mode                             | Desktop             | t275, t285, t322                                                                                              | 2026-08-12   |
 | cli-import-config                    | API                 | t285                                                                                                          | 2026-08-10   |
 | vendor-forms-oauth-weblogin          | Web                 | t109                                                                                                          | 2026-07-25   |
 | fix_add_account_wiring               | Desktop             | t110                                                                                                          | 2026-07-25   |

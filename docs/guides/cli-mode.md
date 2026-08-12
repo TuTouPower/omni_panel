@@ -52,11 +52,13 @@ sudo apt install \
 ## 启动语法
 
 ```bash
-omni-panel --cli serve [--config <path>] [--port <n>]
+omni-panel --cli serve [--config <path>] [--port <n>]   # 默认后台运行
+omni-panel --cli serve --foreground [--config <path>] [--port <n>]  # 前台阻塞
 ```
 
 - `--cli`：CLI 模式总开关。
-- `serve`：唯一子命令，无窗口常驻运行。
+- `serve`：唯一子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `--cli quit --port <n>` 停止。
+- `--foreground`：可选。显式指定前台运行——打印面板地址后阻塞终端，`Ctrl+C` 停止（旧行为）。
 - `--config <path>`：可选。启动时把指定配置文件内容覆盖写入规范配置（`config.json`），并做 `.bak` 备份。配置文件是规范 config.json 形态，secret 参数（如 `API_KEY`）以明文内嵌于 `plugins[].parameterValues`；导入时明文 secret 转存加密 vault，落盘的规范配置只保留非 secret 参数与 `hasSecret` 标志。
 - `--port <n>`：可选。覆盖 local-api 监听端口，优先级高于 `OMNI_PANEL_PORT` 环境变量。
 
