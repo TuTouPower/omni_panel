@@ -7,3 +7,7 @@ public/
 AGENTS.md
 docs/blueprint/conventions.md
 docs/blueprint/architecture_repo_template.md
+.agents/skills/
+docs/tasks/task_template/
+docs/reviews/prompts/
+scripts/repo_template/
