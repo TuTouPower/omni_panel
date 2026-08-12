@@ -92,6 +92,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t324_session_card_meta_rerank_copy"
+        },
+        {
+            "tid": "t325",
+            "slug": "web_renderer_log_ingest",
+            "title": "web 前端日志经 local-api 落盘",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t325_web_renderer_log_ingest"
+        },
+        {
+            "tid": "t326",
+            "slug": "session_library_card_rerank_vendor_icon_copy",
+            "title": "会话库卡片三行重排 + cwd/时间格式统一 + icon 换 VendorMark + session id 复制命令",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t326_session_library_card_rerank_vendor_icon_copy"
         }
     ]
 }
