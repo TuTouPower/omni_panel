@@ -14,8 +14,8 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
+            "schedule_status": "pending_clarification",
+            "note": "rewound: effective=active -> backlog（main 记录为 backlog）; 误启动 goal 执行,用户要求回退",
             "dir": "docs/tasks/t319_collector_error_banner_color"
         },
         {
@@ -182,6 +182,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t330_panel_titlebar_show_current"
+        },
+        {
+            "tid": "t331",
+            "slug": "session_login_auto_close",
+            "title": "session.login/refresh 登录成功自动关闭登录窗口 + web 完成反馈",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t331_session_login_auto_close"
         }
     ]
 }

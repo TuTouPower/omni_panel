@@ -9,7 +9,8 @@ review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+schedule_status: "pending_clarification"
+note: "rewound: effective=active -> backlog（main 记录为 backlog）; 误启动 goal 执行,用户要求回退"
 ---
 
 # Task 过程总账

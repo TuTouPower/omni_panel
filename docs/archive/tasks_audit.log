@@ -1,0 +1,1 @@
+2026-08-12T14:59:51+08:00 | rewind | tid=t319 | from=active | to=backlog | head=fd18e2c6 | reason=误启动 goal 执行,用户要求回退
