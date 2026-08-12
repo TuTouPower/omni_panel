@@ -947,4 +947,39 @@ describe("web usageboard bridge", () => {
             click_spy.mockRestore();
         }
     });
+
+    it("log POSTs the renderer log payload to /v1/logs/renderer (t325 AC-001)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({}));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const payload = { level: "info", module: "web-panel", message: "hello web" } as const;
+        api.log(payload);
+        await vi.waitFor(() => {
+            expect(fetch_mock).toHaveBeenCalledWith(
+                "/v1/logs/renderer",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                }),
+            );
+        });
+    });
+
+    it("log POST 失败静默，不阻塞 renderer (t325)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockRejectedValue(new Error("network down"));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        expect(() => {
+            api.log({ level: "error", module: "web-panel", message: "boom" });
+        }).not.toThrow();
+        await vi.waitFor(() => {
+            expect(fetch_mock).toHaveBeenCalledWith(
+                expect.stringContaining("/v1/logs/renderer"),
+                expect.anything(),
+            );
+        });
+    });
 });

@@ -1,0 +1,171 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionCard } from "../../../../../src/renderer/components/session-library/SessionCard";
+import type { TokenStatsSession } from "../../../../../src/shared/types/token-stats";
+
+/**
+ * t326 会话库卡片三行重排：VendorMark 徽标；cwd 末级+精确时间 / 轮次·tokens·session id / 会话名；
+ * session id 点击复制续接命令（复用 t324 分派）。
+ */
+
+function sess(
+    id: string,
+    source: string,
+    opts: {
+        calls?: number;
+        input_tokens?: number;
+        directory?: string | null;
+        ended_at?: number;
+        title?: string;
+    } = {},
+): TokenStatsSession {
+    return {
+        id,
+        source: source as TokenStatsSession["source"],
+        env: "local",
+        model: "model",
+        title: opts.title ?? `会话 ${id}`,
+        directory: opts.directory === undefined ? `/proj/${id}` : opts.directory,
+        input_tokens: opts.input_tokens ?? 100,
+        output_tokens: 200,
+        cache_read_tokens: 50,
+        cache_write_tokens: 25,
+        calls: opts.calls ?? 3,
+        started_at: 0,
+        ended_at: opts.ended_at ?? new Date(2026, 0, 1).getTime(),
+    };
+}
+
+interface RenderCardOverrides {
+    s?: TokenStatsSession;
+    selected?: boolean;
+    on_toggle?: (s: TokenStatsSession) => void;
+    on_preview?: (s: TokenStatsSession) => void;
+    on_open?: (s: TokenStatsSession) => void;
+    show_toast?: (message: string) => void;
+}
+
+function render_card(overrides: RenderCardOverrides = {}) {
+    const props = {
+        s: sess("sess_a", "claude_code"),
+        selected: false,
+        on_toggle: vi.fn(),
+        on_preview: vi.fn(),
+        on_open: vi.fn(),
+        ...overrides,
+    };
+    render(<SessionCard {...props} />);
+    return props;
+}
+
+/** 第二行 session id 按钮（目录末级可能与 id 同文本，用类选择器定位）。 */
+function session_id_button(): HTMLButtonElement {
+    const el = document.querySelector<HTMLButtonElement>(".library-card-session-id");
+    if (!el) throw new Error("library-card-session-id missing");
+    return el;
+}
+
+beforeEach(() => {
+    // 清理上个用例可能残留的 navigator.clipboard mock。
+    delete (navigator as { clipboard?: unknown }).clipboard;
+});
+
+describe("SessionCard (t326)", () => {
+    it("AC1：第一行渲染 cwd 末级与精确时间，不渲染完整路径", () => {
+        const ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
+        render_card({
+            s: sess("sess_a", "claude_code", { ended_at: ts, directory: "/path/to/proj" }),
+        });
+        const first = document.querySelector(".library-card-top");
+        if (!first) throw new Error("library-card-top missing");
+        expect(first.textContent).toContain("proj");
+        expect(first.textContent).toContain("2026-08-07 09:08:07");
+        expect(first.textContent).not.toContain("/path/to/proj");
+        expect(document.querySelector(".library-card-cwd")?.textContent).toBe("proj");
+    });
+
+    it("AC1：directory 为空时第一行仅渲染时间", () => {
+        const ts = new Date(2026, 0, 2, 3, 4, 5).getTime();
+        render_card({ s: sess("sess_a", "claude_code", { directory: null, ended_at: ts }) });
+        const first = document.querySelector(".library-card-top");
+        if (!first) throw new Error("library-card-top missing");
+        expect(first.textContent).toContain("2026-01-02 03:04:05");
+        expect(document.querySelector(".library-card-cwd")).toBeNull();
+    });
+
+    it("AC2：第二行渲染 轮次 / tokens / session id（内容与数据源一致）", () => {
+        render_card({ s: sess("sess_a", "claude_code", { calls: 5 }) });
+        const second = document.querySelector(".library-card-meta");
+        if (!second) throw new Error("library-card-meta missing");
+        expect(second.textContent).toContain("5 轮");
+        expect(second.textContent).toContain("375 tokens");
+        expect(second.textContent).toContain("sess_a");
+    });
+
+    it("AC3：第三行渲染会话名（单行），摘要行不再渲染", () => {
+        render_card({ s: sess("sess_a", "claude_code", { title: "会话标题" }) });
+        const third = document.querySelector(".library-card-title");
+        if (!third) throw new Error("library-card-title missing");
+        expect(third.textContent).toContain("会话标题");
+        expect(document.querySelector(".library-card-summary")).toBeNull();
+    });
+
+    it("AC4：徽标渲染 VendorMark logo，不再渲染 agent 字母缩写", () => {
+        render_card({ s: sess("sess_a", "claude_code") });
+        const badge = document.querySelector(".library-card-badge");
+        if (!badge) throw new Error("library-card-badge missing");
+        expect(badge.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
+        expect(badge.textContent).toBe("");
+    });
+
+    it.each([
+        ["claude_code", "claude --resume sess_a"],
+        ["kimi_code", "kimi -r sess_a"],
+        ["grok", "grok --resume sess_a"],
+        ["opencode", "opencode -s sess_a"],
+    ] as const)(
+        "AC5：%s 来源点击 session id 复制 %s 并显示已复制 toast",
+        async (source, expected) => {
+            const write_spy = vi.fn().mockResolvedValue(undefined);
+            Object.assign(navigator, { clipboard: { writeText: write_spy } });
+            const toast_spy = vi.fn();
+            render_card({ s: sess("sess_a", source), show_toast: toast_spy });
+            fireEvent.click(session_id_button());
+            await waitFor(() => {
+                expect(write_spy).toHaveBeenCalledWith(expected);
+            });
+            expect(toast_spy).toHaveBeenCalledWith("已复制");
+        },
+    );
+
+    it("AC5：未知来源点击 session id 不写剪贴板、不显示 toast", () => {
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render_card({ s: sess("sess_a", "unknown"), show_toast: toast_spy });
+        fireEvent.click(session_id_button());
+        expect(write_spy).not.toHaveBeenCalled();
+        expect(toast_spy).not.toHaveBeenCalled();
+    });
+
+    it("AC5：clipboard API 缺失时点击 session id 不抛错、不 toast", () => {
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render_card({ s: sess("sess_a", "claude_code"), show_toast: toast_spy });
+        expect(() => fireEvent.click(session_id_button())).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
+    });
+
+    it("AC6：单独打开 / 预览 / 选择交互不变", () => {
+        const on_open = vi.fn();
+        const on_preview = vi.fn();
+        const on_toggle = vi.fn();
+        render_card({ on_open, on_preview, on_toggle });
+        fireEvent.click(screen.getByRole("button", { name: "单独打开" }));
+        expect(on_open).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
+        fireEvent.click(screen.getByRole("button", { name: "预览" }));
+        expect(on_preview).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
+        fireEvent.click(screen.getByRole("button", { name: "会话 sess_a" }));
+        expect(on_toggle).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
+    });
+});

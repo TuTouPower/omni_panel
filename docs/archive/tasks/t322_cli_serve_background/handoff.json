@@ -1,0 +1,20 @@
+{
+    "tid": "t322",
+    "attempt": 1,
+    "execution_id": "bd85788779534db5aa002b38be301f19",
+    "status": "done",
+    "branch": "t322_cli_serve_background",
+    "base_sha": "b3138a0a04b788230311c91fe068d5b2c21ec93a",
+    "tests": "pnpm test：258 files / 2953 tests passed / 2 skipped；tsc --noEmit exit 0；args 单测 28 passed",
+    "blackbox": "make:linux 重建产物后黑盒：后台 serve 打印 URL 立即返回、health 200、日志落 dataRoot/logs、quit 停止；foreground 阻塞 timeout 杀无残留；= 形式 user-data-dir 后台正常",
+    "review": "single 级 general：Round 1 FAIL → Round 2 PASS → Round 3 PASS；5 findings 全处置",
+    "ac_evidence": {
+        "AC-001": ["黑盒：后台 serve 打印 URL 后 exit 0 立即返回；health 200"],
+        "AC-002": ["黑盒：serve 日志落 <dataRoot>/logs/serve-*.log（app + serve 两日志）"],
+        "AC-003": ["黑盒：--foreground 打印 URL 后阻塞，timeout 杀无残留进程"],
+        "AC-004": ["黑盒：--cli quit --port 停止后台实例，health 000"],
+        "AC-005": ["docs/guides/cli-mode.md 更新后台/前台用法说明"]
+    },
+    "pending": [],
+    "findings": []
+}

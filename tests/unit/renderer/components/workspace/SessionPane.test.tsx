@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useCallback, useState } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionPane } from "../../../../../src/renderer/components/workspace/SessionPane";
 import type { PaneData } from "../../../../../src/renderer/lib/workspace/pane";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
@@ -363,5 +363,113 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
             .find((c) => c.closest(".conversation-message-row")?.textContent.includes("消息 94"));
         if (!m94_again) throw new Error("m94 checkbox missing after re-scroll");
         expect(m94_again).toBeChecked();
+    });
+});
+
+describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
+    beforeEach(() => {
+        install_history_usageboard();
+    });
+
+    it("AC1：第一行渲染 cwd 末段·最后消息时间·session id；第二行渲染模型·轮次·tokens·会话名字", () => {
+        const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={() => undefined}
+                column={column({
+                    messages: [msg("m1", "user", "hi", 100), msg("m2", "assistant", "ok", last_ts)],
+                })}
+            />,
+        );
+        const first = document.querySelector(".conversation-title");
+        const second = document.querySelector(".conversation-meta");
+        if (!first || !second) throw new Error("header rows missing");
+        const first_text = first.textContent;
+        const second_text = second.textContent;
+        // 第一行：cwd 末段 → 时间 → session id（内容与数据源一致）。
+        expect(first_text).toContain("proj");
+        expect(first_text).toContain("2026-08-07 09:08:07");
+        expect(first_text).toContain("sess_a");
+        expect(first_text.indexOf("proj")).toBeLessThan(first_text.indexOf("2026-08-07"));
+        expect(first_text.indexOf("2026-08-07")).toBeLessThan(first_text.indexOf("sess_a"));
+        expect(first_text).not.toContain("会话标题");
+        // 第二行：模型 → 轮次 → tokens → 会话名字。
+        expect(second_text).toContain("claude-sonnet-4");
+        expect(second_text).toContain("5 轮");
+        expect(second_text).toContain("1,200 tokens");
+        expect(second_text).toContain("会话标题");
+        expect(second_text.indexOf("claude-sonnet-4")).toBeLessThan(second_text.indexOf("5 轮"));
+        expect(second_text.indexOf("5 轮")).toBeLessThan(second_text.indexOf("1,200 tokens"));
+        expect(second_text.indexOf("1,200 tokens")).toBeLessThan(second_text.indexOf("会话标题"));
+        expect(second_text).not.toContain("sess_a");
+    });
+
+    it.each([
+        ["claude_code", "claude --resume sess_a"],
+        ["kimi_code", "kimi -r sess_a"],
+        ["grok", "grok --resume sess_a"],
+        ["opencode", "opencode -s sess_a"],
+    ] as const)(
+        "AC3：%s 来源点击 session id 复制 %s 并显示已复制 toast",
+        async (source, expected) => {
+            const write_spy = vi.fn().mockResolvedValue(undefined);
+            Object.assign(navigator, { clipboard: { writeText: write_spy } });
+            const toast_spy = vi.fn();
+            render(
+                <SessionPane
+                    {...PROPS}
+                    show_toast={toast_spy}
+                    column={column({ loc: { source, env: "win", session_id: "sess_a" } })}
+                />,
+            );
+            fireEvent.click(screen.getByText("sess_a"));
+            await waitFor(() => {
+                expect(write_spy).toHaveBeenCalledWith(expected);
+            });
+            expect(toast_spy).toHaveBeenCalledWith("已复制");
+        },
+    );
+
+    it("AC4：未知来源点击 session id 不写剪贴板、不显示复制成功 toast", () => {
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({ loc: { source: "unknown", env: "win", session_id: "sess_a" } })}
+            />,
+        );
+        fireEvent.click(screen.getByText("sess_a"));
+        expect(write_spy).not.toHaveBeenCalled();
+        expect(toast_spy).not.toHaveBeenCalled();
+    });
+
+    it("AC3：clipboard API 缺失时点击 session id 不抛错、不 toast", () => {
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "claude_code", env: "win", session_id: "sess_a" },
+                })}
+            />,
+        );
+        expect(() => fireEvent.click(screen.getByText("sess_a"))).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
+        // 还原 navigator.clipboard，避免污染后续用例。
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("AC5：会话标题在第二行可见，五个头部动作按钮不变", () => {
+        render(<SessionPane {...PROPS} show_toast={() => undefined} />);
+        expect(screen.getByText("会话标题")).toBeTruthy();
+        for (const label of ["大纲", "全选可见", "清空选择", "聚焦此面板", "关闭面板"]) {
+            expect(screen.getByRole("button", { name: label })).toBeTruthy();
+        }
     });
 });

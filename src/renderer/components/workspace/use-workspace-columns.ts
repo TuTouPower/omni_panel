@@ -10,11 +10,45 @@ import {
     session_meta,
     try_add_slot,
     try_assign_slot,
+    type SlotSession,
     type SlotsState,
 } from "../../lib/workspace/slots";
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store } from "../../lib/workspace/selection-store";
+import { load_saved_slots, save_slots } from "../../lib/workspace/workspace-storage";
 import { FALLBACK_MS, initial_loc, loc_key, merge_tail, type Loc } from "./workspace-view-helpers";
+
+/** t329: 恢复槽位用最小元数据；标题/model 由 refresh_slot_meta 挂载后补全。 */
+interface SlotSessionOverrides {
+    readonly model?: string | undefined;
+    readonly title?: string | null | undefined;
+    readonly directory?: string | null | undefined;
+}
+
+function slot_session_from_loc(loc: Loc, overrides: SlotSessionOverrides = {}): SlotSession {
+    return session_meta(
+        {
+            id: loc.session_id,
+            source: loc.source as TokenStatsSession["source"],
+            env: loc.env as TokenStatsSession["env"],
+            model: overrides.model ?? "",
+            title: overrides.title ?? null,
+            directory: overrides.directory ?? null,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            calls: 0,
+            started_at: Date.now(),
+            ended_at: Date.now(),
+        },
+        Date.now(),
+    );
+}
+
+function restore_slot_meta(loc: Loc): SlotSession {
+    return slot_session_from_loc(loc);
+}
 
 export interface UseWorkspaceColumnsReturn {
     readonly slots_state: SlotsState;
@@ -32,7 +66,14 @@ export interface UseWorkspaceColumnsReturn {
 }
 
 export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
-    const [slots_state, set_slots_state] = useState<SlotsState>(empty_slots);
+    // t329: 首次渲染同步从 localStorage 恢复槽位（含 index 空洞），避免先空后恢复的闪现/竞态。
+    const [slots_state, set_slots_state] = useState<SlotsState>(() => {
+        const saved = load_saved_slots();
+        return empty_slots().map((slot, i) => {
+            const loc = saved[i];
+            return loc ? restore_slot_meta(loc) : slot;
+        });
+    });
     const [columns, set_columns] = useState<Record<string, PaneData>>({});
     const [toast, set_toast] = useState<string | null>(null);
 
@@ -199,24 +240,7 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
             }
             const r = try_add_slot(
                 slots_ref.current,
-                session_meta(
-                    {
-                        id: loc.session_id,
-                        source: loc.source as TokenStatsSession["source"],
-                        env: loc.env as TokenStatsSession["env"],
-                        model: meta?.model ?? "",
-                        title: null,
-                        directory: meta?.cwd ?? null,
-                        input_tokens: 0,
-                        output_tokens: 0,
-                        cache_read_tokens: 0,
-                        cache_write_tokens: 0,
-                        calls: 0,
-                        started_at: Date.now(),
-                        ended_at: Date.now(),
-                    },
-                    Date.now(),
-                ),
+                slot_session_from_loc(loc, { model: meta?.model, directory: meta?.cwd }),
             );
             if (!r.accepted || r.index === null) {
                 show_toast("槽位已满（最多 8 个）");
@@ -313,6 +337,19 @@ export function useWorkspaceColumns(): UseWorkspaceColumnsReturn {
                 });
         }
     }, []);
+
+    // t329: 恢复的槽位挂载列（订阅 + 拉取消息）。空依赖仅挂载期执行；
+    // StrictMode 双挂载时二次执行，以在模拟卸载退订后重新订阅。
+    useEffect(() => {
+        for (const slot of slots_ref.current) {
+            if (slot) mount_column(slot.loc);
+        }
+    }, [mount_column]);
+
+    // t329: 槽位持久化——增/删/换序/清空任一变化即写 localStorage（顺序同步）。
+    useEffect(() => {
+        save_slots(slots_state.map((s) => s?.loc ?? null));
+    }, [slots_state]);
 
     useEffect(() => {
         const off_updated = window.usageboard.sessionHistory.onMessagesUpdated((payload) => {

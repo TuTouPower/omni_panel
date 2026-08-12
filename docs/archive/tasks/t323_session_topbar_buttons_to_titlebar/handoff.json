@@ -1,0 +1,27 @@
+{
+    "tid": "t323",
+    "attempt": 1,
+    "execution_id": "02f7bf9d3cd04d54b5a14b5e90fdaca0",
+    "status": "done",
+    "branch": "t323_session_topbar_buttons_to_titlebar",
+    "base_sha": "20751dc1994d4b0630af70179ed360b74725dd17",
+    "tests": "pnpm test：2950 passed / 9 skipped；tsc --noEmit exit 0；web e2e session_panel 11 passed",
+    "blackbox": "全量单测 2950 passed + tsc 0 + web e2e session_panel 11 passed（含 t323 几何断言：grid 顶边 vs 顶栏下边 ≤1px、rail/grid 同基线）",
+    "review": "single 级 general Round 1 PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx::三按钮在顶栏、顺序 最近会话→清空→视图、刷新左侧 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx + WorkspaceToolbar.test.tsx::recent modal/clear/view 下拉功能保留 通过"
+        ],
+        "AC-003": [
+            "tests/e2e/web/session_panel.spec.ts::grid 顶边 vs 顶栏下边 ≤1px、rail/grid 同基线 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx::rail-toggle 折叠/展开不变 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

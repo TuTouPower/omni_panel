@@ -10,7 +10,7 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
 /**
  * t227 会话库视图测试。
  * 覆盖：页头统计行、agent 多选/排序/视图切换、卡片信息、勾选上限、预览抽屉、
- * SelectionDock 并排打开、空态、加载更多。
+ * SelectionDock 并排打开、空态、加载更多（t328 起改无限滚动）。
  */
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -49,6 +49,21 @@ async function renderLibrary(props: { on_switch_workspace?: () => void } = {}) {
         // 冲刷 getSessions/query resolve 等微任务，避免 act 警告。
     });
     return result;
+}
+
+function grid(): Element | null {
+    return document.querySelector(".library-grid");
+}
+
+function list(): Element | null {
+    return document.querySelector(".library-list");
+}
+
+/** 滚动容器触底（t328 无限滚动）。jsdom 下 scrollHeight/clientHeight 均为 0，
+ *  触底条件（scrollTop+clientHeight >= scrollHeight-阈值）对任意 scroll 事件恒真。 */
+function scroll_to_bottom(container: Element | null): void {
+    if (!container) throw new Error("滚动容器缺失，是否处于空态？");
+    fireEvent.scroll(container);
 }
 
 const T0 = new Date("2026-07-10T08:00:00Z").getTime();
@@ -166,7 +181,7 @@ describe("SessionLibrary (t227)", () => {
             expect.objectContaining({ limit: 50, offset: 0 }),
         );
 
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         await waitFor(() => {
             expect(screen.getByText("会话 p50")).toBeTruthy();
         });
@@ -184,6 +199,59 @@ describe("SessionLibrary (t227)", () => {
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ search: "needle", limit: 50, offset: 0 }),
         );
+    });
+
+    it("t328 AC-002 test f001：非底部滚动不触发加载", async () => {
+        const ub = usageboard();
+        const first_page = Array.from({ length: 50 }, (_, i) =>
+            sess(`p${String(i)}`, "claude_code"),
+        );
+        ub.tokenStats.getSessions.mockResolvedValue(first_page);
+        await renderLibrary();
+        await waitFor(() => {
+            expect(screen.getByText("会话 p0")).toBeTruthy();
+        });
+        const calls_before = ub.tokenStats.getSessions.mock.calls.length;
+        // 模拟未触底滚动：jsdom 无布局，用 scrollTop/clientHeight 手动设非底部。
+        const container = grid();
+        if (!container) throw new Error("滚动容器缺失");
+        Object.defineProperty(container, "scrollTop", { value: 0, configurable: true });
+        Object.defineProperty(container, "clientHeight", { value: 100, configurable: true });
+        Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+        fireEvent.scroll(container);
+        expect(ub.tokenStats.getSessions.mock.calls.length).toBe(calls_before);
+    });
+
+    it("t328 AC-005 test f002：筛选重置后触底继续加载（offset 归 0 后再次滚底加载第 2 页）", async () => {
+        const ub = usageboard();
+        const first_page = Array.from({ length: 50 }, (_, i) =>
+            sess(`p${String(i)}`, "claude_code"),
+        );
+        const second_page = [sess("p50", "claude_code")];
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) => {
+            if (filters["offset"] === 50) return Promise.resolve(second_page);
+            return Promise.resolve(first_page);
+        });
+        await renderLibrary();
+        await waitFor(() => {
+            expect(screen.getByText("会话 p0")).toBeTruthy();
+        });
+
+        // 搜索重置（触发 has_more 重置）
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), {
+            target: { value: "zz" },
+        });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ offset: 0 }),
+            );
+        });
+
+        // 重置后滚到底应继续加载第 2 页
+        scroll_to_bottom(grid());
+        await waitFor(() => {
+            expect(screen.getByText("会话 p50")).toBeTruthy();
+        });
     });
 
     it("t248 AC4：Agent 与日期筛选均转为后端过滤参数", async () => {
@@ -281,7 +349,7 @@ describe("SessionLibrary (t227)", () => {
             ).some((loc) => loc.session_id === "hidden"),
         ).toBe(false);
 
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         await waitFor(() => {
             expect(screen.getByText("会话 hidden")).toBeTruthy();
         });
@@ -312,15 +380,27 @@ describe("SessionLibrary (t227)", () => {
         const card = document.querySelector(".library-card");
         expect(card).toBeTruthy();
         expect(card?.querySelector(".library-card-accent")).toBeTruthy();
-        expect(card?.querySelector(".library-card-badge")?.textContent).toBe("OC");
+        // t326：徽标为 VendorMark logo，不再渲染 agent 字母缩写。
+        expect(
+            card
+                ?.querySelector(".library-card-badge")
+                ?.querySelector('[data-testid="vendor-mark"]'),
+        ).toBeTruthy();
+        expect(card?.querySelector(".library-card-badge")?.textContent ?? "").toBe("");
+        // t326：第三行渲染会话名。
         expect(card?.querySelector(".library-card-title")?.textContent).toContain("会话 b");
-        expect(card?.querySelector(".library-card-summary")).toBeTruthy();
+        // t326：摘要行（line-clamp-2）已移除。
+        expect(card?.querySelector(".library-card-summary")).toBeNull();
+        // t326：第二行渲染轮次/tokens/session id。
         expect(card?.querySelector(".library-card-meta")?.textContent).toContain("2 轮");
         expect(card?.querySelector(".library-card-meta")?.textContent).toContain("375 tokens");
-        expect(card?.querySelector(".library-card-dir")?.textContent).toContain("/proj/b");
+        expect(card?.querySelector(".library-card-meta")?.textContent).toContain("b");
+        // t326：第一行只显示目录末级，不再渲染完整路径。
+        expect(card?.querySelector(".library-card-cwd")?.textContent).toBe("b");
+        expect(card?.querySelector(".library-card-top")?.textContent).not.toContain("/proj/b");
     });
 
-    it("卡片与行摘要取首条用户消息内容（f008）", async () => {
+    it("行摘要取首条用户消息内容（f008）；卡片摘要行已移除（t326 AC-003）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
         ub.sessionHistory.summaries.mockResolvedValue({
@@ -328,10 +408,8 @@ describe("SessionLibrary (t227)", () => {
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
-        await waitFor(() => {
-            const card_summary = document.querySelector(".library-card-summary")?.textContent;
-            expect(card_summary).toContain("真正要显示的用户消息");
-        });
+        // t326：卡片不再渲染摘要行。
+        expect(document.querySelector(".library-card-summary")).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
             const row_summary = document.querySelector(".library-row-summary")?.textContent;
@@ -583,7 +661,7 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.queryByText("会话 a")).toBeNull();
     });
 
-    it("t248 AC3：加载更多追加到短页后按钮消失，快速双击不重复请求", async () => {
+    it("t328 AC-003/AC-004：滚到底自动加载，重复触底不并发重复请求，has_more=false 后停止", async () => {
         const ub = usageboard();
         const first = Array.from({ length: 50 }, (_, i) => sess(`p${String(i)}`, "claude_code"));
         const second = [sess("p50", "claude_code"), sess("p51", "claude_code")];
@@ -597,12 +675,15 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 p0"));
 
-        const button = screen.getByRole("button", { name: "加载更多" });
-        fireEvent.click(button);
-        fireEvent.click(button);
+        // AC-001：无「加载更多」按钮。
+        expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
+
+        // AC-004：连续两次触底，offset=50 仅请求一次（并发锁）。
+        const container = grid();
+        scroll_to_bottom(container);
+        scroll_to_bottom(container);
         await waitFor(() => {
             expect(screen.getByText("会话 p51")).toBeTruthy();
-            expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
         });
         expect(document.querySelectorAll(".library-card").length).toBe(52);
         expect(
@@ -610,6 +691,13 @@ describe("SessionLibrary (t227)", () => {
                 (call) => (call[0] as { offset?: number }).offset === 50,
             ),
         ).toHaveLength(1);
+        expect(ub.tokenStats.getSessions).toHaveBeenCalledTimes(2);
+
+        // AC-003：末页 2 条 < 50 → has_more=false，再次触底不再发起请求。
+        scroll_to_bottom(container);
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(ub.tokenStats.getSessions).toHaveBeenCalledTimes(2);
     });
 
@@ -623,7 +711,7 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 p0"));
         expect(document.querySelectorAll(".library-card").length).toBe(50);
 
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         await waitFor(() => {
             expect(screen.getByText("会话列表加载中断，已显示部分数据")).toBeTruthy();
         });
@@ -657,11 +745,11 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 p0"));
 
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "needle" } });
         await waitFor(() => screen.getByText("会话 needle0"));
 
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         await waitFor(() => {
             expect(
                 ub.tokenStats.getSessions.mock.calls.filter(
@@ -674,8 +762,8 @@ describe("SessionLibrary (t227)", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        expect(screen.getByRole("button", { name: "加载更多" })).toHaveProperty("disabled", true);
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        // 旧请求 resolve 不释放新列表的并发锁：再触底仍不发起第三个 offset=50 请求。
+        scroll_to_bottom(grid());
         expect(
             ub.tokenStats.getSessions.mock.calls.filter(
                 (call) => (call[0] as { offset?: number }).offset === 50,
@@ -933,14 +1021,14 @@ describe("SessionLibrary (t227)", () => {
             ]),
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();
+        // t326：卡片摘要行已移除，摘要改由列表行呈现（AC-003）。
+        fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
-            expect(document.querySelector(".library-card-summary")?.textContent).toContain(
-                "摘要 a",
-            );
+            expect(document.querySelector(".library-row-summary")?.textContent).toContain("摘要 a");
         });
     });
 
-    it("加载更多分页逐步加载", async () => {
+    it("t328 AC-002：滚到底自动加载下一页并追加（无需点击）", async () => {
         const ub = usageboard();
         const many = Array.from({ length: 60 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions
@@ -949,10 +1037,79 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 s0"));
         expect(document.querySelectorAll(".library-card").length).toBe(50);
-        fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+        scroll_to_bottom(grid());
         await waitFor(() => {
             expect(document.querySelectorAll(".library-card").length).toBe(60);
         });
+    });
+
+    it("t328 AC-001/AC-006：网格与列表视图均无「加载更多」按钮，列表触底同样自动加载", async () => {
+        const ub = usageboard();
+        const first = Array.from({ length: 50 }, (_, i) => sess(`p${String(i)}`, "claude_code"));
+        const second = Array.from({ length: 50 }, (_, i) => sess(`q${String(i)}`, "claude_code"));
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) => {
+            if (filters["offset"] === 50) return Promise.resolve(second);
+            if (typeof filters["offset"] === "number" && filters["offset"] > 0) {
+                return Promise.resolve([]);
+            }
+            return Promise.resolve(first);
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 p0"));
+
+        // 网格视图：无按钮（AC-001）。
+        expect(grid()).toBeTruthy();
+        expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
+
+        // 列表视图：无按钮，触底同样自动加载（AC-006）。
+        fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
+        await waitFor(() => {
+            expect(list()).toBeTruthy();
+        });
+        expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
+        expect(document.querySelectorAll(".library-row").length).toBe(50);
+
+        scroll_to_bottom(list());
+        await waitFor(() => {
+            expect(screen.getByText("会话 q0")).toBeTruthy();
+        });
+        expect(document.querySelectorAll(".library-row").length).toBe(100);
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ limit: 50, offset: 50 }),
+        );
+    });
+
+    it("t328 AC-005：搜索重置后触底继续自动加载（has_more 重置）", async () => {
+        const ub = usageboard();
+        const first = Array.from({ length: 50 }, (_, i) => sess(`p${String(i)}`, "claude_code"));
+        const second = Array.from({ length: 50 }, (_, i) => sess(`q${String(i)}`, "claude_code"));
+        const filtered_first = Array.from({ length: 50 }, (_, i) =>
+            sess(`needle${String(i)}`, "claude_code"),
+        );
+        const filtered_second = [sess("needle50", "claude_code")];
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) => {
+            if (filters["search"] === "needle" && filters["offset"] === 50) {
+                return Promise.resolve(filtered_second);
+            }
+            if (filters["search"] === "needle") return Promise.resolve(filtered_first);
+            if (filters["offset"] === 50) return Promise.resolve(second);
+            return Promise.resolve(first);
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 p0"));
+
+        // 普通模式滚到底 → 第二页，has_more 保持 true。
+        scroll_to_bottom(grid());
+        await waitFor(() => screen.getByText("会话 q0"));
+
+        // 搜索重置 → 首屏 50 条、has_more 重置为 true → 触底继续加载下一页。
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "needle" } });
+        await waitFor(() => screen.getByText("会话 needle0"));
+        scroll_to_bottom(grid());
+        await waitFor(() => screen.getByText("会话 needle50"));
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ search: "needle", limit: 50, offset: 50 }),
+        );
     });
 
     it("预览抽屉「单独打开」装入并切页签，Esc 关闭", async () => {
@@ -1003,7 +1160,7 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.queryByText("1/8")).toBeNull();
     });
 
-    it("更新一张卡片摘要时，其余已渲染卡片不重渲染（t237）", () => {
+    it("更新一张卡片选中态时，其余已渲染卡片不重渲染（t237）", () => {
         const s1 = sess("a", "claude_code");
         const s2 = sess("b", "opencode");
         const counts = { a: 0, b: 0 };
@@ -1023,23 +1180,19 @@ describe("SessionLibrary (t227)", () => {
         const noop_open = vi.fn();
 
         function Parent() {
-            const [summaries, set_summaries] = useState<Record<string, string>>({});
+            const [selected_b, set_selected_b] = useState(false);
             return (
                 <div>
                     <button
                         type="button"
                         onClick={() => {
-                            set_summaries((cur) => ({
-                                ...cur,
-                                [key_of(s2)]: "新摘要",
-                            }));
+                            set_selected_b((v) => !v);
                         }}
                     >
                         update
                     </button>
                     <SessionCard
                         s={s1}
-                        summary={summaries[key_of(s1)] ?? ""}
                         selected={false}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
@@ -1048,8 +1201,7 @@ describe("SessionLibrary (t227)", () => {
                     />
                     <SessionCard
                         s={s2}
-                        summary={summaries[key_of(s2)] ?? ""}
-                        selected={false}
+                        selected={selected_b}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
                         on_open={noop_open}

@@ -1,0 +1,24 @@
+{
+    "tid": "t319",
+    "attempt": 2,
+    "execution_id": "b16ac7c6b01440aaa2bc6801f61b2467",
+    "status": "done",
+    "branch": "t319_collector_error_banner_color",
+    "base_sha": "91999104981fc8d5690614f49932ade3ca7e977c",
+    "tests": "pnpm test：257 files passed / 2941 tests passed / 9 skipped 全绿",
+    "blackbox": "全量 pnpm test 通过；AC-001/002 颜色断言独立 node 跑 tailwind-merge 验证 cn 去重灰类保留 error",
+    "review": "single 级 general Round 1 PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/provider_card_states.test.tsx::AC-001 断言 err 分支 className 含 text-[var(--color-error)] 且不含灰类 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/provider_card_states.test.tsx::AC-002 断言 error banner 同样 color 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/provider_card_states.test.tsx 新增两处颜色断言；全量 pnpm test 257 passed 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
