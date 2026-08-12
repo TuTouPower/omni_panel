@@ -5,4 +5,4 @@
 - 根因：`SessionLoginRequest`（src/shared/types/ipc.ts:263）**无 `auto_close_ms` 字段**，`session.login` / `session.refresh`（add-account / refresh 路径）登录窗口捕获 Cookie 后**不自动关闭**；对照 `handleCookieLogin`（src/main/ipc/auth-ipc.ts:84，编辑路径）显式传 `auto_close_ms:1500`。机制：`session-manager.start_login`（src/main/core/session/session-manager.ts:191）在捕获 Cookie 后仅当 `request.auto_close_ms` 非空才 `window.close()`。web 端与登录窗口不在同一界面（窗口在宿主 Electron），窗口停留 + opencode.ai 登录后页面白屏 → 用户无任何反馈，误以为失败。分类：产品缺陷（web 登录完成链路不闭环）。
 - 测试缺口：`tests/unit/ipc/session-ipc.test.ts` 只断言 `start_login` 收到 request 透传与错误映射，**未断言 `auto_close_ms` 透传**（类型层缺失该字段，无从断言）；`tests/unit/renderer/components/web_login_section.test.tsx` 覆盖 web add path 的错误映射与降级引导，**未测「登录成功后的完成反馈/自动关窗」**；`tests/unit/session/session-manager.test.ts` 覆盖 wildcard 捕获单元逻辑（模拟事件），无真实多跳转 OAuth 流集成测试。补测方向：① session-ipc 断言 `auto_close_ms` 透传；② session-manager 断言捕获 Cookie 后按 `auto_close_ms` 自动 close；③ web_login_section 断言登录成功后 UI 反馈。
 - 线索：`.scratch/electron_probe/`（Electron probe：opencode.ai/auth → 302 `opencode.ai/auth/authorize`[HAS COOKIE] → `auth.opencode.ai/authorize`，Electron 42 渲染 auth 页正常，白屏在登录后环节）
-- 处理：未开
+- 处理：t331

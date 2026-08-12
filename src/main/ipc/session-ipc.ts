@@ -50,6 +50,7 @@ export async function handleSessionLogin(
             provider: request.provider,
             login_url: request.login_url,
             cookie_names: request.cookie_names,
+            ...(request.auto_close_ms != null ? { auto_close_ms: request.auto_close_ms } : {}),
         });
         return ok(result);
     } catch (error: unknown) {

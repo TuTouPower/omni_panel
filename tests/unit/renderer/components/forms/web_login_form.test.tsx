@@ -97,6 +97,7 @@ describe("WebLoginForm", () => {
                 provider: "opencode_go",
                 login_url: "https://opencode.ai/auth",
                 cookie_names: ["*"],
+                auto_close_ms: 1500,
             });
         });
         await waitFor(() => {

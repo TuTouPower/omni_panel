@@ -194,6 +194,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
                 provider: "mimo",
                 login_url: "https://platform.xiaomimimo.com/console/plan-manage",
                 cookie_names: ["api-platform_serviceToken", "userId"],
+                auto_close_ms: 1500,
             });
         });
         await user.click(screen.getByText("添加账号"));

@@ -2,11 +2,11 @@
 tid: "t331"
 slug: "session_login_auto_close"
 title: "session.login/refresh 登录成功自动关闭登录窗口 + web 完成反馈"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t331_session_login_auto_close"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "9d871706fa570a6c846e9292f7b82cb33788b9ce"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,6 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-13 00:35 UTC+8)
+
+| finding_id     | severity | status | rationale                                                                                                            | fix_ref                                           |
+| -------------- | -------- | ------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| t331_code_f001 | minor    | 已修   | WebLoginSection 常量注释明确对齐 auth-ipc AUTO_CLOSE_MS（跨层无法共享 import，数值一致）                             | src/renderer/components/WebLoginSection.tsx:12-14 |
+| t331_test_f001 | minor    | 已修   | 删除 session-manager 冗余 AC-001 测试（既有 L587「auto-closes window after auto_close_ms delay」已完整覆盖同一路径） | tests/unit/session/session-manager.test.ts        |
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +67,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 由 session-ipc 透传 + 既有 session-manager 关窗测试覆盖；AC-003 web_login_section 登录成功 UI 恢复断言；AC-004 refresh 走共享 handleSessionLogin 同链路；全量 2992 passed + tsc 0；详见 handoff.json ac_evidence
 
 ### Reviewer verdict
 
@@ -69,15 +76,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- SessionLoginRequest 加 auto_close_ms，session.login/refresh 登录成功捕获 Cookie 后自动关闭登录窗口（对齐编辑路径 1500ms）；web 添加账号路径登录成功 UI 恢复完成反馈

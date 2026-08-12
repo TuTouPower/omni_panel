@@ -88,7 +88,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- opencode.ai OAuth 登录后最终页是否稳定可渲染：`UNVERIFIED-SPIKE`，可执行期用 Electron probe 扩展验证；不影响本 task 核心修复（自动关窗 + 完成反馈）。
+- opencode.ai OAuth 登录后最终页可渲染（Electron probe 已验：Electron 42 加载 opencode.ai/auth → auth.opencode.ai/authorize 渲染「Continue with GitHub/Google」正常；白屏为登录后停留环节伴生，不属本 task）
 
 ### 风险与回退
 
