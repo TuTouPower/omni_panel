@@ -249,8 +249,8 @@ test.describe("session panel (web, t228)", () => {
     });
 });
 
-test.describe("session panel layout (web, t318)", () => {
-    test("工具栏占满/纵向紧凑，rail toggle 与工具栏同高，grid 与 rail 内容同基线", async ({
+test.describe("session panel layout (web, t323)", () => {
+    test("三按钮上移顶栏刷新按钮左侧；grid 顶边直顶顶栏下边（AC-001/AC-003）", async ({
         webPage,
     }) => {
         const page = webPage;
@@ -266,32 +266,45 @@ test.describe("session panel layout (web, t318)", () => {
                 .first()
                 .evaluate((el) => {
                     const r = el.getBoundingClientRect();
-                    return { top: r.top, bottom: r.bottom, right: r.right, height: r.height };
+                    return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+                });
+        const btn_box = (name: string | RegExp) =>
+            page
+                .getByRole("button", { name })
+                .first()
+                .evaluate((el) => {
+                    const r = el.getBoundingClientRect();
+                    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
                 });
 
-        const toolbar = await box(".session-toolbar");
-        const actions = await box(".session-toolbar-actions");
-        const toggle = await box(".session-rail-toggle");
-        const body = await box(".session-workspace-body");
+        // AC-001：三按钮位于顶栏内，顺序 最近会话 → 清空 → 视图 → 刷新。
+        const titlebar = await box("[data-panel-titlebar=Session]");
+        const recent = await btn_box("最近会话");
+        const clear = await btn_box("清空");
+        const view = await btn_box(/视图/);
+        const refresh = await btn_box("刷新");
+        // 顶栏内（y 与顶栏行重叠）。
+        expect(recent.top).toBeGreaterThanOrEqual(titlebar.top);
+        expect(recent.bottom).toBeLessThanOrEqual(titlebar.bottom);
+        // 顺序：最近会话在清空左，清空在视图左，视图在刷新左。
+        expect(recent.right).toBeLessThanOrEqual(clear.left + 1);
+        expect(clear.right).toBeLessThanOrEqual(view.left + 1);
+        expect(view.right).toBeLessThanOrEqual(refresh.left + 1);
+
+        // AC-003：grid 顶边与顶栏（header）下边直接相接，无额外空白行。
+        const topbar = await box(".session-topbar");
         const grid = await box(".session-grid");
         const rail_scroll = await box(".session-rail-scroll");
-
-        // AC1：actions 右边界接近工具栏右内边距（px-3 = 12px），控制组右侧不再留大段空白。
-        expect(Math.abs(toolbar.right - 12 - actions.right)).toBeLessThanOrEqual(1);
-        // AC2：工具栏底边与工作台 body 顶边相接，无额外空白行。
-        expect(Math.abs(body.top - toolbar.bottom)).toBeLessThanOrEqual(1);
-        // AC3：rail-toggle 与工具栏顶边、底边对齐，高度差 ≤1px。
-        expect(Math.abs(toggle.top - toolbar.top)).toBeLessThanOrEqual(1);
-        expect(Math.abs(toggle.bottom - toolbar.bottom)).toBeLessThanOrEqual(1);
-        expect(Math.abs(toggle.height - toolbar.height)).toBeLessThanOrEqual(1);
-        // AC3：grid 顶部与 rail 内容区从同一水平基线开始。
+        expect(Math.abs(grid.top - topbar.bottom)).toBeLessThanOrEqual(1);
+        // AC-003：grid 与 rail 内容区从同一水平基线开始。
         expect(Math.abs(grid.top - rail_scroll.top)).toBeLessThanOrEqual(1);
-        // AC4 回归防护：视图按钮靠右后，下拉菜单右锚定（right-0）不溢出窗口。
+
+        // AC-004 回归防护：视图下拉右锚定于按钮（right-0），不溢出窗口。
         await page.getByRole("button", { name: /视图/ }).click();
         await expect(page.locator(".session-view-menu")).toBeVisible();
         const menu = await box(".session-view-menu");
         expect(menu.right).toBeLessThanOrEqual(1280);
-        expect(menu.right).toBeGreaterThan(1200);
+        expect(Math.abs(menu.right - view.right)).toBeLessThanOrEqual(1);
     });
 });
 

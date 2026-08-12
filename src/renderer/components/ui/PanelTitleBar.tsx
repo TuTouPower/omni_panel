@@ -12,6 +12,8 @@ interface PanelTitleBarProps {
     title?: ReactNode;
     /** 通用形态：右侧动作区（关闭/最小化等）。 */
     actions?: ReactNode;
+    /** 面板形态：刷新按钮左侧的前置动作区（t323 会话工作台三按钮）。 */
+    before_actions?: ReactNode;
     className?: string;
     "data-panel-titlebar"?: string;
     /** 面板形态：当前面板名（品牌标题 `Omni Panel - <name>`）。 */
@@ -87,6 +89,7 @@ export function WindowControls({ onClose }: { onClose?: (() => void) | undefined
 export function PanelTitleBar({
     title,
     actions,
+    before_actions,
     className,
     "data-panel-titlebar": dataPanelTitlebar,
     panel,
@@ -131,6 +134,7 @@ export function PanelTitleBar({
                     </span>
                 </div>
                 <div className={actions_cls}>
+                    {before_actions}
                     {onRefresh && panel !== "Settings" && (
                         <Button
                             variant="icon"

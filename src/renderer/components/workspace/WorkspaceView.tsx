@@ -11,10 +11,8 @@ import {
 import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
-import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { SessionRail } from "./SessionRail";
-import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { SessionPickerModal } from "./SessionPickerModal";
 import { RecentSessionsModal } from "./RecentSessionsModal";
 import { SessionPane, type PaneView as PaneViewState } from "./SessionPane";
@@ -22,7 +20,33 @@ import { SelectionTray } from "./SelectionTray";
 import { useWorkspaceColumns } from "./use-workspace-columns";
 import { loc_key, selection_key, type Loc } from "./workspace-view-helpers";
 
-export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}) {
+interface WorkspaceViewProps {
+    refresh_token?: number;
+    /** t323：视图/布局/最近会话/rail 折叠状态提升至 SessionShell，本组件受控。 */
+    layout: LayoutCount;
+    view: PaneViewState;
+    recent_open: boolean;
+    rail_collapsed: boolean;
+    on_layout_change: (layout: LayoutCount) => void;
+    on_recent: () => void;
+    on_recent_close: () => void;
+    on_count_change: (count: number) => void;
+    /** 清空动作作用于槽位模型，注册到 SessionShell 供顶栏按钮调用。 */
+    on_register_clear: (fn: (() => void) | null) => void;
+}
+
+export function WorkspaceView({
+    refresh_token,
+    layout,
+    view,
+    recent_open,
+    rail_collapsed,
+    on_layout_change,
+    on_recent,
+    on_recent_close,
+    on_count_change,
+    on_register_clear,
+}: WorkspaceViewProps) {
     const {
         slots_state,
         columns,
@@ -36,14 +60,10 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
         refresh_all,
     } = useWorkspaceColumns();
 
-    const [layout, set_layout] = useState<LayoutCount>(3);
     const [container_width, set_container_width] = useState(() => window.innerWidth);
     const [picker_target, set_picker_target] = useState<number | null>(null);
-    const [recent_open, set_recent_open] = useState(false);
-    const [rail_collapsed, set_rail_collapsed] = useState(false);
     const [focused_index, set_focused_index] = useState<number | null>(null);
     const [outline_index, set_outline_index] = useState<number | null>(null);
-    const [view, set_view] = useState<PaneViewState>({ show_time: false, compact: false });
 
     const container_ref = useRef<HTMLDivElement | null>(null);
     const anchors_ref = useRef<Record<string, string>>({});
@@ -80,7 +100,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
 
     const confirm_recent = useCallback(
         (sessions: TokenStatsSession[]): void => {
-            set_recent_open(false);
+            on_recent_close();
             if (sessions.length === 0) return;
             hook_clear_all();
             set_focused_index(null);
@@ -92,7 +112,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 );
             }
         },
-        [hook_clear_all, open_session],
+        [on_recent_close, hook_clear_all, open_session],
     );
 
     const make_item = useCallback(
@@ -257,15 +277,26 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
 
     const count = occupied_count(slots_state);
 
+    // t323：占用槽位数上报 SessionShell，供顶栏视图下拉排布。
+    useEffect(() => {
+        on_count_change(count);
+    }, [count, on_count_change]);
+
     useEffect(() => {
         const choices = layout_choices_for_count(count);
         if (choices.length === 0) return;
-        set_layout((current) =>
-            choices.some((choice) => choice.columns === current)
-                ? current
-                : (choices[0]?.columns ?? current),
-        );
-    }, [count]);
+        if (!choices.some((choice) => choice.columns === layout)) {
+            on_layout_change(choices[0]?.columns ?? layout);
+        }
+    }, [count, layout, on_layout_change]);
+
+    // t323：清空动作注册到 SessionShell（槽位模型状态在本组件内部）。
+    useEffect(() => {
+        on_register_clear(clear_all);
+        return () => {
+            on_register_clear(null);
+        };
+    }, [clear_all, on_register_clear]);
 
     const cols = Math.max(1, Math.min(effective_columns(layout, container_width), count));
 
@@ -275,33 +306,6 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
 
     return (
         <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
-            <div className="session-workspace-topbar flex shrink-0 items-stretch">
-                <button
-                    type="button"
-                    className={cn(
-                        "session-rail-toggle h-[45px] w-[220px] shrink-0 border-b border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                        rail_collapsed && "w-11",
-                    )}
-                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    onClick={() => {
-                        set_rail_collapsed((v) => !v);
-                    }}
-                >
-                    {rail_collapsed ? "»" : "«"}
-                </button>
-                <WorkspaceToolbar
-                    layout={layout}
-                    count={count}
-                    view={view}
-                    on_view_change={set_view}
-                    on_layout_change={set_layout}
-                    on_recent={() => {
-                        set_recent_open(true);
-                    }}
-                    on_clear={clear_all}
-                />
-            </div>
             <div className="session-workspace-body flex min-h-0 flex-1">
                 <SessionRail
                     slots={slots_state}
@@ -323,12 +327,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
                             <div className="session-workspace-empty-actions mt-3 flex gap-2.5">
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                        set_recent_open(true);
-                                    }}
-                                >
+                                <Button variant="secondary" onClick={on_recent}>
                                     打开最近会话
                                 </Button>
                                 <Button
@@ -435,12 +434,7 @@ export function WorkspaceView({ refresh_token }: { refresh_token?: number } = {}
                 />
             )}
             {recent_open && (
-                <RecentSessionsModal
-                    on_confirm={confirm_recent}
-                    on_close={() => {
-                        set_recent_open(false);
-                    }}
-                />
+                <RecentSessionsModal on_confirm={confirm_recent} on_close={on_recent_close} />
             )}
             {toast !== null && (
                 <div className="session-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
