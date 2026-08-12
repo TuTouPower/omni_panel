@@ -447,6 +447,10 @@ export function create_web_usageboard(): UsageboardApi {
         },
         log: (payload: RendererLogPayload) => {
             console.debug("[usageboard]", payload);
+            // t325: fire-and-forget POST 到 local-api 落盘；失败静默，不阻塞 renderer。
+            void post_json("/v1/logs/renderer", payload).catch(() => {
+                // 日志 POST 非关键路径：网络错误/端点下线均静默。
+            });
         },
         tokenStats: {
             open: () => {

@@ -54,7 +54,7 @@
 | cli-import-config                    | API                 | t285                                                                                                          | 2026-08-10   |
 | vendor-forms-oauth-weblogin          | Web                 | t109                                                                                                          | 2026-07-25   |
 | fix_add_account_wiring               | Desktop             | t110                                                                                                          | 2026-07-25   |
-| web-panel                            | Web                 | 迁移自 omni_powers，无                                                                                        | 2026-07-05   |
+| web-panel                            | Web                 | 迁移自 omni_powers，无，t325                                                                                  | 2026-08-12   |
 | web_config_parity                    | API + Web + Desktop | t277                                                                                                          | 2026-08-10   |
 | window-management                    | Desktop             | 迁移自 omni_powers，t099，t194，t297                                                                          | 2026-08-11   |
 | device_login_full_url                | Desktop             | t156                                                                                                          | 2026-07-27   |
