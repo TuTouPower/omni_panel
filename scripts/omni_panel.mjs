@@ -17,9 +17,10 @@
  * `pnpm cli:serve`（自带 .scratch/dev-serve 沙盒，见 docs/guides/cli-mode.md），
  * 不要用全局命令跑开发实例。
  */
-import { existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { existsSync, mkdirSync, openSync, closeSync, readFileSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { spawn } from "node:child_process";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -44,27 +45,109 @@ if (!existsSync(RELEASE_BIN)) {
 }
 
 const is_cli = args.includes("--cli");
-const child = spawn(RELEASE_BIN, args, { stdio: is_cli ? ["inherit", "inherit", "pipe"] : "inherit" });
+const is_serve = is_cli && args.includes("serve");
+const is_foreground = args.includes("--foreground");
+const is_background = is_serve && !is_foreground;
 
-if (is_cli) {
-    // Electron/Chromium 在无图形会话（headless/WSL 无 dbus）下会向 stderr 打
-    // "Failed to connect to the bus" 噪音；应用自身日志已走文件（CLI 模式不刷
-    // stdout）。CLI 场景过滤掉 dbus 噪音，用户终端只看到干净输出。
-    let stderrBuf = "";
-    child.stderr?.on("data", (/** @type {Buffer} */ d) => {
-        stderrBuf += d.toString();
-        const lines = stderrBuf.split("\n");
-        stderrBuf = lines.pop() ?? "";
-        for (const line of lines) {
-            if (/dbus|DBus|object_proxy|bus\.cc/i.test(line)) continue;
-            process.stderr.write(line + "\n");
-        }
-    });
-    child.stderr?.on("end", () => {
-        if (stderrBuf && !/dbus|DBus|object_proxy|bus\.cc/i.test(stderrBuf)) {
-            process.stderr.write(stderrBuf);
-        }
-    });
+// 默认 dataRoot（~/.config/OmniPanel）或 --user-data-dir <path> 覆盖。
+// 兼容空格形式（--user-data-dir <path>）与 = 形式（--user-data-dir=<path>）。
+let user_data_dir;
+const udd_index = args.indexOf("--user-data-dir");
+if (udd_index >= 0 && args[udd_index + 1]) {
+    user_data_dir = args[udd_index + 1];
+} else {
+    const udd_eq = args.find((a) => a.startsWith("--user-data-dir="));
+    user_data_dir = udd_eq ? udd_eq.slice("--user-data-dir=".length) : undefined;
 }
+const data_root = user_data_dir
+    ? resolve(user_data_dir)
+    : join(homedir(), ".config", "OmniPanel");
 
-child.on("exit", (code) => process.exit(code ?? 0));
+if (is_background) {
+    // 后台：detached spawn，stdout/stderr 直接落 <dataRoot>/logs/serve-*.log
+    // （无 pipe，无 EPIPE/孤儿句柄问题）。launcher 轮询 <dataRoot>/cli.json
+    // 拿服务地址（app 启动成功写 cli.json，路径随 userDataDir 变化），
+    // 打印后立即返回；child 继续后台。
+    const log_dir = join(data_root, "logs");
+    mkdirSync(log_dir, { recursive: true });
+    const log_path = join(
+        log_dir,
+        `serve-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
+    );
+    const log_fd = openSync(log_path, "a");
+    const child = spawn(RELEASE_BIN, args, {
+        detached: true,
+        stdio: ["ignore", log_fd, log_fd],
+    });
+    child.on("error", (/** @type {Error} */ e) => {
+        closeSync(log_fd);
+        console.error(`[omni_panel] 后台启动失败：${e.message}`);
+        process.exit(1);
+    });
+    child.on("exit", (code) => {
+        closeSync(log_fd);
+        if (code !== 0) {
+            console.error(`[omni_panel] serve 进程提前退出（code=${String(code)}）；日志：`);
+            console.error(`  ${log_path}`);
+        }
+        process.exit(code ?? 0);
+    });
+    // 轮询 cli.json 拿服务地址（app 启动成功即写，含 port/url/pid）。
+    const cli_json = join(data_root, "cli.json");
+    const deadline = Date.now() + 15_000;
+    const poll = setInterval(() => {
+        try {
+            const info = JSON.parse(readFileSync(cli_json, "utf8"));
+            // 仅接受本次启动写入的 cli.json（旧实例残留可能端口不符）。
+            if (info?.url && info?.pid === child.pid) {
+                clearInterval(poll);
+                process.stdout.write(`OmniPanel CLI mode listening on ${info.url}\n`);
+                console.log(`[omni_panel] 后台运行中（pid=${String(child.pid)}）；日志：`);
+                console.log(`  ${log_path}`);
+                console.log(`  停止：omni_panel --cli quit --port ${String(info.port)}`);
+                child.unref();
+                process.exit(0);
+            }
+        } catch {
+            // cli.json 尚未写出，继续轮询。
+        }
+        if (Date.now() > deadline) {
+            clearInterval(poll);
+            closeSync(log_fd);
+            // 清理未就绪的 serve 子进程，避免遗留孤儿实例。
+            if (child.exitCode === null && !child.killed) {
+                child.kill();
+            }
+            console.error("[omni_panel] 等待 serve 启动超时；日志：");
+            console.error(`  ${log_path}`);
+            process.exit(1);
+        }
+    }, 200);
+    // 轮询 interval 保持事件循环活跃，直到 cli.json 出现（成功）或超时（失败）。
+    // child 在成功路径才 unref（退出 launcher 后继续后台）。
+} else {
+    const child = spawn(RELEASE_BIN, args, { stdio: is_cli ? ["inherit", "inherit", "pipe"] : "inherit" });
+
+    if (is_cli) {
+        // Electron/Chromium 在无图形会话（headless/WSL 无 dbus）下会向 stderr 打
+        // "Failed to connect to the bus" 噪音；应用自身日志已走文件（CLI 模式不刷
+        // stdout）。CLI 场景过滤掉 dbus 噪音，用户终端只看到干净输出。
+        let stderrBuf = "";
+        child.stderr?.on("data", (/** @type {Buffer} */ d) => {
+            stderrBuf += d.toString();
+            const lines = stderrBuf.split("\n");
+            stderrBuf = lines.pop() ?? "";
+            for (const line of lines) {
+                if (/dbus|DBus|object_proxy|bus\.cc/i.test(line)) continue;
+                process.stderr.write(line + "\n");
+            }
+        });
+        child.stderr?.on("end", () => {
+            if (stderrBuf && !/dbus|DBus|object_proxy|bus\.cc/i.test(stderrBuf)) {
+                process.stderr.write(stderrBuf);
+            }
+        });
+    }
+
+    child.on("exit", (code) => process.exit(code ?? 0));
+}

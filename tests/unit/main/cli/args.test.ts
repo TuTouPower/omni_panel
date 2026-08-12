@@ -53,10 +53,29 @@ describe("parse_cli_args", () => {
         });
     });
 
-    it("Electron 自带 switch（--user-data-dir）不影响 --cli 解析", () => {
+    it("Electron 自带 switch（--user-data-dir=）不影响 --cli 解析", () => {
         expect(
             parse_cli_args(["electron", "index.js", "--user-data-dir=/tmp/data", "--cli", "serve"]),
         ).toEqual({ cli: true, command: { type: "serve", options: {} } });
+    });
+
+    it("--cli serve --user-data-dir <path> 解析 userDataDir", () => {
+        expect(
+            parse_cli_args([
+                "electron",
+                "index.js",
+                "--cli",
+                "serve",
+                "--user-data-dir",
+                "/tmp/data",
+            ]),
+        ).toEqual({ cli: true, command: { type: "serve", options: { userDataDir: "/tmp/data" } } });
+    });
+
+    it("--user-data-dir 缺参数抛 CliUsageError", () => {
+        expect(() =>
+            parse_cli_args(["electron", "index.js", "--cli", "serve", "--user-data-dir"]),
+        ).toThrow(/--user-data-dir 需要一个目录路径参数/);
     });
 
     it("缺子命令抛 CliUsageError", () => {

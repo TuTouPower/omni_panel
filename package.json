@@ -50,6 +50,7 @@
         "cli:quit": "node scripts/ensure_sqlite_abi.mjs electron && electron out/main/index.js --cli quit --port 17864"
     },
     "keywords": [],
+    "homepage": "https://github.com/TuTouPower/omni_panel",
     "author": {
         "name": "tutoupower",
         "email": "49771486+TuTouPower@users.noreply.github.com"

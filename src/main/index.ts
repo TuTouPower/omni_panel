@@ -133,6 +133,13 @@ if (is_test_build()) {
     app.setName("OmniPanelTest");
 }
 
+// t322: serve 支持 `--user-data-dir <path>` 覆盖 userData 目录。
+// app.setPath 需在 getDataRoot()（whenReady 内）之前调用，否则 dataRoot、
+// 单实例锁与 cli.json 均落在默认目录。
+if (cliMode && cli_args.command?.type === "serve" && cli_args.command.options.userDataDir) {
+    app.setPath("userData", cli_args.command.options.userDataDir);
+}
+
 // Single-instance lock — prevent duplicate app instances.
 // t276: CLI 控制子命令是瘦客户端，需访问运行中实例，不能持有锁（否则自锁
 // 无法连上自身）；跳过锁直接执行 HTTP 请求。
