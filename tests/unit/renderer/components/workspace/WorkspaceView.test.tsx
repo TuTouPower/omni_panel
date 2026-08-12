@@ -85,6 +85,27 @@ function ts_sess(
     };
 }
 
+/** t329：localStorage 槽位持久化的读取/预置工具（key 与实现侧 workspace-storage.ts 一致）。 */
+function saved_slots(): ({ source: string; env: string; session_id: string } | null)[] {
+    return JSON.parse(localStorage.getItem("workspace-slots") ?? "[]") as ({
+        source: string;
+        env: string;
+        session_id: string;
+    } | null)[];
+}
+
+function seed_slots(locs: { source: string; env: string; session_id: string }[]): void {
+    const arr: ({ source: string; env: string; session_id: string } | null)[] = Array.from(
+        { length: 8 },
+        () => null,
+    );
+    for (let i = 0; i < locs.length && i < 8; i += 1) {
+        const loc = locs[i];
+        if (loc) arr[i] = loc;
+    }
+    localStorage.setItem("workspace-slots", JSON.stringify(arr));
+}
+
 /** t323：受控 WorkspaceView 默认 props，测试聚焦槽位/消息逻辑。 */
 function render_workspace(overrides: Partial<ComponentProps<typeof WorkspaceView>> = {}) {
     return render(
@@ -109,6 +130,15 @@ async function render_shell() {
     await act(async () => {
         await Promise.resolve();
     });
+}
+
+/** t329：mount SessionShell 并 flush 副作用，返回结果供 unmount 后重挂载。 */
+async function mount_shell() {
+    const view = render(<SessionShell />);
+    await act(async () => {
+        await Promise.resolve();
+    });
+    return view;
 }
 
 beforeEach(() => {
@@ -958,5 +988,170 @@ describe("WorkspaceView (t323 顶栏按钮上移后布局)", () => {
         // rail 与 grid 并列于 body，同一水平基线。
         expect(body?.querySelector(".session-rail")).toBeTruthy();
         expect(body?.querySelector(".session-grid")).toBeTruthy();
+    });
+});
+
+describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
+    it("AC-001：打开会话写入 localStorage，重挂载恢复槽位数量与顺序", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        const first = render_workspace();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+            cb({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(2);
+        });
+        await waitFor(() => {
+            const saved = saved_slots();
+            expect(saved.filter((s) => s !== null)).toHaveLength(2);
+            expect(saved[0]).toMatchObject({ source: "claude_code", session_id: "sess_a" });
+            expect(saved[1]).toMatchObject({ source: "opencode", session_id: "sess_b" });
+        });
+        first.unmount();
+        render_workspace();
+        await waitFor(() => {
+            const titles = [...document.querySelectorAll(".session-slot-title")].map(
+                (el) => el.textContent,
+            );
+            expect(titles).toEqual(["sess_a", "sess_b"]);
+        });
+    });
+
+    it("AC-002：恢复槽位重新订阅并拉取消息渲染，非空白", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        seed_slots([{ source: "claude_code", env: "win", session_id: "sess_a" }]);
+        render_workspace();
+        await waitFor(() => screen.getByText("你好"));
+        expect(ub.sessionHistory.subscribe).toHaveBeenCalledWith("claude_code", "win", "sess_a");
+        expect(ub.sessionHistory.query).toHaveBeenCalledWith("claude_code", "win", "sess_a", {
+            limit: 200,
+        });
+        expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
+    });
+
+    it("AC-004：清空后持久化清空，重开为空工作台", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        const first = await mount_shell();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
+        });
+        const clear_btn = screen.getAllByRole("button", { name: "清空" })[0];
+        if (!clear_btn) throw new Error("清空按钮缺失");
+        fireEvent.click(clear_btn);
+        await waitFor(() => screen.getByText("工作台为空"));
+        expect(saved_slots().every((s) => s === null)).toBe(true);
+        first.unmount();
+        await mount_shell();
+        expect(screen.getByText("工作台为空")).toBeTruthy();
+    });
+
+    it("AC-005：拖动换序后持久化，重开恢复交换后顺序", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        const first = render_workspace();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+            cb({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(2);
+        });
+        const a_slot = [...document.querySelectorAll<HTMLElement>(".session-slot")].find((el) =>
+            el.textContent.includes("sess_a"),
+        );
+        const b_slot = [...document.querySelectorAll<HTMLElement>(".session-slot")].find((el) =>
+            el.textContent.includes("sess_b"),
+        );
+        if (!a_slot || !b_slot) throw new Error("rail slots not found");
+        fireEvent.dragStart(a_slot);
+        fireEvent.drop(b_slot);
+        await waitFor(() => {
+            const saved = saved_slots();
+            expect(saved[0]).toMatchObject({ source: "opencode", session_id: "sess_b" });
+            expect(saved[1]).toMatchObject({ source: "claude_code", session_id: "sess_a" });
+        });
+        first.unmount();
+        render_workspace();
+        await waitFor(() => {
+            const titles = [...document.querySelectorAll(".session-slot-title")].map(
+                (el) => el.textContent,
+            );
+            expect(titles).toEqual(["sess_b", "sess_a"]);
+        });
+    });
+
+    it("AC-003：重开后布局列数与视图开关保持", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        const first = await mount_shell();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+            cb({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("你好").length).toBeGreaterThan(0);
+        });
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        fireEvent.click(screen.getByRole("button", { name: "1 列 × 2 行" }));
+        fireEvent.click(screen.getByLabelText("显示时间戳"));
+        fireEvent.click(screen.getByLabelText("紧凑模式"));
+        expect(
+            screen.getByRole("button", { name: "1 列 × 2 行" }).getAttribute("aria-pressed"),
+        ).toBe("true");
+        expect(document.querySelector(".conversation-message-time")).toBeTruthy();
+        expect(document.querySelector(".conversation-message-row")?.className).toContain("compact");
+        expect(JSON.parse(localStorage.getItem("workspace-layout") ?? "{}")).toMatchObject({
+            layout: 1,
+            view: { show_time: true, compact: true },
+        });
+
+        first.unmount();
+        await mount_shell();
+        await waitFor(() => {
+            expect(document.querySelector(".session-grid")?.getAttribute("style")).toContain(
+                "--cols: 1",
+            );
+        });
+        await waitFor(() => {
+            expect(document.querySelector(".conversation-message-time")).toBeTruthy();
+            expect(document.querySelector(".conversation-message-row")?.className).toContain(
+                "compact",
+            );
+        });
+    });
+
+    it("t329 容错：损坏的持久化数据回退默认，不阻塞渲染", async () => {
+        localStorage.setItem("workspace-slots", "not-json");
+        localStorage.setItem("workspace-layout", "not-json");
+        await mount_shell();
+        expect(screen.getByText("工作台为空")).toBeTruthy();
+    });
+
+    it("t329 容错 test f001：损坏 workspace-layout 回退默认布局（3 列、视图关）", async () => {
+        localStorage.setItem("workspace-layout", "not-json");
+        await mount_shell();
+        // 布局列数回退默认 3：网格 grid-cols auto-fill 不可直接读，经 layout 状态验证——
+        // 视图开关渲染（无 show_time/compact 标记）即回退默认。布局经 save 写回验证回退值。
+        expect(JSON.parse(localStorage.getItem("workspace-layout") ?? "{}")).toMatchObject({
+            layout: 3,
+            view: { show_time: false, compact: false },
+        });
     });
 });
