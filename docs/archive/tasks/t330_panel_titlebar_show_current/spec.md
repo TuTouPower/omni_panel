@@ -38,8 +38,8 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：任一面板（如 Settings）的 PanelTitleBar 渲染全部四个切换按钮（Usage/Agent/Session/Settings），不再隐藏当前面板按钮。
-- [ ] AC-002：四个面板（Usage/Agent/Session/Settings）各自标题栏均恒定显示四个按钮（含自身），按钮顺序固定「设置 用量 代理 会话」（t313）。
+- [ ] AC-001：面板形态标题栏（Session/Settings，用 PanelTitleBar panel 形态）渲染全部四个切换按钮（Usage/Agent/Session/Settings），不再隐藏当前面板按钮。
+- [ ] AC-002：Session/Settings 面板标题栏恒定显示四个按钮（含自身），按钮顺序固定「设置 用量 代理 会话」（t313）；Usage/Agent 面板不走 PanelTitleBar 面板形态（非范围）。
 - [ ] AC-003：点击当前面板自身按钮不产生错误/异常，行为与现状一致（无崩溃、无空白）。
 - [ ] AC-004：相关测试全绿（PanelTitleBar 按钮渲染/顺序断言更新；web 态与桌面态）。
 

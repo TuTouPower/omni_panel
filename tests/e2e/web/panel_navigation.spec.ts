@@ -31,7 +31,9 @@ test.describe("web panel navigation (t259/t311)", () => {
         await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe("#usage");
     });
 
-    test("当前面板对应互跳入口按桌面规则隐藏（AC2）", async ({ webPage }) => {
+    test("面板切换入口恒定显示（t330 取消当前面板隐藏；Agent 面板走自定义按钮组）", async ({
+        webPage,
+    }) => {
         const page = webPage;
         await page.goto("/#agent");
         await expect(page.locator("[data-panel-titlebar=Agent]")).toBeVisible();
@@ -42,7 +44,8 @@ test.describe("web panel navigation (t259/t311)", () => {
 
         await page.goto("/#session");
         await expect(page.locator("[data-panel-titlebar=Session]").first()).toBeVisible();
-        await expect(page.getByRole("link", { name: "Session面板" })).toHaveCount(0);
+        // t330: 取消当前面板隐藏机制，Session 面板显示自身切换按钮。
+        await expect(page.getByRole("link", { name: "Session面板" })).toHaveCount(1);
         // t259 f004: session 侧其余入口仍可见。
         await expect(page.getByRole("link", { name: "Usage面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Agent面板" })).toHaveCount(1);
