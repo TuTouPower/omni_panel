@@ -47,7 +47,7 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：会话库卡片第一行渲染 cwd 末级项目名与完整最后消息时间，cwd 只显示最后一级路径段，时间格式与工作台 `format_precise_datetime` 输出一致（YYYY-MM-DD HH:MM:SS）。
+- [ ] AC-001：会话库卡片第一行渲染 cwd 末级项目名与完整最后消息时间（取 `ended_at`，即会话最后消息时间戳的库内近似源，与工作台 `last_message_time` 语义一致；格式复用 `format_precise_datetime` 输出 YYYY-MM-DD HH:MM:SS），cwd 只显示最后一级路径段。
 - [ ] AC-002：第二行渲染 N 轮、token 消耗、session id 三项，内容与数据源一致。
 - [ ] AC-003：第三行渲染会话名（`s.title`），与标题行语义一致；原 line-clamp-2 摘要行不再渲染。
 - [ ] AC-004：卡片左侧 icon 渲染真实 provider logo（与工作台同 `VendorMark`），不再渲染 `agent_abbrev` 字母缩写。

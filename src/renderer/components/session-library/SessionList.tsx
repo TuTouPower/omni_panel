@@ -12,6 +12,8 @@ interface SessionListProps {
     readonly on_toggle: (s: TokenStatsSession) => void;
     readonly on_preview: (s: TokenStatsSession) => void;
     readonly on_open: (s: TokenStatsSession) => void;
+    /** 复制续接命令成功后提示（t326 透传给 SessionCard）。 */
+    readonly on_show_toast?: (message: string) => void;
 }
 
 export function SessionList({
@@ -22,6 +24,7 @@ export function SessionList({
     on_toggle,
     on_preview,
     on_open,
+    on_show_toast,
 }: SessionListProps) {
     const handleToggle = useCallback(
         (s: TokenStatsSession) => {
@@ -49,11 +52,11 @@ export function SessionList({
                     <SessionCard
                         key={`${s.source}|${s.env}|${s.id}`}
                         s={s}
-                        summary={summaries[key_of(s)] ?? ""}
                         selected={selected_ids.has(key_of(s))}
                         on_toggle={handleToggle}
                         on_preview={handlePreview}
                         on_open={handleOpen}
+                        show_toast={on_show_toast}
                     />
                 ))}
             </div>

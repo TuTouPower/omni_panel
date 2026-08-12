@@ -523,6 +523,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     on_toggle={toggle_select}
                     on_preview={open_preview}
                     on_open={open_session}
+                    on_show_toast={show_toast}
                 />
             )}
 

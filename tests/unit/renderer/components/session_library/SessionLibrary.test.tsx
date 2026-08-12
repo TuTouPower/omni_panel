@@ -312,15 +312,27 @@ describe("SessionLibrary (t227)", () => {
         const card = document.querySelector(".library-card");
         expect(card).toBeTruthy();
         expect(card?.querySelector(".library-card-accent")).toBeTruthy();
-        expect(card?.querySelector(".library-card-badge")?.textContent).toBe("OC");
+        // t326：徽标为 VendorMark logo，不再渲染 agent 字母缩写。
+        expect(
+            card
+                ?.querySelector(".library-card-badge")
+                ?.querySelector('[data-testid="vendor-mark"]'),
+        ).toBeTruthy();
+        expect(card?.querySelector(".library-card-badge")?.textContent ?? "").toBe("");
+        // t326：第三行渲染会话名。
         expect(card?.querySelector(".library-card-title")?.textContent).toContain("会话 b");
-        expect(card?.querySelector(".library-card-summary")).toBeTruthy();
+        // t326：摘要行（line-clamp-2）已移除。
+        expect(card?.querySelector(".library-card-summary")).toBeNull();
+        // t326：第二行渲染轮次/tokens/session id。
         expect(card?.querySelector(".library-card-meta")?.textContent).toContain("2 轮");
         expect(card?.querySelector(".library-card-meta")?.textContent).toContain("375 tokens");
-        expect(card?.querySelector(".library-card-dir")?.textContent).toContain("/proj/b");
+        expect(card?.querySelector(".library-card-meta")?.textContent).toContain("b");
+        // t326：第一行只显示目录末级，不再渲染完整路径。
+        expect(card?.querySelector(".library-card-cwd")?.textContent).toBe("b");
+        expect(card?.querySelector(".library-card-top")?.textContent).not.toContain("/proj/b");
     });
 
-    it("卡片与行摘要取首条用户消息内容（f008）", async () => {
+    it("行摘要取首条用户消息内容（f008）；卡片摘要行已移除（t326 AC-003）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
         ub.sessionHistory.summaries.mockResolvedValue({
@@ -328,10 +340,8 @@ describe("SessionLibrary (t227)", () => {
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
-        await waitFor(() => {
-            const card_summary = document.querySelector(".library-card-summary")?.textContent;
-            expect(card_summary).toContain("真正要显示的用户消息");
-        });
+        // t326：卡片不再渲染摘要行。
+        expect(document.querySelector(".library-card-summary")).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
             const row_summary = document.querySelector(".library-row-summary")?.textContent;
@@ -933,10 +943,10 @@ describe("SessionLibrary (t227)", () => {
             ]),
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();
+        // t326：卡片摘要行已移除，摘要改由列表行呈现（AC-003）。
+        fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
-            expect(document.querySelector(".library-card-summary")?.textContent).toContain(
-                "摘要 a",
-            );
+            expect(document.querySelector(".library-row-summary")?.textContent).toContain("摘要 a");
         });
     });
 
@@ -1003,7 +1013,7 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.queryByText("1/8")).toBeNull();
     });
 
-    it("更新一张卡片摘要时，其余已渲染卡片不重渲染（t237）", () => {
+    it("更新一张卡片选中态时，其余已渲染卡片不重渲染（t237）", () => {
         const s1 = sess("a", "claude_code");
         const s2 = sess("b", "opencode");
         const counts = { a: 0, b: 0 };
@@ -1023,23 +1033,19 @@ describe("SessionLibrary (t227)", () => {
         const noop_open = vi.fn();
 
         function Parent() {
-            const [summaries, set_summaries] = useState<Record<string, string>>({});
+            const [selected_b, set_selected_b] = useState(false);
             return (
                 <div>
                     <button
                         type="button"
                         onClick={() => {
-                            set_summaries((cur) => ({
-                                ...cur,
-                                [key_of(s2)]: "新摘要",
-                            }));
+                            set_selected_b((v) => !v);
                         }}
                     >
                         update
                     </button>
                     <SessionCard
                         s={s1}
-                        summary={summaries[key_of(s1)] ?? ""}
                         selected={false}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
@@ -1048,8 +1054,7 @@ describe("SessionLibrary (t227)", () => {
                     />
                     <SessionCard
                         s={s2}
-                        summary={summaries[key_of(s2)] ?? ""}
-                        selected={false}
+                        selected={selected_b}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
                         on_open={noop_open}
