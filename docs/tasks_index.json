@@ -2,5 +2,51 @@
     "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t319",
+            "slug": "collector_error_banner_color",
+            "title": "采集失败提示颜色修复（STATE_BASE 双 color 类冲突）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t319_collector_error_banner_color"
+        },
+        {
+            "tid": "t320",
+            "slug": "agent_session_table_dotless_badges",
+            "title": "代理面板会话明细去 badge 圆点 + 删表头排序提示",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t320_agent_session_table_dotless_badges"
+        },
+        {
+            "tid": "t321",
+            "slug": "fix_trend_window_btn_selected_invisible",
+            "title": "修复趋势窗口切换按钮选中态文字隐形",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p144：选中态 bg-transparent 层叠覆盖 accent 底 + text-surface-card 文字色语义错",
+            "dir": "docs/tasks/t321_fix_trend_window_btn_selected_invisible"
+        }
+    ]
 }
