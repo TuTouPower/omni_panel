@@ -167,6 +167,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t329_session_workspace_persist_restore"
+        },
+        {
+            "tid": "t330",
+            "slug": "panel_titlebar_show_current",
+            "title": "PanelTitleBar 显示当前面板按钮（取消隐藏机制）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t330_panel_titlebar_show_current"
         }
     ]
 }
