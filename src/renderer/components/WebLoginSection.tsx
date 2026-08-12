@@ -65,7 +65,12 @@ export function WebLoginSection({
                 ...(instance_id ? {} : { auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS }),
             });
             if (!result.saved) {
-                set_error(COOKIE_LOGIN_MESSAGES.no_cookie);
+                // t337: 区分「未捕获到 Cookie」与「登录态无效」——无效时引导重登或手动粘贴。
+                set_error(
+                    result.reason === "invalid_cookie"
+                        ? COOKIE_LOGIN_MESSAGES.invalid_cookie
+                        : COOKIE_LOGIN_MESSAGES.no_cookie,
+                );
                 return;
             }
             if (result.cookie) {

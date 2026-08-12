@@ -71,9 +71,7 @@ describe("poll_cookie_login", () => {
 
     it("throws Chinese timeout when status stays in_progress past 120s", async () => {
         const cookie_login = vi.fn().mockResolvedValue({ started: true });
-        const cookie_login_status = vi
-            .fn()
-            .mockResolvedValue({ in_progress: true, saved: false });
+        const cookie_login_status = vi.fn().mockResolvedValue({ in_progress: true, saved: false });
         window.usageboard.auth.cookieLogin = cookie_login;
         window.usageboard.auth.cookieLoginStatus = cookie_login_status;
 
@@ -93,5 +91,29 @@ describe("poll_cookie_login", () => {
         });
 
         await expect(poll_cookie_login("mimo-1")).rejects.toThrow(COOKIE_LOGIN_MESSAGES.conflict);
+    });
+
+    it("透传登录态无效错误文案（t337 AC-004 web 编辑态）", async () => {
+        window.usageboard.auth.cookieLogin = vi.fn().mockResolvedValue({ started: true });
+        window.usageboard.auth.cookieLoginStatus = vi.fn().mockResolvedValue({
+            in_progress: false,
+            saved: false,
+            error: COOKIE_LOGIN_MESSAGES.invalid_cookie,
+        });
+
+        await expect(poll_cookie_login("mimo-1")).rejects.toThrow(
+            COOKIE_LOGIN_MESSAGES.invalid_cookie,
+        );
+    });
+
+    it("未捕获到 Cookie 时仍抛 no_cookie 文案（t337 AC-004 回归）", async () => {
+        window.usageboard.auth.cookieLogin = vi.fn().mockResolvedValue({ started: true });
+        window.usageboard.auth.cookieLoginStatus = vi.fn().mockResolvedValue({
+            in_progress: false,
+            saved: false,
+            error: COOKIE_LOGIN_MESSAGES.no_cookie,
+        });
+
+        await expect(poll_cookie_login("mimo-1")).rejects.toThrow(COOKIE_LOGIN_MESSAGES.no_cookie);
     });
 });

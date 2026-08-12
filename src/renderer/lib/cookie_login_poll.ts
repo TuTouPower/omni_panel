@@ -10,6 +10,7 @@ export const COOKIE_LOGIN_MESSAGES = {
     timeout: "网页登录超时，请重试",
     conflict: "已有登录正在进行中，请等待当前登录完成",
     no_cookie: "未捕获到 Cookie，请完成登录后再关闭窗口",
+    invalid_cookie: "登录态无效，请重新登录或手动粘贴 Cookie",
     failed: "网页登录失败，请重试",
     /** Web add-account (no instance_id): capture is response-only; refresh loses result. */
     anon_web_guide: "登录期间请勿刷新页面；若中断或超时，请手动粘贴 Cookie 后保存",
@@ -75,10 +76,7 @@ export function format_cookie_login_error(error: unknown): string {
         ) {
             return COOKIE_LOGIN_MESSAGES.conflict;
         }
-        if (
-            body.includes(COOKIE_LOGIN_MESSAGES.timeout) ||
-            /TIMEOUT|timed out/i.test(body)
-        ) {
+        if (body.includes(COOKIE_LOGIN_MESSAGES.timeout) || /TIMEOUT|timed out/i.test(body)) {
             return COOKIE_LOGIN_MESSAGES.timeout;
         }
         if (body && /[\u4e00-\u9fff]/.test(body)) return body;

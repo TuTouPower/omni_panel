@@ -272,6 +272,8 @@ export interface SessionLoginRequest {
 export interface SessionLoginResult {
     readonly saved: boolean;
     readonly cookie?: string;
+    /** t337: saved=false 时区分原因（登录态无效 vs 未捕获到 Cookie）。 */
+    readonly reason?: "invalid_cookie" | "no_cookie";
 }
 
 export interface CookieLoginResult {
