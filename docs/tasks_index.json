@@ -197,6 +197,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t331_session_login_auto_close"
+        },
+        {
+            "tid": "t332",
+            "slug": "remove_panel_reset_watch_bell",
+            "title": "删除用量面板用量条右侧的「即将重置」监控铃铛按钮",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "用户需求：用量面板两处（概览+账号列表）用量条右侧的 bell 监控按钮移除；监控入口保留设置侧",
+            "dir": "docs/tasks/t332_remove_panel_reset_watch_bell"
+        },
+        {
+            "tid": "t333",
+            "slug": "settings_reset_watch_bell_off_slash",
+            "title": "设置侧提醒铃铛按钮关闭状态叠加斜杠表示停用",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "用户需求：AccountDialog/SettingsForm 与 CpaLabelMapDialog/LabelMapDialog 两处铃铛按钮，未监控状态叠加斜线（类似静音符号）",
+            "dir": "docs/tasks/t333_settings_reset_watch_bell_off_slash"
         }
     ]
 }
