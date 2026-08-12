@@ -12,10 +12,10 @@
  *   omni_panel --cli open|refresh-all|pause|resume|restart|quit|autostart [--port <n>]
  *                                                                 瘦客户端控制
  *
- * 数据隔离：serve 默认使用沙盒 userData（.scratch/global-serve/），显式传
- * `--user-data-dir` 才用指定目录；真实用户数据目录（~/.config/OmniPanel）
- * 仅当显式传入时才被触碰。开发/测试请用仓库内 `pnpm cli:serve`（见
- * docs/guides/cli.md），不要用本全局命令跑开发实例。
+ * 数据：全局命令使用真实用户数据（~/.config/OmniPanel，除非显式
+ * `--user-data-dir`）——用户跑 serve 就是要看自己的数据。开发/测试请用仓库内
+ * `pnpm cli:serve`（自带 .scratch/dev-serve 沙盒，见 docs/guides/cli-mode.md），
+ * 不要用全局命令跑开发实例。
  */
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -41,15 +41,6 @@ if (!existsSync(RELEASE_BIN)) {
             "本命令只服务 release 产物，不回退 dev 产物（out/）——开发构建与全局使用隔离。",
     );
     process.exit(1);
-}
-
-// serve 默认沙盒 userData：全局命令不碰真实用户数据，除非显式 --user-data-dir。
-if (args.includes("serve") && !args.some((a) => a.startsWith("--user-data-dir"))) {
-    const sandbox = resolve(ROOT, ".scratch", "global-serve");
-    args.push(`--user-data-dir=${sandbox}`);
-    console.error(
-        `[omni_panel] serve 使用沙盒 userData: ${sandbox}（真实数据需显式 --user-data-dir）`,
-    );
 }
 
 const is_cli = args.includes("--cli");
