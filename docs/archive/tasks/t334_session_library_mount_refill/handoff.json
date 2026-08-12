@@ -1,0 +1,24 @@
+{
+    "tid": "t334",
+    "attempt": 1,
+    "execution_id": "3a44e5b3ed7a4097a2075ff6601f37d4",
+    "status": "done",
+    "branch": "t334_session_library_mount_refill",
+    "base_sha": "2575ef77ce8ce5a1af5b2e07dc9be73cdf3af466",
+    "tests": "pnpm test：2991 passed / 9 skipped；tsc --noEmit exit 0；e2e t334 3 passed + 既有会话库 3 passed 无回归",
+    "blackbox": "全量单测 2991 passed + tsc 0 + e2e 6 passed（t334 补满数据尽/中途溢出/不预取 + infinite_scroll + grid_squash）",
+    "review": "single 级 general：Round 1 PASS（2 minor）→ Round 2 PASS（f001/f002 已修 + f003 minor 断言 poll）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/e2e/web/session_library_mount_refill.spec.ts::大视口补满至 110 数据尽 + 中途溢出即停 通过"
+        ],
+        "AC-002": [
+            "tests/e2e/web/session_library_mount_refill.spec.ts::常规视口不预取 + 滚动触底加载 通过"
+        ],
+        "AC-003": [
+            "tests/e2e/web/session_library_mount_refill.spec.ts::offset 有序无重复 [0,50,100] 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
