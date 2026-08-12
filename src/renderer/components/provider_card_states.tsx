@@ -1,6 +1,7 @@
 import { Icon } from "./Icon";
 import type { ProviderError } from "./ProviderOverview";
 import { is_auth_error } from "../../shared/lib/auth-error";
+import { cn } from "../lib/utils";
 
 export { is_auth_error };
 
@@ -69,7 +70,7 @@ export function ProviderCardState({
         }
         return (
             <div
-                className={STATE_BASE + " text-[var(--color-error)]"}
+                className={cn(STATE_BASE, "text-[var(--color-error)]")}
                 data-testid="card-state"
                 data-variant="err"
             >
@@ -122,7 +123,7 @@ export function ProviderCardErrorBanner({
     if (!connectorError) return null;
     return (
         <div
-            className={STATE_BASE + " text-[var(--color-error)]"}
+            className={cn(STATE_BASE, "text-[var(--color-error)]")}
             data-testid="card-state"
             data-variant="err"
         >

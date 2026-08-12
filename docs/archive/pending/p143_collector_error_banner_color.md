@@ -5,4 +5,4 @@
 - 根因：产品缺陷（CSS 类冲突）。STATE_BASE 含 `text-[var(--color-on-surface-variant)]`（t274 afd34807 引入），失败分支裸拼接追加 `text-[var(--color-error)]`，同元素双 color 类。Tailwind 任意值类 CSS 源顺序 `text-[var(--color-on-surface-variant)]` 排在 `text-[var(--color-error)]` 之后，同特异性 (0,1,0) 下后声明灰类胜出 → 灰色覆盖红色。`.scratch/bug-color/repro.html` 用构建 CSS 实测：同挂两类的 div computed color = rgb(104,112,133)（灰），单独 error = rgb(239,68,68)（红）。已扫，无其它已确认同类位点。
 - 测试缺口：`tests/unit/renderer/components/provider_card_states.test.tsx` 无 computed color / className 色类断言，只断言文案与操作，未盖住颜色回归。应补：两处失败分支（ProviderCardState err、ProviderCardErrorBanner）断言最终 className 色类为 error 且不含冲突灰类，或用 cn()/twMerge 合并后断言 error 生效（修复后需能挡住「灰类覆盖红类」回归）。
 - 线索：`.scratch/bug-color/repro.html`（构建 CSS 最小复现：同挂两色类 → 灰）
-- 处理：未开
+- 处理：t319
