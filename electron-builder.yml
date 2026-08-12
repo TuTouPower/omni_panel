@@ -59,5 +59,4 @@ linux:
     target:
         - AppImage
         - deb
-        - rpm
     icon: assets/icon.png
