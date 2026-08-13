@@ -2,11 +2,11 @@
 tid: "t348"
 slug: "token_stats_timezone"
 title: "token-stats 时区约定统一 UTC+8"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t348_token_stats_timezone"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "9f2c97399ef1e1b1e5ee633ff334837ae8eb4724"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 渲染端系统时区 vs 服务端 UTC+8"
@@ -22,7 +22,11 @@ note: "review_intensive: 渲染端系统时区 vs 服务端 UTC+8"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+- 新增 utc8.ts（UTC+8 helper：day/hour start、next、date_str、hour、weekday）。
+- bucketize 边界与标签、BarChart 小时标签/interval、chart-data 热力图、prepareBarDataFromBuckets 日轴、reader-utils calendar_date_of 全部改 UTC+8（服务端聚合口径）。
+- vitest.config env TZ=Asia/Shanghai 固定（跨 OS 一致，非 POSIX 前缀）。
+- review 3 轮：f001/f002 important（TZ 测试一致、schema 注释）+ f005 important（Windows CI）均修复；f003/f004/f006/f007 minor 修复。
 
 ## Review 处置
 
@@ -43,6 +47,29 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 22:10 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t348_gen_f001 | important | 已修 | vitest.config.mts env TZ=Asia/Shanghai 固定（测试主体不再依赖系统时区）；补 Date.UTC 非 UTC+8 用例 | vitest.config.mts |
+| t348_gen_f002 | important | 已修 | token-stats.ts date 注释改 UTC+8，reader-utils 同步 | token-stats.ts |
+| t348_gen_f003 | minor | 已修 | prepareBarDataFromBuckets 日轴改 UTC+8（utc8_day_start + utc8_date_str） | chart-data.ts |
+| t348_gen_f004 | minor | 已修 | chart-data.ts:562 注释 getDay → utc8_weekday | chart-data.ts |
+
+### Round 2 (2026-08-13 22:15 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t348_gen_f005 | important | 已修 | TZ= 前缀 Windows CI 破坏 → 改 vitest.config env TZ（跨 OS 一致） | vitest.config.mts / package.json |
+| t348_gen_f006 | minor | 已修 | 回滚 sed 误改，恢复本地字面量 + 依赖 env TZ 固定语义 | 测试文件 |
+| t348_gen_f007 | minor | 已修 | prepareBarDataFromBuckets 循环条件改 `<= utc8_day_start(end-1)`（end 非日界含当天） | chart-data.ts |
+
+### Round 3 (2026-08-13 22:20 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t348_gen_f008 | — | — | 本轮零 finding（code reviewer 确认三 AC 全部达成） | — |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -74,10 +101,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（f001/f002 important 已修、f003/f004 minor 已修）
+- Round 2 general：FAIL（f005 important、f006/f007 minor 已修）
+- Round 3 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- token-stats 渲染端时区统一 UTC+8：utc8 helper 模块 + bucketize/BarChart/chart-data/reader-utils 替换本地时区调用；vitest env 固定 TZ 达成跨 OS 一致。Round 3 general PASS。无 pending 新增。

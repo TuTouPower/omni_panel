@@ -1,5 +1,6 @@
 import type { AgentSessionUsage, Granularity, Metric, SessionRow } from "./types";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
+import { UTC8_OFFSET_MS, utc8_next_day, utc8_next_hour } from "./utc8";
 
 /** Sum all token kinds for a single record. */
 export function sumTokens(r: AgentSessionUsage): number {
@@ -63,15 +64,8 @@ export function bucketize(
     label: (i: number) => string;
 } {
     const next_boundary = (timestamp: number) => {
-        const date = new Date(timestamp);
-        if (gran === "hour") {
-            date.setMinutes(0, 0, 0);
-            date.setHours(date.getHours() + 1);
-        } else {
-            date.setHours(0, 0, 0, 0);
-            date.setDate(date.getDate() + 1);
-        }
-        return date.getTime();
+        // t348: 按 UTC+8 对齐（服务端 SQL 固定 UTC+8），非系统时区。
+        return gran === "hour" ? utc8_next_hour(timestamp) : utc8_next_day(timestamp);
     };
     const starts = [start];
     let boundary = next_boundary(start);
@@ -99,11 +93,13 @@ export function bucketize(
     };
     const startOf = (i: number) => starts[i] ?? start;
     const label = (i: number) => {
-        const date = new Date(startOf(i));
+        const start = startOf(i);
+        // t348: 标签按 UTC+8 展示（服务端聚合口径）。
+        const shifted = new Date(start + UTC8_OFFSET_MS);
         const pad = (value: number) => String(value).padStart(2, "0");
         return gran === "hour"
-            ? `${String(date.getMonth() + 1)}/${String(date.getDate())} ${pad(date.getHours())}:00`
-            : `${String(date.getMonth() + 1)}/${String(date.getDate())}`;
+            ? `${String(shifted.getUTCMonth() + 1)}/${String(shifted.getUTCDate())} ${pad(shifted.getUTCHours())}:00`
+            : `${String(shifted.getUTCMonth() + 1)}/${String(shifted.getUTCDate())}`;
     };
     return { n, idx, startOf, label };
 }

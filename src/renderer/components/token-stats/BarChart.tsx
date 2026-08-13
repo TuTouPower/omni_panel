@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
 import { use_chart_palette } from "../../lib/echarts_token_resolver";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
+import { UTC8_OFFSET_MS, utc8_hour } from "../../lib/token-stats/utc8";
 import {
     prepareBarData,
     prepareBarDataFromBuckets,
@@ -215,8 +216,7 @@ export function BarChart({
                         ? (index: number) => {
                               const bucket_start = bucketStarts[index];
                               return (
-                                  bucket_start !== undefined &&
-                                  new Date(bucket_start).getHours() % 6 === 0
+                                  bucket_start !== undefined && utc8_hour(bucket_start) % 6 === 0
                               );
                           }
                         : xaxis === "time"
@@ -228,11 +228,12 @@ export function BarChart({
                                   const bucket_start = bucketStarts[index];
                                   if (bucket_start === undefined) return "";
 
-                                  const date = new Date(bucket_start);
+                                  // t348: 小时标签按 UTC+8（服务端聚合口径）。
+                                  const shifted = new Date(bucket_start + UTC8_OFFSET_MS);
                                   const pad = (value: number) => String(value).padStart(2, "0");
-                                  const hour = date.getHours();
+                                  const hour = shifted.getUTCHours();
                                   return hour === 0
-                                      ? `{b|${pad(date.getMonth() + 1)}-${pad(date.getDate())}}`
+                                      ? `{b|${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}}`
                                       : `${pad(hour)}:00`;
                               },
                               rich: { b: { fontWeight: 700, color: pal.centerV } },

@@ -111,7 +111,7 @@ export const tokenStatsDailyUpsertSchema = z.object({
     source: tokenStatsSourceSchema,
     env: tokenStatsEnvSchema,
     model: z.string(),
-    /** UTC date YYYY-MM-DD of the usage (matches Claude Code /stats bucketing). */
+    /** UTC+8 日期 YYYY-MM-DD（t348：服务端聚合固定 UTC+8，与 bucket_date 一致）。 */
     date: z.string(),
     input_tokens: z.number().int().nonnegative(),
     output_tokens: z.number().int().nonnegative(),
