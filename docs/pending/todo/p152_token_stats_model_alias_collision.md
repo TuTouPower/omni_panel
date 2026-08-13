@@ -1,12 +1,14 @@
 # p152 Agent 面板模型筛选：alias 名与真实 model 名冲突 + 单 value 无法按 alias 展开
 
-- 现象：在 Agent 面板筛选「工具=claude code + 模型=deepseek-v4-flash」结果为空，期望显示该组合全部数据（数据表实际有 22.5 万条 `claude-code + deepseek-v4-flash` 记录）。复现：真实库 `~/.config/OmniPanel/observations.sqlite` 中 `token_stats_records` 有 `agent='claude-code' AND model='deepseek-v4-flash'` 225846 条；`.scratch/model_filter_repro.mjs` 确定性复现——下拉选中 `deepseek-v4-flash` 后查询参数 `model='__secondary__'`，后端 `WHERE model='__secondary__' AND agent='claude-code'` 命中 0 行。
+- 现象：
+    - 筛选「工具=claude code + 模型=deepseek-v4-flash」结果为空，期望显示该组合全部数据（数据表实际有 22.5 万条 `claude-code + deepseek-v4-flash` 记录）。复现：真实库 `~/.config/OmniPanel/observations.sqlite` 中 `token_stats_records` 有 `agent='claude-code' AND model='deepseek-v4-flash'` 225846 条；`.scratch/model_filter_repro.mjs` 确定性复现——下拉选中 `deepseek-v4-flash` 后查询参数 `model='__secondary__'`，后端 `WHERE model='__secondary__' AND agent='claude-code'` 命中 0 行。
+    - **时间窗口被截断（2026-08-13 补录）**：选「最近一月（30d）」+ 模型=deepseek-v4-flash 只显示最近 7 天，7.31–8.6 的 85454 条 deepseek-v4-flash 真实数据不显示。根因同主点：value 反查发 `model='__secondary__'`，而真实库 `__secondary__` 数据全部从 2026-08-07 起（12352 条，全 kimi-code），「最近一月」窗口被 `__secondary__` 截成最近 7 天。修好主点（value=展示名 + IN 归并）后，选 deepseek-v4-flash 命中 `IN (deepseek-v4-flash, __secondary__)`，窗口即返回全部 30 天数据，本现象随之消失，无需独立修复。
 - 用户意图（已确认）：`modelAliases=[{alias:"deepseek-v4-flash", models:["__secondary__"]}]` 表示「`__secondary__` 模型就是 v4 flash」，期望两者在筛选/聚合时归并显示为 `deepseek-v4-flash`。配置本身合理，不是用户配置错误。
 - 影响：Agent 面板模型下拉在「alias 名恰好等于数据中真实 model 名」时筛选失效（当前配置触发）；且即使修掉反查，单 value `model='deepseek-v4-flash'` 仍不包含 `__secondary__` 的 11447 条 kimi-code 记录，不满足用户「**secondary** 都算 v4 flash」的归并意图。影响范围：`TokenStatsView` 的 dashboard / sessions 两条查询路径。
 - 根因（两层）：
     1. **value 反查错误**：`TokenStatsView.tsx:523-551` 的 `modelOptions` 把后端返回的**展示名**（`dashboard.models`，已是 resolver 后的值）当作 **alias 名**用 `aliasToOriginal.get(alias)` 反向翻译成原始 key。当展示名恰好等于某 alias 配置的 alias 名（`deepseek-v4-flash` 同时是真实 model 名和 alias 名）时，`aliasToOriginal.get('deepseek-v4-flash')` 命中配置返回 `'__secondary__'`，value 错成 `__secondary__` → 后端精确匹配 0 行。
     2. **过滤不支持 alias 展开**：后端（`token-stats-store.ts:467/475` `build_dashboard_conditions` 与 `dashboard_window_union_builder` 的 `model_where`）只支持单 value `model = @model` 精确匹配；`model_aliases` 只在汇总展示（`dashboard_summary_from_rollup` 的 `model_resolver`）用，不进过滤条件。因此选 alias 归并名无法展开成 `IN (keys)` 匹配全部底层模型。
-       分类：产品缺陷（筛选 value 构造错误 + 过滤不支持 alias 展开）。
+        分类：产品缺陷（筛选 value 构造错误 + 过滤不支持 alias 展开）。
 - 已确认同类位点（同一机制「展示名当 alias 反向翻译」）：
     - 主点：`TokenStatsView.tsx:541-551`（`modelOptions`，同时驱动 dashboard 与 sessions 两条查询的 `model` 参数）
     - 关联点：`token-stats-store.ts:467/475` + `:494-496`（`build_dashboard_conditions` / `dashboard_window_union_builder` 的 model 过滤仅单值）
