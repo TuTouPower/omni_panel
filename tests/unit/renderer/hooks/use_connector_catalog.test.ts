@@ -8,8 +8,8 @@ import type { AppConfiguration } from "../../../../src/shared/types/config";
 
 const { log_warn } = vi.hoisted(() => ({ log_warn: vi.fn() }));
 
-vi.mock("../../../../src/renderer/views/settings-view/lib", () => ({
-    log: { warn: log_warn },
+vi.mock("../../../../src/shared/lib/logger", () => ({
+    createLogger: () => ({ warn: log_warn }),
 }));
 
 const config: AppConfiguration = {

@@ -14,7 +14,6 @@ import { createLogger, createTraceId, withLogContext } from "../../../shared/lib
 import { is_auth_error } from "../../../shared/lib/auth-error";
 import type { RefreshResult } from "../auth/oauth_helpers";
 
-export { is_auth_error };
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import type { AddAccountParams } from "../components/AddAccountDialog";
 import type { ConnectorCatalogEntry } from "../../shared/types/ipc";
 import type { AppConfiguration } from "../../shared/types/config";
-import { log } from "../views/settings-view/lib";
+import { createLogger } from "../../shared/lib/logger";
+
+// t360: 自有 logger，避免 hook 反向依赖 view 模块（settings-view/lib）。
+const log = createLogger("renderer:use-connector-catalog");
 
 export type SavePluginSettings = (
     instanceId: string,

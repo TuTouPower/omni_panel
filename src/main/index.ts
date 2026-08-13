@@ -160,6 +160,19 @@ function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
+/** t360: 取某 provider 的所有启用实例 id（enabled && executablePath 匹配该 def）。 */
+function active_instance_ids_for_provider(
+    allDefinitions: ConnectorDefinition[],
+    plugins: AppConfiguration["plugins"],
+    provider: string,
+): string[] {
+    const def = allDefinitions.find((d) => d.manifest.provider === provider);
+    if (!def) return [];
+    return plugins
+        .filter((plugin) => plugin.enabled && plugin.executablePath === def.executablePath)
+        .map((plugin) => plugin.instanceId);
+}
+
 const windowManager = createWindowManager({
     getPreloadPath,
     getIconPath: get_app_icon_path,
@@ -546,25 +559,17 @@ void app.whenReady().then(async () => {
                 to_connector_list_config(previousConfig),
                 to_connector_list_config(updatedConfig),
             );
-            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
-            const active_grok_instance_ids = grokDef
-                ? updatedConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_grok_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                updatedConfig.plugins,
+                "grok",
+            );
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
-            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
-            const active_kimi_instance_ids = kimiDef
-                ? updatedConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_kimi_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                updatedConfig.plugins,
+                "kimi",
+            );
             kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
             // Update token stats config if changed
             tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
@@ -1003,28 +1008,20 @@ void app.whenReady().then(async () => {
         // Start OAuth auto-refresh for enabled grok connector instances. The manager
         // gracefully skips instances without stored tokens.
         {
-            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
-            const active_grok_instance_ids = grokDef
-                ? currentConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_grok_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                currentConfig.plugins,
+                "grok",
+            );
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
         }
         // Kimi mirrors grok: start auto-refresh for enabled kimi instances on launch.
         {
-            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
-            const active_kimi_instance_ids = kimiDef
-                ? currentConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_kimi_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                currentConfig.plugins,
+                "kimi",
+            );
             kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
         }
 

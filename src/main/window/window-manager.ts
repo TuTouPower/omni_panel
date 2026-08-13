@@ -1,6 +1,7 @@
 import { BrowserWindow, nativeTheme, shell } from "electron";
 import { createLogger } from "../../shared/lib/logger";
 import { is_e2e_headless } from "../e2e-headless";
+import { PANEL_MIN_WIDTH, PANEL_MIN_HEIGHT, USAGE_MIN_WIDTH } from "./window-bounds";
 
 const log = createLogger("window-manager");
 
@@ -37,7 +38,7 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         frame: false,
         show: false,
         resizable: true,
-        minWidth: 472,
+        minWidth: USAGE_MIN_WIDTH,
     },
     setting: {
         route: "setting",
@@ -49,8 +50,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
-        minWidth: 480,
-        minHeight: 360,
+        minWidth: PANEL_MIN_WIDTH,
+        minHeight: PANEL_MIN_HEIGHT,
     },
     tray_menu: {
         route: "tray",
@@ -69,8 +70,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
-        minWidth: 480,
-        minHeight: 360,
+        minWidth: PANEL_MIN_WIDTH,
+        minHeight: PANEL_MIN_HEIGHT,
     },
     session: {
         route: "session",
@@ -82,8 +83,8 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         titleBarStyle: "hidden",
         titleBarOverlay: false,
         roundedCorners: true,
-        minWidth: 480,
-        minHeight: 360,
+        minWidth: PANEL_MIN_WIDTH,
+        minHeight: PANEL_MIN_HEIGHT,
     },
 };
 
