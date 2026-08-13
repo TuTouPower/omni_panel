@@ -46,7 +46,7 @@ function safe_cookie_login_error(message: string): string {
 export async function handleCookieLogin(
     deps: AuthIpcDeps,
     instanceId: string,
-): Promise<IpcResult<{ saved: boolean }>> {
+): Promise<IpcResult<{ saved: boolean; reason?: "invalid_cookie" | "no_cookie" }>> {
     const config = await deps.configStore.load();
     const plugin = config.plugins.find((p) => p.instanceId === instanceId);
     if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
@@ -108,7 +108,11 @@ export function startCookieLogin(
             if (result.ok && result.data.saved) {
                 delete state.error;
             } else if (result.ok) {
-                state.error = "未捕获到 Cookie，请完成登录后再关闭窗口";
+                // t337: 区分「未捕获到 Cookie」与「登录态无效」。
+                state.error =
+                    result.data.reason === "invalid_cookie"
+                        ? "登录态无效，请重新登录或手动粘贴 Cookie"
+                        : "未捕获到 Cookie，请完成登录后再关闭窗口";
             } else {
                 state.error = safe_cookie_login_error(result.error.message);
             }

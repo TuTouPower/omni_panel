@@ -1,0 +1,27 @@
+{
+    "tid": "t333",
+    "attempt": 1,
+    "execution_id": "2015363b67874ea09ec9927e34d06dfc",
+    "status": "done",
+    "branch": "t333_settings_reset_watch_bell_off_slash",
+    "base_sha": "90bc99395c531c8d51e8eef1ff746a3aa8c62d9b",
+    "tests": "pnpm test：2990 passed / 9 skipped",
+    "blackbox": "e2e electron cpa_label_map_watch 通过（含 data-slash 斜杠显隐切换断言）；typecheck 通过",
+    "review": "single；Round 1-3 PASS（f001 已修、f002 遗留 p149）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/settings_form.test.tsx::marks the bell aria-pressed=true only when all account_keys are watched 含 data-slash 显隐断言 通过；settings_view_watched.test.tsx 未监控/已监控两用例通过"
+        ],
+        "AC-002": [
+            "tests/e2e/electron/cpa_label_map_watch.spec.ts::CPA label-map bell toggles 含 data-slash 斜杠显隐断言 通过（实跑）"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/views/settings_view_watched.test.tsx persist add/remove_watched 通过；settings_view_cpa.test.tsx 通过"
+        ],
+        "AC-004": [
+            "tests/e2e/electron/cpa_label_map_watch.spec.ts：未监控 [data-slash=true] 可见 → 点击后 aria-pressed=true 且 data-slash count 0 通过"
+        ]
+    },
+    "pending": ["p149"],
+    "findings": ["d037"]
+}

@@ -1,6 +1,9 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { create_session_manager } from "../../../src/main/core/session/session-manager";
+import {
+    create_session_manager,
+    is_valid_opencode_login,
+} from "../../../src/main/core/session/session-manager";
 import type {
     SessionCookie,
     SessionManagerDeps,
@@ -70,6 +73,8 @@ interface TestDeps extends SessionManagerDeps {
     readonly window: MockWindow;
     readonly partitions: string[];
     readonly cookie_urls: string[];
+    /** 注入的 cookie 有效性探测（t337）。 */
+    readonly verify_cookie: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
     emit_before_send_headers(
         url: string,
         requestHeaders: Record<string, string>,
@@ -94,6 +99,7 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
         partitions,
         cookie_urls,
         vault: create_vault(),
+        verify_cookie: vi.fn().mockResolvedValue(true),
         create_window(partition: string) {
             partitions.push(`window:${partition}`);
             return window;
@@ -256,7 +262,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
         expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
     });
 
@@ -279,7 +285,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
     });
 
     it("does not unlock wildcard Cookie capture for cross-origin subresources", async () => {
@@ -301,7 +307,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
     });
 
     it("ignores third-party OpenCode Go _server Cookie headers", async () => {
@@ -388,7 +394,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
         await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
         // cookie jar 不应被查询
         expect(deps.cookie_urls).toEqual([]);
@@ -410,7 +416,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
         await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
         expect(deps.cookie_urls).toEqual([]);
     });
@@ -430,7 +436,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
         await expect(deps.vault.has("opencode-go-1:SESSION_COOKIE")).resolves.toBe(false);
         expect(deps.cookie_urls).toEqual([]);
     });
@@ -447,7 +453,7 @@ describe("session-manager", () => {
         });
         deps.window.close();
 
-        await expect(promise).resolves.toEqual({ saved: false });
+        await expect(promise).resolves.toEqual({ saved: false, reason: "no_cookie" });
         await expect(deps.vault.has("mimo-1:SESSION_COOKIE")).resolves.toBe(false);
     });
 
@@ -657,5 +663,92 @@ describe("session-manager", () => {
 
         expect(deps.partitions).toEqual([]);
         expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
+    });
+
+    it("cookie 未通过有效性校验时不保存（t337 AC-001）", async () => {
+        const deps = create_deps();
+        deps.verify_cookie.mockResolvedValue(false);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "session=invalid",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false, reason: "invalid_cookie" });
+        await expect(deps.vault.has("opencode-go-1:SESSION_COOKIE")).resolves.toBe(false);
+        expect(deps.verify_cookie).toHaveBeenCalledWith(
+            "session=invalid",
+            "https://opencode.ai/auth",
+        );
+    });
+
+    it("回跳首请求带匿名 cookie 时有效性校验拦截（t337 AC-002）", async () => {
+        const deps = create_deps();
+        deps.verify_cookie.mockResolvedValue(false);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers(
+            "https://opencode.ai/auth",
+            { Cookie: "anon=1" },
+            "mainFrame",
+        );
+        deps.emit_before_send_headers(
+            "https://auth.opencode.ai/authorize?client_id=app",
+            {},
+            "mainFrame",
+        );
+        deps.emit_before_send_headers(
+            "https://opencode.ai/auth/callback?code=abc",
+            { Cookie: "anon=1" },
+            "mainFrame",
+        );
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: false, reason: "invalid_cookie" });
+        expect((deps.vault as ReturnType<typeof create_vault>).values).toEqual(new Map());
+    });
+
+    it("cookie 通过有效性校验时正常保存（t337 AC-003）", async () => {
+        const deps = create_deps();
+        deps.verify_cookie.mockResolvedValue(true);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-go-1",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["session"],
+        });
+        deps.emit_before_send_headers("https://opencode.ai/_server?id=abc", {
+            Cookie: "session=valid",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe("session=valid");
+        expect(deps.verify_cookie).toHaveBeenCalled();
+    });
+
+    it("is_valid_opencode_login 判定 3xx+workspace 有效、其余无效（t337 AC-003）", () => {
+        expect(is_valid_opencode_login(302, "/workspace/wrk_123")).toBe(true);
+        expect(is_valid_opencode_login(301, "https://opencode.ai/workspace/wrk_123")).toBe(true);
+        expect(is_valid_opencode_login(200, null)).toBe(false);
+        expect(is_valid_opencode_login(200, "/login")).toBe(false);
+        expect(is_valid_opencode_login(302, "/login")).toBe(false);
+        expect(is_valid_opencode_login(400, "/workspace/wrk_123")).toBe(false);
+        expect(is_valid_opencode_login(302, null)).toBe(false);
+        expect(is_valid_opencode_login(302, "")).toBe(false);
     });
 });

@@ -1,0 +1,31 @@
+{
+    "tid": "t337",
+    "attempt": 1,
+    "execution_id": "20d9d949606b4bf1825ee0677958ed12",
+    "status": "done",
+    "branch": "t337_opencode_web_login_cookie_validate",
+    "base_sha": "f828251c17ec9ac6891943c67b2d237d3d30cddf",
+    "tests": "pnpm test：2999 passed / 9 skipped",
+    "blackbox": "全量单测 + typecheck + lint/prettier 通过；真实 opencode.ai 探测因环境网络限制未实跑，由 is_valid_opencode_login 判定矩阵 + connector /auth 对齐测试覆盖",
+    "review": "full；Round 1 code FAIL / test FAIL（f001 important：AC-004 web 编辑态 reason 丢失 + 覆盖缺口）→ Round 2 code PASS / test PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/session/session-manager.test.ts::cookie 未通过有效性校验时不保存 通过（saved:false+reason:invalid_cookie，vault 不写）"
+        ],
+        "AC-002": [
+            "tests/unit/session/session-manager.test.ts::回跳首请求带匿名 cookie 时有效性校验拦截 通过"
+        ],
+        "AC-003": [
+            "tests/unit/session/session-manager.test.ts::cookie 通过有效性校验时正常保存 通过；is_valid_opencode_login 判定矩阵通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/lib/cookie_login_poll.test.ts::透传登录态无效错误文案 通过；web_login_section.test.tsx 登录态无效提示 通过"
+        ],
+        "AC-005": ["手动粘贴路径不调 start_login：settings_form 既有测试回归通过"],
+        "AC-006": [
+            "tests/unit/session/session-manager.test.ts 有效/无效/匿名时序三场景 + is_valid 边界 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

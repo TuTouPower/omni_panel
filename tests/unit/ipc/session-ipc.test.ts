@@ -103,6 +103,29 @@ describe("handleSessionLogin", () => {
         }
     });
 
+    it("透传 start_login 的 reason（t337）", async () => {
+        vi.mocked(mock_session_manager.start_login).mockResolvedValue({
+            saved: false,
+            reason: "invalid_cookie",
+        });
+
+        const mod = await import("../../../src/main/ipc/session-ipc");
+        const result = await mod.handleSessionLogin(
+            { sessionManager: mock_session_manager },
+            {
+                instance_id: "opencode-go-1",
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+            },
+        );
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.data).toEqual({ saved: false, reason: "invalid_cookie" });
+        }
+    });
+
     it("returns CONFLICT when login already in progress", async () => {
         vi.mocked(mock_session_manager.start_login).mockRejectedValue(
             new Error("Login already in progress for instance: test-instance"),

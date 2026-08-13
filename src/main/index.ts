@@ -36,7 +36,7 @@ import { createLogger, setLogLevel } from "../shared/lib/logger";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
-import { create_session_manager } from "./core/session/session-manager";
+import { create_session_manager, is_valid_opencode_login } from "./core/session/session-manager";
 import { create_observation_store } from "./core/observation/observation-store";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
@@ -596,6 +596,37 @@ void app.whenReady().then(async () => {
             has_display: () =>
                 process.platform !== "linux" ||
                 Boolean(process.env["DISPLAY"] ?? process.env["WAYLAND_DISPLAY"]),
+            // t337: 捕获 cookie 后有效性探测——对 login_url 发请求期望 3xx 且
+            // Location 含 workspace（opencode_go web_login）。探测失败判定无效、
+            // 不落库。仅 web_login provider 走此路径（login_url 来自 manifest）。
+            verify_cookie: async (cookie: string, login_url: string) => {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => {
+                        controller.abort();
+                    }, 10_000);
+                    try {
+                        const res = await fetch(login_url, {
+                            headers: {
+                                Cookie: cookie,
+                                "User-Agent":
+                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                                    "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+                                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                            },
+                            redirect: "manual",
+                            signal: controller.signal,
+                        });
+                        const status = res.status;
+                        const location = res.headers.get("location");
+                        return is_valid_opencode_login(status, location);
+                    } finally {
+                        clearTimeout(timer);
+                    }
+                } catch {
+                    return false;
+                }
+            },
             create_window: (partition) => {
                 return new BrowserWindow({
                     width: 520,

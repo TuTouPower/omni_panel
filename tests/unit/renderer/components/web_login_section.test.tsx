@@ -194,4 +194,35 @@ describe("WebLoginSection cookie login parity (t282)", () => {
             /Login already/i,
         );
     });
+
+    it("登录态无效时显示可读提示而非「未捕获到 Cookie」（t337 AC-004）", async () => {
+        session_login.mockResolvedValue({ saved: false, reason: "invalid_cookie" });
+        render_section();
+        const user = userEvent.setup();
+
+        await user.click(screen.getByText("网页登录"));
+
+        await waitFor(() => {
+            expect(screen.getByTestId("web-login-error-opencode_go")).toHaveTextContent(
+                COOKIE_LOGIN_MESSAGES.invalid_cookie,
+            );
+        });
+        expect(screen.getByTestId("web-login-error-opencode_go").textContent).not.toContain(
+            COOKIE_LOGIN_MESSAGES.no_cookie,
+        );
+    });
+
+    it("未捕获到 Cookie 时仍显示原提示（t337 AC-004 回归）", async () => {
+        session_login.mockResolvedValue({ saved: false, reason: "no_cookie" });
+        render_section();
+        const user = userEvent.setup();
+
+        await user.click(screen.getByText("网页登录"));
+
+        await waitFor(() => {
+            expect(screen.getByTestId("web-login-error-opencode_go")).toHaveTextContent(
+                COOKIE_LOGIN_MESSAGES.no_cookie,
+            );
+        });
+    });
 });

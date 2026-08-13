@@ -40,10 +40,6 @@ interface ProviderAccountRowProps {
     onReLogin?:
         | ((sourceInstanceId: string, accountId: string, provider: string) => void)
         | undefined;
-    /** t043: 当前 account 下已监控的 raw_label 集合。 */
-    watched_labels?: ReadonlySet<string> | undefined;
-    /** t043: 切换某个 raw_label 的即将重置监控。 */
-    on_toggle_watched?: ((raw_label: string) => void) | undefined;
     /** t222: sparkline 窗口偏好（全局共享）；缺省 7 天。 */
     sparklineWindowDays?: number | undefined;
     /** t222: 变更 sparkline 窗口时写回 config。 */
@@ -66,8 +62,6 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
     forcePercent = false,
     error: _error,
     onReLogin: _onReLogin,
-    watched_labels,
-    on_toggle_watched,
     sparklineWindowDays = 7,
     onSparklineWindowChange,
 }: ProviderAccountRowProps) {
@@ -256,8 +250,6 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 barStyle={barStyle}
                 labelMap={labelMap}
                 forcePercent={forcePercent}
-                watched_labels={watched_labels}
-                on_toggle_watched={on_toggle_watched}
             />
             {!collapsed && account.periods.length > 0 && (
                 <div className="mt-2.5 flex gap-1" role="group" aria-label="趋势窗口">

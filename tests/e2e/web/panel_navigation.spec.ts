@@ -4,8 +4,8 @@ import { expect, test } from "../fixtures/test_web";
  * t259 AC2/AC3：网页版四面板互跳（PanelTitleBar 图标 → hash 路由切换）
  * 与「不渲染 min/max/close」断言。web e2e 走 mock local-api + vite preview。
  *
- * 互跳链：agent → session(history) → setting → usage。用量面板（PopupView）
- * 无标题栏（与桌面一致，托盘面板不承载互跳），故不回跳 agent。
+ * 互跳链：agent → session(history) → setting → usage。用量面板（PopupView
+ * TitleBar）t336 起也承载自身「用量面板」按钮与互跳（设置/代理/会话）。
  */
 test.describe("web panel navigation (t259/t311)", () => {
     test("标题栏互跳图标在浏览器内切换 hash 路由（AC2；t311 起为原生链接）", async ({
@@ -31,13 +31,14 @@ test.describe("web panel navigation (t259/t311)", () => {
         await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe("#usage");
     });
 
-    test("面板切换入口恒定显示（t330 取消当前面板隐藏；Agent 面板走自定义按钮组）", async ({
+    test("面板切换入口恒定显示（t330/t336 取消当前面板隐藏；Agent 面板含自身按钮）", async ({
         webPage,
     }) => {
         const page = webPage;
         await page.goto("/#agent");
         await expect(page.locator("[data-panel-titlebar=Agent]")).toBeVisible();
-        await expect(page.getByRole("link", { name: "Agent面板" })).toHaveCount(0);
+        // t336: Agent 面板补自身按钮（四面板恒定含当前面板）。
+        await expect(page.getByRole("link", { name: "Agent面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Usage面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Session面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Settings面板" })).toHaveCount(1);
@@ -50,6 +51,16 @@ test.describe("web panel navigation (t259/t311)", () => {
         await expect(page.getByRole("link", { name: "Usage面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Agent面板" })).toHaveCount(1);
         await expect(page.getByRole("link", { name: "Settings面板" })).toHaveCount(1);
+    });
+
+    test("usage 面板标题栏含用量自身按钮（t336 AC-003）", async ({ webPage }) => {
+        const page = webPage;
+        await page.goto("/#usage");
+        await expect(page.locator("[data-testid=popup-titlebar]").first()).toBeVisible();
+        await expect(page.getByRole("link", { name: "用量面板" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "设置" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "代理面板" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "会话历史" })).toHaveCount(1);
     });
 
     test("web 不渲染最小化/最大化/关闭控件，控制区其余按钮保留（AC3）", async ({ webPage }) => {

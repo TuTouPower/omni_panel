@@ -266,9 +266,10 @@ export function LabelMapDialog({
                                             }}
                                         >
                                             <Icon
-                                                name="bell"
+                                                name={watched ? "bell" : "bell_off"}
                                                 size={14}
-                                                style={{ opacity: watched ? 1 : 0.35 }}
+                                                data-slash={watched ? undefined : "true"}
+                                                style={{ opacity: watched ? 1 : 0.5 }}
                                             />
                                         </Button>
                                     )}
