@@ -599,9 +599,80 @@ function materialize_session_meta(
     query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
     start: number,
     end: number,
+    // t351 AC-002: rollup ready 时聚合来自 window_rows（已物化，无 records 全窗口
+    // 窗口函数），仅 title/started_at/ended_at 从 records 轻量补（每会话最新）。
+    from_records: boolean,
 ): void {
     const { conditions, params } = build_dashboard_conditions(query, start, end);
     prepare("DROP TABLE IF EXISTS session_meta").run();
+    if (!from_records) {
+        prepare(
+            `CREATE TEMP TABLE session_meta AS
+                SELECT source, env, session_id, directory,
+                       NULL AS title, NULL AS started_at, NULL AS ended_at,
+                       SUM(calls) AS calls,
+                       SUM(input_tokens) AS input_tokens,
+                       SUM(output_tokens) AS output_tokens,
+                       SUM(cache_read_tokens) AS cache_read_tokens,
+                       SUM(cache_write_tokens) AS cache_write_tokens
+                FROM window_rows
+                GROUP BY source, env, session_id, directory`,
+        ).run();
+        // 从 window_rows 已有 session 集合做逐会话索引窄查（走
+        // idx_records_session_ts），取每会话最新 title + 窗口 min/max timestamp。
+        // 无 records 全窗口扫描（AC-002）。agent/model 过滤与 oracle 路径一致
+        // （title 取窗口内过滤后的最新记录）。
+        const sessions = prepare(
+            "SELECT DISTINCT source, env, session_id FROM window_rows",
+        ).all() as { source: string; env: string; session_id: string }[];
+        const extra_conditions: string[] = [];
+        const extra_params: unknown[] = [];
+        if (query.agent !== "all") {
+            extra_conditions.push(" AND agent = ?");
+            extra_params.push(query.agent);
+        }
+        if (query.model) {
+            extra_conditions.push(" AND model = ?");
+            extra_params.push(query.model);
+        }
+        const meta_stmt = prepare(
+            `SELECT title, started_at, ended_at FROM (
+                SELECT title,
+                       MIN(timestamp) OVER () AS started_at,
+                       MAX(timestamp) OVER () AS ended_at,
+                       ROW_NUMBER() OVER (ORDER BY timestamp DESC, rowid DESC) AS rn
+                FROM token_stats_records
+                WHERE source = ? AND env = ? AND session_id = ?
+                  AND timestamp >= ? AND timestamp < ?${extra_conditions.join("")}
+            ) WHERE rn = 1`,
+        );
+        const update_stmt = prepare(
+            `UPDATE session_meta
+             SET title = ?, started_at = ?, ended_at = ?
+             WHERE source = ? AND env = ? AND session_id = ?`,
+        );
+        for (const s of sessions) {
+            const row = meta_stmt.get(
+                s.source,
+                s.env,
+                s.session_id,
+                start,
+                end,
+                ...extra_params,
+            ) as { title: string | null; started_at: number; ended_at: number } | undefined;
+            if (row) {
+                update_stmt.run(
+                    row.title ?? null,
+                    row.started_at,
+                    row.ended_at,
+                    s.source,
+                    s.env,
+                    s.session_id,
+                );
+            }
+        }
+        return;
+    }
     prepare(
         `CREATE TEMP TABLE session_meta AS
             SELECT source, env, session_id, title, directory, started_at, ended_at,
@@ -1361,7 +1432,7 @@ export function create_token_stats_store(
                 ? dashboard_window_union_builder(query)(query.start, query.end)
                 : dashboard_records_source(query, query.start, query.end);
             materialize_window_rows(prepare, current_source);
-            materialize_session_meta(prepare, query, query.start, query.end);
+            materialize_session_meta(prepare, query, query.start, query.end, !rollup_ready);
             const current_rollup = read_rollup_from_window_rows(prepare, true);
 
             // Metric-agnostic chart source (t200): the renderer derives the
@@ -1491,7 +1562,7 @@ export function create_token_stats_store(
                 ? dashboard_window_union_builder(query)(query.start, query.end)
                 : dashboard_records_source(query, query.start, query.end);
             materialize_window_rows(prepare, source);
-            materialize_session_meta(prepare, query, query.start, query.end);
+            materialize_session_meta(prepare, query, query.start, query.end, !rollup_ready);
             const current_rollup = read_rollup_from_window_rows(prepare, true);
             const page = dashboard_session_page_from_meta(prepare, offset, limit);
             const items = dashboard_session_items(page.rows, current_rollup);

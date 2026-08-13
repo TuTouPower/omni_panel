@@ -324,6 +324,39 @@ describe("observation-store", () => {
             ).toEqual([]);
         });
 
+        it("bounds rows to cap and keeps the newest window when points exceed cap (t351 AC-001 regression: float bucket)", () => {
+            // better-sqlite3 把 number 绑成 REAL，旧 SQL `(observed_at-?)/?` 得出浮点
+            // bucket_idx（如 3.7），PARTITION BY 每点独立分区、聚合失效，整窗按 ASC
+            // LIMIT 返回最旧 cap 行、最新点丢失。回归测试：130 点 > cap=120，须 ≤cap
+            // 且末点为全局最新观测。CAST AS INTEGER 取整后正确。
+            const now = Date.now();
+            const day_ms = 24 * 60 * 60 * 1000;
+            const cap = 120;
+            const n = 130;
+            const start = now - day_ms;
+            const ts: number[] = [];
+            for (let i = 0; i < n; i++) {
+                const t = start + Math.round(((now - start) * i) / (n - 1));
+                ts.push(t);
+                store.insert(make_observation({ observed_at: t, used: i, limit: 1000 }));
+            }
+            const series = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                1,
+            );
+            expect(series.length).toBeLessThanOrEqual(cap);
+            const first = series[0];
+            const last = series[series.length - 1];
+            assertNonNull(first);
+            assertNonNull(last);
+            const max_inserted = Math.max(...ts);
+            // 末桶取最新 → 序列末点须为全局最新观测（浮点桶回归下返回最旧 cap 个、此断言失败）。
+            expect(last.observed_at).toBe(max_inserted);
+        });
+
         it("uses a covering index for the range scan, not a full table scan", () => {
             // Seed 1 observation so the planner has statistics — empty-table plans
             // can drift across SQLite versions or after ANALYZE.
