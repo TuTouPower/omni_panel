@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
+import { accountKey } from "../../../../src/renderer/lib/provider-usage";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
 import {
     save,
@@ -457,5 +458,37 @@ describe("SettingsView", () => {
 
         // CPA child rows never expose collection status.
         expect(screen.queryByText("采集失败")).not.toBeInTheDocument();
+    });
+
+    // t342 AC-001：hide_account 写 accountKey(item)（非裸 accountId），
+    // 使主面板 apply_account_overrides 能过滤该账号。回退 SettingsView 写裸
+    // accountId 时本测试应红。
+    it("hiding an account writes accountKey(item) to accountOverrides.hidden", async () => {
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+        const display_switch = await screen.findByLabelText("显示账号");
+        await user.click(display_switch);
+
+        const item = {
+            provider: "claude",
+            source: "gateway" as const,
+            sourceInstanceId: "cpa-1",
+            accountId: "claude-main",
+            accountLabel: "Claude Account",
+        };
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    accountOverrides: {
+                        hidden: {
+                            claude: [accountKey(item)],
+                        },
+                    },
+                }),
+            );
+        });
+        expect(accountKey(item)).not.toBe(item.accountId);
     });
 });

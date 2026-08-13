@@ -4,6 +4,7 @@ import type { MetricRecord, UsageProvider } from "../../../../shared/schemas/plu
 import { CpaCard } from "../../../components/CpaCard";
 import { type VendorId } from "../../../components/Icon";
 import { VendorCard } from "../../../components/VendorCard";
+import { accountKey } from "../../../lib/provider-usage";
 import { connection_status, map_status, snapshot_items } from "../lib";
 import type { AccountsDialogState, AccountsRenameTarget } from "./accounts_section";
 
@@ -146,7 +147,7 @@ export function AccountsList({
                         rows={items.map((item) => {
                             const is_hidden =
                                 config.accountOverrides?.hidden?.[item.provider]?.includes(
-                                    item.accountId,
+                                    accountKey(item),
                                 ) ?? false;
                             const mapped_status: "ok" | "error" | "unknown" =
                                 item.status === "normal" ||
@@ -198,16 +199,29 @@ export function AccountsList({
                             hide_account(item);
                         }}
                         on_unhide={(target) => {
+                            const item = items.find(
+                                (it) =>
+                                    it.provider === target.provider &&
+                                    it.accountId === target.account_id,
+                            );
+                            if (!item) return;
+                            // t342: 恢复键与 hide 写键一致（accountKey），否则写读不对称。
                             restore_override_account(
                                 target.provider as UsageProvider,
-                                target.account_id,
+                                accountKey(item),
                                 "hidden",
                             );
                         }}
                         on_clear={(target) => {
+                            const item = items.find(
+                                (it) =>
+                                    it.provider === target.provider &&
+                                    it.accountId === target.account_id,
+                            );
+                            if (!item) return;
                             restore_override_account(
                                 target.provider as UsageProvider,
-                                target.account_id,
+                                accountKey(item),
                                 "hidden",
                             );
                         }}
