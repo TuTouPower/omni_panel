@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { use_config } from "../hooks/use-config";
 import { useTheme } from "../lib/theme";
-import { Icon } from "../components/Icon";
+import { Icon, type IconName } from "../components/Icon";
 import { Menu, MenuItem } from "../components/ui/Menu";
 import logo from "../assets/logo.svg";
 import { useResizeObserver } from "../hooks/use-resize-observer";
 
 interface TrayMenuItem {
-    icon: string;
+    icon: IconName;
     label_zh: string;
     label_en: string;
     danger?: boolean;

@@ -1,0 +1,27 @@
+{
+    "tid": "t359",
+    "attempt": 1,
+    "execution_id": "235fc48f35a6420fa0c797998f20c891",
+    "status": "done",
+    "branch": "t359_icon_alert_circle",
+    "base_sha": "ac584e8df1e9bf7da25a11be88c82c27d4a58cf2",
+    "tests": "icon.test.tsx 26 passed + 全量 renderer 110 文件 1187 passed",
+    "blackbox": "typecheck + eslint + prettier 通过；name 收窄触发 TrayMenu/icon.test 修正后全绿",
+    "review": "single；Round 1 general PASS（1 minor：缺 alert_circle 直接渲染断言已补）",
+    "ac_evidence": {
+        "AC-001": [
+            "Icon.tsx UI_ICONS 注册 alert_circle: CircleAlert（lucide import）；icon.test.tsx 引用集合守卫含 alert_circle",
+            "WebLoginSection/DeviceLoginSection/SessionSection 的 <Icon name=\"alert_circle\"> 现渲染真实 SVG（此前空 SVG）"
+        ],
+        "AC-002": [
+            "Icon.tsx 导出 type IconName = keyof typeof UI_ICONS | \"chat_square\"，IconProps.name 收窄为 IconName；未注册名被 tsc 拦截（TrayMenu icon 字段 string→IconName 同步收窄）",
+            "未注册 name 运行时防御：dev console.warn + 空 SVG（eslint-disable 跨边界防御）"
+        ],
+        "AC-003": [
+            "icon.test.tsx::渲染层所有 <Icon name> 引用均注册于 UI_ICONS（递归扫描 src/renderer tsx 提取 name 字面量 ⊆ 注册键 + chat_square）通过",
+            "既有 lucide 来源守卫正则同步更新（UI_ICONS 改 satisfies 写法）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
