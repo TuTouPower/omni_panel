@@ -368,7 +368,9 @@ describe("scan_grok_updates", () => {
         read_fail_path.current = bad;
         try {
             const result = scan_grok_updates(sessions_dir, ENV, create_grok_scan_state());
-            expect(result.missing).toBe(true);
+            // t345 AC-001: 目录未缺失 → missing=false；部分文件不可读 → file_unreadable=true。
+            expect(result.missing).toBe(false);
+            expect(result.file_unreadable).toBe(true);
             // The readable file is still collected; the unreadable one is skipped.
             expect(result.records).toHaveLength(1);
             expect(result.records[0]!.session_id).toBe("session_ok");
@@ -391,13 +393,15 @@ describe("scan_grok_updates", () => {
             read_fail_path.current = null;
         }
 
-        expect(first.missing).toBe(true);
+        expect(first.missing).toBe(false);
+        expect(first.file_unreadable).toBe(true);
         expect(first.records).toHaveLength(0);
         // mtime is NOT committed for the failed file -> next scan retries it.
         expect(first.new_state.mtimes.has(file)).toBe(false);
 
         const second = scan_grok_updates(sessions_dir, ENV, first.new_state);
         expect(second.missing).toBe(false);
+        expect(second.file_unreadable).toBe(false);
         expect(second.records).toHaveLength(1);
         expect(second.records[0]!.input_tokens).toBe(100);
     });

@@ -384,10 +384,11 @@ export function scan_kimi_wire_jsonls(
         } catch {
             continue;
         }
-        new_state.mtimes.set(file, stat.mtimeMs);
 
         const old_entry = prev.files.get(file);
         if (prev.mtimes.get(file) === stat.mtimeMs) {
+            // 未变文件：保留 prev 的 mtime 与 facts。
+            new_state.mtimes.set(file, stat.mtimeMs);
             if (old_entry) {
                 new_state.files.set(file, old_entry);
             }
@@ -402,8 +403,12 @@ export function scan_kimi_wire_jsonls(
         try {
             content = fs.readFileSync(file, "utf-8");
         } catch {
+            // t345 AC-002: 读失败不提交 mtime，下一轮重读。
             continue;
         }
+        // t345 AC-003: mtime 在 read 成功后即提交（parse-null 也提交，与
+        // grok/claude-reader 对齐）——仅「read 失败不提交」是 AC-002 语义。
+        new_state.mtimes.set(file, stat.mtimeMs);
 
         const session_id = session_id_from_path(file);
         if (!session_id) {
