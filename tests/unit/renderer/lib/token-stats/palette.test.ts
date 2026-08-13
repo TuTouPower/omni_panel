@@ -5,6 +5,7 @@ import {
     get_chart_palette_revision,
     notify_chart_palette_change,
     palette_for,
+    reset_chart_palette_cache,
     resolve_chart_palette,
     subscribe_chart_palette_revision,
     top_category_color,
@@ -46,6 +47,7 @@ const css_tokens: Record<string, string> = {
 let active_css_tokens = css_tokens;
 
 beforeEach(() => {
+    reset_chart_palette_cache();
     active_css_tokens = css_tokens;
     vi.spyOn(window, "getComputedStyle").mockImplementation(
         () =>
@@ -127,5 +129,51 @@ describe("echarts token resolver", () => {
         expect(top_category_color(99, "dark")).toBe("#707070");
         expect(agent_color("claude-code", "dark")).toBe("#c1c1c1");
         expect(agent_color("unknown", "dark")).toBe("#123456");
+    });
+
+    it("caches palette per (theme, revision) so取色不重复重建 (t350 AC-001)", () => {
+        reset_chart_palette_cache();
+        const root = document.createElement("div");
+        const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(
+            () =>
+                ({
+                    getPropertyValue: (name: string) => active_css_tokens[name] ?? "",
+                }) as CSSStyleDeclaration,
+        );
+        spy.mockClear();
+
+        // 首次 resolve 构建 palette（~30 次 getComputedStyle）。
+        resolve_chart_palette("dark", root);
+        const first_count = spy.mock.calls.length;
+        expect(first_count).toBeGreaterThan(0);
+
+        // 后续取色复用缓存，不再调 getComputedStyle。
+        spy.mockClear();
+        palette_for("dark");
+        top_category_color(0, "dark");
+        agent_color("claude-code", "dark");
+        expect(spy.mock.calls.length).toBe(0);
+        spy.mockRestore();
+    });
+
+    it("rebuilds palette when revision changes (t350 AC-002)", () => {
+        reset_chart_palette_cache();
+        const root = document.createElement("div");
+        const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(
+            () =>
+                ({
+                    getPropertyValue: (name: string) => active_css_tokens[name] ?? "",
+                }) as CSSStyleDeclaration,
+        );
+        spy.mockClear();
+
+        resolve_chart_palette("dark", root);
+        spy.mockClear();
+
+        // revision 递增（主题切换）→ 缓存失效，重建。
+        notify_chart_palette_change();
+        palette_for("dark");
+        expect(spy.mock.calls.length).toBeGreaterThan(0);
+        spy.mockRestore();
     });
 });

@@ -2,11 +2,11 @@
 tid: "t350"
 slug: "echarts_palette_cache"
 title: "echarts palette 缓存"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t350_echarts_palette_cache"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "7147b202e51c69213cf2103660b2316a0c4ce0eb"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 每次取色重建 palette"
@@ -22,7 +22,11 @@ note: "review_intensive: 每次取色重建 palette"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+- palette_cache Map + key = `${theme}:${revision}`；resolve_chart_palette 命中返回，未命中构建（原逻辑移入 build_chart_palette）。
+- notify_chart_palette_change 与 MutationObserver 回调双路径递增 revision 时清缓存（防 key 累积）。
+- reset_chart_palette_cache 导出（测试隔离）。
+- 测试：AC-001（getComputedStyle spy 首次>0 后续 0）、AC-002（revision 递增重建）。
 
 ## Review 处置
 
@@ -43,6 +47,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 23:05 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t350_gen_f001 | minor | 已修 | MutationObserver 回调清 palette_cache（与 notify 对称，防孤立条目累积） | echarts_token_resolver.ts |
+| t350_gen_f002 | minor | 遗留 | 缓存 key 不含 root（latent API 陷阱，生产走默认 documentElement 无影响），登记 p170 | p170 |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -74,10 +85,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（f001 minor 已修、f002 minor 遗留）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- echarts palette 模块级缓存：resolve_chart_palette 按 (theme, revision) 缓存，agent_color/top_category_color/palette_for 复用；notify + observer 双路径清缓存；补 AC-001/AC-002 单测（getComputedStyle 计数）。Round 1 general PASS。顺手发现 p170（缓存 key 不含 root）登记 pending。

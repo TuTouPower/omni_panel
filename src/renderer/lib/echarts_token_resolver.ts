@@ -179,6 +179,9 @@ function ensure_observer(): void {
         if (next === observed_signature) return;
         observed_signature = next;
         palette_revision += 1;
+        // t350: 与 notify_chart_palette_change 对称——observer 路径同样清缓存，
+        // 避免孤立条目累积（key 含 revision 已保正确性，这里防内存累积）。
+        palette_cache.clear();
         revision_listeners.forEach((listener) => {
             listener();
         });
@@ -203,6 +206,8 @@ export function subscribe_chart_palette_revision(listener: () => void): () => vo
 export function notify_chart_palette_change(): number {
     ensure_observer();
     palette_revision += 1;
+    // t350: revision 变化即清缓存（主题切换重建 palette；避免 key 无限累积）。
+    palette_cache.clear();
     if (observed_root) observed_signature = root_signature(observed_root);
     revision_listeners.forEach((listener) => {
         listener();
@@ -302,10 +307,35 @@ export function color_with_alpha(color: string, alpha: number): string {
     return alpha_color(color, Math.max(0, Math.min(1, alpha)));
 }
 
+// t350: 模块级 palette 缓存，key = `${theme}:${revision}`。同一 (theme, revision)
+// 下 palette 只构建一次，agent_color/top_category_color/palette_for 复用，
+// 避免渲染路径逐行/逐 segment 反复重建（每次 ~30 次 resolved_token）。
+const palette_cache = new Map<string, ChartPalette>();
+
+function palette_cache_key(theme: ChartTheme): string {
+    return `${theme}:${String(palette_revision)}`;
+}
+
+/** 清空 palette 缓存（主题切换由 notify_chart_palette_change 自动清；测试用）。 */
+export function reset_chart_palette_cache(): void {
+    palette_cache.clear();
+}
+
 export function resolve_chart_palette(
     theme: ChartTheme,
     root: HTMLElement | null = current_root(),
 ): ChartPalette {
+    const key = palette_cache_key(theme);
+    const cached = palette_cache.get(key);
+    if (cached) {
+        return cached;
+    }
+    const palette = build_chart_palette(theme, root);
+    palette_cache.set(key, palette);
+    return palette;
+}
+
+function build_chart_palette(theme: ChartTheme, root: HTMLElement | null): ChartPalette {
     ensure_observer();
     const fallback = FALLBACK_PALETTES[theme];
     const surface_card = resolved_token(root, ["--color-surface-card"], fallback.sliceBorder);
