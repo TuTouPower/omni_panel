@@ -174,4 +174,23 @@ describe("deepseek connector", () => {
         expect(result.error).toContain("balance_infos");
         expect(result.observations).toEqual([]);
     });
+
+    it("reports failed on empty API_KEY instead of silent success (t362 AC-001)", async () => {
+        const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.resolve({}),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "   ", LIMIT: "100" },
+            status: ctx_status,
+            report_failed_account: () => undefined,
+        });
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Missing required secret: API_KEY");
+        expect(result.observations).toEqual([]);
+    });
 });

@@ -1,0 +1,27 @@
+{
+    "tid": "t362",
+    "attempt": 1,
+    "execution_id": "c003b9fa01fb4d7a82468a1ca260a9bd",
+    "status": "done",
+    "branch": "t362_connector_empty_credential",
+    "base_sha": "0b5a7f030d9d08205f7b555d75eb998a239528b7",
+    "tests": "全部 connector 21 文件 232 passed（含新增：deepseek/tikhub 空 key 报错、antigravity stub 报暂不支持、kimi manifest API_KEY 移除）",
+    "blackbox": "typecheck + eslint 全绿；prettier 本 task 文件干净",
+    "review": "single；Round 1 general PASS（3 minor：f001 kimi 移除 API_KEY 破坏遗留账号已改为保留 + SettingsForm 暴露非主 secret 输入 / f002 connector-auth 描述实际正确 / f003 antigravity manifest stub 标记可选）",
+    "ac_evidence": {
+        "AC-001": [
+            "deepseek/connector.ts 空 API_KEY throw 'Missing required secret: API_KEY'（原静默 return []）",
+            "tikhub/connector.ts 同改",
+            "tests/integration/connector/deepseek-connector.test.ts::reports failed on empty API_KEY（error 含 Missing required secret: API_KEY）通过",
+            "tests/integration/connector/tikhub_connector.test.ts::reports failed on empty API_KEY 通过",
+            "kimi API_KEY 回退：manifest.json 保留 API_KEY 参数 + SettingsForm 仅排除主 auth secret（非主 secret 保留表单输入，f001 修复不破坏遗留账号）"
+        ],
+        "AC-002": [
+            "antigravity/connector.ts 占位 stub 明确 throw '暂不支持'（原恒 return [] 误导为可用）",
+            "tests/integration/connector/antigravity-connector.test.ts::connector script is a stub and reports not-supported（error 含 暂不支持，不静默空）通过",
+            "docs/specs/connector-direct.md antigravity 行标注占位 stub + UNVERIFIED-SPIKE"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

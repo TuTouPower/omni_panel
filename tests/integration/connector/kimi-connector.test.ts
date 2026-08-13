@@ -60,18 +60,17 @@ describe("kimi connector", () => {
         expect(raw.capabilities).toContain("poll");
     });
 
-    it("manifest declares OAUTH_TOKEN and optional API_KEY parameters", async () => {
+    it("manifest declares OAUTH_TOKEN and optional API_KEY fallback (t362: UI 暴露 API_KEY 输入)", async () => {
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
         const oauth_param = raw.parameters.find((p) => p.name === "OAUTH_TOKEN");
         expect(oauth_param).toBeDefined();
         expect(oauth_param?.type).toBe("secret");
         expect(oauth_param?.exposeToScript).toBe(true);
+        // t362: API_KEY 回退保留，且 SettingsForm 现渲染非主 secret（UI 可设）。
         const api_key_param = raw.parameters.find((p) => p.name === "API_KEY");
         expect(api_key_param).toBeDefined();
         expect(api_key_param?.type).toBe("secret");
-        // API_KEY is an optional fallback now that OAuth device-code login exists.
         expect(api_key_param?.required).toBe(false);
-        expect(api_key_param?.exposeToScript).toBe(true);
     });
 
     it("manifest declares oauth_device auth descriptor", async () => {
