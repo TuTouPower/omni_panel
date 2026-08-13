@@ -1,0 +1,27 @@
+{
+    "tid": "t342",
+    "attempt": 1,
+    "execution_id": "816d115d71e24d55a8046292a531cf01",
+    "status": "done",
+    "branch": "t342_account_overrides_hide_key",
+    "base_sha": "1ebfb619708562cd10cb61767a85a55f4ec7fc6f",
+    "tests": "相关测试全绿：provider-usage 57（含 AC-003 集成 1）、account-overrides 16、settings_view_cpa 12（含 hide 写键端到端 1）、settings_view_watched 4 等；typecheck/lint/prettier 干净。全量 unit 2394 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002 由 settings 交互测试（真实 hide_account 写键断言 save 收 accountKey）+ apply_account_overrides 单测覆盖，AC-003 由 provider-usage 集成测试覆盖。",
+    "review": "review_level=single；Round 1 general FAIL（f001 important/f002 minor 已修、f003 minor 遗留→p157）；Round 2 general PASS。报告 t342_review_general.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "SettingsView.tsx hide_account 改 add_account_override(..., accountKey(item))——写键与 apply_account_overrides 消费键一致",
+            "settings_view_cpa.test.tsx::hiding an account writes accountKey(item)——点「显示账号」Switch 断言 save 收含 accountKey(item)（cpa-1|claude-main）的 hidden override，且 accountKey != accountId"
+        ],
+        "AC-002": [
+            "accounts_list.tsx is_hidden 判定改 config.accountOverrides.hidden[provider].includes(accountKey(item))——与主面板 apply_account_overrides 的 accountKey 口径一致",
+            "on_unhide/on_clear 恢复键对称改用 accountKey(item)"
+        ],
+        "AC-003": [
+            "provider-usage.test.ts::hidden override written with accountKey(item) removes the account from the panel——写 accountKey → apply_account_overrides 过滤后 group 为空",
+            "settings_view_cpa.test.tsx hide 写键用例覆盖真实 hide_account 路径"
+        ]
+    },
+    "pending": ["p157"],
+    "findings": []
+}

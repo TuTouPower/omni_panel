@@ -6,6 +6,7 @@ import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import {
+    accountKey,
     apply_account_labels,
     apply_account_overrides,
     build_provider_usage_groups,
@@ -868,6 +869,44 @@ describe("apply_account_overrides", () => {
 
         expect(result.map((group) => group.provider)).toEqual(["kimi"]);
         expect(result[0]?.accounts[0]?.accountLabel).toBe("Shared Account");
+    });
+
+    // t342 AC-003：隐藏链路端到端——settings 侧写 accountKey(item) 后，
+    // 主面板 apply_account_overrides 能过滤该账号。锁写键与消费键一致。
+    it("hidden override written with accountKey(item) removes the account from the panel (t342)", () => {
+        const item = usageItem({
+            id: "claude-x-5h",
+            provider: "claude",
+            source: "gateway",
+            sourceInstanceId: "cpa-main",
+            accountId: "auth-x",
+            accountLabel: "Account X",
+            name: "Claude Pro · 5小时",
+        });
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [item],
+                },
+            }),
+        ];
+        const groups = build_provider_usage_groups(connectors);
+
+        // settings 侧 hide_account 写 accountKey(item)（t342 修复点）。
+        const written_key = accountKey(item);
+        expect(written_key).not.toBe(item.accountId); // 裸 accountId 与 accountKey 不同
+
+        const result = apply_account_overrides(groups, {
+            hidden: { claude: [written_key] },
+        });
+
+        // 主面板不再显示该账号。
+        expect(result).toHaveLength(0);
     });
 });
 

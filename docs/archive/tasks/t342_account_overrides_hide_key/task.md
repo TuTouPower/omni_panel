@@ -2,11 +2,11 @@
 tid: "t342"
 slug: "account_overrides_hide_key"
 title: "隐藏账号 override 键错配修复"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t342_account_overrides_hide_key"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "1ebfb619708562cd10cb61767a85a55f4ec7fc6f"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: hide_account 写 accountId 读 accountKey"
@@ -22,7 +22,11 @@ note: "review_intensive: hide_account 写 accountId 读 accountKey"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+
+- SettingsView hide_account 写 `accountKey(item)`（原裸 accountId，与 apply_account_overrides 消费键错配）。
+- accounts_list.tsx is_hidden 判定改 accountKey(item)；on_unhide/on_clear 恢复键对称改 accountKey（find item 后传）。
+- 补 AC-003：provider-usage.test.ts 集成测试（写 accountKey → apply_account_overrides 过滤）+ settings_view_cpa 写端测试（点「显示账号」Switch 断言 save 收 accountKey）。
 
 ## Review 处置
 
@@ -43,6 +47,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 16:33 UTC+8)
+
+| finding_id    | severity  | status | rationale                                                                                                                                              | fix_ref                            |
+| ------------- | --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| t342_gen_f001 | important | 已修   | 新增 settings_view_cpa 用例：渲染 SettingsView 点「显示账号」Switch，断言 save 收到含 accountKey(item) 的 hidden override（回退裸 accountId 该测试红） | settings_view_cpa.test.tsx:464-493 |
+| t342_gen_f002 | minor     | 已修   | on_unhide/on_clear 恢复键对称改用 accountKey                                                                                                           | accounts_list.tsx:201-227          |
+| t342_gen_f003 | minor     | 遗留   | find 首个匹配删错键（低概率 pre-existing），登记 follow-up                                                                                             | p157                               |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -74,10 +86,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（f001 important、f002 minor 已修；f003 minor 遗留）
+- Round 2 general：PASS（f003 遗留已登记 p157）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- hide_account 写键/读键/恢复键统一到 accountKey，主面板隐藏生效 + settings 口径一致；补端到端测试（settings 写 → apply_account_overrides 过滤）。Round 2 general PASS。顺手发现 p157（find 首个匹配低概率问题）登记 pending。
