@@ -5057,6 +5057,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t337_opencode_web_login_cookie_validate"
+        },
+        {
+            "tid": "t373",
+            "slug": "repo_template_ci",
+            "title": "repo_template pytest 接入 CI",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "review_intensive: 18 pytest 无 CI 回归; dropped: 用户决定不处理 repo_template 工具链问题",
+            "dir": "docs/archive/tasks/t373_repo_template_ci"
+        },
+        {
+            "tid": "t374",
+            "slug": "repo_template_consolidation",
+            "title": "repo_template 重复/漂移/健壮性收敛",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "review_intensive: plan 三份/parse_front_matter/原子写/git 超时; dropped: 用户决定不处理 repo_template 工具链问题",
+            "dir": "docs/archive/tasks/t374_repo_template_consolidation"
         }
     ]
 }

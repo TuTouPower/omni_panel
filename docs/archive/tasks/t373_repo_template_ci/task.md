@@ -2,14 +2,14 @@
 tid: "t373"
 slug: "repo_template_ci"
 title: "repo_template pytest 接入 CI"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: "review_intensive: 18 pytest 无 CI 回归"
+note: "review_intensive: 18 pytest 无 CI 回归; dropped: 用户决定不处理 repo_template 工具链问题"
 ---
 
 # Task 过程总账
