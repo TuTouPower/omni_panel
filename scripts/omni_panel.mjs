@@ -17,12 +17,13 @@
  * `pnpm cli:serve`（自带 .scratch/dev-serve 沙盒，见 docs/guides/cli-mode.md），
  * 不要用全局命令跑开发实例。
  */
-import { existsSync, mkdirSync, openSync, closeSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, closeSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import { get as httpGet } from "node:http";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { parse_cli_json } from "./cli_json_parse.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, "..");
@@ -70,6 +71,7 @@ const is_background = is_serve && !is_foreground;
 
 // 默认 dataRoot（~/.config/OmniPanel）或 --user-data-dir <path> 覆盖。
 // 兼容空格形式（--user-data-dir <path>）与 = 形式（--user-data-dir=<path>）。
+/** @type {string | undefined} */
 let user_data_dir;
 const udd_index = args.indexOf("--user-data-dir");
 if (udd_index >= 0 && args[udd_index + 1]) {
@@ -78,22 +80,30 @@ if (udd_index >= 0 && args[udd_index + 1]) {
     const udd_eq = args.find((a) => a.startsWith("--user-data-dir="));
     user_data_dir = udd_eq ? udd_eq.slice("--user-data-dir=".length) : undefined;
 }
-const data_root = user_data_dir
+const data_root_candidate = user_data_dir
     ? resolve(user_data_dir)
     : join(homedir(), ".config", "OmniPanel");
+const data_root = typeof data_root_candidate === "string" ? data_root_candidate : "";
+
+/** @typedef {{ port: number, url: string, pid: number, userData: string, startedAt: string }} CliInstanceInfo */
 
 /**
  * 探测 dataRoot 下 cli.json 记录的实例是否仍在运行。可达返回实例信息，否则 null。
  * cli.json 在实例退出后保留（见 cli-json.ts 注释），所以不可达 = 残留文件 = 无实例。
+ * @param {string} data_root
+ * @returns {Promise<CliInstanceInfo | null>}
  */
 function probe_running_instance(data_root) {
     let info;
     try {
-        info = JSON.parse(readFileSync(join(data_root, "cli.json"), "utf8"));
+        const candidate = join(data_root, "cli.json");
+        if (typeof candidate !== "string") return Promise.resolve(null);
+        const parsed = parse_cli_json(candidate);
+        if (!parsed.ok) return Promise.resolve(null);
+        info = parsed.info;
     } catch {
         return Promise.resolve(null);
     }
-    if (!info?.port || typeof info.pid !== "number") return Promise.resolve(null);
     return new Promise((resolve) => {
         const req = httpGet(
             { host: "localhost", port: info.port, path: "/v1/health", timeout: 1500 },
@@ -132,10 +142,7 @@ if (is_background) {
     // 打印后立即返回；child 继续后台。
     const log_dir = join(data_root, "logs");
     mkdirSync(log_dir, { recursive: true });
-    const log_path = join(
-        log_dir,
-        `serve-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
-    );
+    const log_path = join(log_dir, `serve-${new Date().toISOString().replace(/[:.]/g, "-")}.log`);
     const log_fd = openSync(log_path, "a");
     const child = spawn(RELEASE_BIN, args, {
         detached: true,
@@ -155,20 +162,26 @@ if (is_background) {
         process.exit(code ?? 0);
     });
     // 轮询 cli.json 拿服务地址（app 启动成功即写，含 port/url/pid）。
-    const cli_json = join(data_root, "cli.json");
+    const cli_json_candidate = join(data_root, "cli.json");
+    const cli_json = typeof cli_json_candidate === "string" ? cli_json_candidate : "";
     const deadline = Date.now() + 15_000;
     const poll = setInterval(() => {
         try {
-            const info = JSON.parse(readFileSync(cli_json, "utf8"));
-            // 仅接受本次启动写入的 cli.json（旧实例残留可能端口不符）。
-            if (info?.url && info?.pid === child.pid) {
-                clearInterval(poll);
-                process.stdout.write(`OmniPanel CLI mode listening on ${info.url}\n`);
-                console.log(`[omni_panel] 已启动新实例（pid=${String(child.pid)}）；日志：`);
-                console.log(`  ${log_path}`);
-                console.log(`  停止：omni_panel --cli quit --port ${String(info.port)}`);
-                child.unref();
-                process.exit(0);
+            const parsed = parse_cli_json(cli_json);
+            if (!parsed.ok) {
+                // cli.json 未就绪或损坏，继续轮询（或等超时清理）。
+            } else {
+                const info = parsed.info;
+                // 仅接受本次启动写入的 cli.json（旧实例残留可能端口不符）。
+                if (info.url && info.pid === child.pid) {
+                    clearInterval(poll);
+                    process.stdout.write(`OmniPanel CLI mode listening on ${info.url}\n`);
+                    console.log(`[omni_panel] 已启动新实例（pid=${String(child.pid)}）；日志：`);
+                    console.log(`  ${log_path}`);
+                    console.log(`  停止：omni_panel --cli quit --port ${String(info.port)}`);
+                    child.unref();
+                    process.exit(0);
+                }
             }
         } catch {
             // cli.json 尚未写出，继续轮询。
@@ -188,7 +201,9 @@ if (is_background) {
     // 轮询 interval 保持事件循环活跃，直到 cli.json 出现（成功）或超时（失败）。
     // child 在成功路径才 unref（退出 launcher 后继续后台）。
 } else {
-    const child = spawn(RELEASE_BIN, args, { stdio: is_cli ? ["inherit", "inherit", "pipe"] : "inherit" });
+    const child = spawn(RELEASE_BIN, args, {
+        stdio: is_cli ? ["inherit", "inherit", "pipe"] : "inherit",
+    });
 
     if (is_cli) {
         // Electron/Chromium 在无图形会话（headless/WSL 无 dbus）下会向 stderr 打
