@@ -61,8 +61,11 @@
             "eslint --fix",
             "prettier --write"
         ],
-        "*.{json,md,css}": [
+        "*.{json,css}": [
             "prettier --write"
+        ],
+        "*.md": [
+            "python3 scripts/repo_template/md_format.py"
         ]
     },
     "pnpm": {
