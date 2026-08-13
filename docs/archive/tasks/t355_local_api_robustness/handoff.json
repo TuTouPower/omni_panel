@@ -1,0 +1,31 @@
+{
+    "tid": "t355",
+    "attempt": 1,
+    "execution_id": "0a816925f4bc483db82096b12b0670f6",
+    "status": "done",
+    "branch": "t355_local_api_robustness",
+    "base_sha": "1145034f1f5594655f3ec7c6ee27eb991db49846",
+    "tests": "tests/integration/local-api/server.test.ts 86 passed（含新增 4 用例：413 连接复用 / 重复 subscribe 注销 / 畸形 percent 400 / immutable 缓存头）",
+    "blackbox": "typecheck + lint + prettier 通过；纯 local-api 服务端健壮性，无 electron 运行黑盒，以真实 HTTP 集成单测断言代替",
+    "review": "single；Round 1 general PASS（0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/local-api/server.test.ts::keep-alive connection stays reusable after a 413（超限 body 后同一 socket 第二个请求 200 完成，5s 超时防挂死）通过",
+            "server.ts parse_body 超限后 req.resume() 丢弃剩余 body，keep-alive 连接不悬死"
+        ],
+        "AC-002": [
+            "tests/integration/local-api/server.test.ts::POST /v1/sessionHistory/subscribe 重复 subscriber_id 注销旧 watcher（同 id 二次 subscribe 前 service.unsubscribe 被调，参数 source/env/session_id/subscriber_id）通过",
+            "server.ts subscribe 前检查 ctx.subs 旧 sub 先 unsubscribe"
+        ],
+        "AC-003": [
+            "tests/integration/local-api/server.test.ts::GET / 畸形 percent 编码返回 400 非 500（?%zz 断言 400 + error Invalid URL encoding）通过",
+            "server.ts serve_static decodeURIComponent 包 try/catch 回 400"
+        ],
+        "AC-004": [
+            "tests/integration/local-api/server.test.ts::GET / 非 .html 资产带 immutable 缓存头（app.js 断言 Cache-Control: public, max-age=31536000, immutable）通过",
+            "server.ts serve_static 非 .html 分支加 immutable 缓存头"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
