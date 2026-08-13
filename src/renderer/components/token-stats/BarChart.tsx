@@ -21,7 +21,9 @@ import type {
 } from "../../../shared/types/token-stats";
 
 interface BarChartProps {
-    records: AgentSessionUsage[];
+    /** Legacy per-message records; superseded by chartData (t358) but kept for
+     *  the prepareBarData fallback when chartData is absent. */
+    records?: AgentSessionUsage[];
     /** Day-aggregated buckets; when provided, the time axis uses these instead
      * of records (>=7d windows where records exceed the fetch LIMIT). */
     buckets?: TokenStatsBucket[];
@@ -146,7 +148,7 @@ export function BarChart({
             return prepareBarDataFromRollup(rollup, metric, xaxis, theme, dirAliases, modelAliases);
         }
         return prepareBarData(
-            records,
+            records ?? [],
             metric,
             xaxis,
             gran,

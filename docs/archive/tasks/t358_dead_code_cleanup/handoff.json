@@ -1,0 +1,25 @@
+{
+    "tid": "t358",
+    "attempt": 1,
+    "execution_id": "4bc948e918a14f719442e8428b3a0ccc",
+    "status": "done",
+    "branch": "t358_dead_code_cleanup",
+    "base_sha": "6ea0b16d81866cac48385bf10952f1c0e51990f3",
+    "tests": "全量 t358 相关 128 测试文件 1504 passed（删除后无残留引用；token_panel/usage-colors/add_account/session-library/settings_view 全过）",
+    "blackbox": "typecheck + eslint 全绿；knip 无 CpaAddDialog/Button/Card/session_meta 残留（其余 54 未使用导出为预存）",
+    "review": "single；Round 1 general PASS（1 minor：WorkspaceView.test.tsx 预存 flaky，baseline 复现非本 task 引入）",
+    "ac_evidence": {
+        "AC-001": [
+            "删除 components/Button.tsx / components/Card.tsx / lib/session_meta.ts（各仅单测引用）+ 对应单测；tsc --noEmit 通过、eslint --max-warnings=0 通过、knip 无残留"
+        ],
+        "AC-002": [
+            "删除 CpaAddDialog.tsx + SettingsView 引用（import/state showCpaAdd/JSX），CPA 添加仍走 AddAccountDialog 单一入口；settings_view.test.tsx 通过"
+        ],
+        "AC-003": [
+            "TokenPanel 删 range state + Segmented 控件（display_value 不读 range），同步删 token_panel.test.tsx 两 range 测试；TokenStatsView 删恒空 never[] 4 个 + BarChart 传参（records 改可选 + records ?? [] 兜底）；SessionLibrary 删 content_hits 死 state（只写不读）；VendorPicker 删 plugin_infos 死 prop + can_add 恒真；usage_window_elapsed 恒等函数删除",
+            "相关组件测试通过：token_panel/usage-colors/add_account_dialog/session-library/settings_view/token-stats 全绿"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -337,9 +337,7 @@ export function AddAccountDialog({
                 ) : undefined
             }
         >
-            {step === "vendor" && (
-                <VendorPicker plugin_infos={plugin_infos} on_select={handle_select_vendor} />
-            )}
+            {step === "vendor" && <VendorPicker on_select={handle_select_vendor} />}
             {step === "auth" && vendor_id && (
                 <>
                     {auth_method === "apikey" && !has_extra_fields && (
