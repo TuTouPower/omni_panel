@@ -37,11 +37,14 @@ describe("schema:export 产物与 zod 源一致（t338）", () => {
     });
 
     it("items 含 metric_id/cycleDurationMs/error 内容契约", () => {
-        const item_props = (
-            derived_plugin_output().anyOf as {
-                properties: { items: { items: { properties: Record<string, unknown> } } };
-            }[]
-        )[0].properties.items.items.properties;
+        const any_of = derived_plugin_output()["anyOf"] as
+            | {
+                  properties: { items: { items: { properties: Record<string, unknown> } } };
+              }[]
+            | undefined;
+        const item_props = any_of?.[0]?.properties.items.items.properties;
+        expect(item_props).toBeDefined();
+        if (item_props === undefined) throw new Error("plugin-output items properties 缺失");
         expect(item_props).toHaveProperty("metric_id");
         expect(item_props).toHaveProperty("cycleDurationMs");
         expect(item_props).toHaveProperty("error");
@@ -49,7 +52,7 @@ describe("schema:export 产物与 zod 源一致（t338）", () => {
     });
 
     it("plugin-metadata 顶层含 login_url/cookie_names", () => {
-        const props = derived_plugin_metadata().properties as Record<string, unknown>;
+        const props = derived_plugin_metadata()["properties"] as Record<string, unknown>;
         expect(props).toHaveProperty("login_url");
         expect(props).toHaveProperty("cookie_names");
     });
