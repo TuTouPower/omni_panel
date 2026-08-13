@@ -324,7 +324,13 @@ export function SettingsForm({
     const visible_parameters = parameters.filter(
         (param) =>
             (providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL") &&
-            !(has_dedicated_auth_section && param.type === "secret"),
+            // 有专用 auth 区时排除主认证 secret（auth_secret_name 由 OAuth/WebLogin 区处理），
+            // 其余 secret 参数（如 kimi 的 API_KEY 回退）保留表单输入（t362）。
+            !(
+                has_dedicated_auth_section &&
+                param.type === "secret" &&
+                param.name === auth_secret_name
+            ),
     );
 
     return (

@@ -202,4 +202,13 @@ describe("tikhub connector", () => {
         expect(result.error).toContain("HTTP 500");
         expect(result.observations).toEqual([]);
     });
+
+    it("reports failed on empty API_KEY instead of silent success (t362 AC-001)", async () => {
+        const get_json = vi.fn<ConnectorContext["http"]["get_json"]>().mockResolvedValue({});
+        const ctx = create_ctx_with_get_json(get_json, { API_KEY: "", LIMIT: "200" });
+        const result = await run_tikhub_with_ctx(ctx);
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Missing required secret: API_KEY");
+        expect(result.observations).toEqual([]);
+    });
 });
