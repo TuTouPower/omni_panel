@@ -195,6 +195,9 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
             if (total_size > MAX_BODY_BYTES) {
                 too_large = true;
                 req.pause();
+                // t355 AC-001: 丢弃剩余 body，避免 keep-alive 连接悬死；reject 后
+                // 调用方响应 413，连接可继续复用。
+                req.resume();
                 reject(new RequestBodyTooLargeError("Request body too large"));
                 return;
             }
@@ -573,6 +576,17 @@ async function handle_web_session_history_subscribe(
         return;
     }
     const loc = { source, env: env as Env, session_id };
+    // t355 AC-002: 同一 subscriber_id 重复 subscribe 时先注销旧 watcher，避免
+    // 旧 on_update 错路由推送 + watcher 泄漏。
+    const previous_sub = ctx.subs.get(subscriber_id);
+    if (previous_sub) {
+        deps.service.unsubscribe(
+            previous_sub.source,
+            previous_sub.env,
+            previous_sub.session_id,
+            subscriber_id,
+        );
+    }
     ctx.subs.set(subscriber_id, { ...loc, client: sse_client });
     deps.service.subscribe({
         ...loc,
@@ -675,7 +689,14 @@ export function is_within_web_root(web_root: string, resolved: string): boolean 
 
 /** Serve a static file from web_root, falling back to index.html (SPA). */
 function serve_static(url: URL, res: ServerResponse, web_root: string): void {
-    const requested = decodeURIComponent(url.pathname);
+    // t355 AC-004: 畸形 percent 编码抛 URIError，捕获回 400（否则落全局 catch → 500）。
+    let requested: string;
+    try {
+        requested = decodeURIComponent(url.pathname);
+    } catch {
+        json_response(res, 400, { error: "Invalid URL encoding" });
+        return;
+    }
     const resolved = path.resolve(web_root, requested.replace(/^[/\\]+/, ""));
     if (!is_within_web_root(web_root, resolved)) {
         json_response(res, 403, { error: "Forbidden" });
@@ -703,6 +724,10 @@ function serve_static(url: URL, res: ServerResponse, web_root: string): void {
                     "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; " +
                     "frame-ancestors 'none'; base-uri 'self'";
                 headers["X-Content-Type-Options"] = "nosniff";
+            } else {
+                // t355 AC-005: 非 .html 资产（哈希文件名）加 immutable 缓存头，
+                // 避免每次全量读盘。
+                headers["Cache-Control"] = "public, max-age=31536000, immutable";
             }
             res.writeHead(200, headers);
             res.end(data);
@@ -1134,6 +1159,12 @@ export function create_local_api_server(
             json_response(res, 404, { error: "Not found" });
         })().catch((err: unknown) => {
             log.error("request failed", err);
+            // t355 AC-003: 响应头已发送后不能再写 500（会抛 ERR_HTTP_HEADERS_SENT），
+            // 直接 destroy 连接。
+            if (res.headersSent) {
+                res.destroy();
+                return;
+            }
             json_response(res, 500, { error: "Internal server error" });
         });
     }
