@@ -590,10 +590,6 @@ export function TokenStatsView() {
     const modelTokenSegs = dashboard_segments(currentSummary?.model_token_totals ?? [], palette);
     const modelCallSegs = dashboard_segments(currentSummary?.model_call_totals ?? [], palette);
     const modelColors = dashboard_model_colors(currentSummary?.model_token_totals ?? [], palette);
-    const currentRecords: never[] = [];
-    const currentBuckets: never[] = [];
-    const hourBuckets: never[] = [];
-    const rollup: never[] = [];
     const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
         (acc, b) => (!acc || b.value > acc.value ? b : acc),
         null,
@@ -1021,10 +1017,6 @@ export function TokenStatsView() {
                                 </div>
                             </div>
                             <BarChart
-                                records={currentRecords}
-                                buckets={currentBuckets}
-                                hourBuckets={hourBuckets}
-                                rollup={rollup}
                                 metric={metric}
                                 xaxis={effective_xaxis}
                                 gran={effective_gran}

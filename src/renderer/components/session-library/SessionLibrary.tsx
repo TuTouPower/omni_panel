@@ -204,7 +204,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         }, 2500);
     }, []);
 
-    const [, set_content_hits] = useState<Set<string>>(new Set());
     const filtered = all;
     const content_filtered = useMemo(
         () => (search && search_content ? sort_sessions(content_sessions, sort) : filtered),
@@ -221,13 +220,11 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             content_debounce_ref.current = null;
         }
         if (!search || !search_content) {
-            set_content_hits(new Set());
             set_content_sessions([]);
             set_content_searching(false);
             set_content_search_error(false);
             return;
         }
-        set_content_hits(new Set());
         set_content_sessions([]);
         set_content_search_error(false);
         set_content_searching(true);
@@ -258,7 +255,6 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                               sessions: [],
                           }
                         : result;
-                    set_content_hits(new Set(response.hits));
                     set_content_sessions([...response.sessions]);
                     set_content_search_error(false);
                     set_content_searching(false);
