@@ -1,0 +1,27 @@
+{
+    "tid": "t336",
+    "attempt": 1,
+    "execution_id": "624b3794ac9243cf897d90ccdb81a6f5",
+    "status": "done",
+    "branch": "t336_titlebar_current_all_panels",
+    "base_sha": "d2a7cad8a1e16651e3688bc42f45d96c2f02c696",
+    "tests": "pnpm test：2990 passed / 9 skipped",
+    "blackbox": "web e2e panel_navigation 5 passed（四面板恒定含当前自身 + usage 用量自身按钮）；typecheck 通过",
+    "review": "single；Round 1-2 PASS（5 条 minor 全部已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx：标题栏单行含 Agent 自身按钮 + 点击触发 open_token_stats 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/popup_view.test.tsx：按钮序含用量面板自身按钮 + web 态 href=#usage 通过"
+        ],
+        "AC-003": [
+            "tests/e2e/web/panel_navigation.spec.ts：agent/session/usage 四面板链接恒定含当前自身 通过（实跑 5 passed）"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx 回归通过；全量 2990 passed"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

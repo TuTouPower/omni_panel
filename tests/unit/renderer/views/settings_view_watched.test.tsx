@@ -161,5 +161,55 @@ describe("SettingsView", () => {
                 });
             });
         });
+
+        it("未监控状态铃铛叠加斜杠（t333 AC-001）", async () => {
+            setup_deepseek_multi_account(["acc-a", "acc-b"]);
+            const user = userEvent.setup();
+            render(<SettingsView />);
+            await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+            const edit_buttons = screen.getAllByTitle("编辑");
+            const deepseek_edit = edit_buttons[0];
+            if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
+            await user.click(deepseek_edit);
+            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签映射"));
+
+            // 初始未监控（upcomingResetWatched 为空）：铃铛带斜杠标记。
+            const bell = await screen.findByRole("button", {
+                name: "监控该数据标签的即将重置",
+            });
+            expect(bell.getAttribute("aria-pressed")).toBe("false");
+            expect(bell.querySelector('[data-slash="true"]')).not.toBeNull();
+        });
+
+        it("已监控状态铃铛无斜杠（t333 AC-001）", async () => {
+            setup_deepseek_multi_account(["acc-a", "acc-b"]);
+            current_config = {
+                ...base_config,
+                accountOverrides: {
+                    upcomingResetWatched: {
+                        deepseek: {
+                            "deepseek-1|acc-a": ["five_hour"],
+                            "deepseek-1|acc-b": ["five_hour"],
+                        },
+                    },
+                },
+            };
+            const user = userEvent.setup();
+            render(<SettingsView />);
+            await user.click(await screen.findByTestId("settings-plugin-nav-accounts"));
+            const edit_buttons = screen.getAllByTitle("编辑");
+            const deepseek_edit = edit_buttons[0];
+            if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
+            await user.click(deepseek_edit);
+            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签映射"));
+
+            const bell = await screen.findByRole("button", {
+                name: "监控该数据标签的即将重置",
+            });
+            expect(bell.getAttribute("aria-pressed")).toBe("true");
+            expect(bell.querySelector('[data-slash="true"]')).toBeNull();
+        });
     });
 });

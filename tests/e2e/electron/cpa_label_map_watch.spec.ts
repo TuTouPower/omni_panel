@@ -87,8 +87,12 @@ test("CPA label-map bell toggles every account for one raw label", async ({ omni
         name: "监控该数据标签的即将重置",
     });
     await expect(bell).toHaveAttribute("aria-pressed", "false");
+    // t333 AC-004：未监控状态铃铛叠斜杠。
+    await expect(bell.locator('[data-slash="true"]')).toBeVisible();
     await bell.click();
     await expect(bell).toHaveAttribute("aria-pressed", "true");
+    // t333 AC-004：切到已监控后斜杠即时消失。
+    await expect(bell.locator('[data-slash="true"]')).toHaveCount(0);
 
     await expect
         .poll(() => {
