@@ -603,7 +603,9 @@ export class SessionHistorySubscriptionService {
         limit: number,
         sessions_provider: SessionsProvider,
     ): RecentSession[] {
-        const rows = sessions_provider(source, env);
+        // t354 AC-002: 传 {source, env, limit, offset: 0} 而非仅 (source, env)——
+        // 后者触发 provider 默认 limit=100 截断，RECENT 请求 limit>100 被静默砍到 100。
+        const rows = sessions_provider({ source, env, limit, offset: 0 });
         // provider 已按 ended_at DESC 返回（token-stats store 默认），保险起见再排一次。
         const sorted = [...rows].sort((a, b) => b.ended_at - a.ended_at);
         const sliced = sorted.slice(0, limit);

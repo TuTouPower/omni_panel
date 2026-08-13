@@ -177,6 +177,8 @@ type SessionHistorySearchRequest =
     | SessionHistorySearchContentLegacyRequest;
 
 const CONTENT_SEARCH_PAGE_SIZE = 100;
+/** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
+const SEARCH_ENUM_CAP = 100_000;
 
 function generate_token(): string {
     return randomBytes(32).toString("hex");
@@ -250,7 +252,8 @@ function session_history_legacy_row_of(loc: {
     };
 }
 
-/** 逐页取全量会话行（与 IPC 层 CONTENT_SEARCH_PAGE_SIZE 分页一致）。 */
+/** 逐页取全量会话行（与 IPC 层 CONTENT_SEARCH_PAGE_SIZE 分页一致）。
+ *  t354 AC-003: 总量上限 SEARCH_ENUM_CAP，避免会话库无界时搜索全量枚举。 */
 function session_history_query_all_sessions(
     deps: SessionHistoryDeps,
     filters: SessionQueryFilters,
@@ -259,7 +262,7 @@ function session_history_query_all_sessions(
     let offset = 0;
     let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
     rows.push(...page);
-    while (page.length === CONTENT_SEARCH_PAGE_SIZE) {
+    while (page.length === CONTENT_SEARCH_PAGE_SIZE && rows.length < SEARCH_ENUM_CAP) {
         offset += CONTENT_SEARCH_PAGE_SIZE;
         page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
         rows.push(...page);
@@ -458,12 +461,16 @@ async function handle_session_history_search_content(
         abort_controller.signal,
     );
     const hit_keys = new Set(hits);
+    // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原 includes 对
+    // metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），语义等价（同引用
+    // 必有同 key）。合并循环单次遍历已由 [...metadata, ...candidate] + response_keys 保证。
+    const metadata_keys = new Set(metadata_rows.map(session_history_key_of));
     const response_sessions: TokenStatsSession[] = [];
     const response_keys = new Set<string>();
     for (const row of [...metadata_rows, ...candidate_rows]) {
         const key = session_history_key_of(row);
         if (response_keys.has(key)) continue;
-        if (metadata_rows.includes(row) || (row.session && hit_keys.has(key))) {
+        if (metadata_keys.has(key) || (row.session && hit_keys.has(key))) {
             response_keys.add(key);
             if (row.session) response_sessions.push(row.session);
         }

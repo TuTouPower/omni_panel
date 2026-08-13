@@ -14,6 +14,8 @@ import Database from "better-sqlite3";
 import {
     SessionHistorySubscriptionService,
     type SessionRow,
+    type SessionQueryFilters,
+    type SessionsProvider,
 } from "../../../../../src/main/core/session-history/subscription-service";
 import {
     clear_resolution_cache,
@@ -817,6 +819,27 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result).toHaveLength(2);
         expect(result.map((r) => r.session_id)).toEqual(["a", "b"]);
         expect(result[0]?.agent).toBe("grok");
+    });
+
+    it("recent_sessions 传 {source, env, limit, offset: 0} 给 provider，不触发默认 100 截断 (t354 AC-002)", () => {
+        const rows: SessionRow[] = Array.from({ length: 150 }, (_, i) => ({
+            id: `s${String(i)}`,
+            source: "claude_code",
+            env: "local",
+            title: null,
+            model: null,
+            started_at: i,
+            ended_at: 1000 - i,
+        }));
+        let received: unknown;
+        // 若只传 (source, env)，provider 默认 limit=100 截断，limit=120 会丢 20 条。
+        const provider: SessionsProvider = (arg) => {
+            received = arg;
+            return rows.slice(0, (arg as SessionQueryFilters).limit);
+        };
+        const result = service.recent_sessions("claude_code", "local", 120, provider);
+        expect(received).toEqual({ source: "claude_code", env: "local", limit: 120, offset: 0 });
+        expect(result).toHaveLength(120);
     });
 
     it("query 对未变化文件使用缓存，追加后刷新缓存", () => {
