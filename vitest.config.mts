@@ -15,6 +15,9 @@ export default defineConfig({
         css: false,
         testTimeout: 60_000,
         hookTimeout: 60_000,
+        // t348: 固定测试时区 UTC+8（token-stats 聚合口径），跨 OS（Windows
+        // CI 无 POSIX TZ= 前缀）与所有 vitest 入口一致。
+        env: { TZ: "Asia/Shanghai" },
         projects: [
             {
                 test: {

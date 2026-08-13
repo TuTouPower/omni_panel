@@ -205,6 +205,26 @@ describe("aggregate", () => {
             expect(bk.idx(start - 1)).toBe(0);
             expect(bk.idx(end + 1)).toBe(bk.n - 1);
         });
+
+        it("bucket boundaries follow UTC+8 regardless of system timezone (t348 AC-001)", () => {
+            // Date.UTC 明确参考：2026-07-17T16:00:00Z = UTC+8 的 07-18 00:00（日界）。
+            const start = Date.UTC(2026, 6, 17, 15, 30, 0); // UTC+8 07-18 前
+            const end = Date.UTC(2026, 6, 18, 15, 30, 0);
+            const bk = bucketize(start, end, "day");
+
+            // UTC+8 日界 = 2026-07-17T16:00:00Z。
+            const utc8_boundary = Date.UTC(2026, 6, 17, 16, 0, 0);
+            expect(bk.startOf(1)).toBe(utc8_boundary);
+            expect(bk.idx(utc8_boundary - 1)).toBe(0);
+            expect(bk.idx(utc8_boundary)).toBe(1);
+            // 标签按 UTC+8：boundary 属于 07-18。
+            expect(bk.label(1)).toBe("7/18");
+
+            // 小时粒度：UTC+8 整点 = 小时界。
+            const hbk = bucketize(start, end, "hour");
+            expect(hbk.startOf(1)).toBe(Date.UTC(2026, 6, 17, 16, 0, 0)); // UTC+8 00:00
+            expect(hbk.label(1)).toBe("7/18 00:00");
+        });
     });
 
     describe("sessionRows", () => {

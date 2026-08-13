@@ -328,8 +328,9 @@ describe("chart-data", () => {
 
     describe("prepareBarDataFromBuckets", () => {
         it("lays day buckets out on a date axis and stacks by model", () => {
-            const start = new Date("2026-07-10T00:00:00Z").getTime();
-            const end = new Date("2026-07-12T23:59:59Z").getTime();
+            // UTC+8 日界对齐的窗口（07-10 00:00 UTC+8 = 07-09T16:00Z）。
+            const start = new Date("2026-07-09T16:00:00Z").getTime();
+            const end = new Date("2026-07-12T16:00:00Z").getTime();
             const buckets = [
                 bucket({ bucket_date: "2026-07-10", model: "sonnet", input_tokens: 100 }),
                 bucket({ bucket_date: "2026-07-10", model: "opus", input_tokens: 50 }),
@@ -352,8 +353,9 @@ describe("chart-data", () => {
         });
 
         it("skips buckets outside the window", () => {
-            const start = new Date("2026-07-10T00:00:00Z").getTime();
-            const end = new Date("2026-07-10T23:59:59Z").getTime();
+            // UTC+8 日界：07-10 整天。
+            const start = new Date("2026-07-09T16:00:00Z").getTime();
+            const end = new Date("2026-07-10T16:00:00Z").getTime();
             const buckets = [
                 bucket({ bucket_date: "2026-07-10", input_tokens: 100 }),
                 bucket({ bucket_date: "2026-07-09", input_tokens: 999 }),
@@ -369,7 +371,7 @@ describe("chart-data", () => {
     describe("prepareBarDataFromHourBuckets", () => {
         function hb(overrides: Partial<TokenStatsHourBucket> = {}): TokenStatsHourBucket {
             return {
-                hour_start: new Date("2026-07-10T02:00:00Z").getTime(),
+                hour_start: new Date("2026-07-10T02:00:00").getTime(),
                 model: "claude-sonnet-4",
                 calls: 3,
                 sessions: 2,
@@ -379,22 +381,22 @@ describe("chart-data", () => {
         }
 
         it("lays hour buckets on the bucketize axis and stacks by model", () => {
-            const start = new Date("2026-07-10T01:30:00Z").getTime();
-            const end = new Date("2026-07-10T04:30:00Z").getTime();
+            const start = new Date("2026-07-10T01:30:00").getTime();
+            const end = new Date("2026-07-10T04:30:00").getTime();
             const buckets = [
                 // hour 01:00 (start is 01:30) → partial first bucket via idx(ts<=start)→0
                 hb({
-                    hour_start: new Date("2026-07-10T01:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T01:00:00").getTime(),
                     model: "claude-sonnet-4",
                     tokens: 100,
                 }),
                 hb({
-                    hour_start: new Date("2026-07-10T02:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T02:00:00").getTime(),
                     model: "claude-sonnet-4",
                     tokens: 200,
                 }),
                 hb({
-                    hour_start: new Date("2026-07-10T03:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T03:00:00").getTime(),
                     model: "opus",
                     tokens: 50,
                 }),
@@ -416,18 +418,18 @@ describe("chart-data", () => {
         });
 
         it("aggregates tokens/calls/sessions per model and zero-fills empty hours", () => {
-            const start = new Date("2026-07-10T00:00:00Z").getTime();
-            const end = new Date("2026-07-10T02:30:00Z").getTime();
+            const start = new Date("2026-07-10T00:00:00").getTime();
+            const end = new Date("2026-07-10T02:30:00").getTime();
             const buckets = [
                 hb({
-                    hour_start: new Date("2026-07-10T00:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T00:00:00").getTime(),
                     model: "claude-sonnet-4",
                     calls: 2,
                     sessions: 1,
                     tokens: 400,
                 }),
                 hb({
-                    hour_start: new Date("2026-07-10T01:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T01:00:00").getTime(),
                     model: "opus",
                     calls: 1,
                     sessions: 1,
@@ -456,14 +458,14 @@ describe("chart-data", () => {
         });
 
         it("drops buckets outside the window instead of overflowing the axis", () => {
-            const start = new Date("2026-07-10T02:00:00Z").getTime();
-            const end = new Date("2026-07-10T03:30:00Z").getTime();
+            const start = new Date("2026-07-10T02:00:00").getTime();
+            const end = new Date("2026-07-10T03:30:00").getTime();
             const buckets = [
                 // before the window's first whole hour
-                hb({ hour_start: new Date("2026-07-10T01:00:00Z").getTime(), tokens: 999 }),
-                hb({ hour_start: new Date("2026-07-10T02:00:00Z").getTime(), tokens: 200 }),
+                hb({ hour_start: new Date("2026-07-10T01:00:00").getTime(), tokens: 999 }),
+                hb({ hour_start: new Date("2026-07-10T02:00:00").getTime(), tokens: 200 }),
                 // after the window's last whole hour
-                hb({ hour_start: new Date("2026-07-10T04:00:00Z").getTime(), tokens: 888 }),
+                hb({ hour_start: new Date("2026-07-10T04:00:00").getTime(), tokens: 888 }),
             ];
             const data = prepareBarDataFromHourBuckets(buckets, "tokens", start, end, "dark");
             // axis: 02:00, 03:00 (start 02:00 is an exact hour; end 03:30 → partial 03:00)
@@ -480,11 +482,11 @@ describe("chart-data", () => {
         });
 
         it("sessions metric uses per-hour distinct session counts", () => {
-            const start = new Date("2026-07-10T00:00:00Z").getTime();
-            const end = new Date("2026-07-10T01:30:00Z").getTime();
+            const start = new Date("2026-07-10T00:00:00").getTime();
+            const end = new Date("2026-07-10T01:30:00").getTime();
             const buckets = [
                 hb({
-                    hour_start: new Date("2026-07-10T00:00:00Z").getTime(),
+                    hour_start: new Date("2026-07-10T00:00:00").getTime(),
                     sessions: 5,
                     calls: 9,
                     tokens: 0,

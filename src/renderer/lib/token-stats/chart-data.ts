@@ -1,6 +1,7 @@
 import type { EChartsOption } from "echarts";
 import { bucketize, groupBy, metricValue, sessionRows, sumTokens, topGroups } from "./aggregate";
 import { fmtTok, shortDir } from "./format";
+import { utc8_date_str, utc8_day_start, utc8_hour, utc8_weekday } from "./utc8";
 import { agent_color, palette_for, top_category_color } from "../echarts_token_resolver";
 import type { ChartTheme } from "../echarts_token_resolver";
 import type { AgentSessionUsage, Granularity, Metric, XAxis } from "./types";
@@ -316,18 +317,15 @@ export function prepareBarDataFromBuckets(
     end: number,
     theme: "dark" | "light",
 ): BarData {
-    // Build the full day axis from the window (UTC dates, matching bucket_date).
+    // t348: 日轴按 UTC+8 建（bucket_date 是 UTC+8 日期）。循环覆盖 [start, end)
+    // 内全部 UTC+8 日；end 非日界时含 end 当天（utc8_day_start(end-1) 取 end
+    // 所属日的日界，reviewer f007）。
     const dates: string[] = [];
-    const cursor = new Date(start);
-    cursor.setUTCHours(0, 0, 0, 0);
-    const end_day = new Date(end);
-    end_day.setUTCHours(23, 59, 59, 999);
-    while (cursor.getTime() <= end_day.getTime()) {
-        const y = cursor.getUTCFullYear();
-        const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
-        const d = String(cursor.getUTCDate()).padStart(2, "0");
-        dates.push(`${String(y)}-${m}-${d}`);
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    let cursor = utc8_day_start(start);
+    const end_day = utc8_day_start(end - 1);
+    while (cursor <= end_day) {
+        dates.push(utc8_date_str(cursor));
+        cursor += 86_400_000;
     }
     const labels = dates.map((d) => {
         const parts = d.split("-");
@@ -498,9 +496,9 @@ export function prepareHeatmapData(records: AgentSessionUsage[], metric: Metric)
         Array.from({ length: 24 }, () => new Set<string>()),
     );
     for (const r of records) {
-        const d = new Date(r.timestamp);
-        const w = (d.getDay() + 6) % 7;
-        const h = d.getHours();
+        // t348: 热力图按 UTC+8 归周/小时（服务端聚合口径），非系统时区。
+        const w = (utc8_weekday(r.timestamp) + 6) % 7;
+        const h = utc8_hour(r.timestamp);
         const row = grid[w];
         if (!row) continue;
         if (metric === "tokens") row[h] = (row[h] ?? 0) + sumTokens(r);
@@ -558,7 +556,7 @@ function build_heat_data(grid: number[][]): HeatData {
 /**
  * Build heatmap data from the backend's weekday×hour aggregate (t170).
  * `weekday` follows strftime('%w'): 0=Sunday, mapped to the Monday-first
- * grid with `(weekday + 6) % 7` — matching prepareHeatmapData's getDay() map.
+ * grid with `(weekday + 6) % 7` — matching prepareHeatmapData's utc8_weekday map.
  */
 export function prepareHeatmapFromCells(cells: TokenStatsHeatmapCell[], metric: Metric): HeatData {
     const grid: number[][] = Array.from({ length: 7 }, (): number[] =>
