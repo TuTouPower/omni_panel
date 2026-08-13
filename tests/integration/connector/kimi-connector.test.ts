@@ -323,4 +323,30 @@ describe("kimi connector", () => {
             expect(obs.account_label).toBe("Kimi（PRO）");
         }
     });
+
+    it("skips five_hour when limits[0] window.duration !== 300 (t363 AC-001)", async () => {
+        const script = await readFile(join("connectors", "kimi", "connector.ts"), "utf8");
+        const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
+        const http_get_json = vi.fn().mockResolvedValue({
+            usage: { limit: "100", used: "10", remaining: "90", resetTime: "2099-01-01T00:00:00Z" },
+            limits: [
+                {
+                    // duration=60 分钟不是 five_hour 窗口——不应产出 kimi:five_hour。
+                    window: { duration: 60 },
+                    detail: {
+                        limit: "100",
+                        used: "5",
+                        remaining: "95",
+                        resetTime: "2099-01-01T00:00:00Z",
+                    },
+                },
+            ],
+        });
+        const ctx = create_ctx({
+            http: { get_json: http_get_json, post_json: vi.fn(), get_raw: vi.fn() },
+            params: { OAUTH_TOKEN: "oauth-token-xyz" },
+        });
+        const result = await run_connector(raw, script, ctx);
+        expect(result.observations.some((o) => o.metric_id === "kimi:five_hour")).toBe(false);
+    });
 });

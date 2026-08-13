@@ -15,13 +15,5 @@
     "endpoints": {
         "default": "https://api.firecrawl.dev"
     },
-    "poll": {
-        "request": {
-            "endpoint": "default",
-            "path": "/v1/team/credit-usage",
-            "method": "GET"
-        },
-        "map": {}
-    },
     "script": "connector.ts"
 }
