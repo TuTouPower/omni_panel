@@ -316,20 +316,9 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         continue;
                     }
 
-                    for (const obs of observations) {
-                        try {
-                            deps.observationStore.insert(obs);
-                        } catch (insert_error: unknown) {
-                            const insert_message =
-                                insert_error instanceof Error
-                                    ? insert_error.message
-                                    : String(insert_error);
-                            trace_log.error(
-                                `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
-                            );
-                            throw insert_error;
-                        }
-                    }
+                    // t352 AC-001: refresh 一轮观测批量写入走单事务（insert_batch
+                    // 内部单条失败记 per-obs 错误日志并跳过），不再逐条 autocommit。
+                    deps.observationStore.insert_batch(observations);
 
                     // invariant 5 / P0-2: 脚本成功返回但内部有单账号失败时，
                     // 复制失败账号的上次成功观测为 stale 副本插入。成功账号的
@@ -348,11 +337,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                     stale: true,
                                     last_error: failed.error,
                                 };
-                                deps.observationStore.insert(stale_obs);
                                 stale_observations.push(stale_obs);
                             }
                         }
                         if (stale_observations.length > 0) {
+                            deps.observationStore.insert_batch(stale_observations);
                             trace_log.info(
                                 `Marked ${String(stale_observations.length)} observation(s) stale for ${String(failed_accounts.length)} failed account(s) on ${instanceId}`,
                             );

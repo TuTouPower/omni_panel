@@ -72,6 +72,9 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         insert: vi.fn((obs: Observation) => {
             inserted.push(obs);
         }),
+        insert_batch: vi.fn((obs: Observation[]) => {
+            inserted.push(...obs);
+        }),
         get_latest: vi.fn(() => null),
         list_latest_by_provider: vi.fn(() => []),
         list_all_providers: vi.fn(() => []),

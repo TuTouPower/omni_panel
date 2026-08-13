@@ -4,6 +4,8 @@ import { createLogger, type Logger } from "../../../shared/lib/logger";
 
 export interface ObservationStore {
     insert(obs: Observation): void;
+    /** t352 AC-001: 批量写入走单事务，单条失败跳过并记日志（refresh 轮调用）。 */
+    insert_batch(observations: Observation[]): void;
     get_latest(
         provider: string,
         account_id: string,
@@ -65,6 +67,13 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+
+-- t352 AC-003: 一次性数据清理（如 kimi:total_quota purge）的迁移批次标记。
+-- migrate 以 INSERT OR IGNORE 取号，仅首次数次时执行对应清理。
+CREATE TABLE IF NOT EXISTS schema_meta (
+    key TEXT PRIMARY KEY,
+    applied INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;
@@ -89,15 +98,25 @@ export function migrate_observation_schema(db: Database.Database, log: Logger): 
 
     // 清理已下线的 Kimi 总配额观测。connector 在 a03e38d4 已停止产出
     // kimi:total_quota；本地库中的 stale 行会导致用量面板继续显示"总配额 0"。
-    const removed = db
-        .prepare(
-            "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
-        )
-        .run();
-    if (removed.changes > 0) {
-        log.info(
-            `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
-        );
+    // t352 AC-003: 一次性清理按迁移批次标记执行——首次打开取号执行，此后
+    // INSERT OR IGNORE 不产生新行即跳过，不再每次打开重复 DELETE。
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, applied INTEGER NOT NULL DEFAULT 0)",
+    );
+    const mark = db
+        .prepare("INSERT OR IGNORE INTO schema_meta (key) VALUES (?)")
+        .run("kimi_total_quota_purge");
+    if (mark.changes > 0) {
+        const removed = db
+            .prepare(
+                "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
+            )
+            .run();
+        if (removed.changes > 0) {
+            log.info(
+                `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
+            );
+        }
     }
 }
 
@@ -161,16 +180,64 @@ export function create_observation_store(db_path: string): ObservationStore {
         )
     `);
 
-    // t174: stale 副本保留原观测的 observed_at。多次失败会对同一键插入
-    // 同时间戳的副本，累积成行 + 让 latest 查询同 ts 多义。insert 前清掉
-    // 同 (provider, account, metric, instance, observed_at) 的旧 stale 副本，
-    // 使同键同 ts 至多一条副本（原观测保留）。
-    const delete_stale_dup_stmt = db.prepare(`
+    // t174 + t352 AC-002: 同键同 ts 的旧行在插入前清除，统一两种 stale 值——
+    // stale 副本插入清旧 stale 副本（原观测保留），非 stale 插入清旧非 stale 行
+    // （同 ts 重复去重，stale 副本保留）。消除同键同 ts 重复行，get_latest 结果确定。
+    const delete_dup_stmt = db.prepare(`
         DELETE FROM observations
         WHERE provider = @provider AND source_instance_id = @source_instance_id
           AND account_id = @account_id AND metric_id = @metric_id
-          AND observed_at = @observed_at AND stale = 1
+          AND observed_at = @observed_at AND stale = @stale
     `);
+
+    // t352 AC-001: 单条写入（先清同键同 ts 旧行再插），供 insert 与
+    // insert_batch 共用；事务内单条失败由 batch 侧捕获跳过。
+    function insert_one(obs: Observation): void {
+        delete_dup_stmt.run({
+            provider: obs.provider,
+            source_instance_id: obs.source_instance_id,
+            account_id: obs.account_id,
+            metric_id: obs.metric_id,
+            observed_at: obs.observed_at,
+            stale: obs.stale ? 1 : 0,
+        });
+        insert_stmt.run({
+            provider: obs.provider,
+            source_instance_id: obs.source_instance_id,
+            account_id: obs.account_id,
+            account_label: obs.account_label,
+            metric_id: obs.metric_id,
+            raw_label: obs.raw_label,
+            normalized_label: obs.normalized_label,
+            display_label: obs.display_label ?? null,
+            name: obs.normalized_label,
+            window: obs.window,
+            used: obs.used,
+            limit: obs.limit,
+            display_style: obs.display_style,
+            reset_at: obs.reset_at,
+            status: obs.status,
+            observed_at: obs.observed_at,
+            source: obs.source,
+            stale: obs.stale ? 1 : 0,
+            last_error: obs.last_error,
+        });
+    }
+
+    const batch_tx = db.transaction((observations: Observation[]) => {
+        for (const obs of observations) {
+            try {
+                insert_one(obs);
+            } catch (err: unknown) {
+                // 坏条目跳过并记 per-obs 错误日志，不中断整批事务（t352 回退策略）。
+                log.error(
+                    `Failed to insert observation ${obs.provider}/${obs.account_id}/${obs.metric_id}: ${
+                        err instanceof Error ? err.message : String(err)
+                    }`,
+                );
+            }
+        }
+    });
 
     // t174: stale 副本与原观测同 observed_at 时，stale DESC 让副本（stale=1）
     // 优先，latest 选择唯一确定（"已过期"标记优先于原始数据行）。
@@ -257,38 +324,15 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     return {
         insert(obs: Observation): void {
-            // t174: 同键同 ts 的旧 stale 副本先清（见 delete_stale_dup_stmt）。
-            if (obs.stale) {
-                delete_stale_dup_stmt.run({
-                    provider: obs.provider,
-                    source_instance_id: obs.source_instance_id,
-                    account_id: obs.account_id,
-                    metric_id: obs.metric_id,
-                    observed_at: obs.observed_at,
-                });
-            }
-            insert_stmt.run({
-                provider: obs.provider,
-                source_instance_id: obs.source_instance_id,
-                account_id: obs.account_id,
-                account_label: obs.account_label,
-                metric_id: obs.metric_id,
-                raw_label: obs.raw_label,
-                normalized_label: obs.normalized_label,
-                display_label: obs.display_label ?? null,
-                name: obs.normalized_label,
-                window: obs.window,
-                used: obs.used,
-                limit: obs.limit,
-                display_style: obs.display_style,
-                reset_at: obs.reset_at,
-                status: obs.status,
-                observed_at: obs.observed_at,
-                source: obs.source,
-                stale: obs.stale ? 1 : 0,
-                last_error: obs.last_error,
-            });
+            insert_one(obs);
             log.debug(`Inserted observation: ${obs.provider}/${obs.account_id}/${obs.metric_id}`);
+        },
+
+        // t352 AC-001: refresh 一轮观测批量写入走单事务，替代逐条 autocommit。
+        // 事务内单条失败记 per-obs 错误日志并跳过，不拖垮整批；整批原子提交。
+        insert_batch(observations: Observation[]): void {
+            if (observations.length === 0) return;
+            batch_tx(observations);
         },
 
         get_latest(provider, account_id, metric_id, source_instance_id) {

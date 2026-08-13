@@ -1,0 +1,28 @@
+{
+    "tid": "t352",
+    "attempt": 1,
+    "execution_id": "4476b57919814cdf988a87fe53ef308f",
+    "status": "done",
+    "branch": "t352_observation_write_robustness",
+    "base_sha": "1f2978f0961afbac9105b07341b34c2ce1bc652d",
+    "tests": "t352 相关 8 测试文件 83 passed（observation integration 30/migration 5/mapping 3/refresh unit+integration 54/grok oauth lifecycle）",
+    "blackbox": "typecheck + lint + prettier 通过；纯 main 进程 store/调度改动，无 electron 运行黑盒，以 store/refresh 集成单测断言代替",
+    "review": "full；Round 1 code PASS（2 minor：f001 全批失败静默 / f002 schema_meta 双处建表）+ test PASS（1 minor：f001 atomically 标题 over-claim）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/observation/observation-store.test.ts::insert_batch writes atomically and skips bad rows individually（坏条目 provider NOT NULL 被跳过、其余 2 条写入，count=2、get_latest=末条）通过",
+            "tests/integration/observation/observation-store.test.ts::insert_batch on empty list is a no-op 通过",
+            "src/main/core/scheduler/refresh-service.ts 调用点改 insert_batch（主观测循环 + stale 副本收集后批量），refresh-service.test.ts inserted 断言通过"
+        ],
+        "AC-002": [
+            "tests/integration/observation/observation-store.test.ts::dedupes non-stale same-key same-ts duplicate inserts（同键同 ts 非 stale 重复插入 count=1、get_latest 取最新 used=200）通过",
+            "observation-store.ts delete_dup_stmt 统一带 stale 参数，stale/非 stale 插入前均清同键同 ts 旧行；t174/t186 既有测试通过"
+        ],
+        "AC-003": [
+            "tests/unit/observation_store_migration.test.ts::runs the one-time kimi:total_quota purge only on first open（首次 migrate 删 total_quota，二次 migrate 前重插保留）通过",
+            "schema_meta 表 + INSERT OR IGNORE 标记（kimi_total_quota_purge），仅首次执行 DELETE"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
