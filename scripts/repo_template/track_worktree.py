@@ -32,14 +32,14 @@ def read_payload():
 
 
 # Events that close a task's active window: the worktree is no longer valid.
-TERMINAL_EVENTS = {"report", "integrated", "drop", "attempt_terminal", "attempt_report"}
+TERMINAL_EVENTS = {"report", "integrated", "attempt_terminal"}
 
 
 def resolve_worktree(project, tid):
     """Worktree path (absolute) for a tid from the dispatch ledger, or ''.
 
     A `start` event opens the window; `attempt_reserved` with state=running
-    keeps it open; any terminal event (report/integrated/drop/…) closes it,
+    keeps it open; any terminal event (report/integrated/attempt_terminal) closes it,
     so a merged or finished task no longer resolves to its (removed) worktree.
     """
     ledger = os.path.join(project, "docs", "runtime", "dispatch_ledger.jsonl")
@@ -49,13 +49,19 @@ def resolve_worktree(project, tid):
     active = False
     try:
         with open(ledger, encoding="utf-8") as handle:
-            for raw_line in handle:
+            for line_no, raw_line in enumerate(handle, 1):
                 line = raw_line.strip()
                 if not line:
                     continue
                 try:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
+                    # ledger 损坏行静默跳过会让该 tid 的 worktree 解析丢失；
+                    # 打 WARNING 带行号，与 ledger 的 fail-closed 语义对齐可见性（F35）
+                    print(
+                        f"WARNING: 调度账本损坏行已跳过（{ledger} 第 {line_no} 行）",
+                        file=sys.stderr,
+                    )
                     continue
                 if rec.get("tid") != tid:
                     continue

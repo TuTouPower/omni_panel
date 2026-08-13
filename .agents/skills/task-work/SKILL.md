@@ -46,16 +46,16 @@ flowchart TD
 
 开始或继续时，先确认当前目录就是 tid 登记的 worktree，且调用参数中的 `attempt` / `execution_id` 是本次 handoff 目标；再读 `scripts/repo_template/task.py show <tid>`、task 目录下 `spec.md` / `task.md` / `review_*.md`、分支、`git status`、`diff_anchor`、测试与实施笔记判断入口：
 
-| 状态 / 证据                                 | 从哪继续                                                                   |
-| ------------------------------------------- | -------------------------------------------------------------------------- |
-| 无 task worktree，或当前目录/分支不归属 tid | 停止，回到 task-run 修复 start/ownership；本 skill 不自行 start            |
-| `active`，无 preflight/红灯证据             | Step 1                                                                     |
-| 红已有、实现未完                            | Step 3                                                                     |
-| 绿过、黑盒未过                              | Step 4                                                                     |
-| 黑盒过、无审阅                              | Step 5                                                                     |
-| 有 FAIL、未满轮                             | Step 6 处置后按表回流                                                      |
-| `blocked`                                   | 停止，呈 blocked 选项                                                      |
-| `done` / `dropped`                          | 不改动，交出 branch 与 HEAD；task-run 仍以 exact handoff/attempt gate 判断 |
+|状态 / 证据|从哪继续|
+|---|---|
+|无 task worktree，或当前目录/分支不归属 tid|停止，回到 task-run 修复 start/ownership；本 skill 不自行 start|
+|`active`，无 preflight/红灯证据|Step 1|
+|红已有、实现未完|Step 3|
+|绿过、黑盒未过|Step 4|
+|黑盒过、无审阅|Step 5|
+|有 FAIL、未满轮|Step 6 处置后按表回流|
+|`blocked`|停止，呈 blocked 选项|
+|`done` / `dropped`|不改动，交出 branch 与 HEAD；task-run 仍以 exact handoff/attempt gate 判断|
 
 ### Step 1：开干与前置
 
@@ -147,21 +147,21 @@ grep -cE '\b(TODO|FIXME|XXX)\b' .scratch/added_lines.txt || true # 会话 TODO �
 - 写交接单 `docs/tasks/{tid}_{slug}/handoff.json`（机器可读契约，随执行 commit 入库）：
     ```json
     {
-        "tid": "t001",
-        "attempt": 1,
-        "execution_id": "0123456789abcdef0123456789abcdef",
-        "status": "done",
-        "branch": "t001_example",
-        "base_sha": "0123456789abcdef0123456789abcdef01234567",
-        "tests": "pytest -q：120 passed",
-        "blackbox": "黑盒命令通过",
-        "review": "第 2 轮 PASS",
-        "ac_evidence": {
-            "AC-001": ["tests/test_x.py::test_y 通过"],
-            "AC-002": ["黑盒输出：返回 200"]
-        },
-        "pending": ["p047"],
-        "findings": ["d012"]
+      "tid": "t001",
+      "attempt": 1,
+      "execution_id": "0123456789abcdef0123456789abcdef",
+      "status": "done",
+      "branch": "t001_example",
+      "base_sha": "0123456789abcdef0123456789abcdef01234567",
+      "tests": "pytest -q：120 passed",
+      "blackbox": "黑盒命令通过",
+      "review": "第 2 轮 PASS",
+      "ac_evidence": {
+        "AC-001": ["tests/test_x.py::test_y 通过"],
+        "AC-002": ["黑盒输出：返回 200"]
+      },
+      "pending": ["p047"],
+      "findings": ["d012"]
     }
     ```
     `tid`、非 bool 的正整数 `attempt`、非空字符串 `execution_id` 必须逐字等于本 skill 输入；`status` 与 task 终态一致；`branch` 是当前 task 分支；`base_sha` 是执行 commit 前 HEAD 的完整 SHA，且必须等于 task `diff_anchor`。`tests`、`blackbox`、`review` 都必须是非空字符串；`ac_evidence` 是 JSON 对象，键必须精确等于 spec 验收标准节的全部 `AC-NNN` 编号（缺或多都会导致 integrate 门禁失败），值为非空字符串数组，每项是一条证据引用（测试用例/断言摘要、黑盒输出摘要、review 报告锚点）；`pending`、`findings` 必须是字符串数组，没有条目时写 `[]`。所有字段逐项必填。

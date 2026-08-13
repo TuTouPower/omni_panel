@@ -54,8 +54,8 @@ def parse_front_matter_text(text: str, *, source: str) -> tuple[dict, str]:
 def parse_front_matter(path: Path) -> tuple[dict, str]:
     """返回 (front matter dict, 正文)。缺失或不合法抛 ctx.TaskDataError。
 
-    注意：render_review_prompts.py / check_review_status.py 各有简化副本，
-    改解析规则需三处同步。
+    本模块是唯一真相源；render_review_prompts.py / check_review_status.py 直接
+    委托本实现，各自只在 CLI 边界转换错误语义。
     """
     return parse_front_matter_text(
         path.read_text(encoding="utf-8"),
@@ -71,13 +71,44 @@ def dump_front_matter(fm: dict) -> str:
     return "\n".join(lines) + "\n"
 
 def write_front_matter(path: Path, fm: dict, body: str) -> None:
-    path.write_text(dump_front_matter(fm) + "\n" + body, encoding="utf-8", newline="\n")
+    text = dump_front_matter(fm) + "\n" + body
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # 临时文件 + os.replace：崩溃/并发下不留下截断半写，降低状态权威文件损坏风险
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(text, encoding="utf-8", newline="\n")
+    os.replace(temporary, path)
+
+def write_front_matter_many(files: list[tuple[Path, dict, str]]) -> None:
+    """批量写 front matter：先全部写 .tmp，再逐个 os.replace（调用方保证 owner 最后）。
+
+    单个 write_front_matter 已原子，但多个文件顺序写中途崩溃仍会单向残留
+    （edit 的 peer 反向边）；两阶段把「部分更新」窗口缩到 replace 循环（RT-008）。
+    """
+    staged: list[tuple[Path, Path]] = []
+    for path, fm, body in files:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(path.name + ".tmp")
+        temporary.write_text(
+            dump_front_matter(fm) + "\n" + body, encoding="utf-8", newline="\n"
+        )
+        staged.append((path, temporary))
+    try:
+        for path, temporary in staged:
+            os.replace(temporary, path)
+    except OSError:
+        for _, temporary in staged:
+            temporary.unlink(missing_ok=True)
+        raise
 
 def tid_sort_key(tid: str) -> int:
     match = ctx.TID_RE.fullmatch(tid)
     if not match:
         raise ctx.TaskDataError(f"tid 非法：{tid!r}")
     return int(match.group(1))
+
+def tid_sort_key_or_zero(tid: str) -> int:
+    """排序键；非规范 tid 排 0，避免 tid_sort_key raise（plan 容错用）。"""
+    return tid_sort_key(tid) if ctx.TID_RE.fullmatch(tid) else 0
 
 def parse_tid_list(value: str, *, field: str, allow_empty: bool = True) -> list[str]:
     """解析 front matter/严格 CLI 使用的逗号分隔规范 tid。"""
@@ -287,8 +318,9 @@ def extract_ac_ids(spec_text: str) -> list[str]:
 def _extract_guide_blocks(text: str) -> list[str]:
     """提取 spec 中所有 `<!-- 规范（门禁必留，不得删除） -->...<!-- /规范 -->` 块。
 
-    返回按出现顺序排列的块列表，每块含标记行与正文（行级 strip）。
+    返回按出现顺序排列的块列表，每块含标记行与正文（行级 strip，跳过空行）。
     规范块是门禁必留的就近规范，agent 只能替换块外占位符。
+    空行由格式器（prettier 等）控制，属格式噪音，不参与逐字比对。
     """
     blocks = []
     current = None
@@ -297,14 +329,12 @@ def _extract_guide_blocks(text: str) -> list[str]:
         if stripped == ctx.SPEC_GUIDE_OPEN:
             current = [stripped]
         elif current is not None:
-            # prettier 在 markdown 块注释间插空行（lint-staged md 规则），
-            # 逐字比较会误判「缺规范块」；空行不参与内容比对。
-            if stripped == "":
-                continue
-            current.append(stripped)
             if stripped == ctx.SPEC_GUIDE_CLOSE:
+                current.append(stripped)
                 blocks.append("\n".join(current))
                 current = None
+            elif stripped:
+                current.append(stripped)
     return blocks
 
 

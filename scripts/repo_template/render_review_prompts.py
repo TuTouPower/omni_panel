@@ -18,11 +18,14 @@ reviewer 不再自行去读 spec：契约区与上下文区正文直接注入 pr
 
 import argparse
 import difflib
-import hashlib
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+from repo_task.context import TaskDataError
+from repo_task.documents import parse_front_matter as _parse_front_matter
+from repo_task.monitoring import review_scope_fingerprint as monitoring_scope_fingerprint
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEMPLATES_DIR = REPO_ROOT / "docs/reviews/prompts"
@@ -37,23 +40,11 @@ FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 
 
 def parse_front_matter(task_path: Path) -> dict:
-    """简化版 front matter 解析（task.py / check_review_status.py 各有副本，改规则需三处同步）。"""
-    text = task_path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
-        sys.exit(f"{task_path}: must start with YAML front matter (---)")
-    end = text.find("\n---", 3)
-    if end == -1:
-        sys.exit(f"{task_path}: front matter not terminated")
-    fm = {}
-    for line in text[3:end].splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        val = val.strip()
-        if val and val[0] not in ("\"", "'"):
-            val = val.split(" #", 1)[0].rstrip()
-        fm[key.strip()] = val.strip('"').strip("'")
+    """front matter 解析统一委托 repo_task.documents；格式非法以 sys.exit 终止。"""
+    try:
+        fm, _ = _parse_front_matter(task_path)
+    except TaskDataError as error:
+        sys.exit(f"{task_path}: {error}")
     return fm
 
 
@@ -127,32 +118,12 @@ def validate_diff_anchor(diff_anchor: str) -> str:
 
 
 def review_scope_fingerprint(diff_anchor: str, rel_task_dir: str) -> str:
-    """被审 diff 指纹：`git diff {diff_anchor}` 排除 task 流程文件后的内容摘要。
+    """被审 diff 指纹：委托 monitoring.review_scope_fingerprint（单一真相源）。
 
     reviewer 把本值写回报告 `reviewed_scope:`；checker 重算当前指纹比对。
     review 后改动代码/测试/spec 会改变指纹，PASS 随即失效（防「PASS 后继续改」）。
     """
-    excludes = [
-        f":(exclude){rel_task_dir}/task.md",
-        f":(exclude){rel_task_dir}/review_code.md",
-        f":(exclude){rel_task_dir}/review_test.md",
-        f":(exclude){rel_task_dir}/review_general.md",
-        f":(exclude){rel_task_dir}/handoff.json",
-        # 只排除处置过程产生的具体文件/目录；行为文件（hooks/skills/review
-        # prompts/blueprint/specs/guides/README 等）计入指纹，改之则 PASS 失效。
-        ":(exclude)docs/pending", ":(exclude)docs/findings",
-        ":(exclude)docs/archive", ":(exclude)docs/tasks_index.json",
-        ":(exclude)docs/archive/tasks_index.json", ":(exclude)docs/spikes",
-        ":(exclude).scratch",
-    ]
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "diff", "--binary", diff_anchor, "--", ".", *excludes],
-            capture_output=True, timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return hashlib.sha1(result.stdout).hexdigest()[:16]
+    return monitoring_scope_fingerprint(diff_anchor, rel_task_dir, repo_root=REPO_ROOT)
 
 
 def apply_placeholders(template: str, values: dict) -> str:
@@ -322,6 +293,12 @@ def main():
         out_dir = Path(args.out_dir)
         if not out_dir.is_absolute():
             out_dir = REPO_ROOT / out_dir
+        try:
+            out_dir.resolve().relative_to(REPO_ROOT.resolve())
+        except ValueError:
+            sys.exit(
+                f"--out-dir 必须在仓库内（收到 {args.out_dir!r}）；拒绝越界写入"
+            )
         out_dir.mkdir(parents=True, exist_ok=True)
         for filename, prompt in prompts.items():
             path = out_dir / filename
