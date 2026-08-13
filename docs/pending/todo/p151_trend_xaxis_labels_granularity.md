@@ -1,0 +1,26 @@
+# p151 用量面板折线图 X 轴：标签过度节流 + 1 天窗口丢失时分粒度
+
+- 现象（两个观察，同一趋势图管道）：
+    - **X 轴标签过度节流（主点）**：账号展开区折线图（`TrendSparkline`）7 个点（7 天窗口）时 X 轴只标 4 个坐标（下标 0/2/4/6），用户认为图内明显能放下 7 个。实际 inner_width=514px，`MM-DD` 标签 ~28px，可容纳 ~18 个，7 个绰绰有余。
+    - **1 天窗口仍按天显示**：选「1天」窗口后，折线图 X 轴仍按天标签显示（三个 `08-12`），应显示小时（`HH:00`）。
+- 影响：趋势图 X 轴信息量不足（7 天窗口丢一半日期标注）+ 1 天窗口完全无法区分同一天内不同时刻（对 1 天粒度图基本不可用）。影响模块：`src/renderer/components/TrendSparkline.tsx`（渲染）、`src/shared/lib/trend.ts`（序列构建）。消费方 `src/main/ipc/trend-ipc.ts` 与 `src/main/core/local-api/server.ts`（/v1/trend）同为 `build_trend_series` 产物，web 面板与 popup 共用同一渲染链路。
+- 根因（两个机制，合并为一个修复范围）：
+    - **机制 A（标签节流）**：`TrendSparkline.tsx:85` 硬编码 `target_labels = n <= 5 ? n : 4`，不按标签实际宽度判断是否重叠。a095cf49 当初为修标签重叠引入，但阈值固定，7 个日标签根本不重叠却被稀到 4 个。
+    - **机制 B（时分丢失）**：`shared/lib/trend.ts:40` `build_trend_series` 把 `observed_at` 格式化成 **UTC 日期**（`format_utc_date`，`YYYY-MM-DD`），丢弃时分。1 天窗口内逐小时观测点全落同一日期，`TrendSparkline.tsx:148` `p.date.slice(5)` 只能渲染出重复 `MM-DD`。渲染方无时分可用，是数据构建期丢失，非渲染可选错。
+    - 分类：产品缺陷（趋势图数据/呈现）。
+- 已确认同类位点（同一机制「trend 序列日期丢弃时分」+ 同一标签节流，合并为本条）：
+    - 主点：`src/renderer/components/TrendSparkline.tsx:85`（节流阈值）、`:148`（`slice(5)` 标签格式）
+    - `src/shared/lib/trend.ts:40` `build_trend_series`（时分丢失源头，修复覆盖全部消费方）
+    - 消费方（非独立 bug，随 build_trend_series 修复自动覆盖）：`src/main/ipc/trend-ipc.ts:39`（TREND_GET）、`:60`（TREND_GET_BULK，账号行数据路径）、`src/main/core/local-api/server.ts:1318`（/v1/trend）
+    - 已扫无其它：全仓仅 `TrendSparkline` 一个折线图组件；`p.date.slice(5)` 仅此一处；`format_usage_period_label`（provider-usage.ts）是用量周期标签（月度/周度），不同机制丢弃；`data/index.html` 的 trendSVG 是参考文档非生产代码。
+- 修复方向要点（供 task 展开）：
+    - `build_trend_series` 保留时分：date 改含时刻（如 ISO `YYYY-MM-DDTHH:mm`），或新增粒度字段；`format_utc_date` 相应扩展。契约变更需同步 /v1/trend 消费方与 web 面板。
+    - `TrendSparkline` 按粒度选标签格式：序列内全部点同属一个 UTC 日期 → 显示 `HH:MM`；跨日期 → 显示 `MM-DD`。
+    - 标签节流改宽度自适应（或提高阈值）：按 `inner_width / 估算标签宽` 计算可容纳数，再与 n 取小；避免 7 个日标签被稀到 4 个，同时 30 天窗口（n 可达 120 桶）仍能防重叠。
+- 测试缺口：
+    - `tests/unit/shared/trend.test.ts`：全部用 `Date.UTC(2026, 6, 20)` 午夜整点观测，断言 `date="2026-07-20"`，未覆盖「同一天多个时刻」→ 未暴露时分丢弃。补测：同一天逐小时观测 → 序列保留时刻（按新契约断言）。
+    - `tests/unit/renderer/components/trend_sparkline.test.tsx:65-85`「renders at most ~5 X-axis date labels regardless of point count」把静态节流锁成行为；修复后语义失效，应整体删除或按宽度自适应新语义整体替换并写明理由（禁止就地改预期）。
+    - 无测试覆盖「1 天窗口重复日期应显示小时」与「7 点窗口标签数应 ≥7（宽度足够时全标）」。
+    - 补测：sparkline 补两条 —— 同日期多点 → 标签为时刻格式；7 日点宽度足够 → 全部标签展示。trend.test 补一条时刻保留断言。
+- 线索：`.scratch/bug_trend_xaxis/repro.ts`（复现：24 个逐小时观测 → 全部 `08-12`；7 日点 → 标签下标 [0,2,4,6]）
+- 处理：未开
