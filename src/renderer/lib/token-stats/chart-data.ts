@@ -52,22 +52,16 @@ export function agentSegments(
     records: AgentSessionUsage[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const totals: Record<string, number> = {
-        "claude-code": 0,
-        "kimi-code": 0,
-        opencode: 0,
-        grok: 0,
-    };
+    const totals: Record<string, number> = {};
     for (const r of records) {
         totals[r.agent] = (totals[r.agent] ?? 0) + sumTokens(r);
     }
-    return (["claude-code", "kimi-code", "opencode", "grok"] as const)
-        .filter((a) => (totals[a] ?? 0) > 0)
-        .map((a) => ({
-            name: AGENT_LABELS[a] ?? a,
-            value: totals[a] ?? 0,
-            itemStyle: { color: agent_color(a, theme) },
-        }));
+    return agent_segments(
+        totals,
+        ["claude-code", "kimi-code", "opencode", "grok"],
+        AGENT_LABELS,
+        theme,
+    );
 }
 
 /** Segments for the cache-hit-rate donut (cache_read / input / cache_write / output). */
@@ -75,20 +69,13 @@ export function compositionSegments(
     records: AgentSessionUsage[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const palette = palette_for(theme);
     const totals = {
         cache_read: records.reduce((s, r) => s + r.cache_read_tokens, 0),
         input: records.reduce((s, r) => s + r.input_tokens, 0),
         cache_write: records.reduce((s, r) => s + r.cache_write_tokens, 0),
         output: records.reduce((s, r) => s + r.output_tokens, 0),
     };
-    return (Object.keys(totals) as (keyof typeof totals)[])
-        .filter((k) => totals[k] > 0)
-        .map((k) => ({
-            name: k,
-            value: totals[k],
-            itemStyle: { color: palette.composition[k] ?? palette.other },
-        }));
+    return composition_segments(totals, theme);
 }
 
 /**
@@ -106,37 +93,7 @@ export function modelSegments(
     for (const [model, rs] of Object.entries(byModel)) {
         totals[model] = rs.reduce((sum, r) => sum + valFn(r), 0);
     }
-    const { top, rest } = topGroups(totals, 5);
-    const palette = palette_for(theme);
-    const segs: DonutSegment[] = top.map((m, i) => ({
-        name: m,
-        value: totals[m] ?? 0,
-        itemStyle: { color: top_category_color(i, theme) },
-    }));
-    if (rest.length) {
-        const restItems = rest
-            .map((m) => [m, totals[m] ?? 0] as const)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1]);
-        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
-        segs.push({
-            name: `其他（${String(rest.length)} 个模型）`,
-            value: restTotal,
-            itemStyle: { color: palette.other },
-            extra:
-                restItems
-                    .slice(0, 5)
-                    .map(
-                        ([k, v]) =>
-                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
-                    )
-                    .join("") +
-                (restItems.length > 5
-                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
-                    : ""),
-        });
-    }
-    return segs;
+    return top_segments(totals, theme, { restLabel: "模型", fmt_value: fmtTok });
 }
 
 /** Segments for the sessions donut grouped by project (Top5 + 其他). */
@@ -149,37 +106,11 @@ export function projectSegments(
     for (const [dir, rs] of Object.entries(byDir)) {
         totals[dir] = new Set(rs.map((r) => r.session_id)).size;
     }
-    const { top, rest } = topGroups(totals, 5);
-    const palette = palette_for(theme);
-    const segs: DonutSegment[] = top.map((dir, i) => ({
-        name: shortDir(dir),
-        value: totals[dir] ?? 0,
-        itemStyle: { color: top_category_color(i, theme) },
-    }));
-    if (rest.length) {
-        const restItems = rest
-            .map((d) => [d, totals[d] ?? 0] as const)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1]);
-        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
-        segs.push({
-            name: `其他（${String(rest.length)} 个项目）`,
-            value: restTotal,
-            itemStyle: { color: palette.other },
-            extra:
-                restItems
-                    .slice(0, 5)
-                    .map(
-                        ([k, v]) =>
-                            `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
-                    )
-                    .join("") +
-                (restItems.length > 5
-                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
-                    : ""),
-        });
-    }
-    return segs;
+    return top_segments(totals, theme, {
+        restLabel: "项目",
+        fmt_value: (v) => String(v),
+        shorten: shortDir,
+    });
 }
 
 /** Prepared data for the stacked bar chart. */
@@ -226,7 +157,9 @@ export function prepareBarData(
             .sort((a, b) => b[1] - a[1])
             .map(([k]) => k);
         labels = dirs.map((d) => shortDir(d));
-        idxOf = (r) => dirs.indexOf(dir_key(r));
+        // t349 AC-003: 预构建 dir→index Map，避免逐行 indexOf 线性扫描。
+        const dir_idx = new Map(dirs.map((d, i) => [d, i]));
+        idxOf = (r) => dir_idx.get(dir_key(r)) ?? -1;
     } else {
         const rows = sessionRows(records)
             .sort((a, b) => b.tokens - a.tokens)
@@ -235,7 +168,9 @@ export function prepareBarData(
             const t = r.title;
             return t.length > 7 ? `${t.slice(0, 7)}…` : t;
         });
-        idxOf = (r) => rows.findIndex((x) => x.session_id === r.session_id);
+        // t349 AC-003: 预构建 session_id→index Map，避免 findIndex 线性扫描。
+        const session_idx = new Map(rows.map((r, i) => [r.session_id, i]));
+        idxOf = (r) => session_idx.get(r.session_id) ?? -1;
     }
 
     const n = labels.length;
@@ -284,11 +219,7 @@ export function prepareBarData(
     );
 
     const colorOf = (k: string, index: number) =>
-        k === "其他"
-            ? palette.other
-            : colorDim === "model"
-              ? top_category_color(index, theme)
-              : top_category_color(index, theme);
+        k === "其他" ? palette.other : top_category_color(index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,
@@ -466,6 +397,84 @@ export function modelColorMap(
     return map;
 }
 
+// --- t349: 公共 donut segment 生成器（收敛 records/buckets/rollup 镜像） ---
+
+/** Top5 + "其他" segment 生成器。`restLabel` 区分「模型/项目」，`fmt_value`
+ * 控制 extra 里的值格式，`shorten` 可选（项目名缩短）。 */
+function top_segments(
+    totals: Record<string, number>,
+    theme: "dark" | "light",
+    opts: {
+        restLabel: string;
+        fmt_value: (v: number) => string;
+        shorten?: (k: string) => string;
+    },
+): DonutSegment[] {
+    const { top, rest } = topGroups(totals, 5);
+    const palette = palette_for(theme);
+    const segs: DonutSegment[] = top.map((k, i) => ({
+        name: opts.shorten ? opts.shorten(k) : k,
+        value: totals[k] ?? 0,
+        itemStyle: { color: top_category_color(i, theme) },
+    }));
+    if (rest.length) {
+        const restItems = rest
+            .map((k) => [k, totals[k] ?? 0] as const)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
+        const show = (k: string) => (opts.shorten ? opts.shorten(k) : k);
+        segs.push({
+            name: `其他（${String(rest.length)} 个${opts.restLabel}）`,
+            value: restTotal,
+            itemStyle: { color: palette.other },
+            extra:
+                restItems
+                    .slice(0, 5)
+                    .map(
+                        ([k, v]) =>
+                            `<br/><span style="opacity:.75">· ${escapeHtml(show(k))}: ${escapeHtml(opts.fmt_value(v))}</span>`,
+                    )
+                    .join("") +
+                (restItems.length > 5
+                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
+                    : ""),
+        });
+    }
+    return segs;
+}
+
+/** Cache-hit-rate donut（composition）生成器，收敛三套逐字镜像。 */
+function composition_segments(
+    totals: { cache_read: number; input: number; cache_write: number; output: number },
+    theme: ChartTheme,
+): DonutSegment[] {
+    const palette = palette_for(theme);
+    return (Object.keys(totals) as (keyof typeof totals)[])
+        .filter((k) => totals[k] > 0)
+        .map((k) => ({
+            name: k,
+            value: totals[k],
+            itemStyle: { color: palette.composition[k] ?? palette.other },
+        }));
+}
+
+/** Agent donut 生成器：totals 已按 agent/source 聚合，labels 按数据源选。 */
+function agent_segments(
+    totals: Record<string, number>,
+    order: readonly string[],
+    labels: Record<string, string>,
+    theme: ChartTheme,
+): DonutSegment[] {
+    return order
+        .filter((a) => (totals[a] ?? 0) > 0)
+        .map((a) => ({
+            name: labels[a] ?? a,
+            value: totals[a] ?? 0,
+            itemStyle: { color: agent_color(a, theme) },
+        }));
+}
+
 export function escapeHtml(text: string): string {
     return text.replace(/[&<>'"]/g, (c) =>
         c === "&"
@@ -599,22 +608,16 @@ export function agentSegmentsFromBuckets(
     buckets: TokenStatsBucket[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const totals: Record<string, number> = {
-        claude_code: 0,
-        opencode: 0,
-        kimi_code: 0,
-        grok: 0,
-    };
+    const totals: Record<string, number> = {};
     for (const b of buckets) {
         totals[b.source] = (totals[b.source] ?? 0) + bucket_tokens(b);
     }
-    return (["claude_code", "opencode", "kimi_code", "grok"] as const)
-        .filter((s) => (totals[s] ?? 0) > 0)
-        .map((s) => ({
-            name: BUCKET_AGENT_LABELS[s] ?? s,
-            value: totals[s] ?? 0,
-            itemStyle: { color: agent_color(s, theme) },
-        }));
+    return agent_segments(
+        totals,
+        ["claude_code", "opencode", "kimi_code", "grok"],
+        BUCKET_AGENT_LABELS,
+        theme,
+    );
 }
 
 /** Segments for the cache-hit-rate donut, summed across all buckets. */
@@ -622,20 +625,13 @@ export function compositionSegmentsFromBuckets(
     buckets: TokenStatsBucket[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const palette = palette_for(theme);
     const totals = {
         cache_read: buckets.reduce((s, b) => s + b.cache_read_tokens, 0),
         input: buckets.reduce((s, b) => s + b.input_tokens, 0),
         cache_write: buckets.reduce((s, b) => s + b.cache_write_tokens, 0),
         output: buckets.reduce((s, b) => s + b.output_tokens, 0),
     };
-    return (Object.keys(totals) as (keyof typeof totals)[])
-        .filter((k) => totals[k] > 0)
-        .map((k) => ({
-            name: k,
-            value: totals[k],
-            itemStyle: { color: palette.composition[k] ?? palette.other },
-        }));
+    return composition_segments(totals, theme);
 }
 
 /**
@@ -652,37 +648,7 @@ export function modelSegmentsFromBuckets(
     for (const b of buckets) {
         totals[b.model] = (totals[b.model] ?? 0) + valFn(b);
     }
-    const { top, rest } = topGroups(totals, 5);
-    const palette = palette_for(theme);
-    const segs: DonutSegment[] = top.map((m, i) => ({
-        name: m,
-        value: totals[m] ?? 0,
-        itemStyle: { color: top_category_color(i, theme) },
-    }));
-    if (rest.length) {
-        const restItems = rest
-            .map((m) => [m, totals[m] ?? 0] as const)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1]);
-        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
-        segs.push({
-            name: `其他（${String(rest.length)} 个模型）`,
-            value: restTotal,
-            itemStyle: { color: palette.other },
-            extra:
-                restItems
-                    .slice(0, 5)
-                    .map(
-                        ([k, v]) =>
-                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
-                    )
-                    .join("") +
-                (restItems.length > 5
-                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
-                    : ""),
-        });
-    }
-    return segs;
+    return top_segments(totals, theme, { restLabel: "模型", fmt_value: fmtTok });
 }
 
 /** KPI totals (tokens / sessions / calls) summed across buckets. */
@@ -745,37 +711,11 @@ export function projectSegmentsFromSessions(
     for (const [dir, set] of byDir) {
         totals[dir] = set.size;
     }
-    const { top, rest } = topGroups(totals, 5);
-    const palette = palette_for(theme);
-    const segs: DonutSegment[] = top.map((dir, i) => ({
-        name: shortDir(dir),
-        value: totals[dir] ?? 0,
-        itemStyle: { color: top_category_color(i, theme) },
-    }));
-    if (rest.length) {
-        const restItems = rest
-            .map((d) => [d, totals[d] ?? 0] as const)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1]);
-        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
-        segs.push({
-            name: `其他（${String(rest.length)} 个项目）`,
-            value: restTotal,
-            itemStyle: { color: palette.other },
-            extra:
-                restItems
-                    .slice(0, 5)
-                    .map(
-                        ([k, v]) =>
-                            `<br/><span style="opacity:.75">· ${escapeHtml(shortDir(k))}: ${escapeHtml(String(v))}</span>`,
-                    )
-                    .join("") +
-                (restItems.length > 5
-                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
-                    : ""),
-        });
-    }
-    return segs;
+    return top_segments(totals, theme, {
+        restLabel: "项目",
+        fmt_value: (v) => String(v),
+        shorten: shortDir,
+    });
 }
 
 // --- rollup-based aggregates (t184) ---
@@ -792,8 +732,9 @@ function rollup_tokens(r: TokenStatsRollupRow): number {
     return r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
 }
 
-/** Session identity key for rollup rows（p052/t217：跨 env 同 session_id 不合并）。 */
-function rollup_session_key(r: TokenStatsRollupRow): string {
+/** Session identity key for rollup rows（p052/t217：跨 env 同 session_id 不合并；
+ * t349：提为导出供 KPI 复用）。 */
+export function rollup_session_key(r: TokenStatsRollupRow): string {
     return `${r.source}|${r.env}|${r.session_id}`;
 }
 
@@ -827,22 +768,16 @@ export function agentSegmentsFromRollup(
     rows: TokenStatsRollupRow[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const totals: Record<string, number> = {
-        claude_code: 0,
-        opencode: 0,
-        kimi_code: 0,
-        grok: 0,
-    };
+    const totals: Record<string, number> = {};
     for (const r of rows) {
         totals[r.source] = (totals[r.source] ?? 0) + rollup_tokens(r);
     }
-    return (["claude_code", "opencode", "kimi_code", "grok"] as const)
-        .filter((s) => (totals[s] ?? 0) > 0)
-        .map((s) => ({
-            name: ROLLUP_AGENT_LABELS[s] ?? s,
-            value: totals[s] ?? 0,
-            itemStyle: { color: agent_color(s, theme) },
-        }));
+    return agent_segments(
+        totals,
+        ["claude_code", "opencode", "kimi_code", "grok"],
+        ROLLUP_AGENT_LABELS,
+        theme,
+    );
 }
 
 /** Segments for the cache-hit-rate donut, summed across all rollup rows. */
@@ -850,20 +785,13 @@ export function compositionSegmentsFromRollup(
     rows: TokenStatsRollupRow[],
     theme: ChartTheme = "dark",
 ): DonutSegment[] {
-    const palette = palette_for(theme);
     const totals = {
         cache_read: rows.reduce((s, r) => s + r.cache_read_tokens, 0),
         input: rows.reduce((s, r) => s + r.input_tokens, 0),
         cache_write: rows.reduce((s, r) => s + r.cache_write_tokens, 0),
         output: rows.reduce((s, r) => s + r.output_tokens, 0),
     };
-    return (Object.keys(totals) as (keyof typeof totals)[])
-        .filter((k) => totals[k] > 0)
-        .map((k) => ({
-            name: k,
-            value: totals[k],
-            itemStyle: { color: palette.composition[k] ?? palette.other },
-        }));
+    return composition_segments(totals, theme);
 }
 
 /** Top5 + "其他" donut segments by model from rollup rows. `valFn` selects the
@@ -877,37 +805,7 @@ export function modelSegmentsFromRollup(
     for (const r of rows) {
         totals[r.model] = (totals[r.model] ?? 0) + valFn(r);
     }
-    const { top, rest } = topGroups(totals, 5);
-    const palette = palette_for(theme);
-    const segs: DonutSegment[] = top.map((m, i) => ({
-        name: m,
-        value: totals[m] ?? 0,
-        itemStyle: { color: top_category_color(i, theme) },
-    }));
-    if (rest.length) {
-        const restItems = rest
-            .map((m) => [m, totals[m] ?? 0] as const)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1]);
-        const restTotal = restItems.reduce((sum, [, v]) => sum + v, 0);
-        segs.push({
-            name: `其他（${String(rest.length)} 个模型）`,
-            value: restTotal,
-            itemStyle: { color: palette.other },
-            extra:
-                restItems
-                    .slice(0, 5)
-                    .map(
-                        ([k, v]) =>
-                            `<br/><span style="opacity:.75">· ${escapeHtml(k)}: ${escapeHtml(fmtTok(v))}</span>`,
-                    )
-                    .join("") +
-                (restItems.length > 5
-                    ? `<br/><span style="opacity:.5">· 还有 ${String(restItems.length - 5)} 个</span>`
-                    : ""),
-        });
-    }
-    return segs;
+    return top_segments(totals, theme, { restLabel: "模型", fmt_value: fmtTok });
 }
 
 /** KPI totals (tokens / distinct sessions / calls) summed across rollup rows. */
@@ -918,11 +816,15 @@ export function kpiFromRollup(rows: TokenStatsRollupRow[]): {
 } {
     let tokens = 0;
     let calls = 0;
+    const sessions = new Set<string>();
     for (const r of rows) {
         tokens += rollup_tokens(r);
         calls += r.calls;
+        // t349 AC-002: 按 source|env|session_id 去重（与 donut/会话轴一致），
+        // 裸 session_id 会跨 env 重复计数。
+        sessions.add(rollup_session_key(r));
     }
-    return { tokens, sessions: new Set(rows.map((r) => r.session_id)).size, calls };
+    return { tokens, sessions: sessions.size, calls };
 }
 
 /** Cache hit rate: cache_read / (cache_read + input), summed across rows. */
@@ -1029,11 +931,7 @@ export function prepareBarDataFromRollup(
             .slice(0, 20),
     );
     const colorOf = (k: string, index: number) =>
-        k === "其他"
-            ? palette.other
-            : colorDim === "model"
-              ? top_category_color(index, theme)
-              : top_category_color(index, theme);
+        k === "其他" ? palette.other : top_category_color(index, theme);
 
     const series = seriesNames.map((nm, i) => ({
         name: nm,
