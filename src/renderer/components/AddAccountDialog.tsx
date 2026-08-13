@@ -219,6 +219,9 @@ export function AddAccountDialog({
 
             await on_save(params);
             on_close();
+        } catch (err) {
+            // t356 AC-001: 保存失败显示可见错误，不再静默。
+            set_error_message(err instanceof Error ? err.message : "添加失败");
         } finally {
             set_saving(false);
         }

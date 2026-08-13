@@ -79,10 +79,16 @@ export function use_config(): UseConfigResult {
 
     const save = useCallback((newConfig: AppConfiguration): Promise<void> => {
         window.usageboard.log({ level: "debug", module: MODULE, message: "Saving config" });
+        const previous = config_ref.current;
         config_ref.current = newConfig;
         setConfig(newConfig);
         const p = save_queue_ref.current.then(() => window.usageboard.config.save(newConfig));
         save_queue_ref.current = p.catch((err: unknown) => {
+            // t356 AC-002: 写盘失败回滚乐观更新到上一已确认状态，内存态与磁盘一致。
+            if (config_ref.current === newConfig) {
+                config_ref.current = previous;
+                setConfig(previous);
+            }
             window.usageboard.log({
                 level: "error",
                 module: MODULE,
@@ -99,9 +105,14 @@ export function use_config(): UseConfigResult {
         const next = updater(current);
         config_ref.current = next;
         setConfig(next);
+        // t356 AC-002: 写盘失败回滚乐观更新到上一已确认状态。
         save_queue_ref.current = save_queue_ref.current
             .then(() => window.usageboard.config.save(next))
             .catch((err: unknown) => {
+                if (config_ref.current === next) {
+                    config_ref.current = current;
+                    setConfig(current);
+                }
                 window.usageboard.log({
                     level: "error",
                     module: MODULE,

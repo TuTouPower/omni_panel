@@ -44,6 +44,7 @@ export function LabelMapDialog({
     const [map, set_map] = useState<Record<string, string>>({});
     const [loading, set_loading] = useState(true);
     const [synced, set_synced] = useState<string | null>(null);
+    const [save_error, set_save_error] = useState<string | null>(null);
 
     // Fetch raw labels from plugin state
     useEffect(() => {
@@ -96,7 +97,14 @@ export function LabelMapDialog({
                 merged[r.raw] = v;
             }
         }
-        await on_save(instance_id, merged);
+        try {
+            // t356 AC-001: 保存失败显示可见错误，不再静默。
+            set_save_error(null);
+            await on_save(instance_id, merged);
+        } catch (err) {
+            set_save_error(err instanceof Error ? err.message : "保存失败");
+            throw err;
+        }
     };
 
     // ESC to close
@@ -165,7 +173,8 @@ export function LabelMapDialog({
                         size="sm"
                         type="button"
                         onClick={() => {
-                            void handle_save();
+                            // t356 AC-001: 失败已在 handle_save 内显示错误，rethrow 在此消化。
+                            void handle_save().catch(() => undefined);
                         }}
                     >
                         保存映射
@@ -173,6 +182,11 @@ export function LabelMapDialog({
                 </>
             }
         >
+            {save_error && (
+                <div className="mb-3 rounded-md bg-[var(--color-error-container)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-error-container)]">
+                    {save_error}
+                </div>
+            )}
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-6 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <span className="flex animate-spin">

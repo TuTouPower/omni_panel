@@ -175,6 +175,7 @@ export function SettingsForm({
             setSaving(true);
             setSaved(false);
             setSaveError(null);
+            let account_saved = false;
             try {
                 await onSave(
                     instanceId,
@@ -184,6 +185,9 @@ export function SettingsForm({
                     intervalSeconds,
                     displayName,
                 );
+                // t356 AC-004: onSave（账号配置）成功即视为账号已提交，后续步骤失败时
+                // 文案须区分已提交阶段，不笼统报「保存失败」。
+                account_saved = true;
                 if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
                     const map: Record<string, string> = {};
                     for (const [raw, display] of Object.entries(labelEdits)) {
@@ -209,7 +213,10 @@ export function SettingsForm({
                 }
                 return true;
             } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : String(err);
+                const raw_msg = err instanceof Error ? err.message : String(err);
+                // t356 AC-004: 账号已保存但后续步骤（标签映射/比例）失败时，文案注明
+                // 已提交阶段。
+                const msg = account_saved ? `账号已保存，但后续保存失败：${raw_msg}` : raw_msg;
                 if (mounted_ref.current) {
                     setSaveError(msg);
                 }
