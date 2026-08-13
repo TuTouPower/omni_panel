@@ -2,11 +2,11 @@
 tid: "t339"
 slug: "oauth_manager_dedupe"
 title: "grok/kimi OAuth manager/IPC/preload 参数化收敛"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t339_oauth_manager_dedupe"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "ed51a5e80ea8589ed0cddf483e07199d21d93f88"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: OAuth 近全量重复+行为漂移"
@@ -22,7 +22,14 @@ note: "review_intensive: OAuth 近全量重复+行为漂移"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+
+- 新增 `src/main/core/auth/device_code_oauth_manager.ts`（参数化 manager，493 行）、`src/main/ipc/oauth_device_ipc.ts`（共享 IPC 注册器）、`src/preload/oauth_api.ts` 共享工厂 `create_oauth_apis`。
+- grok/kimi manager/IPC 重写为薄包装，仅保留常量与差异配置（scope/header builder/device-id resolver）。
+- 行为对齐：logout 补 `cancel_device_login`+清 retry；stop_auto_refresh/shutdown 补清 retry（对齐 kimi）。
+- 纯净删 1158 行；grok manager 470→54，kimi 516→96，IPC 152→78。
+- 顺手修 t338 遗留 strict-TS 错误（schema_export_freshness.test.ts `anyOf`/`properties` 访问），typecheck 基线所需。
+- 新增 `tests/unit/auth/device_code_oauth_manager.test.ts`（3 例对齐断言）。
 
 ## Review 处置
 
@@ -43,6 +50,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 14:45 UTC+8)
+
+| finding_id     | severity | status | rationale                                                                                                                 | fix_ref |
+| -------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------- | ------- |
+| t339_code_f001 | minor    | 遗留   | preload 工厂 `invoke<unknown>`+整体 `as` 丢 per-provider 返回类型编译期强制；对外类型与运行时不变，非阻断。登记 follow-up | p154    |
+| t339_test_f001 | minor    | 遗留   | AC-002/003 的 retry_failure_counts 清理无测试触达（需 10 次连续失败可观察）；共享实现结构性保证，登记 follow-up           | p154    |
+| t339_test_f002 | minor    | 遗留   | spec 声明 logout/stop/shutdown 三者同副作用断言，实际仅 logout 落实；stop/shutdown 由共享实现结构保证                     | p154    |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -69,8 +84,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001 minor 遗留）
+- Round 1 test：PASS（f001/f002 minor 遗留）
 
 `single`：
 
