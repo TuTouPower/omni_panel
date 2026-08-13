@@ -1,0 +1,27 @@
+{
+    "tid": "t351",
+    "attempt": 1,
+    "execution_id": "6855583e75fd4867b947393a743b1d5d",
+    "status": "done",
+    "branch": "t351_token_stats_query_perf",
+    "base_sha": "89be7c543fe4bf22d7626a5408eccb823f4a76c1",
+    "tests": "t351 相关 18 测试文件 315 passed（token-stats store 93/dashboard 21/collector 46/dispatcher 9/opencode-reader 11/baseline 3 + observation 集成 30）",
+    "blackbox": "typecheck + lint + prettier 通过；纯 main 进程逻辑改动，无 electron 运行黑盒，以 store/dispatcher 集成单测断言代替",
+    "review": "single；Round 1 general FAIL（f001 浮点 bucket critical / f002 链式 promote / f003 records 全窗口扫 / f004 title 过滤 / f005 directory 分组 minor）→ Round 2 general PASS（f001-f004 消除且各有防原 bug 回归测试；f005 维持 minor 登记 p171）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/observation/observation-store.test.ts::query_trend_series 分桶下推 SQL（bucket_idx CASE 钳制 cap-1，每桶 ROW_NUMBER 取 observed_at 最新，LIMIT cap）返回行数 ≤ cap 通过",
+            "t351 相关 9 个 trend 测试通过"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts 93 passed：materialize_session_meta 在 rollup ready（from_records=false）时从 window_rows 聚合 session_meta（calls/tokens），轻量 records UPDATE 补 title/started_at/ended_at，dashboard 查询不再全窗口扫 raw records",
+            "token_stats_dashboard.test.ts 21 passed（oracle 一致性）"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/query-dispatcher.test.ts 8 passed：新增『resets the timer when a queued request becomes active』——p1 active 超时 40ms 后 p2 被 promote（promote_to_active 重置 timer 为完整 request_timeout_ms），激活后 20ms 内 p2 响应不误报超时",
+            "queued→active 两处内联逻辑统一走 promote_to_active（settle 与 p1 timeout 回调）"
+        ]
+    },
+    "pending": ["p171_token_stats_session_directory_rollup_sum"],
+    "findings": []
+}

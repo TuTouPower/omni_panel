@@ -225,10 +225,34 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     // Sparkline: per-day latest observation within (now-days, now].
     // t214: 加 source_instance_id 过滤，隔离多账号 provider（account_id 塌成同一值时）。
+    // t351 AC-001: 分桶下推 SQL——按 cap 桶均分窗口、每桶 ROW_NUMBER 取
+    // observed_at 最新一条，LIMIT cap，避免全窗口物化后 JS 分桶。bucket_idx
+    // 用 CASE 钳制到 cap-1（对齐原 JS 的 Math.min(cap-1, ...)）。
+    // 注意 CAST((observed_at-?)/? AS INTEGER)：better-sqlite3 把 number 一律
+    // 绑成 REAL，不做 CAST 时 bucket_idx 为浮点（如 3.7），PARTITION BY 每点
+    // 独立分区、聚合失效，整窗按 ASC LIMIT 返回最旧 cap 行（p?/F1 回归）。截断
+    // 对非负值等同 Math.floor，语义对齐原 JS 分桶。
     const query_trend_stmt = db.prepare(`
-        SELECT * FROM observations
-        WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ? AND observed_at >= ?
+        WITH bucketed AS (
+            SELECT *,
+                   CASE WHEN CAST((observed_at - ?) / ? AS INTEGER) >= ?
+                        THEN ? - 1
+                        ELSE CAST((observed_at - ?) / ? AS INTEGER)
+                   END AS bucket_idx
+            FROM observations
+            WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ?
+              AND observed_at >= ?
+        )
+        SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY bucket_idx ORDER BY observed_at DESC
+            ) AS rn
+            FROM bucketed
+            WHERE bucket_idx >= 0
+        )
+        WHERE rn = 1
         ORDER BY observed_at ASC
+        LIMIT ?
     `);
 
     return {
@@ -294,47 +318,24 @@ export function create_observation_store(db_path: string): ObservationStore {
             const now = Date.now();
             const day_ms = 24 * 60 * 60 * 1000;
             const start_ms = now - days * day_ms;
+            const bucket_width = (now - start_ms) / cap;
+            // t351 AC-001: 分桶下推 SQL——每桶取最新一条，LIMIT cap 兜底，
+            // 返回行数 ≤ cap，避免全窗口物化后 JS 分桶。
             const rows = query_trend_stmt.all(
+                start_ms,
+                bucket_width,
+                cap,
+                cap,
+                start_ms,
+                bucket_width,
                 provider,
                 account_id,
                 metric_id,
                 source_instance_id,
                 start_ms,
+                cap,
             ) as Record<string, unknown>[];
-
-            // t208: 取点策略。原始点数 ≤ cap 时每点独立（不聚合，保留采集粒度）；
-            // 超过 cap 时按 cap 桶均分窗口、每桶取 observed_at 最大一条。
-            const observations = rows.map(row_to_observation);
-            if (observations.length === 0) return [];
-            if (observations.length <= cap) {
-                // 按 observed_at 升序。SQL ORDER BY observed_at ASC 下同 ts 的行
-                // 顺序未定，后出现者覆盖（同 ts 保留最后一条）。
-                const by_ts = new Map<number, Observation>();
-                for (const obs of observations) {
-                    by_ts.set(obs.observed_at, obs);
-                }
-                return [...by_ts.values()].sort((a, b) => a.observed_at - b.observed_at);
-            }
-            const span = now - start_ms;
-            const bucket_width = span / cap;
-            const buckets = new Map<number, Observation>();
-            for (const obs of observations) {
-                const idx = Math.min(
-                    cap - 1,
-                    Math.floor((obs.observed_at - start_ms) / bucket_width),
-                );
-                const prev = buckets.get(idx);
-                if (!prev || obs.observed_at > prev.observed_at) {
-                    buckets.set(idx, obs);
-                }
-            }
-            // 升序返回（按 bucket index）。
-            const result: Observation[] = [];
-            for (let i = 0; i < cap; i++) {
-                const obs = buckets.get(i);
-                if (obs) result.push(obs);
-            }
-            return result;
+            return rows.map(row_to_observation);
         },
 
         prune(older_than_ms) {
