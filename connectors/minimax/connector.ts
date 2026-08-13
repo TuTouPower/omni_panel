@@ -76,7 +76,12 @@ function model_key(name: string | undefined): string | null {
 }
 
 function period_key(model: BaseModel): string {
-    const hours = (to_number(model.end_time) - to_number(model.start_time)) / 3_600_000;
+    // t361: 时间戳缺失/非数字（to_number 归一为 0 或负）时跳过周期推断，
+    // 避免把未知周期误判为 period_5h。
+    const start = to_number(model.start_time);
+    const end = to_number(model.end_time);
+    if (start <= 0 || end <= 0 || end <= start) return "period_generic";
+    const hours = (end - start) / 3_600_000;
     if (hours <= 5.1) return "period_5h";
     if (hours <= 24.1) return "period_day";
     if (hours <= 168.1) return "period_week";

@@ -117,7 +117,10 @@ function parse_billing_period(period: BillingPeriod | undefined): ObservationPer
 }
 
 function get_legacy_reset_at(config: BillingConfig): number | null {
-    return typeof config.billingPeriodEnd === "string" ? Date.parse(config.billingPeriodEnd) : null;
+    // t361 AC-001: Date.parse 后校验 isFinite，NaN 置 null（否则 NaN 违反 schema 致整条观测丢弃）。
+    if (typeof config.billingPeriodEnd !== "string") return null;
+    const timestamp = Date.parse(config.billingPeriodEnd);
+    return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function get_legacy_period(config: BillingConfig): ObservationPeriod {

@@ -322,4 +322,20 @@ describe("mimo connector", () => {
         expect(result.failed_accounts).toHaveLength(1);
         expect(result.failed_accounts[0]?.provider).toBe("mimo");
     });
+
+    it("skips non-numeric balance instead of treating it as 0 (t361 AC-004)", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                { code: 0, data: { usage: { items: [] } } },
+                { code: 0, data: {} },
+                { code: 0, data: { balance: "not-a-number" } },
+            ),
+        );
+        // balance 非数字 → 跳过余额观测；无 usage 项 → 报 failed（不静默当 0 余额）。
+        expect(result.observations.filter((o) => o.raw_label === "balance")).toHaveLength(0);
+        expect(result.failed_accounts).toHaveLength(1);
+    });
 });
