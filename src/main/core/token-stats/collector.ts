@@ -119,13 +119,25 @@ const source_warned = new Set<string>();
 // Records the collector has already emitted (by PK source|env|message_id).
 // A dirty session re-merge re-derives the session's full record set; without
 // this filter every mtime change would re-ship the whole session (observed
-// ~200k records/collect on active installs). The set is in-memory only: a
-// restart emits full once (same as before), then incrementally. It grows
-// monotonically but is bounded by the total distinct message count.
-const emitted_record_keys = new Set<string>();
+// ~200k records/collect on active installs). The map is in-memory only: a
+// restart emits full once (same as before), then incrementally. t346 AC-001:
+// 记录加入时间戳，按 EMITTED_WINDOW_MS 裁剪，内存占用不再随历史消息总量
+// 线性增长（只保留近 N 天去重状态）。窗口取 30 天：覆盖绝大多数增量回溯期，
+// 活跃会话过窗重发概率被压到「会话 >30 天未触碰又被触碰」的罕见场景。
+const EMITTED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const emitted_record_keys = new Map<string, number>();
 
 function record_key(r: { source: string; env: string; message_id: string }): string {
     return `${r.source}|${r.env}|${r.message_id}`;
+}
+
+/** 裁剪超出时间窗的已发出记录（collect 时调用）。 */
+function prune_emitted(now: number = Date.now()): void {
+    for (const [key, ts] of emitted_record_keys) {
+        if (now - ts > EMITTED_WINDOW_MS) {
+            emitted_record_keys.delete(key);
+        }
+    }
 }
 
 // --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
@@ -600,8 +612,9 @@ function collect(): void {
 
     try {
         get_parent_port()?.postMessage(update);
+        const now = Date.now();
         for (const key of newly_emitted) {
-            emitted_record_keys.add(key);
+            emitted_record_keys.set(key, now);
         }
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -627,10 +640,23 @@ function collect(): void {
         forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
     }
 
+    // t346 AC-001: 裁剪超出时间窗的已发出记录，控制内存上界。
+    prune_emitted();
+
     // Persist scan state for incremental resume after restart (t114).
+    // t346 AC-002: 本轮无新数据时跳过保存，避免每轮无条件全量序列化 + fsync。
+    // 失败/不可用 source 不改写 state map（reader 失败不碰 map），postMessage
+    // 失败的回滚仅发生在有数据被收集时（此时 all_* 非空已触发保存），故
+    // has_changes 只需看数据与截断——永久不可用 source（如 Windows 无 Grok 的
+    // grok_wsl）不再每轮触发保存。
     // Fire-and-forget: don't block the next scan on disk IO.
     const state_path = config.state_path;
-    if (state_path) void save_state(state_path);
+    const has_changes =
+        all_sessions.length > 0 ||
+        all_daily.length > 0 ||
+        all_records.length > 0 ||
+        truncated_sources.length > 0;
+    if (state_path && has_changes) void save_state(state_path);
 }
 
 // --- Configure (also exported for tests) ---
@@ -694,6 +720,7 @@ export {
     kimi_states,
     grok_states,
     source_cursors,
+    emitted_record_keys,
     claude_costs_path,
     claude_projects_path,
     opencode_path,

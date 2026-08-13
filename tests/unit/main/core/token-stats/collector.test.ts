@@ -26,6 +26,16 @@ vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
     create_grok_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
+const mock_scan_save = vi.fn();
+vi.mock("../../../../../src/main/core/token-stats/scan-state", async (importOriginal) => {
+    const actual = await importOriginal<typeof ScanStateModule>();
+    return {
+        ...actual,
+        save_state: (...args: unknown[]) => mock_scan_save(...args),
+    };
+});
+import type * as ScanStateModule from "../../../../../src/main/core/token-stats/scan-state";
+
 // Mock Electron's utilityProcess parentPort (must exist before collector import)
 const mock_post_message = vi.fn();
 (process as unknown as Record<string, unknown>)["parentPort"] = {
@@ -43,6 +53,7 @@ import {
     opencode_max_updated,
     jsonl_states,
     source_cursors,
+    emitted_record_keys,
     claude_costs_path,
     claude_projects_path,
     opencode_path,
@@ -133,6 +144,7 @@ describe("collector", () => {
         opencode_max_updated.clear();
         jsonl_states.clear();
         source_cursors.clear();
+        emitted_record_keys.clear();
         reset_config();
         // Simulate a Windows host so the wsl sources are reachable (t308);
         // non-Windows host behaviour is covered by paths.test.ts and
@@ -992,6 +1004,71 @@ describe("collector", () => {
             const update = posted_updates()[0]!;
             expect(update.sources_status).toHaveLength(4);
             expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
+        });
+    });
+
+    describe("bounded memory (t346)", () => {
+        it("prunes emitted records older than the window (t346 AC-001)", () => {
+            const now = Date.now();
+            // 注入旧（>7d）与新的 key。
+            emitted_record_keys.set("old|local|m-old", now - 31 * 24 * 60 * 60 * 1000);
+            emitted_record_keys.set("fresh|local|m-fresh", now);
+
+            // 无数据 collect 也触发 prune_emitted。
+            configure(base_config);
+
+            expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+            expect(emitted_record_keys.has("fresh|local|m-fresh")).toBe(true);
+        });
+
+        it("newly emitted records carry a timestamp and are bounded by the window", () => {
+            const now = Date.now();
+            emitted_record_keys.set("old|local|m-old", now - 31 * 24 * 60 * 60 * 1000);
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [record({ message_id: "m1", source: "claude_code", env: "local" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+
+            // 新记录写入时间戳；旧记录仍被裁剪。
+            expect(emitted_record_keys.has("claude_code|local|m1")).toBe(true);
+            expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+        });
+
+        it("skips save_state when a round has no changes (t346 AC-002)", () => {
+            // 首轮有数据 → save_state（scan_save）调用。
+            const cfg = { ...base_config, state_path: "/tmp/scan-state.json" };
+            mock_read_costs.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                new_offset: 100,
+                new_size: 100,
+            });
+            configure(cfg);
+            expect(mock_scan_save).toHaveBeenCalled();
+
+            // 第二轮无变化（reader 返回空）→ save_state 不调用。
+            mock_read_costs.mockReturnValue({ sessions: [], new_offset: 100, new_size: 100 });
+            mock_scan_save.mockClear();
+            collect();
+            expect(mock_scan_save).not.toHaveBeenCalled();
+        });
+
+        it("does not save on unavailable sources (t346 AC-002)", () => {
+            // 所有 source 空数据 + grok 永久 unavailable（Windows 无 Grok）：
+            // 无数据时 unavailable 不应触发保存（否则每轮 fsync）。
+            const cfg = { ...wsl_config, state_path: "/tmp/scan-state.json" };
+            mock_scan_grok.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+                missing: true,
+            });
+            configure(cfg);
+            expect(mock_scan_save).not.toHaveBeenCalled();
         });
     });
 });
