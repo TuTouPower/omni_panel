@@ -529,36 +529,6 @@
             "dir": "docs/tasks/t372_net_client_error_class"
         },
         {
-            "tid": "t373",
-            "slug": "repo_template_ci",
-            "title": "repo_template pytest 接入 CI",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "review_intensive: 18 pytest 无 CI 回归",
-            "dir": "docs/tasks/t373_repo_template_ci"
-        },
-        {
-            "tid": "t374",
-            "slug": "repo_template_consolidation",
-            "title": "repo_template 重复/漂移/健壮性收敛",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "review_intensive: plan 三份/parse_front_matter/原子写/git 超时",
-            "dir": "docs/tasks/t374_repo_template_consolidation"
-        },
-        {
             "tid": "t375",
             "slug": "ci_packaging",
             "title": "CI/打包 workflow 修复",

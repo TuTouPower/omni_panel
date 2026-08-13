@@ -2,14 +2,14 @@
 tid: "t374"
 slug: "repo_template_consolidation"
 title: "repo_template 重复/漂移/健壮性收敛"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: "review_intensive: plan 三份/parse_front_matter/原子写/git 超时"
+note: "review_intensive: plan 三份/parse_front_matter/原子写/git 超时; dropped: 用户决定不处理 repo_template 工具链问题"
 ---
 
 # Task 过程总账
