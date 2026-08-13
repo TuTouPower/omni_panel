@@ -662,6 +662,21 @@
             "schedule_status": "",
             "note": "来源: p151",
             "dir": "docs/tasks/t383_trend_xaxis_labels_granularity"
+        },
+        {
+            "tid": "t384",
+            "slug": "token_stats_model_alias_expand",
+            "title": "模型筛选 alias 归并展开（碰撞修复 + IN 展开）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t384_token_stats_model_alias_expand"
         }
     ]
 }
