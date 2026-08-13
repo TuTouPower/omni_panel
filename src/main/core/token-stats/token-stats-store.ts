@@ -39,8 +39,16 @@ import { createLogger } from "../../../shared/lib/logger";
 export const DEFAULT_RECORDS_LIMIT = 5000;
 
 export interface TokenStatsStore {
-    /** Merge session deltas + daily usage rows, then recompute daily buckets. */
-    upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void;
+    /**
+     * Merge session deltas + daily usage rows. `rebuild_buckets` 默认 true
+     * （t347 AC-001：manager 分批 upsert 时仅最后一批传 true，避免每批全表
+     * 重建 buckets）。
+     */
+    upsert_sessions(
+        deltas: TokenStatsSessionUpsert[],
+        daily: TokenStatsDailyUpsert[],
+        rebuild_buckets?: boolean,
+    ): void;
     /** Replace per-message records for changed sessions. */
     upsert_records(records: AgentSessionUsageRecord[]): void;
     query_buckets(filters: {
@@ -928,35 +936,44 @@ export function create_token_stats_store(
     let latest_sources_status: TokenStatsSourceStatus[] = [];
 
     return {
-        upsert_sessions(deltas: TokenStatsSessionUpsert[], daily: TokenStatsDailyUpsert[]): void {
+        upsert_sessions(
+            deltas: TokenStatsSessionUpsert[],
+            daily: TokenStatsDailyUpsert[],
+            rebuild_buckets = true,
+        ): void {
             if (readonly) {
                 throw new Error("Token stats store is read-only");
             }
-            if (deltas.length === 0 && daily.length === 0) {
+            if (deltas.length === 0 && daily.length === 0 && !rebuild_buckets) {
                 return;
             }
             const now = Date.now();
             const tx = db.transaction((items: TokenStatsSessionUpsert[]) => {
-                for (const s of items) {
-                    const params = {
-                        id: s.id,
-                        source: s.source,
-                        env: s.env,
-                        model: s.model,
-                        title: s.title,
-                        directory: s.directory,
-                        input_tokens: s.input_tokens,
-                        output_tokens: s.output_tokens,
-                        cache_read_tokens: s.cache_read_tokens,
-                        cache_write_tokens: s.cache_write_tokens,
-                        calls: s.calls,
-                        started_at: s.started_at,
-                        ended_at: s.ended_at,
-                        updated_at: now,
-                    };
-                    const result = update_session_stmt.run(params);
-                    if (result.changes === 0) {
-                        insert_session_stmt.run(params);
+                // t347 AC-001 修正（reviewer f001）：数据为空但 rebuild_buckets=true
+                // 时仍须执行重建——manager 末批可能是空数据（records 最长时
+                // sessions/daily 先耗尽），否则整轮无一次 buckets 重建。
+                if (deltas.length > 0) {
+                    for (const s of items) {
+                        const params = {
+                            id: s.id,
+                            source: s.source,
+                            env: s.env,
+                            model: s.model,
+                            title: s.title,
+                            directory: s.directory,
+                            input_tokens: s.input_tokens,
+                            output_tokens: s.output_tokens,
+                            cache_read_tokens: s.cache_read_tokens,
+                            cache_write_tokens: s.cache_write_tokens,
+                            calls: s.calls,
+                            started_at: s.started_at,
+                            ended_at: s.ended_at,
+                            updated_at: now,
+                        };
+                        const result = update_session_stmt.run(params);
+                        if (result.changes === 0) {
+                            insert_session_stmt.run(params);
+                        }
                     }
                 }
                 for (const d of daily) {
@@ -974,12 +991,16 @@ export function create_token_stats_store(
                         updated_at: now,
                     });
                 }
-                delete_buckets_stmt.run();
-                insert_buckets_stmt.run({ now });
+                // t347 AC-001: 默认每次 upsert 重建 buckets；manager 分批时仅
+                // 最后一批传 true（否则每批全表聚合，100 批 = 100 次全表重建）。
+                if (rebuild_buckets) {
+                    delete_buckets_stmt.run();
+                    insert_buckets_stmt.run({ now });
+                }
             });
             tx(deltas);
             log.debug(
-                `Upserted ${String(deltas.length)} session deltas + ${String(daily.length)} daily rows, buckets recomputed`,
+                `Upserted ${String(deltas.length)} session deltas + ${String(daily.length)} daily rows${rebuild_buckets ? ", buckets recomputed" : ""}`,
             );
         },
 
