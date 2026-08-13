@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { addTransport } from "../../../src/shared/lib/logger";
 import {
     create_device_code_oauth_manager,
     type DeviceCodeOAuthConfig,
@@ -187,5 +188,80 @@ describe("device_code_oauth_manager (t339 对齐)", () => {
         await kimi_manager.logout("kimi-align");
         await expect(kimi_login).resolves.toEqual({ saved: false });
         await expect(kimi_vault.get("kimi-align:OAUTH_TOKEN")).resolves.toBeNull();
+    });
+
+    it("poll 窗口内 cancel_device_login 生效，取消后不落库（t340 AC-002）", async () => {
+        const vault = create_vault();
+        // 挂起的 token 响应：模拟 HTTP 轮询请求进行中 cancel。
+        let resolve_token: ((v: unknown) => void) | undefined;
+        const pending_token = new Promise<unknown>((resolve) => {
+            resolve_token = resolve;
+        });
+        let poll_started = false;
+        const http = create_http_mock(shared_config);
+        const manager = create_device_code_oauth_manager(shared_config, {
+            vault,
+            http_post: async (url: string, body: string) => {
+                if (url === shared_config.token_url) {
+                    poll_started = true;
+                    return pending_token;
+                }
+                return http.post(url, body, {});
+            },
+        });
+
+        const login = manager.await_completion("dc-poll", 5, Date.now() + 1_800_000, "inst-poll");
+        // 首次 poll 请求已发出且挂起（HTTP 轮询窗口内）。
+        await vi.waitFor(() => {
+            expect(poll_started).toBe(true);
+        });
+
+        manager.cancel_device_login("inst-poll");
+        resolve_token?.({
+            access_token: "access-late",
+            refresh_token: "refresh-late",
+            expires_in: 3600,
+        });
+
+        await expect(login).resolves.toEqual({ saved: false });
+        // 取消后即使 token 响应晚到，也不写入 vault。
+        await expect(vault.get("inst-poll:OAUTH_TOKEN")).resolves.toBeNull();
+        await expect(vault.get("inst-poll:OAUTH_REFRESH_TOKEN")).resolves.toBeNull();
+    });
+
+    it("vault 读失败时 schedule 不产生 unhandled rejection 且记录含 instance_id 日志（t340 AC-001）", async () => {
+        const vault = create_vault();
+        vault.get = () => Promise.reject(new Error("vault read boom"));
+        const http = create_http_mock(shared_config);
+        const manager = create_device_code_oauth_manager(shared_config, {
+            vault,
+            http_post: http.post,
+        });
+
+        const unhandled: unknown[] = [];
+        const on_unhandled = (reason: unknown) => {
+            unhandled.push(reason);
+        };
+        const logs: { level: string; message: string }[] = [];
+        const remove_transport = addTransport({
+            write(level, _module, message) {
+                logs.push({ level, message });
+            },
+        });
+        process.on("unhandledRejection", on_unhandled);
+        try {
+            manager.start_auto_refresh("inst-vault-fail");
+            await vi.advanceTimersByTimeAsync(1000);
+            // 若 schedule 内部未 catch，load_tokens 的 rejection 会落 unhandledRejection。
+            await Promise.resolve();
+            expect(unhandled).toHaveLength(0);
+            // AC-001 分句 b：记录含 instance_id 的错误日志。
+            expect(
+                logs.some((l) => l.level === "error" && l.message.includes("inst-vault-fail")),
+            ).toBe(true);
+        } finally {
+            remove_transport();
+            process.off("unhandledRejection", on_unhandled);
+        }
     });
 });

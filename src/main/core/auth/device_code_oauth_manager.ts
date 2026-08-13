@@ -196,20 +196,35 @@ export function create_device_code_oauth_manager(
         const generation = get_token_generation(instance_id);
         let current_interval = Math.max(1, interval);
         const cancelled_ref = { current: false };
+        let sleep_timer: ReturnType<typeof setTimeout> | null = null;
+        let sleep_resolver: (() => void) | null = null;
+
+        // t340: 取消闭包在函数开头持久注册（而非仅 sleep 窗口内），使 HTTP 轮询
+        // 窗口内 cancel_device_login 也生效；同时 clearTimeout 当前 sleep 并 resolve，
+        // 使取消在 sleep 窗口内也能立即返回 {saved:false}。
+        active_login_cancels.set(instance_id, () => {
+            cancelled_ref.current = true;
+            if (sleep_timer !== null) {
+                clearTimeout(sleep_timer);
+                sleep_timer = null;
+            }
+            if (sleep_resolver !== null) {
+                const resolve = sleep_resolver;
+                sleep_resolver = null;
+                resolve();
+            }
+        });
 
         const sleep = (ms: number) =>
             new Promise<void>((resolve) => {
                 const timer = setTimeout(() => {
-                    active_login_cancels.delete(instance_id);
+                    if (sleep_timer === timer) sleep_timer = null;
+                    if (sleep_resolver === resolve) sleep_resolver = null;
                     resolve();
                 }, ms);
-                active_login_cancels.set(instance_id, () => {
-                    clearTimeout(timer);
-                    active_login_cancels.delete(instance_id);
-                    cancelled_ref.current = true;
-                    resolve();
-                });
                 timer.unref();
+                sleep_timer = timer;
+                sleep_resolver = resolve;
             });
 
         const cleanup = () => {
@@ -311,12 +326,13 @@ export function create_device_code_oauth_manager(
 
         const generation = get_token_generation(instance_id);
         const refresh = (async (): Promise<RefreshResult> => {
-            const stored = await load_tokens(deps.vault, instance_id);
-            if (!stored.refresh) {
-                log.warn(`refresh_now: no refresh_token stored for ${instance_id}`);
-                return { success: false, error: "no refresh_token stored" };
-            }
             try {
+                // t340: load_tokens 移入 try，vault 读失败不再落 unhandledRejection。
+                const stored = await load_tokens(deps.vault, instance_id);
+                if (!stored.refresh) {
+                    log.warn(`refresh_now: no refresh_token stored for ${instance_id}`);
+                    return { success: false, error: "no refresh_token stored" };
+                }
                 const response = await post_form(config.token_url, refresh_pairs(stored.refresh));
                 return await enqueue_token_mutation(instance_id, async () => {
                     if (generation !== get_token_generation(instance_id)) {
@@ -393,51 +409,70 @@ export function create_device_code_oauth_manager(
         retry_failure_counts.set(instance_id, failures);
         const timer = setTimeout(() => {
             auto_refresh_timers.delete(instance_id);
-            void refresh_now(instance_id).then((result) => {
-                if (result.success) {
-                    retry_failure_counts.delete(instance_id);
-                } else if (!is_terminal_grant_error(result.error ?? "")) {
-                    schedule_retry(instance_id);
-                }
-            });
+            void refresh_now(instance_id)
+                .then((result) => {
+                    if (result.success) {
+                        retry_failure_counts.delete(instance_id);
+                    } else if (!is_terminal_grant_error(result.error ?? "")) {
+                        schedule_retry(instance_id);
+                    }
+                })
+                .catch((error: unknown) => {
+                    log.error(
+                        `auto_refresh: refresh failed in retry timer for ${instance_id}: ${to_error(error).message}`,
+                    );
+                });
         }, REFRESH_RETRY_DELAY_MS);
         auto_refresh_timers.set(instance_id, timer);
     }
 
+    // t340: 整体 try/catch，vault 读失败时不产生 unhandled rejection，
+    // 记录含 instance_id 的错误日志并保留 instance 待下次调度。
     async function schedule_auto_refresh_if_enabled(instance_id: string): Promise<void> {
-        cancel_auto_refresh_timer(instance_id);
-        if (!enabled_auto_refresh_ids.has(instance_id)) return;
+        try {
+            cancel_auto_refresh_timer(instance_id);
+            if (!enabled_auto_refresh_ids.has(instance_id)) return;
 
-        const stored = await load_tokens(deps.vault, instance_id);
-        if (!enabled_auto_refresh_ids.has(instance_id) || !stored.refresh) return;
-        cancel_auto_refresh_timer(instance_id);
+            const stored = await load_tokens(deps.vault, instance_id);
+            if (!enabled_auto_refresh_ids.has(instance_id) || !stored.refresh) return;
+            cancel_auto_refresh_timer(instance_id);
 
-        const refresh_before_ms =
-            auto_refresh_options.get(instance_id)?.refresh_before_ms ?? REFRESH_MARGIN_MS;
-        const expires_at_epoch = stored.expires_at ? Number(stored.expires_at) : NaN;
-        const delay_ms = Number.isFinite(expires_at_epoch)
-            ? Math.max(MIN_REFRESH_DELAY_MS, expires_at_epoch - refresh_before_ms - Date.now())
-            : REFRESH_RETRY_DELAY_MS;
-        const needs_replan = delay_ms > MAX_TIMEOUT_MS;
-        const timer = setTimeout(
-            () => {
-                auto_refresh_timers.delete(instance_id);
-                if (needs_replan) {
-                    void schedule_auto_refresh_if_enabled(instance_id);
-                    return;
-                }
-                void refresh_now(instance_id).then((result) => {
-                    if (!result.success && !is_terminal_grant_error(result.error ?? "")) {
-                        schedule_retry(instance_id);
+            const refresh_before_ms =
+                auto_refresh_options.get(instance_id)?.refresh_before_ms ?? REFRESH_MARGIN_MS;
+            const expires_at_epoch = stored.expires_at ? Number(stored.expires_at) : NaN;
+            const delay_ms = Number.isFinite(expires_at_epoch)
+                ? Math.max(MIN_REFRESH_DELAY_MS, expires_at_epoch - refresh_before_ms - Date.now())
+                : REFRESH_RETRY_DELAY_MS;
+            const needs_replan = delay_ms > MAX_TIMEOUT_MS;
+            const timer = setTimeout(
+                () => {
+                    auto_refresh_timers.delete(instance_id);
+                    if (needs_replan) {
+                        void schedule_auto_refresh_if_enabled(instance_id);
+                        return;
                     }
-                });
-            },
-            Math.min(delay_ms, MAX_TIMEOUT_MS),
-        );
-        auto_refresh_timers.set(instance_id, timer);
-        log.debug(
-            `auto_refresh: scheduled ${instance_id} in ${String(Math.min(delay_ms, MAX_TIMEOUT_MS))}ms`,
-        );
+                    void refresh_now(instance_id)
+                        .then((result) => {
+                            if (!result.success && !is_terminal_grant_error(result.error ?? "")) {
+                                schedule_retry(instance_id);
+                            }
+                        })
+                        .catch((error: unknown) => {
+                            log.error(
+                                `auto_refresh: refresh failed in schedule timer for ${instance_id}: ${to_error(error).message}`,
+                            );
+                        });
+                },
+                Math.min(delay_ms, MAX_TIMEOUT_MS),
+            );
+            auto_refresh_timers.set(instance_id, timer);
+            log.debug(
+                `auto_refresh: scheduled ${instance_id} in ${String(Math.min(delay_ms, MAX_TIMEOUT_MS))}ms`,
+            );
+        } catch (error) {
+            const msg = to_error(error).message;
+            log.error(`auto_refresh: failed to schedule for ${instance_id}: ${msg}`);
+        }
     }
 
     function start_auto_refresh(instance_id: string, options?: AutoRefreshOptions): void {
