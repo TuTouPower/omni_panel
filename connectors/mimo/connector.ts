@@ -134,7 +134,7 @@ async function main(): Promise<ScriptObservation[]> {
             used,
             limit,
             reset_at,
-            status: limit > 0 ? ctx.status.for_ratio(used, limit) : "normal",
+            status: limit > 0 ? ctx.status.for_ratio(used, limit) : "unknown",
         };
     });
 

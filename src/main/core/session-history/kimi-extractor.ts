@@ -13,23 +13,7 @@
 import { readFileSync, statSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
-
-function pick_text_from_content(content: unknown): string | null {
-    if (typeof content === "string") return content;
-    if (Array.isArray(content)) {
-        const texts: string[] = [];
-        for (const block of content) {
-            if (typeof block !== "object" || block === null) continue;
-            const b = block as Record<string, unknown>;
-            // 仅取 type === "text"，过滤 toolCalls 与其他类型
-            if (b["type"] === "text" && typeof b["text"] === "string") {
-                texts.push(b["text"]);
-            }
-        }
-        return texts.length > 0 ? texts.join("\n") : null;
-    }
-    return null;
-}
+import { pick_text_from_content } from "./extract-content";
 
 function event_to_message(
     rec: Record<string, unknown>,

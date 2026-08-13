@@ -10,6 +10,7 @@ import {
 } from "../popup/popup-height-controller";
 import { resolve_floating_height_mode, resolve_main_panel_mode } from "./main-panel-config";
 import { restore_floating_bounds } from "./floating-bounds";
+import { USAGE_MIN_WIDTH } from "../../window/window-bounds";
 import type {
     MainPanelController,
     MainPanelPlatform,
@@ -18,7 +19,6 @@ import type {
 } from "./main-panel-types";
 
 const log = createLogger("main-panel");
-const MIN_PANEL_WIDTH = 472;
 
 function clamp(value: number, lo: number, hi: number): number {
     if (hi < lo) return lo;
@@ -91,7 +91,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         const floatingBounds = {
             x: bounds.x,
             y: bounds.y,
-            width: clamp(bounds.width, MIN_PANEL_WIDTH, display.workArea.width),
+            width: clamp(bounds.width, USAGE_MIN_WIDTH, display.workArea.width),
             height: bounds.height,
         };
         deps.save_config({
@@ -144,9 +144,9 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             const restored_display = deps.get_display_for_bounds(bounds);
             target.setBounds({
                 ...bounds,
-                width: clamp(bounds.width, MIN_PANEL_WIDTH, restored_display.workArea.width),
+                width: clamp(bounds.width, USAGE_MIN_WIDTH, restored_display.workArea.width),
             });
-            target.setMinimumSize(MIN_PANEL_WIDTH, 240);
+            target.setMinimumSize(USAGE_MIN_WIDTH, 240);
             target.setResizable(true);
             target.on("resize", () => {
                 save_floating_bounds(target);
@@ -156,7 +156,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             });
         } else {
             position_popup(target);
-            target.setMinimumSize(MIN_PANEL_WIDTH, 160);
+            target.setMinimumSize(USAGE_MIN_WIDTH, 160);
             target.setResizable(true);
         }
 

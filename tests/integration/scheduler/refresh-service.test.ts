@@ -4,10 +4,8 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-    createRefreshService,
-    is_auth_error,
-} from "../../../src/main/core/scheduler/refresh-service";
+import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
+import { is_auth_error } from "../../../src/shared/lib/auth-error";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/main/core/config/types";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";

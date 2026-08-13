@@ -55,6 +55,7 @@
 ## 上下文区
 
 - 来源：review_20260813_114911/review_intensive.md（`session-library-utils.ts:15`、`claude-code-extractor.ts:14`、`net-client.ts:245`、`exa/connector.ts:6`、`mimo/connector.ts:39`、`probe-executor.ts:189`、`provider_card_states.tsx:141`、`use_connector_catalog.ts:5`、`config_redaction.ts:2`、`theme.ts:59`、`WebLoginSection.tsx:14`、`index.ts:545`、`window-bounds.ts:142`）
+- 核实（t360 实施后）：item(8) config_redaction 两处正则**非真重复**——`config_redaction.ts` 按字段名过滤配置 JSON 密钥（含 certificate/passphrase），`logger.ts` 按值 pattern scrub 日志（含 authorization/session），消费方/匹配口径/覆盖集均不同，不合并。item(1) source→agent 的 `agent_friendly` 已单源（markdown.ts），`agent_abbrev` 收敛（SelectionTray 共享 session-library-utils）；其余按输出域分派，不并入单表。
 
 ### 有意不测
 

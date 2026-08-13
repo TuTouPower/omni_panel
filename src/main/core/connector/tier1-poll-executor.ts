@@ -1,6 +1,7 @@
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { ObservationWindow, ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
+import { build_single_observation } from "./observation-factory";
 
 // NOTE: resolve_json_path only supports dot-separated object paths like $.a.b.c.
 // Array index access (e.g. $.items[0].value) is not supported. Adding array
@@ -68,24 +69,11 @@ export async function execute_poll(
     );
 
     return [
-        {
-            provider: manifest.provider,
-            account_id: "default",
-            account_label: manifest.provider,
-            metric_id: `${manifest.id}:usage`,
-            raw_label: "usage",
-            normalized_label: "Usage",
+        build_single_observation(manifest, {
             window,
-            cycleDurationMs: null,
+            source: "poll",
             used,
             limit,
-            display_style: "ratio",
-            reset_at: null,
-            status: "normal",
-            observed_at: Date.now(),
-            source: "poll",
-            stale: false,
-            last_error: null,
-        },
+        }),
     ];
 }

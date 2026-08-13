@@ -15,6 +15,8 @@ const log = createLogger("window-bounds");
 /** 各面板窗口的最小尺寸（与设置窗口 480x360 对齐语义，按窗口各自配置取）。 */
 export const PANEL_MIN_WIDTH = 480;
 export const PANEL_MIN_HEIGHT = 360;
+/** 用量面板（usage）允许更窄（472），独立于通用面板最小宽。t360 单一来源。 */
+export const USAGE_MIN_WIDTH = 472;
 
 export type BoundsSaver = (key: keyof AppConfiguration, value: unknown) => void;
 
