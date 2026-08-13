@@ -36,9 +36,12 @@ function make_params(overrides: Partial<AddAccountParams> = {}): AddAccountParam
     };
 }
 
-function install_api(options?: { logout_error?: Error }) {
+function install_api(options?: { logout_error?: Error; save_error?: Error }) {
     const create_instance = vi.fn().mockResolvedValue({ instanceId: "real-instance" });
     const get_config = vi.fn().mockResolvedValue({ config });
+    const save_config = options?.save_error
+        ? vi.fn().mockRejectedValue(options.save_error)
+        : vi.fn().mockResolvedValue(undefined);
     const grok_logout = options?.logout_error
         ? vi.fn().mockRejectedValue(options.logout_error)
         : vi.fn().mockResolvedValue({ logged_out: true });
@@ -47,11 +50,12 @@ function install_api(options?: { logout_error?: Error }) {
         config: {
             createInstance: create_instance,
             get: get_config,
+            save: save_config,
         },
         grok: { logout: grok_logout },
         kimi: { logout: kimi_logout },
     };
-    return { create_instance, get_config, grok_logout, kimi_logout };
+    return { create_instance, get_config, save_config, grok_logout, kimi_logout };
 }
 
 describe("create_instance_and_save", () => {
@@ -96,6 +100,72 @@ describe("create_instance_and_save", () => {
         );
 
         expect(api.grok_logout).not.toHaveBeenCalled();
+    });
+
+    it("removes the created instance from config when a later step fails (t357 AC-001)", async () => {
+        const api = install_api();
+        // 模拟 createInstance 后 get() 返回含新实例的 config，验证清理 filter 真移除它。
+        api.get_config.mockResolvedValue({
+            config: {
+                ...config,
+                plugins: [
+                    {
+                        instanceId: "real-instance",
+                        stateId: "real-state",
+                        name: "REAL",
+                        enabled: true,
+                        executablePath: "",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+            },
+        });
+        const save_error = new Error("save failed");
+        const save_plugin_settings = vi.fn().mockRejectedValue(save_error);
+
+        await expect(create_instance_and_save(make_params(), save_plugin_settings)).rejects.toThrow(
+            "save failed",
+        );
+
+        // createInstance 建的 instanceId 须从 config 移除（补偿删除），不残留空账号。
+        expect(api.save_config).toHaveBeenCalledTimes(1);
+        const saved = api.save_config.mock.calls[0]?.[0] as {
+            plugins: { instanceId: string }[];
+            removedConnectorIds: string[];
+        };
+        expect(saved.plugins.every((p) => p.instanceId !== "real-instance")).toBe(true);
+        // 清理须写回 removedConnectorIds 墓碑，否则 stale-save 保护会恢复该插件（f001）。
+        expect(saved.removedConnectorIds).toContain("grok");
+    });
+
+    it("cleans up created instance even when OAuth logout fails (t357 AC-001)", async () => {
+        const api = install_api({ logout_error: new Error("logout failed") });
+        const save_plugin_settings = vi.fn().mockResolvedValue(undefined);
+
+        await expect(create_instance_and_save(make_params(), save_plugin_settings)).rejects.toThrow(
+            "logout failed",
+        );
+
+        expect(api.save_config).toHaveBeenCalledTimes(1);
+        const saved = api.save_config.mock.calls[0]?.[0] as { plugins: { instanceId: string }[] };
+        expect(saved.plugins.every((p) => p.instanceId !== "real-instance")).toBe(true);
+    });
+
+    it("logs and rethrows when cleanup save itself fails (t357 AC-001)", async () => {
+        install_api({ save_error: new Error("cleanup failed") });
+        const save_error = new Error("save failed");
+        const save_plugin_settings = vi.fn().mockRejectedValue(save_error);
+
+        await expect(create_instance_and_save(make_params(), save_plugin_settings)).rejects.toThrow(
+            "save failed",
+        );
+
+        expect(log_warn).toHaveBeenCalledWith(
+            "add account 失败后清理实例也失败",
+            expect.any(Error),
+        );
     });
 
     it("does not call OAuth logout for non-OAuth accounts", async () => {
