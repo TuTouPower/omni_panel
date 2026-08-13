@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
+import { is_ipc_result as ipc_envelope_is_ipc_result } from "../shared/lib/ipc-envelope";
 import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
 import {
@@ -56,16 +57,7 @@ try {
 function is_ipc_result(
     val: unknown,
 ): val is { ok: boolean; data?: unknown; error?: { code: string; message: string } } {
-    if (typeof val !== "object" || val === null) return false;
-    const obj = val as Record<string, unknown>;
-    if (typeof obj["ok"] !== "boolean") return false;
-    if (!obj["ok"] && obj["error"]) {
-        if (typeof obj["error"] !== "object") return false;
-        const err = obj["error"] as Record<string, unknown>;
-        if (typeof err["code"] !== "string") return false;
-        if (typeof err["message"] !== "string") return false;
-    }
-    return true;
+    return ipc_envelope_is_ipc_result(val);
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -197,8 +189,11 @@ const trend_disabled_methods = {
 
 // 会话历史（t210）：session/agent route 暴露真实 IPC，其余 route 用 disabled 栈。
 const session_history_full_methods = {
-    open: (source: string, env: string, session_id: string) =>
-        invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
+    // t341: main open handler 无返回（副作用打开/聚焦窗口），走裸 invoke 不经
+    // IpcResult 信封校验，避免恒抛 "Invalid IPC response"。
+    open: async (source: string, env: string, session_id: string) => {
+        await ipcRenderer.invoke(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id);
+    },
     subscribe: (source: string, env: string, session_id: string) =>
         invoke<{ subscribed: boolean }>(
             IPC_CHANNELS.SESSION_HISTORY_SUBSCRIBE,
@@ -269,10 +264,14 @@ const session_history_full_methods = {
             request_or_locs,
         );
     },
-    summaries: (locs: readonly SessionHistoryLoc[]) =>
-        invoke<Readonly<Record<string, string>>>(IPC_CHANNELS.SESSION_HISTORY_SUMMARIES, {
-            locs,
-        }),
+    summaries: async (locs: readonly SessionHistoryLoc[]) => {
+        // t341: main 返回 `{ summaries }` 包装对象，先解包再返回，与 web 语义一致。
+        const data = await invoke<{ summaries: Record<string, string> }>(
+            IPC_CHANNELS.SESSION_HISTORY_SUMMARIES,
+            { locs },
+        );
+        return data.summaries;
+    },
     onMessagesUpdated: (callback: (payload: SessionHistoryMessagesUpdatedPayload) => void) =>
         subscribe<[SessionHistoryMessagesUpdatedPayload]>(
             IPC_CHANNELS.SESSION_HISTORY_MESSAGES_UPDATED,
@@ -303,8 +302,10 @@ const session_history_disabled_methods = {
 // 会话历史（t212）：usage route（托盘 popup / 用量面板）仅暴露 open（打开/聚焦历史窗口），
 // 订阅与查询等数据通道保持 disabled，避免 popup 意外获得历史数据能力。
 const session_history_open_only_methods = {
-    open: (source: string, env: string, session_id: string) =>
-        invoke<undefined>(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id),
+    // t341: main open handler 无返回，裸 invoke 不经 IpcResult 校验（同 full 档）。
+    open: async (source: string, env: string, session_id: string) => {
+        await ipcRenderer.invoke(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id);
+    },
     subscribe: (): Promise<{ subscribed: boolean }> => Promise.resolve({ subscribed: false }),
     unsubscribe: (): Promise<{ unsubscribed: boolean }> => Promise.resolve({ unsubscribed: false }),
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
