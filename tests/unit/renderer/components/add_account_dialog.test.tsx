@@ -704,4 +704,55 @@ describe("AddAccountDialog open connectors dir (t094)", () => {
 
         expect(open_connectors_dir).toHaveBeenCalledTimes(1);
     });
+
+    it("shows visible error and stays open when save fails (t356 AC-001)", async () => {
+        mock_usageboard(vi.fn());
+        const on_save = vi.fn().mockRejectedValue(new Error("添加失败：网络错误"));
+        const on_close = vi.fn();
+        const user = userEvent.setup();
+        const plugin = {
+            instanceId: "deepseek-1",
+            sourceInstanceId: "deepseek-1",
+            stateId: "deepseek-1",
+            name: "DeepSeek",
+            displayName: "DeepSeek",
+            enabled: true,
+            source: "poll" as const,
+            supportedProviders: ["deepseek"],
+            activeProviders: ["deepseek"],
+            metadata: {
+                name: "deepseek",
+                parameters: [
+                    {
+                        name: "API_KEY",
+                        label: "API Key",
+                        type: "secret" as const,
+                        required: true,
+                    },
+                ],
+            },
+            snapshot: {},
+        };
+        render(
+            <AddAccountDialog
+                plugin_infos={[plugin as never]}
+                on_close={on_close}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("DeepSeek"));
+        const key_input = screen.getByPlaceholderText("sk-…");
+        await user.type(key_input, "sk-test-key-123");
+        await user.click(screen.getByText("添加账号"));
+
+        await vi.waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        // 失败显示可见错误，对话框不关闭。
+        await vi.waitFor(() => {
+            expect(screen.getByText("添加失败：网络错误")).toBeInTheDocument();
+        });
+        expect(on_close).not.toHaveBeenCalled();
+    });
 });
