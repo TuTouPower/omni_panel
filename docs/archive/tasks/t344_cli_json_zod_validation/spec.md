@@ -80,7 +80,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- cli.json 完整字段形态：`UNVERIFIED-SPIKE`，实施前先读 `src/main/cli/` 实际写入/读取方核实字段全集。
+- cli.json 完整字段形态：已核实（2026-08-13）——`src/main/cli/cli-json.ts` 的 `CliInstanceInfo`：port/url/pid/userData/startedAt；parse_cli_json 校验前三个必填，userData/startedAt 缺省给空串。
 
 ### 风险与回退
 
