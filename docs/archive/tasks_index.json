@@ -4969,6 +4969,36 @@
             "dir": "docs/archive/tasks/t331_session_login_auto_close"
         },
         {
+            "tid": "t332",
+            "slug": "remove_panel_reset_watch_bell",
+            "title": "删除用量面板用量条右侧的「即将重置」监控铃铛按钮",
+            "status": "done",
+            "branch": "t332_remove_panel_reset_watch_bell",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "661e3cf8bc7c42379f81b15488ce2f328f5fe6f6",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "用户需求：用量面板两处（概览+账号列表）用量条右侧的 bell 监控按钮移除；监控入口保留设置侧",
+            "dir": "docs/archive/tasks/t332_remove_panel_reset_watch_bell"
+        },
+        {
+            "tid": "t333",
+            "slug": "settings_reset_watch_bell_off_slash",
+            "title": "设置侧提醒铃铛按钮关闭状态叠加斜杠表示停用",
+            "status": "done",
+            "branch": "t333_settings_reset_watch_bell_off_slash",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "90bc99395c531c8d51e8eef1ff746a3aa8c62d9b",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "用户需求：AccountDialog/SettingsForm 与 CpaLabelMapDialog/LabelMapDialog 两处铃铛按钮，未监控状态叠加斜线（类似静音符号）",
+            "dir": "docs/archive/tasks/t333_settings_reset_watch_bell_off_slash"
+        },
+        {
             "tid": "t334",
             "slug": "session_library_mount_refill",
             "title": "会话库首屏挂载自动补满（极端大屏重查）",
@@ -4997,6 +5027,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t335_cli_help"
+        },
+        {
+            "tid": "t336",
+            "slug": "titlebar_current_all_panels",
+            "title": "Agent/Usage 标题栏补当前面板自身按钮（p147）",
+            "status": "done",
+            "branch": "t336_titlebar_current_all_panels",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "d2a7cad8a1e16651e3688bc42f45d96c2f02c696",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t336_titlebar_current_all_panels"
+        },
+        {
+            "tid": "t337",
+            "slug": "opencode_web_login_cookie_validate",
+            "title": "Opencode 网页登录捕获无效 cookie 校验（p148）",
+            "status": "done",
+            "branch": "t337_opencode_web_login_cookie_validate",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "f828251c17ec9ac6891943c67b2d237d3d30cddf",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t337_opencode_web_login_cookie_validate"
         }
     ]
 }
