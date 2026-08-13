@@ -38,6 +38,10 @@ import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
 import { create_session_manager, is_valid_opencode_login } from "./core/session/session-manager";
 import { create_observation_store } from "./core/observation/observation-store";
+import {
+    create_retention_scheduler,
+    type RetentionScheduler,
+} from "./core/observation/observation-retention";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
@@ -782,6 +786,8 @@ void app.whenReady().then(async () => {
         let settingsWin: BrowserWindow | null = null;
         // True once shutdown begins: settings then destroys instead of hiding.
         let quitting = false;
+        // t343: observation 留存定时器（app ready 后启动，before-quit 清理）。
+        let retention_scheduler: RetentionScheduler | null = null;
         // Whether saved bounds have been applied since the settings window was
         // (re)created. Apply only on first show, then keep user moves across reopens.
         let settings_bounds_applied = false;
@@ -982,6 +988,17 @@ void app.whenReady().then(async () => {
 
         // Start periodic refresh for enabled plugins
         orchestrator.startAll(to_connector_list_config(currentConfig));
+
+        // t343: observation 留存策略接入——启动即清理一次，之后每 24h 定时。
+        // cacheMaxMb 经 get_cache_max_mb 动态读取 currentConfigSnapshot，
+        // 运行时改设置立即生效；before-quit stop 清理定时器。
+        retention_scheduler = create_retention_scheduler({
+            prune: (older_than_ms) => observationStore.prune(older_than_ms),
+            count_observations: () => observationStore.count_observations(),
+            get_cache_max_mb: () => currentConfigSnapshot.cacheMaxMb,
+            now: () => Date.now(),
+        });
+        retention_scheduler.start();
 
         // Start OAuth auto-refresh for enabled grok connector instances. The manager
         // gracefully skips instances without stored tokens.
@@ -1275,6 +1292,10 @@ void app.whenReady().then(async () => {
             orchestrator.shutdown();
             grokOAuthManager.shutdown();
             kimiOAuthManager.shutdown();
+            if (retention_scheduler !== null) {
+                retention_scheduler.stop();
+                retention_scheduler = null;
+            }
             void close_all_proxy_agents();
             void runtimeStore.flushPendingCache();
             flush_session_index(); // t264: 会话索引脏条目退出前落盘。

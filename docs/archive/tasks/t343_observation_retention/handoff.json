@@ -1,0 +1,23 @@
+{
+    "tid": "t343",
+    "attempt": 1,
+    "execution_id": "2d5bf1cf34a04f93aadf9a9fcaabd301",
+    "status": "done",
+    "branch": "t343_observation_retention",
+    "base_sha": "26c2a611ec87d7dbddfdb567e2abe46717a9080b",
+    "tests": "observation-retention.test.ts 10 例全绿：retention_params（未设/0/>0 折算）、run_retention_prune（日期阈值/超预算收紧/预算满足不收紧）、create_retention_scheduler 接线（start 立即执行/24h 周期/stop 清理/异常吞并）。typecheck/lint/prettier 干净。全量 unit 2401 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001 生产调用方由 scheduler 集成测试覆盖（启动即清 + 24h 周期 + stop 清理），AC-002 由 retention_params/run_retention_prune 单测覆盖（cacheMaxMb 折算预算）。",
+    "review": "review_level=full；Round 1 code FAIL（f001 important 已修、f002/f003 minor 遗留→p158/p159）、test FAIL（f001 important 已修、f002 minor 遗留→p159）；Round 2 code/test 均 PASS。报告 t343_review_code.md / t343_review_test.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "main/index.ts 经 create_retention_scheduler({...}).start() 接入——启动即清理一次 + 每 24h 定时，before-quit stop",
+            "observation-retention.test.ts::start 立即执行一次 prune / 按 24h 周期再次触发 / stop 清理定时器后不再触发"
+        ],
+        "AC-002": [
+            "create_retention_scheduler 经 get_cache_max_mb: () => currentConfigSnapshot.cacheMaxMb 动态读取，config 保存后立即生效",
+            "observation-retention.test.ts::retention_params cacheMaxMb>0 折算行数预算；run_retention_prune 超预算按天收紧"
+        ]
+    },
+    "pending": ["p158", "p159"],
+    "findings": []
+}

@@ -2,11 +2,11 @@
 tid: "t343"
 slug: "observation_retention"
 title: "observation 留存策略接入 prune + cacheMaxMb"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t343_observation_retention"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "26c2a611ec87d7dbddfdb567e2abe46717a9080b"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 表无界增长"
@@ -22,7 +22,11 @@ note: "review_intensive: 表无界增长"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+
+- observation-retention.ts：retention_params（90d 日期阈值 + cacheMaxMb 折算行数预算）、run_retention_prune（prune + 超预算按天收紧）、create_retention_scheduler（启动即清 + 24h 定时，可注入）。
+- main/index.ts：orchestrator.startAll 后接入 create_retention_scheduler，get_cache_max_mb 读 currentConfigSnapshot（config 保存后更新）；before-quit stop。
+- reviewer 指出读 currentConfig 快照（运行时改设置不生效）→ 改读 currentConfigSnapshot。
 
 ## Review 处置
 
@@ -43,6 +47,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 17:15 UTC+8)
+
+| finding_id     | severity  | status | rationale                                                                                                   | fix_ref                                             |
+| -------------- | --------- | ------ | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| t343_code_f001 | important | 已修   | retention 改读 currentConfigSnapshot.cacheMaxMb（config 保存后更新），运行时调设置立即生效                  | index.ts:990-1000                                   |
+| t343_code_f002 | minor     | 遗留   | cacheMaxMb=0 schema 矛盾（pre-existing），登记 follow-up                                                    | p158                                                |
+| t343_code_f003 | minor     | 遗留   | 收紧循环空窗口 break，登记 follow-up                                                                        | p159                                                |
+| t343_test_f001 | important | 已修   | 接线提取 create_retention_scheduler 可注入模块 + 4 例集成测试（start 立即执行/24h 周期/stop 清理/异常吞并） | observation-retention.ts:104-160, retention.test.ts |
+| t343_test_f002 | minor     | 遗留   | 收紧循环 break 分支缺测试，登记 follow-up                                                                   | p159                                                |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -69,8 +83,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：FAIL（f001 important 已修、f002/f003 minor 遗留）
+- Round 1 test：FAIL（f001 important 已修、f002 minor 遗留）
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
@@ -80,4 +96,4 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- observation 留存策略接入：prune 生产调用方（启动 + 每日 24h 定时，create_retention_scheduler 可注入）、cacheMaxMb 动态读取影响预算。Round 2 双路 PASS。顺手发现 p158（cacheMaxMb=0 schema 矛盾）、p159（收紧循环空窗口 break）登记 pending。
