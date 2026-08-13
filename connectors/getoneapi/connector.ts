@@ -48,7 +48,8 @@ async function main(): Promise<ScriptObservation[]> {
     }
 
     const code = response["code"];
-    if (code !== 200) {
+    // t361 AC-004: code 可能是 string "200"，Number() 容错（原严格比较误判）。
+    if (Number(code) !== 200) {
         const msg = response["message"];
         const code_str = typeof code === "number" ? String(code) : JSON.stringify(code);
         throw new Error(`GetOneAPI API 错误: ${typeof msg === "string" ? msg : code_str}`);
@@ -62,7 +63,16 @@ async function main(): Promise<ScriptObservation[]> {
         throw new Error("GetOneAPI 返回格式异常: 缺少 data.balance");
     }
 
-    const balance = round2(to_number(data["balance"]));
+    // t361 AC-004: 非数字/缺失 balance 报 failed，不静默当 0 余额。
+    const balance_value = data["balance"];
+    if (balance_value === null || balance_value === undefined || balance_value === "") {
+        throw new Error("GetOneAPI 返回格式异常: data.balance 缺失或空");
+    }
+    const balance_raw = to_number(balance_value);
+    if (!Number.isFinite(balance_raw) || Number(balance_value) !== balance_raw) {
+        throw new Error("GetOneAPI 返回格式异常: data.balance 非数字");
+    }
+    const balance = round2(balance_raw);
 
     return [
         {

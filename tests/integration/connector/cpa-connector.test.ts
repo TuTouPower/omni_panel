@@ -141,6 +141,32 @@ describe("cpa connector", () => {
         ]);
     });
 
+    it("clamps negative utilization pct to 0 (t361 AC-002)", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("api.anthropic.com")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        five_hour: { utilization: -0.25, resets_at: "2026-05-26T20:00:00Z" },
+                        seven_day: { utilization: 0.5, resets_at: "2026-05-27T00:00:00Z" },
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        // 负 utilization 钳制到 0，不再出现负 used。
+        const five_hour = result.observations.find(
+            (o) => o.metric_id === "claude:claude-auth:five_hour",
+        );
+        expect(five_hour?.used).toBe(0);
+    });
+
     it("returns empty observations when management key is missing", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();
@@ -205,6 +231,50 @@ describe("cpa connector", () => {
                 normalized_label: "一周",
                 window: "day",
                 display_style: "percent",
+                used: 35,
+            }),
+        ]);
+    });
+
+    it("normalizes string duration_seconds to the matching window (t361 AC-003)", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [{ name: "auth-codex-1.json", provider: "codex", auth_index: "codex-auth" }],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("chatgpt.com")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        rate_limit: {
+                            primary_window: {
+                                // string 型 duration（非 number）应归一识别为一周。
+                                limit_window_seconds: "604800",
+                                used_percent: 35,
+                                reset_at: "2026-06-14T12:00:00Z",
+                            },
+                            secondary_window: null,
+                        },
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const codex_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(codex_result.error).toBeNull();
+        const codex = codex_result.observations.filter((o) => o.provider === "codex");
+        expect(codex).toEqual([
+            expect.objectContaining({
+                metric_id: "codex:codex-auth:primary_window",
+                normalized_label: "一周",
+                window: "day",
                 used: 35,
             }),
         ]);

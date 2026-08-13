@@ -153,6 +153,34 @@ describe("firecrawl connector", () => {
         expect(result.observations.map((o) => o.reset_at)).toEqual([null, null]);
     });
 
+    it("uses per-metric reset_at for credits and tokens (t361 AC-001)", async () => {
+        const credit_payload = {
+            success: true,
+            data: {
+                remaining_credits: 800,
+                plan_credits: 1000,
+                billing_period_end: "2026-08-03T11:54:41.999Z",
+            },
+        };
+        const token_payload = {
+            success: true,
+            data: {
+                remaining_tokens: 12000,
+                plan_tokens: 15000,
+                billing_period_end: "2026-08-10T11:54:41.999Z",
+            },
+        };
+        const result = await run_firecrawl(credit_payload, token_payload);
+
+        expect(result.error).toBeNull();
+        const credits = result.observations.find((o) => o.raw_label === "credits");
+        const tokens = result.observations.find((o) => o.raw_label === "tokens");
+        expect(credits?.reset_at).toBe(Date.parse("2026-08-03T11:54:41.999Z"));
+        expect(tokens?.reset_at).toBe(Date.parse("2026-08-10T11:54:41.999Z"));
+        // 分指标 reset_at：两值不同（原 tokens 复用 credits 的错误会导致两者相等）。
+        expect(credits?.reset_at).not.toBe(tokens?.reset_at);
+    });
+
     it("returns no observations when API key is missing", async () => {
         const get_json = vi
             .fn<ConnectorContext["http"]["get_json"]>()
