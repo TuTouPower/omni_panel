@@ -1,0 +1,27 @@
+{
+    "tid": "t353",
+    "attempt": 1,
+    "execution_id": "e581af1a6c6b4c758c4519514e482c05",
+    "status": "done",
+    "branch": "t353_local_api_param_validation",
+    "base_sha": "5bb87cadc41bf024947778b84fac497aff489884",
+    "tests": "tests/integration/local-api/server.test.ts 82 passed（含新增 16 用例：14 表驱动非法参数 abc/空串/NaN 400 + sessionHistory limit 校验 + sessions 合法值 happy-path）",
+    "blackbox": "typecheck + lint + prettier 通过；tsx 最小复现验证 ?start=abc → 400 {error: Invalid parameter: start}",
+    "review": "full；Round 1 code PASS（5 minor：空串 400 契约收紧/dashboard 分叉、require_present 不可达、sessions 冗余守卫、catch 冗余判断、export 零引用）+ test PASS（2 minor：空串/NaN/end 缺测、sessions 合法值缺测）→ 补测 5 用例 + 移除 export 后 PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/local-api/server.test.ts::GET /v1/records|heatmap|hourBuckets|rollup|sessions with invalid numeric param ?start|end|start_at|end_at|limit|offset=abc returns 400（表驱动 10 用例）通过",
+            "tsx 最小复现：/v1/records?start=abc → 400 {error: Invalid parameter: start}（此前 500 Internal server error）"
+        ],
+        "AC-002": [
+            "tests/integration/local-api/server.test.ts::GET /v1/sessionHistory rejects limit=0/negative/non-numeric with 400（limit=0/-1/abc 均 400，service.query 未被调用）通过",
+            "handle_session_history_query limit 解析改 parse_int_param(params,'limit',{min:1})，0/负/非数字抛 InvalidParamError→400"
+        ],
+        "AC-003": [
+            "非法输入统一 400（InvalidParamError 由 handle_web_read/handle_session_history_query 捕获回 400），与 /v1/dashboard 的 zod 400 错误分类一致",
+            "读端点 10 用例断言 400 + error: Invalid parameter: <name>；dashboard 既有 zod 400 测试保持"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -345,16 +345,30 @@ function handle_session_history_query(
         return;
     }
     const options: QueryOptions = {};
-    const limit_raw = params.get("limit");
-    if (limit_raw !== null && Number.isFinite(Number(limit_raw))) {
-        Object.assign(options, { limit: Number(limit_raw) });
-    }
-    const before_raw = params.get("before_cursor");
-    if (before_raw !== null && before_raw !== "") {
-        const end_index = Number(before_raw);
-        if (Number.isFinite(end_index)) {
-            Object.assign(options, { before_cursor: { kind: "pagination", end_index } });
+    // t353 AC-002: limit 必须为正整数（0/负/非数字统一 400），不再静默忽略或传 0。
+    // InvalidParamError 在此捕获（本函数非 handle_web_read 路径，无外层 400 catch）。
+    try {
+        const limit_raw = params.get("limit");
+        if (limit_raw !== null) {
+            const limit = parse_int_param(params, "limit", { min: 1 });
+            if (limit !== null) Object.assign(options, { limit });
         }
+        const before_raw = params.get("before_cursor");
+        if (before_raw !== null && before_raw !== "") {
+            const end_index = Number(before_raw);
+            if (Number.isFinite(end_index)) {
+                Object.assign(options, { before_cursor: { kind: "pagination", end_index } });
+            }
+        }
+    } catch (err) {
+        if (
+            err instanceof InvalidParamError ||
+            (err instanceof Error && err.name === "InvalidParamError")
+        ) {
+            json_response(res, 400, { error: err.message });
+            return;
+        }
+        throw err;
     }
     const result = deps.service.query(
         {
@@ -704,6 +718,38 @@ function json_response(res: ServerResponse, status: number, data: unknown): void
         "X-Content-Type-Options": "nosniff",
     });
     res.end(JSON.stringify(data));
+}
+
+/** t353: 读端点数值参数解析。缺省返回 null；非有限数（NaN/Infinity/abc）抛
+ *  InvalidParamError，由调用侧捕获统一回 400（对齐 /v1/dashboard 的 zod 行为）。 */
+class InvalidParamError extends Error {
+    constructor(param: string) {
+        super(`Invalid parameter: ${param}`);
+        this.name = "InvalidParamError";
+    }
+}
+
+export function parse_int_param(
+    params: URLSearchParams,
+    name: string,
+    options?: { min?: number; require_present?: boolean },
+): number | null {
+    const raw = params.get(name);
+    if (raw === null) {
+        if (options?.require_present) throw new InvalidParamError(name);
+        return null;
+    }
+    if (raw.trim() === "") {
+        throw new InvalidParamError(name);
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value)) {
+        throw new InvalidParamError(name);
+    }
+    if (options?.min !== undefined && value < options.min) {
+        throw new InvalidParamError(name);
+    }
+    return value;
 }
 
 function is_address_in_use(error: unknown): boolean {
@@ -1094,8 +1140,33 @@ export function create_local_api_server(
         const env = params.get("env");
         const agent = params.get("agent");
         const model = params.get("model");
-        const start = params.get("start");
-        const end = params.get("end");
+        try {
+            // async inner 的 rejection 须 await 才能被本层 catch 捕获。
+            return await handle_web_read_inner(url, res, store, params, env, agent, model);
+        } catch (err) {
+            // t353 AC-001/003: 非法数值参数统一 400（对齐 /v1/dashboard 错误分类），
+            // 不落入外层 500。用 name 判断规避 ESM 跨模块 class 双实例 instanceof。
+            if (
+                (err instanceof InvalidParamError ||
+                    (err instanceof Error && err.name === "InvalidParamError")) &&
+                err instanceof Error
+            ) {
+                json_response(res, 400, { error: err.message });
+                return true;
+            }
+            throw err;
+        }
+    }
+
+    async function handle_web_read_inner(
+        url: URL,
+        res: ServerResponse,
+        store: TokenStatsStore,
+        params: URLSearchParams,
+        env: string | null,
+        agent: string | null,
+        model: string | null,
+    ): Promise<boolean> {
         switch (url.pathname) {
             case "/v1/dashboard": {
                 let dir_aliases: unknown;
@@ -1182,7 +1253,9 @@ export function create_local_api_server(
                 }
                 return true;
             }
-            case "/v1/records":
+            case "/v1/records": {
+                const rec_start = parse_int_param(params, "start");
+                const rec_end = parse_int_param(params, "end");
                 json_response(
                     res,
                     200,
@@ -1191,12 +1264,15 @@ export function create_local_api_server(
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
                         ...(env ? { env: env as "local" | "wsl" } : {}),
-                        ...(start ? { start: Number(start) } : {}),
-                        ...(end ? { end: Number(end) } : {}),
+                        ...(rec_start !== null ? { start: rec_start } : {}),
+                        ...(rec_end !== null ? { end: rec_end } : {}),
                     }),
                 );
                 return true;
-            case "/v1/heatmap":
+            }
+            case "/v1/heatmap": {
+                const hm_start = parse_int_param(params, "start");
+                const hm_end = parse_int_param(params, "end");
                 json_response(
                     res,
                     200,
@@ -1206,12 +1282,15 @@ export function create_local_api_server(
                             : {}),
                         ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
-                        ...(start ? { start: Number(start) } : {}),
-                        ...(end ? { end: Number(end) } : {}),
+                        ...(hm_start !== null ? { start: hm_start } : {}),
+                        ...(hm_end !== null ? { end: hm_end } : {}),
                     }),
                 );
                 return true;
-            case "/v1/hourBuckets":
+            }
+            case "/v1/hourBuckets": {
+                const hb_start = parse_int_param(params, "start");
+                const hb_end = parse_int_param(params, "end");
                 json_response(
                     res,
                     200,
@@ -1221,12 +1300,15 @@ export function create_local_api_server(
                             : {}),
                         ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
-                        ...(start ? { start: Number(start) } : {}),
-                        ...(end ? { end: Number(end) } : {}),
+                        ...(hb_start !== null ? { start: hb_start } : {}),
+                        ...(hb_end !== null ? { end: hb_end } : {}),
                     }),
                 );
                 return true;
-            case "/v1/rollup":
+            }
+            case "/v1/rollup": {
+                const rl_start = parse_int_param(params, "start");
+                const rl_end = parse_int_param(params, "end");
                 json_response(
                     res,
                     200,
@@ -1236,11 +1318,12 @@ export function create_local_api_server(
                             : {}),
                         ...(env ? { env: env as "local" | "wsl" } : {}),
                         ...(model ? { model } : {}),
-                        ...(start ? { start: Number(start) } : {}),
-                        ...(end ? { end: Number(end) } : {}),
+                        ...(rl_start !== null ? { start: rl_start } : {}),
+                        ...(rl_end !== null ? { end: rl_end } : {}),
                     }),
                 );
                 return true;
+            }
             case "/v1/sessions": {
                 const sources = params.get("sources");
                 const filters: TokenStatsSessionFilters = {};
@@ -1252,8 +1335,14 @@ export function create_local_api_server(
                 if (sources) filters.sources = sources.split(",").filter((item) => item.length > 0);
                 if (env) filters.env = env;
                 if (search) filters.search = search;
-                if (params.has("start_at")) filters.start_at = Number(params.get("start_at"));
-                if (params.has("end_at")) filters.end_at = Number(params.get("end_at"));
+                if (params.has("start_at")) {
+                    const start_at = parse_int_param(params, "start_at", { require_present: true });
+                    if (start_at !== null) filters.start_at = start_at;
+                }
+                if (params.has("end_at")) {
+                    const end_at = parse_int_param(params, "end_at", { require_present: true });
+                    if (end_at !== null) filters.end_at = end_at;
+                }
                 if (
                     order_by === "ended_at" ||
                     order_by === "tokens" ||
@@ -1263,8 +1352,17 @@ export function create_local_api_server(
                     filters.order_by = order_by;
                 }
                 if (direction === "asc" || direction === "desc") filters.direction = direction;
-                if (params.has("limit")) filters.limit = Number(params.get("limit"));
-                if (params.has("offset")) filters.offset = Number(params.get("offset"));
+                if (params.has("limit")) {
+                    const limit = parse_int_param(params, "limit", {
+                        require_present: true,
+                        min: 0,
+                    });
+                    if (limit !== null) filters.limit = limit;
+                }
+                if (params.has("offset")) {
+                    const offset = parse_int_param(params, "offset", { require_present: true });
+                    if (offset !== null) filters.offset = offset;
+                }
                 json_response(res, 200, store.query_sessions(filters));
                 return true;
             }

@@ -1123,6 +1123,43 @@ describe("local-api web read endpoints", () => {
         );
     });
 
+    it.each([
+        ["/v1/records", "start", "abc"],
+        ["/v1/records", "start", ""],
+        ["/v1/records", "start", "NaN"],
+        ["/v1/records", "end", "abc"],
+        ["/v1/heatmap", "start", "abc"],
+        ["/v1/heatmap", "end", "abc"],
+        ["/v1/hourBuckets", "start", "abc"],
+        ["/v1/hourBuckets", "end", "abc"],
+        ["/v1/rollup", "start", "abc"],
+        ["/v1/rollup", "end", "abc"],
+        ["/v1/sessions", "start_at", "abc"],
+        ["/v1/sessions", "end_at", "abc"],
+        ["/v1/sessions", "limit", "abc"],
+        ["/v1/sessions", "offset", "abc"],
+    ])(
+        "GET %s with invalid numeric param ?%s=%s returns 400 (t353 AC-001)",
+        async (path, param, value) => {
+            await api.start();
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}${path}?${param}=${encodeURIComponent(value)}`,
+            );
+            expect(res.status).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({
+                error: `Invalid parameter: ${param}`,
+            });
+        },
+    );
+
+    it("GET /v1/sessions accepts valid numeric params (t353 AC-001 happy path)", async () => {
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=0&offset=5`,
+        );
+        expect(res.status).toBe(200);
+    });
+
     it("GET /v1/dashboard forwards an optional model filter (t204)", async () => {
         const dispatcher = {
             request_dashboard: vi.fn(),
@@ -1717,6 +1754,23 @@ describe("local-api session history endpoints (t259)", () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory`);
         expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/sessionHistory rejects limit=0/negative/non-numeric with 400 (t353 AC-002)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        for (const limit of ["0", "-1", "abc"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=${limit}`,
+            );
+            expect(res.status).toBe(400);
+        }
+        // limit 解析失败时 service.query 不应被调用。
+        expect(service.query).not.toHaveBeenCalled();
     });
 
     it("GET /v1/sessionHistory returns 404 for an unresolvable session", async () => {
