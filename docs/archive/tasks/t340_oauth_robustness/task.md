@@ -2,11 +2,11 @@
 tid: "t340"
 slug: "oauth_robustness"
 title: "OAuth 链路健壮性：错误处理/取消/device_id 缓存"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t340_oauth_robustness"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "698fe185c85d732eaabcf5b634aff02445d1a397"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: OAuth unhandled rejection/取消丢失"
@@ -22,7 +22,13 @@ note: "review_intensive: OAuth unhandled rejection/取消丢失"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+
+- AC-001：schedule_auto_refresh_if_enabled 整体 try/catch；refresh_now load_tokens 移入 try；两 timer 回调 `.catch`。
+- AC-002：await_completion 取消闭包改为函数开头持久注册；sleep 存 timer+resolver，取消时 clearTimeout+resolve（最初只置标志不 resolve，导致 sleep 窗口内 cancel 卡 60s 超时，已修）。
+- AC-003：kimi device_id 进程内缓存（module 级 cached_device_id）。
+- AC-004：store_tokens 写前快照 + 部分写失败回滚；回滚失败以原始错误为根因抛出（reviewer 指出后修）。
+- 新增测试：device_code_oauth_manager.test.ts 补 AC-001/002、oauth_helpers.test.ts 补 AC-004 回滚 2 例、kimi_device_id_cache.test.ts 新文件 2 例。
 
 ## Review 处置
 
@@ -43,6 +49,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 15:35 UTC+8)
+
+| finding_id     | severity  | status | rationale                                                                 | fix_ref                                                     |
+| -------------- | --------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| t340_code_f001 | minor     | 已修   | store_tokens 回滚失败时以原始错误为根因抛出（附加回滚失败消息），不再遮蔽 | oauth_helpers.ts:167-195                                    |
+| t340_code_f002 | important | 已修   | 两个文件 prettier 格式不过（CI pnpm check 红灯）；已 --write 修复         | device_code_oauth_manager.ts / kimi_device_id_cache.test.ts |
+| t340_test_f001 | important | 已修   | AC-001 测试补 addTransport 日志断言（error + 含 instance_id）             | device_code_oauth_manager.test.ts:231-263                   |
+
+### Round 2 (2026-08-13 15:40 UTC+8)
+
+| finding_id     | severity | status | rationale                                                              | fix_ref |
+| -------------- | -------- | ------ | ---------------------------------------------------------------------- | ------- |
+| t340_code_f003 | minor    | 遗留   | 回滚失败合并分支无独立测试覆盖（需双故障场景）；非阻断，登记 follow-up | p155    |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -69,8 +89,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：FAIL（f001 minor、f002 important 已修）
+- Round 1 test：FAIL（f001 important 已修）
+- Round 2 code：PASS（f003 minor 遗留）
+- Round 2 test：PASS
 
 `single`：
 
@@ -80,4 +102,4 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- OAuth 刷新链路四处健壮性加固（try/catch、轮询窗口取消、device_id 缓存、store_tokens 回滚）均实现 + 针对性测试；Round 2 双路 PASS。顺手发现 p155（回滚双故障合并分支缺测试）登记 pending。

@@ -237,6 +237,63 @@ describe("oauth_helpers", () => {
             await store_tokens(vault, "inst-1", { access_token: "access-1" });
             await expect(vault.get(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY))).resolves.toBeNull();
         });
+
+        it("rolls back written keys on partial write failure (t340)", async () => {
+            const vault = create_vault();
+            // 写前已有旧值；第二次 set（refresh）抛错触发回滚。
+            await vault.set(keyFor("inst-1", OAUTH_TOKEN_KEY), "access-old");
+            await vault.set(keyFor("inst-1", OAUTH_REFRESH_TOKEN_KEY), "refresh-old");
+            await vault.set(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY), "expires-old");
+
+            let set_calls = 0;
+            const original_set = vault.set.bind(vault);
+            vault.set = (key: string, value: string) => {
+                set_calls++;
+                if (set_calls === 2) return Promise.reject(new Error("vault write boom"));
+                return original_set(key, value);
+            };
+
+            await expect(
+                store_tokens(vault, "inst-1", {
+                    access_token: "access-new",
+                    refresh_token: "refresh-new",
+                    expires_in: 3600,
+                }),
+            ).rejects.toThrow("vault write boom");
+
+            // 回滚：全部键恢复为写前旧值，vault 无半更新中间态。
+            await expect(vault.get(keyFor("inst-1", OAUTH_TOKEN_KEY))).resolves.toBe("access-old");
+            await expect(vault.get(keyFor("inst-1", OAUTH_REFRESH_TOKEN_KEY))).resolves.toBe(
+                "refresh-old",
+            );
+            await expect(vault.get(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY))).resolves.toBe(
+                "expires-old",
+            );
+        });
+
+        it("rolls back a newly-created key by deleting it (t340)", async () => {
+            const vault = create_vault();
+            // 写前无旧值；refresh 写失败触发回滚 → access 键原为 null 应被 delete。
+            let set_calls = 0;
+            const original_set = vault.set.bind(vault);
+            vault.set = (key: string, value: string) => {
+                set_calls++;
+                if (set_calls === 2) return Promise.reject(new Error("vault write boom"));
+                return original_set(key, value);
+            };
+
+            await expect(
+                store_tokens(vault, "inst-1", {
+                    access_token: "access-new",
+                    refresh_token: "refresh-new",
+                    expires_in: 3600,
+                }),
+            ).rejects.toThrow("vault write boom");
+
+            await expect(vault.get(keyFor("inst-1", OAUTH_TOKEN_KEY))).resolves.toBeNull();
+            await expect(vault.get(keyFor("inst-1", OAUTH_REFRESH_TOKEN_KEY))).resolves.toBeNull();
+            await expect(vault.get(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY))).resolves.toBeNull();
+        });
     });
 
     describe("make_default_http_post", () => {

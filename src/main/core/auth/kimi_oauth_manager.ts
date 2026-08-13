@@ -55,19 +55,29 @@ export interface KimiOAuthManagerDeps {
     readonly get_device_id?: GetDeviceId;
 }
 
+// t340: device_id 进程内缓存。undefined=未读；string=已成功读到（缓存）；
+// 失败返回 null 且不缓存，下次请求重读文件。
+let cached_device_id: string | null | undefined;
+
 /**
  * Default device-id resolver: read `~/.kimi-code/device_id`; if absent, generate a
  * UUID and persist it with 0600 permissions. Returns null only if persistence
  * fails (header then omitted, matching KimiOAuthService.swift loadOrCreateDeviceID).
+ * Successful value is cached for the process lifetime; failures are re-read on
+ * the next call.
  */
 export function make_default_get_device_id(): GetDeviceId {
     return async () => {
+        if (cached_device_id !== undefined) return cached_device_id;
         const dir = path.join(os.homedir(), ".kimi-code");
         const file = path.join(dir, "device_id");
         try {
             const existing = await fsp.readFile(file, "utf8");
             const id = existing.trim();
-            if (id) return id;
+            if (id) {
+                cached_device_id = id;
+                return id;
+            }
         } catch {
             // fall through to generation
         }
@@ -75,6 +85,7 @@ export function make_default_get_device_id(): GetDeviceId {
             const id = randomUUID();
             await fsp.mkdir(dir, { recursive: true });
             await fsp.writeFile(file, id, { mode: 0o600 });
+            cached_device_id = id;
             return id;
         } catch (error) {
             log.warn(`get_device_id: failed to persist device id: ${to_error(error).message}`);
