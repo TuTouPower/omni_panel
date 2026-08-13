@@ -62,10 +62,24 @@ async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
     if (!api_key) return [];
 
-    const [credits, tokens] = await Promise.all([
+    // t363 AC-002: 单接口失败不拖垮另一接口——allSettled + 成功侧照常产出。
+    const [credits_res, tokens_res] = await Promise.allSettled([
         fetch_usage("/v1/team/credit-usage", api_key, "remaining_credits", "plan_credits"),
         fetch_usage("/v1/team/token-usage", api_key, "remaining_tokens", "plan_tokens"),
     ]);
+    if (credits_res.status === "rejected") {
+        ctx.report_failed_account(
+            "firecrawl",
+            "firecrawl",
+            "Firecrawl",
+            String(credits_res.reason),
+        );
+    }
+    if (tokens_res.status === "rejected") {
+        ctx.report_failed_account("firecrawl", "firecrawl", "Firecrawl", String(tokens_res.reason));
+    }
+    const credits = credits_res.status === "fulfilled" ? credits_res.value : null;
+    const tokens = tokens_res.status === "fulfilled" ? tokens_res.value : null;
 
     const now = Date.now();
     const base = {
@@ -81,8 +95,9 @@ async function main(): Promise<ScriptObservation[]> {
         last_error: null,
     };
 
-    return [
-        {
+    const observations: ScriptObservation[] = [];
+    if (credits) {
+        observations.push({
             ...base,
             metric_id: "firecrawl:credits-total",
             raw_label: "credits",
@@ -92,8 +107,10 @@ async function main(): Promise<ScriptObservation[]> {
             // t361: 各指标用各自 reset_at（原复用 credits 致 tokens 观测 reset_at 错误）。
             reset_at: credits.reset_at,
             status: ctx.status.for_ratio(credits.used, credits.limit),
-        },
-        {
+        });
+    }
+    if (tokens) {
+        observations.push({
             ...base,
             metric_id: "firecrawl:tokens-total",
             raw_label: "tokens",
@@ -102,8 +119,9 @@ async function main(): Promise<ScriptObservation[]> {
             limit: tokens.limit,
             reset_at: tokens.reset_at,
             status: ctx.status.for_ratio(tokens.used, tokens.limit),
-        },
-    ];
+        });
+    }
+    return observations;
 }
 
 void main;

@@ -94,7 +94,7 @@ describe("glm connector", () => {
                 provider: "glm",
                 raw_label: "text-5h",
                 normalized_label: "5小时",
-                window: "second",
+                window: "day",
                 display_style: "percent",
                 used: 30,
                 limit: 100,

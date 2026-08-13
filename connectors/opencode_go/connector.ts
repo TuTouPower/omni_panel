@@ -385,11 +385,13 @@ async function server_fn_fallback(
     const bundles: string[] = [];
     const executing = new Set<Promise<void>>();
     for (const path of asset_paths) {
+        // t363 AC-003: 单 bundle 失败容忍（catch 丢弃），不拖垮整体 bundle 获取。
         const p = ctx.http
             .get_raw("default", path, { headers })
             .then((res) => {
                 bundles.push(res.body);
             })
+            .catch(() => undefined)
             .finally(() => {
                 executing.delete(p);
             });
@@ -420,32 +422,52 @@ async function server_fn_fallback(
     });
     const usage = parse_usage_payload(server_response.body);
 
-    if (!usage.rollingUsage || !usage.weeklyUsage || !usage.monthlyUsage) {
+    // t363 AC-003: 部分窗口缺失时产出已解析窗口，不整体 throw（原要求三窗口齐全）。
+    const now = Date.now();
+    const results: ScriptObservation[] = [];
+    if (usage.rollingUsage) {
+        results.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "rolling",
+                "滚动",
+                "second",
+                usage.rollingUsage,
+                now,
+            ),
+        );
+    }
+    if (usage.weeklyUsage) {
+        results.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "weekly",
+                "一周",
+                "day",
+                usage.weeklyUsage,
+                now,
+            ),
+        );
+    }
+    if (usage.monthlyUsage) {
+        results.push(
+            observation(
+                workspace_id,
+                workspace_id,
+                "monthly",
+                "一月",
+                "month",
+                usage.monthlyUsage,
+                now,
+            ),
+        );
+    }
+    if (results.length === 0) {
         throw new Error("OpenCode Go usage response invalid");
     }
-
-    const now = Date.now();
-    return [
-        observation(
-            workspace_id,
-            workspace_id,
-            "rolling",
-            "滚动",
-            "second",
-            usage.rollingUsage,
-            now,
-        ),
-        observation(workspace_id, workspace_id, "weekly", "一周", "day", usage.weeklyUsage, now),
-        observation(
-            workspace_id,
-            workspace_id,
-            "monthly",
-            "一月",
-            "month",
-            usage.monthlyUsage,
-            now,
-        ),
-    ];
+    return results;
 }
 
 void main;

@@ -15,13 +15,5 @@
     "endpoints": {
         "default": "https://api.tavily.com"
     },
-    "poll": {
-        "request": {
-            "endpoint": "default",
-            "path": "/usage",
-            "method": "GET"
-        },
-        "map": {}
-    },
     "script": "connector.ts"
 }

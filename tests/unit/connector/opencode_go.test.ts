@@ -263,7 +263,7 @@ describe("opencode_go connector", () => {
         expect(result.error).toContain("OpenCode Go 页面协议可能已变更");
     });
 
-    it("reports invalid usage response when a usage window is missing", async () => {
+    it("produces the parsed window when others are missing (t363 AC-003)", async () => {
         const { manifest, script } = await load_connector();
         const ctx = create_ctx((path) => {
             if (path === "/auth") return raw(302, "", { location: "/workspace/ws_123" });
@@ -281,8 +281,10 @@ describe("opencode_go connector", () => {
 
         const result = await run_connector(manifest, script, ctx);
 
-        expect(result.observations).toEqual([]);
-        expect(result.error).toContain("OpenCode Go usage response invalid");
+        // 仅 rolling 窗口存在——产出 rolling 观测，不整体报错（t363 部分解析）。
+        expect(result.error).toBeNull();
+        expect(result.observations.some((o) => o.raw_label === "rolling")).toBe(true);
+        expect(result.observations.some((o) => o.raw_label === "weekly")).toBe(false);
     });
 
     it("reports invalid usage response when server response is not JSON-like", async () => {

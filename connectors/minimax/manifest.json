@@ -15,13 +15,5 @@
     "endpoints": {
         "default": "https://www.minimaxi.com"
     },
-    "poll": {
-        "request": {
-            "endpoint": "default",
-            "path": "/v1/token_plan/remains",
-            "method": "GET"
-        },
-        "map": {}
-    },
     "script": "connector.ts"
 }
