@@ -38,7 +38,7 @@
 
 - [ ] AC-001：`schemas/plugin-output.schema.json` 的 `provider` enum 与 `usageProviderSchema` 一致（含 getoneapi/exa/tikhub/grok，或改用同源 regex）。
 - [ ] AC-002：`schemas/plugin-output.schema.json` 的 items 含 `cycleDurationMs`/`metric_id`/`error` 字段，`additionalProperties` 与 zod 源语义一致。
-- [ ] AC-003：`schemas/plugin-metadata.schema.json` 含 `login_url`/`cookie_names` 顶层键，`supportedProviders` enum 与 15-provider 现状一致。
+- [ ] AC-003：`schemas/plugin-metadata.schema.json` 含 `login_url`/`cookie_names` 顶层键，`supportedProviders` 与 zod 源一致（同源 regex，新增 provider 自动覆盖）。
 - [ ] AC-004：CI 或 `pnpm check` 中新增 schema 新鲜度检查（生成后 diff），源与导出物漂移时检查失败。
 
 ### 可测试性声明

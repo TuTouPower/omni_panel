@@ -23,6 +23,9 @@ jobs:
                   cache: pnpm
             - run: pnpm install --frozen-lockfile
             - run: pnpm check
+            - name: Check schema freshness
+              # 导出产物须与 zod 源一致；导出后 prettier 与提交格式对齐，漂移即失败。
+              run: pnpm schema:export && pnpm prettier --write schemas/ && git diff --exit-code schemas/
             - name: Install gitleaks
               uses: gitleaks/gitleaks-action@v2
               with:

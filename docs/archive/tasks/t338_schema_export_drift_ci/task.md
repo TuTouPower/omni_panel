@@ -2,11 +2,11 @@
 tid: "t338"
 slug: "schema_export_drift_ci"
 title: "schema 导出物与 zod 源漂移 + CI 新鲜度检查"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t338_schema_export_drift_ci"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "a9ccf1e7eb5d99b020cabee57269b4cf23d35086"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: plugin-output/plugin-metadata schema 导出漂移"
@@ -22,7 +22,7 @@ note: "review_intensive: plugin-output/plugin-metadata schema 导出漂移"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+Round 1 审后修复：test review FAIL（important f001：AC 内容级结构断言未落地为可复现测试）。补 `tests/unit/shared/schema_export_freshness.test.ts`：以 zod 源经 zodToJsonSchema 派生结构为基准，断言提交 schema.json 与其深等 + 内容契约（items 含 metric_id/cycleDurationMs/error、provider 走 regex、metadata 顶层含 login_url/cookie_names）。同步修 spec AC-003 措辞（enum→同源 regex）与 handoff 证据表述。
 
 ## Review 处置
 
@@ -43,6 +43,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 13:55 UTC+8)
+
+| finding_id     | severity  | status | rationale                                                                                                             | fix_ref                                           |
+| -------------- | --------- | ------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| t338_code_f001 | minor     | 已修   | spec AC-003 措辞改为「同源 regex」与实现一致（reviewer 标 spec 过时）                                                 | spec.md:41                                        |
+| t338_code_f002 | minor     | 已修   | handoff AC-002 证据补 additionalProperties 精确表述（导出为 tool 默认 false，比 zod runtime strip 更严，基线既有）    | handoff.json                                      |
+| t338_test_f001 | important | 已修   | 新增 schema_export_freshness.test.ts：提交 schema 与 zod 源派生结构深等 + 内容契约断言，AC-001/002/003 有独立回归护栏 | tests/unit/shared/schema_export_freshness.test.ts |
+| t338_test_f002 | important | 已修   | spec AC-003 措辞更新（reviewer 标 spec 过时，不计 FAIL）                                                              | spec.md:41                                        |
+| t338_test_f003 | minor     | 已修   | handoff tests/ac_evidence 改为引用已提交测试并修正 additionalProperties 表述                                          | handoff.json                                      |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -69,8 +79,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001/f002 minor 已修）
+- Round 1 test：FAIL（f001/f003 已修、f002 改 spec 不计 FAIL）
+- Round 2 code：PASS
+- Round 2 test：PASS（f004/f005 minor 不阻断）
 
 `single`：
 
@@ -80,4 +92,4 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- schema 重导出消除 zod 源漂移 + CI 新鲜度门禁 + 结构断言回归测试；Round 2 双路 PASS。顺手发现 p153（fresh worktree pnpm 跳过 electron postinstall）登记 pending。
