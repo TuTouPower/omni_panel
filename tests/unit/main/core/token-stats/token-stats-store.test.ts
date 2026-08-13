@@ -286,6 +286,31 @@ describe("token-stats-store", () => {
             expect(store.query_buckets({ from_date: "2026-07-11" })).toHaveLength(0);
             expect(store.query_buckets({ from_date: "2026-07-10" })).toHaveLength(2);
         });
+
+        it("rebuild_buckets=false 不重建 buckets，仅最后一批 true 触发（t347 AC-001）", () => {
+            // 首批不重建（false）：buckets 保持空。
+            store.upsert_sessions([], [daily({ date: "2026-07-10", input_tokens: 1000 })], false);
+            expect(store.query_buckets({})).toHaveLength(0);
+
+            // 最后一批重建（true）：buckets 反映全部 daily。
+            store.upsert_sessions([], [daily({ date: "2026-07-11", input_tokens: 700 })], true);
+            const buckets = store.query_buckets({});
+            expect(buckets).toHaveLength(2);
+            expect(buckets.map((b) => b.bucket_date).sort()).toEqual(["2026-07-10", "2026-07-11"]);
+        });
+
+        it("空数据 + rebuild_buckets=true 仍重建 buckets（t347 f003）", () => {
+            // 首轮有数据并重建。
+            store.upsert_sessions([], [daily({ date: "2026-07-10", input_tokens: 1000 })], true);
+            expect(store.query_buckets({})).toHaveLength(1);
+
+            // 删除 buckets 前快照后，空数据 + true 应触发重建（不早退）。
+            store.upsert_sessions([], [], true);
+            const buckets = store.query_buckets({});
+            // 数据未变，buckets 仍重建为 1 条（非 0——若早退则删除被跳过、旧值保留）。
+            expect(buckets).toHaveLength(1);
+            expect(buckets[0]!.input_tokens).toBe(1000);
+        });
     });
 
     describe("session queries", () => {

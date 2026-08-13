@@ -34,12 +34,28 @@ function resolve_collector_path(): string {
 }
 
 /**
- * Byte-compare two token-stats configs. The config is a flat object of
- * primitives (strings/numbers/boolean), so JSON.stringify is a stable,
- * order-independent equality check. Used to debounce update_config.
+ * 规范化比较两个 token-stats 配置（t347 AC-004）：递归按 key 排序后序列化，
+ * 使 `{a:1,b:2}` 与 `{b:2,a:1}` 判等（原 JSON.stringify 序相关，注释与实际不符）。
+ * 配置是扁平原始值对象，键数固定且少，排序开销可忽略。
  */
 function same_config(a: TokenStatsConfig, b: TokenStatsConfig): boolean {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return JSON.stringify(sort_keys(a)) === JSON.stringify(sort_keys(b));
+}
+
+/** 按 key 排序的规范化副本（递归，数组按元素序）。 */
+function sort_keys(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map(sort_keys);
+    }
+    if (typeof value === "object" && value !== null) {
+        const record = value as Record<string, unknown>;
+        const sorted: Record<string, unknown> = {};
+        for (const key of Object.keys(record).sort()) {
+            sorted[key] = sort_keys(record[key]);
+        }
+        return sorted;
+    }
+    return value;
 }
 
 export function create_token_stats_manager(deps: {
@@ -78,17 +94,21 @@ export function create_token_stats_manager(deps: {
             const chunk_daily = daily.slice(offset, offset + UPDATE_BATCH_SIZE);
             const chunk_records = records.slice(offset, offset + UPDATE_BATCH_SIZE);
             try {
-                deps.store.upsert_sessions(chunk_sessions, chunk_daily);
+                // t347 AC-001: 仅最后一批触发 buckets 重建（否则每批全表聚合）。
+                const is_last = offset + UPDATE_BATCH_SIZE >= total;
+                deps.store.upsert_sessions(chunk_sessions, chunk_daily, is_last);
                 deps.store.upsert_records(chunk_records);
-                offset += UPDATE_BATCH_SIZE;
                 log.debug(
-                    `Stored ${String(chunk_sessions.length)} session deltas, ${String(chunk_daily.length)} daily rows, ${String(chunk_records.length)} records (batch ${String(Math.min(offset, total))}/${String(total)})`,
+                    `Stored ${String(chunk_sessions.length)} session deltas, ${String(chunk_daily.length)} daily rows, ${String(chunk_records.length)} records (batch ${String(Math.min(offset + UPDATE_BATCH_SIZE, total))}/${String(total)})`,
                 );
             } catch (err: unknown) {
+                // t347 AC-002: 单批 DB 失败不丢弃剩余批次——记断点继续下一批
+                // （本批数据丢失由 collector 增量重发兜底），最后仍回调 on_update。
                 const msg_str = err instanceof Error ? err.message : String(err);
                 log.error(`Failed to store token stats: ${msg_str}`);
-                return;
             }
+            // 成功与失败批次都推进 offset（失败不中断剩余批次）。
+            offset += UPDATE_BATCH_SIZE;
             if (offset < total) {
                 setImmediate(step);
             } else {
@@ -229,6 +249,17 @@ export function create_token_stats_manager(deps: {
         if (child) {
             child.postMessage({ type: "config", config });
             log.info("Updated collector config");
+        } else {
+            // t347 AC-003: 熔断跳闸后 child 为 null（current_config 被清）——
+            // 配置更新即恢复路径：复位熔断计数并重新 spawn（否则只能重启应用）。
+            // t347 f002: 先清 pending restart_timer，防旧 timer 用旧 config 重新
+            // fork（非熔断退出后的 30s 窗口内改配置会回退新配置 + 多余重启）。
+            if (restart_timer) {
+                clearTimeout(restart_timer);
+                restart_timer = null;
+            }
+            log.info("Collector not running; restarting on config update");
+            start(config);
         }
     }
 
