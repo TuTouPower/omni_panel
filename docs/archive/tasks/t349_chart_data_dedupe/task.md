@@ -2,11 +2,11 @@
 tid: "t349"
 slug: "chart_data_dedupe"
 title: "chart-data 聚合收敛 + 性能"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t349_chart_data_dedupe"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "3c7021cb37fc9c6b6a32cfaca7043e2848367478"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 多套镜像复制/去重键/O(n²)"
@@ -22,7 +22,11 @@ note: "review_intensive: 多套镜像复制/去重键/O(n²)"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+实现要点：
+- 抽 3 生成器：top_segments（Top5+其他，restLabel/fmt_value/shorten 参数化）、composition_segments、agent_segments（order/labels 参数化，records 连字符键 vs buckets/rollup 下划线键差异保留）。
+- 11 个 donut 入口收敛为生成器调用。
+- rollup_session_key 提为导出，kpiFromRollup 去重改用（AC-002）。
+- prepareBarData session/project 轴 idxOf 改预构建 Map；删 colorOf 死分支。
 
 ## Review 处置
 
@@ -43,6 +47,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
+
+### Round 1 (2026-08-13 22:45 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t349_gen_f001 | minor | 已修 | 删 rollup_session_key 重复 JSDoc | chart-data.ts |
+| t349_gen_f002 | minor | 遗留 | prepareBarDataFromRollup 轴 idxOf 线性扫描，登记 p169 | p169 |
 
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
@@ -74,10 +85,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（f001 minor 已修、f002 minor 遗留）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- chart-data.ts 镜像聚合收敛：11 个 donut segment 入口 → 3 生成器（agent/top/composition）；kpiFromRollup 去重键统一 rollup_session_key；prepareBarData 轴预构建 Map；删 colorOf 死分支。Round 1 general PASS。顺手发现 p169（rollup 轴 idxOf 线性扫描）登记 pending。

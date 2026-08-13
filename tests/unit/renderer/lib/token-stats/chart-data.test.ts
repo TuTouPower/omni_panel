@@ -803,6 +803,17 @@ describe("chart-data", () => {
             it("is empty-safe", () => {
                 expect(kpiFromRollup([])).toEqual({ tokens: 0, sessions: 0, calls: 0 });
             });
+
+            it("counts same session_id across env as distinct (t349 AC-002)", () => {
+                // 跨 env 同 session_id 不合并（rollup_session_key 含 env）。
+                const rows = [
+                    rollup_row({ session_id: "s1", env: "local", calls: 1, input_tokens: 10 }),
+                    rollup_row({ session_id: "s1", env: "wsl", calls: 1, input_tokens: 20 }),
+                ];
+                const kpi = kpiFromRollup(rows);
+                expect(kpi.sessions).toBe(2);
+                // 裸 session_id 去重会得 1（bug）；rollup_session_key 去重得 2。
+            });
         });
 
         it("agentSegmentsFromRollup maps source to agent label and sums tokens", () => {
