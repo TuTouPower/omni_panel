@@ -647,6 +647,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t382_renderer_wrapper_shells_cleanup"
+        },
+        {
+            "tid": "t383",
+            "slug": "trend_xaxis_labels_granularity",
+            "title": "修复趋势图 X 轴：标签过度节流 + 1 天窗口丢时分粒度",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源: p151",
+            "dir": "docs/tasks/t383_trend_xaxis_labels_granularity"
         }
     ]
 }
