@@ -1,0 +1,29 @@
+{
+    "tid": "t371",
+    "attempt": 1,
+    "execution_id": "c38fa205fa3848569786283409dd7d4f",
+    "status": "done",
+    "branch": "t371_runtime_timeout_isolation",
+    "base_sha": "b5ce97eed1c7367ac430a6e748adeb8e7f014e5a",
+    "tests": "全量 262 文件 3119 passed / 9 skipped（含新增：超时冷却拒绝/恢复正常、schema 失败逐条计入、abort reason timeout）",
+    "blackbox": "typecheck + eslint + prettier 通过；进程级隔离留 spike（UNVERIFIED-SPIKE），采用 spec 回退方案（并发拒绝 + abort reason）",
+    "review": "full；Round 1 code FAIL（f001 AC-001 计数窗口错位+signal 未实现 / f002 per-manifest 互斥误伤 / f003 default 误匹配）+ test FAIL（f001 零覆盖实测相反 / f002 premise 失效）→ 重设计超时冷却 → Round 2 code FAIL（仅 f005 handoff 证据过期已修 / f004 冷却测试边距已放宽 500ms / f006 同步死循环 spec 缺陷处置文档）+ test FAIL（仅 f005 已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "runtime.ts run_connector 超时冷却——run_connector_inner 返回 timeout 错误时设 manifest.id 冷却（2x timeout），冷却期内拒绝同 manifest 新执行（cooling down 错误），超时残留脚本不再与重试叠加打上游；正常完成不设冷却，多实例并发不受影响（in-flight 互斥已移除）",
+            "tests/integration/connector/runtime.test.ts::rejects execution during cooldown after a timeout（永不 resolve promise 超时 → 第二次 cooling down → 130ms 后恢复）通过",
+            "tests/integration/connector/runtime.test.ts::does not cool down after a normal completion（并发两执行均成功，无误伤）通过",
+            "signal 取消未实现（ctx.signal 预留如实标注）；进程级强杀（worker 隔离）留 spike，[deploy] 验证"
+        ],
+        "AC-002": [
+            "net-client.ts 超时 abort 传明确 reason（HTTP request timed out after Nms）——下游 is_timeout_error 可分类",
+            "tests/integration/connector/net-client.test.ts::aborts request when total timeout elapses（rejects.toThrow(/timed? out/i)）通过"
+        ],
+        "AC-003": [
+            "runtime.ts schema 校验失败逐条计 failed_accounts（error 含 schema validation failed: detail；account_id 取观测自身字段，缺省 unknown 不误匹配 default）",
+            "tests/integration/connector/runtime.test.ts::filters out malformed observations（2 条非法 → failed_accounts 2 条、account_id 全 unknown）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

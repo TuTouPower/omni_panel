@@ -526,7 +526,9 @@ describe("net-client", () => {
                 timeout_ms: 500,
             });
             const start = Date.now();
-            await expect(ctx.http.get_json("default", "/hang")).rejects.toThrow();
+            // t371 AC-002: 超时 abort reason 含 timeout 字样——下游 is_timeout_error
+            // 分类依赖（原裸 AbortError 无 timeout 无法识别）。
+            await expect(ctx.http.get_json("default", "/hang")).rejects.toThrow(/timed? out/i);
             expect(Date.now() - start).toBeLessThan(5000);
         });
 
