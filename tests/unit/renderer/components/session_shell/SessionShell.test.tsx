@@ -176,21 +176,20 @@ describe("SessionShell (t223)", () => {
         expect(screen.queryByText(/拖文件|拖拽导入|import/i)).toBeNull();
     });
 
-    it("header 布局让面板按钮区贴窗口右上角：标题栏 flex-1、页签绝对水平居中（AC-003）", async () => {
+    it("t380 AC-004：页签迁入 PanelTitleBar 中间插槽，不再绝对定位", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
-        const topbar = document.querySelector(".session-topbar");
-        expect(topbar?.className).toContain("relative");
         const titlebar = document.querySelector("[data-panel-titlebar=Session]");
         expect(titlebar?.className).toContain("flex-1");
         const tabs = document.querySelector(".session-tabs");
-        expect(tabs?.className).toContain("absolute");
-        expect(tabs?.className).toContain("left-1/2");
-        expect(tabs?.className).toContain("-translate-x-1/2");
-        // 页签叠在拖拽区上，须可点击（no-drag）。
-        expect(tabs?.className).toContain("[-webkit-app-region:no-drag]");
+        // t380: 页签入 center 插槽，不再 absolute/translate 居中；仍 no-drag 可点。
+        expect(tabs).toBeNull();
+        expect(screen.getByRole("navigation", { name: "面板页签" })).toBeInTheDocument();
+        const tab_nav = document.querySelector("nav[aria-label='面板页签']");
+        expect(tab_nav).toBeTruthy();
+        expect(titlebar?.contains(tab_nav)).toBe(true);
     });
 
     it("t315 AC1：根容器与顶栏背景为 surface-window（对齐用量/设置/代理面板）", async () => {
@@ -233,16 +232,15 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(before(view, refresh)).toBe(true);
     });
 
-    it("AC-004：rail-toggle 上移至 header，折叠/展开行为不变", async () => {
+    it("t380 AC-004：rail-toggle 下移为标题栏下方独立行，折叠/展开行为不变", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
-        const topbar = document.querySelector(".session-topbar");
-        expect(topbar).toBeTruthy();
         const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
-        // toggle 在 header 内（顶栏行），不在工作台 body 内。
-        expect(topbar?.contains(toggle)).toBe(true);
+        // t380: toggle 在标题栏下方独立行（.session-rail-toggle-row），不在 header。
+        expect(toggle.closest(".session-rail-toggle-row")).not.toBeNull();
+        expect(toggle.closest(".session-topbar")).toBeNull();
         expect(document.querySelector(".session-workspace")?.contains(toggle)).toBe(false);
         // 折叠行为不变。
         expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
