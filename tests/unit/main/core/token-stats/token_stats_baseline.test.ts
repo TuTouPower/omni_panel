@@ -16,7 +16,9 @@ describe("token-stats-baseline", () => {
             title: null,
             directory: null,
         });
-        expect(generate_synthetic_records(600_000)).toHaveLength(600_000);
+        // t377: 从 60 万降到 5 万（10^5 量级）——原 60 万拖慢套件，5 万仍验证
+        // 生成规模正确性。
+        expect(generate_synthetic_records(50_000)).toHaveLength(50_000);
     });
 
     it("reports all range and filter combinations with stage metrics", () => {

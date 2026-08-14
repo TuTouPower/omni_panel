@@ -6,32 +6,10 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "deepseek",
-    provider: "deepseek",
-    capabilities: ["poll"],
-    parameters: [
-        {
-            name: "API_KEY",
-            type: "secret",
-            required: true,
-            exposeToScript: true,
-        },
-        {
-            name: "LIMIT",
-            type: "number",
-            required: false,
-            exposeToScript: true,
-            default: "100",
-        },
-    ],
-    endpoints: { default: "https://api.deepseek.com" },
-    poll: {
-        request: { endpoint: "default", path: "/user/balance", method: "GET" },
-        map: {},
-    },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "deepseek", "manifest.json"), "utf8"),
+) as Manifest;
 
 function create_ctx(balance_infos: unknown[]): ConnectorContext {
     return {

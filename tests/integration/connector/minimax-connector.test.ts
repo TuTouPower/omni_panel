@@ -6,25 +6,10 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "minimax",
-    provider: "minimax",
-    capabilities: ["poll"],
-    parameters: [
-        {
-            name: "API_KEY",
-            type: "secret",
-            required: true,
-            exposeToScript: true,
-        },
-    ],
-    endpoints: { default: "https://www.minimaxi.com" },
-    poll: {
-        request: { endpoint: "default", path: "/v1/token_plan/remains", method: "GET" },
-        map: {},
-    },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "minimax", "manifest.json"), "utf8"),
+) as Manifest;
 
 function create_ctx(model_remains: unknown[], base_resp?: unknown): ConnectorContext {
     return {
@@ -177,5 +162,76 @@ describe("minimax connector", () => {
 
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
+    });
+
+    it("maps each model_name type branch to the correct label (t377)", async () => {
+        const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
+        const cases = [
+            { model_name: "coding-plan-vlm", slug: "coding-plan-vlm", label: "视觉" },
+            { model_name: "coding-plan-search", slug: "coding-plan-search", label: "搜索" },
+            { model_name: "speech-hd", slug: "speech-hd", label: "语音" },
+            {
+                model_name: "MiniMax-Hailuo-01-Fast",
+                slug: "minimax-hailuo-01-fast",
+                label: "快速视频",
+            },
+            { model_name: "MiniMax-Hailuo-01", slug: "minimax-hailuo-01", label: "视频" },
+            { model_name: "music-cover", slug: "music-cover", label: "翻唱" },
+            { model_name: "lyrics_generation", slug: "lyrics_generation", label: "歌词" },
+            { model_name: "music-melody", slug: "music-melody", label: "音乐" },
+        ];
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                cases.map((c) => ({
+                    model_name: c.model_name,
+                    start_time: 1000,
+                    end_time: 1000 + 4 * 3600 * 1000,
+                    current_interval_total_count: 100,
+                    current_interval_usage_count: 40,
+                })),
+            ),
+        );
+
+        expect(result.error).toBeNull();
+        for (const c of cases) {
+            const obs = result.observations.find(
+                (o) => o.metric_id === `minimax:${c.slug}-interval`,
+            );
+            expect(obs, `missing ${c.model_name}`).toBeDefined();
+            expect(obs?.normalized_label).toBe(`${c.label} (5小时)`);
+        }
+    });
+
+    it("classifies period by end-start duration boundaries (t377)", async () => {
+        const script = await readFile(join("connectors", "minimax", "connector.ts"), "utf8");
+        const cases = [
+            { hours: 4, expect: "5小时" },
+            { hours: 10, expect: "天" },
+            { hours: 100, expect: "周" },
+            { hours: 200, expect: "周期" },
+        ];
+        for (const c of cases) {
+            const result = await run_connector(
+                manifest,
+                script,
+                create_ctx([
+                    {
+                        model_name: "MiniMax-M*",
+                        start_time: 1000,
+                        end_time: 1000 + c.hours * 3600 * 1000,
+                        current_interval_total_count: 100,
+                        current_interval_usage_count: 40,
+                    },
+                ]),
+            );
+            expect(result.error).toBeNull();
+            const obs = result.observations.find(
+                (o) => o.metric_id === "minimax:minimax-m*-interval",
+            );
+            expect(obs, `hours=${String(c.hours)}`).toBeDefined();
+            expect(obs?.normalized_label).toBe(`文本 (${c.expect})`);
+        }
     });
 });

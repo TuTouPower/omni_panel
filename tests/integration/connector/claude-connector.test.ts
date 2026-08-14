@@ -6,22 +6,10 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "claude",
-    provider: "claude",
-    capabilities: ["local"],
-    parameters: [
-        {
-            name: "data_dir",
-            type: "string",
-            required: false,
-            exposeToScript: true,
-            default: "~/.claude",
-        },
-    ],
-    local: { paths: ["~/.claude/.credentials.json"] },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "claude", "manifest.json"), "utf8"),
+) as Manifest;
 
 function create_ctx(data_dir?: string): ConnectorContext {
     return {
