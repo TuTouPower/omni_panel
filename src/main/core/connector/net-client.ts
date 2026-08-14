@@ -18,6 +18,8 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024; // 50MB
+// t372 AC-002: 错误响应只需计数/日志，小上限读取即可，避免 4xx+大 body 白读 50MB。
+const MAX_ERROR_BODY_BYTES = 1 * 1024 * 1024; // 1MB
 
 /**
  * 创建并注册全局 undici Agent（每 origin 连接上限 + keepAlive 复用）。
@@ -314,12 +316,32 @@ export function create_connector_context(
             }
 
             if (response.statusCode >= 400) {
-                const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+                // t372 AC-002: 错误响应不读满 50MB。length 优先从 content-length 头取：
+                // 已声明超大 body 直接 destroy 不读（保留 HTTP 状态语义），未声明/小 body
+                // 才小上限读取，超限即破坏流（read_body_with_limit 内部处理）。
+                const content_length_header = response.headers["content-length"];
+                const declared_length = Array.isArray(content_length_header)
+                    ? content_length_header[0]
+                    : content_length_header;
+                const declared_bytes = declared_length
+                    ? Number.parseInt(declared_length, 10)
+                    : undefined;
+                if (declared_bytes !== undefined && declared_bytes > MAX_ERROR_BODY_BYTES) {
+                    response.body.destroy();
+                    request_log.debug(
+                        `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(declared_bytes)} bytes)`,
+                    );
+                    throw new Error(
+                        `HTTP ${String(response.statusCode)}: request failed (${String(declared_bytes)} bytes)`,
+                    );
+                }
+                const error_body = await read_body_with_limit(response.body, MAX_ERROR_BODY_BYTES);
+                const byte_count = declared_bytes ?? Buffer.byteLength(error_body);
                 request_log.debug(
-                    `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(body_text.length)} bytes)`,
+                    `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(byte_count)} bytes)`,
                 );
                 throw new Error(
-                    `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+                    `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)`,
                 );
             }
 
