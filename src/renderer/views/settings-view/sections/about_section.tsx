@@ -44,7 +44,11 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                     data-testid="about-platform"
                     className="mt-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                 >
-                    {window.usageboard.platform === "darwin" ? "macOS" : "Windows"} · x64
+                    {window.usageboard.platform === "darwin"
+                        ? "macOS"
+                        : window.usageboard.platform === "linux"
+                          ? "Linux"
+                          : "Windows"}
                 </div>
                 <hr className="my-4 w-full border-[var(--color-hairline)]" />
                 <div className="max-w-[520px] text-[length:var(--text-body-md)] leading-relaxed text-[var(--color-on-surface-variant)]">

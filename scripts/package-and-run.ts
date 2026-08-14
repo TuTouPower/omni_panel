@@ -10,7 +10,8 @@ function log(msg: string) {
 
 function kill_omni(): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniPanel.exe"] : ["OmniPanel"];
+    // t369 AC-001: 产物名 Linux 为 omni_panel（小写），pkill 大小写不匹配杀不掉旧实例。
+    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
 
     for (const proc of procs) {
         try {
@@ -27,6 +28,7 @@ function kill_omni(): void {
 
 function wait_for_exit(max_ms = 5000): void {
     const is_win = platform() === "win32";
+    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
     const deadline = Date.now() + max_ms;
     while (Date.now() < deadline) {
         let running = false;
@@ -38,7 +40,7 @@ function wait_for_exit(max_ms = 5000): void {
                     .toString()
                     .includes("OmniPanel.exe");
             } else {
-                execSync("pgrep -f OmniPanel", { stdio: "pipe" });
+                execSync(`pgrep -f ${procs[0] ?? "omni_panel"}`, { stdio: "pipe" });
                 running = true;
             }
         } catch {
@@ -48,15 +50,17 @@ function wait_for_exit(max_ms = 5000): void {
             log("all OmniPanel processes exited");
             return;
         }
-        execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", {
+        // t369 AC-002: Linux 去 `>nul`（win 专属重定向），用 sleep 1。
+        execSync(is_win ? "timeout /t 1 /nobreak >nul 2>&1" : "sleep 1", {
             shell: is_win ? "cmd.exe" : "/bin/sh",
             stdio: "pipe",
         });
     }
     log("warning: OmniPanel still running after timeout, forcing kill");
     try {
-        execSync("taskkill /f /t /im OmniPanel.exe 2>nul || pkill -9 -f OmniPanel", {
-            shell: platform() === "win32" ? "cmd.exe" : "/bin/sh",
+        // t369 AC-002: Linux 分支用 pkill 小写名，不执行 win 的 >nul 串。
+        execSync(is_win ? "taskkill /f /t /im OmniPanel.exe 2>nul" : `pkill -9 -f ${procs[0] ?? "omni_panel"}`, {
+            shell: is_win ? "cmd.exe" : "/bin/sh",
             stdio: "pipe",
         });
     } catch {
