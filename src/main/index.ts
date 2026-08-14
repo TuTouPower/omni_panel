@@ -893,7 +893,26 @@ void app.whenReady().then(async () => {
                 // The window may be pre-warmed (already loaded) or freshly created
                 // (still loading). Send once it's ready either way.
                 if (wc.isLoading()) {
-                    wc.once("did-finish-load", send_navigate);
+                    // t368 AC-002: did-fail-load 时清缓冲（不再永久等待 did-finish-load），
+                    // 并重建预热窗口供下次打开。
+                    let settled = false;
+                    const settle = () => {
+                        if (settled) return;
+                        settled = true;
+                        wc.removeListener("did-fail-load", fail);
+                    };
+                    const fail = () => {
+                        settle();
+                        if (settingsWin && !settingsWin.isDestroyed()) {
+                            settingsWin.destroy();
+                            settingsWin = null;
+                        }
+                    };
+                    wc.once("did-finish-load", () => {
+                        settle();
+                        send_navigate();
+                    });
+                    wc.once("did-fail-load", fail);
                 } else {
                     send_navigate();
                 }
@@ -1271,8 +1290,11 @@ void app.whenReady().then(async () => {
         app.on("before-quit", () => {
             log.info("Application shutting down");
             quitting = true;
-            void local_api?.stop();
+            // t368 范围项 5: local_api/close_all_proxy 移入 will-quit Promise.all 等待
+            // 完成，此处不再 fire-and-forget。
             tokenStatsQueryDispatcher.stop();
+            // t368 AC-003: 退出时 stop collector 子进程（原缺失，重启后不全量重扫）。
+            tokenStatsManager.stop();
             if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                 trayMenuWin.destroy();
                 trayMenuWin = null;
@@ -1293,8 +1315,7 @@ void app.whenReady().then(async () => {
                 retention_scheduler.stop();
                 retention_scheduler = null;
             }
-            void close_all_proxy_agents();
-            void runtimeStore.flushPendingCache();
+            // t368 范围项 5: close_all_proxy/runtimeStore.flush 移入 will-quit await。
             flush_session_index(); // t264: 会话索引脏条目退出前落盘。
             cleanupEventIpc?.();
             cleanupEventIpc = null;
@@ -1303,19 +1324,26 @@ void app.whenReady().then(async () => {
         });
 
         app.on("will-quit", (e) => {
+            // t368 范围项 5: 收拢退出清理——local_api/close_all_proxy 从 before-quit
+            // fire-and-forget 移入 Promise.all 等待完成，避免退出中断。
+            const shutdown_tasks: Promise<unknown>[] = [
+                runtimeStore.flushPendingCache(),
+                local_api ? local_api.stop() : Promise.resolve(),
+                close_all_proxy_agents(),
+            ];
+            if (configStore.hasPendingSave()) {
+                shutdown_tasks.push(configStore.flushPendingSave());
+            }
+            if (!logging_cleanup_done) {
+                shutdown_tasks.push(
+                    cleanupLogging().then(() => {
+                        logging_cleanup_done = true;
+                    }),
+                );
+            }
             if (configStore.hasPendingSave() || !logging_cleanup_done) {
                 e.preventDefault();
-                void Promise.all([
-                    configStore.hasPendingSave()
-                        ? configStore.flushPendingSave()
-                        : Promise.resolve(),
-                    runtimeStore.flushPendingCache(),
-                    logging_cleanup_done
-                        ? Promise.resolve()
-                        : cleanupLogging().then(() => {
-                              logging_cleanup_done = true;
-                          }),
-                ])
+                void Promise.all(shutdown_tasks)
                     .catch((err: unknown) => {
                         log.error(
                             `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -1324,6 +1352,12 @@ void app.whenReady().then(async () => {
                     .finally(() => {
                         app.quit();
                     });
+            } else {
+                void Promise.all(shutdown_tasks).catch((err: unknown) => {
+                    log.error(
+                        `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                });
             }
         });
 

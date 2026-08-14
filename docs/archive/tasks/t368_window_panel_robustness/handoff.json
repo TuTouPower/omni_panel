@@ -1,0 +1,29 @@
+{
+    "tid": "t368",
+    "attempt": 1,
+    "execution_id": "41ce64d4d77f4ad7b17c35edeff2f1e2",
+    "status": "done",
+    "branch": "t368_window_panel_robustness",
+    "base_sha": "37292d9d815a1dc00d3435155ffb1ec3a8a9e694",
+    "tests": "全量 262 文件 3111 passed / 9 skipped（含新增：floating 宽度 400 不抬升 / did-fail-load 复位 loading）",
+    "blackbox": "typecheck + eslint + prettier 通过；AC-003 tokenStatsManager.stop 在 index.ts before-quit（无单测框架，逻辑已实现）",
+    "review": "single；Round 1 FAIL（f001 创建/恢复仍 472 / f002 测试失真缺首次默认 / f003 范围项 5）→ Round 2 PASS（f001 创建 clamp+调序、f002 首次 460 测试、f003 will-quit 收拢 local_api/close_all_proxy）",
+    "ac_evidence": {
+        "AC-001": [
+            "main-panel-controller.ts 浮窗创建/恢复路径 clamp 改 MIN_FLOATING_WIDTH=320（save_floating_bounds + create_panel_window setBounds），setMinimumSize(MIN_FLOATING_WIDTH,240) 调序到 setBounds 前（避免创建瞬间 window-manager minWidth 472 抬升首次 460）；popup 主面板仍 472",
+            "tests/unit/main/main_panel_controller.test.ts::persists floating width in 320-472 range without clamping up（setBounds 400 → saved 400）通过",
+            "tests/unit/main/main_panel_controller.test.ts::creates a floating shell at the default 460 width on first open（首次无 saved → setBounds 460）通过"
+        ],
+        "AC-002": [
+            "history-window-controller.ts did-fail-load 复位 loading + 清 pending_locs（原 did-finish-load 永不触发则 send_focus 永久缓冲）",
+            "index.ts SETTINGS_OPEN 缓冲加 did-fail-load 复位 + destroy 预热窗口重建",
+            "tests/unit/main/core/main-panel/history-window-controller.test.ts::did-fail-load 复位 loading，send_focus 不再永久缓冲 通过"
+        ],
+        "AC-003": [
+            "index.ts before-quit 加 tokenStatsManager.stop()（原缺失，重启后不全量重扫）",
+            "manager.stop() 同步 void，退出时 collector 子进程被 stop"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

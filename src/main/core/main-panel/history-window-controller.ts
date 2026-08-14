@@ -88,6 +88,14 @@ export function create_history_window_controller(
                 }
             }
         });
+        // t368 AC-002: loadURL 失败时复位 loading 并清缓冲——否则 did-finish-load 永不
+        // 触发，loading 恒 true、send_focus 永久缓冲。
+        target.webContents.once("did-fail-load", () => {
+            if (loading) {
+                loading = false;
+                pending_locs = [];
+            }
+        });
         win = target;
         if (!is_e2e_headless()) target.show();
         target.focus();
