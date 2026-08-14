@@ -299,6 +299,59 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
         expect(extract_opencode_first_user(fixture.db_path, fixture.session_id)).toBe("你好");
     });
 
+    it("first_user：前 50+ 条 assistant 时仍取到真实首条 user（t366 AC-003）", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-first-50-"));
+        const db_path = path.join(dir, "opencode.db");
+        try {
+            const db = new_db(db_path);
+            db.exec(`
+CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
+CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
+`);
+            const sid = "sess_first50";
+            const insert_msg = db.prepare(
+                "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?)",
+            );
+            const insert_part = db.prepare(
+                "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+            );
+            // 先插 55 条 assistant（rowid 在前），旧 SQL（LIMIT 50 无 role 过滤）取前 50
+            // 行全 assistant、first_user JS 侧过滤后返回空串；新 SQL role='user' LIMIT 1
+            // 跳过它们取真实首条 user——真判别。
+            for (let i = 0; i < 55; i += 1) {
+                insert_msg.run(
+                    `msg_asst_${String(i)}`,
+                    sid,
+                    1000 + i,
+                    1000 + i,
+                    JSON.stringify({ role: "assistant", modelID: "claude-3" }),
+                );
+                insert_part.run(
+                    `prt_asst_${String(i)}`,
+                    `msg_asst_${String(i)}`,
+                    sid,
+                    1000 + i,
+                    1000 + i,
+                    JSON.stringify({ type: "text", text: `助手 ${String(i)}` }),
+                );
+            }
+            // 再插 user（rowid 在 assistant 之后）。
+            insert_msg.run("msg_user", sid, 2000, 2000, JSON.stringify({ role: "user" }));
+            insert_part.run(
+                "prt_user",
+                "msg_user",
+                sid,
+                2000,
+                2000,
+                JSON.stringify({ type: "text", text: "真实首条" }),
+            );
+            db.close();
+            expect(extract_opencode_first_user(db_path, sid)).toBe("真实首条");
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     it("first_user：无 user message 时返回空串", () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-first-none-"));
         const db_path = path.join(dir, "opencode.db");
@@ -313,7 +366,14 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
             ).run("msg_a", "sess_none", 1, 1, JSON.stringify({ role: "assistant" }));
             db.prepare(
                 "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
-            ).run("prt_a", "msg_a", "sess_none", 1, 1, JSON.stringify({ type: "text", text: "只有助手" }));
+            ).run(
+                "prt_a",
+                "msg_a",
+                "sess_none",
+                1,
+                1,
+                JSON.stringify({ type: "text", text: "只有助手" }),
+            );
             db.close();
             expect(extract_opencode_first_user(db_path, "sess_none")).toBe("");
         } finally {

@@ -28,7 +28,14 @@ export interface HistoryMessage {
  * 而非 message id 定位，避免空/重复 id 时 findIndex 跳到错误位置（t210_code_f005）。
  */
 export type ExtractCursor =
-    | { readonly kind: "byte_offset"; readonly file: string; readonly offset: number }
+    | {
+          readonly kind: "byte_offset";
+          readonly file: string;
+          readonly offset: number;
+          /** t366 AC-001: 该 offset 前已提取的合法消息数，供增量延续 id 命名空间，
+           *  避免每轮重 parse 前缀。缺失（旧 cursor）时增量回退重计。 */
+          readonly valid_count?: number;
+      }
     | { readonly kind: "sqlite_rowid"; readonly max_rowid: number }
     | { readonly kind: "pagination"; readonly end_index: number };
 

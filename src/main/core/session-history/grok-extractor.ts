@@ -106,7 +106,13 @@ export function extract_grok(file: string): ExtractResult {
     } catch {
         // 保留 offset=0
     }
-    const cursor: ExtractCursor = { kind: "byte_offset", file, offset };
+    const cursor: ExtractCursor = {
+        kind: "byte_offset",
+        file,
+        offset,
+        // t366 AC-001: 持久化合法消息数，增量延续 id 命名空间无需重 parse 前缀。
+        valid_count: messages.length,
+    };
     return { messages, cursor };
 }
 
@@ -142,9 +148,13 @@ export function extract_grok_incremental(file: string, cursor: ExtractCursor): E
             parse_start = line_start;
         }
     }
-    // 全局消息计数：parse_start 之前合法消息数，使增量 id 延续全量 id 空间。
-    const head_text = buf.subarray(0, parse_start).toString("utf-8");
-    const { next_index } = parse_grok_lines(head_text.split("\n"), 0);
+    // 全局消息计数：增量 id 延续全量 id 空间。优先用 cursor.valid_count（t366 AC-001，
+    // 避免每轮重 parse 前缀）；旧 cursor 无 valid_count 时回退重 parse 前缀。
+    let next_index = cursor.valid_count ?? 0;
+    if (cursor.valid_count === undefined && parse_start > 0) {
+        const head_text = buf.subarray(0, parse_start).toString("utf-8");
+        ({ next_index } = parse_grok_lines(head_text.split("\n"), 0));
+    }
     const tail_text = buf.subarray(parse_start).toString("utf-8");
     const { messages } = parse_grok_lines(tail_text.split("\n"), next_index);
     // 游标推进：文件尾部若为未完成半行（无结尾换行且 JSON 不完整），停在半行行首，
@@ -169,6 +179,12 @@ export function extract_grok_incremental(file: string, cursor: ExtractCursor): E
     }
     return {
         messages,
-        cursor: { kind: "byte_offset", file, offset: new_offset },
+        cursor: {
+            kind: "byte_offset",
+            file,
+            offset: new_offset,
+            // t366 AC-001: 延续计数（parse_start 前 next_index + 本次提取 messages）。
+            valid_count: next_index + messages.length,
+        },
     };
 }

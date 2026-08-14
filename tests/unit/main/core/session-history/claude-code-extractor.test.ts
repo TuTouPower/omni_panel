@@ -1,6 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { join } from "node:path";
 import { copyFileSync, mkdtempSync, appendFileSync, rmSync, writeFileSync } from "node:fs";
+import type * as NodeFs from "node:fs";
+
+const read_count = { value: 0 };
+vi.mock("node:fs", async (importOriginal) => {
+    const actual = await importOriginal<typeof NodeFs>();
+    return {
+        ...actual,
+        readFileSync: (...args: Parameters<typeof actual.readFileSync>) => {
+            read_count.value += 1;
+            return actual.readFileSync(...args);
+        },
+    };
+});
 import { tmpdir } from "node:os";
 import {
     extract_claude_code,
@@ -101,6 +114,27 @@ describe("claude_code extractor (t209)", () => {
             expect(texts).toContain("半行前半半");
             expect(texts).toContain("新行");
             expect(inc.messages.map((m) => m.id)).toEqual(["u2", "u3"]);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("无新增时增量零磁盘读（只 statSync，t366 AC-002）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-noio-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                '{"type":"user","uuid":"u1","message":{"role":"user","content":"前段"}}\n',
+            );
+            const full = extract_claude_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            read_count.value = 0;
+            const inc = extract_claude_code_incremental(tmp_file, full.cursor);
+            expect(inc.messages).toEqual([]);
+            // 无新增：增量零磁盘读（早退走 statSync，readFileSync 不被调）。
+            expect(read_count.value).toBe(0);
         } finally {
             rmSync(tmp, { recursive: true, force: true });
         }
