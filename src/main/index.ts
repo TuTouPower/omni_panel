@@ -200,7 +200,7 @@ void app.whenReady().then(async () => {
                     "  quit          停止实例（--port 指定，默认读 cli.json）\n" +
                     "  autostart     开机自启开关\n" +
                     "  export        导出配置\n" +
-                    "帮助：omni_panel --help 或 omni_panel --cli help\n",
+                    "帮助：omni_panel --cli help\n",
             );
             app.exit(0);
             return;

@@ -46,7 +46,7 @@ export function DataSection({
                     options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
                 />
             </SetRow>
-            <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB（暂未开放）">
+            <SetRow title="本地用量缓存" sub="历史趋势数据 · 暂未开放">
                 <Button variant="secondary" size="sm" disabled>
                     暂未开放
                 </Button>
