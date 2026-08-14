@@ -16,7 +16,7 @@ task worktree 用 `pnpm install --frozen-lockfile` 全新安装时，electron �
 
 - 其它环境/工具链问题
 - collector/emitted/token-stats 等产品逻辑（本 task 纯配置/工具链）
-- 更新 pnpm 大版本本身（仅迁移配置或降级，不动运行时）
+- **升级 pnpm 大版本**（用户拍板：pnpm 9.15.4 对 pnpm-workspace.yaml 的 overrides 半支持，迁移方案与其冲突；升级 pnpm 10.x 完整支持 workspace settings，见决策）
 
 ### 验收标准
 
@@ -39,8 +39,8 @@ task worktree 用 `pnpm install --frozen-lockfile` 全新安装时，electron �
 <!-- /规范 -->
 
 - [ ] AC-001：pnpm 警告消失——`pnpm install`（或任意 pnpm 命令）不再输出 `[WARN] The "pnpm" field in package.json is no longer read by pnpm`。
-- [ ] AC-002：electron postinstall 执行——全新 `pnpm install --frozen-lockfile` 后 `node_modules/electron/path.txt` 存在（对比修复前缺失），import electron 的测试不再 ENOENT。
-- [ ] AC-003：native 依赖可用——全新 install 后 better-sqlite3 等 native 模块可正常加载（缺失则列入本次修复，验证其 postinstall 同样被执行）。
+- [ ] AC-002：electron 二进制可用——electron@42.2.0 无 postinstall scripts（实测），二进制由 `install.js` 惰性下载（index.js 首次 require 触发）；迁移后全新 install 下 `node_modules/electron/path.txt` 与 `dist/electron` 存在（对比修复前缺失），import electron 的测试不再 ENOENT。
+- [ ] AC-003：native 依赖可用——全新 install 后 better-sqlite3 等 native 模块可正常加载（其 install 脚本受 onlyBuiltDependencies 白名单放行，迁移后确认 postinstall 执行）。
 - [ ] AC-004：worktree 首轮测试通过——全新 worktree `pnpm install --frozen-lockfile` + `pnpm test` 的 electron 依赖测试文件（build-info-ipc/log-ipc/local-api/server/main/logging 等）不再因 ENOENT 失败。
 
 ### 可测试性声明

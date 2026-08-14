@@ -1,5 +1,7 @@
 # 依赖
-node_modules/
+# t392: 无尾斜杠——node_modules 软链（worktree 开发环境）也会被 git 当目录忽略，
+# 尾斜杠模式只匹配真目录，软链会漏（f004）。
+node_modules
 jspm_packages/
 
 # 构建产物

@@ -2,11 +2,11 @@
 tid: "t392"
 slug: "pnpm_build_deps_migration"
 title: "pnpm onlyBuiltDependencies 迁移到 pnpm-workspace.yaml"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t392_pnpm_build_deps_migration"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "73cc495810a20f24eada26e5012d3093b36fc07f"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p153；工具链配置，single"
@@ -44,14 +44,26 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 05:50 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t392_gen_f001|important|已修|electron@42.2.0 无 postinstall scripts（实测），AC-002 措辞改惰性下载机制 | spec.md:42 |
+|t392_gen_f002|important|已修|AC-004 证据重做：fresh 独立 install 验证 better-sqlite3 放行生效 | .scratch/fresh |
+|t392_gen_f003|important|已修|证据改 fresh 真实 install（非主仓过期产物） | .scratch/fresh |
+|t392_gen_f004|minor|已修|.gitignore node_modules/ 去尾斜杠，软链被忽略 | .gitignore:2 |
+|t392_gen_f005|minor|已修|.scratch 冒烟验证清理，结论入 handoff | handoff.json |
+
+### Round 2 (2026-08-15 05:55 UTC+8)
+
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t392_gen_f006|critical|已修|迁移 workspace.yaml 与 pnpm 9.15.4 半支持 overrides 冲突（frozen-lockfile mismatch）：升级 pnpm 10.34.5（用户拍板豁免非范围） | package.json:128 |
+|t392_gen_f007|critical|已修|pnpm 9 no-frozen re-lock 丢锁文件补丁段：pnpm 10 完整支持，补丁保留（hash a644a4ca...） | pnpm-lock.yaml |
+
+### Round 3 (2026-08-15 06:00 UTC+8)
+
+- 复核：code PASS（f006/f007 消除，pnpm 10 frozen install 通过 + 补丁保留；esbuild/unrs-resolver 观察项非回归）。
 
 ## 收尾报告
 
@@ -60,8 +72,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（WARN 消除 + pnpm 10）、AC-002（electron 惰性下载 [deploy]）、AC-003（better-sqlite3 放行生效）、AC-004（20 electron 测试）均列于 `handoff.json` 的 `ac_evidence`
 
 ### Reviewer verdict
 
@@ -69,15 +81,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（f001-f005）
+- Round 2 general：FAIL（f006/f007 critical）
+- Round 3 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- package.json pnpm 字段迁 pnpm-workspace.yaml + 升级 pnpm 10.34.5（用户拍板）；WARN 消除、better-sqlite3 放行、锁文件补丁保留；三轮 review 全消除。

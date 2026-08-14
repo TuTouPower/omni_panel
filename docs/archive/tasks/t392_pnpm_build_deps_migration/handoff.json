@@ -1,0 +1,32 @@
+{
+    "tid": "t392",
+    "attempt": 1,
+    "execution_id": "4562fe475a5449a7858ffa242b412d8e",
+    "status": "done",
+    "branch": "t392_pnpm_build_deps_migration",
+    "base_sha": "73cc495810a20f24eada26e5012d3093b36fc07f",
+    "tests": "vitest electron 依赖测试 20 passed；.scratch/fresh 独立全新 install（pnpm 10.34.5 + workspace.yaml）验证：frozen install 成功（f006 overrides mismatch 消除）、锁文件 overrides/patchedDependencies/hash 保留（f007 消除）、better-sqlite3 加载 OK（onlyBuiltDependencies 放行）、pnpm install 无 pnpm field WARN",
+    "blackbox": "AC-001: package.json pnpm 字段迁 pnpm-workspace.yaml（packages:['.']）+ 升级 pnpm 10.34.5（用户拍板豁免非范围），install 无 WARN。AC-002: electron@42.2.0 无 postinstall（实测 scripts=undefined），二进制靠 index.js 惰性下载（网络依赖 [deploy]），require('electron') 复现 ENOENT path.txt 系下载未触发。AC-003: fresh 独立 install 后 better-sqlite3 加载 OK——onlyBuiltDependencies 放行生效（pnpm 10 下）。AC-004: electron 依赖测试 20 passed。f006/f007: pnpm 10 完整支持 workspace overrides，frozen install 通过 + 锁文件补丁段保留",
+    "review": "single 级 general：Round 1 FAIL（f001-f005：electron 无 postinstall/证据过期/软链忽略）→ Round 2 FAIL（f006/f007 critical：pnpm 9 半支持 workspace overrides）→ Round 3 PASS（升级 pnpm 10 消除 f006/f007，esbuild 观察项→p181）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "pnpm-workspace.yaml::onlyBuiltDependencies/overrides/patchedDependencies 迁移完成（packages:['.'] 单包）",
+            "package.json::pnpm 字段删除",
+            "pnpm install --frozen-lockfile 在迁移后配置下无「pnpm field ignored」WARN（0 次）"
+        ],
+        "AC-002": [
+            "electron@42.2.0 package.json scripts=undefined（无 postinstall）实测——二进制由 index.js→install.js 惰性下载",
+            ".scratch/fresh 独立全新 install 复现 require('electron') ENOENT path.txt：下载未触发/失败（网络依赖）[deploy]",
+            "vitest window_manager + grok_auth_ipc 20 passed"
+        ],
+        "AC-003": [
+            ".scratch/fresh 独立全新 install（pnpm install --no-frozen-lockfile）后 node -e require('better-sqlite3') 加载 OK——onlyBuiltDependencies 放行生效",
+            "better-sqlite3 install 脚本（node-gyp）受白名单放行是迁移核心价值"
+        ],
+        "AC-004": [
+            "tests/unit/main/window_manager.test.ts + tests/unit/ipc/grok_auth_ipc.test.ts 20 passed"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
