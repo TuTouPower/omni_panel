@@ -160,4 +160,84 @@ describe("codex connector", () => {
         expect(result.error).toBeNull();
         expect(result.observations[0]?.used).toBe(300);
     });
+
+    it("skips oversized session files (t364 AC-001)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const valid_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 500 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const oversized = "x".repeat(5 * 1024 * 1024 + 1); // > MAX_FILE_CHARS
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "~/.codex/sessions/huge.jsonl": `${oversized}\n${valid_session}`,
+                "~/.codex/sessions/normal.jsonl": valid_session,
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        // 超大文件跳过解析：观测 used 精确来自 normal.jsonl（500），若 huge.jsonl
+        // 未被过滤则两文件并入 500+500=1000，此断言失败（t364 AC-001 真验证跳过）。
+        expect(result.observations[0]?.used).toBe(500);
+    });
+
+    it("skips non-jsonl files in session dirs (t364 AC-002)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const txt_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "txt-model" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 900 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const valid_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 500 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "~/.codex/sessions/notes.txt": txt_session,
+                "~/.codex/sessions/rollout.jsonl": valid_session,
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        // 非 .jsonl 文件不被读取：txt-model 观测不存在，仅 gpt-5 产出（t364 AC-002）。
+        expect(result.observations.some((o) => o.raw_label === "txt-model")).toBe(false);
+        expect(result.observations.some((o) => o.raw_label === "gpt-5")).toBe(true);
+    });
 });
