@@ -1,7 +1,7 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
 import type { ScriptObservation } from "../../src/shared/types/observation";
 
-// NOTE: All 5 provider parsers live in one file because the connector runtime
+// NOTE: All 4 provider parsers live in one file because the connector runtime
 // (runtime.ts:compile_script) forbids runtime import/export. Splitting requires
 // runtime changes to support module bundling. See review #11.
 

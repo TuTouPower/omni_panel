@@ -2,11 +2,11 @@
 tid: "t378"
 slug: "docs_sync"
 title: "docs/spec 与实现错位同步"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t378_docs_sync"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "ebdedddbec234d854496df756fc375cf51d78eb5"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 75%注释/smoke_check/CLI help/硬编码文案"
@@ -44,14 +44,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 02:56 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t378_gen_f001  | important | 已修   | testing.md:128 残留 75% 工作区，改 100% + t081 标注 | docs/guides/testing.md:128 |
+| t378_gen_f002  | important | 已修   | smoke_check「点退出弹出确认」与实际不符（TRAY_QUIT 无 dialog），改「无确认直接退出」 | scripts/smoke_check.md:20 |
+| t378_gen_f003  | minor    | 已修   | smoke_check 缺 web/CLI serve 检查项：补 CLI serve 步骤 + web 面板浏览器验证 | scripts/smoke_check.md:37-42 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 03:00 UTC+8)
+
+- 复核：f001/f002 消除确认；f003 CLI serve 已补，web 面板检查项 Round 2 补全（build:web 浏览器打开 out/web/index.html）后全消除。verdict PASS。
 
 ## 收尾报告
 
@@ -60,8 +63,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（popup 注释 + window-management/testing.md 100%）、AC-002（smoke_check + CLI help 一致）、AC-003（4.2MB/未来 7 天文案清理）均列于 `handoff.json` 的 `ac_evidence`
 
 ### Reviewer verdict
 
@@ -69,15 +72,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（f001-f003：testing.md 75%、smoke_check 退出确认、web/CLI 检查项）
+- Round 2 general：PASS（3 finding 全消除）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 文档/文案全对齐实现（100% 高度、托盘常驻退出、CLI help、无硬编码过期数字）；2 轮 review 全消除。

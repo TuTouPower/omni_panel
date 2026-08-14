@@ -30,7 +30,7 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 
 - 渲染经 `popup:reportContentHeight({ content_height, collapsed_min_height })` 上报测得内容高度。
 - 主进程据此 `setBounds` 锁 BrowserWindow 高度，跟随折叠/展开撑高/缩矮。
-- 约束：不超过 75% 工作区高度，无不必要底部留白。
+- 约束：不超过 100% 工作区高度（t081 起 `MAX_HEIGHT_RATIO=1.0`），无不必要底部留白。
 - `floatingHeightMode` 配置控制浮窗高度策略。
 
 ## 主题
