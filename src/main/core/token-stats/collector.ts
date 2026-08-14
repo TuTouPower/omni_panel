@@ -127,16 +127,41 @@ const source_warned = new Set<string>();
 // 活跃会话过窗重发概率被压到「会话 >30 天未触碰又被触碰」的罕见场景。
 const EMITTED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const emitted_record_keys = new Map<string, number>();
+// t386 AC-001: 会话最近触碰时间（mtime 更新时刷新）。prune_emitted 用它保留
+// 「窗口内活跃会话」的 key——活跃长会话 >30 天持续触碰时 key 不被整体裁剪，
+// 下次 mtime 变化只发新增记录，不重发整段历史。
+const session_touch_ts = new Map<string, number>();
 
-function record_key(r: { source: string; env: string; message_id: string }): string {
-    return `${r.source}|${r.env}|${r.message_id}`;
+function record_key(r: {
+    source: string;
+    env: string;
+    session_id: string;
+    message_id: string;
+}): string {
+    return `${r.source}|${r.env}|${r.session_id}|${r.message_id}`;
 }
 
-/** 裁剪超出时间窗的已发出记录（collect 时调用）。 */
+/** 裁剪超出时间窗的已发出记录（collect 时调用）。
+ *  t386 AC-001/002: key 过窗但其会话在窗口内活跃（持续触碰）→ 保留并刷新 ts；
+ *  非活跃会话（>30 天未触碰）过窗 key 删除，重触碰时整段重发（既有语义不变）。 */
 function prune_emitted(now: number = Date.now()): void {
     for (const [key, ts] of emitted_record_keys) {
+        if (now - ts <= EMITTED_WINDOW_MS) continue;
+        // key 格式 source|env|session_id|message_id；touch 键 source|env|session_id。
+        const parts = key.split("|");
+        const session_key = `${parts[0] ?? ""}|${parts[1] ?? ""}|${parts[2] ?? ""}`;
+        const session_touch = session_touch_ts.get(session_key);
+        if (session_touch !== undefined && now - session_touch <= EMITTED_WINDOW_MS) {
+            // 活跃会话：key 保留并刷新时间戳，避免下次整段重发。
+            emitted_record_keys.set(key, now);
+            continue;
+        }
+        emitted_record_keys.delete(key);
+    }
+    // t386: 同步清理过窗会话的 touch 记录，防内存线性增长。
+    for (const [session, ts] of session_touch_ts) {
         if (now - ts > EMITTED_WINDOW_MS) {
-            emitted_record_keys.delete(key);
+            session_touch_ts.delete(session);
         }
     }
 }
@@ -584,6 +609,12 @@ function collect(): void {
         const cursor = source_cursors.get(src.key);
         const pushed_sids: string[] = [];
         const pushed_dkeys: string[] = [];
+        // t386 AC-001: 本轮扫描到的会话视为活跃触碰，刷新其 touch 时间——
+        // prune_emitted 据此保留活跃长会话的 key。touch 键含 source|env 前缀，
+        // 防跨源会话 id 碰撞（一源活跃误保另一源 key）。
+        for (const s of result.sessions) {
+            session_touch_ts.set(`${src.source}|${src.env}|${s.id}`, Date.now());
+        }
         for (const s of result.sessions) {
             if (cursor?.sessions.has(s.id)) continue;
             if (all_sessions.length >= MAX_RECORDS) break;
@@ -717,6 +748,7 @@ function reset_config(): void {
     source_warned.clear();
     emitted_record_keys.clear();
     source_cursors.clear();
+    session_touch_ts.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
     if (interval_id) {
@@ -762,6 +794,7 @@ export {
     grok_states,
     source_cursors,
     emitted_record_keys,
+    session_touch_ts,
     claude_costs_path,
     claude_projects_path,
     opencode_path,

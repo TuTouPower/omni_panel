@@ -2,11 +2,11 @@
 tid: "t386"
 slug: "emitted_session_dimension_key"
 title: "emitted 会话维度去重防活跃长会话整段重发"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t386_emitted_session_dimension_key"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "031108a3c8b7bf2d87df7f3fe6b1901910fe451a"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p166"
@@ -44,14 +44,19 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 07:00 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t386_code_f001|minor|已修|session_touch_ts 键加 source\|env 前缀（防跨源会话 id 碰撞） | src/main/core/token-stats/collector.ts:612,150-152 |
+|t386_code_f002|minor|已修|reset_config 补 session_touch_ts.clear() | src/main/core/token-stats/collector.ts:751 |
+|t386_code_f003|minor|已修|AC-001 去手动 set 走生产刷新路径 + 前缀断言 | tests/unit/main/core/token-stats/collector.test.ts:1109-1130 |
+|t386_test_f001|important|已修|session_touch_ts 未清理致顺序依赖：beforeEach + reset_config 补清 | tests/unit/main/core/token-stats/collector.test.ts:149 |
+|t386_test_f002|minor|已修|AC-001 手动 set 冗余：删，走生产刷新 | tests/unit/main/core/token-stats/collector.test.ts:1109 |
+
+### Round 2 (2026-08-15 07:05 UTC+8)
+
+- 复核：code PASS（f001-f003 消除）；test PASS（f001/f002 消除）。无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +65,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（活跃会话 key 保留）、AC-002（非活跃删除语义不变）、AC-003（跨会话独立 key）均列于 `handoff.json` 的 `ac_evidence`，mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +74,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001-f003 minor）
+- Round 1 test：FAIL（f001 important touch 清理 + f002 minor）
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- emitted 去重 key 加会话维度 + 活跃会话保留；token-stats 全量 298 passed，code/test 双轴 2 轮 PASS。
