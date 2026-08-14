@@ -2,11 +2,11 @@
 tid: "t383"
 slug: "trend_xaxis_labels_granularity"
 title: "修复趋势图 X 轴：标签过度节流 + 1 天窗口丢时分粒度"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t383_trend_xaxis_labels_granularity"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "56b9b6d3d32361cdeacd222693bff54310455fe0"
 depends_on: ""
 conflicts_with: ""
 note: "来源: p151"
@@ -44,14 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 04:35 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t383_code_f001 | minor    | 已修   | width<122px 时 target_labels==1 除零 NaN：target_labels<=1 时 label_indices 空 | src/renderer/components/TrendSparkline.tsx:94-100 |
+| t383_code_f002 | minor    | 已修   | format_utc_date 生产零引用：保留（trend.ts 格式函数导出合理），确认无破坏 | 无动作 |
+| t383_test_f001 | minor    | 遗留   | /v1/trend 集成测试只断言 percent 未钉 date 时刻格式；第三消费方链路未显式覆盖，不阻断 | p180 |
 
 ## 收尾报告
 
@@ -60,8 +59,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~005 均列于 `handoff.json` 的 `ac_evidence`（ISO 时刻保留 / 7 天全显示 / 节流 / 三路径一致 / 圆点保持），mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +68,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001 边界已修、f002 保留决策）
+- Round 1 test：PASS（f001 /v1/trend 断言→p180）
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 趋势图 X 轴时刻保留 + 宽度自适应节流；1359 测试全绿，code/test 双轴 PASS。

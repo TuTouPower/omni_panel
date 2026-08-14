@@ -79,12 +79,21 @@ export const TrendSparkline = memo(function TrendSparkline({
 
     const grid_values = [0, 50, 100];
 
-    // Keep every data point visible (line / area / dots); just thin out the
-    // X-axis date labels so they don't overlap. Aim for ~4 labels when there
-    // are many points; show every label for 5 or fewer points.
-    const target_labels = n <= 5 ? n : 4;
+    // t383: 标签格式按序列粒度选择——同一 UTC 日内多点（1 天窗口）显示时刻
+    // `HH:mm`，跨日期显示 `MM-DD`。节流改宽度自适应：估算标签宽决定可容纳数，
+    // 宽度足够时展示全部点，点数远超宽度才稀（防重叠）。
+    const non_null = valid_points;
+    const day_keys = new Set(non_null.map((p) => p.date.slice(0, 10)));
+    const same_day = day_keys.size <= 1;
+    const label_text = (p: TrendPoint): string =>
+        same_day ? p.date.slice(11, 16) : p.date.slice(5, 10);
+    // MM-DD / HH:mm 均 ~5 字符，fontSize 9.5 估算字宽 ~6px，加间隔余量。
+    const est_label_width = 5 * 6 + 8;
+    const max_labels = Math.max(1, Math.floor(inner_width / est_label_width));
+    const target_labels = Math.min(n, max_labels);
+    // t383 f001: target_labels<=1 时均分分母为 0，此时不标任何标签（宽度过窄）。
     const label_indices =
-        n <= 1
+        n <= 1 || target_labels <= 1
             ? []
             : Array.from({ length: target_labels }, (_, k) =>
                   Math.round((k * (n - 1)) / (target_labels - 1)),
@@ -145,7 +154,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                             fontSize={9.5}
                             textAnchor="middle"
                         >
-                            {p.date.slice(5)}
+                            {label_text(p)}
                         </text>
                     );
                 })}
