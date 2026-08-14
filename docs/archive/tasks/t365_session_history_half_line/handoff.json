@@ -1,0 +1,30 @@
+{
+    "tid": "t365",
+    "attempt": 1,
+    "execution_id": "34f4eaafba9e404ba86800bb33f449eb",
+    "status": "done",
+    "branch": "t365_session_history_half_line",
+    "base_sha": "75b3cb1924e7368909560338d10a4701954e8ac3",
+    "tests": "全量 262 文件 3101 passed / 9 skipped（含新增：claude/kimi 半行 + kimi UTF-8 截断）",
+    "blackbox": "typecheck + eslint + prettier 通过；main 进程 extractor 逻辑，以单测（半行写入/UTF-8 截断 fixture）断言代替",
+    "review": "full；Round 1 code PASS（2 minor：UTF-8 测试未真截断 / seen 注释表述）+ test PASS（3 minor：UTF-8 未真截断 + 未断言 id / 缺完整尾行用例）→ 已修（真多字节截断 + id 对齐断言 + 完整尾行用例 + seen 注释修正）",
+    "ac_evidence": {
+        "AC-001": [
+            "claude-code-extractor.ts extract_claude_code_incremental 移植 grok 半行容错（parse_start 回退行边界重读 + 按 uuid 去重 + 尾部半行驻留行首）",
+            "kimi-extractor.ts extract_kimi_code_incremental 同移植（scan_lines 从 parse_start 字节续读 + 按 id 去重）",
+            "tests/unit/main/core/session-history/claude-code-extractor.test.ts::半行写入：cursor 落在行中间时增量不丢该记录（补全半行 + 新行均提取）通过",
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts::半行写入：cursor 落在行中间时增量不丢该记录 通过"
+        ],
+        "AC-002": [
+            "kimi-extractor.ts 增量回退到行边界（完整 UTF-8 字符边界）再解码，无截断乱码；id 用字节 offset（parse_start）不错位",
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts::UTF-8 多字节截断：字节 id 不错位、消息不丢（半行含中文字符截断 → 补全提取 中文测试）通过"
+        ],
+        "AC-003": [
+            "claude/kimi 半行测试等价 grok-extractor.test.ts:115（尾部无尾换行半行 → 补全 → 增量不丢记录）",
+            "claude-code-extractor.test.ts 半行测试断言 texts 含补全 + 新行、ids=[u2,u3]",
+            "kimi-extractor.test.ts 半行测试断言 texts 含补全 + 新行"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
