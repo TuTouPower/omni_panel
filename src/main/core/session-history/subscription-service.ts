@@ -189,12 +189,45 @@ export function create_watcher(
 ): Watcher {
     if (strategy === "watch") {
         let watcher: FSWatcher | null = null;
+        let poll_timer: ReturnType<typeof setInterval> | null = null;
+        // 降级 poll：mtime 变化触发 on_change（与下方 poll 分支同构）。
+        const start_poll_fallback = () => {
+            if (poll_timer) return;
+            let last_mtime: number | null = null;
+            try {
+                last_mtime = statSync(file_path).mtimeMs;
+            } catch {
+                last_mtime = null;
+            }
+            poll_timer = setInterval(() => {
+                let cur: number | null;
+                try {
+                    cur = statSync(file_path).mtimeMs;
+                } catch {
+                    cur = null;
+                }
+                if (cur !== last_mtime) {
+                    last_mtime = cur;
+                    if (cur !== null) on_change();
+                }
+            }, poll_interval_ms);
+        };
         try {
             watcher = watch(file_path, (event) => {
                 if (event === "change") on_change();
             });
             watcher.on("error", (err) => {
-                log.warn(`fs.watch error on ${file_path}: ${String(err)}`);
+                // t367 AC-001: watcher 死亡后 close 当前 watcher 并降级 poll——
+                // 否则 error 后订阅静默停摆（watcher 仍非 null 不重建）。
+                log.warn(`fs.watch error on ${file_path}, falling back to poll: ${String(err)}`);
+                try {
+                    watcher?.close();
+                } catch {
+                    // ignore
+                }
+                watcher = null;
+                start_poll_fallback();
+                on_change();
             });
         } catch (err) {
             // 文件尚不存在等情况：退化为轮询，保证文件出现后能感知。
@@ -209,6 +242,10 @@ export function create_watcher(
                     // ignore
                 }
                 watcher = null;
+                if (poll_timer) {
+                    clearInterval(poll_timer);
+                    poll_timer = null;
+                }
             },
         };
     }
@@ -485,11 +522,18 @@ export class SessionHistorySubscriptionService {
     private handle_change(sub: Subscription): void {
         let messages: readonly HistoryMessage[] = [];
         try {
+            // t367 AC-002: 文件被截断/重写时（size 回退），字节游标指向旧 offset 会
+            // 错位——重置 cursor 走全量，不丢新内容。
+            const st = safe_stat(sub.file_path);
+            let cursor = sub.cursor;
+            if (cursor?.kind === "byte_offset" && st !== null && cursor.offset > st.size) {
+                cursor = null;
+            }
             const result = this.extract_incremental(
                 sub.extractor_kind,
                 sub.file_path,
                 sub.loc.session_id,
-                sub.cursor,
+                cursor,
             );
             sub.cursor = result.cursor;
             messages = result.messages;

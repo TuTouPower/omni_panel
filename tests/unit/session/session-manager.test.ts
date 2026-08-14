@@ -198,6 +198,29 @@ describe("session-manager", () => {
         await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc");
     });
 
+    it("cookie 保存失败返回可读错误（t367 AC-003）", async () => {
+        const deps = create_deps();
+        const vault = deps.vault as unknown as {
+            fail_next_set: boolean;
+        };
+        vault.fail_next_set = true;
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-1",
+            provider: "mimo",
+            login_url: "https://example.com/login",
+            cookie_names: ["token"],
+        });
+        deps.emit_before_send_headers("https://example.com/api/v1/user", {
+            Cookie: "token=abc; other=1",
+        });
+        deps.window.close();
+
+        // cookie 已捕获但保存失败——错误信息可区分「未捕获」与「保存失败」。
+        await expect(promise).rejects.toThrow("登录成功但保存失败，请重试");
+    });
+
     it("captures OpenCode Go _server Cookie header", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);

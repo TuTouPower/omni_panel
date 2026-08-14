@@ -103,6 +103,22 @@ describe("create_watcher fs.watch 分支 (t210)", () => {
         watcher.stop();
     });
 
+    it("error 事件触发降级：on_change 调 + stop 清理降级 timer（t367 AC-001）", () => {
+        const fake = make_fake_watcher();
+        install_watch(fake);
+        const on_change = vi.fn();
+
+        const watcher = create_watcher("/x/s.jsonl", "watch", on_change);
+        // error 后：close 当前 watcher + 触发一次 on_change + 启动 poll 降级。
+        fake._fire("error", new Error("boom"));
+        expect(fake.close).toHaveBeenCalledTimes(1);
+        expect(on_change).toHaveBeenCalled();
+        // stop 清理降级 timer，不抛。
+        expect(() => {
+            watcher.stop();
+        }).not.toThrow();
+    });
+
     it("stop 释放 watch 句柄且幂等", () => {
         const fake = make_fake_watcher();
         install_watch(fake);
