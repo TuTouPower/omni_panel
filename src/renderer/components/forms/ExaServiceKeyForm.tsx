@@ -4,7 +4,7 @@ import type { AddAccountParams } from "../AddAccountDialog";
 import type { AddServiceId } from "../../lib/common-services";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { SecretInput } from "../SecretInput";
+import { SecretInput } from "../ui/SecretInput";
 
 export interface ExaServiceKeyFormProps {
     readonly vendor_id: AddServiceId;
@@ -89,7 +89,9 @@ export function ExaServiceKeyForm({
                 <SecretInput
                     name={secret_name}
                     value={service_key}
-                    onChange={set_service_key}
+                    onChange={(e) => {
+                        set_service_key(e.target.value);
+                    }}
                     placeholder="exa-…"
                 />
                 <div className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">

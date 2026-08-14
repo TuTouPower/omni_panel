@@ -8,7 +8,7 @@
 
 ### 范围
 
-- 将调用方迁移到 `ui/` 直用：`SecretInput` 的 6 处调用方（CpaAddDialog/CpaConnectorSettings/SettingsForm/CpaMgmtForm/ExaServiceKeyForm/ApiKeyForm）改 import `ui/SecretInput` 并适配 `onChange(event)`；`settings/Select` 的 2 处调用方（general_section/data_section）改 import `ui/Select` 并内联 `options` 渲染；`settings/Toggle` 调用方改 import `ui/Switch`。
+- 将调用方迁移到 `ui/` 直用：`SecretInput` 的 5 处调用方（CpaConnectorSettings/SettingsForm/CpaMgmtForm/ExaServiceKeyForm/ApiKeyForm，原 spec 列 CpaAddDialog 已不存在）改 import `ui/SecretInput` 并适配 `onChange(event)`；`settings/Select` 的 2 处调用方（general_section/data_section）改 import `ui/Select` 并内联 `options` 渲染；`settings/Toggle` 调用方改 import `ui/Switch`。
 - 删除三个旧壳文件：`components/SecretInput.tsx`、`components/settings/Select.tsx`、`components/settings/Toggle.tsx`。
 - 删除/迁移对应旧 API 单测（如有）。
 

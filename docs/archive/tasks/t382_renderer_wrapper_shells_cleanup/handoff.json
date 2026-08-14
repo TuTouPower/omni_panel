@@ -1,0 +1,39 @@
+{
+    "tid": "t382",
+    "attempt": 1,
+    "execution_id": "7e4341aa26c04bddaec2ecf3a069d0a2",
+    "status": "done",
+    "branch": "t382_renderer_wrapper_shells_cleanup",
+    "base_sha": "2a3190206338e917080524c6f15b9cc40000b204",
+    "tests": "vitest tests/unit/renderer 全量 111 文件 1201 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: 删三壳，全仓 grep 零残留（仅 ui/index re-export）。AC-002: 5 处 SecretInput 调用方迁 ui + onChange(event)。AC-003: 2 处 Select 迁 ui/Select（options 内联 children）+ 4 处 Toggle 迁 ui/Switch。AC-004: typecheck/lint/test 全绿",
+    "review": "single 级 general：Round 1 PASS（f001 spec 范围改 5 处、f002 无 data-on 消费者已核实、f003 p150 归档清理）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/components/SecretInput.tsx::已删除",
+            "src/renderer/components/settings/Select.tsx::已删除",
+            "src/renderer/components/settings/Toggle.tsx::已删除",
+            "grep 全仓无对三壳的 import（仅 ui/index re-export ui 本体 SecretInput）"
+        ],
+        "AC-002": [
+            "src/renderer/components/forms/CpaMgmtForm.tsx::import ../ui/SecretInput + onChange(event) 通过",
+            "src/renderer/components/forms/ExaServiceKeyForm.tsx::import ../ui/SecretInput + onChange(event) 通过",
+            "src/renderer/components/add_account/ApiKeyForm.tsx::import ../ui/SecretInput + onChange(event) 通过",
+            "src/renderer/components/SettingsForm.tsx::import ./ui/SecretInput + onChange(event) 通过",
+            "src/renderer/components/CpaConnectorSettings.tsx::import ./ui/SecretInput + onChange(event) 通过",
+            "tests/unit/renderer/components/forms/cpa_mgmt_form.test.tsx + exa_service_key_form.test.tsx + add_account_dialog.test.tsx + settings_form.test.tsx + cpa_connector_settings.test.tsx 通过"
+        ],
+        "AC-003": [
+            "src/renderer/views/settings-view/sections/general_section.tsx::Select/Toggle 迁 ui/Select + ui/Switch 通过",
+            "src/renderer/views/settings-view/sections/data_section.tsx::Select 迁 ui/Select 通过",
+            "settings_form/general_section 相关测试通过"
+        ],
+        "AC-004": [
+            "npx tsc --noEmit exit 0",
+            "npx eslint 改动文件 --max-warnings=0 通过",
+            "vitest tests/unit/renderer 全量 1201 passed"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
