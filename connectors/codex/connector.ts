@@ -4,6 +4,8 @@ import type { ScriptObservation } from "../../src/shared/types/observation";
 declare const ctx: ConnectorContext;
 
 const SESSION_DIRS = ["~/.codex/sessions", "~/.codex/archived_sessions"];
+/** t364: 单文件内容长度上限（字符数，与 parse 成本正比），超大文件跳过解析避免拖慢采集。 */
+const MAX_FILE_CHARS = 5 * 1024 * 1024;
 
 function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
@@ -51,7 +53,11 @@ async function main(): Promise<ScriptObservation[]> {
     for (const dir of SESSION_DIRS) {
         try {
             const files = await ctx.files.list(dir);
-            for (const f of files) all_files.push(f);
+            for (const f of files) {
+                // t364 AC-002: 只处理目标扩展名（.jsonl 会话记录），非目标文件不读。
+                if (!f.endsWith(".jsonl")) continue;
+                all_files.push(f);
+            }
         } catch {
             continue;
         }
@@ -66,6 +72,8 @@ async function main(): Promise<ScriptObservation[]> {
         } catch {
             continue;
         }
+        // t364 AC-001: 超大文件（> MAX_FILE_CHARS）跳过解析，避免全量读/parse 拖慢采集。
+        if (content.length > MAX_FILE_CHARS) continue;
 
         let current_model = "unknown";
         let prev_total: number | null = null;
