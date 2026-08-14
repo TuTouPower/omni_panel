@@ -54,6 +54,7 @@ import {
     jsonl_states,
     source_cursors,
     emitted_record_keys,
+    session_touch_ts,
     claude_costs_path,
     claude_projects_path,
     opencode_path,
@@ -145,6 +146,7 @@ describe("collector", () => {
         jsonl_states.clear();
         source_cursors.clear();
         emitted_record_keys.clear();
+        session_touch_ts.clear();
         reset_config();
         // Simulate a Windows host so the wsl sources are reachable (t308);
         // non-Windows host behaviour is covered by paths.test.ts and
@@ -1100,9 +1102,78 @@ describe("collector", () => {
             configure(base_config);
             collect();
 
-            // 新记录写入时间戳；旧记录仍被裁剪。
-            expect(emitted_record_keys.has("claude_code|local|m1")).toBe(true);
+            // 新记录写入时间戳（key 含会话维度，t386 AC-003）；旧记录仍被裁剪。
+            expect(emitted_record_keys.has("claude_code|local|s1|m1")).toBe(true);
             expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+        });
+
+        it("t386 AC-001: 活跃长会话 key 过窗但会话活跃 → 保留（不整段重发）", () => {
+            const now = Date.now();
+            // 4 段 key（含会话维度）已过窗 31 天。
+            emitted_record_keys.set(
+                "claude_code|local|sess-active|m-old",
+                now - 31 * 24 * 60 * 60 * 1000,
+            );
+            // 会话活跃：mock reader 返回该会话，collect 刷新 session_touch_ts（生产路径）。
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "sess-active" })],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            // prune 后活跃会话 key 保留（下次只发新增，不重发整段）。
+            expect(emitted_record_keys.has("claude_code|local|sess-active|m-old")).toBe(true);
+            // touch 键含 source|env 前缀（生产刷新路径设）。
+            expect(session_touch_ts.get("claude_code|local|sess-active")).toBeGreaterThan(
+                now - 1000,
+            );
+        });
+
+        it("t386 AC-002: 非活跃会话 key 过窗删除，重触碰时整段重发（语义不变）", () => {
+            const now = Date.now();
+            emitted_record_keys.set(
+                "claude_code|local|sess-idle|m-old",
+                now - 31 * 24 * 60 * 60 * 1000,
+            );
+            // 会话 idle：不设 session_touch_ts（>30 天未触碰）。
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            expect(emitted_record_keys.has("claude_code|local|sess-idle|m-old")).toBe(false);
+        });
+
+        it("t386 AC-003: 同一 message_id 跨会话不误合并（key 含会话维度独立）", () => {
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [
+                    record({
+                        message_id: "dup",
+                        session_id: "sa",
+                        source: "claude_code",
+                        env: "local",
+                    }),
+                    record({
+                        message_id: "dup",
+                        session_id: "sb",
+                        source: "claude_code",
+                        env: "local",
+                    }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            // 同 message_id 不同会话 → 两个独立 key 都标记已发。
+            expect(emitted_record_keys.has("claude_code|local|sa|dup")).toBe(true);
+            expect(emitted_record_keys.has("claude_code|local|sb|dup")).toBe(true);
         });
 
         it("skips save_state when a round has no changes (t346 AC-002)", () => {
