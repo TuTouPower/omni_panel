@@ -76,9 +76,9 @@ test.describe("popup view (web)", () => {
     test("session history link is visible in web titlebar (t311 AC-002)", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
-        await expect(webPage.getByRole("link", { name: "会话历史" })).toBeVisible();
-        await expect(webPage.getByRole("link", { name: "设置" })).toBeVisible();
-        await expect(webPage.getByRole("link", { name: "代理面板" })).toBeVisible();
+        await expect(webPage.getByRole("link", { name: "Session面板" })).toBeVisible();
+        await expect(webPage.getByRole("link", { name: "Settings面板" })).toBeVisible();
+        await expect(webPage.getByRole("link", { name: "Agent面板" })).toBeVisible();
         // 窗口控制按钮仍隐藏（t307 只放开会话历史按钮那处守卫）。
         await expect(webPage.getByRole("button", { name: "最小化" })).toHaveCount(0);
         await expect(webPage.getByRole("button", { name: "最大化/还原" })).toHaveCount(0);
@@ -101,7 +101,7 @@ test.describe("popup view (web)", () => {
             });
         });
 
-        await webPage.getByRole("link", { name: "会话历史" }).click();
+        await webPage.getByRole("link", { name: "Session面板" }).click();
 
         await expect
             .poll(async () => webPage.evaluate(() => window.location.hash))

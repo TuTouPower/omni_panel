@@ -2,11 +2,11 @@
 tid: "t380"
 slug: "renderer_titlebar_unify"
 title: "四面板标题栏统一为共享 PanelTitleBar"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t380_renderer_titlebar_unify"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "e3eb137add1a677f5787a6cd10ce78d32cebf243"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,14 +44,25 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 03:40 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t380_code_f001 | important | 已修   | popup 标题栏契约迁移未同步 e2e：7 个 spec/helper 迁移 popup-titlebar→data-panel-titlebar=Usage + 导航名→XX面板 | tests/e2e/web/panel_navigation.spec.ts:56-64 |
+| t380_code_f002 | minor    | 已修   | 非 floating 关闭语义变更（hide→window.close()）按 AC-002 实现并补单测 | tests/unit/renderer/views/popup_view.test.tsx:245-259 |
+| t380_code_f003 | minor    | 已修   | PopupView 内联 use_panel_navigation() 提至组件顶层 | src/renderer/views/PopupView.tsx:50 |
+| t380_code_f004 | minor    | 已修   | Session 页签 center 插槽 h-full 退化：center 容器加 h-full + items-stretch，页签整高贴底 | src/renderer/components/ui/PanelTitleBar.tsx:173 |
+| t380_test_f001 | important | 已修   | 同 code f001（test 轴复核 e2e 契约迁移完整） | tests/e2e/ |
+| t380_test_f002 | important | 已修   | AC-002 非 floating 关闭→window.close() 无测试：补单测锁定（close 被调 / hide 未调） | tests/unit/renderer/views/popup_view.test.tsx:245-259 |
+| t380_test_f003 | minor    | 已修   | center/title_extra 用例位置断言弱：视图层行为断言补位（筛选器/页签入 titlebar） | tests/unit/renderer/views/token_stats_header.test.tsx:171-173 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 03:55 UTC+8)
+
+- 复核：code PASS（f001-f003 消除，f004 修不彻底仍存）；test PASS（f001/f002 消除，f003 维持 minor 接受）。
+
+### Round 3 (2026-08-15 04:00 UTC+8)
+
+- 复核：code PASS（f004 center 加 h-full 后整高贴底消除）。两轴无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +71,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~005 均列于 `handoff.json` 的 `ac_evidence`（单测 + e2e 契约迁移），mutation（导航顺序打乱）验证
 
 ### Reviewer verdict
 
@@ -69,15 +80,18 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：FAIL（f001-f004）
+- Round 1 test：FAIL（f001-f003）
+- Round 2 code：PASS（f004 修不彻底仍存）
+- Round 2 test：PASS
+- Round 3 code：PASS（f004 消除）
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 四面板标题栏统一（PanelTitleBar center/title_extra/floating/onRefreshAll + Usage/Agent/Session 迁移），renderer 全量 1198 passed，三轮 review 全消除。

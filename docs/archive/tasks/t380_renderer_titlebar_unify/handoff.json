@@ -1,0 +1,38 @@
+{
+    "tid": "t380",
+    "attempt": 1,
+    "execution_id": "86aad63f3f184c1fb1b31bd839fd7a7f",
+    "status": "done",
+    "branch": "t380_renderer_titlebar_unify",
+    "base_sha": "e3eb137add1a677f5787a6cd10ce78d32cebf243",
+    "tests": "vitest tests/unit/renderer 全量 111 文件 1198 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: PanelTitleBar 增强（center/title_extra/onRefreshAll/floating/no_drag），四面板统一 panel 形态，导航顺序固定「刷新 设置 用量 代理 会话」；popup 删旧自绘 TitleBar 迁 panel=Usage。AC-002: floating 下 WindowControls 只渲染「隐藏用量面板」→main_panel.hide()，非 floating→window.close()（补单测锁定）。AC-003: Agent 标题状态/筛选器迁 title_extra/center 插槽。AC-004: Session 页签迁 center 插槽、rail-toggle 下移独立行（center h-full 整高贴底）。AC-005: web 端原生 a href 导航。e2e 契约迁移 7 文件",
+    "review": "full 级：Round 1 code FAIL（f001 e2e 未迁移 + f002/f003/f004）/ test FAIL（f001/f002 e2e + AC-002 无测试）→ Round 2 code PASS（f004 修不彻底）/ test PASS → Round 3 code PASS（f004 消除）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/components/ui/PanelTitleBar.tsx::面板形态统一渲染「Omni Panel - <panel>」+ 导航固定顺序「刷新 设置 用量 代理 会话」（panels 数组 + 刷新首位）",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::切换按钮固定序「设置 用量 代理 会话」+ mutation 打乱顺序 2 failed 通过",
+            "tests/unit/renderer/views/popup_view.test.tsx::标题栏按钮序「刷新 Settings面板 Usage面板 Agent面板 Session面板」通过",
+            "tests/unit/renderer/views/token_stats_header.test.tsx::导航按钮顺序「刷新 设置 用量 代理 会话」通过"
+        ],
+        "AC-002": [
+            "src/renderer/views/PopupView.tsx::floating 下 onClose→main_panel.hide()，非 floating 不传（WindowControls 默认 window.close()）",
+            "src/renderer/components/ui/PanelTitleBar.tsx::WindowControls floating 模式只渲染「隐藏用量面板」",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::floating 模式窗口控制只渲染「隐藏用量面板」，无 min/max，onClose 调用 通过"
+        ],
+        "AC-003": [
+            "src/renderer/views/TokenStatsView.tsx::Agent 标题状态（updatedAgo/sourceIssues/refreshing/error）迁 title_extra、筛选器迁 center 插槽，导航/刷新/窗口控制由 PanelTitleBar 提供",
+            "tests/unit/renderer/views/token_stats_header.test.tsx::13 测试保持（工具/平台/模型/粒度/时间范围筛选 + 刷新行为）通过"
+        ],
+        "AC-004": [
+            "src/renderer/components/session-shell/SessionShell.tsx::session-tabs 迁 PanelTitleBar center 插槽，rail-toggle 下移独立行 .session-rail-toggle-row",
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx::页签在 titlebar 内 + rail-toggle 独立行 + 折叠行为不变 通过"
+        ],
+        "AC-005": [
+            "src/renderer/components/ui/PanelTitleBar.tsx::web 端导航为原生 <a href=\"#route\">（#usage/#setting/#agent/#session），桌面 Button+onNavigate",
+            "tests/unit/renderer/views/popup_view.test.tsx::web 态四面板渲染为原生链接且 href 精确 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
