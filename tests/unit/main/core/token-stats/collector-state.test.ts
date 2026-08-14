@@ -48,6 +48,7 @@ import {
     grok_states,
     costs_state,
     opencode_max_updated,
+    source_cursors,
 } from "../../../../../src/main/core/token-stats/collector";
 import type { TokenStatsConfig } from "../../../../../src/shared/types/token-stats";
 
@@ -208,6 +209,39 @@ describe("collector scan-state persistence", () => {
         expect(grok_state?.files.get("enc/sid/updates.jsonl")?.session_id).toBe("sid");
         expect(costs_state.get("claude_costs_local")).toEqual({ offset: 42, size: 100 });
         expect(opencode_max_updated.get("opencode_local")).toBe(1700000000000);
+    });
+
+    it("t385 AC-001: source_cursors 跨 save/load round-trip（身份键集合）", async () => {
+        source_cursors.set("claude_costs_local", {
+            sessions: new Set(["s0", "s1", "s9999"]),
+            daily: new Set(["s0|2026-07-10|claude-x"]),
+        });
+        await save_state(tmp_file);
+        reset_config();
+        expect(source_cursors.size).toBe(0);
+        await load_state(tmp_file);
+        const restored = source_cursors.get("claude_costs_local");
+        expect(restored?.sessions.has("s0")).toBe(true);
+        expect(restored?.sessions.has("s9999")).toBe(true);
+        expect(restored?.daily.has("s0|2026-07-10|claude-x")).toBe(true);
+    });
+
+    it("t385 AC-004: 旧格式 scan-state（无 source_cursors 字段）读取不报错、游标空", async () => {
+        // 构造修复前格式：无 source_cursors 键。
+        fs.writeFileSync(
+            tmp_file,
+            JSON.stringify({
+                costs_state: { claude_costs_local: { offset: 42, size: 100 } },
+                opencode_max_updated: {},
+                jsonl_states: {},
+                kimi_states: {},
+                grok_states: {},
+            }),
+            "utf8",
+        );
+        await load_state(tmp_file);
+        expect(costs_state.get("claude_costs_local")).toEqual({ offset: 42, size: 100 });
+        expect(source_cursors.size).toBe(0);
     });
 
     it("load_state tolerates a corrupt file and leaves all state empty", async () => {
