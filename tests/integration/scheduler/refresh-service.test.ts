@@ -362,10 +362,8 @@ describe("refresh-service", () => {
         const { tempDir, service, observationStore } = await create_service([plugin_config()]);
 
         try {
-            await Promise.all([
-                service.refresh("deepseek-1", { force: true }),
-                service.refresh("deepseek-1", { force: true }),
-            ]);
+            // 非 force 两轮并发：锁短路只执行一轮。
+            await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-1")]);
 
             expect(observationStore.inserted.length).toBeLessThanOrEqual(1);
         } finally {
