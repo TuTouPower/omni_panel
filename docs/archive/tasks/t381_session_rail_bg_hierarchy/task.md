@@ -2,11 +2,11 @@
 tid: "t381"
 slug: "session_rail_bg_hierarchy"
 title: "会话面板侧边栏与槽位卡片背景色层级统一"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t381_session_rail_bg_hierarchy"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "b9468211306ca5aea172c0516a88b0d1cb6b9c41"
 depends_on: "t380"
 conflicts_with: ""
 note: ""
@@ -44,14 +44,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 04:02 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t381_gen_f001  | minor    | 已修   | rail-toggle-row 混色无独立断言：补 row_cls 断言 | tests/unit/renderer/components/session_shell/SessionShell.test.tsx:246-252 |
+| t381_gen_f002  | minor    | 遗留   | 混色断言不含 70%/8% 百分比，改动百分比不捕获；按 AC 语义覆盖已足 | p179 |
+### Round 2 (2026-08-15 04:05 UTC+8)
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+- 复核：f001 消除，f002 维持 minor。无新 finding。verdict PASS。
 
 ## 收尾报告
 
@@ -60,8 +61,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~004 均列于 `handoff.json` 的 `ac_evidence`（侧边栏/槽位卡/rail-toggle 混色 + 空槽位保持），mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +70,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（f001/f002 minor，f001 修复、f002 遗留→p179）
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话侧边栏/槽位卡/rail-toggle 背景改混色与 surface-card，空槽位保持；18 测试全绿，2 轮 PASS。

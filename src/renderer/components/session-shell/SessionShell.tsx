@@ -104,11 +104,11 @@ export function SessionShell() {
                 />
             </header>
             {/* t380 AC-004: rail-toggle 下移为标题栏下方独立行，不再占用标题栏左侧 220px */}
-            <div className="session-rail-toggle-row flex shrink-0 items-stretch border-b border-[var(--color-hairline)] bg-[var(--color-surface)]">
+            <div className="session-rail-toggle-row flex shrink-0 items-stretch border-b border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)]">
                 <button
                     type="button"
                     className={cn(
-                        "session-rail-toggle h-8 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[var(--color-surface)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        "session-rail-toggle h-8 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                         rail_collapsed && "w-11",
                     )}
                     title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}

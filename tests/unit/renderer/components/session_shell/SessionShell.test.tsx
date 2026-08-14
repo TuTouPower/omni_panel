@@ -242,6 +242,13 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(toggle.closest(".session-rail-toggle-row")).not.toBeNull();
         expect(toggle.closest(".session-topbar")).toBeNull();
         expect(document.querySelector(".session-workspace")?.contains(toggle)).toBe(false);
+        // t381 AC-003: rail-toggle 及其容器行均用混色背景，不含桌面衬底色 surface。
+        const toggle_cls = toggle.className;
+        expect(toggle_cls).toContain("color-mix");
+        expect(toggle_cls).not.toContain("bg-[var(--color-surface)]");
+        const row_cls = toggle.closest(".session-rail-toggle-row")?.className ?? "";
+        expect(row_cls).toContain("color-mix");
+        expect(row_cls).not.toContain("bg-[var(--color-surface)]");
         // 折叠行为不变。
         expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
         fireEvent.click(toggle);
