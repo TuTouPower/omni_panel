@@ -112,6 +112,33 @@ describe("grok extractor (t209)", () => {
         }
     });
 
+    it("旧 cursor（无 valid_count）回退重 parse 前缀，id 仍延续全量空间（t366 AC-001）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "grok-validcnt-"));
+        const tmp_file = join(tmp, "chat_history.jsonl");
+        try {
+            copyFileSync(fixture, tmp_file);
+            const full = extract_grok(tmp_file);
+            if (full.cursor?.kind !== "byte_offset") throw new Error("expected byte_offset cursor");
+            // 模拟旧 cursor（t366 前无 valid_count 字段）。
+            const legacy_cursor = {
+                kind: "byte_offset" as const,
+                file: full.cursor.file,
+                offset: full.cursor.offset,
+            };
+
+            appendFileSync(tmp_file, '{"type":"user","content":"追加"}\n');
+            const inc = extract_grok_incremental(tmp_file, legacy_cursor);
+
+            // 旧 cursor 回退重 parse 前缀计数，增量 id 不冲突且与全量一致。
+            expect(inc.messages).toHaveLength(1);
+            const re_full = extract_grok(tmp_file);
+            const tail = re_full.messages.slice(-1)[0];
+            expect(inc.messages[0]?.id).toBe(tail?.id);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
     it("半行写入：cursor 落在行中间时增量不丢该记录（p050）", () => {
         const tmp = mkdtempSync(join(tmpdir(), "grok-half-"));
         const tmp_file = join(tmp, "chat_history.jsonl");
@@ -207,10 +234,7 @@ describe("grok extractor (t209)", () => {
         const tmp = mkdtempSync(join(tmpdir(), "grok-first-none-"));
         const tmp_file = join(tmp, "chat_history.jsonl");
         try {
-            writeFileSync(
-                tmp_file,
-                '{"type":"assistant","content":"只有助手"}\n',
-            );
+            writeFileSync(tmp_file, '{"type":"assistant","content":"只有助手"}\n');
             expect(extract_grok_first_user(tmp_file)).toBe("");
         } finally {
             rmSync(tmp, { recursive: true, force: true });

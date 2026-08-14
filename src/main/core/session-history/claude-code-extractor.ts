@@ -7,7 +7,7 @@
  *
  * 增量：JSONL 按字节 offset（见 ExtractCursor.byte_offset）。
  */
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, openSync, readSync, closeSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
@@ -106,18 +106,42 @@ export function extract_claude_code_incremental(
     if (cursor.kind !== "byte_offset" || cursor.file !== file) {
         return extract_claude_code(file);
     }
-    let buf: Buffer;
+    let size: number;
     try {
-        buf = readFileSync(file);
+        size = statSync(file).size;
     } catch {
         return { messages: [], cursor };
     }
+    // t366 AC-002: 无新增字节时零磁盘读（只 statSync），避免每次 write 触发全量 IO。
+    // 半行驻留（offset 停在未完成半行行首）时 size==offset 无新增——该半行仍未补全，
+    // 早退空不丢记录；下次追加使 size>offset 走下方半行容错重读。
+    if (size <= cursor.offset) {
+        return { messages: [], cursor };
+    }
+    let fd: number;
+    let buf: Buffer;
+    let read_start: number;
+    try {
+        // t366 AC-002: 只读增量字节（offset 起）+ 少量回看（找行边界），不全量读盘。
+        fd = openSync(file, "r");
+        const back_read = Math.min(cursor.offset, 4096);
+        read_start = cursor.offset - back_read;
+        const read_len = size - read_start;
+        buf = Buffer.allocUnsafe(read_len);
+        const bytes = readSync(fd, buf, 0, read_len, read_start);
+        if (bytes < read_len) buf = buf.subarray(0, bytes);
+        closeSync(fd);
+    } catch {
+        return { messages: [], cursor };
+    }
+    // buf 从 read_start 读起（t366 bounded read），后续偏移均为相对 read_start。
+    const rel_offset = cursor.offset - read_start;
     // t365 AC-001: 半行容错（移植 grok）——cursor 可能落在半行中间（上次读取遇写入
     // 半行停在行首），回退到最近行边界重读该完整行，不丢记录。
-    const nl_before = buf.subarray(0, cursor.offset).lastIndexOf(0x0a);
+    const nl_before = buf.subarray(0, rel_offset).lastIndexOf(0x0a);
     const line_start = nl_before + 1;
-    const partial = buf.subarray(line_start, cursor.offset).toString("utf-8").trim();
-    let parse_start = cursor.offset;
+    const partial = buf.subarray(line_start, rel_offset).toString("utf-8").trim();
+    let parse_start = rel_offset;
     if (partial !== "") {
         let complete = true;
         try {
@@ -167,8 +191,10 @@ export function extract_claude_code_incremental(
             }
         }
     }
+    // 相对偏移转回绝对（+ read_start）。
+    const abs_new_offset = new_offset + read_start;
     return {
         messages,
-        cursor: { kind: "byte_offset", file, offset: new_offset },
+        cursor: { kind: "byte_offset", file, offset: abs_new_offset },
     };
 }
