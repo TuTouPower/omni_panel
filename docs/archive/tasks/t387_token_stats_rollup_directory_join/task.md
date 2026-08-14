@@ -2,11 +2,11 @@
 tid: "t387"
 slug: "token_stats_rollup_directory_join"
 title: "token-stats rollup 跨多 directory 会话汇总翻倍修复"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t387_token_stats_rollup_directory_join"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "f38ba45f879383dc83ef342589e0d304b91366dc"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p171"
@@ -44,14 +44,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 07:30 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t387_code_f001|important|已修|dashboard_session_page_from_meta GROUP BY 只分组不聚合，跨 directory 会话 calls 低估：改 SUM 聚合 + MIN/MAX | src/main/core/token-stats/token-stats-store.ts:786-800 |
+|t387_test_f001|minor|已修|AC-001 补 is_hour_rollup_ready 断言 | tests/unit/main/core/token-stats/token-stats-store.test.ts:2253 |
+
+### Round 2 (2026-08-15 07:35 UTC+8)
+
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t387_code_f002|minor|遗留|MAX(directory) 与 records 路径「最新目录」语义不一致：展示字段差异，spec 风险段声明语义自决，非 AC 违反 | p184 |
+
+- 复核：code PASS（f001 消除、f002 minor）；test PASS（f001 消除）。无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（JOIN 归一去重防放大）、AC-002（单 directory 不变）、AC-003（会话列表去重 + 跨 directory 聚合）均列于 `handoff.json` 的 `ac_evidence`，mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +75,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：FAIL（f001 important 会话列表聚合缺失）
+- Round 1 test：PASS（f001 minor）
+- Round 2 code：PASS（f002 directory 展示语义→p184）
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- rollup 跨多 directory JOIN 放大修复（归一去重 + 会话列表聚合）；token-stats 全量 300 passed，code/test 双轴 2 轮 PASS。
