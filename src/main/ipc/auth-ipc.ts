@@ -8,10 +8,9 @@ import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { get_session_login_partition, type SessionManager } from "../core/session/session-manager";
+import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
 
 const log = createLogger("ipc:auth");
-
-const AUTO_CLOSE_MS = 1500;
 
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
@@ -81,7 +80,7 @@ export async function handleCookieLogin(
             provider: def.manifest.provider,
             login_url: loginUrl,
             cookie_names,
-            auto_close_ms: AUTO_CLOSE_MS,
+            auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS,
         });
         return ok(result);
     } catch (err: unknown) {

@@ -111,6 +111,42 @@ describe("observation-store", () => {
         expect(store.count_observations()).toBe(2);
     });
 
+    it("dedupes non-stale same-key same-ts duplicate inserts (t352 AC-002)", () => {
+        // 非 stale 观测同键同 ts 重复插入不累积行；get_latest 结果确定（取最新写入）。
+        const ts = 6000;
+        store.insert(make_observation({ observed_at: ts, stale: false, used: 100 }));
+        store.insert(make_observation({ observed_at: ts, stale: false, used: 200 }));
+        expect(store.count_observations()).toBe(1);
+        const latest = store.get_latest("tavily", "default", "tavily:monthly_usage", "tavily-1");
+        assertNonNull(latest);
+        expect(latest.used).toBe(200);
+    });
+
+    it("insert_batch writes atomically and skips bad rows individually (t352 AC-001)", () => {
+        const good1 = make_observation({ observed_at: 7000, used: 10, stale: false });
+        const bad = {
+            ...make_observation({ observed_at: 7001 }),
+            provider: undefined,
+        } as unknown as Observation;
+        const good2 = make_observation({ observed_at: 7002, used: 20, stale: false });
+        expect(() => {
+            store.insert_batch([good1, bad, good2]);
+        }).not.toThrow();
+        // 坏条目（provider 违反 NOT NULL）被跳过，整批其余条目正常写入。
+        expect(store.count_observations()).toBe(2);
+        const latest = store.get_latest("tavily", "default", "tavily:monthly_usage", "tavily-1");
+        assertNonNull(latest);
+        expect(latest.observed_at).toBe(7002);
+        expect(latest.used).toBe(20);
+    });
+
+    it("insert_batch on empty list is a no-op (t352 AC-001)", () => {
+        expect(() => {
+            store.insert_batch([]);
+        }).not.toThrow();
+        expect(store.count_observations()).toBe(0);
+    });
+
     it("prune keeps the stale copy when original and copy share observed_at (t186)", () => {
         // AC1：prune 的保留行选择须与 latest 查询一致——同 ts 下 stale=1 优先。
         // 插入旧 observed_at 的原观测 + 同 ts stale 副本，prune 时该键应只保留
@@ -322,6 +358,39 @@ describe("observation-store", () => {
                     0,
                 ),
             ).toEqual([]);
+        });
+
+        it("bounds rows to cap and keeps the newest window when points exceed cap (t351 AC-001 regression: float bucket)", () => {
+            // better-sqlite3 把 number 绑成 REAL，旧 SQL `(observed_at-?)/?` 得出浮点
+            // bucket_idx（如 3.7），PARTITION BY 每点独立分区、聚合失效，整窗按 ASC
+            // LIMIT 返回最旧 cap 行、最新点丢失。回归测试：130 点 > cap=120，须 ≤cap
+            // 且末点为全局最新观测。CAST AS INTEGER 取整后正确。
+            const now = Date.now();
+            const day_ms = 24 * 60 * 60 * 1000;
+            const cap = 120;
+            const n = 130;
+            const start = now - day_ms;
+            const ts: number[] = [];
+            for (let i = 0; i < n; i++) {
+                const t = start + Math.round(((now - start) * i) / (n - 1));
+                ts.push(t);
+                store.insert(make_observation({ observed_at: t, used: i, limit: 1000 }));
+            }
+            const series = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                1,
+            );
+            expect(series.length).toBeLessThanOrEqual(cap);
+            const first = series[0];
+            const last = series[series.length - 1];
+            assertNonNull(first);
+            assertNonNull(last);
+            const max_inserted = Math.max(...ts);
+            // 末桶取最新 → 序列末点须为全局最新观测（浮点桶回归下返回最旧 cap 个、此断言失败）。
+            expect(last.observed_at).toBe(max_inserted);
         });
 
         it("uses a covering index for the range scan, not a full table scan", () => {

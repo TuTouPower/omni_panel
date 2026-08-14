@@ -219,6 +219,9 @@ export function AddAccountDialog({
 
             await on_save(params);
             on_close();
+        } catch (err) {
+            // t356 AC-001: 保存失败显示可见错误，不再静默。
+            set_error_message(err instanceof Error ? err.message : "添加失败");
         } finally {
             set_saving(false);
         }
@@ -334,9 +337,7 @@ export function AddAccountDialog({
                 ) : undefined
             }
         >
-            {step === "vendor" && (
-                <VendorPicker plugin_infos={plugin_infos} on_select={handle_select_vendor} />
-            )}
+            {step === "vendor" && <VendorPicker on_select={handle_select_vendor} />}
             {step === "auth" && vendor_id && (
                 <>
                     {auth_method === "apikey" && !has_extra_fields && (

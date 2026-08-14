@@ -52,15 +52,26 @@ export function create_debounced_config_patcher(
         const patch = pending;
         pending = {};
         if (Object.keys(patch).length === 0) return queue;
-        queue = queue
-            .then(async () => {
-                const result = await opts.get();
-                await opts.save({ ...result.config, ...patch });
-            })
-            .catch((err: unknown) => {
+        const result = queue.then(async () => {
+            try {
+                const current = await opts.get();
+                await opts.save({ ...current.config, ...patch });
+            } catch (err) {
+                // t356 AC-003: 失败不丢 patch——合并回 pending 并重新调度一次
+                // debounce 重试（有限重试，后续 patch 并入同一 flush）。
+                Object.assign(pending, patch);
+                timer ??= setTimeout(() => {
+                    timer = null;
+                    void flush_pending();
+                }, delay_ms);
                 opts.on_error?.(err);
-            });
-        return queue;
+                // rethrow 使 flush() 调用方可观测失败（queue 内部链另吞，不卡后续 patch）。
+                throw err;
+            }
+        });
+        // 内部 queue 永不复用 rejected：失败仅经 flush() 返回值暴露，后续 patch 正常排队。
+        queue = result.catch(() => undefined);
+        return result;
     }
 
     return {

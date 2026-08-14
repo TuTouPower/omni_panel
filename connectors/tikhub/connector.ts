@@ -25,7 +25,10 @@ function parse_limit(raw: string | undefined): number {
 
 async function main(): Promise<ScriptObservation[]> {
     const api_key = (ctx.params["API_KEY"] ?? "").trim();
-    if (!api_key) return [];
+    if (!api_key) {
+        // t362 AC-001: 空 key 明确报 failed（对齐 kimi），不静默 return [] 显示「正常」却无数据。
+        throw new Error("Missing required secret: API_KEY");
+    }
 
     const limit_num = parse_limit(ctx.params["LIMIT"]);
     const limit: number | null = limit_num > 0 ? limit_num : null;

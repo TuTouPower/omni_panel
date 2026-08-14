@@ -144,6 +144,29 @@ describe("history-window-controller (t210)", () => {
         expect(send_spy).toHaveBeenCalledWith(IPC_CHANNELS.SESSION_HISTORY_FOCUS, TEST_LOC);
     });
 
+    it("did-fail-load 复位 loading，send_focus 不再永久缓冲（t368 AC-002）", () => {
+        const w = make_window();
+        const send_spy = vi.fn();
+        w.webContents.send = send_spy as never;
+        const controller = create_history_window_controller({
+            create_window: () => w,
+        });
+
+        controller.open_or_focus(TEST_LOC);
+        // loadURL 失败——did-fail-load 复位 loading + 清缓冲。
+        const fail_handler = (
+            w as unknown as {
+                _wc_handlers: Record<string, (() => void)[]>;
+            }
+        )._wc_handlers["did-fail-load"];
+        for (const cb of fail_handler ?? []) {
+            cb();
+        }
+        // 失败后 loading 复位——再 open 不再缓冲，直接发定位。
+        controller.open_or_focus(TEST_LOC);
+        expect(send_spy).toHaveBeenCalledWith(IPC_CHANNELS.SESSION_HISTORY_FOCUS, TEST_LOC);
+    });
+
     it("批量打开：创建期连续 OPEN 全部缓冲，did-finish-load 统一补发（f002）", () => {
         const w = make_window();
         const send_spy = vi.fn();

@@ -91,8 +91,9 @@ FROM part p
 JOIN message m ON m.id = p.message_id
 WHERE p.session_id = ?
   AND json_extract(p.data, '$.type') = 'text'
+  AND json_extract(m.data, '$.role') = 'user'
 ORDER BY p.rowid ASC
-LIMIT 50
+LIMIT 1
 `;
 
 function row_to_message(row: PartRow): HistoryMessage | null {

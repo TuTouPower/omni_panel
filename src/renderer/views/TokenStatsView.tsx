@@ -6,15 +6,12 @@ import type {
     TokenStatsEnv,
 } from "../../shared/types/token-stats";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
-import { Icon } from "../components/Icon";
 import { MetricDonut } from "../components/token-stats/MetricDonut";
 import { BarChart } from "../components/token-stats/BarChart";
 import { Heatmap } from "../components/token-stats/Heatmap";
 import { SessionTable } from "../components/token-stats/SessionTable";
 import { RangePicker } from "../components/token-stats/RangePicker";
-import { Button, Card, PanelTitleBar, Segmented, Select, WindowControls } from "../components/ui";
-import { ICON_LINK_CLS } from "../components/ui/icon-link";
-import { is_web } from "../lib/is-web";
+import { Button, Card, PanelTitleBar, Segmented, Select } from "../components/ui";
 import { fmtInt, fmtRelativeTime, fmtTok } from "../lib/token-stats/format";
 import type { AgentFilter, Granularity, Metric, SessionRow, XAxis } from "../lib/token-stats/types";
 import {
@@ -24,7 +21,6 @@ import {
 import { useGlobalTheme, useTheme } from "../lib/theme";
 import { use_chart_palette, type ChartPalette } from "../lib/echarts_token_resolver";
 import { use_panel_navigation } from "../lib/panel-navigation";
-import logo from "../assets/logo.svg";
 
 const MODULE = "TokenStatsView";
 
@@ -590,10 +586,6 @@ export function TokenStatsView() {
     const modelTokenSegs = dashboard_segments(currentSummary?.model_token_totals ?? [], palette);
     const modelCallSegs = dashboard_segments(currentSummary?.model_call_totals ?? [], palette);
     const modelColors = dashboard_model_colors(currentSummary?.model_token_totals ?? [], palette);
-    const currentRecords: never[] = [];
-    const currentBuckets: never[] = [];
-    const hourBuckets: never[] = [];
-    const rollup: never[] = [];
     const topAgentSeg = agentSegmentsData.reduce<{ name: string; value: number } | null>(
         (acc, b) => (!acc || b.value > acc.value ? b : acc),
         null,
@@ -649,19 +641,8 @@ export function TokenStatsView() {
 
     const select_range_value: string = custom !== null ? "custom" : (preset ?? "30d");
 
-    const header_title = (
-        <div className="flex min-w-0 items-center gap-2">
-            <img
-                src={logo}
-                alt="OmniPanel"
-                className="h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
-            />
-            <span
-                className="truncate text-[length:var(--text-title-md)] font-bold tracking-[-0.01em]"
-                data-testid="app-title"
-            >
-                Omni Panel - Agent
-            </span>
+    const header_title_extra = (
+        <>
             {updatedAgo && (
                 <span className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]">
                     {updatedAgo}
@@ -694,10 +675,11 @@ export function TokenStatsView() {
                     刷新失败
                 </span>
             )}
-        </div>
+        </>
     );
 
-    const header_actions = (
+    // t380 AC-003: 筛选器迁入 PanelTitleBar 中间插槽，导航/刷新/窗口控制由共享组件提供。
+    const header_center = (
         <div className="flex items-center gap-2">
             <Select
                 className="h-8 w-auto min-w-[112px] py-1 text-[length:var(--text-label-md)]"
@@ -773,114 +755,20 @@ export function TokenStatsView() {
                     setRangePickerOpen(false);
                 }}
             />
-            <Button
-                variant="icon"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="刷新当前面板"
-                aria-label="刷新"
-                onClick={() => {
-                    void loadData(false);
-                }}
-            >
-                <Icon
-                    name="refresh"
-                    size={16}
-                    {...(refreshing ? { className: "animate-spin" } : {})}
-                />
-            </Button>
-            {is_web() ? (
-                <a
-                    className={ICON_LINK_CLS}
-                    title="Settings面板"
-                    aria-label="Settings面板"
-                    href="#setting"
-                >
-                    <Icon name="gear" size={16} />
-                </a>
-            ) : (
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="Settings面板"
-                    aria-label="Settings面板"
-                    onClick={() => {
-                        navigate("Settings");
-                    }}
-                >
-                    <Icon name="gear" size={16} />
-                </Button>
-            )}
-            {is_web() ? (
-                <a className={ICON_LINK_CLS} title="Usage面板" aria-label="Usage面板" href="#usage">
-                    <Icon name="clock_forward" size={16} />
-                </a>
-            ) : (
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="Usage面板"
-                    aria-label="Usage面板"
-                    onClick={() => {
-                        navigate("Usage");
-                    }}
-                >
-                    <Icon name="clock_forward" size={16} />
-                </Button>
-            )}
-            {is_web() ? (
-                <a className={ICON_LINK_CLS} title="Agent面板" aria-label="Agent面板" href="#agent">
-                    <Icon name="chart" size={16} />
-                </a>
-            ) : (
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="Agent面板"
-                    aria-label="Agent面板"
-                    onClick={() => {
-                        navigate("Agent");
-                    }}
-                >
-                    <Icon name="chart" size={16} />
-                </Button>
-            )}
-            {is_web() ? (
-                <a
-                    className={ICON_LINK_CLS}
-                    title="Session面板"
-                    aria-label="Session面板"
-                    href="#session"
-                >
-                    <Icon name="chat_square" size={16} />
-                </a>
-            ) : (
-                <Button
-                    variant="icon"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title="Session面板"
-                    aria-label="Session面板"
-                    onClick={() => {
-                        navigate("Session");
-                    }}
-                >
-                    <Icon name="chat_square" size={16} />
-                </Button>
-            )}
-            <WindowControls />
         </div>
     );
 
     return (
         <div className="token-stats flex min-h-full flex-col gap-4 bg-[var(--color-surface-window)] p-4 text-[var(--color-on-surface)] md:p-6">
             <PanelTitleBar
-                title={header_title}
-                actions={header_actions}
-                data-panel-titlebar="Agent"
+                panel="Agent"
+                title_extra={header_title_extra}
+                center={header_center}
+                refreshing={refreshing}
+                onRefresh={() => {
+                    void loadData(false);
+                }}
+                onNavigate={navigate}
             />
 
             {loading ? (
@@ -1021,10 +909,6 @@ export function TokenStatsView() {
                                 </div>
                             </div>
                             <BarChart
-                                records={currentRecords}
-                                buckets={currentBuckets}
-                                hourBuckets={hourBuckets}
-                                rollup={rollup}
                                 metric={metric}
                                 xaxis={effective_xaxis}
                                 gran={effective_gran}

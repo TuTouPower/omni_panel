@@ -1,5 +1,6 @@
 import { useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { agent_accent } from "../../lib/workspace/slots";
+import { agent_abbrev } from "../session-library/session-library-utils";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { estimate_tokens, format_entries, type CopyFormat } from "../../lib/workspace/copy-format";
 import { cn } from "../../lib/utils";
@@ -13,14 +14,6 @@ const TRAY_CONTENT_H = 160;
 /** 拖拽高度 clamp 到 [TRAY_MIN_H, TRAY_MAX_H]（f008）。 */
 export function clamp_tray_height(base: number, delta: number): number {
     return Math.min(TRAY_MAX_H, Math.max(TRAY_MIN_H, base + delta));
-}
-
-function agent_abbrev(source: string): string {
-    if (source === "claude_code") return "C";
-    if (source === "opencode") return "OC";
-    if (source === "kimi_code") return "K";
-    if (source === "grok") return "G";
-    return source.slice(0, 2).toUpperCase();
 }
 
 /** t226 底部摘选托盘：按会话分组 chip、三格式复制、可调高、空态细条。 */

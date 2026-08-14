@@ -1,8 +1,28 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as fs from "node:fs";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { PathLike } from "node:fs";
+import type * as NodeFs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+
+// Intercept readFileSync so one specific path can be made to throw, proving the
+// unreadable-file branch of t345 AC-002 deterministically. Everything else
+// delegates to the real fs — filesystem is an allowed mock boundary for failure
+// injection (same pattern as grok-reader.test.ts).
+const read_fail_path = vi.hoisted(() => ({ current: null as string | null }));
+vi.mock("node:fs", async (importOriginal) => {
+    const actual = await importOriginal<typeof NodeFs>();
+    return {
+        ...actual,
+        readFileSync: (p: PathLike, opts?: unknown) => {
+            if (read_fail_path.current !== null && String(p) === read_fail_path.current) {
+                throw new Error("EACCES: file locked");
+            }
+            return (actual.readFileSync as (p: PathLike, opts?: unknown) => unknown)(p, opts);
+        },
+    };
+});
+import * as fs from "node:fs";
 import {
     read_costs_jsonl,
     scan_session_jsonls,
@@ -192,6 +212,32 @@ describe("read_costs_jsonl", () => {
 
         const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
         expect(result.sessions).toHaveLength(2);
+    });
+
+    it("filters out rows without a timestamp (t345 AC-005)", () => {
+        // 缺 timestamp 的行：不应按 1970 处理成为 latest，也不该进 timestamps。
+        write(
+            [
+                line("s1", "claude-sonnet-4-20250514", 9999, 9999, T1),
+                JSON.stringify({
+                    session_id: "s1",
+                    model: "claude-sonnet-4-20250514",
+                    input_tokens: 5,
+                    output_tokens: 5,
+                }),
+                line("s1", "claude-sonnet-4-20250514", 100, 50, T2),
+            ].join("\n"),
+        );
+
+        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        expect(result.sessions).toHaveLength(1);
+        const s1 = result.sessions[0];
+        if (!s1) throw new Error("s1 not found");
+        // 缺 ts 行被过滤：latest 是有 ts 的行，started_at/ended_at 不含 0。
+        expect(s1.input_tokens).toBe(100);
+        expect(s1.output_tokens).toBe(50);
+        expect(s1.started_at).toBe(new Date(T1).getTime());
+        expect(s1.ended_at).toBe(new Date(T2).getTime());
     });
 
     it("reads incrementally (only new bytes from saved_offset)", () => {
@@ -748,5 +794,26 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
         expect(daily_input).toBe(expected_input);
         const daily_read = result.daily.reduce((s, d) => s + d.cache_read_tokens, 0);
         expect(daily_read).toBe(38016 + 244224);
+    });
+
+    it("retries a file whose read failed on the next scan (t345 AC-002)", () => {
+        write_session("proj-a/sess-retry.jsonl", [assistant_line(T1, "sonnet")]);
+        const target = path.join(projects_dir, "proj-a", "sess-retry.jsonl");
+
+        read_fail_path.current = target;
+        let first: ReturnType<typeof scan_session_jsonls>;
+        try {
+            // 首轮读失败：mtime 未提交。
+            first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+            expect(first.sessions).toHaveLength(0);
+            expect(first.new_state.mtimes.has(target)).toBe(false);
+        } finally {
+            read_fail_path.current = null;
+        }
+
+        // 第二轮（读恢复，用 first.new_state 走增量重试路径）：文件被重读并收集。
+        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        expect(second.sessions).toHaveLength(1);
+        expect(second.sessions[0]!.id).toBe("sess-retry");
     });
 });

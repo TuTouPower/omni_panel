@@ -140,8 +140,49 @@ describe("connector-runtime", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
         expect(warn_messages.some((m) => m.includes("Skipping invalid observation"))).toBe(true);
+        // t371 AC-003: 校验失败不再静默丢条——逐条计入 failed_accounts（2 条非法
+        // → 2 条记录，account_id 取观测自身字段缺省 unknown，不误匹配 default）。
+        expect(result.failed_accounts).toHaveLength(2);
+        for (const account of result.failed_accounts) {
+            expect(account.error).toContain("schema validation failed");
+            expect(account.account_id).toBe("unknown");
+        }
 
         remove();
+    });
+
+    it("rejects execution during cooldown after a timeout (t371 AC-001)", async () => {
+        // 超时结算后 VM 异步残留 promise 生命周期不可知——冷却期内（2x timeout）拒绝
+        // 同 manifest 新执行，避免残留与重试叠加打上游。用唯一 manifest id 隔离
+        // 模块级冷却状态，防跨测试污染。
+        const manifest: Manifest = { ...poll_manifest, id: "cooldown-test" };
+        // 永不 resolve 的异步脚本——race_with_timeout 超时（vm timeout 断不了它）。
+        const hanging = `return new Promise(function(){});`;
+        const first = await run_connector(manifest, hanging, stub_ctx, 50);
+        expect(first.error?.toLowerCase()).toContain("timeout");
+
+        // 冷却期内（2x50ms）第二次执行被拒——不是静默叠加打上游。
+        const second = await run_connector(manifest, `return [];`, stub_ctx, 50);
+        expect(second.error).toContain("cooling down");
+
+        // 冷却过期后恢复——新执行正常受理。冷却窗 100ms；并行全目录下 CPU 饥饿
+        // 可使相邻 await 间同步段抢占超窗，等待 500ms 放宽边距防 flake（f004）。
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const third = await run_connector(manifest, `return [];`, stub_ctx, 50);
+        expect(third.error).toBeNull();
+    });
+
+    it("does not cool down after a normal completion (t371 AC-001)", async () => {
+        // 正常完成不设冷却——同 manifest 多实例并发不受影响（in-flight 互斥会误伤
+        // refreshAll 的多账号并发，冷却只针对超时残留）。
+        const manifest: Manifest = { ...poll_manifest, id: "no-cooldown-test" };
+        const script = `return [];`;
+        const [a, b] = await Promise.all([
+            run_connector(manifest, script, stub_ctx),
+            run_connector(manifest, script, stub_ctx),
+        ]);
+        expect(a.error).toBeNull();
+        expect(b.error).toBeNull();
     });
 
     it("returns error when script throws", async () => {
@@ -160,7 +201,9 @@ describe("connector-runtime", () => {
 
     it("returns error when script times out", async () => {
         const script = `while(true){}`;
-        const result = await run_connector(poll_manifest, script, stub_ctx, 100);
+        // 唯一 id：超时会设模块级冷却，避免污染后续同 manifest 测试。
+        const manifest: Manifest = { ...poll_manifest, id: "sync-timeout-test" };
+        const result = await run_connector(manifest, script, stub_ctx, 100);
         expect(result.error).not.toBeNull();
         expect(result.error?.toLowerCase()).toContain("timeout");
     });
@@ -184,7 +227,8 @@ describe("connector-runtime", () => {
             await ctx.http.get_json("default", "/usage");
             return [];
         `;
-        const result = await run_connector(poll_manifest, script, slow_ctx, 100);
+        const manifest: Manifest = { ...poll_manifest, id: "async-timeout-test" };
+        const result = await run_connector(manifest, script, slow_ctx, 100);
         expect(result.error).not.toBeNull();
         expect(result.error?.toLowerCase()).toContain("timeout");
     });

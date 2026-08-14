@@ -144,15 +144,59 @@ export async function store_tokens(
     instance_id: string,
     tokens: TokenResponse,
 ): Promise<void> {
-    await vault.set(keyFor(instance_id, OAUTH_TOKEN_KEY), tokens.access_token);
-    // Refresh token rotation: store the new refresh_token if returned; otherwise
-    // keep the existing one (some servers do not return a new refresh_token).
-    if (tokens.refresh_token) {
-        await vault.set(keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY), tokens.refresh_token);
-    }
-    const expires_at = compute_expires_at(tokens);
-    if (expires_at) {
-        await vault.set(keyFor(instance_id, OAUTH_EXPIRES_AT_KEY), expires_at);
+    const access_key = keyFor(instance_id, OAUTH_TOKEN_KEY);
+    const refresh_key = keyFor(instance_id, OAUTH_REFRESH_TOKEN_KEY);
+    const expires_key = keyFor(instance_id, OAUTH_EXPIRES_AT_KEY);
+
+    // t340: 写前快照旧值；任一步写失败时回滚已写键，避免 vault 半更新中间态。
+    const prev_access = await vault.get(access_key);
+    const prev_refresh = await vault.get(refresh_key);
+    const prev_expires = await vault.get(expires_key);
+
+    try {
+        await vault.set(access_key, tokens.access_token);
+        // Refresh token rotation: store the new refresh_token if returned; otherwise
+        // keep the existing one (some servers do not return a new refresh_token).
+        if (tokens.refresh_token) {
+            await vault.set(refresh_key, tokens.refresh_token);
+        }
+        const expires_at = compute_expires_at(tokens);
+        if (expires_at) {
+            await vault.set(expires_key, expires_at);
+        }
+    } catch (error) {
+        const rollback = async (key: string, prev: string | null): Promise<void> => {
+            if (prev === null) await vault.delete(key);
+            else await vault.set(key, prev);
+        };
+        // 回滚尽力而为：仅恢复本次可能写过的键。回滚自身失败时以原始写入错误
+        // 为根因抛出（附加回滚失败消息），使上层记录的一致性告警指向真正原因。
+        const rollback_errors: string[] = [];
+        try {
+            await rollback(access_key, prev_access);
+        } catch (rollback_error) {
+            rollback_errors.push(to_error(rollback_error).message);
+        }
+        if (tokens.refresh_token) {
+            try {
+                await rollback(refresh_key, prev_refresh);
+            } catch (rollback_error) {
+                rollback_errors.push(to_error(rollback_error).message);
+            }
+        }
+        if (compute_expires_at(tokens) !== undefined) {
+            try {
+                await rollback(expires_key, prev_expires);
+            } catch (rollback_error) {
+                rollback_errors.push(to_error(rollback_error).message);
+            }
+        }
+        if (rollback_errors.length > 0) {
+            throw new Error(
+                `${to_error(error).message} (rollback also failed: ${rollback_errors.join("; ")})`,
+            );
+        }
+        throw error;
     }
 }
 

@@ -1,0 +1,36 @@
+{
+    "tid": "t363",
+    "attempt": 1,
+    "execution_id": "b5e4d9ac51eb4b559d4e029d154f2454",
+    "status": "done",
+    "branch": "t363_connector_struct_poll",
+    "base_sha": "0afb0ae34dd4206b183125d6df250942bd70d620",
+    "tests": "全量 262 文件 3094 passed / 9 skipped（含新增：kimi duration 校验 / firecrawl allSettled / opencode_go 部分窗口 / manifest poll 移除）",
+    "blackbox": "typecheck + eslint 全绿；prettier 本 task 文件干净",
+    "review": "single；Round 1 general FAIL（f001 glm text 分支 window 残留 / f002 firecrawl 单失败无测试 / f003 claude data_dir 无测试）→ Round 2 general PASS（f001-f003 修复，f004 claude 测试 readonly params 赋值已改 create_ctx 参数化）",
+    "ac_evidence": {
+        "AC-001": [
+            "kimi/connector.ts five_hour 仅当 rate_limit.window.duration===300 时产出（原 limits[0] 无校验）；周用量 window 'day'→'week'",
+            "tests/integration/connector/kimi-connector.test.ts::skips five_hour when limits[0] window.duration !== 300 通过"
+        ],
+        "AC-002": [
+            "firecrawl/connector.ts Promise.all→allSettled，单接口失败 report_failed_account，成功侧照常产出",
+            "tests/integration/connector/firecrawl_connector.test.ts::reports failed_account when API response is not an object / success:false 通过"
+        ],
+        "AC-003": [
+            "opencode_go/connector.ts bundle 获取 catch 容忍失败 + 三窗口部分解析（全缺才报错）",
+            "tests/integration/connector/opencode_go_connector.test.ts::tolerates a failing asset bundle（单 bundle 失败仍产出）通过",
+            "tests/unit/connector/opencode_go.test.ts::produces the parsed window when others are missing 通过"
+        ],
+        "AC-004": [
+            "claude/connector.ts 读 ctx.params.data_dir（默认 ~/.claude），不再硬编码路径",
+            "manifest data_dir 参数契约生效"
+        ],
+        "AC-005": [
+            "manifest schema poll 能力可由 poll 段或 script 满足；getoneapi/glm/tavily/firecrawl/minimax manifest 删除死 poll 段",
+            "tests/integration/connector/manifest-contract.test.ts::script-based connectors no longer need a dead poll segment 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

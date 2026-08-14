@@ -591,4 +591,24 @@ describe("grok connector", () => {
         expect(result.failed_accounts[0]?.provider).toBe("grok");
         expect(result.failed_accounts[0]?.error).toMatch(/usage/i);
     });
+
+    it("treats unparseable billingPeriodEnd as null reset_at, not NaN (t361 AC-001)", async () => {
+        // 无 currentPeriod 走 legacy 路径（get_legacy_reset_at），非法日期应置 null。
+        const ctx = create_ctx();
+        ctx.http.get_json = vi.fn().mockResolvedValue({
+            config: {
+                creditUsagePercent: 19.0,
+                productUsage: [],
+                isUnifiedBillingUser: true,
+                billingPeriodEnd: "not-a-date",
+            },
+        });
+        const script = await readFile(join("connectors", "grok", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, ctx);
+
+        expect(result.error).toBeNull();
+        // 非法日期不再产生 NaN reset_at（NaN 违反 schema 致整条丢弃）。
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.reset_at).toBeNull();
+    });
 });

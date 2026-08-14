@@ -1,0 +1,31 @@
+{
+    "tid": "t338",
+    "attempt": 1,
+    "execution_id": "76c513d0deb0451285fde5f91da20be1",
+    "status": "done",
+    "branch": "t338_schema_export_drift_ci",
+    "base_sha": "a9ccf1e7eb5d99b020cabee57269b4cf23d35086",
+    "tests": "tests/unit/shared/schema_export_freshness.test.ts（新增）：4/4 通过——提交的 plugin-output/plugin-metadata.schema.json 与 zod 源经 zodToJsonSchema 派生的结构深等（源或提交产物任一漂移即红），items 含 metric_id/cycleDurationMs/error、provider 走 regex、metadata 顶层含 login_url/cookie_names。全量 tests/unit/ 2377 passed；10 个 electron 依赖文件因 p153（fresh worktree pnpm 跳过 electron postinstall 缺 path.txt）环境失败，与 t338 改动无关。",
+    "blackbox": "pnpm schema:export 成功输出 Schemas exported；工作树复跑 CI 门禁命令（export+prettier --write+git diff --exit-code schemas/）与提交产物无 diff；plugin-output.schema.json provider pattern 与 zod 源 regex 一致。",
+    "review": "review_level=full；Round 1 code PASS（f001/f002 minor 已修）、test FAIL（f001/f003 已修、f002 改 spec 不计 FAIL）；Round 2 code/test 均 PASS。报告 t338_review_code.md / t338_review_test.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/shared/schema_export_freshness.test.ts::items 含 metric_id/cycleDurationMs/error 内容契约——provider 断言 {type:string, pattern:^[a-z][a-z0-9_]*$} 与 src/shared/schemas/plugin-output.ts:43 usageItemSchema.provider 的 z.string().regex 同源一致（AC 允许改用同源 regex）",
+            "src/shared/schemas/plugin-output.ts:6 usageProviderSchema enum 含 15 provider（getoneapi/exa/tikhub/grok 在位）"
+        ],
+        "AC-002": [
+            "tests/unit/shared/schema_export_freshness.test.ts::items 含 metric_id/cycleDurationMs/error 内容契约——断言 item_props 含三字段",
+            "additionalProperties 说明：导出物 items 为 additionalProperties:false，来自 zod-to-json-schema 对 z.object 的默认输出（比 zod runtime strip 语义更严，为基线既有行为、非本 diff 引入）"
+        ],
+        "AC-003": [
+            "tests/unit/shared/schema_export_freshness.test.ts::plugin-metadata 顶层含 login_url/cookie_names——断言 props 含两键",
+            "supportedProviders 导出为 pattern regex，与 src/shared/schemas/plugin-metadata.ts supportedProviders 定义同源"
+        ],
+        "AC-004": [
+            ".github/workflows/ci.yml check job 新增 'Check schema freshness' 步骤：pnpm schema:export && pnpm prettier --write schemas/ && git diff --exit-code schemas/",
+            "本地模拟该命令与提交产物比对无 diff（导出幂等 + prettier 对齐）"
+        ]
+    },
+    "pending": ["p153"],
+    "findings": []
+}

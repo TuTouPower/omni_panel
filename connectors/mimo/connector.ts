@@ -46,6 +46,14 @@ function to_number(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// t361 AC-004: 非数字 → null（区别于缺失当 0 的 to_number），供 balance 等
+// 「缺失/非法应跳过」场景，不静默把非数字当真实 0。
+function to_optional_number(value: unknown): number | null {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function to_reset_at(value: string | undefined): number | null {
     if (!value) return null;
     const ts = Date.parse(value);
@@ -134,13 +142,14 @@ async function main(): Promise<ScriptObservation[]> {
             used,
             limit,
             reset_at,
-            status: limit > 0 ? ctx.status.for_ratio(used, limit) : "normal",
+            status: limit > 0 ? ctx.status.for_ratio(used, limit) : "unknown",
         };
     });
 
     if (balance_result?.code === 0 && balance_result.data) {
-        const balance = to_number(balance_result.data.balance);
-        if (Number.isFinite(balance)) {
+        // t361 AC-004: 非数字 balance 跳过（不静默当 0 余额）。
+        const balance = to_optional_number(balance_result.data.balance);
+        if (balance !== null) {
             observations.push({
                 ...base,
                 metric_id: "mimo:balance",

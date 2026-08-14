@@ -6,24 +6,12 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "claude",
-    provider: "claude",
-    capabilities: ["local"],
-    parameters: [
-        {
-            name: "data_dir",
-            type: "string",
-            required: false,
-            exposeToScript: true,
-            default: "~/.claude",
-        },
-    ],
-    local: { paths: ["~/.claude/.credentials.json"] },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "claude", "manifest.json"), "utf8"),
+) as Manifest;
 
-function create_ctx(): ConnectorContext {
+function create_ctx(data_dir?: string): ConnectorContext {
     return {
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
@@ -43,14 +31,17 @@ function create_ctx(): ConnectorContext {
         },
         files: {
             read(path_pattern: string) {
-                expect(path_pattern).toBe("~/.claude/.credentials.json");
+                // t363 AC-004: data_dir 自定义路径应拼接进 credentials 路径。
+                expect(path_pattern).toBe(
+                    `${(data_dir ?? "~/.claude").replace(/\/+$/, "")}/.credentials.json`,
+                );
                 return Promise.resolve(
                     JSON.stringify({ claudeAiOauth: { accessToken: "fake-token" } }),
                 );
             },
             list: () => Promise.resolve([]),
         },
-        params: {},
+        params: data_dir ? { data_dir } : {},
         status: ctx_status,
         report_failed_account: () => undefined,
     };
@@ -155,5 +146,14 @@ describe("claude connector", () => {
         expect((await run_connector(manifest, script, mk(74.9))).observations[0]?.status).toBe(
             "normal",
         );
+    });
+
+    it("reads credentials from a custom data_dir param (t363 AC-004)", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        // create_ctx 以 data_dir 参数构建（files.read 断言自定义路径 + params 写入）。
+        const result = await run_connector(manifest, script, create_ctx("/custom/claude/"));
+
+        expect(result.error).toBeNull();
+        expect(result.observations.length).toBeGreaterThan(0);
     });
 });

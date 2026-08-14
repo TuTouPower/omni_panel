@@ -125,7 +125,7 @@ Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixtur
 自动化不能单独宣称已解决：
 
 - `OmniPanel.exe` 首次启动；托盘真实显示、popup 位置。
-- Popup 根容器填满窗口高度（防底部背景空白）；动态高度跟随 `popup:reportContentHeight`、不超 75% 工作区、无额外底部留白（多显示器/DPI 下 `setBounds` 只能人工验收）。
+- Popup 根容器填满窗口高度（防底部背景空白）；动态高度跟随 `popup:reportContentHeight`、不超 100% 工作区（t081 起 `MAX_HEIGHT_RATIO=1.0`）、无额外底部留白（多显示器/DPI 下 `setBounds` 只能人工验收）。
 - 渲染进程正常加载（白屏即失败）；ASAR 内资源路径可访问。
 
 修复涉及打包产物的任务，完成报告必须含：自动化结果 + 打包真实启动验证结果。没有真实 smoke 只能写“自动化路径通过，packaged 行为未验证”，不能写“已修复”。

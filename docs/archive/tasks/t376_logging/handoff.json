@@ -1,0 +1,23 @@
+{
+    "tid": "t376",
+    "attempt": 1,
+    "execution_id": "3362ba890240416eb159eaa2ef0b9907",
+    "status": "done",
+    "branch": "t376_logging",
+    "base_sha": "77b3b74fb6e1139c929a7ac9da9b7c3ccf8a5805",
+    "tests": "vitest run logging.test.ts + logging-transport.test.ts：11 passed；tsc --noEmit exit 0；eslint 两文件 --max-warnings=0 通过；prettier --check 通过",
+    "blackbox": "logging 全量 11 测试：持久 fd 复用（mock fs open 只调 1 次）、段数上限周期 warn（120 条 2 次）、f003/f004 注入验证、既有 rotate/清理 8 测试保持；tsc/lint/format 全绿",
+    "review": "single 级 general：Round 1 FAIL（f001 critical warn 回环 + f002/f003/f004）→ Round 2 PASS（f005 minor）→ Round 3 PASS；5 finding 全消除，check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/logging.ts::文件 transport 持久 fd 复用（open 一次 write 多次），size 检查改缓存值每 SIZE_STAT_INTERVAL=32 条周期 stat，rotate 时关 fd 重开",
+            "tests/unit/main/logging-transport.test.ts::reuses a single fd across many writes：mock fs 写 50 条断言 open 只调 1 次 通过"
+        ],
+        "AC-002": [
+            "src/main/core/logging.ts::段数达上限首次立即 warn，之后每 SEGMENT_WARN_INTERVAL=100 条周期 re-warn，不静默丢诊断",
+            "tests/unit/main/logging-transport.test.ts::warns immediately on first skip and re-warns periodically：maxSegments=1 写 120 条断言 segment limit warn ≥2 次 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -99,7 +99,9 @@ export const manifest_schema = z
     .refine(
         (manifest) =>
             manifest.capabilities.every((capability) => {
-                if (capability === "poll") return !!manifest.poll;
+                // t363 AC-005: poll 能力可由 poll 段或 script 实现（脚本型 connector
+                // 声明 poll 能力但以 connector.ts 执行，不再要求死 poll 配置段）。
+                if (capability === "poll") return !!manifest.poll || !!manifest.script;
                 if (capability === "observe") return !!manifest.observe;
                 if (capability === "local") return !!manifest.local;
                 return true;

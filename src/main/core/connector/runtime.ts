@@ -140,6 +140,43 @@ export async function run_connector(
         return { observations: [], failed_accounts: [], error: "No script defined in manifest" };
     }
 
+    // t371 AC-001: 超时冷却——vm timeout 只断同步执行，超时结算后 VM 内异步残留
+    // promise 可能继续打上游（生命周期不可知）。冷却期内（2x timeout）拒绝同
+    // manifest 新执行，避免残留与重试叠加；正常完成的执行不设冷却，同 manifest
+    // 多实例并发不受影响（in-flight 互斥会误伤 refreshAll 的多账号并发）。
+    const until = script_cooldown_until.get(manifest.id);
+    if (until !== undefined) {
+        if (Date.now() < until) {
+            return {
+                observations: [],
+                failed_accounts: [],
+                error: `Connector ${manifest.id} is cooling down after a previous timeout (residual script work may still be running)`,
+            };
+        }
+        script_cooldown_until.delete(manifest.id);
+    }
+
+    const result = await run_connector_inner(manifest, script_code, ctx, timeout_ms, compiled_code);
+    if (result.error !== null && is_timeout_error(result.error)) {
+        const cooldown = timeout_ms * 2;
+        script_cooldown_until.set(manifest.id, Date.now() + cooldown);
+        log.warn(
+            `Connector ${manifest.id} timed out; cooling down for ${String(cooldown)}ms before next execution`,
+        );
+    }
+    return result;
+}
+
+// t371 AC-001: manifest.id → 冷却截止时间戳（模块级，跨刷新共享）。
+const script_cooldown_until = new Map<string, number>();
+
+async function run_connector_inner(
+    manifest: Manifest,
+    script_code: string,
+    ctx: ConnectorContext,
+    timeout_ms: number,
+    compiled_code?: string,
+): Promise<ConnectorRunResult> {
     const runtime_log = ctx.trace_id ? withLogContext(log, { trace_id: ctx.trace_id }) : log;
 
     // 收集脚本通过 ctx.report_failed_account 上报的失败账号。
@@ -182,7 +219,24 @@ export async function run_connector(
         for (const item of result) {
             const parsed = script_observation_schema.safeParse(item);
             if (!parsed.success) {
+                // t371 AC-003: 校验失败不再静默丢条——report_failed_account 计入
+                // 错误摘要，runtime store 状态可见（原仅 warn）。account_id 取观测
+                // 自身字段（合法时），避免误匹配真实 "default" 账号的 stale 副本。
+                const detail = parsed.error.issues
+                    .slice(0, 3)
+                    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+                    .join("; ");
                 runtime_log.warn(`Skipping invalid observation: ${parsed.error.message}`);
+                const raw_account_id = (item as Record<string, unknown> | null)?.["account_id"];
+                failed_accounts.push({
+                    provider: manifest.provider,
+                    account_id:
+                        typeof raw_account_id === "string" && raw_account_id !== ""
+                            ? raw_account_id
+                            : "unknown",
+                    account_label: manifest.provider,
+                    error: `observation schema validation failed: ${detail}`,
+                });
                 continue;
             }
             observations.push(parsed.data as ScriptObservation);

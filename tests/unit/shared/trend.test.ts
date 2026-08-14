@@ -41,9 +41,10 @@ describe("build_trend_series", () => {
         ];
         const series = build_trend_series(records);
         expect(series).toHaveLength(7);
-        expect(series[0]?.date).toBe("2026-07-14");
+        // t383 AC-001: date 保留时刻（UTC ISO），非仅日期。
+        expect(series[0]?.date).toBe("2026-07-14T00:00Z");
         expect(series[0]?.percent).toBe(10);
-        expect(series[6]?.date).toBe("2026-07-20");
+        expect(series[6]?.date).toBe("2026-07-20T00:00Z");
         expect(series[6]?.percent).toBe(70);
     });
 
@@ -82,6 +83,22 @@ describe("build_trend_series", () => {
     it("returns empty array for empty input", () => {
         const series = build_trend_series([]);
         expect(series).toEqual([]);
+    });
+
+    it("t383 AC-001: same UTC day points keep distinct time-of-day in date", () => {
+        const hour_ms = 60 * 60 * 1000;
+        const base = Date.UTC(2026, 6, 20, 8);
+        const records = [
+            make_obs({ observed_at: base, used: 100, limit: 1000 }),
+            make_obs({ observed_at: base + 2 * hour_ms, used: 200, limit: 1000 }),
+            make_obs({ observed_at: base + 5 * hour_ms, used: 300, limit: 1000 }),
+        ];
+        const series = build_trend_series(records);
+        expect(series.map((p) => p?.date)).toEqual([
+            "2026-07-20T08:00Z",
+            "2026-07-20T10:00Z",
+            "2026-07-20T13:00Z",
+        ]);
     });
 
     it("applies used/limit formula regardless of display_style", () => {

@@ -13,7 +13,6 @@ import {
 } from "../lib/account-overrides";
 import { accountKey } from "../lib/provider-usage";
 import { AccountDialog } from "../components/AccountDialog";
-import { CpaAddDialog } from "../components/CpaAddDialog";
 import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
@@ -120,7 +119,6 @@ export function SettingsView() {
     const [pluginInfos, setConnectorInfos] = useState<ConnectorInfo[]>([]);
     const [section, setSection] = useState("general");
     const [dialog, setDialog] = useState<DialogState | null>(null);
-    const [showCpaAdd, setShowCpaAdd] = useState(false);
     const [label_map_dialog, set_label_map_dialog] = useState<{
         instance_id: string;
         vendor_id: string;
@@ -188,11 +186,13 @@ export function SettingsView() {
     const hide_account = useCallback(
         (item: MetricRecord) => {
             if (!config) return;
+            // t342: 写键用 accountKey(item)，与 apply_account_overrides 消费键一致；
+            // 裸 accountId 与 accountKey（sourceInstanceId|accountId 等）永不相交。
             const newOverrides = add_account_override(
                 config.accountOverrides,
                 "hidden",
                 item.provider,
-                item.accountId,
+                accountKey(item),
             );
             void save_config({ ...config, accountOverrides: newOverrides });
         },
@@ -679,13 +679,6 @@ export function SettingsView() {
                                 }
                             }
                             void save_config({ ...config, accountOverrides: next });
-                        }}
-                    />
-                )}
-                {showCpaAdd && (
-                    <CpaAddDialog
-                        onClose={() => {
-                            setShowCpaAdd(false);
                         }}
                     />
                 )}

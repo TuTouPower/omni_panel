@@ -162,6 +162,16 @@ describe("main panel controller", () => {
         expect(windows[0]?.setSkipTaskbar).not.toHaveBeenCalled();
     });
 
+    it("creates a floating shell at the default 460 width on first open (t368 AC-001)", () => {
+        const { controller, windows } = build(
+            { ...base_config, mainPanelMode: "floating" },
+            "win32",
+        );
+        controller.open_or_focus();
+        // 首次无 saved floatingBounds——按 DEFAULT_FLOATING_WIDTH=460，不被抬升到 472。
+        expect(windows[0]?.setBounds).toHaveBeenCalledWith(expect.objectContaining({ width: 460 }));
+    });
+
     it("updates mode on config change even when the panel is closed", () => {
         const { controller, state } = build({ ...base_config, mainPanelMode: "popup" });
         expect(controller.get_mode()).toBe("popup");
@@ -180,6 +190,19 @@ describe("main panel controller", () => {
         windows[0]?.setBounds({ width: 1200 });
 
         expect(saved_configs.at(-1)?.floatingBounds?.width).toBe(1200);
+    });
+
+    it("persists floating width in 320-472 range without clamping up (t368 AC-001)", () => {
+        const { controller, saved_configs, windows } = build({
+            ...base_config,
+            mainPanelMode: "floating",
+        });
+        controller.open_or_focus();
+
+        // saved 宽度 400（浮窗 320-472 区间）——按 MIN_FLOATING_WIDTH=320 clamp，不抬升。
+        windows[0]?.setBounds({ width: 400 });
+
+        expect(saved_configs.at(-1)?.floatingBounds?.width).toBe(400);
     });
 
     it("restores floating width above 780px after restart", () => {

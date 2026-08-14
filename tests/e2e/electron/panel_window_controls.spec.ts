@@ -78,7 +78,7 @@ test.describe("panel window controls (t252)", () => {
         const region = await page.evaluate(() => {
             const el =
                 document.querySelector("[data-panel-titlebar]") ??
-                document.querySelector('[data-testid="popup-titlebar"]');
+                document.querySelector('[data-panel-titlebar="Usage"]');
             if (!el) return null;
             return getComputedStyle(el).getPropertyValue("-webkit-app-region");
         });

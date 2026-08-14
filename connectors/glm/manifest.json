@@ -15,13 +15,5 @@
     "endpoints": {
         "default": "https://open.bigmodel.cn"
     },
-    "poll": {
-        "request": {
-            "endpoint": "default",
-            "path": "/api/monitor/usage/quota/limit",
-            "method": "GET"
-        },
-        "map": {}
-    },
     "script": "connector.ts"
 }

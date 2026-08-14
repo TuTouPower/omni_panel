@@ -1,6 +1,7 @@
 import { execSync, spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { platform } from "node:os";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 
@@ -10,7 +11,8 @@ function log(msg: string) {
 
 function kill_omni(): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniPanel.exe"] : ["OmniPanel"];
+    // t369 AC-001: 产物名 Linux 为 omni_panel（小写），pkill 大小写不匹配杀不掉旧实例。
+    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
 
     for (const proc of procs) {
         try {
@@ -27,6 +29,7 @@ function kill_omni(): void {
 
 function wait_for_exit(max_ms = 5000): void {
     const is_win = platform() === "win32";
+    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
     const deadline = Date.now() + max_ms;
     while (Date.now() < deadline) {
         let running = false;
@@ -38,7 +41,7 @@ function wait_for_exit(max_ms = 5000): void {
                     .toString()
                     .includes("OmniPanel.exe");
             } else {
-                execSync("pgrep -f OmniPanel", { stdio: "pipe" });
+                execSync(`pgrep -f ${procs[0] ?? "omni_panel"}`, { stdio: "pipe" });
                 running = true;
             }
         } catch {
@@ -48,17 +51,24 @@ function wait_for_exit(max_ms = 5000): void {
             log("all OmniPanel processes exited");
             return;
         }
-        execSync("timeout /t 1 /nobreak >nul 2>&1 || sleep 1", {
+        // t369 AC-002: Linux 去 `>nul`（win 专属重定向），用 sleep 1。
+        execSync(is_win ? "timeout /t 1 /nobreak >nul 2>&1" : "sleep 1", {
             shell: is_win ? "cmd.exe" : "/bin/sh",
             stdio: "pipe",
         });
     }
     log("warning: OmniPanel still running after timeout, forcing kill");
     try {
-        execSync("taskkill /f /t /im OmniPanel.exe 2>nul || pkill -9 -f OmniPanel", {
-            shell: platform() === "win32" ? "cmd.exe" : "/bin/sh",
-            stdio: "pipe",
-        });
+        // t369 AC-002: Linux 分支用 pkill 小写名，不执行 win 的 >nul 串。
+        execSync(
+            is_win
+                ? "taskkill /f /t /im OmniPanel.exe 2>nul"
+                : `pkill -9 -f ${procs[0] ?? "omni_panel"}`,
+            {
+                shell: is_win ? "cmd.exe" : "/bin/sh",
+                stdio: "pipe",
+            },
+        );
     } catch {
         // best effort
     }
@@ -108,6 +118,15 @@ function main(): void {
 
     // Step 4: package (skip if --no-build)
     if (!no_build) {
+        run_package_build();
+    }
+
+    // Step 5: run
+    run_packaged();
+}
+
+export function run_package_build(): void {
+    try {
         log("ensuring Electron ABI for better-sqlite3...");
         execSync("node scripts/ensure_sqlite_abi.mjs electron", { cwd: ROOT, stdio: "inherit" });
         log("regenerating build-info...");
@@ -131,12 +150,14 @@ function main(): void {
                 ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/",
             },
         });
+    } finally {
+        // t375 AC-003: 无论构建成功/中断，better-sqlite3 恢复 Node ABI——
+        // 原实现只在成功路径末尾恢复，中途抛错会让后续 node 进程用错 ABI。
         log("restoring Node ABI for better-sqlite3...");
         execSync("node scripts/ensure_sqlite_abi.mjs node", { cwd: ROOT, stdio: "inherit" });
     }
-
-    // Step 5: run
-    run_packaged();
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main();
+}

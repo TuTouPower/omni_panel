@@ -1,0 +1,32 @@
+{
+    "tid": "t360",
+    "attempt": 1,
+    "execution_id": "8d95bb0a3d114121b73c311ea7ef14d6",
+    "status": "done",
+    "branch": "t360_dedupe_helpers",
+    "base_sha": "71e550869829dbb7d79e0833a392691cbe442b3c",
+    "tests": "全量 261 文件 3081 passed / 9 skipped（net-client 38 + connector 222 + session-history 139 + renderer 1187 + main 727）",
+    "blackbox": "typecheck + eslint 全绿；prettier 本 task 文件全绿（4 个预存 warn 非本 task）；net-client 收敛基线 38 测试全绿行为逐字保留",
+    "review": "single；Round 1 general PASS（3 minor：f001 agent_abbrev 双份已修 SelectionTray import 共享 / f002 theme disable 收窄为函数级 / f003 config_redaction spec 过时非真重复）",
+    "ac_evidence": {
+        "AC-001": [
+            "pick_text_from_content 三端（claude/grok/kimi extractor）收敛为 extract-content.ts 单点，字节级一致",
+            "is_auth_error 删 refresh-service re-export（零消费），测试改 import shared/auth-error",
+            "AUTO_CLOSE_MS 收敛为 shared/constants.ts SESSION_LOGIN_AUTO_CLOSE_MS，auth-ipc/WebLoginSection 引用",
+            "probe/poll 构造 ScriptObservation 收敛为 observation-factory.ts build_single_observation（仅 window/source 差异参数化）",
+            "net-client do_request/get_raw 抽 perform_request 收敛（initial_headers/transform/pre_read_guard 参数化），38 测试全绿",
+            "active_instance_ids_for_provider helper 收敛 index.ts 4 处逐字重复",
+            "use_connector_catalog 自有 logger 替代 view 反向依赖",
+            "useTheme/useGlobalTheme 抽 use_theme_events 共享订阅样板，211 组件测试全绿",
+            "窗口最小尺寸收敛 window-bounds（PANEL_MIN_WIDTH/HEIGHT + USAGE_MIN_WIDTH），window-manager/main-panel 引用",
+            "source→agent：agent_friendly 已单源（markdown.ts），其余按输出域分派（调查确认不能并入单表）",
+            "config_redaction：两处正则目标不同（config 字段名 vs logger 值 scrub），非真重复，保留各自语义"
+        ],
+        "AC-002": [
+            "mimo/connector.ts 无 limit 状态 \"normal\"→\"unknown\" 统一（与 exa/余额分支一致）",
+            "tests/integration/connector/mimo-connector.test.ts 更新断言 unknown（spec 语义统一）10 测试通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

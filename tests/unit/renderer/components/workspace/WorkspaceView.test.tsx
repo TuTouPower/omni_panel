@@ -449,6 +449,21 @@ describe("WorkspaceView (t224)", () => {
         const msgs = document.querySelector(".conversation-message-scroll");
         if (!(msgs instanceof HTMLElement))
             throw new Error("conversation-message-scroll not found");
+        // t377: 显式 scrollTop 声明——jsdom 无布局 scrollTop 默认 0，弱断言下滚动
+        // 恒触发 older 加载不验证位置语义。先设「不在顶部」负向验证不加载。
+        msgs.scrollTop = 500;
+        fireEvent.scroll(msgs);
+        await waitFor(() => {
+            expect(ub.sessionHistory.query).toHaveBeenCalledTimes(1);
+        });
+        expect(ub.sessionHistory.query).not.toHaveBeenCalledWith(
+            "claude_code",
+            "win",
+            "sess_a",
+            expect.objectContaining({ before_cursor: "c1" }),
+        );
+        // 设回顶部，正向下拉更早消息。
+        msgs.scrollTop = 0;
         fireEvent.scroll(msgs);
         await waitFor(() => {
             expect(ub.sessionHistory.query).toHaveBeenCalledWith("claude_code", "win", "sess_a", {

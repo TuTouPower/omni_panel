@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { set_renderer_index_path } from "../../../src/main/ipc/helpers";
 import { fileURLToPath } from "node:url";
+import type { SessionRow } from "../../../src/main/core/session-history/subscription-service";
 
 const ipc_main_mock = vi.hoisted(() => ({
     handle: vi.fn(),
@@ -509,6 +510,88 @@ describe("session-history-ipc (t210)", () => {
             ],
             "秘密词",
         );
+    });
+
+    it("SEARCH_CONTENT 去重 metadata 与 candidate 重叠会话，不重复输出 (t354 AC-001)", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        // candidate 与 metadata 都含 s1（重叠）：candidate 来自枚举、metadata 来自
+        // search 过滤的 query_all_sessions。旧 includes 引用比较恒 false 导致重叠行
+        // 重复进 sessions；新 Set 判断按 key 去重。
+        const shared_session = {
+            id: "s1",
+            source: "claude_code",
+            env: "win",
+            title: "shared",
+            model: "sonnet",
+            started_at: 100,
+            ended_at: 200,
+            session: {
+                id: "s1",
+                source: "claude_code",
+                env: "win",
+                model: "sonnet",
+                title: "shared",
+                directory: "/x",
+                input_tokens: 1,
+                output_tokens: 2,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 1,
+                started_at: 100,
+                ended_at: 200,
+            },
+        };
+        // provider 首调（candidate 枚举）返回 s1；次调（metadata search 过滤）也返回 s1。
+        const sessions_provider = vi
+            .fn()
+            .mockReturnValueOnce([shared_session])
+            .mockReturnValueOnce([shared_session]);
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|s1"]));
+        await register(sessions_provider);
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { sources: ["claude_code"], search: "shared" },
+            keyword: "秘密词",
+        })) as { ok: boolean; data: { hits: string[]; sessions: { id: string }[] } };
+
+        expect(result.ok).toBe(true);
+        // 重叠行只输出一次。
+        expect(result.data.sessions.map((s) => s.id)).toEqual(["s1"]);
+    });
+
+    it("SEARCH_CONTENT 分页枚举有总量上限，不随会话库规模无限分页 (t354 AC-003)", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        // provider 永远返回满页（CONTENT_SEARCH_PAGE_SIZE=100）模拟无限库。
+        const full_page: SessionRow[] = Array.from({ length: 100 }, (_, i) => ({
+            id: `sess-${String(i)}`,
+            source: "claude_code",
+            env: "win" as SessionRow["env"],
+            title: null,
+            model: null,
+            started_at: i,
+            ended_at: 1000 - i,
+        }));
+        const sessions_provider = vi.fn().mockReturnValue(full_page);
+        service.searchContent.mockResolvedValue(new Set([]));
+        await register(sessions_provider);
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = await handler(valid_sender, {
+            filters: { sources: ["claude_code"], search: "x" },
+            keyword: "词",
+        });
+
+        expect((result as { ok: boolean }).ok).toBe(true);
+        // candidate 与 metadata 各一次枚举，每枚举在 cap(100_000) 处停止
+        // （100_000/100 = 1000 页 + 首页 = 1001 次）。断言有限次数证明不无限循环。
+        expect(sessions_provider.mock.calls.length).toBeLessThanOrEqual(2005);
     });
 
     it("SUMMARIES resolve 后调 service.summaries 并返回摘要映射", async () => {

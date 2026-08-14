@@ -109,6 +109,97 @@ describe("kimi_code extractor (t209)", () => {
         }
     });
 
+    it("半行写入：cursor 落在行中间时增量不丢该记录（t365 AC-001/AC-003）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-half-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            // 尾部半行无结尾换行（写入中断）
+            writeFileSync(
+                tmp_file,
+                '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"前段"}]},"time":1784990000000}\n' +
+                    '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"半行前半',
+            );
+            const full = extract_kimi_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            // 补全半行 + 追加新行
+            appendFileSync(
+                tmp_file,
+                '半"}]},"time":1785000000000}\n' +
+                    '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"新行"}]},"time":1785001000000}\n',
+            );
+            const inc = extract_kimi_code_incremental(tmp_file, full.cursor);
+
+            // 增量拿到补全的那条 + 新行，不丢记录（游标回退重读半行）。
+            const texts = inc.messages.map((m) => m.text);
+            expect(texts).toContain("半行前半半");
+            expect(texts).toContain("新行");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("UTF-8 多字节截断：字节 id 不错位、消息不丢（t365 AC-002）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-utf8-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            // 构造真多字节中间截断：截断在「文」（UTF-8 3 字节）的第 1 字节后（非完整字符边界）。
+            const full_line =
+                '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"中文';
+            const prefix_buf = Buffer.from(full_line, "utf-8");
+            // 定位「中」字符后的字节位置（「中」UTF-8 3 字节 + 文的第 1 字节）。
+            const text_marker = 'text":"中';
+            const marker_idx = full_line.indexOf(text_marker);
+            const byte_after_zh = Buffer.byteLength(
+                full_line.slice(0, marker_idx + text_marker.length),
+                "utf-8",
+            );
+            const cut = byte_after_zh + 1; // + 文的第 1 字节
+            const prefix = prefix_buf.subarray(0, cut);
+            writeFileSync(tmp_file, prefix);
+            const full = extract_kimi_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            // 补全（含「文」剩余 2 字节 + 测试 + 新行）
+            const rest = Buffer.concat([
+                Buffer.from([0x96, 0x87]), // 「文」UTF-8 后 2 字节
+                Buffer.from('测试"}]},"time":1785000000000}\n', "utf-8"),
+            ]);
+            appendFileSync(tmp_file, rest);
+            const inc = extract_kimi_code_incremental(tmp_file, full.cursor);
+
+            // 补全的消息完整提取，UTF-8 多字节不乱码；id 与全量重提取的同一行一致（不错位）。
+            expect(inc.messages).toHaveLength(1);
+            expect(inc.messages[0]?.text).toBe("中文测试");
+            const re_full = extract_kimi_code(tmp_file);
+            const tail = re_full.messages.slice(-1)[0];
+            expect(inc.messages[0]?.id).toBe(tail?.id);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("完整末行无尾换行：增量不重发该行、游标推进到文件末尾（t365）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-tail-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            // 完整两行，末行无结尾换行
+            writeFileSync(
+                tmp_file,
+                '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"前段"}]},"time":1784990000000}\n' +
+                    '{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"末行完整"}]},"time":1785000000000}',
+            );
+            const full = extract_kimi_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            // 无新增数据：增量不得重发已完整的末行。
+            const inc = extract_kimi_code_incremental(tmp_file, full.cursor);
+            expect(inc.messages).toEqual([]);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
     it("空文件不异常，返回空消息与 offset=0 游标", () => {
         const { messages, cursor } = extract_kimi_code(empty);
         expect(messages).toEqual([]);

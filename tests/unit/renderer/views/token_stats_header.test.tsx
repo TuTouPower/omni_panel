@@ -171,6 +171,27 @@ describe("TokenStatsView header single row (t312)", () => {
         ]) {
             expect(el.closest("[data-panel-titlebar]")).toBe(titlebar);
         }
+
+        // t380 AC-001: 导航按钮顺序固定「刷新 设置 用量 代理 会话」，刷新在首位。
+        // 排除筛选器/窗口控制按钮（center 插槽的 RangePicker 触发、Select 等无
+        // aria-label 的按钮），只取导航组（刷新 + 四面板切换 + 窗口控制）。
+        const nav_labels = new Set([
+            "刷新",
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+        ]);
+        const nav_buttons = Array.from(titlebar?.querySelectorAll("button") ?? [])
+            .map((b) => b.getAttribute("aria-label") ?? "")
+            .filter((label) => nav_labels.has(label));
+        expect(nav_buttons).toEqual([
+            "刷新",
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+        ]);
     });
 
     it("AC-001: 刷新时间（刷新中）在标题栏内渲染", async () => {

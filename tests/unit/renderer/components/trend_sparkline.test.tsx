@@ -62,26 +62,60 @@ describe("TrendSparkline", () => {
         expect(container.querySelector("polyline")).toBeNull();
     });
 
-    it("renders at most ~5 X-axis date labels regardless of point count", () => {
-        const data: (TrendPoint | null)[] = Array.from({ length: 14 }, (_, i) => ({
-            date: `2026-07-${String(i + 1).padStart(2, "0")}`,
-            percent: i * 5,
+    it("t383 AC-002: 7 天窗口 7 个日点、宽度足够时标签全显示（≥7）", () => {
+        const data: (TrendPoint | null)[] = Array.from({ length: 7 }, (_, i) => ({
+            date: `2026-07-${String(i + 1).padStart(2, "0")}T00:00Z`,
+            percent: i * 10,
         }));
         const { container } = render(<TrendSparkline data={data} />);
 
         const date_texts = Array.from(container.querySelectorAll("text")).filter((t) =>
             t.textContent.includes("-"),
         );
-        expect(date_texts.length).toBeLessThanOrEqual(5);
-        expect(date_texts.length).toBeGreaterThanOrEqual(2);
-        // First and last dates should still be labelled.
-        const first = date_texts[0];
-        const last = date_texts[date_texts.length - 1];
-        if (first === undefined || last === undefined) {
-            throw new Error("expected at least two date labels");
-        }
-        expect(first.textContent).toBe("07-01");
-        expect(last.textContent).toBe("07-14");
+        expect(date_texts.length).toBeGreaterThanOrEqual(7);
+        // 首尾标签仍在。
+        expect(date_texts[0]?.textContent).toBe("07-01");
+        expect(date_texts[date_texts.length - 1]?.textContent).toBe("07-07");
+    });
+
+    it("t383 AC-003: 点数远超宽度时标签节流，标签数小于点数", () => {
+        const data: (TrendPoint | null)[] = Array.from({ length: 120 }, (_, i) => ({
+            date: `2026-07-${String(Math.floor(i / 4) + 1).padStart(2, "0")}T00:00Z`,
+            percent: i % 100,
+        }));
+        const { container } = render(<TrendSparkline data={data} />);
+
+        const date_texts = Array.from(container.querySelectorAll("text")).filter((t) =>
+            t.textContent.includes("-"),
+        );
+        expect(date_texts.length).toBeLessThan(120);
+        expect(date_texts.length).toBeGreaterThan(1);
+    });
+
+    it("t383 AC-001: 同一 UTC 日内多点显示时刻 HH:mm，跨日期显示 MM-DD", () => {
+        const intraday: (TrendPoint | null)[] = [
+            { date: "2026-07-20T08:00Z", percent: 10 },
+            { date: "2026-07-20T10:00Z", percent: 20 },
+            { date: "2026-07-20T13:00Z", percent: 30 },
+        ];
+        const { container } = render(<TrendSparkline data={intraday} />);
+        const labels = Array.from(container.querySelectorAll("text"))
+            .map((t) => t.textContent)
+            .filter((s) => /^\d{2}:\d{2}$/.test(s));
+        expect(labels).toEqual(["08:00", "10:00", "13:00"]);
+
+        const { container: cross } = render(
+            <TrendSparkline
+                data={[
+                    { date: "2026-07-20T00:00Z", percent: 10 },
+                    { date: "2026-07-21T00:00Z", percent: 20 },
+                ]}
+            />,
+        );
+        const cross_labels = Array.from(cross.querySelectorAll("text"))
+            .map((t) => t.textContent)
+            .filter((s) => /^\d{2}-\d{2}$/.test(s));
+        expect(cross_labels).toEqual(["07-20", "07-21"]);
     });
 
     it("renders a date label for every point when there are 5 or fewer", () => {

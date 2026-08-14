@@ -107,4 +107,16 @@ describe("connector manifest contract", () => {
         const valid_cpa = connectorProviderSchema.safeParse("cpa");
         expect(valid_cpa.success).toBe(true);
     });
+
+    it("script-based connectors no longer need a dead poll segment (t363 AC-005)", async () => {
+        for (const provider of ["getoneapi", "glm", "tavily", "firecrawl", "minimax"]) {
+            const manifest = await load_manifest(join(CONNECTORS_DIR, provider));
+            expect(manifest, `${provider} manifest valid`).not.toBeNull();
+            if (!manifest) continue;
+            // poll 能力可由 script 满足（schema t363），poll 段已移除。
+            expect(manifest.poll).toBeUndefined();
+            expect(manifest.script).toBe("connector.ts");
+            expect(manifest.capabilities).toContain("poll");
+        }
+    });
 });

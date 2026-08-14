@@ -13,6 +13,7 @@ import {
     ClockArrowUp,
     CloudOff,
     Code,
+    CircleAlert,
     Download,
     ExternalLink,
     Eye,
@@ -68,7 +69,7 @@ import tavily_svg from "../assets/vendor_logos/tavily.svg";
 import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
 
 // 操作/导航图标统一来自 lucide-react（t274 收口手绘 SVG 图标集）。
-const UI_ICONS: Record<string, LucideIcon> = {
+const UI_ICONS = {
     refresh: RefreshCw,
     gear: Settings,
     more: MoreVertical,
@@ -118,7 +119,12 @@ const UI_ICONS: Record<string, LucideIcon> = {
     sun: Sun,
     moon: Moon,
     layers: Layers,
-};
+    // 登录/授权错误提示。
+    alert_circle: CircleAlert,
+} satisfies Record<string, LucideIcon>;
+
+/** t359 AC-002: 已注册图标名联合；chat_square 为手绘例外（见 ChatSquareIcon）。 */
+export type IconName = keyof typeof UI_ICONS | "chat_square";
 
 /**
  * t313: chat_square 例外恢复 t274 前手绘聊天气泡（p131）。t274 将操作图标
@@ -148,7 +154,7 @@ function ChatSquareIcon({ size }: { size: number }) {
 }
 
 interface IconProps {
-    name: string;
+    name: IconName;
     size?: number;
     strokeWidth?: number;
     color?: string;
@@ -172,7 +178,13 @@ export function Icon({
         return <ChatSquareIcon size={size} />;
     }
     const IconComponent = UI_ICONS[name];
+    // t359 AC-002: 运行时防御——外部动态 name 注入（绕过 tsc）时回空 SVG + dev 告警。
+    // eslint 因 tsc 收窄判恒假，此处属跨边界运行时防御，禁用该 lint。
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!IconComponent) {
+        if (import.meta.env.DEV) {
+            console.warn(`Icon: unregistered name "${name}"`);
+        }
         // 未知 name：保持空 SVG、不崩溃。
         return (
             <svg

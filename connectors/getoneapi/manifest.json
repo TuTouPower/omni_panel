@@ -23,13 +23,5 @@
     "endpoints": {
         "default": "https://api.getoneapi.com"
     },
-    "poll": {
-        "request": {
-            "endpoint": "default",
-            "path": "/back/user/balance",
-            "method": "POST"
-        },
-        "map": {}
-    },
     "script": "connector.ts"
 }

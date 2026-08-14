@@ -1,8 +1,8 @@
 import type { AppConfiguration } from "../../../../shared/types/config";
 import { AliasEditor } from "../../../components/AliasEditor";
-import { Select } from "../../../components/settings/Select";
+import { Select } from "../../../components/ui/Select";
 import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
-import { Toggle } from "../../../components/settings/Toggle";
+import { Switch } from "../../../components/ui/Switch";
 import { Input } from "../../../components/ui/Input";
 import {
     REFRESH_INTERVAL_OPTIONS,
@@ -52,9 +52,9 @@ export function GeneralSection({
         <>
             <SetGroupLabel>启动</SetGroupLabel>
             <SetRow title="开机时自动启动" sub="登录系统后在后台运行并驻留托盘">
-                <Toggle
-                    on={config.launchAtLogin}
-                    onClick={() => {
+                <Switch
+                    checked={config.launchAtLogin}
+                    onChange={() => {
                         void save_config({
                             ...config,
                             launchAtLogin: !config.launchAtLogin,
@@ -63,9 +63,9 @@ export function GeneralSection({
                 />
             </SetRow>
             <SetRow title="启动后最小化到托盘">
-                <Toggle
-                    on={minimizeToTray}
-                    onClick={() => {
+                <Switch
+                    checked={minimizeToTray}
+                    onChange={() => {
                         void save_config({
                             ...config,
                             minimizeToTray: !minimizeToTray,
@@ -78,29 +78,39 @@ export function GeneralSection({
             <SetRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
                 <Select
                     value={interval_label}
-                    onChange={(v) => {
+                    onChange={(e) => {
                         void save_config({
                             ...config,
-                            globalRefreshIntervalSeconds: refresh_label_to_seconds(v),
+                            globalRefreshIntervalSeconds: refresh_label_to_seconds(e.target.value),
                         });
                     }}
-                    options={REFRESH_INTERVAL_OPTIONS.map((opt) => opt.label)}
-                />
+                >
+                    {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                        <option key={opt.label} value={opt.label}>
+                            {opt.label}
+                        </option>
+                    ))}
+                </Select>
             </SetRow>
 
             <SetGroupLabel>诊断</SetGroupLabel>
             <SetRow title="日志等级" sub="Debug 记录最多，Info 适合日常诊断">
                 <Select
-                    ariaLabel="日志等级"
+                    aria-label="日志等级"
                     value={log_level_value_to_label(logLevel)}
-                    onChange={(v) => {
+                    onChange={(e) => {
                         void save_config({
                             ...config,
-                            logLevel: log_level_label_to_value(v),
+                            logLevel: log_level_label_to_value(e.target.value),
                         });
                     }}
-                    options={LOG_LEVEL_OPTIONS}
-                />
+                >
+                    {LOG_LEVEL_OPTIONS.map((o) => (
+                        <option key={o} value={o}>
+                            {o}
+                        </option>
+                    ))}
+                </Select>
             </SetRow>
 
             <SetGroupLabel>网络</SetGroupLabel>
@@ -135,19 +145,24 @@ export function GeneralSection({
             <SetRow title="用量面板打开方式" sub="左键托盘图标永远打开用量面板，外壳由这里决定">
                 <Select
                     value={main_panel_mode_value_to_label(mainPanelMode)}
-                    onChange={(v) => {
+                    onChange={(e) => {
                         void save_config({
                             ...config,
-                            mainPanelMode: main_panel_mode_label_to_value(v),
+                            mainPanelMode: main_panel_mode_label_to_value(e.target.value),
                         });
                     }}
-                    options={[...MAIN_PANEL_MODE_LABELS]}
-                />
+                >
+                    {MAIN_PANEL_MODE_LABELS.map((o) => (
+                        <option key={o} value={o}>
+                            {o}
+                        </option>
+                    ))}
+                </Select>
             </SetRow>
             <SetRow title="窗口始终置顶">
-                <Toggle
-                    on={pinToTop}
-                    onClick={() => {
+                <Switch
+                    checked={pinToTop}
+                    onChange={() => {
                         void save_config({ ...config, pinToTop: !pinToTop });
                     }}
                 />
@@ -159,28 +174,42 @@ export function GeneralSection({
                 >
                     <Select
                         value={floating_height_mode_value_to_label(floatingHeightMode)}
-                        onChange={(v) => {
+                        onChange={(e) => {
                             void save_config({
                                 ...config,
-                                floatingHeightMode: floating_height_mode_label_to_value(v),
+                                floatingHeightMode: floating_height_mode_label_to_value(
+                                    e.target.value,
+                                ),
                             });
                         }}
-                        options={[...FLOATING_HEIGHT_MODE_LABELS]}
-                    />
+                    >
+                        {FLOATING_HEIGHT_MODE_LABELS.map((o) => (
+                            <option key={o} value={o}>
+                                {o}
+                            </option>
+                        ))}
+                    </Select>
                 </SetRow>
             )}
             <SetRow title="界面语言">
                 <Select
                     value={language}
-                    onChange={on_language_change}
-                    options={["简体中文", "English", "跟随系统"]}
-                />
+                    onChange={(e) => {
+                        on_language_change(e.target.value);
+                    }}
+                >
+                    {["简体中文", "English", "跟随系统"].map((o) => (
+                        <option key={o} value={o}>
+                            {o}
+                        </option>
+                    ))}
+                </Select>
             </SetRow>
             <SetGroupLabel>其他</SetGroupLabel>
             <SetRow title="界面脱敏" sub="隐藏所有账号备注名（用量面板与设置面板）">
-                <Toggle
-                    on={config.uiDesensitizeRemarks === true}
-                    onClick={() => {
+                <Switch
+                    checked={config.uiDesensitizeRemarks === true}
+                    onChange={() => {
                         void save_config({
                             ...config,
                             uiDesensitizeRemarks: config.uiDesensitizeRemarks !== true,
@@ -235,8 +264,8 @@ export function GeneralSection({
                 >
                     <Select
                         value={`${String(config.convergentTimeMinutes ?? 30)} 分钟`}
-                        onChange={(v) => {
-                            const min = parseInt(v, 10);
+                        onChange={(e) => {
+                            const min = parseInt(e.target.value, 10);
                             if (!isNaN(min)) {
                                 void save_config({
                                     ...config,
@@ -244,8 +273,13 @@ export function GeneralSection({
                                 });
                             }
                         }}
-                        options={["10 分钟", "20 分钟", "30 分钟", "60 分钟", "120 分钟"]}
-                    />
+                    >
+                        {["10 分钟", "20 分钟", "30 分钟", "60 分钟", "120 分钟"].map((o) => (
+                            <option key={o} value={o}>
+                                {o}
+                            </option>
+                        ))}
+                    </Select>
                 </SetRow>
             )}
             <SetRow

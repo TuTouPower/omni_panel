@@ -6,17 +6,10 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "codex",
-    provider: "codex",
-    capabilities: ["local"],
-    parameters: [],
-    endpoints: {},
-    local: {
-        paths: ["~/.codex/sessions", "~/.codex/archived_sessions"],
-    },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "codex", "manifest.json"), "utf8"),
+) as Manifest;
 
 function make_jsonl(events: unknown[]): string {
     return events.map((e) => JSON.stringify(e)).join("\n") + "\n";
@@ -159,5 +152,135 @@ describe("codex connector", () => {
 
         expect(result.error).toBeNull();
         expect(result.observations[0]?.used).toBe(300);
+    });
+
+    it("skips oversized session files (t364 AC-001)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const valid_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 500 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const oversized = "x".repeat(5 * 1024 * 1024 + 1); // > MAX_FILE_CHARS
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "~/.codex/sessions/huge.jsonl": `${oversized}\n${valid_session}`,
+                "~/.codex/sessions/normal.jsonl": valid_session,
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        // 超大文件跳过解析：观测 used 精确来自 normal.jsonl（500），若 huge.jsonl
+        // 未被过滤则两文件并入 500+500=1000，此断言失败（t364 AC-001 真验证跳过）。
+        expect(result.observations[0]?.used).toBe(500);
+    });
+
+    it("skips non-jsonl files in session dirs (t364 AC-002)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const txt_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "txt-model" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 900 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const valid_session = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2026-06-14T12:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 500 } },
+                },
+                timestamp: "2026-06-14T12:10:00Z",
+            },
+        ]);
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "~/.codex/sessions/notes.txt": txt_session,
+                "~/.codex/sessions/rollout.jsonl": valid_session,
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        // 非 .jsonl 文件不被读取：txt-model 观测不存在，仅 gpt-5 产出（t364 AC-002）。
+        expect(result.observations.some((o) => o.raw_label === "txt-model")).toBe(false);
+        expect(result.observations.some((o) => o.raw_label === "gpt-5")).toBe(true);
+    });
+
+    it("buckets same model by day across year boundary (t377 AC-001)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const dec31 = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2026-12-31T23:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 1000 } },
+                },
+                timestamp: "2026-12-31T23:10:00Z",
+            },
+        ]);
+        const jan1 = make_jsonl([
+            {
+                type: "turn_context",
+                payload: { model: "gpt-5" },
+                timestamp: "2027-01-01T00:00:00Z",
+            },
+            {
+                type: "response.completed",
+                payload: {
+                    type: "token_count",
+                    info: { total_token_usage: { total_tokens: 2000 } },
+                },
+                timestamp: "2027-01-01T00:10:00Z",
+            },
+        ]);
+
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx({
+                "~/.codex/sessions/year-1.jsonl": dec31,
+                "~/.codex/sessions/year-2.jsonl": jan1,
+            }),
+        );
+
+        expect(result.error).toBeNull();
+        // day_key 跨年正确 → 12-31 与 01-01 分不同桶，各一个 gpt-5 观测；
+        // 若 day_key 月/年算错合并为同日，只剩 1 个（used 相加），此断言必挂。
+        const gpt5 = result.observations.filter((o) => o.raw_label === "gpt-5");
+        expect(gpt5).toHaveLength(2);
+        expect(gpt5.map((o) => o.used).sort()).toEqual([1000, 2000]);
     });
 });

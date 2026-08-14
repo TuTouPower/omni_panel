@@ -42,10 +42,6 @@ function risk_projected_level(
     return "green";
 }
 
-export function usage_window_elapsed(elapsed: number | undefined): number | undefined {
-    return elapsed;
-}
-
 /* t274: 风险色档位 → 语义 token（旧 --risk-* 兼容桥已删除）。 */
 const RISK_TOKENS: Record<"green" | "yellow" | "orange" | "red", string> = {
     green: "var(--color-success)",

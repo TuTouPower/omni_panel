@@ -296,6 +296,64 @@ describe("net-client", () => {
         );
     });
 
+    it("large error body count comes from content-length header, not full body read (t372 AC-002)", async () => {
+        const bad = createServer((_req, res) => {
+            res.on("error", () => undefined);
+            // 声明 3MB 但只发 64B：若实现读 body 计数会得 64，3MB 计数只能来自
+            // content-length 头——证明超大错误 body 未读满即丢弃。
+            res.writeHead(500, { "Content-Type": "application/json", "content-length": "3145728" });
+            res.end('{"trace":"count-from-header"}');
+        });
+        try {
+            await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+            const addr = bad.address() as { port: number };
+            const ctx = create_connector_context(
+                {
+                    ...get_test_manifest(),
+                    endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                },
+                vault,
+                "test-1",
+                {},
+            );
+            await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow(
+                /HTTP 500: request failed \(3145728 bytes\)/,
+            );
+        } finally {
+            bad.closeAllConnections();
+            bad.close();
+        }
+    });
+
+    it("large chunked error body is not read past the small cap (t372 AC-002)", async () => {
+        const bad = createServer((_req, res) => {
+            res.on("error", () => undefined);
+            // chunked（无 content-length）超大 body：read_body_with_limit 在 1MB 处破坏流
+            res.writeHead(500, { "Content-Type": "application/octet-stream" });
+            res.write(Buffer.alloc(2 * 1024 * 1024, 0x61));
+            res.end();
+        });
+        try {
+            await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+            const addr = bad.address() as { port: number };
+            const ctx = create_connector_context(
+                {
+                    ...get_test_manifest(),
+                    endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                },
+                vault,
+                "test-1",
+                {},
+            );
+            await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow(
+                /Response body exceeds 1048576 bytes/,
+            );
+        } finally {
+            bad.closeAllConnections();
+            bad.close();
+        }
+    });
+
     it("uses endpoint override", async () => {
         const ctx = create_connector_context(
             { ...get_test_manifest(), endpoints: { default: "http://127.0.0.1:1" } },
@@ -526,7 +584,9 @@ describe("net-client", () => {
                 timeout_ms: 500,
             });
             const start = Date.now();
-            await expect(ctx.http.get_json("default", "/hang")).rejects.toThrow();
+            // t371 AC-002: 超时 abort reason 含 timeout 字样——下游 is_timeout_error
+            // 分类依赖（原裸 AbortError 无 timeout 无法识别）。
+            await expect(ctx.http.get_json("default", "/hang")).rejects.toThrow(/timed? out/i);
             expect(Date.now() - start).toBeLessThan(5000);
         });
 

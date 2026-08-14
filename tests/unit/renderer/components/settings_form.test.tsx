@@ -118,6 +118,47 @@ describe("SettingsForm", () => {
         expect(alert).toHaveTextContent("保存失败：网络错误");
     });
 
+    it("distinguishes committed account stage when a later save step fails (t356 AC-004)", async () => {
+        // onSave（账号配置）成功，但 onSaveLabelMap（标签映射）失败——文案须注明
+        // 「账号已保存」而非笼统报「保存失败」。
+        window.usageboard.connector.getState = vi.fn().mockResolvedValue({
+            status: "ready",
+            updatedAt: "2026-06-28T00:00:00.000Z",
+            items: [
+                {
+                    provider: "opencode_go",
+                    raw_label: "rolling",
+                    normalized_label: "滚动",
+                },
+            ],
+        });
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const onSaveLabelMap = vi.fn().mockRejectedValue(new Error("label map write failed"));
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="opencode-go-1"
+                providerId="opencode_go"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+                onSaveLabelMap={onSaveLabelMap}
+            />,
+        );
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const input = await screen.findByDisplayValue("滚动");
+        await user.clear(input);
+        await user.type(input, "自定义标签");
+        await user.click(screen.getByTestId("settings-save-btn-opencode-go-1"));
+        const alert = await screen.findByRole("alert");
+        expect(alert.textContent).toContain("账号已保存");
+        expect(alert.textContent).toContain("label map write failed");
+    });
+
     it("does not render duplicate button when onDuplicate is not provided", async () => {
         await renderForm();
         expect(screen.queryByTestId("settings-duplicate-btn-deepseek")).not.toBeInTheDocument();

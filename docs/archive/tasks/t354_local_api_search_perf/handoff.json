@@ -1,0 +1,27 @@
+{
+    "tid": "t354",
+    "attempt": 1,
+    "execution_id": "7b65eb117da4438590765e917ea58400",
+    "status": "done",
+    "branch": "t354_local_api_search_perf",
+    "base_sha": "97878b405a6e8632430acf934d63b7e1641f37d7",
+    "tests": "t354 相关 11 测试文件 240 passed / 1 skipped（ipc 19/subscription-service 27/server integration 82 + 其余 session-history 面）",
+    "blackbox": "typecheck + lint + prettier 通过；纯 main 进程搜索/枚举逻辑，无 electron 运行黑盒，以 ipc/subscription 集成单测断言代替",
+    "review": "single；Round 1 general PASS（4 minor：f001 includes 恒 true 注释与事实不符已修 / f002 超限静默截断登记 p172 / f003 存储层两次枚举各 cap / f004 RECENT limit 无上界登记 p173）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/ipc/session-history-ipc.test.ts::SEARCH_CONTENT 去重 metadata 与 candidate 重叠会话，不重复输出（重叠行 sessions 只输出一次）通过",
+            "server.ts / session-history-ipc.ts 合并循环改 metadata_keys Set（key of source|env|id）替代 metadata_rows.includes 对象引用比较"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/session-history/subscription-service.test.ts::recent_sessions 传 {source, env, limit, offset: 0} 给 provider（断言 received 含 limit=120、返回 120 条）通过",
+            "subscription-service.recent_sessions 改传 filters 对象而非 (source, env)，避免 provider 默认 limit=100 截断"
+        ],
+        "AC-003": [
+            "tests/unit/ipc/session-history-ipc.test.ts::SEARCH_CONTENT 分页枚举有总量上限，不随会话库规模无限分页（满页 provider，断言枚举调用次数 ≤ 2005，cap 100_000 生效）通过",
+            "server.ts / session-history-ipc.ts 分页枚举加 SEARCH_ENUM_CAP=100_000 上限；abort 支持已有（res close / content_search_controllers）"
+        ]
+    },
+    "pending": ["p172_session_search_cap_truncated_hint", "p173_recent_limit_validation"],
+    "findings": []
+}

@@ -176,10 +176,20 @@ export function create_session_manager(
                             return;
                         }
 
-                        await deps.vault.set(
-                            keyFor(instance_id, SESSION_COOKIE_KEY),
-                            captured_cookie,
-                        );
+                        try {
+                            await deps.vault.set(
+                                keyFor(instance_id, SESSION_COOKIE_KEY),
+                                captured_cookie,
+                            );
+                        } catch (save_err) {
+                            // t367 AC-003: cookie 已捕获但保存失败——包装可读错误，
+                            // 用户可区分「未捕获」与「保存失败」。
+                            throw new Error(
+                                `登录成功但保存失败，请重试：${
+                                    save_err instanceof Error ? save_err.message : String(save_err)
+                                }`,
+                            );
+                        }
                         log.info(`Session cookie saved for ${instance_id}`);
                         resolve({ saved: true });
                     } catch (error) {

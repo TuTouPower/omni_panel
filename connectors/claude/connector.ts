@@ -45,8 +45,10 @@ function pct(value: number | undefined): number {
 async function main(): Promise<ScriptObservation[]> {
     let credentials: ClaudeCredentials;
     try {
+        // t363 AC-004: 读 ctx.params.data_dir（manifest 契约，默认 ~/.claude），不再硬编码路径。
+        const data_dir = (ctx.params["data_dir"] ?? "~/.claude").replace(/\/+$/, "");
         credentials = JSON.parse(
-            await ctx.files.read("~/.claude/.credentials.json"),
+            await ctx.files.read(`${data_dir}/.credentials.json`),
         ) as ClaudeCredentials;
     } catch {
         return [];

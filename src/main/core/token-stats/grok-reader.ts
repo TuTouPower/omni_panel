@@ -75,6 +75,11 @@ export interface GrokScanResult {
      * The collector warns once per source instead of every poll (t197 AC5).
      */
     missing: boolean;
+    /**
+     * t345 AC-001: 部分文件 stat/read 失败（非目录缺失）。true 时仍返回已
+     * 解析部分（sessions/daily/records），collector 报 failed 而非 unavailable。
+     */
+    file_unreadable: boolean;
 }
 
 export function create_grok_scan_state(): GrokScanState {
@@ -408,6 +413,7 @@ export function scan_grok_updates(
             records: [],
             new_state: prev,
             missing: true,
+            file_unreadable: false,
         };
     }
 
@@ -503,5 +509,14 @@ export function scan_grok_updates(
         }
     }
 
-    return { sessions, daily, records, new_state, missing: file_unreadable };
+    // t345 AC-001: missing 仅指目录缺失；部分文件不可读时仍返回已解析部分，
+    // 由 file_unreadable 标记供 collector 报 failed（而非 unavailable 丢弃全部）。
+    return {
+        sessions,
+        daily,
+        records,
+        new_state,
+        missing: false,
+        file_unreadable,
+    };
 }

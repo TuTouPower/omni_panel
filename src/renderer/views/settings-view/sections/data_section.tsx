@@ -2,7 +2,7 @@ import type { AppConfiguration } from "../../../../shared/types/config";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
-import { Select } from "../../../components/settings/Select";
+import { Select } from "../../../components/ui/Select";
 
 export function DataSection({
     config,
@@ -33,7 +33,8 @@ export function DataSection({
             <SetRow title="本地缓存上限" sub="历史趋势数据占用的最大空间，超出后自动清理最旧记录">
                 <Select
                     value={cacheMaxMb === 0 ? "不限制" : `${String(cacheMaxMb)} MB`}
-                    onChange={(v) => {
+                    onChange={(e) => {
+                        const v = e.target.value;
                         if (v === "不限制") {
                             void save_config({ ...config, cacheMaxMb: 0 });
                             return;
@@ -43,10 +44,15 @@ export function DataSection({
                             void save_config({ ...config, cacheMaxMb: mb });
                         }
                     }}
-                    options={["50 MB", "100 MB", "200 MB", "500 MB", "不限制"]}
-                />
+                >
+                    {["50 MB", "100 MB", "200 MB", "500 MB", "不限制"].map((o) => (
+                        <option key={o} value={o}>
+                            {o}
+                        </option>
+                    ))}
+                </Select>
             </SetRow>
-            <SetRow title="本地用量缓存" sub="历史趋势数据 · 占用 4.2 MB（暂未开放）">
+            <SetRow title="本地用量缓存" sub="历史趋势数据 · 暂未开放">
                 <Button variant="secondary" size="sm" disabled>
                     暂未开放
                 </Button>

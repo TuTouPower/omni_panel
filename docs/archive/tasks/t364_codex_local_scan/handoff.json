@@ -1,0 +1,23 @@
+{
+    "tid": "t364",
+    "attempt": 1,
+    "execution_id": "88f701bb2862471dba2ab69f75302226",
+    "status": "done",
+    "branch": "t364_codex_local_scan",
+    "base_sha": "345e739dea95c2ba34c9c02ca533ba109b8c9f20",
+    "tests": "全部 connector 22 文件 239 passed（含新增：codex 超大文件跳过 / 非 jsonl 跳过）",
+    "blackbox": "typecheck + eslint 全绿；prettier 本 task 文件干净",
+    "review": "single；Round 1 general FAIL（f001 测试恒真 / f002 命名）→ Round 2 general PASS（f001 改精确断言变异验证真区分 / f002 改名 MAX_FILE_CHARS / f003 注释过期已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "codex/connector.ts 超大文件（> MAX_FILE_BYTES=5MB）跳过解析，扫描成本有界",
+            "tests/integration/connector/codex-connector.test.ts::skips oversized session files（超大 + 正常文件并存，正常产出）通过"
+        ],
+        "AC-002": [
+            "codex/connector.ts list 后只处理 .jsonl 扩展名，非目标文件不 read",
+            "tests/integration/connector/codex-connector.test.ts::skips non-jsonl files in session dirs（notes.txt 跳过，rollout.jsonl 产出）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

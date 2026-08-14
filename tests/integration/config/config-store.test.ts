@@ -907,4 +907,27 @@ describe("config-store", () => {
             }
         });
     });
+
+    it("t379: save then load preserves tokenStats block", async () => {
+        const configPath = join(tempDir, "config.json");
+        const store = createConfigStore(configPath);
+        const with_token_stats: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [],
+            launchAtLogin: false,
+            tokenStats: {
+                pollIntervalMinutes: 5,
+                wslEnabled: false,
+                wslDistro: "Ubuntu-24.04",
+                wslUser: "alice",
+            },
+        };
+        await store.save(with_token_stats);
+        // 新 store 实例冷缓存 load：走磁盘 re-parse（schema strip 处），非命中
+        // 内存缓存——同一 store 的 load 会返回 save 原对象，mutation 不敏感。
+        const cold_store = createConfigStore(configPath);
+        const reloaded = await cold_store.load();
+        expect(reloaded.tokenStats).toEqual(with_token_stats.tokenStats);
+    });
 });

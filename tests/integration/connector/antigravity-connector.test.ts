@@ -41,11 +41,13 @@ describe("antigravity connector", () => {
         expect(raw.capabilities).toContain("local");
     });
 
-    it("connector script loads and returns empty observations (stub)", async () => {
+    it("connector script is a stub and reports not-supported instead of silent empty (t362 AC-002)", async () => {
         const script = await readFile(join("connectors", "antigravity", "connector.ts"), "utf8");
         const raw = JSON.parse(await readFile(manifest_path, "utf8")) as Manifest;
         const result = await run_connector(raw, script, create_ctx());
+        // 占位 stub 明确报「暂不支持」，不静默空数据误导为可用。
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("暂不支持");
         expect(result.observations).toEqual([]);
-        expect(result.error).toBeNull();
     });
 });

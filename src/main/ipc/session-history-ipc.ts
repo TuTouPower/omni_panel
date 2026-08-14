@@ -67,6 +67,8 @@ function loc_of(source: string, env: string, session_id: string): SessionLoc {
 }
 
 const CONTENT_SEARCH_PAGE_SIZE = 100;
+/** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
+const SEARCH_ENUM_CAP = 100_000;
 
 function key_of(row: SessionRow): string {
     return `${row.source}|${row.env}|${row.id}`;
@@ -92,7 +94,7 @@ function query_all_sessions(
     let offset = 0;
     let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
     rows.push(...page);
-    while (page.length === CONTENT_SEARCH_PAGE_SIZE) {
+    while (page.length === CONTENT_SEARCH_PAGE_SIZE && rows.length < SEARCH_ENUM_CAP) {
         offset += CONTENT_SEARCH_PAGE_SIZE;
         page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
         rows.push(...page);
@@ -287,12 +289,16 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                     : await deps.service.searchContent(resolved_locs, request.keyword);
                 if (controller.signal.aborted) return ok({ hits: [], sessions: [] });
                 const hit_keys = new Set(hits);
+                // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原
+                // includes 对 metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），
+                // 语义等价（同引用必有同 key）。
+                const metadata_keys = new Set(metadata_rows.map(key_of));
                 const response_sessions: TokenStatsSession[] = [];
                 const response_keys = new Set<string>();
                 for (const row of [...metadata_rows, ...candidate_rows]) {
                     const key = key_of(row);
                     if (response_keys.has(key)) continue;
-                    if (metadata_rows.includes(row) || (row.session && hit_keys.has(key))) {
+                    if (metadata_keys.has(key) || (row.session && hit_keys.has(key))) {
                         response_keys.add(key);
                         if (row.session) response_sessions.push(row.session);
                     }

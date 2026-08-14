@@ -1,10 +1,28 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PathLike } from "node:fs";
+import type * as NodeFs from "node:fs";
 import * as fs from "node:fs";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { utimesSync } from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+
+// Intercept readFileSync so one specific path can be made to throw, proving the
+// unreadable-file branch of t345 AC-002 deterministically (same pattern as
+// claude/grok reader tests).
+const read_fail_path = vi.hoisted(() => ({ current: null as string | null }));
+vi.mock("node:fs", async (importOriginal) => {
+    const actual = await importOriginal<typeof NodeFs>();
+    return {
+        ...actual,
+        readFileSync: (p: PathLike, opts?: unknown) => {
+            if (read_fail_path.current !== null && String(p) === read_fail_path.current) {
+                throw new Error("EACCES: file locked");
+            }
+            return (actual.readFileSync as (p: PathLike, opts?: unknown) => unknown)(p, opts);
+        },
+    };
+});
 import type { TokenStatsEnv } from "../../../../../src/shared/types/token-stats";
 import {
     create_kimi_scan_state,
@@ -317,5 +335,24 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.records).toEqual([]);
         expect(result.sessions).toEqual([]);
         expect(result.daily).toEqual([]);
+    });
+
+    it("retries a file whose read failed on the next scan (t345 AC-002)", () => {
+        const index = write_index(tmp, [{ sessionId: "s1", workDir: "/work/a" }]);
+        const file = write_wire(sessions_dir, "wd_retry", "s1", [usage_record({})]);
+        touch(file, T0);
+
+        read_fail_path.current = file;
+        let first: ReturnType<typeof scan_kimi_wire_jsonls>;
+        try {
+            first = scan_kimi_wire_jsonls(sessions_dir, ENV, index, create_kimi_scan_state());
+            expect(first.records).toHaveLength(0);
+            expect(first.new_state.mtimes.has(file)).toBe(false);
+        } finally {
+            read_fail_path.current = null;
+        }
+
+        const second = scan_kimi_wire_jsonls(sessions_dir, ENV, index, first.new_state);
+        expect(second.records).toHaveLength(1);
     });
 });

@@ -189,6 +189,60 @@ describe("local-api", () => {
         expect(res.status).toBe(413);
     });
 
+    it("keep-alive connection stays reusable after a 413 (t355 AC-001)", async () => {
+        // 同一 keep-alive 连接先发超限 body 触发 413 + req.resume，再发正常请求
+        // 验证连接未被悬死（若 413 后 req 停留 paused，第二请求会挂起）。用原生
+        // http.request + 单 socket agent 复用同一连接。
+        const http = await import("node:http");
+        await api.start();
+        const port = api.get_port();
+        const api_token = api.get_token();
+        const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+        const request = (body: string) =>
+            new Promise<{ status: number; body: string }>((resolve, reject) => {
+                const req = http.request(
+                    {
+                        host: "127.0.0.1",
+                        port,
+                        path: "/v1/ingest",
+                        method: "POST",
+                        agent,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${api_token}`,
+                        },
+                    },
+                    (res) => {
+                        const chunks: Buffer[] = [];
+                        res.on("data", (c: Buffer) => chunks.push(c));
+                        res.on("end", () => {
+                            resolve({
+                                status: res.statusCode ?? 0,
+                                body: Buffer.concat(chunks).toString(),
+                            });
+                        });
+                    },
+                );
+                req.on("error", reject);
+                req.end(body);
+            });
+        const too_large = await request("x".repeat(1024 * 1024 + 1));
+        expect(too_large.status).toBe(413);
+        // 同一连接上第二个请求须在有限时间内完成（5s 超时兜底防挂死）。
+        const second = await Promise.race([
+            request(
+                '{"provider":"tavily","source_instance_id":"t-1","account_id":"a","account_label":"T","metric_id":"m","raw_label":"r","normalized_label":"n","window":"month","used":1,"limit":2,"display_style":"ratio","reset_at":null,"status":"normal","source":"wrapper"}',
+            ),
+            new Promise<never>((_, rej) => {
+                setTimeout(() => {
+                    rej(new Error("connection hung after 413"));
+                }, 5000);
+            }),
+        ]);
+        expect(second.status).toBe(200);
+        agent.destroy();
+    });
+
     it("ingest rejects invalid body", async () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/ingest`, {
@@ -1123,6 +1177,43 @@ describe("local-api web read endpoints", () => {
         );
     });
 
+    it.each([
+        ["/v1/records", "start", "abc"],
+        ["/v1/records", "start", ""],
+        ["/v1/records", "start", "NaN"],
+        ["/v1/records", "end", "abc"],
+        ["/v1/heatmap", "start", "abc"],
+        ["/v1/heatmap", "end", "abc"],
+        ["/v1/hourBuckets", "start", "abc"],
+        ["/v1/hourBuckets", "end", "abc"],
+        ["/v1/rollup", "start", "abc"],
+        ["/v1/rollup", "end", "abc"],
+        ["/v1/sessions", "start_at", "abc"],
+        ["/v1/sessions", "end_at", "abc"],
+        ["/v1/sessions", "limit", "abc"],
+        ["/v1/sessions", "offset", "abc"],
+    ])(
+        "GET %s with invalid numeric param ?%s=%s returns 400 (t353 AC-001)",
+        async (path, param, value) => {
+            await api.start();
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}${path}?${param}=${encodeURIComponent(value)}`,
+            );
+            expect(res.status).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({
+                error: `Invalid parameter: ${param}`,
+            });
+        },
+    );
+
+    it("GET /v1/sessions accepts valid numeric params (t353 AC-001 happy path)", async () => {
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=0&offset=5`,
+        );
+        expect(res.status).toBe(200);
+    });
+
     it("GET /v1/dashboard forwards an optional model filter (t204)", async () => {
         const dispatcher = {
             request_dashboard: vi.fn(),
@@ -1467,6 +1558,21 @@ describe("local-api web read endpoints", () => {
         expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     });
 
+    it("GET / 畸形 percent 编码返回 400 非 500 (t355 AC-003)", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/%zz`);
+        expect(res.status).toBe(400);
+        await expect(res.json()).resolves.toMatchObject({ error: "Invalid URL encoding" });
+    });
+
+    it("GET / 非 .html 资产带 immutable 缓存头 (t355 AC-004)", async () => {
+        await writeFile(join(web_root, "app.js"), "console.log('x')");
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/app.js`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    });
+
     it("GET /v1/connectors JSON 响应带 nosniff（p124）", async () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);
@@ -1717,6 +1823,23 @@ describe("local-api session history endpoints (t259)", () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory`);
         expect(res.status).toBe(400);
+    });
+
+    it("GET /v1/sessionHistory rejects limit=0/negative/non-numeric with 400 (t353 AC-002)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        for (const limit of ["0", "-1", "abc"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=${limit}`,
+            );
+            expect(res.status).toBe(400);
+        }
+        // limit 解析失败时 service.query 不应被调用。
+        expect(service.query).not.toHaveBeenCalled();
     });
 
     it("GET /v1/sessionHistory returns 404 for an unresolvable session", async () => {
@@ -2006,6 +2129,62 @@ describe("local-api session history endpoints (t259)", () => {
             expect(raw).toContain("event: messagesUpdated");
             expect(raw).toContain('"session_id":"sess-1"');
             expect(raw).toContain('"text":"world"');
+            await reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("POST /v1/sessionHistory/subscribe 重复 subscriber_id 注销旧 watcher (t355 AC-002)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?subscriberId=web-sse-dup`);
+            expect(sse_res.status).toBe(200);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+            const do_subscribe = (session_id: string) =>
+                fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "local",
+                        session_id,
+                        subscriber_id: "web-sse-dup",
+                    }),
+                });
+            const first = await do_subscribe("sess-1");
+            expect(first.status).toBe(200);
+            expect(service.subscribe).toHaveBeenCalledTimes(1);
+            // 同一 subscriber_id 重复 subscribe（同 loc）：旧 watcher 须先注销。
+            const second = await do_subscribe("sess-1");
+            expect(second.status).toBe(200);
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "local",
+                "sess-1",
+                "web-sse-dup",
+            );
+            expect(service.subscribe).toHaveBeenCalledTimes(2);
             await reader.cancel();
         } finally {
             await sub_api.stop();

@@ -144,6 +144,25 @@ export function create_token_stats_query_dispatcher(
         child.postMessage({ type: "init", db_path: deps.db_path });
     }
 
+    /** queued 请求成为 active 时重置其超时 timer（t351 AC-003：timer 只在
+     * 发送/激活后生效，避免 active 慢请求拖久后 queued 一发送即误报超时）。
+     * 自身超时回调提升下一条 queued 时同样走本函数，使链式提升也重置 timer。 */
+    function promote_to_active(p: PendingQuery): void {
+        if (p.timer) clearTimeout(p.timer);
+        p.timer = setTimeout(() => {
+            active = null;
+            p.reject(new QueryTimeoutError());
+            if (queued) {
+                const next = queued;
+                queued = null;
+                promote_to_active(next);
+            }
+        }, request_timeout_ms);
+        p.timer.unref();
+        active = p;
+        send(p);
+    }
+
     function settle(request_id: number, outcome: WorkerOutcome): void {
         // Stale responses (request superseded/timed out meanwhile) are dropped.
         if (active?.request_id === request_id) {
@@ -156,8 +175,7 @@ export function create_token_stats_query_dispatcher(
         if (queued) {
             const next = queued;
             queued = null;
-            active = next;
-            send(next);
+            promote_to_active(next);
         }
     }
 
@@ -224,8 +242,9 @@ export function create_token_stats_query_dispatcher(
                         if (queued) {
                             const next = queued;
                             queued = null;
-                            active = next;
-                            send(next);
+                            // t351 AC-003: promote 重置 timer（queued 激活后重新
+                            // 计时，不继承已走完的入队等待时间）。
+                            promote_to_active(next);
                         }
                     } else if (queued?.request_id === p.request_id) {
                         queued = null;
