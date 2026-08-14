@@ -750,8 +750,11 @@ function read_rollup_from_window_rows(
     join_title: boolean,
 ): DashboardRollupRow[] {
     const title_select = join_title ? "m.title AS title" : "NULL AS title";
+    // t387 AC-001: session_meta 同 session 跨多 directory 时每 directory 一行，
+    // LEFT JOIN 只按 session 会放大 SUM。归一去重取每 session 一行（title 是
+    // 窗口级最新，同 session 各行一致），window_rows 每行只匹配一行。
     const join_clause = join_title
-        ? "LEFT JOIN session_meta m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
+        ? "LEFT JOIN (SELECT source, env, session_id, title FROM session_meta GROUP BY source, env, session_id) m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
         : "";
     const rows = prepare(
         `SELECT w.source, w.env, w.model, w.directory, w.session_id,
@@ -773,12 +776,25 @@ function dashboard_session_page_from_meta(
     offset: number,
     limit: number,
 ): { total: number; rows: Record<string, unknown>[] } {
-    const total = (prepare("SELECT COUNT(*) AS total FROM session_meta").get() as { total: number })
-        .total;
+    // t387 AC-003: 同 session 跨多 directory 时 session_meta 多行，会话列表
+    // 按 session 归一去重，calls/tokens 跨 directory SUM 聚合（非取任一行——
+    // 否则跨 directory 会话显示部分值，与 summary 矛盾）。
+    const total = (
+        prepare(
+            "SELECT COUNT(*) AS total FROM (SELECT source, env, session_id FROM session_meta GROUP BY source, env, session_id)",
+        ).get() as { total: number }
+    ).total;
     const rows = prepare(
-        `SELECT source, env, session_id, title, directory, started_at, ended_at,
-            calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+        `SELECT source, env, session_id,
+            MAX(title) AS title, MAX(directory) AS directory,
+            MIN(started_at) AS started_at, MAX(ended_at) AS ended_at,
+            SUM(calls) AS calls,
+            SUM(input_tokens) AS input_tokens,
+            SUM(output_tokens) AS output_tokens,
+            SUM(cache_read_tokens) AS cache_read_tokens,
+            SUM(cache_write_tokens) AS cache_write_tokens
          FROM session_meta
+         GROUP BY source, env, session_id
          ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
     ).all({ limit, offset }) as Record<string, unknown>[];
     return { total, rows };

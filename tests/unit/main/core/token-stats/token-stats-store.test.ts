@@ -2222,6 +2222,81 @@ describe("token-stats-store", () => {
             });
         }
 
+        it("t387 AC-001: 同 session 跨多 directory rollup ready 汇总 == records 路径（不放大）", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                // 同 session s9 跨两 directory，各 1 条 record（calls=1+1=2）。
+                store.upsert_records([
+                    record({
+                        message_id: "x1",
+                        session_id: "s9",
+                        directory: "/proj/a",
+                        timestamp: t("2026-07-10T08:30:00"),
+                    }),
+                    record({
+                        message_id: "x2",
+                        session_id: "s9",
+                        directory: "/proj/b",
+                        timestamp: t("2026-07-10T09:30:00"),
+                    }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const before = store.query_dashboard(query, status);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const after = store.query_dashboard(query, status);
+                // 修复前 rollup ready 输出翻倍（JOIN 放大），修复后两路径一致。
+                expect(after.current).toEqual(before.current);
+                expect(after.current.calls).toBe(2);
+                store.close();
+            });
+        });
+
+        it("t387 AC-003: 同 session 跨多 directory 会话列表只出现一次", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({
+                        message_id: "x1",
+                        session_id: "s9",
+                        directory: "/proj/a",
+                        timestamp: t("2026-07-10T08:30:00"),
+                    }),
+                    record({
+                        message_id: "x2",
+                        session_id: "s9",
+                        directory: "/proj/b",
+                        timestamp: t("2026-07-10T09:30:00"),
+                    }),
+                ]);
+                store.backfill_hour_rollup();
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const dto = store.query_dashboard(query, status);
+                const sessions = dto.sessions.items.filter((s) => s.session_id === "s9");
+                // 会话列表去重：s9 只出现一次（修复前两 directory 各一行重复）。
+                expect(sessions).toHaveLength(1);
+                // 跨 directory 聚合：calls=2（非单 directory 的部分值）。
+                expect(sessions[0]?.calls).toBe(2);
+                store.close();
+            });
+        });
+
         it("union dual-source path filters every region by model after backfill (t204)", () => {
             with_temp_store((db_path) => {
                 const store = create_token_stats_store(db_path);

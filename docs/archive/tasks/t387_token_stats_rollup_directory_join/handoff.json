@@ -1,0 +1,26 @@
+{
+    "tid": "t387",
+    "attempt": 1,
+    "execution_id": "6e6f8739b3b04b788ff83796b45ca22d",
+    "status": "done",
+    "branch": "t387_token_stats_rollup_directory_join",
+    "base_sha": "f38ba45f879383dc83ef342589e0d304b91366dc",
+    "tests": "vitest token-stats 全量 14 文件 300 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: read_rollup_from_window_rows LEFT JOIN 改子查询按 session 归一去重取 title——同 session 跨多 directory 不 JOIN 放大。AC-002: 单 directory 既有测试全绿。AC-003: dashboard_session_page_from_meta GROUP BY 去重 + SUM 聚合跨 directory calls/tokens（非取任一行低估）。mutation（JOIN 去重移除 + 聚合移除）各 1 failed 验证",
+    "review": "full 级：Round 1 code FAIL（f001 important 会话列表聚合缺失）/ test PASS（f001 minor）→ Round 2 code PASS（f002 directory 展示语义→p184）/ test PASS；check_review_status overall=PASS / review_scope=ok / round=2",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/token-stats/token-stats-store.ts::read_rollup_from_window_rows LEFT JOIN 子查询按 session 归一去重",
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::t387 AC-001 同 session 跨两 directory rollup ready == records 路径（calls=2）通过"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::matches the records fallback after backfill（单 directory s1-s4）全绿"
+        ],
+        "AC-003": [
+            "src/main/core/token-stats/token-stats-store.ts::dashboard_session_page_from_meta GROUP BY source/env/session_id 去重",
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::t387 AC-003 会话列表 s9 只出现一次 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
