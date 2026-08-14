@@ -1,4 +1,4 @@
-import { appendFile, copyFile, mkdir, readdir, rename, stat, unlink } from "node:fs/promises";
+import { copyFile, mkdir, open, readdir, rename, stat, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
     addTransport,
@@ -85,29 +85,81 @@ export async function initLogging(
     const maxSegments = options.maxSegments ?? MAX_SEGMENTS;
 
     let currentSegment = await getCurrentSegmentCount(logDir, logFile);
-    const size_warned_files = new Set<string>();
+    let log_fd: Awaited<ReturnType<typeof open>> | null = null;
+    let cached_size = 0;
+    let writes_since_stat = 0;
+    let writes_since_segment_warn = 0;
+    let segment_warn_issued = false;
+    // t376 AC-001: size 检查不再每条 stat——缓存字节累计，每 SIZE_STAT_INTERVAL
+    // 条校准一次（fd 持久复用，eliminate 每日志 open/write/close）。
+    const SIZE_STAT_INTERVAL = 32;
+    // t376 AC-002: 段数达上限后不再静默跳过——每 SEGMENT_WARN_INTERVAL 条周期性
+    // 重新 warn，持续错误期间诊断信息不丢。
+    const SEGMENT_WARN_INTERVAL = 100;
     let pending_write = Promise.resolve();
+
+    async function ensure_log_fd(): Promise<NonNullable<typeof log_fd>> {
+        if (log_fd) return log_fd;
+        log_fd = await open(logFile, "a");
+        const s = await log_fd.stat();
+        cached_size = s.size;
+        writes_since_stat = 0;
+        return log_fd;
+    }
+
+    async function close_log_fd(): Promise<void> {
+        if (log_fd) {
+            await log_fd.close().catch(() => undefined);
+            log_fd = null;
+        }
+    }
 
     setLogLevel(options.logLevel ?? defaultLogLevelForEnv());
 
     const removeFileTransport = addTransport(
         createFileTransport(
             (line) => {
+                const payload = line + "\n";
                 pending_write = pending_write.then(async () => {
                     try {
-                        const s = await stat(logFile).catch(() => undefined);
-                        if (s && s.size >= maxLogFileBytes) {
+                        const fd = await ensure_log_fd();
+                        if (writes_since_stat >= SIZE_STAT_INTERVAL) {
+                            const s = await stat(logFile).catch(() => undefined);
+                            if (s) {
+                                cached_size = s.size;
+                            } else {
+                                // t376 AC-002/AC-001: stat 失败（文件被外部删除）时
+                                // 关 fd 下次重开、缓存回落，避免永久 skip。
+                                await close_log_fd();
+                                cached_size = 0;
+                            }
+                            writes_since_stat = 0;
+                        } else {
+                            writes_since_stat += 1;
+                        }
+                        if (cached_size >= maxLogFileBytes) {
                             // The active file counts as one segment, so rotation is only
                             // allowed while the total would remain within the limit.
                             if (currentSegment >= maxSegments - 1) {
-                                if (!size_warned_files.has(logFile)) {
-                                    size_warned_files.add(logFile);
-                                    createLogger("logging").warn(
-                                        `Log file exceeded ${String(maxLogFileBytes / 1024 / 1024)}MB and reached the segment limit (${String(maxSegments)}), skipping further writes: ${logFile}`,
+                                // t376 AC-002: 首次达上限立即 warn，之后每
+                                // SEGMENT_WARN_INTERVAL 条重新 warn，不静默丢失诊断。
+                                writes_since_segment_warn += 1;
+                                if (
+                                    !segment_warn_issued ||
+                                    writes_since_segment_warn >= SEGMENT_WARN_INTERVAL
+                                ) {
+                                    segment_warn_issued = true;
+                                    writes_since_segment_warn = 0;
+                                    // 日志文件已满无处落盘；经 createLogger 会再次进
+                                    // file transport 写路径 → skip→warn 递归自增殖，
+                                    // 直接 console 输出诊断。
+                                    console.warn(
+                                        `[logging] Log file exceeded ${String(maxLogFileBytes / 1024 / 1024)}MB and reached the segment limit (${String(maxSegments)}), skipping further writes: ${logFile}`,
                                     );
                                 }
                                 return;
                             }
+                            await close_log_fd();
                             const nextSegment = currentSegment + 1;
                             const segmentPath = logFile.replace(
                                 /\.log$/,
@@ -115,15 +167,28 @@ export async function initLogging(
                             );
                             await rename(logFile, segmentPath);
                             currentSegment = nextSegment;
+                            // t376 AC-002: rotate 后段限解除，重置首标记——再次写满
+                            // 达上限时首次 skip 立即 warn（否则等 100 条才诊断）。
+                            segment_warn_issued = false;
+                            writes_since_segment_warn = 0;
+                            const rotated_fd = await ensure_log_fd();
+                            cached_size = 0;
+                            await rotated_fd.write(payload);
+                            cached_size += Buffer.byteLength(payload);
+                            return;
                         }
-                        await appendFile(logFile, line + "\n", "utf8");
+                        await fd.write(payload);
+                        cached_size += Buffer.byteLength(payload);
                     } catch {
-                        // Ignore write errors
+                        // 写错误忽略；fd 可能失效（如磁盘满后重试），close 后下次重开，
+                        // 避免持续失败下每次泄漏一个 OS fd。
+                        await close_log_fd();
                     }
                 });
             },
             async () => {
                 await pending_write;
+                await log_fd?.sync().catch(() => undefined);
             },
         ),
     );
@@ -143,5 +208,6 @@ export async function initLogging(
         await pending_write;
         removeFileTransport();
         removeConsoleTransport?.();
+        await close_log_fd();
     };
 }

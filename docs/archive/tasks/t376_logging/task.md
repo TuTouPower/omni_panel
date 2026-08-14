@@ -2,11 +2,11 @@
 tid: "t376"
 slug: "logging"
 title: "日志系统性能/健壮性"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t376_logging"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "77b3b74fb6e1139c929a7ac9da9b7c3ccf8a5805"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: stat+appendFile/段数跳过/scrub 双序列化"
@@ -44,14 +44,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 02:15 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t376_gen_f001  | critical | 已修   | warn 经 file transport 回环自增殖：skip 分支改 console.warn 直接输出 + 计数改首标记/周期语义 | src/main/core/logging.ts:147-160 |
+| t376_gen_f002  | important | 已修   | AC-002 测试断言过弱：改 warn 次数 2~4 + open 只调 1 次（防递归放大），mock stat 补同源 | tests/unit/main/logging-transport.test.ts:112-119 |
+| t376_gen_f003  | important | 已修   | 写失败 catch 直接置 null 泄漏 fd：改 await close_log_fd() | src/main/core/logging.ts:185-187 |
+| t376_gen_f004  | minor    | 已修   | stat 失败 cached_size 不回落致永久 skip：失败分支 close fd + 回落 0 | src/main/core/logging.ts:130-136 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 02:21 UTC+8)
+
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t376_gen_f005  | minor    | 已修   | rotate 后 segment_warn_issued 不重置：rename 后同步重置首标记+计数 | src/main/core/logging.ts:170-174 |
 
 ## 收尾报告
 
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 持久 fd/周期 stat + AC-002 周期 warn，均列于 `handoff.json` 的 `ac_evidence`（含 f001-f005 三轮修复）
 
 ### Reviewer verdict
 
@@ -69,15 +75,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL（f001-f004）
+- Round 2 general：PASS（f005 minor 新发现）
+- Round 3 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 文件 transport 持久 fd + 周期 stat，段限周期 warn；三轮 review 5 finding 全消除，11 测试全绿。
