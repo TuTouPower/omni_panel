@@ -13,6 +13,12 @@ export interface RawHttpResponse {
 
 export interface ConnectorContext {
     readonly trace_id?: string;
+    /**
+     * t371 预留：脚本执行超时信号。当前 runtime 未填充（vm timeout 只断同步执行，
+     * 异步残留 promise 不可经 signal 取消），AC-001 由 runtime 的超时冷却机制
+     * 实现（超时结算后冷却期内拒绝同 manifest 新执行）。
+     */
+    readonly signal?: AbortSignal;
     readonly log: {
         debug(message: string, meta?: unknown): void;
         info(message: string, meta?: unknown): void;

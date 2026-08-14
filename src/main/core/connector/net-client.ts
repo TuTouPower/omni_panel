@@ -216,7 +216,11 @@ export async function build_request_context(
     const effective_timeout = options.timeout_ms ?? options.default_timeout_ms;
     const abort_controller = new AbortController();
     const timeout_id = setTimeout(() => {
-        abort_controller.abort();
+        // t371 AC-002: abort reason 带明确 timeout 字样——下游 is_timeout_error 分类
+        // 依赖（原裸 AbortError「This operation was aborted」无 timeout 无法识别）。
+        abort_controller.abort(
+            new Error(`HTTP request timed out after ${String(effective_timeout)}ms`),
+        );
     }, effective_timeout);
 
     return {
