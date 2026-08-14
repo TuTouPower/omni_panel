@@ -456,6 +456,34 @@ describe("TokenStatsView dashboard query", () => {
         expect(prefs.model).toBe("sonnet");
     });
 
+    it("t384 AC-006: prefs 残留 raw key 在 aliases 到达后归一为展示名", async () => {
+        localStorage.setItem(
+            "token-stats-prefs",
+            JSON.stringify({ model: "__secondary__", agent: "all", platform: "all" }),
+        );
+        get_config.mockResolvedValue({
+            config: {
+                modelAliases: [{ alias: "deepseek-v4-flash", models: ["__secondary__"] }],
+            },
+            hasSecrets: {},
+        });
+        const multi = dashboard("multi");
+        multi.models = ["deepseek-v4-flash", "__secondary__"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        await waitFor(() => {
+            const prefs = JSON.parse(localStorage.getItem("token-stats-prefs") ?? "{}") as {
+                model?: string;
+            };
+            expect(prefs.model).toBe("deepseek-v4-flash");
+        });
+        // 下拉选中值也归一为展示名
+        const select = screen.getByLabelText<HTMLSelectElement>("模型筛选");
+        expect(select.value).toBe("deepseek-v4-flash");
+    });
+
     it("model filter is part of the dashboard query cache key (t204)", async () => {
         const multi = dashboard("multi");
         multi.models = ["opus", "sonnet"];
@@ -540,7 +568,7 @@ describe("TokenStatsView dashboard query", () => {
         expect(options).toContain("opus");
     });
 
-    it("maps model dropdown display text through modelAliases while keeping query value as original model name (t230)", async () => {
+    it("t384 AC-003: model dropdown value=label=展示名，查询 model=展示名（不反翻译原始 key）", async () => {
         get_config.mockResolvedValue({
             config: {
                 modelAliases: [{ alias: "Sonnet", models: ["claude-3-5-sonnet-20241022"] }],
@@ -555,16 +583,19 @@ describe("TokenStatsView dashboard query", () => {
         await screen.findByTestId("session-records");
 
         const select = screen.getByLabelText<HTMLSelectElement>("模型筛选");
-        const sonnetOption = [...select.options].find(
-            (option) => option.value === "claude-3-5-sonnet-20241022",
-        );
+        const sonnetOption = [...select.options].find((option) => option.value === "Sonnet");
         expect(sonnetOption).toBeDefined();
+        // t384: value 与 label 均为展示名（dashboard.models 已是 resolver 后值），
+        // 不再反翻成原始 key claude-3-5-sonnet-20241022。
         expect(sonnetOption?.textContent).toBe("Sonnet");
+        expect([...select.options].some((o) => o.value === "claude-3-5-sonnet-20241022")).toBe(
+            false,
+        );
 
-        await user.selectOptions(select, "claude-3-5-sonnet-20241022");
+        await user.selectOptions(select, "Sonnet");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenLastCalledWith(
-                expect.objectContaining({ model: "claude-3-5-sonnet-20241022" }),
+                expect.objectContaining({ model: "Sonnet" }),
             );
         });
     });
