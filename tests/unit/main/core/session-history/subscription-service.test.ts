@@ -183,6 +183,36 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(last?.[0]?.text).toBe("好的");
     });
 
+    it("文件被截断重写时游标重置走全量，不丢新内容（t367 AC-002）", async () => {
+        const file = join(tmp_dir, "truncate.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "旧一" }) + "\n");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        // 追加使游标推进。
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "旧二" }) + "\n");
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        const received: HistoryMessage[][] = [];
+        const sub_id = service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "trunc1",
+            file_path: file,
+            extractor_kind: "grok",
+            on_update: (msgs) => {
+                received.push([...msgs]);
+            },
+        });
+        expect(sub_id).toBe("grok|wsl|trunc1");
+        await new Promise((resolve) => setTimeout(resolve, 60));
+
+        // 截断重写为更小内容（size 回退）：游标 offset 指向旧 size 之前。
+        writeFileSync(file, JSON.stringify({ type: "user", content: "全新内容" }) + "\n");
+        await wait_for(() => received.length >= 1);
+
+        // size 回退触发 cursor 重置全量——推送新内容而非旧 offset 错位。
+        const all = received.flat().map((m) => m.text);
+        expect(all).toContain("全新内容");
+    });
+
     it("grok 增量推送 id 延续全量命名空间，不与已推送 id 冲突（p050）", async () => {
         const file = join(tmp_dir, "chat_history_id.jsonl");
         writeFileSync(

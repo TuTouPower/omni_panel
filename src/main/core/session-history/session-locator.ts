@@ -37,6 +37,9 @@ const log = createLogger("session-locator");
 /** 进程内缓存条目 = 磁盘索引条目（含 paths_key 签名）。 */
 type ResolutionCacheEntry = SessionIndexEntry;
 
+// t367: 本模块为进程级单例（模块级可变状态 + 函数导出），非实例化工厂。
+// 单例约束：应用生命周期内只有一个 session-locator；index_dir 切换由
+// ensure_session_index 按 loaded_dir 重新加载。多实例化需重构为工厂（当前无需求）。
 /** 进程内加速缓存（含 paths_key）；跨重启由持久索引恢复（按 index_dir 隔离）。 */
 const resolution_cache = new Map<string, ResolutionCacheEntry>();
 /** 磁盘持久索引（当前 index_dir 的内存态）。 */
