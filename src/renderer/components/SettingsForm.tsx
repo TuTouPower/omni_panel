@@ -18,7 +18,7 @@ import { Switch } from "./ui/Switch";
 import { DeviceLoginSection } from "./DeviceLoginSection";
 import { WebLoginSection } from "./WebLoginSection";
 import { SessionSection } from "./SessionSection";
-import { SecretInput } from "./SecretInput";
+import { SecretInput } from "./ui/SecretInput";
 import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
 import type { AuthDescriptor } from "../../shared/schemas/auth";
 import { format_cookie_login_error, poll_cookie_login } from "../lib/cookie_login_poll";
@@ -467,8 +467,11 @@ export function SettingsForm({
                             id={param.name}
                             name={param.name}
                             value={secret_values[param.name] ?? ""}
-                            onChange={(v) => {
-                                set_secret_values((prev) => ({ ...prev, [param.name]: v }));
+                            onChange={(e) => {
+                                set_secret_values((prev) => ({
+                                    ...prev,
+                                    [param.name]: e.target.value,
+                                }));
                             }}
                             placeholder={
                                 secrets_loaded

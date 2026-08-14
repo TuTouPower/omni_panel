@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "../Icon";
 import { Input } from "../ui/Input";
-import { SecretInput } from "../SecretInput";
+import { SecretInput } from "../ui/SecretInput";
 
 export interface ApiKeyFormProps {
     readonly account_name: string;
@@ -45,7 +45,14 @@ export function ApiKeyForm({ account_name, set_account_name, form_ref }: ApiKeyF
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     API 密钥
                 </label>
-                <SecretInput name="api_key" value={key} onChange={set_key} placeholder="sk-…" />
+                <SecretInput
+                    name="api_key"
+                    value={key}
+                    onChange={(e) => {
+                        set_key(e.target.value);
+                    }}
+                    placeholder="sk-…"
+                />
                 <div className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     <Icon name="lock" size={12} strokeWidth={1.8} />
                     密钥仅加密保存在本地

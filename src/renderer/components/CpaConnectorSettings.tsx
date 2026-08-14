@@ -5,7 +5,7 @@ import { Select } from "./ui/Select";
 import { Switch } from "./ui/Switch";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
-import { SecretInput } from "./SecretInput";
+import { SecretInput } from "./ui/SecretInput";
 import type { ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration } from "../../shared/types/config";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
@@ -331,7 +331,9 @@ export function CpaConnectorSettings({
                         name="cpa_mgmt_key"
                         aria-label="管理密钥"
                         value={secret}
-                        onChange={setSecret}
+                        onChange={(e) => {
+                            setSecret(e.target.value);
+                        }}
                     />
                 </div>
 

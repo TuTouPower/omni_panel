@@ -4,7 +4,7 @@ import type { AddAccountParams } from "../AddAccountDialog";
 import type { AddServiceId } from "../../lib/common-services";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { SecretInput } from "../SecretInput";
+import { SecretInput } from "../ui/SecretInput";
 
 export interface CpaMgmtFormProps {
     readonly vendor_id: AddServiceId;
@@ -78,7 +78,9 @@ export function CpaMgmtForm({
                 <SecretInput
                     name="cpa_mgmt_key"
                     value={key}
-                    onChange={set_key}
+                    onChange={(e) => {
+                        set_key(e.target.value);
+                    }}
                     placeholder="cpa-…"
                 />
                 <div className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
