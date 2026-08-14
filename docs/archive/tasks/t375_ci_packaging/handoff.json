@@ -1,0 +1,26 @@
+{
+    "tid": "t375",
+    "attempt": 1,
+    "execution_id": "955b791414834835b2c0cd82f896eb57",
+    "status": "done",
+    "branch": "t375_ci_packaging",
+    "base_sha": "dcfd08302cc45724b7127bb7bcac2cce5cdadf45",
+    "tests": "vitest run tests/unit/main/scripts/package-and-run.test.ts：2 passed；tsc --noEmit exit 0；eslint 两文件 --max-warnings=0 通过；prettier --write 无剩余",
+    "blackbox": "package-and-run 单测 2/2：mock execSync 中途抛错断言 finally 恢复 ABI、成功路径末次调用为恢复；CI workflow 改动（shell:bash / rpm 删行）为 [deploy] 推送后验证",
+    "review": "single 级 general：Round 1 PASS（f001 README rpm 过期引用已同步删除；check_review_status overall=PASS / review_scope=ok）",
+    "ac_evidence": {
+        "AC-001": [
+            ".github/workflows/nightly.yml::Verify step 显式 shell: bash——windows runner 自带 bash，`test -d out` 不再经 pwsh 解析失败（[deploy] 推送后生效）"
+        ],
+        "AC-002": [
+            ".github/workflows/release.yml::上传清单与发布清单均删除 artifacts/*.rpm——生产 electron-builder.yml linux target 仅 AppImage+deb，不产出 rpm"
+        ],
+        "AC-003": [
+            "tests/unit/main/scripts/package-and-run.test.ts::restores Node ABI even when build fails midway：mock 打包段抛错，断言 finally 恢复 ABI 被调 通过",
+            "tests/unit/main/scripts/package-and-run.test.ts::restores Node ABI on the success path：末次 execSync 为 ensure_sqlite_abi.mjs node 通过",
+            "scripts/package-and-run.ts::run_package_build 打包段包进 try/finally，finally 恢复 Node ABI"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
