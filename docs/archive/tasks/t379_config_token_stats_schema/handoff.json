@@ -1,0 +1,24 @@
+{
+    "tid": "t379",
+    "attempt": 1,
+    "execution_id": "2c2d131a297e48febc7c03062a2d2119",
+    "status": "done",
+    "branch": "t379_config_token_stats_schema",
+    "base_sha": "7e2f7e2add166ad98028a07c8e95c0d883dbc39d",
+    "tests": "vitest config-schema 14 + config-store 31 + import-config 8 passed；tsc --noEmit exit 0；eslint 三文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001/AC-002: appConfigurationSchema 补 tokenStats 子对象（与类型对齐，pollIntervalMinutes 无 min 防毁 config），zod 不再 strip 丢块；config-schema t379 parse 保留 + config-store 冷缓存 save→load 保留（mutation 双敏感，真删 schema 两用例均挂）",
+    "review": "full 级：Round 1 code FAIL（f001 缓存假绿 + f002 schema 过严）/ test FAIL（f001 缓存假绿 + f002 minor 遗留 p178）→ Round 2 code PASS / test PASS；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/config/types.ts::appConfigurationSchema 补 tokenStats 子对象（pollIntervalMinutes/wslEnabled/wslDistro/wslUser 全 optional）——zod object 不再 strip 未知键",
+            "tests/unit/config/config-schema.test.ts::t379 preserves tokenStats block through parse 通过",
+            "tests/integration/config/config-store.test.ts::t379 save then load preserves tokenStats block 通过"
+        ],
+        "AC-002": [
+            "tests/integration/config/config-store.test.ts::save(含 tokenStats) → load 断言 tokenStats 保留 通过",
+            "src/main/index.ts:434-443::build_token_stats_config 读取 cfg.tokenStats（wslEnabled/wslDistro/wslUser/pollIntervalMinutes），持久化值现可被读到"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

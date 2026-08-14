@@ -2,11 +2,11 @@
 tid: "t379"
 slug: "config_token_stats_schema"
 title: "config tokenStats 字段 schema 缺失"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t379_config_token_stats_schema"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "7e2f7e2add166ad98028a07c8e95c0d883dbc39d"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 类型有 schema 无 strip 丢失"
@@ -44,14 +44,18 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 03:08 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t379_code_f001 | important | 已修   | store 集成用例命中内存缓存假绿（load 返回 save 原对象不经 schema）：改新 store 实例冷缓存 load，mutation 敏感 | tests/integration/config/config-store.test.ts:911-932 |
+| t379_code_f002 | minor    | 已修   | pollIntervalMinutes min(1) 严于类型：去 min(1) 对齐 number，历史越界值不再毁整份 config | src/main/core/config/types.ts:117-128 |
+| t379_test_f001 | important | 已修   | 同上（test 轴复核冷缓存 mutation 敏感） | tests/integration/config/config-store.test.ts:911-932 |
+| t379_test_f002 | minor    | 遗留   | AC-002 第二分句 build_token_stats_config 读取无直接覆盖（index.ts 未导出闭包，平凡属性访问，无独立失败模式） | p178 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 03:15 UTC+8)
+
+- 复核：code PASS（f001/f002 消除，`.int()` 残留标 scope 外观察）；test PASS（f001 消除，f002 维持 minor）。两轴无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +64,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（schema 补 tokenStats，parse 保留）+ AC-002（store 冷缓存 save→load 保留）均列于 `handoff.json` 的 `ac_evidence`，mutation 双敏感
 
 ### Reviewer verdict
 
@@ -69,15 +73,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：FAIL（f001 缓存假绿 + f002 schema 过严）
+- Round 1 test：FAIL（f001 缓存假绿 + f002 minor）
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- appConfigurationSchema 补 tokenStats 子对象，strip 不再丢；45 测试全绿，code/test 双轴 2 轮 PASS。
