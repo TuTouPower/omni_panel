@@ -800,7 +800,7 @@ describe("collector", () => {
             expect(mock_scan_kimi).toHaveBeenCalled();
         });
 
-        it("advances the truncation cursor across rounds so no session is lost (t345 AC-003)", () => {
+        it("advances the truncation cursor across rounds so no session is lost (t345 AC-003 + t385 AC-001)", () => {
             // claude_costs 恒返回 20000 sessions（单源持续超限）。
             const sessions = Array.from({ length: 20000 }, (_, i) =>
                 upsert({ id: `s${String(i)}` }),
@@ -812,14 +812,16 @@ describe("collector", () => {
             });
             configure(base_config);
 
-            // 首轮：发前 10000，游标 = 10000。
+            // 首轮：发前 10000，游标身份集合含 s0..s9999。
             let update = mock_post_message.mock.calls.find(
                 (c) => (c[0] as { type?: string }).type === "token_stats_update",
             )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(10000);
-            expect(source_cursors.get("claude_costs_local")?.sessions).toBe(10000);
+            const cursor = source_cursors.get("claude_costs_local");
+            expect(cursor?.sessions.size).toBe(10000);
+            expect(cursor?.sessions.has("s0")).toBe(true);
 
-            // 第二轮：跳过已发出的 10000，发 10001-20000。
+            // 第二轮：跳过已发出的 s0..s9999（身份集合），发 s10000..。
             mock_post_message.mockClear();
             collect();
             update = mock_post_message.mock.calls.find(
@@ -836,6 +838,71 @@ describe("collector", () => {
             )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(0);
             expect(source_cursors.has("claude_costs_local")).toBe(false);
+        });
+
+        it("t385 AC-002: 截断期间新会话排序在游标前仍被扫描入列（身份键非位置计数）", () => {
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            // 首轮 20000 截断；第二轮 reader 排序序中插入新会话 aa（排在 s0 前）。
+            mock_read_costs
+                .mockReturnValueOnce({
+                    sessions,
+                    new_offset: 200000,
+                    new_size: 200000,
+                })
+                .mockReturnValueOnce({
+                    sessions: [upsert({ id: "aa" }), ...sessions],
+                    new_offset: 200000,
+                    new_size: 200000,
+                });
+            configure(base_config);
+
+            let update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(10000);
+            // 首轮游标 = {s0..s9999}（身份键）
+            expect(source_cursors.get("claude_costs_local")?.sessions.has("s0")).toBe(true);
+
+            // 第二轮：位置计数会跳过 aa（排在最前），身份键不误跳 → aa 被推入。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions.some((s) => (s as { id?: string }).id === "aa")).toBe(true);
+        });
+
+        it("t385 AC-003: postMessage 失败按快照恢复游标（轮前值保留），下轮续推不重发已入列前缀", () => {
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            mock_read_costs.mockReturnValue({
+                sessions,
+                new_offset: 200000,
+                new_size: 200000,
+            });
+            configure(base_config);
+            // 首轮成功：截断，游标 = {s0..s9999}。
+            expect(source_cursors.get("claude_costs_local")?.sessions.size).toBe(10000);
+
+            // 第二轮 postMessage 抛错。
+            mock_post_message.mockClear();
+            mock_post_message.mockImplementationOnce(() => {
+                throw new Error("port gone");
+            });
+            collect();
+            // 快照恢复：游标回到轮前值（s0..s9999 仍在，非删除）。
+            expect(source_cursors.get("claude_costs_local")?.sessions.size).toBe(10000);
+
+            // 第三轮续推 s10000..，不重发 s0..s9999（幂等）。
+            mock_post_message.mockClear();
+            collect();
+            const third = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(third.sessions[0]).toMatchObject({ id: "s10000" });
         });
 
         it("rolls back the truncation cursor on postMessage failure (t345 AC-004/f009)", () => {
