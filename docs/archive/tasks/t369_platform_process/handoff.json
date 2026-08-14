@@ -1,0 +1,31 @@
+{
+    "tid": "t369",
+    "attempt": 1,
+    "execution_id": "0a1e8330a01c415dbd9905afafcc3b96",
+    "status": "done",
+    "branch": "t369_platform_process",
+    "base_sha": "9e77a188fa7bbb23703de49555e21a242010f43c",
+    "tests": "全量 262 文件 3114 passed / 9 skipped（含新增：UA 推导三平台 / about linux 映射）",
+    "blackbox": "typecheck + eslint + prettier 通过；AC-001/002 为脚本行为（Linux 环境 package-and-run），[deploy] 验证",
+    "review": "single；Round 1 general PASS（2 minor：f001 iOS UA 误判 darwin 已修排除 iPhone/iPad/iPod、f002 pgrep 自匹配前史非本 task）",
+    "ac_evidence": {
+        "AC-001": [
+            "package-and-run.ts kill_omni/wait_for_exit/force kill Linux 分支 pkill/pgrep 改用小写 omni_panel（原 OmniPanel 大小写不匹配杀不掉旧实例）",
+            "Linux 真实进程行为 [deploy] 人工验证（context 有意不测）"
+        ],
+        "AC-002": [
+            "package-and-run.ts Linux 分支去 >nul（win 专属重定向），sleep 用 sleep 1，不再在根目录生成 nul 文件",
+            "Linux 运行验证 [deploy]"
+        ],
+        "AC-003": [
+            "about_section.tsx 三平台映射（darwin→macOS / linux→Linux / 其他→Windows），arch x64 省略",
+            "tests/unit/renderer/views/settings_view_general.test.tsx::shows Linux platform in about section on linux（platform=linux → 文本含 Linux）通过"
+        ],
+        "AC-004": [
+            "usageboard-web.ts web_platform 从 navigator.userAgent 推导（Mac→darwin / Win→win32 / 其他→linux），原硬编码 win32",
+            "tests/unit/web/usageboard-web.test.ts::web platform derives from the real host UA（Linux/Mac/Win UA → linux/darwin/win32）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

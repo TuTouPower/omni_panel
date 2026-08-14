@@ -982,4 +982,25 @@ describe("web usageboard bridge", () => {
             );
         });
     });
+
+    it("web platform derives from the real host UA (t369 AC-004)", () => {
+        const cases: [string, string][] = [
+            ["Mozilla/5.0 (X11; Linux x86_64)", "linux"],
+            ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "darwin"],
+            ["Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "win32"],
+            // iOS UA 含 "Mac OS X"——不得误判 darwin（t369 f001 修复）。
+            [
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+                "linux",
+            ],
+        ];
+        for (const [ua, expected] of cases) {
+            Object.defineProperty(window.navigator, "userAgent", {
+                configurable: true,
+                value: ua,
+            });
+            const api = create_web_usageboard();
+            expect(api.platform).toBe(expected);
+        }
+    });
 });
