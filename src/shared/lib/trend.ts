@@ -9,7 +9,8 @@ export interface TrendPoint {
  * 把 observation-store.query_trend_series 返回的观测序列(可含 null)
  * 归一为 `({ date, percent } | null)[]`。
  *
- * - `observed_at` 转 UTC `YYYY-MM-DD`
+ * - `observed_at` 转 UTC ISO `YYYY-MM-DDTHH:mmZ`（t383 AC-001：保留时刻，同一
+ *    UTC 日内不同时刻的点可区分；旧实现只留 `YYYY-MM-DD` 丢时分）
  * - `percent = clamp(round(used/limit*100), 0, 100)`
  * - **`display_style` 不影响 percent**:无论 percent 型(used=30, limit=100)
  *   还是 ratio 型(used=0.3, limit=1.0)都按 `used/limit*100` 归一。
@@ -37,7 +38,7 @@ export function build_trend_series(
         }
         const ratio = used / limit;
         const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
-        return { date: format_utc_date(new Date(obs.observed_at)), percent };
+        return { date: format_utc_iso(new Date(obs.observed_at)), percent };
     });
 }
 
@@ -45,4 +46,13 @@ export function format_utc_date(d: Date): string {
     return `${String(d.getUTCFullYear())}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
         d.getUTCDate(),
     ).padStart(2, "0")}`;
+}
+
+/** t383 AC-001: UTC ISO 时刻串 `YYYY-MM-DDTHH:mmZ`，供序列保留观测时刻。 */
+export function format_utc_iso(d: Date): string {
+    const pad = (v: number) => String(v).padStart(2, "0");
+    return (
+        `${String(d.getUTCFullYear())}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}` +
+        `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z`
+    );
 }
