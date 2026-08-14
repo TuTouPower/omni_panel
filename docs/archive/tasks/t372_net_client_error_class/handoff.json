@@ -1,0 +1,23 @@
+{
+    "tid": "t372",
+    "attempt": 1,
+    "execution_id": "c641ed6fb29b4ee4b7c1d3e11ed5f452",
+    "status": "done",
+    "branch": "t372_net_client_error_class",
+    "base_sha": "18586e50a915e182ff28c3992b21854452a098b5",
+    "tests": "vitest run tests/integration/connector/net-client.test.ts：40 passed；tsc --noEmit exit 0；eslint 两改动文件 --max-warnings=0 通过；prettier --write 无变化",
+    "blackbox": "net-client 单测 40/40 通过（含新增 AC-002 两用例：content-length 声明 3MB 只发 64B 断言计数取头部得 3145728；chunked 2MB 无 content-length 断言 1MB 处破坏流）；既有 AC-001 超时用例保持通过；typecheck/lint/format 全绿",
+    "review": "single 级 general：Round 1 PASS（f001 设计取舍经 reviewer 追加撤回记录，check_review_status overall=PASS / review_scope=ok）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/connector/net-client.test.ts::total timeout describe：aborts request when total timeout elapses on hanging server 断言超时错误含 timeout 字样 通过（t371 已实现 abort reason，t372 用例验证）"
+        ],
+        "AC-002": [
+            "tests/integration/connector/net-client.test.ts::large error body count comes from content-length header, not full body read：声明 3MB 错误 body 计数取头部得 3145728、未读满 body 通过",
+            "tests/integration/connector/net-client.test.ts::large chunked error body is not read past the small cap：无 content-length 的 2MB 错误 body 在 1MB 处破坏流 通过",
+            "src/main/core/connector/net-client.ts::错误路径 MAX_ERROR_BODY_BYTES=1MB 读取 + content-length 声明超限直接 destroy 不读"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
