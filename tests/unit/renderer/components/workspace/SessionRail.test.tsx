@@ -142,4 +142,31 @@ describe("SessionRail t257 展示调整", () => {
             expect(b.textContent.trim()).toBe("+ 添加会话");
         }
     });
+
+    it("t381 AC-001：侧边栏用混色背景，不含桌面衬底色 surface", () => {
+        const { container } = render(<SessionRail {...base} />);
+        const rail = container.querySelector(".session-rail");
+        const cls = rail?.className ?? "";
+        expect(cls).toContain("color-mix");
+        expect(cls).toContain("var(--color-surface-window)");
+        expect(cls).not.toContain("bg-[var(--color-surface)]");
+    });
+
+    it("t381 AC-002：非空槽位卡片用 surface-card，不含 surface-window", () => {
+        const { container } = render(<SessionRail {...base} />);
+        const slot = container.querySelector(".session-slot:not(.session-slot-empty)");
+        const cls = slot?.className ?? "";
+        expect(cls).toContain("var(--color-surface-card)");
+        expect(cls).not.toContain("bg-[var(--color-surface-window)]");
+    });
+
+    it("t381 AC-004：空槽位保持 bg-transparent + dashed 边框", () => {
+        const { container } = render(
+            <SessionRail {...base} slots={empty_slots()} collapsed={false} />,
+        );
+        const empty = container.querySelector(".session-slot-empty");
+        const cls = empty?.className ?? "";
+        expect(cls).toContain("bg-transparent");
+        expect(cls).toContain("border-dashed");
+    });
 });
