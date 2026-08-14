@@ -297,6 +297,19 @@ export function TokenStatsView() {
         [],
     );
 
+    // t384 AC-006: aliases 到达后，把 prefs 残留的 raw key（如 __secondary__）
+    // 归一成 alias 展示名——碰撞 bug 期写入的旧值首屏即修正。
+    useEffect(() => {
+        if (model === "all" || modelAliases.length === 0) return;
+        const alias = originalToAlias.get(model);
+        if (alias !== undefined && alias !== model) {
+            setModel(alias);
+            save_prefs({ agent, platform, preset, metric, xaxis, gran, model: alias });
+        }
+        // model 变为 alias 后 originalToAlias.get(alias) 为 undefined，幂等无环。
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- model 变化即退出
+    }, [modelAliases]);
+
     const loadData = useCallback(
         async (silent = false) => {
             const request_id = ++load_request_id.current;
@@ -513,18 +526,10 @@ export function TokenStatsView() {
     const currentSummary = dashboard?.current;
     const previousSummary = dashboard?.previous;
     // Model filter options: the window's distinct models plus the currently
-    // selected value (kept when the window no longer contains it). Display text
-    // uses configured aliases so the dropdown matches chart/donut labels, while
-    // the option value stays the original model name for backend filtering.
-    const aliasToOriginal = useMemo(() => {
-        const map = new Map<string, string>();
-        for (const { alias, models } of modelAliases) {
-            for (const m of models) {
-                if (!map.has(alias)) map.set(alias, m);
-            }
-        }
-        return map;
-    }, [modelAliases]);
+    // selected value (kept when the window no longer contains it). t384 AC-003:
+    // value=label=展示名（dashboard.models 已是 resolver 后值），不再经
+    // aliasToOriginal 反翻译——展示名==真实 model 名==alias 名时反翻译会错
+    // 成 alias 的原始 key（碰撞 bug）。
     const originalToAlias = useMemo(() => {
         const map = new Map<string, string>();
         for (const { alias, models } of modelAliases) {
@@ -536,15 +541,14 @@ export function TokenStatsView() {
     }, [modelAliases]);
     const modelOptions = useMemo(() => {
         const list: { value: string; label: string }[] =
-            model === "all" ? [] : [{ value: model, label: originalToAlias.get(model) ?? model }];
+            model === "all" ? [] : [{ value: model, label: model }];
         for (const alias of dashboard?.models ?? []) {
-            const value = aliasToOriginal.get(alias) ?? alias;
-            if (!list.some((o) => o.value === value)) {
-                list.push({ value, label: alias });
+            if (!list.some((o) => o.value === alias)) {
+                list.push({ value: alias, label: alias });
             }
         }
         return list;
-    }, [model, dashboard?.models, aliasToOriginal, originalToAlias]);
+    }, [model, dashboard?.models]);
     const currentComp = currentSummary
         ? [
               {

@@ -2,11 +2,11 @@
 tid: "t384"
 slug: "token_stats_model_alias_expand"
 title: "模型筛选 alias 归并展开（碰撞修复 + IN 展开）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t384_token_stats_model_alias_expand"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "7db9320dfabc1edd7e93c167daa60728989d2518"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -44,14 +44,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 06:10 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t384_code_f001 | minor    | 已修   | 大组绑定参数保护未实现：补注释说明（SQLite 变量上限 32766 实际不可达） | src/main/core/token-stats/token-stats-store.ts:379 |
+| t384_code_f002 | minor    | 遗留   | originalToAlias 先写获胜与后端 resolver 后写覆盖在重复 key 配置下分叉 | p182 |
+| t384_test_f001 | minor    | 遗留   | union 路径缺 agent+model 组合用例 | p183 |
+| t384_test_f002 | minor    | 遗留   | union 用例未断言 is_hour_rollup_ready() | p183 |
+| t384_test_f003 | minor    | 已修   | 多 key 展开 + resolver 后写覆盖测试已补（2 用例） | tests/unit/main/core/token-stats/token-stats-store.test.ts:2601-2666 |
+| t384_test_f004 | minor    | 遗留   | AC-002 会话去重未断言（COUNT DISTINCT session） | p183 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 06:15 UTC+8)
+
+- 复核：code PASS（f001 注释消除、f002 维持 minor）；test PASS（f003 消除、f001/f002/f004 维持 minor）。无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +66,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~006 均列于 `handoff.json` 的 `ac_evidence`（后端归并展开 + 前端 value=label + prefs 归一），mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +75,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001 注释 + f002 维持 minor）
+- Round 1 test：PASS（f003 补测试 + f001/f002/f004 维持 minor）
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 模型筛选 alias 归并展开（后端 IN + 前端停反查）；renderer 全量 1204 passed，code/test 双轴 2 轮 PASS。
