@@ -14,7 +14,6 @@ import { createLogger, createTraceId, withLogContext } from "../../../shared/lib
 import { is_auth_error } from "../../../shared/lib/auth-error";
 import type { RefreshResult } from "../auth/oauth_helpers";
 
-export { is_auth_error };
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
@@ -204,16 +203,19 @@ async function execute_connector(
 
 export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {
     const log = createLogger("refresh-service");
-    const locks = new Map<string, number>();
+    // t370 f002: 锁存唯一 token——force 覆盖旧锁后，旧刷新 finally 只删自己 token，
+    // 不误删新锁（否则级联并发）。
+    const locks = new Map<string, { token: number; at: number }>();
+    let lock_seq = 0;
     const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
     const run_connector = deps.execute_connector ?? execute_connector;
 
     function is_locked(instanceId: string): boolean {
-        const locked_at = locks.get(instanceId);
-        if (locked_at === undefined) return false;
-        if (Date.now() - locked_at < LOCK_TIMEOUT_MS) return true;
+        const lock = locks.get(instanceId);
+        if (lock === undefined) return false;
+        if (Date.now() - lock.at < LOCK_TIMEOUT_MS) return true;
         log.warn(
-            `Stale lock removed for ${instanceId} (held for ${String(Math.round((Date.now() - locked_at) / 1000))}s)`,
+            `Stale lock removed for ${instanceId} (held for ${String(Math.round((Date.now() - lock.at) / 1000))}s)`,
         );
         locks.delete(instanceId);
         return false;
@@ -223,11 +225,16 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
         const trace_id = createTraceId("refresh");
         const trace_log = withLogContext(log, { trace_id });
         trace_log.debug(`Refresh start: ${instanceId} (force=${String(options?.force === true)})`);
-        if (is_locked(instanceId)) {
+        // t370 AC-001: force=true 绕过锁——手动刷新在自动刷新持锁时不静默跳过。
+        // 锁 Map 无持有者信息，force 直接刷新（用户显式请求优先）。
+        if (is_locked(instanceId) && options?.force !== true) {
             trace_log.debug(`Refresh skipped for ${instanceId} (already in progress)`);
             return;
         }
-        locks.set(instanceId, Date.now());
+        // t370 f002: 锁 token 化——force 绕过可能覆盖旧锁，本刷新用唯一 token，
+        // finally 只删自己 token，不误删更晚的锁。
+        const lock_token = ++lock_seq;
+        locks.set(instanceId, { token: lock_token, at: Date.now() });
 
         try {
             const config = await deps.configStore.load();
@@ -316,20 +323,9 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         continue;
                     }
 
-                    for (const obs of observations) {
-                        try {
-                            deps.observationStore.insert(obs);
-                        } catch (insert_error: unknown) {
-                            const insert_message =
-                                insert_error instanceof Error
-                                    ? insert_error.message
-                                    : String(insert_error);
-                            trace_log.error(
-                                `Failed to insert observation for ${instanceId} (${connector_config.name}): ${insert_message}`,
-                            );
-                            throw insert_error;
-                        }
-                    }
+                    // t352 AC-001: refresh 一轮观测批量写入走单事务（insert_batch
+                    // 内部单条失败记 per-obs 错误日志并跳过），不再逐条 autocommit。
+                    deps.observationStore.insert_batch(observations);
 
                     // invariant 5 / P0-2: 脚本成功返回但内部有单账号失败时，
                     // 复制失败账号的上次成功观测为 stale 副本插入。成功账号的
@@ -348,11 +344,23 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                     stale: true,
                                     last_error: failed.error,
                                 };
-                                deps.observationStore.insert(stale_obs);
                                 stale_observations.push(stale_obs);
                             }
                         }
                         if (stale_observations.length > 0) {
+                            // t370 AC-002: stale 副本插入失败仅告警，不中断后续
+                            // updateState(failed)——否则 runtime store 卡在 loading。
+                            try {
+                                deps.observationStore.insert_batch(stale_observations);
+                            } catch (stale_err: unknown) {
+                                trace_log.warn(
+                                    `Failed to insert stale observations for ${instanceId}: ${
+                                        stale_err instanceof Error
+                                            ? stale_err.message
+                                            : String(stale_err)
+                                    }`,
+                                );
+                            }
                             trace_log.info(
                                 `Marked ${String(stale_observations.length)} observation(s) stale for ${String(failed_accounts.length)} failed account(s) on ${instanceId}`,
                             );
@@ -486,17 +494,28 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             // 为该 instance 下的每条最新观测插入一份 stale 副本，UI 据此显示"数据过期"。
             // 首次即失败（无上次观测）时跳过——UI 应显示"无数据"而非"stale"。
             // t174: 副本保留原观测的 observed_at，卡片相对时间反映数据真实年龄。
-            const prior_observations = deps.observationStore.list_by_source_instance_id(instanceId);
-            for (const obs of prior_observations) {
-                deps.observationStore.insert({
-                    ...obs,
-                    stale: true,
-                    last_error: last_error,
-                });
+            // t370 AC-002: 全轮失败后的 stale 副本插入包 try/catch——insert/list 抛错
+            // 仅告警，确保 updateState(failed) 无条件执行（否则 store 卡 loading）。
+            try {
+                const prior_observations =
+                    deps.observationStore.list_by_source_instance_id(instanceId);
+                for (const obs of prior_observations) {
+                    deps.observationStore.insert({
+                        ...obs,
+                        stale: true,
+                        last_error: last_error,
+                    });
+                }
+                trace_log.info(
+                    `Marked ${String(prior_observations.length)} observation(s) stale for ${instanceId}`,
+                );
+            } catch (stale_err: unknown) {
+                trace_log.warn(
+                    `Failed to mark stale observations for ${instanceId}: ${
+                        stale_err instanceof Error ? stale_err.message : String(stale_err)
+                    }`,
+                );
             }
-            trace_log.info(
-                `Marked ${String(prior_observations.length)} observation(s) stale for ${instanceId}`,
-            );
 
             deps.runtimeStore.updateState(instanceId, {
                 status: "failed",
@@ -504,7 +523,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 ...(prior !== undefined && { lastSuccess: prior }),
             });
         } finally {
-            locks.delete(instanceId);
+            // t370 f002: 只删自己的 token 锁——若期间被 force 覆盖（新 token），不误删。
+            const current = locks.get(instanceId);
+            if (current?.token === lock_token) {
+                locks.delete(instanceId);
+            }
         }
     }
 

@@ -637,4 +637,35 @@ describe("LabelMapDialog", () => {
             "cpa-1|label|Account B",
         ]);
     });
+
+    it("shows visible error when save fails, does not close (t356 AC-001)", async () => {
+        const user = userEvent.setup();
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        on_save.mockRejectedValueOnce(new Error("disk full"));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                on_save={on_save}
+                on_close={on_close}
+            />,
+        );
+        await waitFor(() => {
+            expect(screen.getByText("保存映射")).toBeInTheDocument();
+        });
+
+        const inputs = screen.getAllByRole("textbox");
+        const first = inputs[0] as HTMLInputElement;
+        await user.clear(first);
+        await user.type(first, "新名称");
+        await user.click(screen.getByText("保存映射"));
+
+        // 失败显示可见错误，且 on_close 不被调用（对话框不关闭）。
+        await waitFor(() => {
+            expect(screen.getByText("disk full")).toBeInTheDocument();
+        });
+        expect(on_close).not.toHaveBeenCalled();
+    });
 });

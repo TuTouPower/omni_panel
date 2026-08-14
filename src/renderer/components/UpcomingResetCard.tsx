@@ -78,7 +78,7 @@ export function UpcomingResetCard({
         >
             {items.length === 0 ? (
                 <div className="px-2 pb-2.5 pt-4 text-center text-[12.5px] text-[var(--color-on-surface-muted)]">
-                    未来 7 天内暂无重置
+                    当前无即将重置的用量项
                 </div>
             ) : (
                 <div className="flex flex-col gap-0.5 px-1 pb-1 pt-2">

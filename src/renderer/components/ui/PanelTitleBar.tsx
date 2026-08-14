@@ -14,6 +14,18 @@ interface PanelTitleBarProps {
     actions?: ReactNode;
     /** 面板形态：刷新按钮左侧的前置动作区（t323 会话工作台三按钮）。 */
     before_actions?: ReactNode;
+    /** 面板形态：中间插槽（t380：Agent 筛选器 / Session 页签），flex-1 居中。 */
+    center?: ReactNode;
+    /** 面板形态：标题后扩展区（t380：Agent 状态 / Usage footerTime）。 */
+    title_extra?: ReactNode;
+    /** 面板形态：刷新全部语义（Usage popup），与 onRefresh 二选一。 */
+    onRefreshAll?: () => void;
+    /** t380: 面板关闭按钮覆盖为「隐藏到托盘」（floating popup）。 */
+    onClose?: (() => void) | undefined;
+    /** t380: floating 模式窗口控制只渲染「隐藏到托盘」。 */
+    floating?: boolean;
+    /** t380: macOS popup 锚定托盘不可拖拽。 */
+    no_drag?: boolean;
     className?: string;
     "data-panel-titlebar"?: string;
     /** 面板形态：当前面板名（品牌标题 `Omni Panel - <name>`）。 */
@@ -26,16 +38,34 @@ interface PanelTitleBarProps {
     onNavigate?: (panel: PanelName) => void;
     /** 面板形态：刷新按钮仅 live 模式可用。 */
     is_live?: boolean;
-    /** 面板形态：覆盖关闭行为（用量面板关闭=隐藏到托盘，AC3）。缺省 window.close。 */
-    onClose?: () => void;
 }
 
 /**
  * 窗口控制按钮组（最小化/最大化/关闭），面板形态与通用形态共用。
- * Web 构建不渲染（无窗口 API）。
+ * Web 构建不渲染（无窗口 API）。t380 floating 模式只渲染「隐藏到托盘」。
  */
-export function WindowControls({ onClose }: { onClose?: (() => void) | undefined }): ReactNode {
+export function WindowControls({
+    onClose,
+    floating = false,
+}: {
+    onClose?: (() => void) | undefined;
+    floating?: boolean;
+}): ReactNode {
     if (is_web()) return null;
+    if (floating) {
+        return (
+            <Button
+                variant="icon"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="隐藏到托盘"
+                aria-label="隐藏用量面板"
+                onClick={onClose}
+            >
+                <Icon name="close" size={16} />
+            </Button>
+        );
+    }
     return (
         <>
             <Button
@@ -90,6 +120,12 @@ export function PanelTitleBar({
     title,
     actions,
     before_actions,
+    center,
+    title_extra,
+    onRefreshAll,
+    onClose,
+    floating = false,
+    no_drag = false,
     className,
     "data-panel-titlebar": dataPanelTitlebar,
     panel,
@@ -97,7 +133,6 @@ export function PanelTitleBar({
     onRefresh,
     onNavigate,
     is_live = true,
-    onClose,
 }: PanelTitleBarProps) {
     const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session"];
     // t311：web 端互跳入口为原生 `<a href="#{route}">`（中键/Ctrl+Click 由浏览器新开标签页），
@@ -112,7 +147,7 @@ export function PanelTitleBar({
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
             "border-[var(--color-hairline)] bg-[var(--color-surface-window)] " +
             "px-[var(--spacing-panel-padding)] text-[length:var(--text-body-md)] text-[var(--color-on-surface)] " +
-            "[-webkit-app-region:drag]",
+            (no_drag ? "[-webkit-app-region:no-drag]" : "[-webkit-app-region:drag]"),
         className,
     );
     const actions_cls = "[-webkit-app-region:no-drag] flex items-center gap-1";
@@ -132,25 +167,32 @@ export function PanelTitleBar({
                     >
                         {`Omni Panel - ${panel}`}
                     </span>
+                    {title_extra}
                 </div>
+                {center && (
+                    <div className="flex h-full min-w-0 flex-1 items-stretch justify-center [-webkit-app-region:no-drag]">
+                        {center}
+                    </div>
+                )}
                 <div className={actions_cls}>
                     {before_actions}
-                    {onRefresh && panel !== "Settings" && (
-                        <Button
-                            variant="icon"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="刷新当前面板"
-                            aria-label="刷新"
-                            onClick={is_live ? onRefresh : undefined}
-                        >
-                            <Icon
-                                name="refresh"
-                                size={16}
-                                {...(refreshing ? { className: "animate-spin" } : {})}
-                            />
-                        </Button>
-                    )}
+                    {(onRefresh !== undefined || onRefreshAll !== undefined) &&
+                        panel !== "Settings" && (
+                            <Button
+                                variant="icon"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title={onRefreshAll ? "刷新全部" : "刷新当前面板"}
+                                aria-label="刷新"
+                                onClick={is_live ? (onRefreshAll ?? onRefresh) : undefined}
+                            >
+                                <Icon
+                                    name="refresh"
+                                    size={16}
+                                    {...(refreshing ? { className: "animate-spin" } : {})}
+                                />
+                            </Button>
+                        )}
                     {panels.map((p) => {
                         const icon = (
                             <>
@@ -189,7 +231,7 @@ export function PanelTitleBar({
                             </Button>
                         );
                     })}
-                    <WindowControls onClose={onClose} />
+                    <WindowControls onClose={onClose} floating={floating} />
                 </div>
             </div>
         );

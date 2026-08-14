@@ -254,4 +254,62 @@ describe("observation-store migration (stale metric cleanup)", () => {
         expect(remaining.map((r) => r.metric_id)).toEqual(["kimi:weekly"]);
         db.close();
     });
+
+    it("runs the one-time kimi:total_quota purge only on first open (t352 AC-003)", () => {
+        const db = new Database(":memory:");
+        db.exec(`
+            CREATE TABLE observations (
+                id INTEGER PRIMARY KEY, provider TEXT NOT NULL,
+                source_instance_id TEXT NOT NULL, account_id TEXT NOT NULL,
+                account_label TEXT NOT NULL, metric_id TEXT NOT NULL,
+                raw_label TEXT NOT NULL, normalized_label TEXT NOT NULL,
+                display_label TEXT, name TEXT, window TEXT,
+                display_style TEXT NOT NULL, status TEXT NOT NULL,
+                observed_at INTEGER NOT NULL, source TEXT NOT NULL,
+                stale INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+                used REAL, "limit" REAL, reset_at INTEGER
+            );
+            CREATE INDEX idx_lookup ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+        `);
+        const insert = db.prepare(`
+            INSERT INTO observations (
+                provider, source_instance_id, account_id, account_label,
+                metric_id, raw_label, normalized_label, display_style, status,
+                observed_at, source, stale
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        const put_total_quota = () =>
+            insert.run(
+                "kimi",
+                "inst1",
+                "kimi",
+                "Kimi",
+                "kimi:total_quota",
+                "total_quota",
+                "总配额",
+                "percent",
+                "normal",
+                1,
+                "poll",
+                0,
+            );
+
+        // 首次打开：purge 执行，total_quota 行被删。
+        put_total_quota();
+        migrate_observation_schema(db, log);
+        const after_first = db
+            .prepare("SELECT COUNT(*) AS n FROM observations WHERE metric_id = 'kimi:total_quota'")
+            .get() as { n: number };
+        expect(after_first.n).toBe(0);
+
+        // 再次打开前重新出现 total_quota 行（模拟重启后 connector 不再产出、
+        // 但旧库残留）。第二次 migrate 不再 purge——标记已取号。
+        put_total_quota();
+        migrate_observation_schema(db, log);
+        const after_second = db
+            .prepare("SELECT COUNT(*) AS n FROM observations WHERE metric_id = 'kimi:total_quota'")
+            .get() as { n: number };
+        expect(after_second.n).toBe(1);
+        db.close();
+    });
 });

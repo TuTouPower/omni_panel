@@ -1,0 +1,28 @@
+{
+    "tid": "t370",
+    "attempt": 1,
+    "execution_id": "0d6eab6d5f064fb788f0bbd60391db36",
+    "status": "done",
+    "branch": "t370_refresh_concurrency",
+    "base_sha": "92ee98e0b18e047af5d9d51652c52ba4b97d93a5",
+    "tests": "全量 262 文件 3117 passed / 9 skipped（含新增：force 绕过锁 / stale 插入失败 failed 状态 / refreshAll 失败实例）",
+    "blackbox": "typecheck + eslint + prettier 通过；main 进程调度逻辑，以 refresh-service 单测断言代替",
+    "review": "full；Round 1 code FAIL + test FAIL → Round 2 code PASS + test PASS（f001 全轮失败 stale try/catch 变异验证 / f002 锁 token 化 / AC-002 测试真触达）",
+    "ac_evidence": {
+        "AC-001": [
+            "refresh-service.ts refresh 锁检查改 `is_locked(instanceId) && options?.force !== true`——force=true 绕过锁，手动刷新在自动刷新持锁时不静默跳过",
+            "tests/unit/scheduler/refresh-service.test.ts::force=true bypasses the in-flight lock（非 force 短路 / force 绕过执行）通过",
+            "既有锁短路测试更新为非 force（integration prevents concurrent refresh + unit t196）"
+        ],
+        "AC-002": [
+            "refresh-service.ts stale 副本 insert_batch 包 try/catch（失败仅告警），failed 状态更新无条件执行",
+            "tests/unit/scheduler/refresh-service.test.ts::stale insert failure does not block failed state update（insert_batch 抛错 → runtime store status=failed）通过"
+        ],
+        "AC-003": [
+            "refreshAll 调 refresh（逐实例 updateState(failed)），失败实例状态用户可见",
+            "tests/unit/scheduler/refresh-service.test.ts::refreshAll surfaces per-instance failed state（一成功一失败 → 失败实例 status=failed）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

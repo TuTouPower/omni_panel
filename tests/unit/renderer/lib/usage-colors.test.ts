@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-    bar_fill_color,
-    usage_color,
-    usage_window_elapsed,
-} from "../../../../src/renderer/lib/usage-colors";
+import { bar_fill_color, usage_color } from "../../../../src/renderer/lib/usage-colors";
 
 describe("usage_color", () => {
     it("returns distinct colors for indices 0-8", () => {
@@ -35,14 +31,7 @@ describe("usage_color", () => {
     });
 });
 
-describe("usage_window_elapsed", () => {
-    it("returns elapsed fraction unchanged", () => {
-        expect(usage_window_elapsed(0.6)).toBeCloseTo(0.6);
-        expect(usage_window_elapsed(undefined)).toBeUndefined();
-        expect(usage_window_elapsed(0)).toBe(0);
-        expect(usage_window_elapsed(1)).toBe(1);
-    });
-
+describe("projected risk color", () => {
     it("lets projected risk colors use elapsed", () => {
         expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 })).toBe(
             "var(--color-risk-mid)",

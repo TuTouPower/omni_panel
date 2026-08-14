@@ -1,0 +1,23 @@
+{
+  "tid": "t350",
+  "attempt": 1,
+  "execution_id": "1f82d05031084190aa3cb020beceba33",
+  "status": "done",
+  "branch": "t350_echarts_palette_cache",
+  "base_sha": "7147b202e51c69213cf2103660b2316a0c4ce0eb",
+  "tests": "palette.test.ts 6 例全绿（含 AC-001 getComputedStyle 计数、AC-002 revision 重建）；全量 unit 2442 passed；10 文件因 p153 electron 环境失败与 task 无关。typecheck/lint/prettier 干净。",
+  "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002 由单测覆盖（getComputedStyle spy 计数为 token 解析边界）。",
+  "review": "review_level=single；Round 1 general PASS（f001 minor 已修、f002 minor 遗留→p170）。报告 t350_review_general.md。",
+  "ac_evidence": {
+    "AC-001": [
+      "echarts_token_resolver.ts palette_cache Map + key=theme:revision，resolve_chart_palette 命中返回、未命中构建",
+      "palette.test.ts::caches palette per (theme, revision)——getComputedStyle spy 首次>0、后续 palette_for/top_category_color/agent_color 均 0"
+    ],
+    "AC-002": [
+      "notify_chart_palette_change 与 MutationObserver 回调递增 revision 时 palette_cache.clear()",
+      "palette.test.ts::rebuilds palette when revision changes——notify 后 palette_for 触发 getComputedStyle>0"
+    ]
+  },
+  "pending": ["p170"],
+  "findings": []
+}

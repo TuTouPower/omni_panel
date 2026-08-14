@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notify_chart_palette_change } from "./echarts_token_resolver";
 
 function apply_theme(is_dark: boolean) {
@@ -56,79 +56,107 @@ export function apply_accent(accent_color: string | undefined) {
     notify_chart_palette_change();
 }
 
+/**
+ * t360: useTheme/useGlobalTheme 共享的主题订阅样板——onConfigChange + onThemeChange
+ * 订阅、event_generation 守卫（push 事件先于初始 snapshot 时丢弃 stale snapshot）。
+ * 返回 `is_current(generation)` 判定回调是否仍应生效。
+ */
+/* eslint-disable react-hooks/rules-of-hooks -- snake_case hook 内部调用不被 v7 识别 */
+function use_theme_events(): {
+    is_current: (expected: number) => boolean;
+    mark_config: () => void;
+    mark_theme: () => void;
+} {
+    const state_ref = useRef({ active: true, generation: 0 });
+    const is_current = useCallback(
+        (expected: number) => state_ref.current.active && state_ref.current.generation === expected,
+        [],
+    );
+    const mark_config = useCallback(() => {
+        state_ref.current.generation += 1;
+    }, []);
+    const mark_theme = useCallback(() => {
+        state_ref.current.generation += 1;
+    }, []);
+    useEffect(() => {
+        const state = state_ref.current;
+        return () => {
+            state.active = false;
+        };
+    }, []);
+    // 引用稳定，避免 useEffect 依赖变化导致反复重订阅。
+    return useMemo(
+        () => ({ is_current, mark_config, mark_theme }),
+        [is_current, mark_config, mark_theme],
+    );
+}
+/* eslint-enable react-hooks/rules-of-hooks */
+
 export function useTheme() {
+    const events = use_theme_events();
     // Subscribe before reading the initial snapshot. A push event received first
     // makes the in-flight snapshot stale and prevents it from rolling the theme back.
     useEffect(() => {
-        let active = true;
-        let event_generation = 0;
-        const initial_generation = event_generation;
+        const initial_generation = 0;
         const unsubscribe_config = window.usageboard.event.onConfigChange?.((config) => {
-            if (!active) return;
-            event_generation += 1;
+            events.mark_config();
             apply_theme_mode(config.theme);
             apply_accent(config.accentColor);
         });
         const unsubscribe_theme = window.usageboard.event.onThemeChange((isDark) => {
-            if (!active) return;
-            event_generation += 1;
+            events.mark_theme();
             apply_theme(isDark);
         });
         void window.usageboard.config
             .get()
             .then(({ config }) => {
-                if (!active || event_generation !== initial_generation) return;
+                if (!events.is_current(initial_generation)) return;
                 apply_theme_mode(config.theme);
                 apply_accent(config.accentColor);
             })
             .catch(() => {
-                if (!active || event_generation !== initial_generation) return;
+                if (!events.is_current(initial_generation)) return;
                 apply_theme(false);
             });
         return () => {
-            active = false;
             unsubscribe_config?.();
             unsubscribe_theme();
         };
-    }, []);
+    }, [events]);
 }
 
 /** t252: 返回当前全局主题（"dark" | "light"，读 config.theme + 订阅配置/主题事件）。
  *  供代理面板等需要主题值渲染的组件使用，替代独立 usage-theme 存储。 */
 export function useGlobalTheme(): "dark" | "light" {
     const [theme, set_theme] = useState<"dark" | "light">("dark");
+    const events = use_theme_events();
     useEffect(() => {
-        let active = true;
-        let event_generation = 0;
-        const initial_generation = event_generation;
+        const initial_generation = 0;
         const apply_config_theme = (mode: ThemeMode | undefined) => {
             set_theme(resolve_theme_mode(mode) ? "dark" : "light");
         };
         const unsubscribe_config = window.usageboard.event.onConfigChange?.((config) => {
-            if (!active) return;
-            event_generation += 1;
+            events.mark_config();
             apply_config_theme(config.theme);
         });
         const unsubscribe_theme = window.usageboard.event.onThemeChange((dark) => {
-            if (!active) return;
-            event_generation += 1;
+            events.mark_theme();
             set_theme(dark ? "dark" : "light");
         });
         void window.usageboard.config
             .get()
             .then(({ config }) => {
-                if (!active || event_generation !== initial_generation) return;
+                if (!events.is_current(initial_generation)) return;
                 apply_config_theme(config.theme);
             })
             .catch(() => {
-                if (!active || event_generation !== initial_generation) return;
+                if (!events.is_current(initial_generation)) return;
                 set_theme("dark");
             });
         return () => {
-            active = false;
             unsubscribe_config?.();
             unsubscribe_theme();
         };
-    }, []);
+    }, [events]);
     return theme;
 }

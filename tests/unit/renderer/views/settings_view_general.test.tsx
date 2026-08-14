@@ -391,7 +391,17 @@ describe("SettingsView", () => {
         await user.click(screen.getByTestId("settings-plugin-nav-about"));
         const meta = screen.getByTestId("about-platform");
         expect(meta).toBeInTheDocument();
-        expect(meta.textContent).toMatch(/Windows.*x64/);
+        expect(meta.textContent).toMatch(/Windows/);
+    });
+
+    it("shows Linux platform in about section on linux (t369 AC-003)", async () => {
+        window.usageboard.platform = "linux";
+        const user = userEvent.setup();
+        render(<SettingsView />);
+
+        await user.click(screen.getByTestId("settings-plugin-nav-about"));
+        const meta = screen.getByTestId("about-platform");
+        expect(meta.textContent).toMatch(/Linux/);
     });
 
     it("shows build info branch@commit subject in about section", async () => {

@@ -113,6 +113,7 @@ describe("token-stats manager", () => {
         expect(store.upsert_sessions).toHaveBeenCalledWith(
             [{ id: "s1" }],
             [{ id: "s1", date: "2026-07-17" }],
+            true,
         );
         expect(on_update).toHaveBeenCalledTimes(1);
         manager.stop();
@@ -135,7 +136,12 @@ describe("token-stats manager", () => {
         // flush 一个宏任务：第一批同步执行，随后 setImmediate 排第二批；flush 后处理 2 批（4000），证明分批让出。
         await flush_one_macrotask();
         expect(store.upsert_sessions).toHaveBeenCalledTimes(2);
-        expect(store.upsert_sessions).toHaveBeenNthCalledWith(1, sessions.slice(0, 2000), []);
+        expect(store.upsert_sessions).toHaveBeenNthCalledWith(
+            1,
+            sessions.slice(0, 2000),
+            [],
+            false,
+        );
         expect(on_update).not.toHaveBeenCalled();
 
         // flush 剩余批次：第 3 批（1000）处理完并触发 on_update。
@@ -391,5 +397,95 @@ describe("token-stats manager", () => {
         } finally {
             remove();
         }
+    });
+
+    it("restarts the collector on config update after circuit breaker trips (t347 AC-003)", () => {
+        vi.useFakeTimers();
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+        manager.start(base_config);
+
+        // 5 次快速崩溃 + 30s 自动重启循环：每次崩溃计数+1，最终触发熔断。
+        for (let i = 0; i < 5; i++) {
+            last_child!.emit("exit", 1);
+            vi.advanceTimersByTime(30_000);
+        }
+        expect(manager.is_running()).toBe(false);
+        expect(mock_fork).toHaveBeenCalledTimes(5);
+
+        // 熔断后配置更新 → 恢复路径：重新 spawn。
+        manager.update_config({ ...base_config, wsl_distro: "Debian" });
+        expect(manager.is_running()).toBe(true);
+        expect(mock_fork).toHaveBeenCalledTimes(6);
+        manager.stop();
+        vi.useRealTimers();
+    });
+
+    it("same_config is order-independent (t347 AC-004)", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+        manager.start(base_config);
+        // start() posts config once. 键序交换的等价配置应被去重（不再 post）。
+        const calls_before = last_child!.postMessage.mock.calls.length;
+        const reordered = {
+            state_path: base_config.state_path,
+            wsl_user: base_config.wsl_user,
+            wsl_distro: base_config.wsl_distro,
+            wsl_enabled: base_config.wsl_enabled,
+            poll_interval_ms: base_config.poll_interval_ms,
+            win_home: base_config.win_home,
+        };
+        manager.update_config(reordered);
+        expect(last_child!.postMessage.mock.calls.length).toBe(calls_before);
+        manager.stop();
+    });
+
+    it("continues remaining batches when one batch fails (t347 AC-002)", async () => {
+        const store = create_mock_store();
+        const on_update = vi.fn();
+        const manager = create_token_stats_manager({ store, on_update });
+
+        manager.start(base_config);
+        const sessions = Array.from({ length: 5000 }, (_, i) => ({ id: `s${String(i)}` }));
+        // 第一批 upsert_records 抛错，剩余批次继续。
+        store.upsert_records.mockImplementationOnce(() => {
+            throw new Error("db boom");
+        });
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions,
+            daily: [],
+            records: Array.from({ length: 5000 }, (_, i) => ({ id: `r${String(i)}` })),
+        });
+
+        await flush_macrotasks();
+        // 失败批次不中断：剩余 records 批次仍处理。
+        expect(store.upsert_records).toHaveBeenCalledTimes(3);
+        // 全部批次走完后 on_update 仍回调。
+        expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("clears pending restart timer on config update after exit (t347 f003)", () => {
+        vi.useFakeTimers();
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+        manager.start(base_config);
+        const first_child = last_child!;
+
+        // 非熔断退出：排 30s 自动重启 timer。
+        first_child.emit("exit", 1);
+        const forks_after_exit = mock_fork.mock.calls.length;
+
+        // 30s 窗口内配置更新 → 恢复路径立即 start（清 timer，不再用旧 config 重启）。
+        manager.update_config({ ...base_config, wsl_distro: "Debian" });
+        expect(manager.is_running()).toBe(true);
+        expect(mock_fork.mock.calls.length).toBe(forks_after_exit + 1);
+
+        // 推进 30s：旧 timer 已被清，不应再多一次 fork。
+        vi.advanceTimersByTime(30_000);
+        expect(mock_fork.mock.calls.length).toBe(forks_after_exit + 1);
+        manager.stop();
+        vi.useRealTimers();
     });
 });

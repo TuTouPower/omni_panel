@@ -482,7 +482,7 @@ describe("PopupView collapse + height report", () => {
         await waitFor(() => {
             expect(
                 document.querySelector(
-                    '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                    '[data-panel-titlebar="Usage"] button[aria-label="刷新"] svg.animate-spin',
                 ),
             ).not.toBeNull();
         });
@@ -501,7 +501,7 @@ describe("PopupView collapse + height report", () => {
         });
         expect(
             document.querySelector(
-                '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                '[data-panel-titlebar="Usage"] button[aria-label="刷新"] svg.animate-spin',
             ),
         ).not.toBeNull();
 
@@ -518,7 +518,7 @@ describe("PopupView collapse + height report", () => {
             () => {
                 expect(
                     document.querySelector(
-                        '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                        '[data-panel-titlebar="Usage"] button[aria-label="刷新"] svg.animate-spin',
                     ),
                 ).toBeNull();
             },
@@ -554,7 +554,7 @@ describe("PopupView collapse + height report", () => {
         await waitFor(() => {
             expect(
                 document.querySelector(
-                    '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                    '[data-panel-titlebar="Usage"] button[aria-label="刷新"] svg.animate-spin',
                 ),
             ).not.toBeNull();
         });
@@ -564,7 +564,7 @@ describe("PopupView collapse + height report", () => {
             () => {
                 expect(
                     document.querySelector(
-                        '[data-testid="popup-titlebar"] button[aria-label="刷新"] svg.animate-spin',
+                        '[data-panel-titlebar="Usage"] button[aria-label="刷新"] svg.animate-spin',
                     ),
                 ).toBeNull();
             },

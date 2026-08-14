@@ -1,7 +1,7 @@
 import type { ConnectorContext } from "../../src/main/core/connector/host-io";
 import type { ScriptObservation } from "../../src/shared/types/observation";
 
-// NOTE: All 5 provider parsers live in one file because the connector runtime
+// NOTE: All 4 provider parsers live in one file because the connector runtime
 // (runtime.ts:compile_script) forbids runtime import/export. Splitting requires
 // runtime changes to support module bundling. See review #11.
 
@@ -43,7 +43,8 @@ function to_number(value: unknown): number {
 function to_pct(value: unknown): number {
     const raw = to_number(value);
     const pct = raw <= 1 ? raw * 100 : raw;
-    return Math.round(Math.min(pct, 100) * 10) / 10;
+    // t361 AC-002: 钳制 [0,100]，负值/超 100 不再出现。
+    return Math.round(Math.max(0, Math.min(pct, 100)) * 10) / 10;
 }
 
 function to_reset_at(value: unknown): number | null {
@@ -156,24 +157,27 @@ function resolve_codex_window(
     duration_seconds: unknown,
     fallback_label: string,
 ): CodexWindowDescriptor {
-    if (duration_seconds === 18_000) {
+    // t361 AC-003: string 型 duration 先 Number() 归一，统一识别数值语义。
+    const secs =
+        typeof duration_seconds === "number"
+            ? duration_seconds
+            : Number.isFinite(Number(duration_seconds))
+              ? Number(duration_seconds)
+              : NaN;
+    if (secs === 18_000) {
         return { normalized_label: "5小时", window: "second", cycleDurationMs: 18_000_000 };
     }
-    if (duration_seconds === 604_800) {
+    if (secs === 604_800) {
         return { normalized_label: "一周", window: "day", cycleDurationMs: 604_800_000 };
     }
-    if (duration_seconds === 2_628_000) {
+    if (secs === 2_628_000) {
         return { normalized_label: "一月", window: "month", cycleDurationMs: 2_628_000_000 };
     }
-    if (
-        typeof duration_seconds === "number" &&
-        Number.isFinite(duration_seconds) &&
-        duration_seconds > 0
-    ) {
+    if (Number.isFinite(secs) && secs > 0) {
         return {
-            normalized_label: `窗口 ${String(duration_seconds)} 秒`,
+            normalized_label: `窗口 ${String(secs)} 秒`,
             window: "second",
-            cycleDurationMs: duration_seconds * 1000,
+            cycleDurationMs: secs * 1000,
         };
     }
     return { normalized_label: fallback_label, window: "second", cycleDurationMs: null };

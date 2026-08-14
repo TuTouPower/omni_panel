@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
-import { createLogger, withLogContext } from "../../../shared/lib/logger";
+import { createLogger, withLogContext, type Logger } from "../../../shared/lib/logger";
 import {
     status_for_pct,
     status_for_ratio,
@@ -18,6 +18,8 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024; // 50MB
+// t372 AC-002: 错误响应只需计数/日志，小上限读取即可，避免 4xx+大 body 白读 50MB。
+const MAX_ERROR_BODY_BYTES = 1 * 1024 * 1024; // 1MB
 
 /**
  * 创建并注册全局 undici Agent（每 origin 连接上限 + keepAlive 复用）。
@@ -216,7 +218,11 @@ export async function build_request_context(
     const effective_timeout = options.timeout_ms ?? options.default_timeout_ms;
     const abort_controller = new AbortController();
     const timeout_id = setTimeout(() => {
-        abort_controller.abort();
+        // t371 AC-002: abort reason 带明确 timeout 字样——下游 is_timeout_error 分类
+        // 依赖（原裸 AbortError「This operation was aborted」无 timeout 无法识别）。
+        abort_controller.abort(
+            new Error(`HTTP request timed out after ${String(effective_timeout)}ms`),
+        );
     }, effective_timeout);
 
     return {
@@ -242,20 +248,44 @@ export function create_connector_context(
         ? withLogContext(sandbox_log, { trace_id: config.trace_id })
         : sandbox_log;
 
-    async function do_request(
-        method: "GET" | "POST",
-        endpoint_key: string,
-        path: string,
-        body?: unknown,
-        opts?: HttpOpts,
-    ): Promise<unknown> {
-        const ctx = await build_request_context(manifest, endpoint_key, vault, instance_id, {
-            path,
+    type RawResponse = Awaited<ReturnType<typeof undici_request>>;
+    type ResponseHeaders = Record<string, string | string[] | undefined>;
+
+    // do_request 与 get_raw 共享的请求执行体：请求前奏（URL 构造/安全校验/auth
+    // 注入/timeout 装配）已由 build_request_context 抽取；此处收敛「request_options
+    // 构造 + 请求执行 + timeout/abort 清理 + ≥400 错误分类」。成功路径差异由
+    // transform_response 表达；do_request 专属的 content-length 大包预检经
+    // pre_read_guard 在读取响应体前执行，不泄漏进 get_raw 路径。
+    async function perform_request<T>(params: {
+        method: "GET" | "POST";
+        endpoint_key: string;
+        path: string;
+        body?: unknown;
+        opts?: HttpOpts | undefined;
+        initial_headers?: Record<string, string> | undefined;
+        /** 请求行 debug 前缀（do_request 传 method，get_raw 传 "GET RAW"）。 */
+        log_prefix: string;
+        /** 收到响应后的 debug 前缀；get_raw 无此行则省略该参数。 */
+        response_log_prefix?: string;
+        /** ≥400 错误分类 debug 行中嵌入的标签（do_request 空串，get_raw " get_raw"）。 */
+        error_log_label: string;
+        /** 读取响应体前的前置守卫（do_request 的 content-length 大包预检）。 */
+        pre_read_guard?: (response: RawResponse) => void;
+        transform_response: (
+            status: number,
+            raw_body: string,
+            response_headers: ResponseHeaders,
+            request_log: Logger,
+            url: URL,
+        ) => T;
+    }): Promise<T> {
+        const ctx = await build_request_context(manifest, params.endpoint_key, vault, instance_id, {
+            path: params.path,
             endpoint_overrides: config.endpoint_overrides,
-            initial_headers: { "Content-Type": "application/json" },
-            extra_headers: opts?.headers,
+            initial_headers: params.initial_headers,
+            extra_headers: params.opts?.headers,
             default_timeout_ms: timeout_ms,
-            timeout_ms: opts?.timeout_ms,
+            timeout_ms: params.opts?.timeout_ms,
         });
         const {
             url,
@@ -265,79 +295,133 @@ export function create_connector_context(
             effective_timeout,
         } = ctx;
 
-        const request_reset = opts?.reset ?? reset;
-        request_log.debug(`${method} ${url.origin}${url.pathname}`);
+        const request_reset = params.opts?.reset ?? reset;
+        request_log.debug(`${params.log_prefix} ${url.origin}${url.pathname}`);
         const request_options = {
-            method,
+            method: params.method,
             headers: all_headers,
             headersTimeout: effective_timeout,
             bodyTimeout: effective_timeout,
             signal: ac.signal,
-            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+            ...(params.body !== undefined ? { body: JSON.stringify(params.body) } : {}),
             ...(dispatcher ? { dispatcher } : {}),
             ...(request_reset ? { reset: true } : {}),
         };
         try {
             const response = await undici_request(url, request_options);
-            request_log.debug(
-                `${method} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
-            );
+            if (params.response_log_prefix !== undefined) {
+                request_log.debug(
+                    `${params.response_log_prefix} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
+                );
+            }
 
             if (response.statusCode >= 400) {
-                const body_text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+                // t372 AC-002: 错误响应不读满 50MB。length 优先从 content-length 头取：
+                // 已声明超大 body 直接 destroy 不读（保留 HTTP 状态语义），未声明/小 body
+                // 才小上限读取，超限即破坏流（read_body_with_limit 内部处理）。
+                const content_length_header = response.headers["content-length"];
+                const declared_length = Array.isArray(content_length_header)
+                    ? content_length_header[0]
+                    : content_length_header;
+                const declared_bytes = declared_length
+                    ? Number.parseInt(declared_length, 10)
+                    : undefined;
+                if (declared_bytes !== undefined && declared_bytes > MAX_ERROR_BODY_BYTES) {
+                    response.body.destroy();
+                    request_log.debug(
+                        `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(declared_bytes)} bytes)`,
+                    );
+                    throw new Error(
+                        `HTTP ${String(response.statusCode)}: request failed (${String(declared_bytes)} bytes)`,
+                    );
+                }
+                const error_body = await read_body_with_limit(response.body, MAX_ERROR_BODY_BYTES);
+                const byte_count = declared_bytes ?? Buffer.byteLength(error_body);
                 request_log.debug(
-                    `HTTP ${String(response.statusCode)} response (${String(body_text.length)} bytes)`,
+                    `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(byte_count)} bytes)`,
                 );
                 throw new Error(
-                    `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
+                    `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)`,
                 );
             }
 
-            const content_length_header = response.headers["content-length"];
-            const content_length = Array.isArray(content_length_header)
-                ? content_length_header[0]
-                : content_length_header;
-            if (content_length) {
-                const size = Number.parseInt(content_length, 10);
-                if (size > MAX_RESPONSE_BYTES) {
-                    response.body.destroy();
-                    throw new Error(`Response body too large: ${String(size)} bytes`);
-                }
-            }
+            params.pre_read_guard?.(response);
 
             const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-            request_log.debug(
-                `${method} ${url.origin}${url.pathname} body=${String(text.length)} bytes`,
+            return params.transform_response(
+                response.statusCode,
+                text,
+                response.headers,
+                request_log,
+                url,
             );
-            if (text.length === 0) {
-                return null;
-            }
-
-            const ct = response.headers["content-type"];
-            const content_type = Array.isArray(ct) ? ct[0] : ct;
-            if (
-                typeof content_type === "string" &&
-                content_type.toLowerCase().includes("text/html")
-            ) {
-                throw new Error(
-                    `Received HTML response instead of JSON (possible interception page)`,
-                );
-            }
-
-            try {
-                return JSON.parse(text) as unknown;
-            } catch (parse_error) {
-                // 不打响应体原文：错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
-                request_log.warn(`JSON parse failed for ${url.origin}${url.pathname}`, {
-                    status: response.statusCode,
-                    contentType: content_type,
-                    bodyBytes: text.length,
-                });
-                throw parse_error;
-            }
         } finally {
             clearTimeout(total_timer);
         }
+    }
+
+    async function do_request(
+        method: "GET" | "POST",
+        endpoint_key: string,
+        path: string,
+        body?: unknown,
+        opts?: HttpOpts,
+    ): Promise<unknown> {
+        return perform_request({
+            method,
+            endpoint_key,
+            path,
+            body,
+            opts,
+            initial_headers: { "Content-Type": "application/json" },
+            log_prefix: method,
+            response_log_prefix: method,
+            error_log_label: "",
+            pre_read_guard: (response) => {
+                const content_length_header = response.headers["content-length"];
+                const content_length = Array.isArray(content_length_header)
+                    ? content_length_header[0]
+                    : content_length_header;
+                if (content_length) {
+                    const size = Number.parseInt(content_length, 10);
+                    if (size > MAX_RESPONSE_BYTES) {
+                        response.body.destroy();
+                        throw new Error(`Response body too large: ${String(size)} bytes`);
+                    }
+                }
+            },
+            transform_response(status, text, response_headers, req_log, url) {
+                req_log.debug(
+                    `${method} ${url.origin}${url.pathname} body=${String(text.length)} bytes`,
+                );
+                if (text.length === 0) {
+                    return null;
+                }
+
+                const ct = response_headers["content-type"];
+                const content_type = Array.isArray(ct) ? ct[0] : ct;
+                if (
+                    typeof content_type === "string" &&
+                    content_type.toLowerCase().includes("text/html")
+                ) {
+                    throw new Error(
+                        `Received HTML response instead of JSON (possible interception page)`,
+                    );
+                }
+
+                try {
+                    return JSON.parse(text) as unknown;
+                } catch (parse_error) {
+                    // 不打响应体原文：错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
+                    req_log.warn(`JSON parse failed for ${url.origin}${url.pathname}`, {
+                        status,
+                        contentType: content_type,
+                        bodyBytes: text.length,
+                    });
+                    throw parse_error;
+                }
+            },
+        });
     }
 
     return {
@@ -364,73 +448,29 @@ export function create_connector_context(
                 return do_request("POST", endpoint_key, path, body, opts);
             },
             async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
-                const ctx = await build_request_context(
-                    manifest,
+                return perform_request({
+                    method: "GET",
                     endpoint_key,
-                    vault,
-                    instance_id,
-                    {
-                        path,
-                        endpoint_overrides: config.endpoint_overrides,
-                        extra_headers: opts?.headers,
-                        default_timeout_ms: timeout_ms,
-                        timeout_ms: opts?.timeout_ms,
-                    },
-                );
-                const {
-                    url,
-                    headers: all_headers,
-                    abort_controller: ac,
-                    timeout_id: total_timer,
-                    effective_timeout,
-                } = ctx;
-
-                const request_reset = opts?.reset ?? reset;
-                request_log.debug(`GET RAW ${url.origin}${url.pathname}`);
-                const request_options = {
-                    method: "GET" as const,
-                    headers: all_headers,
-                    headersTimeout: effective_timeout,
-                    bodyTimeout: effective_timeout,
-                    signal: ac.signal,
-                    ...(dispatcher ? { dispatcher } : {}),
-                    ...(request_reset ? { reset: true } : {}),
-                };
-                try {
-                    const response = await undici_request(url, request_options);
-
-                    if (response.statusCode >= 400) {
-                        const body_text = await read_body_with_limit(
-                            response.body,
-                            MAX_RESPONSE_BYTES,
-                        );
-                        request_log.debug(
-                            `HTTP ${String(response.statusCode)} get_raw response (${String(body_text.length)} bytes)`,
-                        );
-                        throw new Error(
-                            `HTTP ${String(response.statusCode)}: request failed (${String(body_text.length)} bytes)`,
-                        );
-                    }
-
-                    const response_headers: Record<string, string> = {};
-                    for (const [key, value] of Object.entries(response.headers)) {
-                        if (value !== undefined) {
-                            response_headers[key.toLowerCase()] = Array.isArray(value)
-                                ? (value[0] ?? "")
-                                : value;
+                    path,
+                    opts,
+                    log_prefix: "GET RAW",
+                    error_log_label: " get_raw",
+                    transform_response(status, text, response_headers) {
+                        const raw_headers: Record<string, string> = {};
+                        for (const [key, value] of Object.entries(response_headers)) {
+                            if (value !== undefined) {
+                                raw_headers[key.toLowerCase()] = Array.isArray(value)
+                                    ? (value[0] ?? "")
+                                    : value;
+                            }
                         }
-                    }
-
-                    const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-
-                    return {
-                        status: response.statusCode,
-                        headers: response_headers,
-                        body: text,
-                    };
-                } finally {
-                    clearTimeout(total_timer);
-                }
+                        return {
+                            status,
+                            headers: raw_headers,
+                            body: text,
+                        };
+                    },
+                });
             },
         },
         files: {

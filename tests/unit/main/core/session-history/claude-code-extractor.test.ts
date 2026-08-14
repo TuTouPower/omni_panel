@@ -1,6 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { join } from "node:path";
 import { copyFileSync, mkdtempSync, appendFileSync, rmSync, writeFileSync } from "node:fs";
+import type * as NodeFs from "node:fs";
+
+const read_count = { value: 0 };
+vi.mock("node:fs", async (importOriginal) => {
+    const actual = await importOriginal<typeof NodeFs>();
+    return {
+        ...actual,
+        readFileSync: (...args: Parameters<typeof actual.readFileSync>) => {
+            read_count.value += 1;
+            return actual.readFileSync(...args);
+        },
+    };
+});
 import { tmpdir } from "node:os";
 import {
     extract_claude_code,
@@ -71,6 +84,78 @@ describe("claude_code extractor (t209)", () => {
             if (full.cursor.kind === "byte_offset" && inc.cursor?.kind === "byte_offset") {
                 expect(inc.cursor.offset).toBeGreaterThan(full.cursor.offset);
             }
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("半行写入：cursor 落在行中间时增量不丢该记录（t365 AC-001/AC-003）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-half-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            // 尾部半行无结尾换行（写入中断）
+            writeFileSync(
+                tmp_file,
+                '{"type":"user","uuid":"u1","message":{"role":"user","content":"前段"}}\n' +
+                    '{"type":"user","uuid":"u2","message":{"role":"user","content":"半行前半',
+            );
+            const full = extract_claude_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            // 补全半行 + 追加新行
+            appendFileSync(
+                tmp_file,
+                '半"}}\n{"type":"user","uuid":"u3","message":{"role":"user","content":"新行"}}\n',
+            );
+            const inc = extract_claude_code_incremental(tmp_file, full.cursor);
+
+            // 增量拿到补全的那条 + 新行，不丢记录（游标回退重读半行）。
+            const texts = inc.messages.map((m) => m.text);
+            expect(texts).toContain("半行前半半");
+            expect(texts).toContain("新行");
+            expect(inc.messages.map((m) => m.id)).toEqual(["u2", "u3"]);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("无新增时增量零磁盘读（只 statSync，t366 AC-002）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-noio-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                '{"type":"user","uuid":"u1","message":{"role":"user","content":"前段"}}\n',
+            );
+            const full = extract_claude_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            read_count.value = 0;
+            const inc = extract_claude_code_incremental(tmp_file, full.cursor);
+            expect(inc.messages).toEqual([]);
+            // 无新增：增量零磁盘读（早退走 statSync，readFileSync 不被调）。
+            expect(read_count.value).toBe(0);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("完整末行无尾换行：增量不重发该行、游标推进到文件末尾（t365）", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-tail-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            // 完整两行，末行无结尾换行
+            writeFileSync(
+                tmp_file,
+                '{"type":"user","uuid":"u1","message":{"role":"user","content":"前段"}}\n' +
+                    '{"type":"user","uuid":"u2","message":{"role":"user","content":"末行完整"}',
+            );
+            const full = extract_claude_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            // 无新增数据：增量不得重发已完整的末行。
+            const inc = extract_claude_code_incremental(tmp_file, full.cursor);
+            expect(inc.messages).toEqual([]);
         } finally {
             rmSync(tmp, { recursive: true, force: true });
         }

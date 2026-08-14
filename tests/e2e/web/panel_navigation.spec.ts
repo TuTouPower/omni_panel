@@ -53,14 +53,14 @@ test.describe("web panel navigation (t259/t311)", () => {
         await expect(page.getByRole("link", { name: "Settings面板" })).toHaveCount(1);
     });
 
-    test("usage 面板标题栏含用量自身按钮（t336 AC-003）", async ({ webPage }) => {
+    test("usage 面板标题栏含用量自身按钮（t336 AC-003/t380 AC-001）", async ({ webPage }) => {
         const page = webPage;
         await page.goto("/#usage");
-        await expect(page.locator("[data-testid=popup-titlebar]").first()).toBeVisible();
-        await expect(page.getByRole("link", { name: "用量面板" })).toHaveCount(1);
-        await expect(page.getByRole("link", { name: "设置" })).toHaveCount(1);
-        await expect(page.getByRole("link", { name: "代理面板" })).toHaveCount(1);
-        await expect(page.getByRole("link", { name: "会话历史" })).toHaveCount(1);
+        await expect(page.locator("[data-panel-titlebar=Usage]").first()).toBeVisible();
+        await expect(page.getByRole("link", { name: "Usage面板" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "Settings面板" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "Agent面板" })).toHaveCount(1);
+        await expect(page.getByRole("link", { name: "Session面板" })).toHaveCount(1);
     });
 
     test("web 不渲染最小化/最大化/关闭控件，控制区其余按钮保留（AC3）", async ({ webPage }) => {

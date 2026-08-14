@@ -49,7 +49,7 @@ test.describe("popup height debounce (web)", () => {
         }
 
         await expect(live.locator('[data-testid="card-name"]').first()).toBeVisible();
-        await expect(live.locator('[data-testid="popup-titlebar"]')).toBeVisible();
+        await expect(live.locator('[data-panel-titlebar="Usage"]')).toBeVisible();
     });
 
     test("live popup is measurable while no visible mirror trees", async ({ webPage }) => {

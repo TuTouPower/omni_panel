@@ -4,6 +4,8 @@ import { createLogger, type Logger } from "../../../shared/lib/logger";
 
 export interface ObservationStore {
     insert(obs: Observation): void;
+    /** t352 AC-001: 批量写入走单事务，单条失败跳过并记日志（refresh 轮调用）。 */
+    insert_batch(observations: Observation[]): void;
     get_latest(
         provider: string,
         account_id: string,
@@ -65,6 +67,13 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
+
+-- t352 AC-003: 一次性数据清理（如 kimi:total_quota purge）的迁移批次标记。
+-- migrate 以 INSERT OR IGNORE 取号，仅首次数次时执行对应清理。
+CREATE TABLE IF NOT EXISTS schema_meta (
+    key TEXT PRIMARY KEY,
+    applied INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 const LABEL_COLUMNS = ["raw_label", "normalized_label", "display_label"] as const;
@@ -89,15 +98,25 @@ export function migrate_observation_schema(db: Database.Database, log: Logger): 
 
     // 清理已下线的 Kimi 总配额观测。connector 在 a03e38d4 已停止产出
     // kimi:total_quota；本地库中的 stale 行会导致用量面板继续显示"总配额 0"。
-    const removed = db
-        .prepare(
-            "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
-        )
-        .run();
-    if (removed.changes > 0) {
-        log.info(
-            `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
-        );
+    // t352 AC-003: 一次性清理按迁移批次标记执行——首次打开取号执行，此后
+    // INSERT OR IGNORE 不产生新行即跳过，不再每次打开重复 DELETE。
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, applied INTEGER NOT NULL DEFAULT 0)",
+    );
+    const mark = db
+        .prepare("INSERT OR IGNORE INTO schema_meta (key) VALUES (?)")
+        .run("kimi_total_quota_purge");
+    if (mark.changes > 0) {
+        const removed = db
+            .prepare(
+                "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
+            )
+            .run();
+        if (removed.changes > 0) {
+            log.info(
+                `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
+            );
+        }
     }
 }
 
@@ -161,16 +180,64 @@ export function create_observation_store(db_path: string): ObservationStore {
         )
     `);
 
-    // t174: stale 副本保留原观测的 observed_at。多次失败会对同一键插入
-    // 同时间戳的副本，累积成行 + 让 latest 查询同 ts 多义。insert 前清掉
-    // 同 (provider, account, metric, instance, observed_at) 的旧 stale 副本，
-    // 使同键同 ts 至多一条副本（原观测保留）。
-    const delete_stale_dup_stmt = db.prepare(`
+    // t174 + t352 AC-002: 同键同 ts 的旧行在插入前清除，统一两种 stale 值——
+    // stale 副本插入清旧 stale 副本（原观测保留），非 stale 插入清旧非 stale 行
+    // （同 ts 重复去重，stale 副本保留）。消除同键同 ts 重复行，get_latest 结果确定。
+    const delete_dup_stmt = db.prepare(`
         DELETE FROM observations
         WHERE provider = @provider AND source_instance_id = @source_instance_id
           AND account_id = @account_id AND metric_id = @metric_id
-          AND observed_at = @observed_at AND stale = 1
+          AND observed_at = @observed_at AND stale = @stale
     `);
+
+    // t352 AC-001: 单条写入（先清同键同 ts 旧行再插），供 insert 与
+    // insert_batch 共用；事务内单条失败由 batch 侧捕获跳过。
+    function insert_one(obs: Observation): void {
+        delete_dup_stmt.run({
+            provider: obs.provider,
+            source_instance_id: obs.source_instance_id,
+            account_id: obs.account_id,
+            metric_id: obs.metric_id,
+            observed_at: obs.observed_at,
+            stale: obs.stale ? 1 : 0,
+        });
+        insert_stmt.run({
+            provider: obs.provider,
+            source_instance_id: obs.source_instance_id,
+            account_id: obs.account_id,
+            account_label: obs.account_label,
+            metric_id: obs.metric_id,
+            raw_label: obs.raw_label,
+            normalized_label: obs.normalized_label,
+            display_label: obs.display_label ?? null,
+            name: obs.normalized_label,
+            window: obs.window,
+            used: obs.used,
+            limit: obs.limit,
+            display_style: obs.display_style,
+            reset_at: obs.reset_at,
+            status: obs.status,
+            observed_at: obs.observed_at,
+            source: obs.source,
+            stale: obs.stale ? 1 : 0,
+            last_error: obs.last_error,
+        });
+    }
+
+    const batch_tx = db.transaction((observations: Observation[]) => {
+        for (const obs of observations) {
+            try {
+                insert_one(obs);
+            } catch (err: unknown) {
+                // 坏条目跳过并记 per-obs 错误日志，不中断整批事务（t352 回退策略）。
+                log.error(
+                    `Failed to insert observation ${obs.provider}/${obs.account_id}/${obs.metric_id}: ${
+                        err instanceof Error ? err.message : String(err)
+                    }`,
+                );
+            }
+        }
+    });
 
     // t174: stale 副本与原观测同 observed_at 时，stale DESC 让副本（stale=1）
     // 优先，latest 选择唯一确定（"已过期"标记优先于原始数据行）。
@@ -225,46 +292,47 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     // Sparkline: per-day latest observation within (now-days, now].
     // t214: 加 source_instance_id 过滤，隔离多账号 provider（account_id 塌成同一值时）。
+    // t351 AC-001: 分桶下推 SQL——按 cap 桶均分窗口、每桶 ROW_NUMBER 取
+    // observed_at 最新一条，LIMIT cap，避免全窗口物化后 JS 分桶。bucket_idx
+    // 用 CASE 钳制到 cap-1（对齐原 JS 的 Math.min(cap-1, ...)）。
+    // 注意 CAST((observed_at-?)/? AS INTEGER)：better-sqlite3 把 number 一律
+    // 绑成 REAL，不做 CAST 时 bucket_idx 为浮点（如 3.7），PARTITION BY 每点
+    // 独立分区、聚合失效，整窗按 ASC LIMIT 返回最旧 cap 行（p?/F1 回归）。截断
+    // 对非负值等同 Math.floor，语义对齐原 JS 分桶。
     const query_trend_stmt = db.prepare(`
-        SELECT * FROM observations
-        WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ? AND observed_at >= ?
+        WITH bucketed AS (
+            SELECT *,
+                   CASE WHEN CAST((observed_at - ?) / ? AS INTEGER) >= ?
+                        THEN ? - 1
+                        ELSE CAST((observed_at - ?) / ? AS INTEGER)
+                   END AS bucket_idx
+            FROM observations
+            WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ?
+              AND observed_at >= ?
+        )
+        SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY bucket_idx ORDER BY observed_at DESC
+            ) AS rn
+            FROM bucketed
+            WHERE bucket_idx >= 0
+        )
+        WHERE rn = 1
         ORDER BY observed_at ASC
+        LIMIT ?
     `);
 
     return {
         insert(obs: Observation): void {
-            // t174: 同键同 ts 的旧 stale 副本先清（见 delete_stale_dup_stmt）。
-            if (obs.stale) {
-                delete_stale_dup_stmt.run({
-                    provider: obs.provider,
-                    source_instance_id: obs.source_instance_id,
-                    account_id: obs.account_id,
-                    metric_id: obs.metric_id,
-                    observed_at: obs.observed_at,
-                });
-            }
-            insert_stmt.run({
-                provider: obs.provider,
-                source_instance_id: obs.source_instance_id,
-                account_id: obs.account_id,
-                account_label: obs.account_label,
-                metric_id: obs.metric_id,
-                raw_label: obs.raw_label,
-                normalized_label: obs.normalized_label,
-                display_label: obs.display_label ?? null,
-                name: obs.normalized_label,
-                window: obs.window,
-                used: obs.used,
-                limit: obs.limit,
-                display_style: obs.display_style,
-                reset_at: obs.reset_at,
-                status: obs.status,
-                observed_at: obs.observed_at,
-                source: obs.source,
-                stale: obs.stale ? 1 : 0,
-                last_error: obs.last_error,
-            });
+            insert_one(obs);
             log.debug(`Inserted observation: ${obs.provider}/${obs.account_id}/${obs.metric_id}`);
+        },
+
+        // t352 AC-001: refresh 一轮观测批量写入走单事务，替代逐条 autocommit。
+        // 事务内单条失败记 per-obs 错误日志并跳过，不拖垮整批；整批原子提交。
+        insert_batch(observations: Observation[]): void {
+            if (observations.length === 0) return;
+            batch_tx(observations);
         },
 
         get_latest(provider, account_id, metric_id, source_instance_id) {
@@ -294,47 +362,24 @@ export function create_observation_store(db_path: string): ObservationStore {
             const now = Date.now();
             const day_ms = 24 * 60 * 60 * 1000;
             const start_ms = now - days * day_ms;
+            const bucket_width = (now - start_ms) / cap;
+            // t351 AC-001: 分桶下推 SQL——每桶取最新一条，LIMIT cap 兜底，
+            // 返回行数 ≤ cap，避免全窗口物化后 JS 分桶。
             const rows = query_trend_stmt.all(
+                start_ms,
+                bucket_width,
+                cap,
+                cap,
+                start_ms,
+                bucket_width,
                 provider,
                 account_id,
                 metric_id,
                 source_instance_id,
                 start_ms,
+                cap,
             ) as Record<string, unknown>[];
-
-            // t208: 取点策略。原始点数 ≤ cap 时每点独立（不聚合，保留采集粒度）；
-            // 超过 cap 时按 cap 桶均分窗口、每桶取 observed_at 最大一条。
-            const observations = rows.map(row_to_observation);
-            if (observations.length === 0) return [];
-            if (observations.length <= cap) {
-                // 按 observed_at 升序。SQL ORDER BY observed_at ASC 下同 ts 的行
-                // 顺序未定，后出现者覆盖（同 ts 保留最后一条）。
-                const by_ts = new Map<number, Observation>();
-                for (const obs of observations) {
-                    by_ts.set(obs.observed_at, obs);
-                }
-                return [...by_ts.values()].sort((a, b) => a.observed_at - b.observed_at);
-            }
-            const span = now - start_ms;
-            const bucket_width = span / cap;
-            const buckets = new Map<number, Observation>();
-            for (const obs of observations) {
-                const idx = Math.min(
-                    cap - 1,
-                    Math.floor((obs.observed_at - start_ms) / bucket_width),
-                );
-                const prev = buckets.get(idx);
-                if (!prev || obs.observed_at > prev.observed_at) {
-                    buckets.set(idx, obs);
-                }
-            }
-            // 升序返回（按 bucket index）。
-            const result: Observation[] = [];
-            for (let i = 0; i < cap; i++) {
-                const obs = buckets.get(i);
-                if (obs) result.push(obs);
-            }
-            return result;
+            return rows.map(row_to_observation);
         },
 
         prune(older_than_ms) {

@@ -98,4 +98,33 @@ describe("create_debounced_config_patcher (t195 AC4)", () => {
         expect(save).toHaveBeenCalledTimes(2);
         expect(get).toHaveBeenCalledTimes(2);
     });
+
+    it("keeps patch on flush failure and retries; flush rejects to caller (t356 AC-003)", async () => {
+        const get = vi.fn().mockResolvedValue({ config: base });
+        const save = vi.fn().mockRejectedValueOnce(new Error("disk full"));
+        const on_error = vi.fn();
+        const patcher = create_debounced_config_patcher({ get, save, delay_ms: 500, on_error });
+
+        patcher.patch({ collapsedAccounts: { a: true } });
+        await expect(patcher.flush()).rejects.toThrow("disk full");
+        expect(on_error).toHaveBeenCalledWith(expect.any(Error));
+
+        // 失败 patch 合并回 pending：后续 flush 重试成功，patch 不丢。
+        await expect(patcher.flush()).resolves.toBeUndefined();
+        expect(save).toHaveBeenCalledTimes(2);
+        expect(save).toHaveBeenLastCalledWith({ ...base, collapsedAccounts: { a: true } });
+    });
+
+    it("flush failure re-schedules a debounce retry timer (t356 AC-003)", async () => {
+        const get = vi.fn().mockResolvedValue({ config: base });
+        const save = vi.fn().mockRejectedValueOnce(new Error("disk full"));
+        const patcher = create_debounced_config_patcher({ get, save, delay_ms: 500 });
+
+        patcher.patch({ expandedProviders: { claude: true } });
+        await expect(patcher.flush()).rejects.toThrow("disk full");
+        // 失败后重排 timer：advance 后重试成功。
+        await vi.advanceTimersByTimeAsync(500);
+        expect(save).toHaveBeenCalledTimes(2);
+        expect(save).toHaveBeenLastCalledWith({ ...base, expandedProviders: { claude: true } });
+    });
 });

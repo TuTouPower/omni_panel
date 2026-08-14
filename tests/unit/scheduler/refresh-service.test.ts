@@ -72,6 +72,9 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         insert: vi.fn((obs: Observation) => {
             inserted.push(obs);
         }),
+        insert_batch: vi.fn((obs: Observation[]) => {
+            inserted.push(...obs);
+        }),
         get_latest: vi.fn(() => null),
         list_latest_by_provider: vi.fn(() => []),
         list_all_providers: vi.fn(() => []),
@@ -351,6 +354,76 @@ describe("refresh-service oauth immediate refresh (t172)", () => {
         expect(stale[0]?.observed_at).toBe(prior_obs.observed_at);
     });
 
+    it("stale insert failure does not block failed state update (t370 AC-002)", async () => {
+        // 全轮失败（脚本抛错）后 stale 副本插入抛错——failed 状态更新仍执行，
+        // runtime store 不卡在 loading（自动调度路径仅 log 不推状态，故必须无条件置 failed）。
+        const execute_connector = vi.fn().mockRejectedValue(new Error("HTTP 500"));
+        const runtimeStore = createRuntimeStore();
+        const observationStore = create_observation_store();
+        // list_by_source 返回 prior 观测 → 走全轮失败 stale 插入段（t370 新增 try/catch）。
+        observationStore.list_by_source_instance_id = vi
+            .fn<(source: string) => Observation[]>()
+            .mockReturnValue([
+                {
+                    ...success_observation,
+                    observed_at: 1770000000000,
+                },
+            ]);
+        const insert_mock = vi.fn(() => {
+            throw new Error("stale insert boom");
+        });
+        observationStore.insert = insert_mock;
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([plugin_config("deepseek-1")]),
+            vault: create_vault(),
+            execute_connector,
+        });
+
+        await service.refresh("deepseek-1");
+        const state = runtimeStore.getSnapshot("deepseek-1");
+        // stale 插入失败被告警，但 failed 状态已更新——不卡 loading。
+        expect(state.status).toBe("failed");
+        expect(insert_mock).toHaveBeenCalled();
+    });
+
+    it("refreshAll surfaces per-instance failed state (t370 AC-003)", async () => {
+        const execute_connector = vi
+            .fn()
+            .mockResolvedValueOnce({ observations: [success_observation], failed_accounts: [] })
+            .mockResolvedValueOnce({
+                observations: [],
+                failed_accounts: [
+                    {
+                        provider: "grok",
+                        account_id: "grok",
+                        account_label: "Grok",
+                        error: "HTTP 503",
+                    },
+                ],
+            });
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                plugin_config("deepseek-1"),
+                plugin_config("deepseek-2"),
+            ]),
+            vault: create_vault(),
+            execute_connector,
+        });
+
+        await service.refreshAll();
+
+        // 失败实例状态 failed（用户可见），成功实例非 failed。
+        expect(runtimeStore.getSnapshot("deepseek-2").status).toBe("failed");
+        expect(runtimeStore.getSnapshot("deepseek-1").status).not.toBe("failed");
+    });
+
     it("marks per-account failures stale preserving data time on mixed results (t174)", async () => {
         // 脚本成功返回但单账号失败：failed_accounts 分支复制的 stale 副本
         // 同样保留原观测时间（部分失败下 connector 级 updatedAt 会被成功
@@ -519,12 +592,45 @@ describe("refresh-service per-instance lock short-circuit (t196 AC2)", () => {
             expect(execute_connector).toHaveBeenCalledTimes(1);
         });
 
-        // 第二轮（手动 + 定时并发场景）在锁内被短路，不进入采集。
-        await service.refresh("deepseek-1", { force: true });
+        // 第二轮（手动 + 定时并发场景）非 force 在锁内被短路，不进入采集。
+        await service.refresh("deepseek-1");
         release();
         await first;
 
         expect(execute_connector).toHaveBeenCalledTimes(1);
+    });
+
+    it("force=true bypasses the in-flight lock (t370 AC-001)", async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const execute_connector = vi.fn().mockImplementation(async () => {
+            await gate; // hold the first collection in flight
+            return { observations: [], failed_accounts: [] };
+        });
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([plugin_config("deepseek-1")]),
+            vault: create_vault(),
+            execute_connector,
+        });
+
+        const first = service.refresh("deepseek-1");
+        await vi.waitFor(() => {
+            expect(execute_connector).toHaveBeenCalledTimes(1);
+        });
+
+        // force=true 绕过锁——第二轮也进入采集（用户显式请求优先）。
+        const second = service.refresh("deepseek-1", { force: true });
+        await vi.waitFor(() => {
+            expect(execute_connector).toHaveBeenCalledTimes(2);
+        });
+        release();
+        await Promise.all([first, second]);
     });
 
     it("releases the lock after a refresh completes so a later refresh runs", async () => {

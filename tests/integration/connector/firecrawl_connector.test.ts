@@ -153,6 +153,34 @@ describe("firecrawl connector", () => {
         expect(result.observations.map((o) => o.reset_at)).toEqual([null, null]);
     });
 
+    it("uses per-metric reset_at for credits and tokens (t361 AC-001)", async () => {
+        const credit_payload = {
+            success: true,
+            data: {
+                remaining_credits: 800,
+                plan_credits: 1000,
+                billing_period_end: "2026-08-03T11:54:41.999Z",
+            },
+        };
+        const token_payload = {
+            success: true,
+            data: {
+                remaining_tokens: 12000,
+                plan_tokens: 15000,
+                billing_period_end: "2026-08-10T11:54:41.999Z",
+            },
+        };
+        const result = await run_firecrawl(credit_payload, token_payload);
+
+        expect(result.error).toBeNull();
+        const credits = result.observations.find((o) => o.raw_label === "credits");
+        const tokens = result.observations.find((o) => o.raw_label === "tokens");
+        expect(credits?.reset_at).toBe(Date.parse("2026-08-03T11:54:41.999Z"));
+        expect(tokens?.reset_at).toBe(Date.parse("2026-08-10T11:54:41.999Z"));
+        // 分指标 reset_at：两值不同（原 tokens 复用 credits 的错误会导致两者相等）。
+        expect(credits?.reset_at).not.toBe(tokens?.reset_at);
+    });
+
     it("returns no observations when API key is missing", async () => {
         const get_json = vi
             .fn<ConnectorContext["http"]["get_json"]>()
@@ -166,12 +194,13 @@ describe("firecrawl connector", () => {
         expect(get_json).not.toHaveBeenCalled();
     });
 
-    it("throws when API response is not an object", async () => {
+    it("reports failed_account when API response is not an object (t363 AC-002)", async () => {
         const result = await run_firecrawl(null, null);
 
-        expect(result.error).not.toBeNull();
-        expect(result.error).toContain("Firecrawl API 返回格式异常");
+        // t363: 双接口失败经 allSettled 记录 failed_account，不整体抛错。
+        expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
+        expect(result.failed_accounts.length).toBeGreaterThan(0);
     });
 
     it("status reflects used/limit ratio threshold", async () => {
@@ -227,13 +256,34 @@ describe("firecrawl connector", () => {
         expect(result.observations[1]?.status).toBe("unknown");
     });
 
-    it("throws when API reports success:false", async () => {
+    it("reports failed_account when API reports success:false (t363 AC-002)", async () => {
         const result = await run_firecrawl(
             { success: false, error: "invalid api key" },
             { success: false, error: "invalid api key" },
         );
 
-        expect(result.error).not.toBeNull();
-        expect(result.error).toContain("invalid api key");
+        // t363: 双接口失败经 allSettled 记录 failed_account（含错误信息），不整体抛错。
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
+        const joined = result.failed_accounts.map((f) => f.error).join(" ");
+        expect(joined).toContain("invalid api key");
+    });
+
+    it("keeps the successful side when only one API fails (t363 AC-002)", async () => {
+        const get_json = vi
+            .fn<ConnectorContext["http"]["get_json"]>()
+            .mockImplementation((_ep, path) => {
+                if (path === "/v1/team/credit-usage") return Promise.resolve(CREDIT_PAYLOAD);
+                if (path === "/v1/team/token-usage")
+                    return Promise.reject(new Error("tokens down"));
+                throw new Error(`unexpected path ${path}`);
+            });
+        const ctx = create_ctx_with_get_json(get_json, { API_KEY: "test-key" });
+        const result = await run_firecrawl_with_ctx(ctx);
+
+        // 单接口失败不拖垮另一——成功侧 credits 照常产出，失败侧记录 failed_account。
+        expect(result.error).toBeNull();
+        expect(result.observations.map((o) => o.raw_label)).toEqual(["credits"]);
+        expect(result.failed_accounts.some((f) => f.error.includes("tokens down"))).toBe(true);
     });
 });

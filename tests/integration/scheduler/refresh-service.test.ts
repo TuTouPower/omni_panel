@@ -4,10 +4,8 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-    createRefreshService,
-    is_auth_error,
-} from "../../../src/main/core/scheduler/refresh-service";
+import { createRefreshService } from "../../../src/main/core/scheduler/refresh-service";
+import { is_auth_error } from "../../../src/shared/lib/auth-error";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/main/core/config/types";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
@@ -132,6 +130,9 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         inserted,
         insert(obs: Observation) {
             inserted.push(obs);
+        },
+        insert_batch(obs: Observation[]) {
+            inserted.push(...obs);
         },
         get_latest: vi.fn(() => null as Observation | null),
         list_latest_by_provider: vi.fn(() => [] as Observation[]),
@@ -361,10 +362,8 @@ describe("refresh-service", () => {
         const { tempDir, service, observationStore } = await create_service([plugin_config()]);
 
         try {
-            await Promise.all([
-                service.refresh("deepseek-1", { force: true }),
-                service.refresh("deepseek-1", { force: true }),
-            ]);
+            // 非 force 两轮并发：锁短路只执行一轮。
+            await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-1")]);
 
             expect(observationStore.inserted.length).toBeLessThanOrEqual(1);
         } finally {

@@ -106,24 +106,23 @@
             "type": "array",
             "items": {
                 "type": "string",
-                "enum": [
-                    "claude",
-                    "codex",
-                    "antigravity",
-                    "kimi",
-                    "glm",
-                    "minimax",
-                    "deepseek",
-                    "tavily",
-                    "firecrawl",
-                    "mimo",
-                    "opencode_go"
-                ]
+                "pattern": "^[a-z][a-z0-9_]*$"
             }
         },
         "defaultSource": {
             "type": "string",
             "enum": ["poll", "local", "session", "wrapper", "probe", "gateway"]
+        },
+        "login_url": {
+            "type": "string",
+            "format": "uri"
+        },
+        "cookie_names": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
         },
         "auth": {
             "type": "object",
@@ -133,12 +132,14 @@
                     "enum": ["apikey", "oauth_device", "web_login", "cpa_mgmt", "local_cli"]
                 },
                 "secret_name": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 "extra_fields": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     }
                 },
                 "login_url": {

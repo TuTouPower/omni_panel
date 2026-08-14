@@ -161,4 +161,47 @@ describe("PanelTitleBar (t252)", () => {
         expect(svg?.innerHTML).toContain('d="m14 18 4-4 4 4"');
         expect(svg?.innerHTML).not.toContain("<rect");
     });
+
+    it("center 插槽渲染于标题与动作区之间（t380）", () => {
+        render(
+            <PanelTitleBar panel="Agent" center={<span data-testid="center-slot">筛选器</span>} />,
+        );
+        expect(screen.getByTestId("center-slot")).toBeInTheDocument();
+    });
+
+    it("title_extra 渲染于品牌标题后（t380）", () => {
+        render(
+            <PanelTitleBar
+                panel="Agent"
+                title_extra={<span data-testid="title-extra">状态</span>}
+            />,
+        );
+        expect(screen.getByTestId("title-extra")).toBeInTheDocument();
+    });
+
+    it("onRefreshAll 时刷新按钮标题为「刷新全部」且点击调用 onRefreshAll（t380）", () => {
+        const onRefreshAll = vi.fn();
+        render(<PanelTitleBar panel="Usage" onRefreshAll={onRefreshAll} is_live />);
+        const refresh_btn = screen.getByRole("button", { name: "刷新" });
+        expect(refresh_btn.getAttribute("title")).toBe("刷新全部");
+        fireEvent.click(refresh_btn);
+        expect(onRefreshAll).toHaveBeenCalledTimes(1);
+    });
+
+    it("onRefresh 时刷新按钮标题为「刷新当前面板」（t380）", () => {
+        const onRefresh = vi.fn();
+        render(<PanelTitleBar panel="Agent" onRefresh={onRefresh} is_live />);
+        const refresh_btn = screen.getByRole("button", { name: "刷新" });
+        expect(refresh_btn.getAttribute("title")).toBe("刷新当前面板");
+    });
+
+    it("floating 模式窗口控制只渲染「隐藏用量面板」，无最小化/最大化（t380）", () => {
+        const onClose = vi.fn();
+        render(<PanelTitleBar panel="Usage" floating onClose={onClose} />);
+        const hide_btn = screen.getByRole("button", { name: "隐藏用量面板" });
+        expect(screen.queryByRole("button", { name: "最小化" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "最大化/还原" })).not.toBeInTheDocument();
+        fireEvent.click(hide_btn);
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
 });

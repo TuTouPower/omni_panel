@@ -188,4 +188,45 @@ describe("use_config", () => {
 
         expect(result.current.config).toBe(before);
     });
+
+    it("rolls back optimistic config update when save fails (t356 AC-002)", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        const confirmed = result.current.config;
+        expect(confirmed).toEqual(base_config);
+
+        // save 失败：乐观更新后的 config 应回滚到 base_config（内存与磁盘一致）。
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        const failed: AppConfiguration = {
+            ...base_config,
+            language: "en",
+        };
+        await act(async () => {
+            await expect(result.current.save(failed)).rejects.toThrow("disk full");
+        });
+
+        expect(result.current.config).toEqual(base_config);
+    });
+
+    it("rolls back update_config optimistic update when save fails (t356 AC-002)", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        await act(async () => {
+            result.current.update_config((prev) => ({ ...prev, language: "en" }));
+            // update_config 内部链式，等其 settle
+            await new Promise((r) => setTimeout(r, 0));
+        });
+
+        expect(result.current.config).toEqual(base_config);
+    });
 });

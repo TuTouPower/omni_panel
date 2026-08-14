@@ -6,32 +6,10 @@ import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
-const manifest: Manifest = {
-    id: "deepseek",
-    provider: "deepseek",
-    capabilities: ["poll"],
-    parameters: [
-        {
-            name: "API_KEY",
-            type: "secret",
-            required: true,
-            exposeToScript: true,
-        },
-        {
-            name: "LIMIT",
-            type: "number",
-            required: false,
-            exposeToScript: true,
-            default: "100",
-        },
-    ],
-    endpoints: { default: "https://api.deepseek.com" },
-    poll: {
-        request: { endpoint: "default", path: "/user/balance", method: "GET" },
-        map: {},
-    },
-    script: "connector.ts",
-};
+// t377 AC-001: manifest 从磁盘读真实定义，不手工复制（防与 connectors/ 漂移）。
+const manifest = JSON.parse(
+    await readFile(join("connectors", "deepseek", "manifest.json"), "utf8"),
+) as Manifest;
 
 function create_ctx(balance_infos: unknown[]): ConnectorContext {
     return {
@@ -172,6 +150,25 @@ describe("deepseek connector", () => {
 
         expect(result.error).not.toBeNull();
         expect(result.error).toContain("balance_infos");
+        expect(result.observations).toEqual([]);
+    });
+
+    it("reports failed on empty API_KEY instead of silent success (t362 AC-001)", async () => {
+        const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
+        const result = await run_connector(manifest, script, {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.resolve({}),
+                post_json: () => Promise.resolve({}),
+                get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { API_KEY: "   ", LIMIT: "100" },
+            status: ctx_status,
+            report_failed_account: () => undefined,
+        });
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Missing required secret: API_KEY");
         expect(result.observations).toEqual([]);
     });
 });

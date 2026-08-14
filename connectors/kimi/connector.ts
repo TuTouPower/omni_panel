@@ -95,7 +95,7 @@ async function main(): Promise<ScriptObservation[]> {
             metric_id: "kimi:weekly",
             raw_label: "weekly",
             normalized_label: "一周",
-            window: "day",
+            window: "week",
             cycleDurationMs: cycle_duration_ms,
             used,
             limit,
@@ -109,9 +109,9 @@ async function main(): Promise<ScriptObservation[]> {
         });
     }
 
-    // 5 小时限额（limits[0]，duration=300 分钟）
+    // 5 小时限额（limits[0]，须校验 window.duration===300 分钟，否则不是 five_hour 窗口）。
     const rate_limit = response?.limits?.[0];
-    if (rate_limit?.detail) {
+    if (rate_limit?.detail && rate_limit.window?.duration === 300) {
         const d = rate_limit.detail;
         const used = to_number(d.used);
         const limit = to_number(d.limit);

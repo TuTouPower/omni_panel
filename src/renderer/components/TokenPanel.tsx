@@ -1,8 +1,4 @@
-import { useState } from "react";
 import { Icon } from "./Icon";
-import { Segmented } from "./ui/Segmented";
-
-type TokenTimeRange = "today" | "week" | "month";
 
 interface TokenPanelProps {
     total_tokens?: number;
@@ -10,15 +6,7 @@ interface TokenPanelProps {
     has_real_data: boolean;
 }
 
-const RANGE_OPTIONS: { value: TokenTimeRange; label: string }[] = [
-    { value: "today", label: "今天" },
-    { value: "week", label: "最近一周" },
-    { value: "month", label: "最近一月" },
-];
-
 export function TokenPanel({ total_tokens, has_real_data }: TokenPanelProps) {
-    const [range, setRange] = useState<TokenTimeRange>("today");
-
     const display_value =
         has_real_data && total_tokens !== undefined
             ? total_tokens.toLocaleString()
@@ -36,14 +24,6 @@ export function TokenPanel({ total_tokens, has_real_data }: TokenPanelProps) {
                 <span className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]">
                     Total Tokens
                 </span>
-                <Segmented
-                    size="sm"
-                    className="ml-auto shrink-0"
-                    aria-label="Token 时间范围"
-                    options={RANGE_OPTIONS}
-                    value={range}
-                    onChange={setRange}
-                />
             </div>
             <div className="flex items-baseline gap-2">
                 <span

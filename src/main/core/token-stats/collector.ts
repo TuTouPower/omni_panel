@@ -105,6 +105,10 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
+// t345 AC-003: 超上限截断游标——该 source 已发出的 session/daily 数。单源
+// sessions/daily 总数 > MAX_RECORDS 时，回滚 state 下轮全量重扫，按游标跳过
+// 已发出部分，跨轮推进直到发完（避免活锁 + 截断数据不永久丢失）。
+const source_cursors = new Map<string, { sessions: number; daily: number }>();
 // Warn once per source per process run when its collection round ends
 // unavailable or failed (t309). Without this the collector would log every
 // poll for users who never install a tool (e.g. grok) or on hosts where a
@@ -115,13 +119,25 @@ const source_warned = new Set<string>();
 // Records the collector has already emitted (by PK source|env|message_id).
 // A dirty session re-merge re-derives the session's full record set; without
 // this filter every mtime change would re-ship the whole session (observed
-// ~200k records/collect on active installs). The set is in-memory only: a
-// restart emits full once (same as before), then incrementally. It grows
-// monotonically but is bounded by the total distinct message count.
-const emitted_record_keys = new Set<string>();
+// ~200k records/collect on active installs). The map is in-memory only: a
+// restart emits full once (same as before), then incrementally. t346 AC-001:
+// 记录加入时间戳，按 EMITTED_WINDOW_MS 裁剪，内存占用不再随历史消息总量
+// 线性增长（只保留近 N 天去重状态）。窗口取 30 天：覆盖绝大多数增量回溯期，
+// 活跃会话过窗重发概率被压到「会话 >30 天未触碰又被触碰」的罕见场景。
+const EMITTED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const emitted_record_keys = new Map<string, number>();
 
 function record_key(r: { source: string; env: string; message_id: string }): string {
     return `${r.source}|${r.env}|${r.message_id}`;
+}
+
+/** 裁剪超出时间窗的已发出记录（collect 时调用）。 */
+function prune_emitted(now: number = Date.now()): void {
+    for (const [key, ts] of emitted_record_keys) {
+        if (now - ts > EMITTED_WINDOW_MS) {
+            emitted_record_keys.delete(key);
+        }
+    }
 }
 
 // --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
@@ -244,8 +260,13 @@ function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_l
         wsl_user_cache = null;
         wsl_user_cache_distro = cfg.wsl_distro;
     }
-    wsl_user_cache ??= lister(`\\\\wsl.localhost\\${cfg.wsl_distro}\\home`)[0] ?? "";
-    return wsl_user_cache;
+    // t345 AC-006: 空结果不缓存（`??=` 会缓存 ""，整段运行期 WSL 源不可用）。
+    // 只有探测到非空用户才写缓存；每轮空结果重试探测。
+    if (wsl_user_cache === null) {
+        const detected = lister(`\\\\wsl.localhost\\${cfg.wsl_distro}\\home`)[0];
+        if (detected) wsl_user_cache = detected;
+    }
+    return wsl_user_cache ?? "";
 }
 
 /** Host the collector runs on, derived from process.platform (t308). */
@@ -407,14 +428,24 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
             const result = scan_grok_updates(grok_path, src.env, state);
             grok_states.set(src.key, result.new_state);
             if (result.missing) {
-                // Keep the established warn phrasing (t197 AC5): the old test
-                // asserts the "sessions dir missing" message.
+                // 目录缺失（t197 AC5）：unavailable，保留 established warn 文案。
                 const lastError = `sessions dir missing: ${grok_path}`;
                 return {
                     ...EMPTY_READ,
                     status: "unavailable",
                     lastError,
                     logMessage: `${src.key} ${lastError}`,
+                };
+            }
+            if (result.file_unreadable) {
+                // t345 AC-001: 部分文件不可读——返回已解析部分，报 failed（非丢弃）。
+                return {
+                    sessions: result.sessions,
+                    daily: result.daily,
+                    records: result.records,
+                    status: "failed",
+                    lastError: "some grok session files unreadable",
+                    logMessage: `${src.key} partially unreadable: some session files unreadable`,
                 };
             }
             return {
@@ -469,6 +500,13 @@ function collect(): void {
     // reported; unavailable/failed entries carry the reason text.
     const all_sources_status: TokenStatsSourceStatus[] = [];
 
+    // t345 AC-004: 本轮新增的 emitted 标记先存临时集合，postMessage 成功才并入
+    // emitted_record_keys——发送失败时回滚，下一轮重发。
+    const newly_emitted: string[] = [];
+    // 参与读取的 source（postMessage 失败时回滚其扫描状态，下轮重扫重发）。
+    const participated: SourceDef[] = [];
+    // 超上限触发截断的 source（不 break 饿死后续 source）。
+    const truncated_sources: SourceDef[] = [];
     for (const src of sources) {
         // Config-disabled sources (wsl_enabled=false) do not participate at
         // all — no read, no status entry (an intentional config choice, not an
@@ -488,6 +526,7 @@ function collect(): void {
             continue;
         }
         const result = read_source(src, config);
+        participated.push(src);
         if (result.status === "ok") {
             all_sources_status.push({ source: src.source, env: src.env, status: "ok" });
         } else {
@@ -500,13 +539,30 @@ function collect(): void {
                 lastError,
             });
         }
+        // t345 AC-003: 截断游标——跳过该 source 已发出的前 N 个 session/daily
+        // （reader 按 session_id 排序，游标推进保证跨轮不重发也不丢失）。
+        const cursor = source_cursors.get(src.key);
+        let skipped_sessions = 0;
+        let skipped_daily = 0;
+        let pushed_sessions = 0;
+        let pushed_daily = 0;
         for (const s of result.sessions) {
+            if (cursor && skipped_sessions < cursor.sessions) {
+                skipped_sessions++;
+                continue;
+            }
             if (all_sessions.length >= MAX_RECORDS) break;
             all_sessions.push(s);
+            pushed_sessions++;
         }
         for (const d of result.daily) {
+            if (cursor && skipped_daily < cursor.daily) {
+                skipped_daily++;
+                continue;
+            }
             if (all_daily.length >= MAX_RECORDS * 5) break;
             all_daily.push(d);
+            pushed_daily++;
         }
         for (const r of result.records) {
             const key = record_key(r);
@@ -516,7 +572,7 @@ function collect(): void {
             // hit the cap would be silently dropped forever (it is marked emitted
             // but never written to the DB).
             if (all_records.length >= MAX_RECORDS * 20) break;
-            emitted_record_keys.add(key);
+            newly_emitted.push(key);
             all_records.push(r);
         }
         if (
@@ -524,8 +580,25 @@ function collect(): void {
             all_daily.length >= MAX_RECORDS * 5 ||
             all_records.length >= MAX_RECORDS * 20
         ) {
-            forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
-            break;
+            // t345 AC-003: 超上限截断——记录游标（跳过的已发出数 + 本轮新收集数
+            // = 累计已发出计数），回滚该 source 的扫描状态使下轮全量重扫，按游标
+            // 推进跨轮发完截断数据。
+            const total_sessions = skipped_sessions + pushed_sessions;
+            const total_daily = skipped_daily + pushed_daily;
+            source_cursors.set(src.key, { sessions: total_sessions, daily: total_daily });
+            for (const map of [
+                costs_state,
+                opencode_max_updated,
+                jsonl_states,
+                kimi_states,
+                grok_states,
+            ] as const) {
+                map.delete(src.key);
+            }
+            truncated_sources.push(src);
+        } else if (cursor) {
+            // 未截断：游标已消费完，清除。
+            source_cursors.delete(src.key);
         }
     }
 
@@ -539,15 +612,51 @@ function collect(): void {
 
     try {
         get_parent_port()?.postMessage(update);
+        const now = Date.now();
+        for (const key of newly_emitted) {
+            emitted_record_keys.set(key, now);
+        }
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         forward_log("error", "collector", `postMessage failed: ${msg}`);
+        // t345 AC-004: postMessage 失败——回滚参与 source 的扫描状态与截断游标，
+        // 下一轮全量重扫并重发（否则增量 reader 不重产出失败轮 records，数据静默
+        // 丢失；截断轮若游标不回滚，被跳过 session upsert 永久缺失）。
+        for (const src of participated) {
+            for (const map of [
+                costs_state,
+                opencode_max_updated,
+                jsonl_states,
+                kimi_states,
+                grok_states,
+            ] as const) {
+                map.delete(src.key);
+            }
+            source_cursors.delete(src.key);
+        }
     }
 
+    if (truncated_sources.length > 0) {
+        forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
+    }
+
+    // t346 AC-001: 裁剪超出时间窗的已发出记录，控制内存上界。
+    prune_emitted();
+
     // Persist scan state for incremental resume after restart (t114).
+    // t346 AC-002: 本轮无新数据时跳过保存，避免每轮无条件全量序列化 + fsync。
+    // 失败/不可用 source 不改写 state map（reader 失败不碰 map），postMessage
+    // 失败的回滚仅发生在有数据被收集时（此时 all_* 非空已触发保存），故
+    // has_changes 只需看数据与截断——永久不可用 source（如 Windows 无 Grok 的
+    // grok_wsl）不再每轮触发保存。
     // Fire-and-forget: don't block the next scan on disk IO.
     const state_path = config.state_path;
-    if (state_path) void save_state(state_path);
+    const has_changes =
+        all_sessions.length > 0 ||
+        all_daily.length > 0 ||
+        all_records.length > 0 ||
+        truncated_sources.length > 0;
+    if (state_path && has_changes) void save_state(state_path);
 }
 
 // --- Configure (also exported for tests) ---
@@ -566,6 +675,7 @@ function reset_config(): void {
     grok_states.clear();
     source_warned.clear();
     emitted_record_keys.clear();
+    source_cursors.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
     if (interval_id) {
@@ -609,6 +719,8 @@ export {
     jsonl_states,
     kimi_states,
     grok_states,
+    source_cursors,
+    emitted_record_keys,
     claude_costs_path,
     claude_projects_path,
     opencode_path,

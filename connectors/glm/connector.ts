@@ -116,7 +116,8 @@ async function main(): Promise<ScriptObservation[]> {
                 metric_id: `glm:${kind}-${pk}`,
                 raw_label: `${kind}-${pk}`,
                 normalized_label,
-                window: pk === "month" ? "month" : pk === "week" ? "day" : "second",
+                // t363: 5h 窗口无对应 ObservationWindow，用 day 近似展示（cycleDurationMs 仍精确 5h）。
+                window: pk === "month" ? "month" : "day",
                 cycleDurationMs:
                     pk === "month"
                         ? 30 * 24 * 3_600_000
@@ -144,7 +145,8 @@ async function main(): Promise<ScriptObservation[]> {
                 metric_id: `glm:${kind}-${pk}`,
                 raw_label: `${kind}-${pk}`,
                 normalized_label,
-                window: pk === "5h" ? "second" : pk === "month" ? "month" : "day",
+                // t363: 5h 窗口无对应 ObservationWindow，用 day 近似展示（cycleDurationMs 精确 5h）。
+                window: pk === "5h" ? "day" : pk === "month" ? "month" : "day",
                 cycleDurationMs:
                     pk === "5h"
                         ? 5 * 3_600_000

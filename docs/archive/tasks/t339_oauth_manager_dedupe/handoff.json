@@ -1,0 +1,33 @@
+{
+    "tid": "t339",
+    "attempt": 1,
+    "execution_id": "f992162563d849bcbc7f49ba5e1f5a57",
+    "status": "done",
+    "branch": "t339_oauth_manager_dedupe",
+    "base_sha": "ed51a5e80ea8589ed0cddf483e07199d21d93f88",
+    "tests": "OAuth 相关测试全绿：grok_oauth_manager（30）+ kimi_oauth_manager（28）+ device_code_oauth_manager（新增 3）+ preload oauth_api（2）+ ipc grok_auth（11）+ schema_export_freshness（4）= 78 例通过。全量 unit 2380 passed；10 文件因 p153（worktree electron path.txt 缺失）环境失败，与本 task 无关。typecheck 干净；t339 触及文件 lint 干净（16 个 omni_panel.mjs 存量错属 t344）。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制（worktree 缺二进制），黑盒未独立跑；参数化后 grok/kimi 行为由既有单测（AC-004）与新增对齐测试（AC-002/003）覆盖，运行时等效性经 code review 逐函数比对确认。",
+    "review": "review_level=full；Round 1 code PASS（f001 minor 遗留→p154）、test PASS（f001/f002 minor 遗留→p154）。报告 t339_review_code.md / t339_review_test.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/auth/device_code_oauth_manager.ts 单一参数化 manager；grok_oauth_manager.ts:31（470→54 行）/kimi_oauth_manager.ts（516→96 行）仅剩配置薄包装",
+            "src/main/ipc/oauth_device_ipc.ts 共享注册器；grok_auth_ipc.ts/kimi_auth_ipc.ts（各 152→78 行）仅剩 channel 映射与 handle_* 委托",
+            "src/preload/oauth_api.ts create_oauth_apis 共享工厂；create_grok_oauth_apis/create_kimi_oauth_apis 仅 channel 映射",
+            "tests/unit/preload/oauth_api.test.ts 与 tests/unit/ipc/grok_auth_ipc.test.ts 未改动仍通过（API shape 与签名保持）"
+        ],
+        "AC-002": [
+            "device_code_oauth_manager.ts logout 含 cancel_device_login + retry_failure_counts.delete（对齐 kimi）",
+            "tests/unit/auth/device_code_oauth_manager.test.ts::logout 取消进行中的 device login 断言通过；grok/kimi 两工厂同副作用测试通过"
+        ],
+        "AC-003": [
+            "device_code_oauth_manager.ts stop_auto_refresh 与 shutdown 均含 retry_failure_counts.clear/delete（对齐 kimi）",
+            "tests/unit/auth/device_code_oauth_manager.test.ts::stop_auto_refresh 取消定时器且不再 refresh 断言通过"
+        ],
+        "AC-004": [
+            "grok_oauth_manager.test.ts（30 例）与 kimi_oauth_manager.test.ts（28 例）未改动全部通过，参数化无行为回归",
+            "pnpm typecheck 干净；t339 触及文件 eslint 干净"
+        ]
+    },
+    "pending": ["p154"],
+    "findings": []
+}

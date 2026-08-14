@@ -1,0 +1,28 @@
+{
+    "tid": "t367",
+    "attempt": 1,
+    "execution_id": "ceb914f359384ee2a5aa6e81dd06aa9b",
+    "status": "done",
+    "branch": "t367_session_history_main_robustness",
+    "base_sha": "4005790f647142a63b814dde2c1c597865b25615",
+    "tests": "全量 262 文件 3109 passed / 9 skipped（含新增：watcher error 降级 / size 回退重置 cursor / cookie 保存失败）",
+    "blackbox": "typecheck + eslint + prettier 通过；main 进程健壮性，以单测（mock watcher error/文件重写/vault.set 失败）断言代替",
+    "review": "single；Round 1 general PASS（0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "subscription-service.ts create_watcher watch 分支 error 回调 close 当前 watcher + 启动 poll 降级 timer + on_change 触发（原静默停摆）",
+            "tests/unit/main/core/session-history/watcher.test.ts::error 事件触发降级：on_change 调 + stop 清理降级 timer 通过",
+            "session-locator.ts 模块级可变状态加单例约束注释（范围项，进程级单例多实例化需重构工厂）"
+        ],
+        "AC-002": [
+            "subscription-service.ts handle_change 增量前 safe_stat 比较——cursor.offset > size（截断重写）时 cursor 重置走全量",
+            "tests/unit/main/core/session-history/subscription-service.test.ts::文件被截断重写时游标重置走全量，不丢新内容 通过"
+        ],
+        "AC-003": [
+            "session-manager.ts vault.set 失败包装可读错误「登录成功但保存失败，请重试」",
+            "tests/unit/session/session-manager.test.ts::cookie 保存失败返回可读错误（fail_next_set → rejects.toThrow 登录成功但保存失败）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

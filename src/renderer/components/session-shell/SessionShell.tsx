@@ -45,20 +45,6 @@ export function SessionShell() {
     return (
         <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
             <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]">
-                <button
-                    type="button"
-                    className={cn(
-                        "session-rail-toggle h-11 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[var(--color-surface)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                        rail_collapsed && "w-11",
-                    )}
-                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    onClick={() => {
-                        set_rail_collapsed((v) => !v);
-                    }}
-                >
-                    {rail_collapsed ? "»" : "«"}
-                </button>
                 <PanelTitleBar
                     panel="Session"
                     className="min-w-0 flex-1"
@@ -81,43 +67,59 @@ export function SessionShell() {
                             }}
                         />
                     }
+                    center={
+                        <nav className="flex h-full items-stretch gap-1" aria-label="面板页签">
+                            <button
+                                type="button"
+                                className={cn(
+                                    "session-tab border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                    tab === "workspace" &&
+                                        "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
+                                )}
+                                data-active={tab === "workspace"}
+                                aria-selected={tab === "workspace"}
+                                onClick={() => {
+                                    set_tab("workspace");
+                                }}
+                            >
+                                工作台
+                            </button>
+                            <button
+                                type="button"
+                                className={cn(
+                                    "session-tab border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                    tab === "library" &&
+                                        "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
+                                )}
+                                data-active={tab === "library"}
+                                aria-selected={tab === "library"}
+                                onClick={() => {
+                                    set_tab("library");
+                                }}
+                            >
+                                会话库
+                            </button>
+                        </nav>
+                    }
                 />
-                <nav
-                    className="session-tabs absolute left-1/2 top-1/2 flex h-full -translate-x-1/2 -translate-y-1/2 items-stretch gap-1 [-webkit-app-region:no-drag]"
-                    aria-label="面板页签"
-                >
-                    <button
-                        type="button"
-                        className={cn(
-                            "session-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            tab === "workspace" &&
-                                "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
-                        )}
-                        data-active={tab === "workspace"}
-                        aria-selected={tab === "workspace"}
-                        onClick={() => {
-                            set_tab("workspace");
-                        }}
-                    >
-                        工作台
-                    </button>
-                    <button
-                        type="button"
-                        className={cn(
-                            "session-tab h-full border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            tab === "library" &&
-                                "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
-                        )}
-                        data-active={tab === "library"}
-                        aria-selected={tab === "library"}
-                        onClick={() => {
-                            set_tab("library");
-                        }}
-                    >
-                        会话库
-                    </button>
-                </nav>
             </header>
+            {/* t380 AC-004: rail-toggle 下移为标题栏下方独立行，不再占用标题栏左侧 220px */}
+            <div className="session-rail-toggle-row flex shrink-0 items-stretch border-b border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)]">
+                <button
+                    type="button"
+                    className={cn(
+                        "session-rail-toggle h-8 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        rail_collapsed && "w-11",
+                    )}
+                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    onClick={() => {
+                        set_rail_collapsed((v) => !v);
+                    }}
+                >
+                    {rail_collapsed ? "»" : "«"}
+                </button>
+            </div>
             <main className="session-body flex min-h-0 flex-1">
                 <section
                     className={cn("session-panel min-w-0 flex-1", tab !== "workspace" && "hidden")}

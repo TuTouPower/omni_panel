@@ -20,7 +20,8 @@ import { plugins_structure_signature } from "../lib/config-sync";
 import type { AppConfiguration } from "../../shared/types/config";
 import { relative_time } from "../lib/utils";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
-import { TitleBar } from "./popup-view/TitleBar";
+import { PanelTitleBar } from "../components/ui/PanelTitleBar";
+import { use_panel_navigation } from "../lib/panel-navigation";
 import { EmptyState } from "./popup-view/EmptyState";
 import { UpcomingResetCardSlot } from "./popup-view/UpcomingResetCardSlot";
 import { NetBanner } from "./popup-view/NetBanner";
@@ -46,6 +47,7 @@ const ALL_REFRESH_KEY = "__refresh_all__";
 
 export function PopupView() {
     useTheme();
+    const navigate = use_panel_navigation();
     useNowTick();
     const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
@@ -695,21 +697,32 @@ export function PopupView() {
         return (
             <>
                 {/* title bar */}
-                <TitleBar
-                    footerTime={footerTime}
+                <PanelTitleBar
+                    panel="Usage"
+                    title_extra={
+                        footerTime && (
+                            <span
+                                className="ml-2 whitespace-nowrap text-[12px] text-[var(--color-on-surface-muted)]"
+                                title="上次更新时间"
+                                data-testid="popup-time"
+                            >
+                                {footerTime}
+                            </span>
+                        )
+                    }
                     refreshing={refreshing}
                     is_live={is_live}
                     no_drag={titlebar_no_drag}
                     onRefreshAll={handleRefreshAll}
-                    onOpenSettings={goToSettings}
-                    is_floating={main_panel_mode === "floating"}
-                    onHidePanel={() => {
-                        window.usageboard.main_panel.hide();
-                    }}
-                    onOpenHistory={() => {
-                        // 纯跳转入口：无具体会话，开/聚焦空窗。
-                        void window.usageboard.sessionHistory.open("", "", "");
-                    }}
+                    onNavigate={navigate}
+                    floating={main_panel_mode === "floating"}
+                    onClose={
+                        main_panel_mode === "floating"
+                            ? () => {
+                                  window.usageboard.main_panel.hide();
+                              }
+                            : undefined
+                    }
                 />
 
                 {/* tab strip */}

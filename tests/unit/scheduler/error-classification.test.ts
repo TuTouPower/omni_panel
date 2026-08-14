@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-    is_auth_error,
-    is_connection_error,
-} from "../../../src/main/core/scheduler/refresh-service";
+import { is_auth_error } from "../../../src/shared/lib/auth-error";
+import { is_connection_error } from "../../../src/main/core/scheduler/refresh-service";
 
 describe("is_auth_error", () => {
     it("matches 401 / unauthorized / token / credential", () => {

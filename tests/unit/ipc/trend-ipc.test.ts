@@ -72,7 +72,7 @@ describe("trend-ipc", () => {
         };
         expect(result.ok).toBe(true);
         expect(query_trend_series).toHaveBeenCalledWith("claude", "acc-a", "5h", "inst-a", 7);
-        expect(result.data).toEqual([{ date: "2026-07-14", percent: 30 }]);
+        expect(result.data).toEqual([{ date: "2026-07-14T12:00Z", percent: 30 }]);
     });
 
     it("TREND_GET_BULK returns one series per period, querying each (t196 AC5)", async () => {
@@ -125,8 +125,8 @@ describe("trend-ipc", () => {
             14,
         );
         expect(result.data.series).toEqual([
-            { metric_id: "5h", series: [{ date: "2026-07-15", percent: 10 }] },
-            { metric_id: "5d", series: [{ date: "2026-07-16", percent: 40 }] },
+            { metric_id: "5h", series: [{ date: "2026-07-15T08:00Z", percent: 10 }] },
+            { metric_id: "5d", series: [{ date: "2026-07-16T08:00Z", percent: 40 }] },
         ]);
     });
 

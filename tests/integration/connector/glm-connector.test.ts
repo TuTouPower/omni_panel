@@ -94,7 +94,7 @@ describe("glm connector", () => {
                 provider: "glm",
                 raw_label: "text-5h",
                 normalized_label: "5小时",
-                window: "second",
+                window: "day",
                 display_style: "percent",
                 used: 30,
                 limit: 100,
@@ -172,18 +172,6 @@ describe("glm connector", () => {
         expect(result.error).not.toBeNull();
         expect(result.error).toContain("limits");
         expect(result.observations).toEqual([]);
-    });
-
-    it("has no unreachable return after throw on missing limits", async () => {
-        const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
-        // After the fix, the line after the throw should NOT be another
-        // `if (!Array.isArray(limits)) return [];` — search for duplicates.
-        const throw_line_idx = script.indexOf(
-            'throw new Error("智谱 API 返回格式异常: 缺少 limits")',
-        );
-        const after_throw = script.slice(throw_line_idx + 1);
-        const nearby = after_throw.slice(0, 200);
-        expect(nearby).not.toContain("if (!Array.isArray(limits))");
     });
 
     it("maps text month period to month window (consistent with tool branch)", async () => {

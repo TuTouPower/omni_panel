@@ -129,6 +129,65 @@ describe("token-stats query dispatcher (t193)", () => {
         dispatcher.stop();
     });
 
+    it("resets the timer when a queued request becomes active (t351 AC-003)", async () => {
+        const dispatcher = create_token_stats_query_dispatcher(
+            { db_path: ":memory:" },
+            { request_timeout_ms: 30 },
+        );
+
+        // p1 active；p2 queued。p1 首个请求触发 spawn，之后捕获 child。
+        const p1 = dispatcher.request_dashboard(query, status);
+        const child = last_child!;
+        const p2 = dispatcher.request_dashboard(query, status);
+
+        // 等 40ms：p1 active 超时 reject（p2 入队已 40ms > 30ms，旧 timer 已到）。
+        await expect(p1).rejects.toBeInstanceOf(QueryTimeoutError);
+        // p1 超时后 p2 被 promote 为 active，timer 重置为完整 30ms。
+
+        // 激活后等 20ms（<30ms 重置后），p2 响应——不误报超时。
+        await new Promise((r) => setTimeout(r, 20));
+        const sent2 = sent_messages(child)
+            .filter((m) => (m as { type?: string }).type === "query_dashboard")
+            .pop() as { request_id?: number };
+        child.emit("message", {
+            type: "query_dashboard_result",
+            request_id: sent2.request_id,
+            dto: fake_dto,
+        });
+        await expect(p2).resolves.toBe(fake_dto);
+        dispatcher.stop();
+    });
+
+    it("resets the timer on chained promotion when the active times out into the next queued request (t351 AC-003 internal promote)", async () => {
+        const dispatcher = create_token_stats_query_dispatcher(
+            { db_path: ":memory:" },
+            { request_timeout_ms: 30 },
+        );
+        const p1 = dispatcher.request_dashboard(query, status);
+        const child = last_child!;
+        const p2 = dispatcher.request_dashboard({ ...query, start: 1 }, status);
+
+        // p1 active 超时 → p2 promote（timer 重置）。
+        await expect(p1).rejects.toBeInstanceOf(QueryTimeoutError);
+        // p2 激活期间 p3 入队（AC4 只保留最新 queued）。
+        const p3 = dispatcher.request_dashboard({ ...query, start: 2 }, status);
+        // p2 超时 → promote_to_active 内部回调提升 p3，须同样重置 p3 的 timer；
+        // 旧实现裸 `active=next; send(next)` 不重置，p3 按入队时刻立即误报超时。
+        await expect(p2).rejects.toBeInstanceOf(QueryTimeoutError);
+        // p3 激活后 20ms（<30ms 重置后）响应——不误报超时。
+        await new Promise((r) => setTimeout(r, 20));
+        const sent3 = sent_messages(child)
+            .filter((m) => (m as { type?: string }).type === "query_dashboard")
+            .pop() as { request_id?: number };
+        child.emit("message", {
+            type: "query_dashboard_result",
+            request_id: sent3.request_id,
+            dto: fake_dto,
+        });
+        await expect(p3).resolves.toBe(fake_dto);
+        dispatcher.stop();
+    });
+
     it("fails in-flight requests and controlled-restarts after a worker exit (AC5)", async () => {
         const dispatcher = create_token_stats_query_dispatcher(
             { db_path: ":memory:" },

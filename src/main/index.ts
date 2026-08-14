@@ -38,6 +38,10 @@ import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
 import { create_session_manager, is_valid_opencode_login } from "./core/session/session-manager";
 import { create_observation_store } from "./core/observation/observation-store";
+import {
+    create_retention_scheduler,
+    type RetentionScheduler,
+} from "./core/observation/observation-retention";
 import { createRefreshService } from "./core/scheduler/refresh-service";
 import { createConnectorScheduler } from "./core/scheduler/connector-scheduler";
 import { decide_settings_close } from "./core/settings-close-action";
@@ -156,6 +160,19 @@ function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
+/** t360: 取某 provider 的所有启用实例 id（enabled && executablePath 匹配该 def）。 */
+function active_instance_ids_for_provider(
+    allDefinitions: ConnectorDefinition[],
+    plugins: AppConfiguration["plugins"],
+    provider: string,
+): string[] {
+    const def = allDefinitions.find((d) => d.manifest.provider === provider);
+    if (!def) return [];
+    return plugins
+        .filter((plugin) => plugin.enabled && plugin.executablePath === def.executablePath)
+        .map((plugin) => plugin.instanceId);
+}
+
 const windowManager = createWindowManager({
     getPreloadPath,
     getIconPath: get_app_icon_path,
@@ -183,7 +200,7 @@ void app.whenReady().then(async () => {
                     "  quit          停止实例（--port 指定，默认读 cli.json）\n" +
                     "  autostart     开机自启开关\n" +
                     "  export        导出配置\n" +
-                    "帮助：omni_panel --help 或 omni_panel --cli help\n",
+                    "帮助：omni_panel --cli help\n",
             );
             app.exit(0);
             return;
@@ -542,25 +559,17 @@ void app.whenReady().then(async () => {
                 to_connector_list_config(previousConfig),
                 to_connector_list_config(updatedConfig),
             );
-            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
-            const active_grok_instance_ids = grokDef
-                ? updatedConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_grok_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                updatedConfig.plugins,
+                "grok",
+            );
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
-            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
-            const active_kimi_instance_ids = kimiDef
-                ? updatedConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_kimi_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                updatedConfig.plugins,
+                "kimi",
+            );
             kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
             // Update token stats config if changed
             tokenStatsManager.update_config(build_token_stats_config(updatedConfig));
@@ -782,6 +791,8 @@ void app.whenReady().then(async () => {
         let settingsWin: BrowserWindow | null = null;
         // True once shutdown begins: settings then destroys instead of hiding.
         let quitting = false;
+        // t343: observation 留存定时器（app ready 后启动，before-quit 清理）。
+        let retention_scheduler: RetentionScheduler | null = null;
         // Whether saved bounds have been applied since the settings window was
         // (re)created. Apply only on first show, then keep user moves across reopens.
         let settings_bounds_applied = false;
@@ -882,7 +893,26 @@ void app.whenReady().then(async () => {
                 // The window may be pre-warmed (already loaded) or freshly created
                 // (still loading). Send once it's ready either way.
                 if (wc.isLoading()) {
-                    wc.once("did-finish-load", send_navigate);
+                    // t368 AC-002: did-fail-load 时清缓冲（不再永久等待 did-finish-load），
+                    // 并重建预热窗口供下次打开。
+                    let settled = false;
+                    const settle = () => {
+                        if (settled) return;
+                        settled = true;
+                        wc.removeListener("did-fail-load", fail);
+                    };
+                    const fail = () => {
+                        settle();
+                        if (settingsWin && !settingsWin.isDestroyed()) {
+                            settingsWin.destroy();
+                            settingsWin = null;
+                        }
+                    };
+                    wc.once("did-finish-load", () => {
+                        settle();
+                        send_navigate();
+                    });
+                    wc.once("did-fail-load", fail);
                 } else {
                     send_navigate();
                 }
@@ -983,31 +1013,34 @@ void app.whenReady().then(async () => {
         // Start periodic refresh for enabled plugins
         orchestrator.startAll(to_connector_list_config(currentConfig));
 
+        // t343: observation 留存策略接入——启动即清理一次，之后每 24h 定时。
+        // cacheMaxMb 经 get_cache_max_mb 动态读取 currentConfigSnapshot，
+        // 运行时改设置立即生效；before-quit stop 清理定时器。
+        retention_scheduler = create_retention_scheduler({
+            prune: (older_than_ms) => observationStore.prune(older_than_ms),
+            count_observations: () => observationStore.count_observations(),
+            get_cache_max_mb: () => currentConfigSnapshot.cacheMaxMb,
+            now: () => Date.now(),
+        });
+        retention_scheduler.start();
+
         // Start OAuth auto-refresh for enabled grok connector instances. The manager
         // gracefully skips instances without stored tokens.
         {
-            const grokDef = allDefinitions.find((d) => d.manifest.provider === "grok");
-            const active_grok_instance_ids = grokDef
-                ? currentConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === grokDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_grok_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                currentConfig.plugins,
+                "grok",
+            );
             grokOAuthManager.reconcile_auto_refresh(active_grok_instance_ids);
         }
         // Kimi mirrors grok: start auto-refresh for enabled kimi instances on launch.
         {
-            const kimiDef = allDefinitions.find((d) => d.manifest.provider === "kimi");
-            const active_kimi_instance_ids = kimiDef
-                ? currentConfig.plugins
-                      .filter(
-                          (plugin) =>
-                              plugin.enabled && plugin.executablePath === kimiDef.executablePath,
-                      )
-                      .map((plugin) => plugin.instanceId)
-                : [];
+            const active_kimi_instance_ids = active_instance_ids_for_provider(
+                allDefinitions,
+                currentConfig.plugins,
+                "kimi",
+            );
             kimiOAuthManager.reconcile_auto_refresh(active_kimi_instance_ids);
         }
 
@@ -1257,8 +1290,11 @@ void app.whenReady().then(async () => {
         app.on("before-quit", () => {
             log.info("Application shutting down");
             quitting = true;
-            void local_api?.stop();
+            // t368 范围项 5: local_api/close_all_proxy 移入 will-quit Promise.all 等待
+            // 完成，此处不再 fire-and-forget。
             tokenStatsQueryDispatcher.stop();
+            // t368 AC-003: 退出时 stop collector 子进程（原缺失，重启后不全量重扫）。
+            tokenStatsManager.stop();
             if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                 trayMenuWin.destroy();
                 trayMenuWin = null;
@@ -1275,8 +1311,11 @@ void app.whenReady().then(async () => {
             orchestrator.shutdown();
             grokOAuthManager.shutdown();
             kimiOAuthManager.shutdown();
-            void close_all_proxy_agents();
-            void runtimeStore.flushPendingCache();
+            if (retention_scheduler !== null) {
+                retention_scheduler.stop();
+                retention_scheduler = null;
+            }
+            // t368 范围项 5: close_all_proxy/runtimeStore.flush 移入 will-quit await。
             flush_session_index(); // t264: 会话索引脏条目退出前落盘。
             cleanupEventIpc?.();
             cleanupEventIpc = null;
@@ -1285,19 +1324,26 @@ void app.whenReady().then(async () => {
         });
 
         app.on("will-quit", (e) => {
+            // t368 范围项 5: 收拢退出清理——local_api/close_all_proxy 从 before-quit
+            // fire-and-forget 移入 Promise.all 等待完成，避免退出中断。
+            const shutdown_tasks: Promise<unknown>[] = [
+                runtimeStore.flushPendingCache(),
+                local_api ? local_api.stop() : Promise.resolve(),
+                close_all_proxy_agents(),
+            ];
+            if (configStore.hasPendingSave()) {
+                shutdown_tasks.push(configStore.flushPendingSave());
+            }
+            if (!logging_cleanup_done) {
+                shutdown_tasks.push(
+                    cleanupLogging().then(() => {
+                        logging_cleanup_done = true;
+                    }),
+                );
+            }
             if (configStore.hasPendingSave() || !logging_cleanup_done) {
                 e.preventDefault();
-                void Promise.all([
-                    configStore.hasPendingSave()
-                        ? configStore.flushPendingSave()
-                        : Promise.resolve(),
-                    runtimeStore.flushPendingCache(),
-                    logging_cleanup_done
-                        ? Promise.resolve()
-                        : cleanupLogging().then(() => {
-                              logging_cleanup_done = true;
-                          }),
-                ])
+                void Promise.all(shutdown_tasks)
                     .catch((err: unknown) => {
                         log.error(
                             `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -1306,6 +1352,12 @@ void app.whenReady().then(async () => {
                     .finally(() => {
                         app.quit();
                     });
+            } else {
+                void Promise.all(shutdown_tasks).catch((err: unknown) => {
+                    log.error(
+                        `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                });
             }
         });
 

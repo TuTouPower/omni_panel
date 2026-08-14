@@ -23,21 +23,12 @@
                             "id": {
                                 "type": "string"
                             },
+                            "metric_id": {
+                                "type": "string"
+                            },
                             "provider": {
                                 "type": "string",
-                                "enum": [
-                                    "claude",
-                                    "codex",
-                                    "antigravity",
-                                    "kimi",
-                                    "glm",
-                                    "minimax",
-                                    "deepseek",
-                                    "tavily",
-                                    "firecrawl",
-                                    "mimo",
-                                    "opencode_go"
-                                ]
+                                "pattern": "^[a-z][a-z0-9_]*$"
                             },
                             "source": {
                                 "type": "string",
@@ -98,6 +89,17 @@
                                     }
                                 ]
                             },
+                            "cycleDurationMs": {
+                                "anyOf": [
+                                    {
+                                        "type": "number",
+                                        "minimum": 0
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
                             "status": {
                                 "type": "string",
                                 "enum": ["normal", "warning", "critical", "unknown"],
@@ -112,6 +114,9 @@
                             },
                             "stale": {
                                 "type": "boolean"
+                            },
+                            "error": {
+                                "type": "string"
                             }
                         },
                         "required": [

@@ -242,6 +242,21 @@ describe("PopupView", () => {
         expect(main_panel_hide).toHaveBeenCalledTimes(1);
     });
 
+    it("t380 AC-002: 非 floating 关闭按钮触发 window.close（销毁窗口）", async () => {
+        const window_close = vi
+            .spyOn(window.usageboard.window, "close")
+            .mockImplementation(() => undefined);
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(main_panel_get_mode).toHaveBeenCalled();
+        });
+        const close_btn = screen.getByRole("button", { name: "关闭" });
+        fireEvent.click(close_btn);
+        expect(window_close).toHaveBeenCalledTimes(1);
+        expect(main_panel_hide).not.toHaveBeenCalled();
+        window_close.mockRestore();
+    });
+
     it("does not expose extra floating close buttons from mirror trees", async () => {
         const original_resize_observer = globalThis.ResizeObserver;
         (globalThis as Record<string, unknown>)["ResizeObserver"] = FakeResizeObserver;
@@ -337,18 +352,24 @@ describe("PopupView", () => {
         expect(add_btn).toBeInTheDocument();
     });
 
-    it("标题栏按钮序与 PanelTitleBar 语义一致：刷新 用量面板 设置 代理面板 会话历史（AC-002）", async () => {
+    it("标题栏按钮序与 PanelTitleBar 语义一致：刷新 设置 用量面板 代理面板 会话历史（t380 AC-001）", async () => {
         render(<PopupView />);
         await waitFor(() => {
             expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
-        const titlebar = document.querySelector('[data-testid="popup-titlebar"]');
+        const titlebar = document.querySelector('[data-panel-titlebar="Usage"]');
         expect(titlebar).not.toBeNull();
         const buttons = Array.from(titlebar?.querySelectorAll("button") ?? []).map(
             (b) => b.getAttribute("aria-label") ?? b.getAttribute("title") ?? "",
         );
-        // 用量面板为当前面板：含自身「用量面板」按钮（不隐藏），刷新恒在首位。
-        expect(buttons.slice(0, 5)).toEqual(["刷新", "用量面板", "设置", "代理面板", "会话历史"]);
+        // t380 AC-001: 导航顺序固定「刷新 设置 用量 代理 会话」，当前面板(用量)不置首。
+        expect(buttons.slice(0, 5)).toEqual([
+            "刷新",
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+        ]);
     });
 
     it("opens the session history window from the title bar button", async () => {
@@ -357,7 +378,7 @@ describe("PopupView", () => {
         await waitFor(() => {
             expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
-        const btn = screen.getByRole("button", { name: "会话历史" });
+        const btn = screen.getByRole("button", { name: "Session面板" });
         fireEvent.click(btn);
         expect(session_history_open).toHaveBeenCalledWith("", "", "");
     });
@@ -368,7 +389,7 @@ describe("PopupView", () => {
         await waitFor(() => {
             expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
         });
-        const btn = screen.getByRole("button", { name: "代理面板" });
+        const btn = screen.getByRole("button", { name: "Agent面板" });
         fireEvent.click(btn);
         expect(token_stats_open).toHaveBeenCalled();
     });
@@ -385,16 +406,16 @@ describe("PopupView", () => {
             await waitFor(() => {
                 expect(document.querySelector('[data-testid="popup-time"]')).not.toBeNull();
             });
-            const usage_link = screen.getByRole("link", { name: "用量面板" });
+            const usage_link = screen.getByRole("link", { name: "Usage面板" });
             expect(usage_link.tagName).toBe("A");
             expect(usage_link).toHaveAttribute("href", "#usage");
-            const settings_link = screen.getByRole("link", { name: "设置" });
+            const settings_link = screen.getByRole("link", { name: "Settings面板" });
             expect(settings_link.tagName).toBe("A");
             expect(settings_link).toHaveAttribute("href", "#setting");
-            const agent_link = screen.getByRole("link", { name: "代理面板" });
+            const agent_link = screen.getByRole("link", { name: "Agent面板" });
             expect(agent_link.tagName).toBe("A");
             expect(agent_link).toHaveAttribute("href", "#agent");
-            const session_link = screen.getByRole("link", { name: "会话历史" });
+            const session_link = screen.getByRole("link", { name: "Session面板" });
             expect(session_link.tagName).toBe("A");
             expect(session_link).toHaveAttribute("href", "#session");
             // AC-004 静态前提：无 onClick 拦截。React 合成事件不渲染 onclick

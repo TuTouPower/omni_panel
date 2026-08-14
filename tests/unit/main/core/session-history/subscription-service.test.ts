@@ -14,6 +14,8 @@ import Database from "better-sqlite3";
 import {
     SessionHistorySubscriptionService,
     type SessionRow,
+    type SessionQueryFilters,
+    type SessionsProvider,
 } from "../../../../../src/main/core/session-history/subscription-service";
 import {
     clear_resolution_cache,
@@ -179,6 +181,36 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(last).toHaveLength(1);
         expect(last?.[0]?.role).toBe("assistant");
         expect(last?.[0]?.text).toBe("好的");
+    });
+
+    it("文件被截断重写时游标重置走全量，不丢新内容（t367 AC-002）", async () => {
+        const file = join(tmp_dir, "truncate.jsonl");
+        writeFileSync(file, JSON.stringify({ type: "user", content: "旧一" }) + "\n");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        // 追加使游标推进。
+        appendFileSync(file, JSON.stringify({ type: "assistant", content: "旧二" }) + "\n");
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        const received: HistoryMessage[][] = [];
+        const sub_id = service.subscribe({
+            source: "grok",
+            env: "wsl",
+            session_id: "trunc1",
+            file_path: file,
+            extractor_kind: "grok",
+            on_update: (msgs) => {
+                received.push([...msgs]);
+            },
+        });
+        expect(sub_id).toBe("grok|wsl|trunc1");
+        await new Promise((resolve) => setTimeout(resolve, 60));
+
+        // 截断重写为更小内容（size 回退）：游标 offset 指向旧 size 之前。
+        writeFileSync(file, JSON.stringify({ type: "user", content: "全新内容" }) + "\n");
+        await wait_for(() => received.length >= 1);
+
+        // size 回退触发 cursor 重置全量——推送新内容而非旧 offset 错位。
+        const all = received.flat().map((m) => m.text);
+        expect(all).toContain("全新内容");
     });
 
     it("grok 增量推送 id 延续全量命名空间，不与已推送 id 冲突（p050）", async () => {
@@ -817,6 +849,27 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result).toHaveLength(2);
         expect(result.map((r) => r.session_id)).toEqual(["a", "b"]);
         expect(result[0]?.agent).toBe("grok");
+    });
+
+    it("recent_sessions 传 {source, env, limit, offset: 0} 给 provider，不触发默认 100 截断 (t354 AC-002)", () => {
+        const rows: SessionRow[] = Array.from({ length: 150 }, (_, i) => ({
+            id: `s${String(i)}`,
+            source: "claude_code",
+            env: "local",
+            title: null,
+            model: null,
+            started_at: i,
+            ended_at: 1000 - i,
+        }));
+        let received: unknown;
+        // 若只传 (source, env)，provider 默认 limit=100 截断，limit=120 会丢 20 条。
+        const provider: SessionsProvider = (arg) => {
+            received = arg;
+            return rows.slice(0, (arg as SessionQueryFilters).limit);
+        };
+        const result = service.recent_sessions("claude_code", "local", 120, provider);
+        expect(received).toEqual({ source: "claude_code", env: "local", limit: 120, offset: 0 });
+        expect(result).toHaveLength(120);
     });
 
     it("query 对未变化文件使用缓存，追加后刷新缓存", () => {

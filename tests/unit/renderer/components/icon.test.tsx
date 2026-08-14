@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { Icon, VendorMark } from "../../../../src/renderer/components/Icon";
+import { Icon, VendorMark, type IconName } from "../../../../src/renderer/components/Icon";
 
 const ICON_SOURCE = readFileSync(join(process.cwd(), "src/renderer/components/Icon.tsx"), "utf8");
 
@@ -12,6 +12,14 @@ describe("Icon", () => {
         const { container } = render(<Icon name="refresh" />);
         const svg = container.querySelector("svg");
         expect(svg).toBeInTheDocument();
+    });
+
+    it("alert_circle 渲染非空 SVG（登录错误提示图标，t359 AC-001）", () => {
+        const { container } = render(<Icon name="alert_circle" />);
+        const svg = container.querySelector("svg");
+        expect(svg).not.toBeNull();
+        // 注册后应有真实图标 path（非空 SVG）。
+        expect(svg?.innerHTML).not.toBe("");
     });
 
     it("uses default size of 18", () => {
@@ -44,8 +52,10 @@ describe("Icon", () => {
         expect(svg?.getAttribute("class")).toContain("my-icon");
     });
 
-    it("renders empty path for unknown icon name", () => {
-        const { container } = render(<Icon name="nonexistent" />);
+    it("renders empty path for unregistered name at runtime (t359: dev warn + empty SVG)", () => {
+        // tsc 已把 name 收窄为 IconName，未注册名无法静态传入；此用例以运行时
+        // 注入模拟（如外部动态 name），验证空 SVG + dev 告警防御。
+        const { container } = render(<Icon name={"nonexistent" as unknown as IconName} />);
         const svg = container.querySelector("svg");
         expect(svg).not.toBeNull();
         expect(svg?.innerHTML).toBe("");
@@ -79,7 +89,7 @@ describe("Icon 来源守卫（t274 AC2）", () => {
         expect(imported.has("LucideIcon")).toBe(true);
 
         const map_body =
-            /const UI_ICONS:\s*Record<string,\s*LucideIcon>\s*=\s*\{([\s\S]*?)\n\};/.exec(
+            /const UI_ICONS\s*=\s*\{([\s\S]*?)\n\}\s*satisfies\s*Record<string,\s*LucideIcon>/.exec(
                 ICON_SOURCE,
             );
         expect(map_body, "UI_ICONS 映射块缺失").not.toBeNull();
@@ -96,6 +106,43 @@ describe("Icon 来源守卫（t274 AC2）", () => {
         expect(ICON_SOURCE).not.toContain("assets/ui");
         expect(ICON_SOURCE).not.toContain("clock-fast-forward");
         expect(ICON_SOURCE).not.toContain("message-chat-square");
+    });
+
+    it("渲染层所有 <Icon name> 引用均注册于 UI_ICONS（t359 AC-003）", () => {
+        // 从 UI_ICONS 映射块提取注册键（左侧小写标识符）。
+        const map_body =
+            /const UI_ICONS\s*=\s*\{([\s\S]*?)\n\}\s*satisfies\s*Record<string,\s*LucideIcon>/.exec(
+                ICON_SOURCE,
+            );
+        expect(map_body).not.toBeNull();
+        const registered = new Set<string>();
+        for (const m of (map_body?.[1] ?? "").matchAll(/\b([a-z_]+):\s*[A-Z]/g)) {
+            registered.add(m[1] ?? "");
+        }
+        // chat_square 手绘例外不在 UI_ICONS。
+        registered.add("chat_square");
+        expect(registered.size).toBeGreaterThan(10);
+
+        // 递归扫描 src/renderer 下 tsx，收集 <Icon name="…"> 字面量。
+        const walk = (dir: string): string[] => {
+            const out: string[] = [];
+            for (const entry of readdirSync(dir, { withFileTypes: true })) {
+                const p = join(dir, entry.name);
+                if (entry.isDirectory()) out.push(...walk(p));
+                else if (entry.name.endsWith(".tsx")) out.push(p);
+            }
+            return out;
+        };
+        const used = new Set<string>();
+        const icon_ref = /<Icon\b[^>]*\bname="([a-z_]+)"/g;
+        for (const file of walk(join(process.cwd(), "src/renderer"))) {
+            for (const m of readFileSync(file, "utf8").matchAll(icon_ref)) {
+                used.add(m[1] ?? "");
+            }
+        }
+        expect(used.size).toBeGreaterThan(10);
+        const missing = [...used].filter((n) => !registered.has(n));
+        expect(missing).toEqual([]);
     });
 });
 

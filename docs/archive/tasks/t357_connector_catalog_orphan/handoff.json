@@ -1,0 +1,21 @@
+{
+    "tid": "t357",
+    "attempt": 1,
+    "execution_id": "8fc4f9bd88b2478daf713c3a1922c92f",
+    "status": "done",
+    "branch": "t357_connector_catalog_orphan",
+    "base_sha": "7f4d15fcab8d952fbd57c6d8d7e491c26663b248",
+    "tests": "use_connector_catalog.test.ts 8 passed（含 3 新增：save 失败清 instance / OAuth logout 失败清 instance / 清理 save 失败 log+warn rethrow）",
+    "blackbox": "typecheck + lint + prettier 通过；renderer hook 逻辑，以 hook 单测（mock 后续步骤失败断言 config.save 移除 instanceId）代替",
+    "review": "single；Round 1 general FAIL（f001 critical 清理 save 被 stale-save 保护恢复 / f002 测试恒真 / f003 minor 孤儿 secrets）→ Round 2 general PASS（f001 补 removedConnectorIds 墓碑、f002 fixture 含实例、f003 保留）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/hooks/use_connector_catalog.test.ts::removes the created instance from config when a later step fails（savePluginSettings reject → config.save 被调且 plugins 不含 real-instance）通过",
+            "tests/unit/renderer/hooks/use_connector_catalog.test.ts::cleans up created instance even when OAuth logout fails（logout reject → config.save 清 instanceId）通过",
+            "tests/unit/renderer/hooks/use_connector_catalog.test.ts::logs and rethrows when cleanup save itself fails（config.save 也失败 → log.warn + 原 err rethrow）通过",
+            "use_connector_catalog.ts create_instance_and_save try/catch 包裹 savePluginSettings + oauth logout，失败时 config.save 移除 created.instanceId"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

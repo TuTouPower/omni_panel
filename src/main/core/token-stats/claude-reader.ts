@@ -47,7 +47,7 @@ export function create_session_scan_state(): SessionScanState {
 interface RawCostLine {
     session_id?: string;
     model?: string;
-    timestamp?: string;
+    timestamp?: string | null;
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
@@ -132,7 +132,12 @@ export function read_costs_jsonl(
 
     const raw = read_tail(file_path, offset);
     const lines = parse_lines(raw);
-    const valid = lines.filter((l) => !is_excluded(l));
+    // t345 AC-005: 缺 timestamp 的行直接过滤——否则 new Date(0) 按 1970 处理，
+    // 可能成为 latest（latest_ts 初值 0，缺 ts 行 ts=0 >= 0 恒真）并污染
+    // started_at/ended_at。
+    const valid = lines
+        .filter((l) => !is_excluded(l))
+        .filter((l) => l.timestamp !== undefined && l.timestamp !== null);
 
     // Group by session_id
     const groups = new Map<string, RawCostLine[]>();
@@ -571,10 +576,11 @@ export function scan_session_jsonls(
         } catch {
             continue; // not recorded in mtimes → retried next scan
         }
-        new_state.mtimes.set(file, stat.mtimeMs);
 
         const old_entry = prev.files.get(file);
         if (prev.mtimes.get(file) === stat.mtimeMs) {
+            // 未变文件：保留 prev 的 mtime 与 facts，读成功路径无需再提交。
+            new_state.mtimes.set(file, stat.mtimeMs);
             if (old_entry) {
                 new_state.files.set(file, old_entry);
             }
@@ -591,8 +597,14 @@ export function scan_session_jsonls(
         try {
             content = fs.readFileSync(file, "utf-8");
         } catch {
+            // t345 AC-002: 读失败不提交 mtime，下一轮重读（原实现在 read 前
+            // 已 set mtime，永久跳过该文件）。
             continue;
         }
+        // t345 AC-003: mtime 在 read 成功后即提交（parse-null 文件也提交，
+        // 满足 SessionScanState 契约 "parse failures included: skip re-reads"，
+        // 与 grok-reader 对齐）——仅「read 失败不提交」才是 AC-002 语义。
+        new_state.mtimes.set(file, stat.mtimeMs);
 
         const facts = parse_session_file(content, env);
         if (!facts) {

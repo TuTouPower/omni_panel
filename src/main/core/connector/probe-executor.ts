@@ -1,6 +1,7 @@
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { ScriptObservation } from "../../../shared/types/observation";
 import type { ConnectorContext } from "./host-io";
+import { build_single_observation } from "./observation-factory";
 
 function extract_numeric_headers(
     headers: Record<string, string>,
@@ -96,24 +97,11 @@ export async function execute_probe(
 
     ctx.log.debug(`Probe for ${manifest.id}: used=${String(used)}, limit=${String(limit)}`);
     return [
-        {
-            provider: manifest.provider,
-            account_id: "default",
-            account_label: manifest.provider,
-            metric_id: `${manifest.id}:usage`,
-            raw_label: "usage",
-            normalized_label: "Usage",
+        build_single_observation(manifest, {
             window: "month",
-            cycleDurationMs: null,
+            source: "probe",
             used,
             limit,
-            display_style: "ratio",
-            reset_at: null,
-            status: "normal",
-            observed_at: Date.now(),
-            source: "probe",
-            stale: false,
-            last_error: null,
-        },
+        }),
     ];
 }

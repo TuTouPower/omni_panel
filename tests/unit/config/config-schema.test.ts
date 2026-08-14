@@ -187,4 +187,25 @@ describe("appConfigurationSchema", () => {
             }),
         ).toThrow();
     });
+
+    it("t379: preserves tokenStats block through parse (not stripped)", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            tokenStats: {
+                pollIntervalMinutes: 5,
+                wslEnabled: false,
+                wslDistro: "Ubuntu-24.04",
+                wslUser: "alice",
+            },
+        });
+        expect(parsed.tokenStats).toEqual({
+            pollIntervalMinutes: 5,
+            wslEnabled: false,
+            wslDistro: "Ubuntu-24.04",
+            wslUser: "alice",
+        });
+    });
 });

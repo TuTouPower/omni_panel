@@ -80,7 +80,7 @@ describe("UpcomingResetCard", () => {
         render(<UpcomingResetCard items={[]} onSelectProvider={vi.fn()} expanded />);
 
         expect(screen.getByText("0 项")).toBeInTheDocument();
-        expect(screen.getByText("未来 7 天内暂无重置")).toBeInTheDocument();
+        expect(screen.getByText("当前无即将重置的用量项")).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /切换到/ })).not.toBeInTheDocument();
     });
 

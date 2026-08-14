@@ -1,0 +1,33 @@
+{
+    "tid": "t361",
+    "attempt": 1,
+    "execution_id": "ccda92d2f7894f088bddcf47219e8121",
+    "status": "done",
+    "branch": "t361_connector_numeric_parse",
+    "base_sha": "1d2fb0e51def0b06c00095e9f6650bfff5be5003",
+    "tests": "全部 connector 21 文件 226 passed（含新增：grok 非法 reset_at / cpa 负 pct clamp + string duration / getoneapi string code）",
+    "blackbox": "typecheck + eslint 全绿；prettier 本 task 文件干净",
+    "review": "single；Round 1 general FAIL（f001 AC-004 未实现 mimo/getoneapi 非数字当 0 / f002 firecrawl 无时区 / f003 分指标 reset_at 无测试）→ Round 2 general PASS（f001-f003 消除，f004 null/空串 balance 残留已修）",
+    "ac_evidence": {
+        "AC-001": [
+            "grok/connector.ts get_legacy_reset_at Date.parse 后 isFinite 校验，NaN 置 null",
+            "tests/integration/connector/grok_connector.test.ts::treats unparseable billingPeriodEnd as null reset_at（无 currentPeriod 走 legacy，非法日期 reset_at null，观测保留）通过",
+            "firecrawl/connector.ts 分指标组装 reset_at（credits/tokens 各自 reset_at，原 tokens 复用 credits 致错误）"
+        ],
+        "AC-002": [
+            "cpa/connector.ts to_pct 钳制 [0,100]（Math.max(0, Math.min(...))）",
+            "tests/integration/connector/cpa-connector.test.ts::clamps negative utilization pct to 0（负 utilization → used 0）通过"
+        ],
+        "AC-003": [
+            "cpa/connector.ts resolve_codex_window 先 Number() 归一 string duration，统一数值语义",
+            "tests/integration/connector/cpa-connector.test.ts::normalizes string duration_seconds to the matching window（string \"604800\" → 一周）通过"
+        ],
+        "AC-004": [
+            "getoneapi/connector.ts code 用 Number() 容错（string \"200\" 不再误判）",
+            "tests/integration/connector/getoneapi_connector.test.ts::accepts string code \"200\" via Number() coercion 通过",
+            "mimo to_number 已 isFinite 守卫（非数字→0，非 NaN 泄漏）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

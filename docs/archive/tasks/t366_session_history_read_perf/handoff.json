@@ -1,0 +1,28 @@
+{
+    "tid": "t366",
+    "attempt": 1,
+    "execution_id": "790bc09665ec4ba7acb1a26110d9ff49",
+    "status": "done",
+    "branch": "t366_session_history_read_perf",
+    "base_sha": "6217a964dd61ed4e91bd61180929708e10be4811",
+    "tests": "全量 261 文件 3105 passed / 9 skipped（含新增：grok 旧 cursor 回退 / opencode 前 55 条 assistant）",
+    "blackbox": "typecheck + eslint + prettier 通过；main 进程 extractor 逻辑，以单测断言续读/游标/首条 user 边界代替",
+    "review": "single；Round 1 FAIL → Round 2 FAIL → Round 3 PASS（f001 bounded read 只读增量 / f002 opencode 测试真判别 / f003 claude 零读断言）",
+    "ac_evidence": {
+        "AC-001": [
+            "grok-extractor.ts ExtractCursor 加 valid_count，增量用 cursor.valid_count 延续 id 命名空间（避免每轮重 parse 前缀）；旧 cursor 无 valid_count 回退重 parse",
+            "tests/unit/main/core/session-history/grok-extractor.test.ts::旧 cursor（无 valid_count）回退重 parse 前缀，id 仍延续全量空间 通过",
+            "kimi-extractor.ts scan_lines 复用 raw_line slice（范围第 3 项）"
+        ],
+        "AC-002": [
+            "claude/kimi extract_*_incremental 无新增字节时 statSync 早退零磁盘读；grew 路径 openSync/readSync 只读增量字节（offset 前 4KB 回看找行边界），不全量读盘",
+            "无新增时返回空 + cursor 不变；tests/unit/main/core/session-history/claude-code-extractor.test.ts::无新增时增量零磁盘读（vi.mock 计数 readFileSync=0）通过"
+        ],
+        "AC-003": [
+            "opencode-extractor.ts FIRST_USER_PARTS_QUERY 加 json_extract(m.data,'$.role')='user' + LIMIT 1（SQL 精确取首条 user）",
+            "tests/unit/main/core/session-history/opencode-extractor.test.ts::first_user：前 50+ 条 assistant 时仍取到真实首条 user（55 assistant 先行 + user，旧 SQL 空串新 SQL 真实首条）通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

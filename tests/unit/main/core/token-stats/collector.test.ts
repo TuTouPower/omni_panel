@@ -26,6 +26,16 @@ vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
     create_grok_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
+const mock_scan_save = vi.fn();
+vi.mock("../../../../../src/main/core/token-stats/scan-state", async (importOriginal) => {
+    const actual = await importOriginal<typeof ScanStateModule>();
+    return {
+        ...actual,
+        save_state: (...args: unknown[]) => mock_scan_save(...args),
+    };
+});
+import type * as ScanStateModule from "../../../../../src/main/core/token-stats/scan-state";
+
 // Mock Electron's utilityProcess parentPort (must exist before collector import)
 const mock_post_message = vi.fn();
 (process as unknown as Record<string, unknown>)["parentPort"] = {
@@ -42,6 +52,8 @@ import {
     costs_state,
     opencode_max_updated,
     jsonl_states,
+    source_cursors,
+    emitted_record_keys,
     claude_costs_path,
     claude_projects_path,
     opencode_path,
@@ -131,6 +143,8 @@ describe("collector", () => {
         costs_state.clear();
         opencode_max_updated.clear();
         jsonl_states.clear();
+        source_cursors.clear();
+        emitted_record_keys.clear();
         reset_config();
         // Simulate a Windows host so the wsl sources are reachable (t308);
         // non-Windows host behaviour is covered by paths.test.ts and
@@ -261,6 +275,16 @@ describe("collector", () => {
             const cfg = { ...base_config, wsl_enabled: true, wsl_user: "" };
             expect(effective_wsl_user(cfg, () => [])).toBe("");
         });
+
+        it("does not cache an empty detection, retrying next call (t345 AC-006)", () => {
+            const cfg = { ...base_config, wsl_enabled: true, wsl_user: "" };
+            const lister = vi.fn().mockReturnValueOnce([]).mockReturnValueOnce(["karon"]);
+            // 首轮空结果 → 返回 "" 但不缓存。
+            expect(effective_wsl_user(cfg, lister)).toBe("");
+            // 第二轮探测到用户 → 返回并缓存（lister 被再次调用）。
+            expect(effective_wsl_user(cfg, lister)).toBe("karon");
+            expect(lister).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe("collect()", () => {
@@ -360,6 +384,45 @@ describe("collector", () => {
             };
             expect(second.records).toHaveLength(1);
             expect(second.records[0]!.message_id).toBe("m3");
+        });
+
+        it("re-emits records when postMessage fails (t345 AC-004)", () => {
+            // 首轮：reader 返回 2 条 record（真实增量状态已推进）。
+            mock_scan_jsonls.mockReturnValueOnce({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "m1", source: "claude_code", env: "local" }),
+                    record({ message_id: "m2", source: "claude_code", env: "local" }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            // 首轮 postMessage 抛错（发送失败）。
+            mock_post_message.mockImplementationOnce(() => {
+                throw new Error("port gone");
+            });
+            configure(base_config);
+            // 首轮失败后 jsonl_states 被回滚（key 删除），下轮可全量重扫。
+            expect(jsonl_states.has("claude_jsonl_local")).toBe(false);
+
+            // 第二轮：真实增量下 reader 返回 []（mtime 已提交，无变化）。
+            // 但 state 已回滚 → 重扫重产出 2 条并重发。
+            mock_scan_jsonls.mockReturnValueOnce({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [
+                    record({ message_id: "m1", source: "claude_code", env: "local" }),
+                    record({ message_id: "m2", source: "claude_code", env: "local" }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            mock_post_message.mockClear();
+            collect();
+            const second = mock_post_message.mock.calls[0]![0] as {
+                records: AgentSessionUsage[];
+            };
+            // 失败轮 records 下一轮重发。
+            expect(second.records).toHaveLength(2);
         });
 
         it("emits nothing when no records changed since the last collect", () => {
@@ -651,6 +714,30 @@ describe("collector", () => {
             expect(second.type).toBe("token_stats_update");
         });
 
+        it("marks grok failed with partial data when some files are unreadable (t345 AC-001)", () => {
+            mock_scan_grok.mockReturnValue({
+                sessions: [upsert({ id: "grok-partial", source: "grok" })],
+                daily: [],
+                records: [record({ message_id: "grok-r1", source: "grok", env: "wsl" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+                missing: false,
+                file_unreadable: true,
+            });
+            configure(wsl_config);
+
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as {
+                sessions: { id: string }[];
+                sources_status: { source: string; env: string; status: string }[];
+            };
+            // 部分不可读 → 已解析部分仍投递，非丢弃。
+            expect(update.sessions.some((s) => s.id === "grok-partial")).toBe(true);
+            // 状态为 failed（而非 unavailable）。
+            const grok_status = update.sources_status.find((s) => s.source === "grok");
+            expect(grok_status?.status).toBe("failed");
+        });
+
         it("sends empty update when no sessions found", () => {
             configure(base_config);
 
@@ -687,6 +774,97 @@ describe("collector", () => {
             )?.[0] as { level: string; message: string } | undefined;
             expect(log_msg?.level).toBe("warn");
             expect(log_msg?.message).toContain("exceed limit");
+        });
+
+        it("does not starve later sources when a source truncates (t345 AC-003)", () => {
+            // claude_costs 返回 20000 sessions（超 MAX_RECORDS=10000）→ 截断。
+            mock_read_costs.mockReturnValue({
+                sessions: Array.from({ length: 20000 }, (_, i) => upsert({ id: `s${String(i)}` })),
+                new_offset: 200000,
+                new_size: 200000,
+            });
+            // kimi 正常返回 1 session——截断后仍应被收集（不 break 饿死）。
+            mock_scan_kimi.mockReturnValue({
+                sessions: [upsert({ id: "kimi-ok", source: "kimi_code" })],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(10000);
+            // 后续 source 未被饿死：kimi 仍被读取（不 break）。
+            expect(mock_scan_kimi).toHaveBeenCalled();
+        });
+
+        it("advances the truncation cursor across rounds so no session is lost (t345 AC-003)", () => {
+            // claude_costs 恒返回 20000 sessions（单源持续超限）。
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            mock_read_costs.mockReturnValue({
+                sessions,
+                new_offset: 200000,
+                new_size: 200000,
+            });
+            configure(base_config);
+
+            // 首轮：发前 10000，游标 = 10000。
+            let update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(10000);
+            expect(source_cursors.get("claude_costs_local")?.sessions).toBe(10000);
+
+            // 第二轮：跳过已发出的 10000，发 10001-20000。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(10000);
+            expect(update.sessions[0]).toMatchObject({ id: "s10000" });
+
+            // 第三轮：20000 全部发完，游标清除。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(0);
+            expect(source_cursors.has("claude_costs_local")).toBe(false);
+        });
+
+        it("rolls back the truncation cursor on postMessage failure (t345 AC-004/f009)", () => {
+            // 截断 + postMessage 失败组合：首轮 20000 sessions 截断，游标置 10000，
+            // postMessage 抛错 → 游标应回滚，下轮全量重发（含 s0..s9999）。
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            mock_read_costs.mockReturnValue({
+                sessions,
+                new_offset: 200000,
+                new_size: 200000,
+            });
+            mock_post_message.mockImplementationOnce(() => {
+                throw new Error("port gone");
+            });
+            configure(base_config);
+
+            // 首轮失败后游标回滚（删除），下轮可全量重扫从 s0 开始。
+            expect(source_cursors.has("claude_costs_local")).toBe(false);
+
+            mock_post_message.mockClear();
+            collect();
+            const second = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            // 失败轮 s0..s9999 重发（游标回滚 → 从 s0 重扫）。
+            expect(second.sessions[0]).toMatchObject({ id: "s0" });
+            expect(second.sessions).toHaveLength(10000);
         });
     });
 
@@ -826,6 +1004,71 @@ describe("collector", () => {
             const update = posted_updates()[0]!;
             expect(update.sources_status).toHaveLength(4);
             expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
+        });
+    });
+
+    describe("bounded memory (t346)", () => {
+        it("prunes emitted records older than the window (t346 AC-001)", () => {
+            const now = Date.now();
+            // 注入旧（>7d）与新的 key。
+            emitted_record_keys.set("old|local|m-old", now - 31 * 24 * 60 * 60 * 1000);
+            emitted_record_keys.set("fresh|local|m-fresh", now);
+
+            // 无数据 collect 也触发 prune_emitted。
+            configure(base_config);
+
+            expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+            expect(emitted_record_keys.has("fresh|local|m-fresh")).toBe(true);
+        });
+
+        it("newly emitted records carry a timestamp and are bounded by the window", () => {
+            const now = Date.now();
+            emitted_record_keys.set("old|local|m-old", now - 31 * 24 * 60 * 60 * 1000);
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                daily: [],
+                records: [record({ message_id: "m1", source: "claude_code", env: "local" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+
+            // 新记录写入时间戳；旧记录仍被裁剪。
+            expect(emitted_record_keys.has("claude_code|local|m1")).toBe(true);
+            expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+        });
+
+        it("skips save_state when a round has no changes (t346 AC-002)", () => {
+            // 首轮有数据 → save_state（scan_save）调用。
+            const cfg = { ...base_config, state_path: "/tmp/scan-state.json" };
+            mock_read_costs.mockReturnValue({
+                sessions: [upsert({ id: "s1" })],
+                new_offset: 100,
+                new_size: 100,
+            });
+            configure(cfg);
+            expect(mock_scan_save).toHaveBeenCalled();
+
+            // 第二轮无变化（reader 返回空）→ save_state 不调用。
+            mock_read_costs.mockReturnValue({ sessions: [], new_offset: 100, new_size: 100 });
+            mock_scan_save.mockClear();
+            collect();
+            expect(mock_scan_save).not.toHaveBeenCalled();
+        });
+
+        it("does not save on unavailable sources (t346 AC-002)", () => {
+            // 所有 source 空数据 + grok 永久 unavailable（Windows 无 Grok）：
+            // 无数据时 unavailable 不应触发保存（否则每轮 fsync）。
+            const cfg = { ...wsl_config, state_path: "/tmp/scan-state.json" };
+            mock_scan_grok.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+                missing: true,
+            });
+            configure(cfg);
+            expect(mock_scan_save).not.toHaveBeenCalled();
         });
     });
 });

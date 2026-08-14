@@ -251,8 +251,18 @@ export function create_web_usageboard(): UsageboardApi {
         });
     }
 
+    // t369 AC-004: web 面板平台从真实宿主推导（原硬编码 win32，Linux 用户显示 Windows）。
+    // 排除 iOS（iPhone/iPad UA 含 "Mac OS X"）——桌面三平台映射。
+    const web_platform = (() => {
+        const ua = navigator.userAgent;
+        if (/iPhone|iPad|iPod/i.test(ua)) return "linux";
+        if (/Mac/i.test(ua)) return "darwin";
+        if (/Win/i.test(ua)) return "win32";
+        return "linux";
+    })();
+
     const api: UsageboardApi = {
-        platform: "win32" as const,
+        platform: web_platform,
         connector: {
             list: () => get_json("/v1/connectors"),
             catalog: () => get_json("/v1/catalog"),

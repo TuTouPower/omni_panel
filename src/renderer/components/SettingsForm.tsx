@@ -18,7 +18,7 @@ import { Switch } from "./ui/Switch";
 import { DeviceLoginSection } from "./DeviceLoginSection";
 import { WebLoginSection } from "./WebLoginSection";
 import { SessionSection } from "./SessionSection";
-import { SecretInput } from "./SecretInput";
+import { SecretInput } from "./ui/SecretInput";
 import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
 import type { AuthDescriptor } from "../../shared/schemas/auth";
 import { format_cookie_login_error, poll_cookie_login } from "../lib/cookie_login_poll";
@@ -175,6 +175,7 @@ export function SettingsForm({
             setSaving(true);
             setSaved(false);
             setSaveError(null);
+            let account_saved = false;
             try {
                 await onSave(
                     instanceId,
@@ -184,6 +185,9 @@ export function SettingsForm({
                     intervalSeconds,
                     displayName,
                 );
+                // t356 AC-004: onSave（账号配置）成功即视为账号已提交，后续步骤失败时
+                // 文案须区分已提交阶段，不笼统报「保存失败」。
+                account_saved = true;
                 if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
                     const map: Record<string, string> = {};
                     for (const [raw, display] of Object.entries(labelEdits)) {
@@ -209,7 +213,10 @@ export function SettingsForm({
                 }
                 return true;
             } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : String(err);
+                const raw_msg = err instanceof Error ? err.message : String(err);
+                // t356 AC-004: 账号已保存但后续步骤（标签映射/比例）失败时，文案注明
+                // 已提交阶段。
+                const msg = account_saved ? `账号已保存，但后续保存失败：${raw_msg}` : raw_msg;
                 if (mounted_ref.current) {
                     setSaveError(msg);
                 }
@@ -317,7 +324,13 @@ export function SettingsForm({
     const visible_parameters = parameters.filter(
         (param) =>
             (providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL") &&
-            !(has_dedicated_auth_section && param.type === "secret"),
+            // 有专用 auth 区时排除主认证 secret（auth_secret_name 由 OAuth/WebLogin 区处理），
+            // 其余 secret 参数（如 kimi 的 API_KEY 回退）保留表单输入（t362）。
+            !(
+                has_dedicated_auth_section &&
+                param.type === "secret" &&
+                param.name === auth_secret_name
+            ),
     );
 
     return (
@@ -454,8 +467,11 @@ export function SettingsForm({
                             id={param.name}
                             name={param.name}
                             value={secret_values[param.name] ?? ""}
-                            onChange={(v) => {
-                                set_secret_values((prev) => ({ ...prev, [param.name]: v }));
+                            onChange={(e) => {
+                                set_secret_values((prev) => ({
+                                    ...prev,
+                                    [param.name]: e.target.value,
+                                }));
                             }}
                             placeholder={
                                 secrets_loaded

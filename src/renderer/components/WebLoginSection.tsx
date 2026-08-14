@@ -8,10 +8,7 @@ import {
     format_cookie_login_error,
     poll_cookie_login,
 } from "../lib/cookie_login_poll";
-
-/** t331: 登录成功捕获 Cookie 后自动关闭登录窗口延迟（ms）。
- * 数值须与 src/main/ipc/auth-ipc.ts 的 AUTO_CLOSE_MS（编辑路径）保持一致。 */
-const SESSION_LOGIN_AUTO_CLOSE_MS = 1500;
+import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
 
 export interface WebLoginSectionProps {
     readonly provider: string;

@@ -1,0 +1,31 @@
+{
+    "tid": "t340",
+    "attempt": 1,
+    "execution_id": "bca90145239f4f969817b53d5d449e2e",
+    "status": "done",
+    "branch": "t340_oauth_robustness",
+    "base_sha": "698fe185c85d732eaabcf5b634aff02445d1a397",
+    "tests": "相关测试 131 例全绿（tests/unit/auth/ 92 + ipc grok_auth 11 + preload 2 + schema freshness 4 等）：grok_oauth_manager 30、kimi_oauth_manager 28、device_code_oauth_manager 5（含 t340 AC-001/002）、oauth_helpers 27（含 AC-004 回滚 2 例）、kimi_device_id_cache 2（AC-003）、grok_auth_ipc 11。typecheck 干净；t340 触及文件 prettier/eslint 干净。全量 unit 2386 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC 行为由针对性单测覆盖（AC-001 unhandledRejection 监听 + addTransport 日志断言、AC-002 挂起 poll 窗口 cancel、AC-003 device_id 读文件计数、AC-004 部分写失败回滚）。",
+    "review": "review_level=full；Round 1 code FAIL（f001 minor/f002 important 已修）、test FAIL（f001 important 已修）；Round 2 code PASS（f003 minor 遗留→p155）、test PASS。报告 t340_review_code.md / t340_review_test.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "device_code_oauth_manager.ts schedule_auto_refresh_if_enabled 整体 try/catch（失败 log.error 含 instance_id）；refresh_now load_tokens 移入 try；两 timer 回调 .catch",
+            "device_code_oauth_manager.test.ts::vault 读失败时 schedule 不产生 unhandled rejection 且记录含 instance_id 日志——监听 unhandledRejection 为空 + addTransport 断言 error 且含 inst-vault-fail"
+        ],
+        "AC-002": [
+            "device_code_oauth_manager.ts await_completion 取消闭包函数开头持久注册，sleep 存 timer+resolver、取消时 clearTimeout+resolve",
+            "device_code_oauth_manager.test.ts::poll 窗口内 cancel_device_login 生效——挂起 token 响应中 cancel，断言 login 返回 saved:false 且 vault 无 token"
+        ],
+        "AC-003": [
+            "kimi_oauth_manager.ts make_default_get_device_id module 级 cached_device_id（成功缓存/失败重读）",
+            "kimi_device_id_cache.test.ts::同一运行期只读一次文件（read_spy 计数 1）与读失败走生成分支并缓存"
+        ],
+        "AC-004": [
+            "oauth_helpers.ts store_tokens 写前快照 + 部分写失败回滚已写键（新键 delete/旧值恢复）；回滚失败以原始错误为根因抛出",
+            "oauth_helpers.test.ts::rolls back written keys on partial write failure / rolls back a newly-created key by deleting it"
+        ]
+    },
+    "pending": ["p155"],
+    "findings": []
+}

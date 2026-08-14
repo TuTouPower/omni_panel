@@ -135,6 +135,38 @@ describe("getoneapi connector", () => {
         expect(result.error).toContain("invalid api key");
     });
 
+    it('accepts string code "200" via Number() coercion (t361 AC-004)', async () => {
+        const result = await run_getoneapi({
+            code: "200",
+            message: "success",
+            data: { balance: 1.88 },
+        });
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.raw_label).toBe("balance");
+    });
+
+    it("reports failed on non-numeric balance instead of treating it as 0 (t361 AC-004)", async () => {
+        const result = await run_getoneapi({
+            code: 200,
+            message: "success",
+            data: { balance: "not-a-number" },
+        });
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("非数字");
+        expect(result.observations).toEqual([]);
+    });
+
+    it("reports failed on null balance instead of treating it as 0 (t361 AC-004)", async () => {
+        const result = await run_getoneapi({
+            code: 200,
+            message: "success",
+            data: { balance: null },
+        });
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("缺失或空");
+        expect(result.observations).toEqual([]);
+    });
+
     it("throws when data missing", async () => {
         const result = await run_getoneapi({ code: 200, message: "ok" });
         expect(result.error).not.toBeNull();
