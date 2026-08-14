@@ -2,11 +2,11 @@
 tid: "t375"
 slug: "ci_packaging"
 title: "CI/打包 workflow 修复"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t375_ci_packaging"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "dcfd08302cc45724b7127bb7bcac2cce5cdadf45"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: nightly pwsh/release rpm/sqlite ABI finally"
@@ -44,14 +44,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 02:02 UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t375_gen_f001  | minor    | 已修   | README.md:52 预存 rpm 过期引用与生产产物不符，同步删除（AC-002 产物清单一致性延续） | README.md:52 |
 
 ## 收尾报告
 
@@ -60,8 +59,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/002 CI 配置改动 + AC-003 package-and-run try/finally + 单测，均列于 `handoff.json` 的 `ac_evidence`
 
 ### Reviewer verdict
 
@@ -69,15 +68,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- nightly Verify step 显式 bash、release 清单删 rpm、package-and-run try/finally 恢复 ABI；2 单测全绿，review PASS。

@@ -49,7 +49,7 @@
 
 - Windows：`OmniPanel-Setup-x.y.z.exe`（NSIS 安装器）
 - macOS：`OmniPanel-x.y.z.dmg` / `.zip`（x64 + arm64）
-- Linux：`OmniPanel-x.y.z.AppImage` / `.deb` / `.rpm`
+- Linux：`OmniPanel-x.y.z.AppImage` / `.deb`
 
 ### 方式二：从源码构建
 

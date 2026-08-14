@@ -57,4 +57,6 @@ jobs:
               env:
                   ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
             - name: Verify packaged output exists
+              # windows 默认 pwsh 无 `test` 命令语义；显式 bash（runner 自带）
+              shell: bash
               run: test -d out
