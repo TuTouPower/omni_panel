@@ -115,6 +115,18 @@ export const appConfigurationSchema = z.object({
         .array(z.object({ alias: z.string().min(1), models: z.array(z.string()) }))
         .default([]),
     removedConnectorIds: z.array(z.string()).optional(),
+    // t379: tokenStats 类型已存在且 index.ts build_token_stats_config 读取，
+    // 但 schema 缺此块致 zod strip 静默丢弃——补上与类型对齐的 schema。
+    tokenStats: z
+        .object({
+            // 与 AppConfiguration 类型 number 对齐（不含 min 约束）：历史配置可能
+            // 存越界值，min(1) 会让整份 config safeParse 失败走备份恢复。
+            pollIntervalMinutes: z.number().int().optional(),
+            wslEnabled: z.boolean().optional(),
+            wslDistro: z.string().optional(),
+            wslUser: z.string().optional(),
+        })
+        .optional(),
     upcomingResetThresholdPercent: z.number().int().min(0).max(100).nullable().optional(),
     sparklineWindowDays: z.number().int().min(1).max(365).optional(),
 });
