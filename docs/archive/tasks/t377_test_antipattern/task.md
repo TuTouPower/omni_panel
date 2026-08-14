@@ -2,11 +2,11 @@
 tid: "t377"
 slug: "test_antipattern"
 title: "测试假绿/反模式整改"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t377_test_antipattern"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "ca5891452cc6b4d9a155f1df9934a2d0dbb3b7fd"
 depends_on: ""
 conflicts_with: ""
 note: "review_intensive: 复制实现/源码文本断言/弱断言/分支覆盖"
@@ -44,14 +44,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-15 02:40 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+| finding_id     | severity | status | rationale | fix_ref |
+| -------------- | -------- | ------ | --------- | ------- |
+| t377_gen_f001  | minor    | 已修   | t2 去重用例未触达 last_scroll_to_id 守卫：改「scrollToId 变更定位 m2」正例，仓库 mutation 验证 t1/t2 挂 | tests/unit/renderer/components/workspace/VirtualMessageList.test.tsx:51-79 |
+| t377_gen_f002  | minor    | 遗留   | codex 跨年用例只捕「两桶合并」类回归，月偏位/去零缺陷不触发；「可加 case」类非阻断 | p176 |
+| t377_gen_f003  | minor    | 遗留   | 背景项(8) route_api/App 等无直接单测未处理：不在 spec「范围」、无 AC，按契约不阻断；另立 task 参考 | p177 |
 
-| finding_id     | severity                 | status | rationale | fix_ref |
-| -------------- | ------------------------ | ------ | --------- | ------- |
-| t000_code_f001 | critical/important/minor | 已修   | 一句话    | 文件:行 |
-| t000_test_f002 | minor                    | 遗留   | 一句话    | pNNN    |
+### Round 2 (2026-08-15 02:50 UTC+8)
+
+- 复核：f001 修复确认（仓库 mutation 注释 scrollToId 定位 → t1/t2 2 failed，恢复 3 passed）；f002/f003 维持非阻断。verdict PASS。
 
 ## 收尾报告
 
@@ -60,8 +63,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（删内联复制 + 跨年分桶 + manifest 磁盘读）、AC-002（删文本断言）、AC-003（VirtualMessageList 组件测试）均列于 `handoff.json` 的 `ac_evidence`
 
 ### Reviewer verdict
 
@@ -69,15 +72,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS（f001-f003 minor，其中 f001 修复、f002/f003 遗留→p176/p177）
+- Round 2 general：PASS（f001 修复确认）
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 删 3 处假绿/反模式测试源，补跨年/组件/表驱动覆盖；79 测试全绿，review 2 轮 PASS。
