@@ -9,7 +9,7 @@ import {
     type PopupHeightController,
 } from "../popup/popup-height-controller";
 import { resolve_floating_height_mode, resolve_main_panel_mode } from "./main-panel-config";
-import { restore_floating_bounds } from "./floating-bounds";
+import { restore_floating_bounds, MIN_FLOATING_WIDTH } from "./floating-bounds";
 import { USAGE_MIN_WIDTH } from "../../window/window-bounds";
 import type {
     MainPanelController,
@@ -50,7 +50,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     let win: WindowLike | null = null;
     let mode: MainPanelShellMode = resolve_main_panel_mode(deps.get_config(), deps.platform);
     let height_controller: PopupHeightController | null = null;
-    let suppress_bounds_save = 0;
+    // t368 范围项 4: 每次 setBounds 用唯一 token 只清自己抑制位（原共享计数器 + setImmediate
+    // 递减，多 setBounds 并发时可能过早归零、吞掉真实位置保存）。
+    const suppress_tokens = new Set<number>();
+    let suppress_bounds_token = 0;
     // t153: last pinToTop value applied to the window; apply_config_change
     // runs on every config save, so re-applying an unchanged value (a visible
     // flicker on Windows) must be skipped.
@@ -67,10 +70,12 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                     isDestroyed: () => target.isDestroyed(),
                     getBounds: () => target.getBounds(),
                     setBounds: (bounds) => {
-                        suppress_bounds_save++;
+                        const token = ++suppress_bounds_token;
+                        suppress_tokens.add(token);
                         target.setBounds(bounds);
                         setImmediate(() => {
-                            suppress_bounds_save--;
+                            // 只删自己 token——期间更晚的 setBounds 仍在抑制，不误归零。
+                            suppress_tokens.delete(token);
                         });
                     },
                 };
@@ -84,14 +89,16 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     }
 
     function save_floating_bounds(target: WindowLike): void {
-        if (mode !== "floating" || suppress_bounds_save > 0 || target.isDestroyed()) return;
+        if (mode !== "floating" || suppress_tokens.size > 0 || target.isDestroyed()) return;
         const bounds = target.getBounds();
         const display = deps.get_display_for_bounds(bounds);
         const display_id = display.id === undefined ? undefined : String(display.id);
         const floatingBounds = {
             x: bounds.x,
             y: bounds.y,
-            width: clamp(bounds.width, USAGE_MIN_WIDTH, display.workArea.width),
+            // t368 AC-001: 浮窗宽度按浮窗语义 clamp（MIN_FLOATING_WIDTH=320），
+            // 不用主面板 USAGE_MIN_WIDTH=472（否则首次默认 460 被静默抬升）。
+            width: clamp(bounds.width, MIN_FLOATING_WIDTH, display.workArea.width),
             height: bounds.height,
         };
         deps.save_config({
@@ -142,11 +149,15 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 display,
             );
             const restored_display = deps.get_display_for_bounds(bounds);
+            // t368 AC-001: 先 setMinimumSize 再 setBounds——否则创建瞬间 BrowserWindow
+            // minWidth（window-manager usage=472）会把首次 460 抬升。
+            target.setMinimumSize(MIN_FLOATING_WIDTH, 240);
             target.setBounds({
                 ...bounds,
-                width: clamp(bounds.width, USAGE_MIN_WIDTH, restored_display.workArea.width),
+                // 浮窗恢复宽度按浮窗语义 clamp（MIN_FLOATING_WIDTH=320），首次默认
+                // 460 不被抬升到主面板 USAGE_MIN_WIDTH=472。
+                width: clamp(bounds.width, MIN_FLOATING_WIDTH, restored_display.workArea.width),
             });
-            target.setMinimumSize(USAGE_MIN_WIDTH, 240);
             target.setResizable(true);
             target.on("resize", () => {
                 save_floating_bounds(target);
