@@ -36,7 +36,7 @@ export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: Se
         >
             <div
                 className={cn(
-                    "session-rail-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
+                    "session-rail-scroll scrollbar-token flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
                     collapsed && "px-1.5",
                 )}
             >

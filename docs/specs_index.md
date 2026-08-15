@@ -45,6 +45,7 @@
 |settings_design_migration|Web+Desktop|设置窗口统一设计系统、组件与语义状态，t406|2026-08-16|
 |agent_window_design_migration|Web+Desktop|Agent 统计窗口统一设计系统、组件与语义 token|2026-08-09|
 |session_window_design_migration|Web+Desktop|会话历史窗口统一设计系统、组件与语义 token，t406，t409|2026-08-16|
+|session_scrollbar_unify|Web+Desktop|t412|2026-08-16|
 |surface_token_unify|Web+Desktop|t406 全窗口背景两级（window/card），raised 仅交互态|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|

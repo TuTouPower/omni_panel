@@ -468,7 +468,7 @@ export function SettingsView() {
                     </div>
 
                     {/* right content */}
-                    <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6 pt-[14px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.35)_transparent]">
+                    <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6 pt-[14px] [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar-thumb)_transparent]">
                         {/* ── General ── */}
                         {section === "general" && (
                             <GeneralSection

@@ -96,7 +96,7 @@ export function SessionList({
         return (
             <div
                 ref={grid_ref}
-                className="library-grid grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
+                className="library-grid scrollbar-token grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
                 onScroll={handle_scroll}
             >
                 {sessions.map((s) => (
@@ -116,7 +116,7 @@ export function SessionList({
     return (
         <div
             ref={list_ref}
-            className="library-list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-[18px] pb-3.5 pt-2"
+            className="library-list scrollbar-token flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-[18px] pb-3.5 pt-2"
             onScroll={handle_scroll}
         >
             {sessions.map((s) => (

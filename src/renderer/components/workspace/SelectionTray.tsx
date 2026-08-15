@@ -96,7 +96,7 @@ export function SelectionTray() {
                 </div>
             ) : (
                 <>
-                    <div className="selection-tray-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
+                    <div className="selection-tray-scroll scrollbar-token flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
                         {[...groups.values()].map((g) => (
                             <div
                                 className="selection-tray-group"
