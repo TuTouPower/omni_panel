@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     select_grok_api,
+    select_kimi_api,
     select_session_history_api,
     select_trend_api,
 } from "../../../src/preload/route_api";
 import type {
     GrokReadonlyApi,
     GrokSettingsApi,
+    KimiReadonlyApi,
+    KimiSettingsApi,
     SessionHistoryApi,
     TrendApi,
 } from "../../../src/shared/types/ipc";
@@ -30,6 +33,54 @@ function create_grok_apis(): {
         },
     };
 }
+
+function create_kimi_apis(): {
+    readonly readonly_api: KimiReadonlyApi;
+    readonly settings_api: KimiSettingsApi;
+} {
+    const readonly_api: KimiReadonlyApi = {
+        login_status: vi.fn(),
+    };
+    return {
+        readonly_api,
+        settings_api: {
+            ...readonly_api,
+            login_start: vi.fn(),
+            login_poll: vi.fn(),
+            login_cancel: vi.fn(),
+            logout: vi.fn(),
+            refresh: vi.fn(),
+        },
+    };
+}
+
+describe("select_kimi_api（t397 AC-003）", () => {
+    it("exposes the full Kimi API to setting", () => {
+        const { readonly_api, settings_api } = create_kimi_apis();
+
+        const api = select_kimi_api("setting", readonly_api, settings_api);
+
+        expect(Object.keys(api).sort()).toEqual([
+            "login_cancel",
+            "login_poll",
+            "login_start",
+            "login_status",
+            "logout",
+            "refresh",
+        ]);
+    });
+
+    it.each(["usage", "agent", "tray", "unknown"])(
+        "exposes only Kimi login status to %s",
+        (route) => {
+            const { readonly_api, settings_api } = create_kimi_apis();
+
+            const api = select_kimi_api(route, readonly_api, settings_api);
+
+            expect(Object.keys(api)).toEqual(["login_status"]);
+        },
+    );
+});
 
 describe("select_grok_api", () => {
     it("exposes the full Grok API to setting", () => {

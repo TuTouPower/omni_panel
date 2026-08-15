@@ -150,6 +150,9 @@ describe("SessionRail t257 展示调整", () => {
         expect(cls).toContain("color-mix");
         expect(cls).toContain("var(--color-surface-window)");
         expect(cls).not.toContain("bg-[var(--color-surface)]");
+        // t397 AC-004: 混色比例锁定——改 70%/8% 测试失败（原断言只验 color-mix 存在）。
+        expect(cls).toContain("_70%");
+        expect(cls).toContain("_8%");
     });
 
     it("t381 AC-002：非空槽位卡片用 surface-card，不含 surface-window", () => {
