@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
+import { StatusDot } from "./ui/StatusDot";
 import { Switch } from "./ui/Switch";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
@@ -341,14 +342,7 @@ export function CpaConnectorSettings({
                     连接状态
                 </div>
                 <div className="flex items-center gap-2 rounded-[10px] bg-[var(--color-field-bg)] px-3 py-[10px]">
-                    <span
-                        className={
-                            "h-2 w-2 shrink-0 rounded-full " +
-                            (isConnected
-                                ? "bg-[var(--color-success)] ring-[3px] ring-[color-mix(in_srgb,var(--color-success)_16%,transparent)]"
-                                : "bg-[var(--color-on-surface-muted)]")
-                        }
-                    />
+                    <StatusDot tone={isConnected ? "success" : "neutral"} />
                     <span
                         className={
                             "text-[13px] font-semibold " +

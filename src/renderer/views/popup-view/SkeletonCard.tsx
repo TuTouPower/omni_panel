@@ -1,11 +1,9 @@
+import { Card } from "../../components/ui/Card";
 import { Skeleton } from "../../components/ui/Skeleton";
 
 export function SkeletonCard() {
     return (
-        <div
-            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 py-3.5 shadow-card"
-            data-testid="card-skeleton"
-        >
+        <Card className="px-4 py-3.5" data-testid="card-skeleton">
             <div className="flex items-center gap-[9px]">
                 <Skeleton className="h-4 w-24" />
             </div>
@@ -19,6 +17,6 @@ export function SkeletonCard() {
                     <Skeleton className="h-3 w-full" />
                 </div>
             </div>
-        </div>
+        </Card>
     );
 }

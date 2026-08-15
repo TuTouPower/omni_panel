@@ -7,6 +7,7 @@ import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
 import { bar_fill_color, DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
+import { StatusDot } from "./ui/StatusDot";
 
 interface UsageBarRowProps {
     period: Pick<
@@ -190,7 +191,7 @@ export function AccountUsageRow({
         <div className="border-t-[0.5px] border-t-[var(--color-hairline)] pb-1 pt-3.5 first:border-t-0 first:pt-0">
             <div className="mb-2.5 flex items-center gap-2">
                 {beforeName}
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)] ring-[3px] ring-[color-mix(in_srgb,var(--color-success)_16%,transparent)]" />
+                <StatusDot tone="success" />
                 {display_label ? (
                     <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--color-on-surface)]">
                         {display_label}

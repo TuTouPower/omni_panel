@@ -115,10 +115,7 @@ describe("ui 组件库（t269）", () => {
         const recipe =
             /ACTION_CLS|hover:bg-\[color-mix\(in_srgb,var\(--color-accent\)_10%|bg-\[var\(--color-field-bg\)\] px-2\.5 py-1\.5 text-\[12px\]|flex h-\[26px\] w-\[26px\] items-center justify-center rounded-md text-\[length:var\(--text-body-md\)\]/;
         const span_onclick = /<span[\s\S]{0,200}onClick=/;
-        const roots = [
-            "src/renderer/components",
-            "src/renderer/views",
-        ];
+        const roots = ["src/renderer/components", "src/renderer/views"];
         const files: string[] = [];
         const walk = (dir: string) => {
             for (const e of readdirSync(dir)) {
@@ -160,6 +157,42 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector("div")?.className).toContain(
             "bg-[var(--color-surface-raised)]",
         );
+    });
+
+    it("Card 含 shadow-card（t423 AC-001 DESIGN 卡片）", () => {
+        const { container } = render(<Card>c</Card>);
+        expect(container.querySelector("div")?.className).toContain("shadow-card");
+        expect(container.querySelector("div")?.className).toContain("rounded-lg");
+        expect(container.querySelector("div")?.className).toContain(
+            "p-[var(--spacing-card-padding)]",
+        );
+    });
+
+    it("业务代码无 t423 手拼卡片容器（AC-001）", () => {
+        // 5 处：CollapsibleCard / SkeletonCard / TokenPanel / VendorCard / CpaCard
+        // 卡片外壳 = radius-lg|14px + outline 描边 + surface-card 底 + shadow-card
+        const recipe =
+            /rounded-\[(?:var\(--radius-lg\)|14px)\]\s+border-\[0\.5px\]\s+border-\[var\(--color-outline\)\][\s\S]{0,120}shadow-card/;
+        const allow = new Set(["src/renderer/components/ui/Card.tsx"]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            if (recipe.test(content)) hits.push(norm);
+        }
+        expect(hits).toEqual([]);
     });
 
     it("Input invalid 加 error 边框 token 类", () => {
@@ -342,9 +375,7 @@ describe("ui 组件库（t269）", () => {
                 ]}
             />,
         );
-        expect(screen.getByRole("button", { name: "网格视图" }).getAttribute("title")).toBe(
-            "网格",
-        );
+        expect(screen.getByRole("button", { name: "网格视图" }).getAttribute("title")).toBe("网格");
         expect(screen.getByTestId("seg-list").getAttribute("aria-pressed")).toBe("false");
     });
 
@@ -564,6 +595,63 @@ describe("ui 组件库（t269）", () => {
     it("StatusDot tone 类", () => {
         const { container } = render(<StatusDot tone="success" />);
         expect(container.querySelector("span")?.className).toContain("bg-[var(--color-success)]");
+    });
+
+    it("StatusDot 为 7px + 同色 16% 光晕（t423 AC-002 DESIGN 状态点）", () => {
+        const { container } = render(<StatusDot tone="success" />);
+        const cls = container.querySelector("span")?.className ?? "";
+        expect(cls).toContain("h-[7px]");
+        expect(cls).toContain("w-[7px]");
+        expect(cls).toContain("rounded-full");
+        expect(cls).toContain("ring-[color-mix(in_srgb,var(--color-success)_16%,transparent)]");
+        expect(cls).toContain("ring-[3px]");
+    });
+
+    it("业务代码无 t423 手拼状态点与 inline 色（AC-002）", () => {
+        // 6 处 5 文件：UpcomingResetRow / UsageRows / CpaConnectorSettings / CpaCard / AccountRow
+        // 尺寸分裂（6/7/8px）+ 光晕手拼 + style background 色值
+        const recipes: { name: string; re: RegExp }[] = [
+            {
+                name: "dot-7px-hand",
+                re: /h-\[7px\]\s+w-\[7px\]\s+shrink-0\s+rounded-full/,
+            },
+            {
+                name: "dot-6px-hand",
+                re: /h-1\.5\s+w-1\.5\s+shrink-0\s+rounded-full\s+bg-\[var\(--color-success\)\]/,
+            },
+            {
+                name: "dot-8px-hand",
+                re: /h-2\s+w-2\s+shrink-0\s+rounded-full/,
+            },
+            {
+                name: "dot-inline-bg",
+                re: /style=\{\{\s*background:\s*(?:cpa_status|account_status)\.color\s*\}\}/,
+            },
+        ];
+        const allow = new Set(["src/renderer/components/ui/StatusDot.tsx"]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                for (const { name, re } of recipes) {
+                    if (re.test(line)) hits.push(`${name} @ ${norm}: ${line.trim().slice(0, 100)}`);
+                }
+            }
+        }
+        expect(hits).toEqual([]);
     });
 
     it("Kpi 渲染数值与标签", () => {
