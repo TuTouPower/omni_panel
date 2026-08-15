@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import { format_time_short } from "../../lib/session-history/markdown";
 import { cn } from "../../lib/utils";
@@ -29,7 +29,19 @@ export function content_overflows(
     return scroll_height > client_height;
 }
 
-/** 单条消息行：memo 化，并提供默认单行折叠与展开切换。 */
+/** 当前是否存在非空文本选区（拖选后不触发折叠切换）。 */
+function has_text_selection(): boolean {
+    const sel = window.getSelection();
+    return Boolean(sel && !sel.isCollapsed);
+}
+
+/** 点击目标是否为应保留原生行为的交互子元素。 */
+function is_interactive_target(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest("a, button, input, textarea, select, [role='checkbox']"));
+}
+
+/** 单条消息行：memo 化；默认单行折叠，点击本体切换展开。 */
 export const PaneMessageRow = memo(function PaneMessageRow({
     message,
     selected,
@@ -50,11 +62,19 @@ export const PaneMessageRow = memo(function PaneMessageRow({
         set_overflows(content_overflows(el, el.scrollHeight, el.clientHeight));
     }, [message.id, message.text]);
 
+    const on_body_click = (e: MouseEvent<HTMLDivElement>) => {
+        if (is_interactive_target(e.target)) return;
+        if (has_text_selection()) return;
+        if (!overflows) return;
+        set_expanded((v) => !v);
+    };
+
     return (
         <div
             className={cn(
                 "conversation-message-row group flex gap-2 py-1",
-                selected && "selected rounded-md bg-[var(--color-primary-container)]",
+                message.role === "user" && "rounded-md bg-[var(--color-primary-container)]",
+                selected && "selected",
                 compact && "compact",
                 expanded && "expanded",
             )}
@@ -76,7 +96,7 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                     on_toggle(message.id, e.shiftKey);
                 }}
             />
-            <div className="conversation-message-body min-w-0 flex-1">
+            <div className="conversation-message-body min-w-0 flex-1" onClick={on_body_click}>
                 <div
                     className={cn(
                         "conversation-message-meta items-center gap-2",
@@ -101,18 +121,6 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                 >
                     <MarkdownMessage text={message.text} />
                 </div>
-                {overflows && (
-                    <button
-                        type="button"
-                        className="conversation-message-expand mt-0.5 rounded px-1.5 py-px text-[length:var(--text-label-md)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
-                        aria-label={expanded ? "折叠消息" : "展开消息"}
-                        onClick={() => {
-                            set_expanded((v) => !v);
-                        }}
-                    >
-                        {expanded ? "收起" : "展开"}
-                    </button>
-                )}
             </div>
         </div>
     );
