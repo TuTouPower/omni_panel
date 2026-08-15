@@ -132,6 +132,9 @@ export const appConfigurationSchema = z.object({
         .optional(),
     upcomingResetThresholdPercent: z.number().int().min(0).max(100).nullable().optional(),
     sparklineWindowDays: z.number().int().min(1).max(365).optional(),
+    // t401: 与 AppConfiguration.resumeCommandTemplates 对齐；缺字段则 zod strip
+    // 静默丢弃（对照 t379 tokenStats 教训）。
+    resumeCommandTemplates: z.record(z.string()).optional(),
 });
 
 export const DEFAULT_CONFIGURATION: AppConfiguration = {
