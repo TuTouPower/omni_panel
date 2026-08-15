@@ -30,15 +30,16 @@ export const SessionRow = memo(function SessionRow({
     return (
         <div
             className={cn(
-                "library-row flex min-w-0 items-center gap-2.5 rounded-lg bg-[var(--color-surface-card)] px-2.5 py-2 transition-colors hover:bg-[var(--color-surface-raised)]",
+                "flex min-w-0 items-center gap-2.5 rounded-lg bg-[var(--color-surface-card)] px-2.5 py-2 transition-colors hover:bg-[var(--color-surface-raised)]",
                 selected && "bg-[var(--color-primary-container)]",
             )}
+            data-testid="library-row"
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
         >
             <button
                 type="button"
                 className={cn(
-                    "library-row-select flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                     selected
                         ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
                         : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",
@@ -51,20 +52,35 @@ export const SessionRow = memo(function SessionRow({
             >
                 {selected ? "✓" : ""}
             </button>
-            <span className="library-row-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]">
+            <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]"
+                data-testid="library-row-badge"
+            >
                 {agent_abbrev(s.source)}
             </span>
-            <span className="library-row-title min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
+            <span
+                className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
+                data-testid="library-row-title"
+            >
                 {s.title ?? s.id}
             </span>
-            <span className="library-row-summary max-w-[200px] min-w-0 truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
+            <span
+                className="max-w-[200px] min-w-0 truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                data-testid="library-row-summary"
+            >
                 {summary}
             </span>
-            <span className="library-row-meta shrink-0 whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+            <span
+                className="shrink-0 whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
+                data-testid="library-row-meta"
+            >
                 {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
                 {relative_date(s.ended_at)}
             </span>
-            <span className="library-row-dir max-w-[160px] min-w-0 shrink truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
+            <span
+                className="max-w-[160px] min-w-0 shrink truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
+                data-testid="library-row-dir"
+            >
                 {s.directory ?? "—"}
             </span>
             <Button

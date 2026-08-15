@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("SelectionTray (t226)", () => {
     it("空态收成细条（collapsed，无片段）", () => {
         render(<SelectionTray />);
-        const tray = document.querySelector<HTMLElement>(".selection-tray");
+        const tray = document.querySelector<HTMLElement>('[data-testid="selection-tray"]');
         expect(tray?.className).not.toContain("expanded");
         expect(screen.getByText("摘选托盘（空）")).toBeTruthy();
         expect(tray?.style.height).toBe("40px");
@@ -48,10 +48,10 @@ describe("SelectionTray (t226)", () => {
         act(() => {
             selection_store.toggle(item(LOC_A, "m1", "user", "甲"));
         });
-        const tray = document.querySelector<HTMLElement>(".selection-tray");
+        const tray = document.querySelector<HTMLElement>('[data-testid="selection-tray"]');
         expect(tray?.style.height).toBe("160px");
         fireEvent.click(screen.getByRole("button", { name: "清空摘选" }));
-        expect(document.querySelector<HTMLElement>(".selection-tray")?.style.height).toBe("40px");
+        expect(document.querySelector<HTMLElement>('[data-testid="selection-tray"]')?.style.height).toBe("40px");
     });
 
     it("选中后展开，chip 显示 agent 缩写/角色序号/摘要/token", () => {
@@ -59,7 +59,7 @@ describe("SelectionTray (t226)", () => {
         act(() => {
             selection_store.toggle(item(LOC_A, "m1", "user", "修复登录 bug 的内容"));
         });
-        expect(document.querySelector(".selection-tray")?.className).toContain("expanded");
+        expect(document.querySelector('[data-testid="selection-tray"]')?.className).toContain("expanded");
         expect(screen.getByText("C")).toBeTruthy();
         expect(screen.getByText("U1")).toBeTruthy();
         expect(screen.getByText(/修复登录 bug/)).toBeTruthy();
@@ -88,11 +88,11 @@ describe("SelectionTray (t226)", () => {
             selection_store.toggle(item(LOC_A, "m1", "user", "修复登录 bug"));
         });
         await waitFor(() => {
-            expect(document.querySelector(".selection-tray")?.className).toContain("expanded");
+            expect(document.querySelector('[data-testid="selection-tray"]')?.className).toContain("expanded");
         });
         const select = screen.getByLabelText("复制格式");
-        const copy_btn = [...document.querySelectorAll<HTMLElement>(".selection-tray-button")].find(
-            (b) => !b.className.includes("selection-tray-clear"),
+        const copy_btn = [...document.querySelectorAll<HTMLElement>('[data-testid="selection-tray-button"]')].find(
+            (b) => b.getAttribute("data-testid") === "selection-tray-button",
         );
         if (!copy_btn) throw new Error("copy button missing");
         for (const [format, marker] of [

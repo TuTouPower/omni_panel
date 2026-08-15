@@ -57,7 +57,7 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
             width={420}
             ariaLabel="最近会话"
             title={
-                <div className="session-modal-title flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
                     <span>
                         最近会话（选 {String(picked.length)}/{String(MAX_PICK)}）
                     </span>
@@ -89,16 +89,16 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                 </>
             }
         >
-            <div className="session-recent-body flex min-h-0 flex-col gap-2.5">
-                <div className="session-recent-quick flex flex-wrap items-center gap-1.5">
-                    <span className="session-recent-quick-label mr-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+            <div className="flex min-h-0 flex-col gap-2.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="mr-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         快捷选择：
                     </span>
                     {[2, 4, 6, 8].map((n) => (
                         <Button
                             variant="secondary"
                             size="sm"
-                            className="session-recent-quick-button !h-7 !px-2.5"
+                            className="!h-7 !px-2.5"
                             key={String(n)}
                             onClick={() => {
                                 pick_first_n(n);
@@ -108,9 +108,9 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                         </Button>
                     ))}
                 </div>
-                <div className="session-recent-list flex max-h-[46vh] min-h-0 flex-col gap-1 overflow-y-auto">
+                <div className="flex max-h-[46vh] min-h-0 flex-col gap-1 overflow-y-auto">
                     {sessions.length === 0 ? (
-                        <div className="session-recent-empty px-4 py-8 text-center text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                        <div className="px-4 py-8 text-center text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                             暂无会话记录
                         </div>
                     ) : (
@@ -122,10 +122,11 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                                     type="button"
                                     key={`${s.source}|${s.env}|${s.id}`}
                                     className={cn(
-                                        "session-recent-row flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                        "flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                         is_picked &&
                                             "picked border-[color-mix(in_srgb,var(--color-primary)_45%,transparent)] bg-[var(--color-primary-container)]",
                                     )}
+                                    data-testid="session-recent-row"
                                     aria-pressed={is_picked}
                                     onClick={() => {
                                         toggle(s);
@@ -133,17 +134,21 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                                 >
                                     <span
                                         className={cn(
-                                            "session-recent-check flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] border-[var(--color-on-surface-variant)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]",
+                                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] border-[var(--color-on-surface-variant)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]",
                                             is_picked &&
                                                 "on border-[var(--color-primary)] bg-[var(--color-primary)]",
                                         )}
+                                        data-testid="session-recent-check"
                                     >
                                         {is_picked ? String(order + 1) : ""}
                                     </span>
-                                    <span className="session-recent-title min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]">
+                                    <span
+                                        className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
+                                        data-testid="session-recent-title"
+                                    >
                                         {s.title ?? s.id}
                                     </span>
-                                    <span className="session-recent-meta shrink-0 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                                    <span className="shrink-0 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                                         {agent_slug(s.source)} · {format_date(s.ended_at)}
                                     </span>
                                 </button>

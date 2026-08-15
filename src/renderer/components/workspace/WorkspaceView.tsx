@@ -283,15 +283,12 @@ export function WorkspaceView({
         [pane_drag_from],
     );
 
-    const handle_pane_drag_leave = useCallback(
-        (index: number, e: ReactDragEvent): void => {
-            // 仅在离开当前 pane 根节点时清高亮（子节点 enter/leave 冒泡忽略）。
-            const related = e.relatedTarget;
-            if (related instanceof Node && e.currentTarget.contains(related)) return;
-            set_pane_drop_over((prev) => (prev === index ? null : prev));
-        },
-        [],
-    );
+    const handle_pane_drag_leave = useCallback((index: number, e: ReactDragEvent): void => {
+        // 仅在离开当前 pane 根节点时清高亮（子节点 enter/leave 冒泡忽略）。
+        const related = e.relatedTarget;
+        if (related instanceof Node && e.currentTarget.contains(related)) return;
+        set_pane_drop_over((prev) => (prev === index ? null : prev));
+    }, []);
 
     const handle_pane_drop = useCallback(
         (index: number, e: ReactDragEvent): void => {
@@ -305,8 +302,11 @@ export function WorkspaceView({
     );
 
     return (
-        <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
-            <div className="session-workspace-body flex min-h-0 flex-1">
+        <div
+            className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]"
+            data-testid="session-workspace"
+        >
+            <div className="flex min-h-0 flex-1" data-testid="session-workspace-body">
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
@@ -315,19 +315,16 @@ export function WorkspaceView({
                     on_close={close_slot}
                     on_move={move_slot_ui}
                 />
-                <div
-                    className="session-workspace-main flex min-w-0 flex-1 overflow-auto"
-                    ref={container_ref}
-                >
+                <div className="flex min-w-0 flex-1 overflow-auto" ref={container_ref}>
                     {count === 0 ? (
-                        <div className="session-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
-                            <p className="session-workspace-empty-title text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
+                        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
+                            <p className="text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                                 工作台为空
                             </p>
-                            <p className="session-workspace-empty-sub text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                            <p className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
-                            <div className="session-workspace-empty-actions mt-3 flex gap-2.5">
+                            <div className="mt-3 flex gap-2.5">
                                 <Button variant="secondary" onClick={on_recent}>
                                     打开最近会话
                                 </Button>
@@ -343,13 +340,15 @@ export function WorkspaceView({
                         </div>
                     ) : (
                         <div
-                            className="session-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-[var(--spacing-card-gap)]"
+                            className="relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-[var(--spacing-card-gap)]"
+                            data-testid="session-grid"
                             style={{ "--cols": String(cols) } as CSSProperties}
                         >
                             {slots_state.map((slot, index) =>
                                 slot === null ? null : (
                                     <div
-                                        className="session-cell flex min-h-0 min-w-0 bg-[var(--color-surface-window)]"
+                                        className="flex min-h-0 min-w-0 bg-[var(--color-surface-window)]"
+                                        data-testid="session-cell"
                                         key={loc_key(slot.loc)}
                                         data-loc-key={loc_key(slot.loc)}
                                     >
@@ -435,7 +434,10 @@ export function WorkspaceView({
                 <RecentSessionsModal on_confirm={confirm_recent} on_close={on_recent_close} />
             )}
             {toast !== null && (
-                <div className="session-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu">
+                <div
+                    className="fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu"
+                    data-testid="session-toast"
+                >
                     {toast}
                 </div>
             )}

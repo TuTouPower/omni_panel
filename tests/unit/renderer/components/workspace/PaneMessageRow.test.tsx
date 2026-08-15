@@ -12,7 +12,7 @@ function msg(id: string, role: "user" | "assistant", text: string): HistoryMessa
 
 function is_collapsed(root: ParentNode | Document = document): boolean {
     return Boolean(
-        root.querySelector(".conversation-message-content")?.classList.contains("single-line"),
+        root.querySelector('[data-testid="conversation-message-content"]')?.classList.contains("single-line"),
     );
 }
 
@@ -141,7 +141,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         expect(is_collapsed(row1)).toBe(true);
         expect(is_collapsed(row2)).toBe(true);
 
-        const content1 = row1.querySelector(".conversation-message-content");
+        const content1 = row1.querySelector('[data-testid="conversation-message-content"]');
         if (!content1) throw new Error("content1 missing");
         fireEvent.click(content1);
         expect(is_collapsed(row1)).toBe(false);
@@ -151,7 +151,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         expect(is_collapsed(row1)).toBe(true);
         expect(is_collapsed(row2)).toBe(true);
 
-        const content2 = row2.querySelector(".conversation-message-content");
+        const content2 = row2.querySelector('[data-testid="conversation-message-content"]');
         if (!content2) throw new Error("content2 missing");
         fireEvent.click(content2);
         expect(is_collapsed(row1)).toBe(true);
@@ -193,7 +193,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         render(<PaneMessageRow {...base} message={msg("m1", "user", "x".repeat(200))} />);
         expect(is_collapsed()).toBe(true);
 
-        const content = document.querySelector(".conversation-message-content");
+        const content = document.querySelector('[data-testid="conversation-message-content"]');
         if (!content) throw new Error("content missing");
 
         // 模拟拖选后产生非空文本选区。
@@ -212,7 +212,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         mock_content_size(20, 20);
         render(<PaneMessageRow {...base} message={msg("m1", "user", "short")} />);
         expect(is_collapsed()).toBe(true);
-        const content = document.querySelector(".conversation-message-content");
+        const content = document.querySelector('[data-testid="conversation-message-content"]');
         if (!content) throw new Error("content missing");
         fireEvent.click(content);
         expect(is_collapsed()).toBe(true);
@@ -220,7 +220,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
 
     it("紧凑模式保留消息元信息的内联布局", () => {
         render(<PaneMessageRow {...base} compact message={msg("m1", "user", "short")} />);
-        const meta = document.querySelector(".conversation-message-meta");
+        const meta = document.querySelector('[data-testid="conversation-message-meta"]');
         expect(meta?.classList.contains("inline-flex")).toBe(true);
         expect(meta?.classList.contains("mb-0.5")).toBe(false);
     });
@@ -239,7 +239,7 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         const check = screen.getByLabelText(/选择消息/);
         expect(check).toBeChecked();
 
-        const content = document.querySelector(".conversation-message-content");
+        const content = document.querySelector('[data-testid="conversation-message-content"]');
         if (!content) throw new Error("content missing");
         fireEvent.click(content);
         expect(screen.getByLabelText(/选择消息/)).toBeChecked();

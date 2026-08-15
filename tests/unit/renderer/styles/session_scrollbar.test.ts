@@ -80,14 +80,16 @@ describe("session scrollbar 细规范样式（t412）", () => {
             const src = readFileSync(join(process.cwd(), rel), "utf8");
             expect(src, rel).toContain("scrollbar-token");
         }
-        // 大纲列表在 SessionPane 内
+        // 大纲列表与消息滚动区在 SessionPane 内挂 scrollbar-token（testid 锚点）。
         const pane = readFileSync(
             join(process.cwd(), "src/renderer/components/workspace/SessionPane.tsx"),
             "utf8",
         );
-        expect(pane).toMatch(/conversation-outline-list[^"]*scrollbar-token|scrollbar-token[^"]*conversation-outline-list/);
         expect(pane).toMatch(
-            /conversation-message-scroll[^"]*scrollbar-token|scrollbar-token[^"]*conversation-message-scroll/,
+            /scrollbar-token[\s\S]{0,200}data-testid="conversation-outline-list"|data-testid="conversation-outline-list"[\s\S]{0,200}scrollbar-token/,
+        );
+        expect(pane).toMatch(
+            /scrollbar-token[\s\S]{0,200}data-testid="conversation-message-scroll"|data-testid="conversation-message-scroll"[\s\S]{0,200}scrollbar-token/,
         );
     });
 
@@ -108,16 +110,20 @@ describe("session scrollbar 细规范样式（t412）", () => {
 });
 
 describe("会话消息区滚动容器结构（t412 AC-003）", () => {
-    it("SessionPane 消息滚动区 class 含 conversation-message-scroll 且位于 conversation-body 内", () => {
+    it("SessionPane 消息滚动区 testid 为 conversation-message-scroll 且位于 conversation-body 内", () => {
         const src = readFileSync(
             join(process.cwd(), "src/renderer/components/workspace/SessionPane.tsx"),
             "utf8",
         );
         // 滚动容器与回到底部按钮同挂 conversation-body relative 下，右缘同轴。
-        expect(src).toMatch(/conversation-body[^"]*relative/);
-        expect(src).toContain("conversation-message-scroll");
-        expect(src).toContain("conversation-to-bottom");
+        expect(src).toMatch(
+            /data-testid="conversation-body"|className="relative flex min-h-0 flex-1"/,
+        );
+        expect(src).toContain('data-testid="conversation-message-scroll"');
+        expect(src).toContain('data-testid="conversation-to-bottom"');
         // 回到底部按钮锚定 body 右下，与滚动条同侧右缘
-        expect(src).toMatch(/conversation-to-bottom[^"]*absolute[^"]*right-/);
+        expect(src).toMatch(
+            /data-testid="conversation-to-bottom"[^>]*absolute[^"]*right-|absolute[^"]*right-[^"]*"[^>]*data-testid="conversation-to-bottom"/,
+        );
     });
 });

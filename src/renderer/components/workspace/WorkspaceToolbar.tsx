@@ -43,28 +43,17 @@ export function WorkspaceToolbar({
     }
 
     return (
-        <div className="session-toolbar flex items-center gap-2">
-            <Button
-                variant="secondary"
-                size="sm"
-                className="session-toolbar-button"
-                onClick={on_recent}
-            >
+        <div className="flex items-center gap-2" data-testid="session-toolbar">
+            <Button variant="secondary" size="sm" onClick={on_recent}>
                 最近会话
             </Button>
-            <Button
-                variant="secondary"
-                size="sm"
-                className="session-toolbar-button"
-                onClick={on_clear}
-            >
+            <Button variant="secondary" size="sm" onClick={on_clear}>
                 清空
             </Button>
-            <div className="session-view-wrap relative">
+            <div className="relative">
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="session-toolbar-button"
                     aria-haspopup="menu"
                     aria-expanded={view_open}
                     onClick={() => {
@@ -76,17 +65,18 @@ export function WorkspaceToolbar({
                 {view_open && (
                     <>
                         <div
-                            className="session-view-overlay fixed inset-0 z-[var(--z-menu)]"
+                            className="fixed inset-0 z-[var(--z-menu)]"
                             onClick={() => {
                                 set_view_open(false);
                             }}
                         />
                         <div
-                            className="session-view-menu glass-menu absolute right-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
+                            className="glass-menu absolute right-0 top-[calc(100%+6px)] z-[calc(var(--z-menu)+1)] flex min-w-[170px] flex-col gap-0.5 rounded-lg border border-[var(--color-outline)] p-1"
+                            data-testid="session-view-menu"
                             role="menu"
                             aria-label="视图选项"
                         >
-                            <label className="session-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                            <label className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                 <Checkbox
                                     checked={view.show_time}
                                     onChange={(e) => {
@@ -95,7 +85,7 @@ export function WorkspaceToolbar({
                                 />
                                 显示时间戳
                             </label>
-                            <label className="session-view-item flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
+                            <label className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]">
                                 <Checkbox
                                     checked={view.compact}
                                     onChange={(e) => {
@@ -106,11 +96,11 @@ export function WorkspaceToolbar({
                             </label>
                             {layout_choices.length > 0 && (
                                 <div
-                                    className="session-layout-choices mt-1 flex flex-col gap-0.5 border-t border-[var(--color-hairline)] pt-1"
+                                    className="mt-1 flex flex-col gap-0.5 border-t border-[var(--color-hairline)] pt-1"
                                     role="group"
                                     aria-label="会话排布"
                                 >
-                                    <div className="session-layout-title px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
+                                    <div className="px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                                         会话排布
                                     </div>
                                     {layout_choices.map((choice) => (
@@ -118,7 +108,7 @@ export function WorkspaceToolbar({
                                             type="button"
                                             key={`${String(choice.columns)}x${String(choice.rows)}`}
                                             className={cn(
-                                                "session-layout-choice w-full rounded-md px-2.5 py-1.5 text-left text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                                "w-full rounded-md px-2.5 py-1.5 text-left text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                                 layout === choice.columns &&
                                                     "bg-[var(--color-surface-raised)] text-[var(--color-on-surface)]",
                                             )}

@@ -49,9 +49,9 @@ async function route_sessions(
 
 async function open_library(page: Page): Promise<void> {
     await page.goto("/#session");
-    await page.locator(".session-shell").first().waitFor({ state: "visible" });
+    await page.locator('[data-testid="session-shell"]').first().waitFor({ state: "visible" });
     await page.getByRole("button", { name: "会话库", exact: true }).click();
-    await expect(page.locator(".library-grid").first()).toBeVisible();
+    await expect(page.locator('[data-testid="library-grid"]').first()).toBeVisible();
 }
 
 test.describe("session library mount refill (web, t334)", () => {
@@ -68,7 +68,7 @@ test.describe("session library mount refill (web, t334)", () => {
 
         // 挂载后补满循环自动加载：全部 110 会话出现。
         await expect
-            .poll(() => page.locator(".library-card").count(), { timeout: 10_000 })
+            .poll(() => page.locator('[data-testid="library-card"]').count(), { timeout: 10_000 })
             .toBe(110);
         // AC-003: 请求 offset 有序且无重复（0 → 50 → 100，末页 10 条后 has_more=false 停）。
         await expect.poll(() => offsets, { timeout: 10_000 }).toEqual([0, 50, 100]);
@@ -83,13 +83,13 @@ test.describe("session library mount refill (web, t334)", () => {
         await route_sessions(page, 200, (offset) => offsets.push(offset));
         await open_library(page);
 
-        await expect(page.locator(".library-card").first()).toBeVisible();
+        await expect(page.locator('[data-testid="library-card"]').first()).toBeVisible();
         // 挂载后仅 offset=0 一次（不预取第 2 页）。
         await expect.poll(() => offsets, { timeout: 10_000 }).toEqual([0]);
 
         // 滚动触底加载第 2 页（t328 行为不回归）。
         await page
-            .locator(".library-grid")
+            .locator('[data-testid="library-grid"]')
             .first()
             .evaluate((el) => {
                 el.scrollTop = el.scrollHeight;
@@ -112,7 +112,7 @@ test.describe("session library mount refill (web, t334)", () => {
             .poll(
                 async () => {
                     const h = await page
-                        .locator(".library-grid")
+                        .locator('[data-testid="library-grid"]')
                         .first()
                         .evaluate((el) => ({ ch: el.clientHeight, sh: el.scrollHeight }));
                     return JSON.stringify({ offsets, ...h });
@@ -121,7 +121,7 @@ test.describe("session library mount refill (web, t334)", () => {
             )
             .toContain('"offsets":[0,50]');
         const h = await page
-            .locator(".library-grid")
+            .locator('[data-testid="library-grid"]')
             .first()
             .evaluate((el) => ({ ch: el.clientHeight, sh: el.scrollHeight }));
         expect(h.sh).toBeGreaterThan(h.ch);

@@ -17,7 +17,7 @@ test.describe("web panel navigation (t259/t311)", () => {
 
         // Agent → Session（session 路由）。
         await page.getByRole("link", { name: "Session面板" }).click();
-        await expect(page.locator(".session-shell").first()).toBeVisible();
+        await expect(page.locator('[data-testid="session-shell"]').first()).toBeVisible();
         await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe("#session");
 
         // Session → Settings。
@@ -77,7 +77,7 @@ test.describe("web panel navigation (t259/t311)", () => {
     test("session 路由渲染会话面板（AC1）", async ({ webPage }) => {
         const page = webPage;
         await page.goto("/#session");
-        await expect(page.locator(".session-shell").first()).toBeVisible();
+        await expect(page.locator('[data-testid="session-shell"]').first()).toBeVisible();
         await expect(page.getByRole("button", { name: "工作台", exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "会话库", exact: true })).toBeVisible();
     });

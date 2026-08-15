@@ -12,15 +12,16 @@ interface AgentFilterChipsProps {
 
 export function AgentFilterChips({ agents, counts, on_change }: AgentFilterChipsProps) {
     return (
-        <div className="library-agent-filters flex shrink-0 flex-wrap gap-1.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+        <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
             <Button
                 variant="ghost"
                 size="sm"
                 className={cn(
-                    "library-agent-chip rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
+                    "rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
                     agents.length === 0 &&
                         "border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)]",
                 )}
+                data-testid="library-agent-chip"
                 onClick={() => {
                     on_change([]);
                 }}
@@ -33,10 +34,11 @@ export function AgentFilterChips({ agents, counts, on_change }: AgentFilterChips
                     size="sm"
                     key={source}
                     className={cn(
-                        "library-agent-chip rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
+                        "rounded-full border border-[var(--color-outline)] text-[var(--color-on-surface-variant)]",
                         agents.includes(source) &&
                             "bg-[var(--color-primary-container)] text-[var(--agent-accent)]",
                     )}
+                    data-testid="library-agent-chip"
                     style={{ "--agent-accent": agent_accent(source) } as CSSProperties}
                     onClick={() => {
                         on_change(
