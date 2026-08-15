@@ -867,7 +867,9 @@ export function prepareBarDataFromRollup(
             .sort((a, b) => b[1] - a[1])
             .map(([k]) => k);
         labels = dirs.map((d) => shortDir(d));
-        idxOf = (r) => dirs.indexOf(dir_key(r));
+        // t396 AC-003: 预构建 dir→index Map，避免逐行 indexOf 线性扫描（对齐 prepareBarData）。
+        const dir_idx = new Map(dirs.map((d, i) => [d, i]));
+        idxOf = (r) => dir_idx.get(dir_key(r)) ?? -1;
     } else {
         // Session axis: a session spans multiple rollup rows when it uses
         // several models; merge per rollup_session_key（p052：跨 env 同
@@ -884,7 +886,9 @@ export function prepareBarDataFromRollup(
             const t = s.title;
             return t.length > 7 ? `${t.slice(0, 7)}…` : t;
         });
-        idxOf = (r) => ranked.findIndex((s) => s.key === rollup_session_key(r));
+        // t396 AC-003: 预构建 session key→index Map，避免 findIndex 线性扫描（对齐 prepareBarData）。
+        const session_idx = new Map(ranked.map((s, i) => [s.key, i]));
+        idxOf = (r) => session_idx.get(rollup_session_key(r)) ?? -1;
     }
 
     const n = labels.length;

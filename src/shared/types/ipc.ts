@@ -461,6 +461,8 @@ export interface SessionHistorySearchContentLegacyRequest {
 export interface SessionHistorySearchContentResponse {
     readonly hits: readonly string[];
     readonly sessions: readonly TokenStatsSession[];
+    /** t388 AC-001: 枚举达 SEARCH_ENUM_CAP 截断时 true，renderer 展示降级提示。 */
+    readonly truncated: boolean;
 }
 
 /** t239: 批量首条用户消息摘要请求。 */

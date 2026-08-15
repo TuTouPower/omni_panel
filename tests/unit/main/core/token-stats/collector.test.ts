@@ -54,6 +54,7 @@ import {
     jsonl_states,
     source_cursors,
     emitted_record_keys,
+    session_touch_ts,
     claude_costs_path,
     claude_projects_path,
     opencode_path,
@@ -61,6 +62,7 @@ import {
     kimi_index_path,
     grok_sessions_path,
     effective_wsl_user,
+    EMITTED_WINDOW_MS,
 } from "../../../../../src/main/core/token-stats/collector";
 import type {
     AgentSessionUsage,
@@ -145,6 +147,7 @@ describe("collector", () => {
         jsonl_states.clear();
         source_cursors.clear();
         emitted_record_keys.clear();
+        session_touch_ts.clear();
         reset_config();
         // Simulate a Windows host so the wsl sources are reachable (t308);
         // non-Windows host behaviour is covered by paths.test.ts and
@@ -386,16 +389,23 @@ describe("collector", () => {
             expect(second.records[0]!.message_id).toBe("m3");
         });
 
-        it("re-emits records when postMessage fails (t345 AC-004)", () => {
-            // 首轮：reader 返回 2 条 record（真实增量状态已推进）。
-            mock_scan_jsonls.mockReturnValueOnce({
-                sessions: [upsert({ id: "s1" })],
-                daily: [],
-                records: [
-                    record({ message_id: "m1", source: "claude_code", env: "local" }),
-                    record({ message_id: "m2", source: "claude_code", env: "local" }),
-                ],
-                new_state: { mtimes: new Map(), files: new Map() },
+        it("re-emits records when postMessage fails (t345 AC-004 / t393 AC-001)", () => {
+            // 真实增量 mock：scan-state 已推进（jsonl_states 有该源）→ 返回 []（无变化）；
+            // state 缺失（回滚或首扫）→ 重扫重产出 2 条。mock 不再恒返回同 2 条，
+            // 使「回滚 → 重扫 → 重发」闭环对回滚是否必需敏感。
+            mock_scan_jsonls.mockImplementation(() => {
+                if (jsonl_states.has("claude_jsonl_local")) {
+                    return { sessions: [], daily: [], records: [], new_state: { mtimes: new Map(), files: new Map() } };
+                }
+                return {
+                    sessions: [upsert({ id: "s1" })],
+                    daily: [],
+                    records: [
+                        record({ message_id: "m1", source: "claude_code", env: "local" }),
+                        record({ message_id: "m2", source: "claude_code", env: "local" }),
+                    ],
+                    new_state: { mtimes: new Map(), files: new Map() },
+                };
             });
             // 首轮 postMessage 抛错（发送失败）。
             mock_post_message.mockImplementationOnce(() => {
@@ -405,17 +415,8 @@ describe("collector", () => {
             // 首轮失败后 jsonl_states 被回滚（key 删除），下轮可全量重扫。
             expect(jsonl_states.has("claude_jsonl_local")).toBe(false);
 
-            // 第二轮：真实增量下 reader 返回 []（mtime 已提交，无变化）。
-            // 但 state 已回滚 → 重扫重产出 2 条并重发。
-            mock_scan_jsonls.mockReturnValueOnce({
-                sessions: [upsert({ id: "s1" })],
-                daily: [],
-                records: [
-                    record({ message_id: "m1", source: "claude_code", env: "local" }),
-                    record({ message_id: "m2", source: "claude_code", env: "local" }),
-                ],
-                new_state: { mtimes: new Map(), files: new Map() },
-            });
+            // 第二轮：若未回滚，scan-state 已推进 → mock 返回 [] → 不重发。
+            // 因首轮已回滚 → 重扫重产出 2 条并重发。
             mock_post_message.mockClear();
             collect();
             const second = mock_post_message.mock.calls[0]![0] as {
@@ -800,7 +801,7 @@ describe("collector", () => {
             expect(mock_scan_kimi).toHaveBeenCalled();
         });
 
-        it("advances the truncation cursor across rounds so no session is lost (t345 AC-003)", () => {
+        it("advances the truncation cursor across rounds so no session is lost (t345 AC-003 + t385 AC-001)", () => {
             // claude_costs 恒返回 20000 sessions（单源持续超限）。
             const sessions = Array.from({ length: 20000 }, (_, i) =>
                 upsert({ id: `s${String(i)}` }),
@@ -812,14 +813,16 @@ describe("collector", () => {
             });
             configure(base_config);
 
-            // 首轮：发前 10000，游标 = 10000。
+            // 首轮：发前 10000，游标身份集合含 s0..s9999。
             let update = mock_post_message.mock.calls.find(
                 (c) => (c[0] as { type?: string }).type === "token_stats_update",
             )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(10000);
-            expect(source_cursors.get("claude_costs_local")?.sessions).toBe(10000);
+            const cursor = source_cursors.get("claude_costs_local");
+            expect(cursor?.sessions.size).toBe(10000);
+            expect(cursor?.sessions.has("s0")).toBe(true);
 
-            // 第二轮：跳过已发出的 10000，发 10001-20000。
+            // 第二轮：跳过已发出的 s0..s9999（身份集合），发 s10000..。
             mock_post_message.mockClear();
             collect();
             update = mock_post_message.mock.calls.find(
@@ -836,6 +839,71 @@ describe("collector", () => {
             )?.[0] as { sessions: unknown[] };
             expect(update.sessions).toHaveLength(0);
             expect(source_cursors.has("claude_costs_local")).toBe(false);
+        });
+
+        it("t385 AC-002: 截断期间新会话排序在游标前仍被扫描入列（身份键非位置计数）", () => {
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            // 首轮 20000 截断；第二轮 reader 排序序中插入新会话 aa（排在 s0 前）。
+            mock_read_costs
+                .mockReturnValueOnce({
+                    sessions,
+                    new_offset: 200000,
+                    new_size: 200000,
+                })
+                .mockReturnValueOnce({
+                    sessions: [upsert({ id: "aa" }), ...sessions],
+                    new_offset: 200000,
+                    new_size: 200000,
+                });
+            configure(base_config);
+
+            let update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions).toHaveLength(10000);
+            // 首轮游标 = {s0..s9999}（身份键）
+            expect(source_cursors.get("claude_costs_local")?.sessions.has("s0")).toBe(true);
+
+            // 第二轮：位置计数会跳过 aa（排在最前），身份键不误跳 → aa 被推入。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(update.sessions.some((s) => (s as { id?: string }).id === "aa")).toBe(true);
+        });
+
+        it("t385 AC-003: postMessage 失败按快照恢复游标（轮前值保留），下轮续推不重发已入列前缀", () => {
+            const sessions = Array.from({ length: 20000 }, (_, i) =>
+                upsert({ id: `s${String(i)}` }),
+            );
+            mock_read_costs.mockReturnValue({
+                sessions,
+                new_offset: 200000,
+                new_size: 200000,
+            });
+            configure(base_config);
+            // 首轮成功：截断，游标 = {s0..s9999}。
+            expect(source_cursors.get("claude_costs_local")?.sessions.size).toBe(10000);
+
+            // 第二轮 postMessage 抛错。
+            mock_post_message.mockClear();
+            mock_post_message.mockImplementationOnce(() => {
+                throw new Error("port gone");
+            });
+            collect();
+            // 快照恢复：游标回到轮前值（s0..s9999 仍在，非删除）。
+            expect(source_cursors.get("claude_costs_local")?.sessions.size).toBe(10000);
+
+            // 第三轮续推 s10000..，不重发 s0..s9999（幂等）。
+            mock_post_message.mockClear();
+            collect();
+            const third = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { sessions: unknown[] };
+            expect(third.sessions[0]).toMatchObject({ id: "s10000" });
         });
 
         it("rolls back the truncation cursor on postMessage failure (t345 AC-004/f009)", () => {
@@ -865,6 +933,67 @@ describe("collector", () => {
             // 失败轮 s0..s9999 重发（游标回滚 → 从 s0 重扫）。
             expect(second.sessions[0]).toMatchObject({ id: "s0" });
             expect(second.sessions).toHaveLength(10000);
+        });
+
+        it("t393 AC-002: daily 截断游标跨轮推进（对齐 session 维度截断用例）", () => {
+            // 51000 条 daily 超 MAX_RECORDS*5=50000 → 截断；感知 scan-state 的
+            // mock：state 已推进（jsonl_states 有该源）→ 返回 []，回滚/未推进 → 全量。
+            const daily_rows = Array.from({ length: 51000 }, (_, i) => ({
+                id: `d${String(i)}`,
+                source: "claude_code" as const,
+                env: "local" as const,
+                model: "m",
+                date: "2026-07-10",
+                input_tokens: 10,
+                output_tokens: 5,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 1,
+            }));
+            mock_scan_jsonls.mockImplementation(() => {
+                if (jsonl_states.has("claude_jsonl_local")) {
+                    return {
+                        sessions: [],
+                        daily: [],
+                        records: [],
+                        new_state: { mtimes: new Map(), files: new Map() },
+                    };
+                }
+                return {
+                    sessions: [],
+                    daily: daily_rows,
+                    records: [],
+                    new_state: { mtimes: new Map(), files: new Map() },
+                };
+            });
+            configure(base_config);
+
+            // 首轮：发前 50000，游标 daily 身份键含 d0..d49999。
+            let update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { daily: { id: string }[] };
+            expect(update.daily).toHaveLength(50000);
+            const cursor = source_cursors.get("claude_jsonl_local");
+            expect(cursor?.daily.size).toBe(50000);
+            expect(cursor?.daily.has("d0|2026-07-10|m")).toBe(true);
+
+            // 第二轮：跳过已发 d0..d49999（身份键），发 d50000..；未截断游标清除。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { daily: { id: string }[] };
+            expect(update.daily).toHaveLength(1000);
+            expect(update.daily[0]!.id).toBe("d50000");
+            expect(source_cursors.has("claude_jsonl_local")).toBe(false);
+
+            // 第三轮：scan-state 已推进 → mock 返回 []，无输出。
+            mock_post_message.mockClear();
+            collect();
+            update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as { daily: { id: string }[] };
+            expect(update.daily).toHaveLength(0);
         });
     });
 
@@ -1033,9 +1162,101 @@ describe("collector", () => {
             configure(base_config);
             collect();
 
-            // 新记录写入时间戳；旧记录仍被裁剪。
-            expect(emitted_record_keys.has("claude_code|local|m1")).toBe(true);
+            // 新记录写入时间戳（key 含会话维度，t386 AC-003）；旧记录仍被裁剪。
+            expect(emitted_record_keys.has("claude_code|local|s1|m1")).toBe(true);
             expect(emitted_record_keys.has("old|local|m-old")).toBe(false);
+        });
+
+        it("t386 AC-001: 活跃长会话 key 过窗但会话活跃 → 保留（不整段重发）", () => {
+            const now = Date.now();
+            // 4 段 key（含会话维度）已过窗 31 天。
+            emitted_record_keys.set(
+                "claude_code|local|sess-active|m-old",
+                now - 31 * 24 * 60 * 60 * 1000,
+            );
+            // 会话活跃：mock reader 返回该会话，collect 刷新 session_touch_ts（生产路径）。
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [upsert({ id: "sess-active" })],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            // prune 后活跃会话 key 保留（下次只发新增，不重发整段）。
+            expect(emitted_record_keys.has("claude_code|local|sess-active|m-old")).toBe(true);
+            // touch 键含 source|env 前缀（生产刷新路径设）。
+            expect(session_touch_ts.get("claude_code|local|sess-active")).toBeGreaterThan(
+                now - 1000,
+            );
+        });
+
+        it("t386 AC-002: 非活跃会话 key 过窗删除，重触碰时整段重发（语义不变）", () => {
+            const now = Date.now();
+            emitted_record_keys.set(
+                "claude_code|local|sess-idle|m-old",
+                now - 31 * 24 * 60 * 60 * 1000,
+            );
+            // 会话 idle：不设 session_touch_ts（>30 天未触碰）。
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            expect(emitted_record_keys.has("claude_code|local|sess-idle|m-old")).toBe(false);
+        });
+
+        it("t386 AC-003: 同一 message_id 跨会话不误合并（key 含会话维度独立）", () => {
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [
+                    record({
+                        message_id: "dup",
+                        session_id: "sa",
+                        source: "claude_code",
+                        env: "local",
+                    }),
+                    record({
+                        message_id: "dup",
+                        session_id: "sb",
+                        source: "claude_code",
+                        env: "local",
+                    }),
+                ],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            collect();
+            // 同 message_id 不同会话 → 两个独立 key 都标记已发。
+            expect(emitted_record_keys.has("claude_code|local|sa|dup")).toBe(true);
+            expect(emitted_record_keys.has("claude_code|local|sb|dup")).toBe(true);
+        });
+
+        it("t393 AC-003: 边界到期 key 本轮即回收（去重判定前移，不延迟一轮重发）", () => {
+            const now = Date.now();
+            // 恰过窗口边界的 key（>30 天 1ms），会话不活跃（无 touch）。
+            emitted_record_keys.set(
+                "claude_code|local|s1|m1",
+                now - EMITTED_WINDOW_MS - 1,
+            );
+            mock_scan_jsonls.mockReturnValue({
+                sessions: [],
+                daily: [],
+                records: [record({ message_id: "m1" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+            const update = mock_post_message.mock.calls[0]![0] as {
+                records: AgentSessionUsage[];
+            };
+            // 边界到期 key 本轮即重发（旧实现：去重循环后才 prune → 本轮被跳过，
+            // 延迟一轮才重发）。
+            expect(update.records).toHaveLength(1);
+            expect(update.records[0]!.message_id).toBe("m1");
         });
 
         it("skips save_state when a round has no changes (t346 AC-002)", () => {

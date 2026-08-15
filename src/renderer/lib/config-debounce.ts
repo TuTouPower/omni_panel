@@ -59,7 +59,13 @@ export function create_debounced_config_patcher(
             } catch (err) {
                 // t356 AC-003: 失败不丢 patch——合并回 pending 并重新调度一次
                 // debounce 重试（有限重试，后续 patch 并入同一 flush）。
-                Object.assign(pending, patch);
+                // t391 AC-001: 只补缺失键——失败在途期间用户已 patch 同键新值时，
+                // pending 保留最新值（不覆盖）；否则失败旧值覆盖新值、重试保存旧值。
+                for (const [key, value] of Object.entries(patch)) {
+                    if (!(key in pending)) {
+                        (pending as Record<string, unknown>)[key] = value;
+                    }
+                }
                 timer ??= setTimeout(() => {
                     timer = null;
                     void flush_pending();

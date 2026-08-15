@@ -294,6 +294,32 @@ describe("oauth_helpers", () => {
             await expect(vault.get(keyFor("inst-1", OAUTH_REFRESH_TOKEN_KEY))).resolves.toBeNull();
             await expect(vault.get(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY))).resolves.toBeNull();
         });
+
+        it("合并写入失败与回滚失败：抛错含原始原因与回滚失败消息（t394 AC-003）", async () => {
+            const vault = create_vault();
+            await vault.set(keyFor("inst-1", OAUTH_TOKEN_KEY), "access-old");
+            await vault.set(keyFor("inst-1", OAUTH_REFRESH_TOKEN_KEY), "refresh-old");
+            await vault.set(keyFor("inst-1", OAUTH_EXPIRES_AT_KEY), "expires-old");
+
+            // 第 2 次 set（refresh）写失败触发回滚；第 3 次 set（回滚 access 旧值）
+            // 也失败 → rollback_errors 非空 → 抛合并错误。
+            let set_calls = 0;
+            const original_set = vault.set.bind(vault);
+            vault.set = (key: string, value: string) => {
+                set_calls++;
+                if (set_calls === 2) return Promise.reject(new Error("vault write boom"));
+                if (set_calls === 3) return Promise.reject(new Error("rollback write boom"));
+                return original_set(key, value);
+            };
+
+            await expect(
+                store_tokens(vault, "inst-1", {
+                    access_token: "access-new",
+                    refresh_token: "refresh-new",
+                    expires_in: 3600,
+                }),
+            ).rejects.toThrow("vault write boom (rollback also failed: rollback write boom)");
+        });
     });
 
     describe("make_default_http_post", () => {

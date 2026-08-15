@@ -83,21 +83,20 @@ if (udd_index >= 0 && args[udd_index + 1]) {
 const data_root_candidate = user_data_dir
     ? resolve(user_data_dir)
     : join(homedir(), ".config", "OmniPanel");
-const data_root = typeof data_root_candidate === "string" ? data_root_candidate : "";
-
-/** @typedef {{ port: number, url: string, pid: number, userData: string, startedAt: string }} CliInstanceInfo */
+// resolve/join 恒返回 string（AC-002：无 typeof 收窄 / "" 兜底死代码）。
+const data_root = data_root_candidate;
 
 /**
  * 探测 dataRoot 下 cli.json 记录的实例是否仍在运行。可达返回实例信息，否则 null。
  * cli.json 在实例退出后保留（见 cli-json.ts 注释），所以不可达 = 残留文件 = 无实例。
+ * 契约单一来源：CliInstanceInfo 见 ./cli_json_parse.d.mts。
  * @param {string} data_root
- * @returns {Promise<CliInstanceInfo | null>}
+ * @returns {Promise<import("./cli_json_parse.d.mts").CliInstanceInfo | null>}
  */
 function probe_running_instance(data_root) {
     let info;
     try {
         const candidate = join(data_root, "cli.json");
-        if (typeof candidate !== "string") return Promise.resolve(null);
         const parsed = parse_cli_json(candidate);
         if (!parsed.ok) return Promise.resolve(null);
         info = parsed.info;

@@ -105,10 +105,11 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
-// t345 AC-003: 超上限截断游标——该 source 已发出的 session/daily 数。单源
-// sessions/daily 总数 > MAX_RECORDS 时，回滚 state 下轮全量重扫，按游标跳过
-// 已发出部分，跨轮推进直到发完（避免活锁 + 截断数据不永久丢失）。
-const source_cursors = new Map<string, { sessions: number; daily: number }>();
+// t345 AC-003 + t385 AC-001/002: 超上限截断游标——该 source 已发出的
+// session/daily **身份键**集合（非排序位置计数，防新会话排序在游标前被误跳）。
+// 入 scan-state 持久化，跨重启保留推进进度。回滚 state 下轮全量重扫，按
+// 游标跳过已发出部分，跨轮推进直到发完。
+const source_cursors = new Map<string, { sessions: Set<string>; daily: Set<string> }>();
 // Warn once per source per process run when its collection round ends
 // unavailable or failed (t309). Without this the collector would log every
 // poll for users who never install a tool (e.g. grok) or on hosts where a
@@ -126,18 +127,62 @@ const source_warned = new Set<string>();
 // 活跃会话过窗重发概率被压到「会话 >30 天未触碰又被触碰」的罕见场景。
 const EMITTED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const emitted_record_keys = new Map<string, number>();
+// t386 AC-001: 会话最近触碰时间（mtime 更新时刷新）。prune_emitted 用它保留
+// 「窗口内活跃会话」的 key——活跃长会话 >30 天持续触碰时 key 不被整体裁剪，
+// 下次 mtime 变化只发新增记录，不重发整段历史。
+const session_touch_ts = new Map<string, number>();
 
-function record_key(r: { source: string; env: string; message_id: string }): string {
-    return `${r.source}|${r.env}|${r.message_id}`;
+function record_key(r: {
+    source: string;
+    env: string;
+    session_id: string;
+    message_id: string;
+}): string {
+    return `${r.source}|${r.env}|${r.session_id}|${r.message_id}`;
 }
 
-/** 裁剪超出时间窗的已发出记录（collect 时调用）。 */
+/** 裁剪超出时间窗的已发出记录（collect 时调用）。
+ *  t386 AC-001/002: key 过窗但其会话在窗口内活跃（持续触碰）→ 保留并刷新 ts；
+ *  非活跃会话（>30 天未触碰）过窗 key 删除，重触碰时整段重发（既有语义不变）。 */
 function prune_emitted(now: number = Date.now()): void {
     for (const [key, ts] of emitted_record_keys) {
+        if (now - ts <= EMITTED_WINDOW_MS) continue;
+        // key 格式 source|env|session_id|message_id；touch 键 source|env|session_id。
+        const parts = key.split("|");
+        const session_key = `${parts[0] ?? ""}|${parts[1] ?? ""}|${parts[2] ?? ""}`;
+        const session_touch = session_touch_ts.get(session_key);
+        if (session_touch !== undefined && now - session_touch <= EMITTED_WINDOW_MS) {
+            // 活跃会话：key 保留并刷新时间戳，避免下次整段重发。
+            emitted_record_keys.set(key, now);
+            continue;
+        }
+        emitted_record_keys.delete(key);
+    }
+    // t386: 同步清理过窗会话的 touch 记录，防内存线性增长。
+    for (const [session, ts] of session_touch_ts) {
         if (now - ts > EMITTED_WINDOW_MS) {
-            emitted_record_keys.delete(key);
+            session_touch_ts.delete(session);
         }
     }
+}
+
+/** 记录是否本轮发出（去重判定）。
+ *  t393 AC-003: 过窗且会话不活跃（>30 天未触碰）的 key 视为未 emit 本轮即重发，
+ *  不延迟一轮；窗口内或活跃会话 key 跳过（活跃 key 顺带保活刷新 ts，防整段重发）。
+ *  touch 就绪性：在本 source 的 records 循环内调用时，本 source 的会话 touch
+ *  已刷新（见 collect 源循环），跨源 key 不受影响。 */
+function should_emit_record(key: string, now: number = Date.now()): boolean {
+    const ts = emitted_record_keys.get(key);
+    if (ts === undefined) return true;
+    if (now - ts <= EMITTED_WINDOW_MS) return false;
+    const parts = key.split("|");
+    const session_key = `${parts[0] ?? ""}|${parts[1] ?? ""}|${parts[2] ?? ""}`;
+    const session_touch = session_touch_ts.get(session_key);
+    if (session_touch !== undefined && now - session_touch <= EMITTED_WINDOW_MS) {
+        emitted_record_keys.set(key, now);
+        return false;
+    }
+    return true;
 }
 
 // --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
@@ -153,12 +198,20 @@ export function serialize_state(): SerializedScanState {
         jsonl_states,
         kimi_states,
         grok_states,
+        source_cursors,
     });
 }
 
 export async function save_state(state_path: string): Promise<void> {
     await scan_save(
-        { costs_state, opencode_max_updated, jsonl_states, kimi_states, grok_states },
+        {
+            costs_state,
+            opencode_max_updated,
+            jsonl_states,
+            kimi_states,
+            grok_states,
+            source_cursors,
+        },
         state_path,
         (msg) => {
             forward_log("warn", "collector", msg);
@@ -168,7 +221,14 @@ export async function save_state(state_path: string): Promise<void> {
 
 export async function load_state(state_path: string): Promise<void> {
     await scan_load(
-        { costs_state, opencode_max_updated, jsonl_states, kimi_states, grok_states },
+        {
+            costs_state,
+            opencode_max_updated,
+            jsonl_states,
+            kimi_states,
+            grok_states,
+            source_cursors,
+        },
         state_path,
         (msg) => {
             forward_log("warn", "collector", msg);
@@ -504,7 +564,17 @@ function collect(): void {
     // emitted_record_keys——发送失败时回滚，下一轮重发。
     const newly_emitted: string[] = [];
     // 参与读取的 source（postMessage 失败时回滚其扫描状态，下轮重扫重发）。
-    const participated: SourceDef[] = [];
+    // t385 AC-003: 快照 read_source 前各 map 条目与游标前值——失败按快照恢复
+    // （而非删除），保证「失败轮无副作用 + 截断进度不错误回滚」。
+    const participated: {
+        src: SourceDef;
+        costs: CostsState | undefined;
+        opencode: number | undefined;
+        jsonl: SessionScanState | undefined;
+        kimi: KimiScanState | undefined;
+        grok: GrokScanState | undefined;
+        cursor: { sessions: Set<string>; daily: Set<string> } | undefined;
+    }[] = [];
     // 超上限触发截断的 source（不 break 饿死后续 source）。
     const truncated_sources: SourceDef[] = [];
     for (const src of sources) {
@@ -525,8 +595,21 @@ function collect(): void {
             });
             continue;
         }
+        // t385 AC-003: read_source 前快照各 map 该源条目与游标前值，失败时恢复。
+        // cursor 的 Set 需深拷贝——截断分支原地 add 会改同一引用，快照须独立。
+        const cursor_snap = source_cursors.get(src.key);
+        participated.push({
+            src,
+            costs: costs_state.get(src.key),
+            opencode: opencode_max_updated.get(src.key),
+            jsonl: jsonl_states.get(src.key),
+            kimi: kimi_states.get(src.key),
+            grok: grok_states.get(src.key),
+            cursor: cursor_snap
+                ? { sessions: new Set(cursor_snap.sessions), daily: new Set(cursor_snap.daily) }
+                : undefined,
+        });
         const result = read_source(src, config);
-        participated.push(src);
         if (result.status === "ok") {
             all_sources_status.push({ source: src.source, env: src.env, status: "ok" });
         } else {
@@ -539,34 +622,37 @@ function collect(): void {
                 lastError,
             });
         }
-        // t345 AC-003: 截断游标——跳过该 source 已发出的前 N 个 session/daily
-        // （reader 按 session_id 排序，游标推进保证跨轮不重发也不丢失）。
+        // t345 AC-003 + t385 AC-002: 截断游标——按已入列身份键跳过（非排序位置
+        // 计数，新会话排序在游标前不漏发）。reader 按 session_id 排序产出，
+        // 身份集合推进保证跨轮不重发也不丢失。
         const cursor = source_cursors.get(src.key);
-        let skipped_sessions = 0;
-        let skipped_daily = 0;
-        let pushed_sessions = 0;
-        let pushed_daily = 0;
+        const pushed_sids: string[] = [];
+        const pushed_dkeys: string[] = [];
+        // t386 AC-001: 本轮扫描到的会话视为活跃触碰，刷新其 touch 时间——
+        // prune_emitted 据此保留活跃长会话的 key。touch 键含 source|env 前缀，
+        // 防跨源会话 id 碰撞（一源活跃误保另一源 key）。
         for (const s of result.sessions) {
-            if (cursor && skipped_sessions < cursor.sessions) {
-                skipped_sessions++;
-                continue;
-            }
+            session_touch_ts.set(`${src.source}|${src.env}|${s.id}`, Date.now());
+        }
+        for (const s of result.sessions) {
+            if (cursor?.sessions.has(s.id)) continue;
             if (all_sessions.length >= MAX_RECORDS) break;
             all_sessions.push(s);
-            pushed_sessions++;
+            pushed_sids.push(s.id);
         }
         for (const d of result.daily) {
-            if (cursor && skipped_daily < cursor.daily) {
-                skipped_daily++;
-                continue;
-            }
+            // daily.id === session_id（各 reader 已核实），date+model 区分同会话多日。
+            const dkey = `${d.id}|${d.date}|${d.model}`;
+            if (cursor?.daily.has(dkey)) continue;
             if (all_daily.length >= MAX_RECORDS * 5) break;
             all_daily.push(d);
-            pushed_daily++;
+            pushed_dkeys.push(dkey);
         }
         for (const r of result.records) {
             const key = record_key(r);
-            if (emitted_record_keys.has(key)) continue;
+            // t393 AC-003: 过窗且会话不活跃的 key 视为未 emit 本轮重发（不再延迟
+            // 一轮）；活跃/窗口内 key 跳过。
+            if (!should_emit_record(key)) continue;
             // Capacity check BEFORE marking emitted: a break here must leave the
             // key unseen so the next collect retries it, otherwise a record that
             // hit the cap would be silently dropped forever (it is marked emitted
@@ -580,12 +666,15 @@ function collect(): void {
             all_daily.length >= MAX_RECORDS * 5 ||
             all_records.length >= MAX_RECORDS * 20
         ) {
-            // t345 AC-003: 超上限截断——记录游标（跳过的已发出数 + 本轮新收集数
-            // = 累计已发出计数），回滚该 source 的扫描状态使下轮全量重扫，按游标
-            // 推进跨轮发完截断数据。
-            const total_sessions = skipped_sessions + pushed_sessions;
-            const total_daily = skipped_daily + pushed_daily;
-            source_cursors.set(src.key, { sessions: total_sessions, daily: total_daily });
+            // t345 AC-003 + t385 AC-001: 超上限截断——把本轮新入列身份键并入游标，
+            // 回滚该 source 的扫描状态使下轮全量重扫，按身份集合推进跨轮发完。
+            const set = source_cursors.get(src.key) ?? {
+                sessions: new Set<string>(),
+                daily: new Set<string>(),
+            };
+            for (const id of pushed_sids) set.sessions.add(id);
+            for (const key of pushed_dkeys) set.daily.add(key);
+            source_cursors.set(src.key, set);
             for (const map of [
                 costs_state,
                 opencode_max_updated,
@@ -601,6 +690,11 @@ function collect(): void {
             source_cursors.delete(src.key);
         }
     }
+
+    // t393 AC-003: 内存裁剪放源循环后——所有 source 的会话 touch 已刷新，
+    // prune 能正确保留活跃长会话的 key（t386 AC-001）；边界到期且会话不活跃的
+    // key 已在去重循环被放行重发（should_emit_record），此处删除防 Map 膨胀。
+    prune_emitted();
 
     const update: TokenStatsUpdate = {
         type: "token_stats_update",
@@ -619,29 +713,28 @@ function collect(): void {
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         forward_log("error", "collector", `postMessage failed: ${msg}`);
-        // t345 AC-004: postMessage 失败——回滚参与 source 的扫描状态与截断游标，
-        // 下一轮全量重扫并重发（否则增量 reader 不重产出失败轮 records，数据静默
-        // 丢失；截断轮若游标不回滚，被跳过 session upsert 永久缺失）。
-        for (const src of participated) {
-            for (const map of [
-                costs_state,
-                opencode_max_updated,
-                jsonl_states,
-                kimi_states,
-                grok_states,
-            ] as const) {
-                map.delete(src.key);
-            }
-            source_cursors.delete(src.key);
+        // t345 AC-004 + t385 AC-003: postMessage 失败——按轮前快照恢复各参与 source
+        // 的扫描状态与截断游标（而非删除），下一轮全量重扫并重发（否则增量 reader
+        // 不重产出失败轮 records，数据静默丢失）。快照恢复使失败轮在持久态上无副作用，
+        // 截断进度回到轮前值（已发前缀仍跳过），不误删导致永久停滞或错误推进导致漏发。
+        for (const snap of participated) {
+            const k = snap.src.key;
+            const set_or_delete = <T>(map: Map<string, T>, value: T | undefined): void => {
+                if (value !== undefined) map.set(k, value);
+                else map.delete(k);
+            };
+            set_or_delete(costs_state, snap.costs);
+            set_or_delete(opencode_max_updated, snap.opencode);
+            set_or_delete(jsonl_states, snap.jsonl);
+            set_or_delete(kimi_states, snap.kimi);
+            set_or_delete(grok_states, snap.grok);
+            set_or_delete(source_cursors, snap.cursor);
         }
     }
 
     if (truncated_sources.length > 0) {
         forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
     }
-
-    // t346 AC-001: 裁剪超出时间窗的已发出记录，控制内存上界。
-    prune_emitted();
 
     // Persist scan state for incremental resume after restart (t114).
     // t346 AC-002: 本轮无新数据时跳过保存，避免每轮无条件全量序列化 + fsync。
@@ -655,7 +748,9 @@ function collect(): void {
         all_sessions.length > 0 ||
         all_daily.length > 0 ||
         all_records.length > 0 ||
-        truncated_sources.length > 0;
+        truncated_sources.length > 0 ||
+        // t385 AC-001: 截断源游标入 scan-state，跨重启保留推进进度。
+        source_cursors.size > 0;
     if (state_path && has_changes) void save_state(state_path);
 }
 
@@ -676,6 +771,7 @@ function reset_config(): void {
     source_warned.clear();
     emitted_record_keys.clear();
     source_cursors.clear();
+    session_touch_ts.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
     if (interval_id) {
@@ -721,6 +817,8 @@ export {
     grok_states,
     source_cursors,
     emitted_record_keys,
+    session_touch_ts,
+    EMITTED_WINDOW_MS,
     claude_costs_path,
     claude_projects_path,
     opencode_path,

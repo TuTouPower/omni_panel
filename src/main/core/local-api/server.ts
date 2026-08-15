@@ -256,11 +256,12 @@ function session_history_legacy_row_of(loc: {
 }
 
 /** 逐页取全量会话行（与 IPC 层 CONTENT_SEARCH_PAGE_SIZE 分页一致）。
- *  t354 AC-003: 总量上限 SEARCH_ENUM_CAP，避免会话库无界时搜索全量枚举。 */
+ *  t354 AC-003: 总量上限 SEARCH_ENUM_CAP，避免会话库无界时搜索全量枚举。
+ *  t388 AC-001: 达上限截断时 truncated=true。 */
 function session_history_query_all_sessions(
     deps: SessionHistoryDeps,
     filters: SessionQueryFilters,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     const rows: SessionRow[] = [];
     let offset = 0;
     let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
@@ -270,7 +271,13 @@ function session_history_query_all_sessions(
         page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
         rows.push(...page);
     }
-    return rows;
+    // t388 AC-001: 达 SEARCH_ENUM_CAP 截断（仍可能有更多页）→ truncated=true。
+    // 边界：总数恰等于 CAP 且最后页满时误报 true（循环因 rows.length<CAP 失配
+    // 退出、cap 之后那页未 fetch 无法区分）——仅误报、无数据丢失、极罕见。
+    return {
+        rows,
+        truncated: rows.length >= SEARCH_ENUM_CAP && page.length === CONTENT_SEARCH_PAGE_SIZE,
+    };
 }
 
 function is_legacy_search_request(
@@ -282,9 +289,9 @@ function is_legacy_search_request(
 function content_search_candidates(
     deps: SessionHistoryDeps,
     request: SessionHistorySearchRequest,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     if (is_legacy_search_request(request)) {
-        return request.locs.map(session_history_legacy_row_of);
+        return { rows: request.locs.map(session_history_legacy_row_of), truncated: false };
     }
     const filters: SessionQueryFilters = {
         ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
@@ -436,10 +443,11 @@ async function handle_session_history_search_content(
         }
     }
     const request = body as unknown as SessionHistorySearchRequest;
-    const candidate_rows = content_search_candidates(deps, request);
-    const metadata_rows =
+    const candidates = content_search_candidates(deps, request);
+    const candidate_rows = candidates.rows;
+    const metadata =
         is_legacy_search_request(request) || !request.filters.search
-            ? []
+            ? { rows: [] as SessionRow[], truncated: false }
             : session_history_query_all_sessions(deps, {
                   ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
                   search: request.filters.search,
@@ -450,6 +458,7 @@ async function handle_session_history_search_content(
                       ? { end_at: request.filters.end_at }
                       : {}),
               });
+    const metadata_rows = metadata.rows;
     const resolved_locs = resolve_session_rows(deps, candidate_rows);
     // t263: 客户端断连（fetch abort / 页面关闭）时中止底层搜索扫描，避免连续搜索
     // 前序请求持续扫盘并发堆积。res 'close' 在响应正常结束或连接关闭时触发；正常
@@ -481,6 +490,7 @@ async function handle_session_history_search_content(
     const result: SessionHistorySearchContentResponse = {
         hits: [...hit_keys],
         sessions: response_sessions,
+        truncated: candidates.truncated || metadata.truncated,
     };
     json_response(res, 200, result);
 }

@@ -176,3 +176,10 @@
 - 选项：A) locator 保留自己的 win/wsl 分支继续手拼路径；B) locator 改走 t308 路径层，`LocatorPaths` 增必填 host/homedir 由调用方注入。
 - 结论：选 B。locator 复用 t308 路径层 builder（新增 `locator_source_path` 纯映射），env 对齐 `local|wsl`；`locator_paths_key` 签名扩展为 host/homedir/win_home/wsl_distro/wsl_user 五段，`SESSION_INDEX_VERSION` bump 2 整体丢弃旧索引重建（防 win env 死条目膨胀）。WSL 用户名探测仍留在 locator（路径层视其为输入），探测失败（空串）wsl 源返回 null。
 - 替代：无
+
+## 018 cacheMaxMb=0 语义 = 不限制（2026-08-15）
+
+- 背景：settings data_section「不限制」选项保存 `cacheMaxMb: 0`，而 config schema 原 `min(1)` 拒绝 0，致「不限制」无法持久化、observation-retention 把 0 视为不限制的分支成死代码，且下次启动 load 校验失败走备份恢复（p158）。
+- 结论：`cacheMaxMb: 0` 合法且语义为「不限制」。schema `min(0)`（不放开负数）；retention `retention_params` 对 `cache_max_mb<=0` 返回无行数预算（仅日期阈值），与 `undefined` 等同。
+- 落地：t398（config types schema 放宽 + retention 0 分支测试）；retention 空窗口推进见 AC-003（p159）。
+- 替代：无

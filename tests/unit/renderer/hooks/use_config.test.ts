@@ -114,6 +114,60 @@ describe("use_config", () => {
         expect(result.current.config).toEqual(external_config);
     });
 
+    it("t390 f001: 外部广播后 save 失败回滚到广播值（非过期 base）", async () => {
+        let captured_callback: ((config: AppConfiguration) => void) | undefined;
+        on_config_change.mockImplementation((cb: (config: AppConfiguration) => void) => {
+            captured_callback = cb;
+            return vi.fn();
+        });
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        // 外部窗口广播新配置（已写盘）。
+        const external_config: AppConfiguration = { ...base_config, language: "en" };
+        act(() => {
+            captured_callback?.(external_config);
+        });
+        expect(result.current.config).toEqual(external_config);
+
+        // 本窗口 save 失败：应回滚到广播值（最近确认值），而非过期 base。
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        const attempted: AppConfiguration = { ...base_config, theme: "dark" };
+        await act(async () => {
+            await expect(result.current.save(attempted)).rejects.toThrow("disk full");
+        });
+        expect(result.current.config).toEqual(external_config);
+    });
+
+    it("t390 f002: 成功 save 后失败回滚到最近成功值（confirmed 推进）", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        // 成功 save A。
+        config_save.mockResolvedValueOnce(undefined);
+        const a: AppConfiguration = { ...base_config, language: "en" };
+        await act(async () => {
+            await result.current.save(a);
+        });
+        expect(result.current.config).toEqual(a);
+
+        // 后续 save B 失败：应回滚到最近确认值 A，而非过期 base。
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        const b: AppConfiguration = { ...base_config, theme: "dark" };
+        await act(async () => {
+            await expect(result.current.save(b)).rejects.toThrow("disk full");
+        });
+        expect(result.current.config).toEqual(a);
+    });
+
     it("does not re-update when echo of own save arrives", async () => {
         let captured_callback: ((config: AppConfiguration) => void) | undefined;
         on_config_change.mockImplementation((cb: (config: AppConfiguration) => void) => {
@@ -228,5 +282,98 @@ describe("use_config", () => {
         });
 
         expect(result.current.config).toEqual(base_config);
+    });
+
+    it("t390 AC-001: 连续两次 save 失败回滚到最近确认值（base），非前一乐观值", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        config_save.mockRejectedValue(new Error("disk full"));
+        const a: AppConfiguration = { ...base_config, language: "en" };
+        const b: AppConfiguration = { ...base_config, theme: "dark" };
+        await act(async () => {
+            const pa = result.current.save(a);
+            const pb = result.current.save(b);
+            await Promise.allSettled([pa, pb]);
+        });
+
+        // 修复前：B 失败回滚到 A（乐观前值），终态 A ≠ 磁盘 base 漂移。
+        // 修复后：回滚到最近确认值 base。
+        expect(result.current.config).toEqual(base_config);
+    });
+
+    it("t390 AC-003: update_config 连续两次失败同样回滚到最近确认值", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        config_save.mockRejectedValue(new Error("disk full"));
+        await act(async () => {
+            result.current.update_config((prev) => ({ ...prev, language: "en" }));
+            result.current.update_config((prev) => ({ ...prev, theme: "dark" }));
+            await new Promise((r) => setTimeout(r, 0));
+        });
+
+        expect(result.current.config).toEqual(base_config);
+    });
+
+    it("t390 f002: update_config 成功推进确认点，后续 save 失败回滚到 update_config 成功值", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        // update_config 成功（写盘）。
+        config_save.mockResolvedValueOnce(undefined);
+        await act(async () => {
+            result.current.update_config((prev) => ({ ...prev, language: "en" }));
+            await new Promise((r) => setTimeout(r, 0));
+        });
+        const confirmed = result.current.config;
+        expect(confirmed).not.toEqual(base_config);
+
+        // 后续 save 失败：应回滚到 update_config 成功值（最近确认），而非 base。
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        const attempted: AppConfiguration = { ...base_config, theme: "dark" };
+        await act(async () => {
+            await expect(result.current.save(attempted)).rejects.toThrow("disk full");
+        });
+        expect(result.current.config).toEqual(confirmed);
+    });
+
+    it("t390 f003: reload 后 save 失败回滚到 reload 值（最近确认）", async () => {
+        const { use_config } = await import("../../../../src/renderer/hooks/use-config");
+        const { result } = renderHook(() => use_config());
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+        expect(result.current.config).toEqual(base_config);
+
+        // reload 从磁盘拿新值。
+        const external_config: AppConfiguration = { ...base_config, language: "en" };
+        config_get.mockResolvedValueOnce({ config: external_config, hasSecrets: {} });
+        await act(async () => {
+            await result.current.reload();
+        });
+        expect(result.current.config).toEqual(external_config);
+
+        // 后续 save 失败：回滚到 reload 值（最近确认），而非过期 base。
+        config_save.mockRejectedValueOnce(new Error("disk full"));
+        const attempted: AppConfiguration = { ...base_config, theme: "dark" };
+        await act(async () => {
+            await expect(result.current.save(attempted)).rejects.toThrow("disk full");
+        });
+        expect(result.current.config).toEqual(external_config);
     });
 });

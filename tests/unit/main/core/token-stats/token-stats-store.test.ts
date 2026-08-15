@@ -2222,6 +2222,81 @@ describe("token-stats-store", () => {
             });
         }
 
+        it("t387 AC-001: 同 session 跨多 directory rollup ready 汇总 == records 路径（不放大）", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                // 同 session s9 跨两 directory，各 1 条 record（calls=1+1=2）。
+                store.upsert_records([
+                    record({
+                        message_id: "x1",
+                        session_id: "s9",
+                        directory: "/proj/a",
+                        timestamp: t("2026-07-10T08:30:00"),
+                    }),
+                    record({
+                        message_id: "x2",
+                        session_id: "s9",
+                        directory: "/proj/b",
+                        timestamp: t("2026-07-10T09:30:00"),
+                    }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const before = store.query_dashboard(query, status);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const after = store.query_dashboard(query, status);
+                // 修复前 rollup ready 输出翻倍（JOIN 放大），修复后两路径一致。
+                expect(after.current).toEqual(before.current);
+                expect(after.current.calls).toBe(2);
+                store.close();
+            });
+        });
+
+        it("t387 AC-003: 同 session 跨多 directory 会话列表只出现一次", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({
+                        message_id: "x1",
+                        session_id: "s9",
+                        directory: "/proj/a",
+                        timestamp: t("2026-07-10T08:30:00"),
+                    }),
+                    record({
+                        message_id: "x2",
+                        session_id: "s9",
+                        directory: "/proj/b",
+                        timestamp: t("2026-07-10T09:30:00"),
+                    }),
+                ]);
+                store.backfill_hour_rollup();
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const dto = store.query_dashboard(query, status);
+                const sessions = dto.sessions.items.filter((s) => s.session_id === "s9");
+                // 会话列表去重：s9 只出现一次（修复前两 directory 各一行重复）。
+                expect(sessions).toHaveLength(1);
+                // 跨 directory 聚合：calls=2（非单 directory 的部分值）。
+                expect(sessions[0]?.calls).toBe(2);
+                store.close();
+            });
+        });
+
         it("union dual-source path filters every region by model after backfill (t204)", () => {
             with_temp_store((db_path) => {
                 const store = create_token_stats_store(db_path);
@@ -2449,7 +2524,7 @@ describe("token-stats-store", () => {
                 expect(dto.models).toEqual(["Sonnet", "opus"]);
             });
 
-            it("filters by original model name while metric buckets keep original names", () => {
+            it("t384 AC-002: 归并展开——选展示名命中整组（alias 与原始 key 记录都计入）", () => {
                 store.upsert_records([
                     record({
                         message_id: "a1",
@@ -2468,14 +2543,181 @@ describe("token-stats-store", () => {
                     gran: "day",
                     model_aliases: [{ alias: "Sonnet", keys: ["claude-3-5-sonnet-20241022"] }],
                 };
+                // 选展示名 Sonnet → 归并展开到 keys {Sonnet, claude-3-5-sonnet-20241022}
                 const filtered = store.query_dashboard(
-                    { ...query, model: "claude-3-5-sonnet-20241022" },
+                    { ...query, model: "Sonnet" },
                     { running: false, last_updated: null },
                 );
                 expect(filtered.current.calls).toBe(1);
+                // 原始 key 记录也被命中（归并），metric buckets 保留原始名
                 expect(filtered.chart_data.metric_buckets.map((b) => b.model)).toEqual([
                     "claude-3-5-sonnet-20241022",
                 ]);
+                // 反向：选原始 key 同样展开整组
+                const via_raw = store.query_dashboard(
+                    { ...query, model: "claude-3-5-sonnet-20241022" },
+                    { running: false, last_updated: null },
+                );
+                expect(via_raw.current.calls).toBe(1);
+            });
+
+            it("t384 AC-001: alias 名与真实 model 名碰撞时筛选有数据", () => {
+                store.upsert_records([
+                    record({ message_id: "a1", timestamp: T0, model: "deepseek-v4-flash" }),
+                    record({ message_id: "a2", timestamp: T0, model: "__secondary__" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "deepseek-v4-flash", keys: ["__secondary__"] }],
+                };
+                // 展示名 deepseek-v4-flash 恰是真实 model 名：resolver(deepseek-v4-flash)
+                // = deepseek-v4-flash（非 alias key 恒等），keys = {deepseek-v4-flash,
+                // __secondary__}（resolver(__secondary__)=deepseek-v4-flash）
+                const dto = store.query_dashboard(
+                    { ...query, model: "deepseek-v4-flash" },
+                    { running: false, last_updated: null },
+                );
+                // 两条记录都命中（碰撞修复，此前为 0）
+                expect(dto.current.calls).toBe(2);
+            });
+
+            it("t384 AC-004: 归并不破坏 agent 过滤——agent 条件排除其它 agent 的 __secondary__", () => {
+                store.upsert_records([
+                    record({
+                        message_id: "c1",
+                        timestamp: T0,
+                        model: "deepseek-v4-flash",
+                        agent: "claude-code",
+                    }),
+                    record({
+                        message_id: "k1",
+                        timestamp: T0,
+                        model: "__secondary__",
+                        agent: "kimi-code",
+                    }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "claude-code",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "deepseek-v4-flash", keys: ["__secondary__"] }],
+                };
+                const dto = store.query_dashboard(
+                    { ...query, model: "deepseek-v4-flash" },
+                    { running: false, last_updated: null },
+                );
+                // agent=claude_code 排除 kimi_code 的 __secondary__，只命中 1 条
+                expect(dto.current.calls).toBe(1);
+            });
+
+            it("t384 AC-005: 无 aliases 时单值相等过滤，行为不变", () => {
+                store.upsert_records([
+                    record({ message_id: "a1", timestamp: T0, model: "opus" }),
+                    record({ message_id: "a2", timestamp: T0, model: "sonnet" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                };
+                const dto = store.query_dashboard(
+                    { ...query, model: "opus" },
+                    { running: false, last_updated: null },
+                );
+                expect(dto.current.calls).toBe(1);
+            });
+
+            it("t384 AC-002: 归并展开在 rollup ready 后 union 路径同样生效", () => {
+                store.upsert_records([
+                    record({ message_id: "u1", timestamp: T0, model: "deepseek-v4-flash" }),
+                    record({ message_id: "u2", timestamp: T0, model: "__secondary__" }),
+                ]);
+                store.backfill_hour_rollup();
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "deepseek-v4-flash", keys: ["__secondary__"] }],
+                };
+                const dto = store.query_dashboard(
+                    { ...query, model: "deepseek-v4-flash" },
+                    { running: false, last_updated: null },
+                );
+                expect(dto.current.calls).toBe(2);
+            });
+
+            it("t384: 多 key alias 展开整组（spec 风险区）", () => {
+                store.upsert_records([
+                    record({ message_id: "m1", timestamp: T0, model: "m1-raw" }),
+                    record({ message_id: "m6", timestamp: T0, model: "m6-raw" }),
+                    record({ message_id: "other", timestamp: T0, model: "unrelated" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    model_aliases: [{ alias: "GroupX", keys: ["m1-raw", "m6-raw"] }],
+                };
+                const dto = store.query_dashboard(
+                    { ...query, model: "GroupX" },
+                    { running: false, last_updated: null },
+                );
+                // 两个 key 记录都命中，unrelated 排除
+                expect(dto.current.calls).toBe(2);
+            });
+
+            it("t384: resolver 后写覆盖——同 key 多个 alias 组只按最后声明的别名展开", () => {
+                store.upsert_records([
+                    record({ message_id: "k1", timestamp: T0, model: "shared-key" }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: T0 - 3600000,
+                    end: T0 + 3600000,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "day",
+                    // shared-key 先属 A 后属 B（后写覆盖 → resolver 归到 B）
+                    model_aliases: [
+                        { alias: "AliasA", keys: ["shared-key"] },
+                        { alias: "AliasB", keys: ["shared-key"] },
+                    ],
+                };
+                // 选 AliasA：resolver(shared-key)=AliasB≠AliasA，shared-key 不在 A 组
+                const via_a = store.query_dashboard(
+                    { ...query, model: "AliasA" },
+                    { running: false, last_updated: null },
+                );
+                expect(via_a.current.calls).toBe(0);
+                // 选 AliasB：shared-key 命中
+                const via_b = store.query_dashboard(
+                    { ...query, model: "AliasB" },
+                    { running: false, last_updated: null },
+                );
+                expect(via_b.current.calls).toBe(1);
             });
         });
     });

@@ -369,6 +369,26 @@ describe("session-history-ipc (t210)", () => {
         expect(service.recent_sessions).toHaveBeenCalledTimes(1);
     });
 
+    it("t389 AC-001: RECENT 超大 limit 被拒，不触发全量拉取", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:recent");
+        const result = handler(valid_sender, "claude_code", "win", Number.MAX_SAFE_INTEGER) as {
+            ok: boolean;
+        };
+        expect(result.ok).toBe(false);
+        expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
+    it("t389 AC-004: RECENT 非法 limit（0/负/非整数）被拒", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:recent");
+        for (const bad of [0, -5, 1.5, Number.NaN]) {
+            const result = handler(valid_sender, "claude_code", "win", bad) as { ok: boolean };
+            expect(result.ok, `limit=${String(bad)}`).toBe(false);
+        }
+        expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
     it("SEARCH_CONTENT resolve 后调 service.searchContent 并返回命中数组", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/sess.jsonl",
@@ -433,6 +453,47 @@ describe("session-history-ipc (t210)", () => {
             ],
             "hello",
         );
+    });
+
+    it("t388 AC-002: 未超限搜索响应 truncated=false", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register(vi.fn().mockReturnValue([]));
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { search: "hello" },
+            keyword: "hello",
+        })) as { ok: boolean; data: { truncated?: boolean } };
+        expect(result.ok).toBe(true);
+        expect(result.data.truncated).toBe(false);
+    });
+
+    it("t388 AC-001: 枚举达 SEARCH_ENUM_CAP 截断时 truncated=true", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        // provider 恒返回满页 100 条（filter 搜索路径枚举达 cap 触发截断）。
+        const full_page = Array.from({ length: 100 }, (_, i) => ({
+            id: `s${String(i)}`,
+            source: "claude_code",
+            env: "win",
+            title: null,
+            model: null,
+            started_at: 0,
+            ended_at: 0,
+        }));
+        await register(vi.fn().mockReturnValue(full_page));
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|s0"]));
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { search: "hello" },
+            keyword: "hello",
+        })) as { ok: boolean; data: { truncated?: boolean } };
+        expect(result.ok).toBe(true);
+        expect(result.data.truncated).toBe(true);
     });
 
     it("SEARCH_CONTENT 从后端筛选候选集，不要求 renderer 传入全量 locs（t248 AC5）", async () => {

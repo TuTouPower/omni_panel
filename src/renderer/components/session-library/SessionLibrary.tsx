@@ -39,6 +39,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [preview_msgs, set_preview_msgs] = useState<HistoryMessageLike[]>([]);
     const [content_searching, set_content_searching] = useState(false);
     const [content_search_error, set_content_search_error] = useState(false);
+    const [content_truncated, set_content_truncated] = useState(false);
     const [content_sessions, set_content_sessions] = useState<TokenStatsSession[]>([]);
     const [toast, set_toast] = useState<string | null>(null);
     const [summaries, set_summaries] = useState<Record<string, string>>({});
@@ -223,10 +224,12 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             set_content_sessions([]);
             set_content_searching(false);
             set_content_search_error(false);
+            set_content_truncated(false);
             return;
         }
         set_content_sessions([]);
         set_content_search_error(false);
+        set_content_truncated(false);
         set_content_searching(true);
         content_debounce_ref.current = window.setTimeout(() => {
             content_debounce_ref.current = null;
@@ -253,9 +256,12 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         ? {
                               hits: result as readonly string[],
                               sessions: [],
+                              truncated: false,
                           }
                         : result;
                     set_content_sessions([...response.sessions]);
+                    // t388 AC-003: 枚举超限截断时展示降级提示。
+                    set_content_truncated(response.truncated);
                     set_content_search_error(false);
                     set_content_searching(false);
                 })
@@ -263,6 +269,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     if (controller.signal.aborted) return;
                     if (err instanceof Error && err.name === "AbortError") return;
                     set_content_sessions([]);
+                    set_content_truncated(false);
                     set_content_search_error(true);
                     set_content_searching(false);
                 });
@@ -490,6 +497,15 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             {load_error && visible_sessions.length > 0 && (
                 <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
                     会话列表加载中断，已显示部分数据
+                </div>
+            )}
+
+            {content_truncated && (
+                <div
+                    className="library-search-truncated mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]"
+                    data-testid="search-truncated-hint"
+                >
+                    结果已截断，仅显示部分匹配项
                 </div>
             )}
 

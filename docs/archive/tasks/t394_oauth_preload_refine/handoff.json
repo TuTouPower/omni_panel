@@ -1,0 +1,37 @@
+{
+    "tid": "t394",
+    "attempt": 1,
+    "execution_id": "5f0ce7e8c31c4318a707e31a5b97ad1a",
+    "status": "done",
+    "branch": "t394_oauth_preload_refine",
+    "base_sha": "b1e015bc37409806233e36229e4c7459d35975a0",
+    "tests": "vitest 全量 unit + integration：264 files 3183 passed（0 failed）；device_code_oauth_manager 8 passed（含 AC-002 三处清理）；oauth_helpers 28 passed（含 AC-003 合并分支）；session_history_contract 3 passed（含 AC-005 channel/payload）；oauth_api 2 passed；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: create_oauth_apis 去 invoke<unknown> + 整体 as——返回结构由 TReturns（GrokOAuthReturnTypes/KimiOAuthReturnTypes）派生，invoke<TReturns[\"login_poll\"]> 类型化；误用类型验证：临时改 login_poll: string → tsc 报 oauth_api 错误，改回 0 error（编译期可强制成立）。AC-002: manager 导出 __testing_retry_failure_counts 探针，logout/stop_auto_refresh/shutdown 三处清理断言（删除清理代码探针断言残留必挂）。AC-003: store_tokens 双故障合并分支测试——set 第 2 次（refresh）失败 + 第 3 次（回滚 access 旧值）失败 → rejects.toThrow('vault write boom (rollback also failed: rollback write boom)')。AC-004: preload 本地 is_ipc_result 薄转发删除，index.ts 直用 ipc-envelope 导出 is_ipc_result。AC-005: summaries 测试补 toHaveBeenCalledWith('sessionHistory:summaries', { locs: [...] })",
+    "review": "single 级 general：Round 1 PASS（1 条 minor f001：探针 JSDoc「只读快照」措辞不准确——实为实时引用；已修 JSDoc 并 amend）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/preload/oauth_api.ts::create_oauth_apis 返回类型改为 OAuthApis<TReturns extends OAuthApiReturnTypes>，invoke<TReturns['login_poll']> 等 6 处类型化调用（grep 0 处 invoke<unknown> / as OAuthApis）",
+            "GrokOAuthReturnTypes.login_poll=GrokLoginResult、KimiOAuthReturnTypes.login_poll=KimiLoginResult 显式映射",
+            "编译期强制验证：临时改 GrokOAuthReturnTypes.login_poll: string → tsc 报 oauth_api 错误（1 处），改回 GrokLoginResult → 0 error"
+        ],
+        "AC-002": [
+            "src/main/core/auth/device_code_oauth_manager.ts::__testing_retry_failure_counts 探针（WeakMap 关联闭包 retry map）导出",
+            "device_code_oauth_manager.test.ts::logout/stop_auto_refresh/shutdown 三个 it：start_auto_refresh + 非终态刷新错误（server_error）触发计数=1，清理后探针 has=false / size=0",
+            "删除对应清理代码（retry_failure_counts.delete/clear）探针断言残留必挂"
+        ],
+        "AC-003": [
+            "oauth_helpers.test.ts::合并写入失败与回滚失败——vault.set 第 2 次（refresh 写）抛 'vault write boom' 触发回滚，第 3 次（回滚 access 旧值）抛 'rollback write boom'",
+            "store_tokens rejects.toThrow('vault write boom (rollback also failed: rollback write boom)')——原始原因 + 回滚失败消息合并"
+        ],
+        "AC-004": [
+            "src/preload/index.ts::删除本地 is_ipc_result 薄转发（原 57-61 行），invoke 内直用 ipc-envelope 导出的 is_ipc_result",
+            "import 改为 { is_ipc_result } from ../shared/lib/ipc-envelope"
+        ],
+        "AC-005": [
+            "session_history_contract.test.ts::summaries 测试补 expect(ipcRenderer.invoke).toHaveBeenCalledWith('sessionHistory:summaries', { locs: [{ source:'claude', env:'win', session_id:'s1' }] })",
+            "channel 常量 SESSION_HISTORY_SUMMARIES='sessionHistory:summaries'（ipc.ts:147）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

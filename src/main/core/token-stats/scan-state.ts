@@ -17,6 +17,13 @@ export interface SerializedScanState {
     jsonl_states?: Record<string, SerializedScanBucket>;
     kimi_states?: Record<string, SerializedScanBucket>;
     grok_states?: Record<string, SerializedScanBucket>;
+    /** t385 AC-001: 跨轮截断游标（按已入列身份键记账），跨重启保留推进进度。 */
+    source_cursors?: Record<string, SerializedSourceCursor>;
+}
+
+export interface SerializedSourceCursor {
+    sessions?: string[];
+    daily?: string[];
 }
 
 export interface SerializedScanBucket {
@@ -30,12 +37,19 @@ export interface SerializedScanBucket {
     >;
 }
 
+export interface SourceCursorMaps {
+    readonly sessions: Set<string>;
+    readonly daily: Set<string>;
+}
+
 export interface ScanStateMaps {
     readonly costs_state: Map<string, { offset: number; size: number }>;
     readonly opencode_max_updated: Map<string, number>;
     readonly jsonl_states: Map<string, SessionScanState>;
     readonly kimi_states: Map<string, KimiScanState>;
     readonly grok_states: Map<string, GrokScanState>;
+    /** t385 AC-001: 截断游标（source → 已入列身份键集合）。 */
+    readonly source_cursors: Map<string, SourceCursorMaps>;
 }
 
 export type ScanStateWarn = (message: string) => void;
@@ -104,12 +118,17 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
     for (const [key, c] of maps.costs_state) costs[key] = c;
     const opencode: Record<string, number> = {};
     for (const [key, v] of maps.opencode_max_updated) opencode[key] = v;
+    const cursors: Record<string, SerializedSourceCursor> = {};
+    for (const [key, c] of maps.source_cursors) {
+        cursors[key] = { sessions: [...c.sessions], daily: [...c.daily] };
+    }
     return {
         costs_state: costs,
         opencode_max_updated: opencode,
         jsonl_states: jsonl,
         kimi_states: kimi,
         grok_states: grok,
+        source_cursors: cursors,
     };
 }
 
@@ -147,6 +166,7 @@ export async function load_state(
     maps.jsonl_states.clear();
     maps.kimi_states.clear();
     maps.grok_states.clear();
+    maps.source_cursors.clear();
     let parsed: unknown;
     try {
         parsed = JSON.parse(text) as unknown;
@@ -184,6 +204,15 @@ export async function load_state(
                 maps.grok_states.set(k, deserialize_bucket(bucket) as unknown as GrokScanState);
             }
         }
+        if (s.source_cursors) {
+            for (const [k, c] of Object.entries(s.source_cursors)) {
+                const sessions = new Set<string>();
+                for (const id of c.sessions ?? []) sessions.add(id);
+                const daily = new Set<string>();
+                for (const key of c.daily ?? []) daily.add(key);
+                maps.source_cursors.set(k, { sessions, daily });
+            }
+        }
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         on_warn(`load_state: failed to restore, ignoring: ${msg}`);
@@ -192,5 +221,6 @@ export async function load_state(
         maps.jsonl_states.clear();
         maps.kimi_states.clear();
         maps.grok_states.clear();
+        maps.source_cursors.clear();
     }
 }

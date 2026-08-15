@@ -1,0 +1,32 @@
+{
+    "tid": "t385",
+    "attempt": 1,
+    "execution_id": "a35b6bae8a7b43cebba46816c61578ee",
+    "status": "done",
+    "branch": "t385_collector_truncation_cursor_atomicity",
+    "base_sha": "c9e2a17e0d8a7e46afd46f1d38560a1278e08288",
+    "tests": "vitest token-stats 全量 14 文件 295 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: source_cursors 入 scan-state（可选字段 + load 守卫 + save_state 触发加 size>0），跨重启保留截断推进。AC-002: 游标改身份键集合（Set.has 跳过），新会话排序在游标前不漏发。AC-003: postMessage 失败改快照恢复（read_source 前深拷贝 map 条目 + 游标），失败轮无副作用。AC-004: 旧 scan-state 兼容。mutation（位置计数跳过）AC-002 1 failed 验证",
+    "review": "full 级：Round 1 code PASS（f001 has_changes 正确补充保留 + f002 注释清理）/ test PASS；check_review_status overall=PASS / review_scope=ok / round=1",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/token-stats/scan-state.ts::SerializedScanState.source_cursors 可选字段 + serialize/load 支持",
+            "src/main/core/token-stats/collector.ts::source_cursors 包装入 serialize/save/load；save_state has_changes 加 source_cursors.size>0",
+            "tests/unit/main/core/token-stats/collector-state.test.ts::t385 AC-001 source_cursors 跨 save/load round-trip 通过"
+        ],
+        "AC-002": [
+            "src/main/core/token-stats/collector.ts::截断游标身份键集合（Set.has 跳过），新会话排序在游标前不漏发",
+            "tests/unit/main/core/token-stats/collector.test.ts::t385 AC-002 新会话 aa 排序在游标前仍被推入 通过"
+        ],
+        "AC-003": [
+            "src/main/core/token-stats/collector.ts::participated 快照（read_source 前深拷贝 map 条目 + 游标），postMessage 失败按快照恢复",
+            "tests/unit/main/core/token-stats/collector.test.ts::t385 AC-003 失败恢复游标轮前值、续推不重发前缀 通过"
+        ],
+        "AC-004": [
+            "tests/unit/main/core/token-stats/collector-state.test.ts::t385 AC-004 旧格式（无 source_cursors）读取不报错、游标空 通过",
+            "src/main/core/token-stats/scan-state.ts::load 守卫 if (s.source_cursors) 可选恢复"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

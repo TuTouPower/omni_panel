@@ -68,20 +68,6 @@
             "python3 scripts/repo_template/md_format.py"
         ]
     },
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "better-sqlite3",
-            "electron",
-            "electron-winstaller"
-        ],
-        "overrides": {
-            "tar": ">=6.2.1",
-            "tmp": ">=0.2.4"
-        },
-        "patchedDependencies": {
-            "better-sqlite3": "patches/better-sqlite3.patch"
-        }
-    },
     "devDependencies": {
         "@playwright/test": "^1.60.0",
         "@resvg/resvg-js": "^2.6.2",
@@ -139,7 +125,7 @@
         "zod": "^4.4.3",
         "zod-to-json-schema": "^3.25.2"
     },
-    "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0",
+    "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e",
     "bin": {
         "omni_panel": "./scripts/omni_panel.mjs"
     }
