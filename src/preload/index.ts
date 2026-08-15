@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
-import { is_ipc_result as ipc_envelope_is_ipc_result } from "../shared/lib/ipc-envelope";
+import { is_ipc_result } from "../shared/lib/ipc-envelope";
 import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
 import {
@@ -52,12 +52,6 @@ try {
     document.documentElement.style.backgroundColor = theme === "dark" ? "#181b22" : "#ffffff";
 } catch {
     // documentElement not ready; theme.ts will fix up
-}
-
-function is_ipc_result(
-    val: unknown,
-): val is { ok: boolean; data?: unknown; error?: { code: string; message: string } } {
-    return ipc_envelope_is_ipc_result(val);
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {

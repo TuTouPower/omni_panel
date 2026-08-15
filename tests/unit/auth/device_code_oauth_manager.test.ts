@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { addTransport } from "../../../src/shared/lib/logger";
 import {
     create_device_code_oauth_manager,
+    __testing_retry_failure_counts,
     type DeviceCodeOAuthConfig,
 } from "../../../src/main/core/auth/device_code_oauth_manager";
 import {
@@ -263,5 +264,68 @@ describe("device_code_oauth_manager (t339 对齐)", () => {
             remove_transport();
             process.off("unhandledRejection", on_unhandled);
         }
+    });
+
+    // t394 AC-002：logout/stop_auto_refresh/shutdown 三处清 retry_failure_counts。
+    // 删除任一清理代码测试即失败（探针断言残留），防测试假绿。
+    function retry_manager(instance_id: string): {
+        manager: ReturnType<typeof create_device_code_oauth_manager>;
+        vault: ReturnType<typeof create_vault>;
+    } {
+        const vault = create_vault();
+        vault.values.set(`${instance_id}:OAUTH_TOKEN`, "access");
+        vault.values.set(`${instance_id}:OAUTH_REFRESH_TOKEN`, "refresh");
+        vault.values.set(`${instance_id}:OAUTH_EXPIRES_AT`, String(Date.now() - 1));
+        const http = create_http_mock(shared_config);
+        const manager = create_device_code_oauth_manager(shared_config, {
+            vault,
+            http_post: async (url: string, body: string) => {
+                // 非终态刷新错误（server_error）：触发 retry 计数，不落 terminal 清 token 分支。
+                if (url === shared_config.token_url) return { error: "server_error" };
+                return http.post(url, body, {});
+            },
+        });
+        return { manager, vault };
+    }
+
+    async function trigger_retry(
+        manager: ReturnType<typeof create_device_code_oauth_manager>,
+        instance_id: string,
+    ): Promise<void> {
+        manager.start_auto_refresh(instance_id);
+        await vi.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(0);
+    }
+
+    it("logout 清 retry_failure_counts（t394 AC-002）", async () => {
+        const { manager } = retry_manager("inst-lg");
+        await trigger_retry(manager, "inst-lg");
+        expect(__testing_retry_failure_counts(manager).get("inst-lg")).toBe(1);
+
+        await manager.logout("inst-lg");
+        expect(__testing_retry_failure_counts(manager).has("inst-lg")).toBe(false);
+    });
+
+    it("stop_auto_refresh 清 retry_failure_counts（t394 AC-002）", async () => {
+        const { manager } = retry_manager("inst-sr");
+        await trigger_retry(manager, "inst-sr");
+        expect(__testing_retry_failure_counts(manager).get("inst-sr")).toBe(1);
+
+        manager.stop_auto_refresh("inst-sr");
+        expect(__testing_retry_failure_counts(manager).has("inst-sr")).toBe(false);
+    });
+
+    it("shutdown 清全部 retry_failure_counts（t394 AC-002）", async () => {
+        const { manager, vault } = retry_manager("inst-sd-a");
+        vault.values.set("inst-sd-b:OAUTH_TOKEN", "access");
+        vault.values.set("inst-sd-b:OAUTH_REFRESH_TOKEN", "refresh");
+        vault.values.set("inst-sd-b:OAUTH_EXPIRES_AT", String(Date.now() - 1));
+        await trigger_retry(manager, "inst-sd-a");
+        await trigger_retry(manager, "inst-sd-b");
+        expect(__testing_retry_failure_counts(manager).get("inst-sd-a")).toBe(1);
+        expect(__testing_retry_failure_counts(manager).get("inst-sd-b")).toBe(1);
+
+        manager.shutdown();
+        expect(__testing_retry_failure_counts(manager).size).toBe(0);
     });
 });
