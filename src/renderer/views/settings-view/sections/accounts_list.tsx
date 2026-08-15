@@ -161,6 +161,8 @@ export function AccountsList({
                                 account_label:
                                     config.accountLabels?.[item.provider]?.[item.accountId] ??
                                     item.accountLabel,
+                                // t398 AC-001: 行级 override 键随行携带，回调直用——不再 find 首匹配。
+                                account_key: accountKey(item),
                                 status: mapped_status,
                                 is_hidden,
                                 is_removed: false,
@@ -190,20 +192,14 @@ export function AccountsList({
                             set_remove_cpa_confirm_name(info?.displayName ?? plugin.instanceId);
                         }}
                         on_hide={(target) => {
-                            const item = items.find(
-                                (it) =>
-                                    it.provider === target.provider &&
-                                    it.accountId === target.account_id,
-                            );
+                            // t398 AC-001: 按行级 account_key 精确匹配——同 provider
+                            // 同 accountId 不同 label 多账号不误删首命中行的键。
+                            const item = items.find((it) => accountKey(it) === target.account_key);
                             if (!item) return;
                             hide_account(item);
                         }}
                         on_unhide={(target) => {
-                            const item = items.find(
-                                (it) =>
-                                    it.provider === target.provider &&
-                                    it.accountId === target.account_id,
-                            );
+                            const item = items.find((it) => accountKey(it) === target.account_key);
                             if (!item) return;
                             // t342: 恢复键与 hide 写键一致（accountKey），否则写读不对称。
                             restore_override_account(
@@ -213,11 +209,7 @@ export function AccountsList({
                             );
                         }}
                         on_clear={(target) => {
-                            const item = items.find(
-                                (it) =>
-                                    it.provider === target.provider &&
-                                    it.accountId === target.account_id,
-                            );
+                            const item = items.find((it) => accountKey(it) === target.account_key);
                             if (!item) return;
                             restore_override_account(
                                 target.provider as UsageProvider,

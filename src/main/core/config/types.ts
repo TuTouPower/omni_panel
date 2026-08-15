@@ -84,7 +84,10 @@ export const appConfigurationSchema = z.object({
     pauseAutoRefresh: z.boolean().optional(),
     providerOrder: z.array(z.string()).optional(),
     accountOrders: z.record(z.array(z.string())).optional(),
-    cacheMaxMb: z.number().int().min(1).max(10000).optional(),
+    // t398 AC-002: min(0) 对齐「不限制」语义——settings data_section 保存
+    // cacheMaxMb: 0 表示不限制，retention 把 0 视为不限制；min(1) 会拒绝 0
+    // 致「不限制」无法持久化、retention 0 分支成死代码。
+    cacheMaxMb: z.number().int().min(0).max(10000).optional(),
     mainPanelMode: mainPanelModeSchema.optional(),
     floatingHeightMode: floatingHeightModeSchema.optional(),
     usageBarColorScheme: usageBarColorSchemeSchema.optional(),
