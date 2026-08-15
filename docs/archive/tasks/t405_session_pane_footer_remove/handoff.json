@@ -1,0 +1,24 @@
+{
+  "tid": "t405",
+  "attempt": 1,
+  "execution_id": "c8989fa8019d4a32b0f4fe3ba4a26b40",
+  "status": "done",
+  "branch": "t405_session_pane_footer_remove",
+  "base_sha": "e88b63ea225045df4c70bea36351bca5aa3f4423",
+  "tests": "pnpm test：3272 passed；pnpm typecheck 通过",
+  "blackbox": "pnpm test 全量通过（单元+集成）；typecheck 通过；范围限于 SessionPane footer 删除，未跑 e2e/packaged",
+  "review": "第 2 轮 general PASS（single）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/renderer/components/workspace/SessionPane.test.tsx t405 AC-001/002：document.querySelector(.conversation-foot) 为 null"
+    ],
+    "AC-002": [
+      "tests/unit/renderer/components/workspace/SessionPane.test.tsx t405 AC-001/002：screen.queryByText(/槽位|用户 \\d|Agent \\d/) 为 null"
+    ],
+    "AC-003": [
+      "SessionPaneProps 移除 slot_index；WorkspaceView 不再传 slot_index；pnpm typecheck 通过；SessionPane/session_typography 渲染 props 无该键"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

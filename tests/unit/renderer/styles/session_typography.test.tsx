@@ -54,7 +54,6 @@ const META = {
 const VIEW = { show_time: true, compact: false };
 
 const PANE_PROPS = {
-    slot_index: 1,
     column: column(),
     slot_meta: META,
     focused: false,

@@ -7,7 +7,6 @@ import {
     format_precise_datetime,
     is_near_bottom,
     last_dir_segment,
-    message_counts,
     should_insert_divider,
     summarize,
     type PaneData,
@@ -25,7 +24,6 @@ export interface PaneView {
 }
 
 export interface SessionPaneProps {
-    readonly slot_index: number;
     readonly column: PaneData;
     readonly slot_meta: SlotSession;
     readonly focused: boolean;
@@ -47,9 +45,8 @@ export interface SessionPaneProps {
 const OLDER_THRESHOLD_PX = 120;
 const BOTTOM_THRESHOLD_PX = 120;
 
-/** 会话面板：头部、消息区、大纲抽屉与脚部。 */
+/** 会话面板：头部、消息区与大纲抽屉。 */
 export function SessionPane({
-    slot_index,
     column,
     slot_meta,
     focused,
@@ -70,8 +67,6 @@ export function SessionPane({
     const [scroll_el, set_scroll_el] = useState<HTMLDivElement | null>(null);
     const [at_bottom, set_at_bottom] = useState(true);
     const [locate_target, set_locate_target] = useState<string | null>(null);
-
-    const counts = useMemo(() => message_counts(column.messages), [column.messages]);
 
     const outline_items = useMemo(
         () =>
@@ -358,12 +353,6 @@ export function SessionPane({
                     </div>
                 )}
             </div>
-            <footer className="conversation-foot flex shrink-0 items-center gap-3 border-t border-[var(--color-outline)] px-3 py-1.5 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
-                <span className="conversation-foot-slot font-semibold">槽位 {slot_index + 1}</span>
-                <span className="conversation-foot-count">
-                    用户 {String(counts.user)} · Agent {String(counts.assistant)}
-                </span>
-            </footer>
         </section>
     );
 }

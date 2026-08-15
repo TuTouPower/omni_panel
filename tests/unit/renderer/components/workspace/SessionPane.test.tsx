@@ -7,8 +7,8 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
 
 /**
  * t225 会话面板（pane）测试。
- * 覆盖：头部（agent 色条/徽标/标题/cwd/meta）、脚部计数、Markdown 消息渲染、
- * 时间分隔线、回到底部按钮状态、大纲抽屉、骨架屏。
+ * 覆盖：头部（agent 色条/徽标/标题/cwd/meta）、Markdown 消息渲染、
+ * 时间分隔线、回到底部按钮状态、大纲抽屉、骨架屏；t405 无 footer。
  */
 
 function msg(id: string, role: "user" | "assistant", text: string, timestamp: number | null) {
@@ -42,7 +42,6 @@ const META = {
 const VIEW = { show_time: true, compact: false };
 
 const PROPS = {
-    slot_index: 1,
     column: column(),
     slot_meta: META,
     focused: false,
@@ -178,7 +177,7 @@ describe("SessionPane (t225)", () => {
         expect(document.querySelectorAll(".conversation-divider").length).toBe(1);
     });
 
-    it("脚部显示槽位号与 user/assistant 消息计数", () => {
+    it("t405 AC-001/002：DOM 无 .conversation-foot，无槽位/用户/Agent footer 文案", () => {
         render(
             <SessionPane
                 {...PROPS}
@@ -191,9 +190,8 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(screen.getByText("槽位 2")).toBeTruthy();
-        expect(screen.getByText(/用户 2/)).toBeTruthy();
-        expect(screen.getByText(/Agent 1/)).toBeTruthy();
+        expect(document.querySelector(".conversation-foot")).toBeNull();
+        expect(screen.queryByText(/槽位|用户 \d|Agent \d/)).toBeNull();
     });
 
     it("加载中无消息时显示骨架屏", () => {

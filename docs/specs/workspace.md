@@ -21,7 +21,7 @@
 - 消息区：Markdown 渲染（react-markdown@10 + remark-gfm@4，**无 rehype-raw**，会话 HTML 不当 HTML 执行）；相邻消息时间差超 10 分钟插分隔线；滚离底部超 120px 显示「回到底部」（点击回底，新消息在底部自动跟随）；加载骨架屏。
 - 大纲抽屉：pane 右侧滑出，每条消息一行（角色序号 U/A + 摘要 + 时间），点击滚动定位。
 - 聚焦模式：单面板铺满工作区（`.slot-grid.focused`），再次点击或 Esc 退出恢复原布局；关闭聚焦槽位/清空/替换时清聚焦索引。
-- 脚部：槽位号 + user/assistant 消息计数。
+- 无面板 footer（t405）：不再渲染 `.conversation-foot` 槽位号/用户·Agent 消息计数条；`SessionPane` 不接收 `slot_index` prop。
 - 快捷键：`1-8` 聚焦对应槽位、`[`/`]` 循环切换（无聚焦首入循环聚焦第一占用槽）、`Esc` 逐层退出（大纲 → 聚焦 → 普通态）。
 
 ## 打开与超位
