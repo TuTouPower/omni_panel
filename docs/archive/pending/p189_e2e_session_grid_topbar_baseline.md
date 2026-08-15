@@ -5,4 +5,4 @@
 - 根因：t380 将 rail-toggle 下移为顶栏下方独立行；测试仍要求 grid 直顶 topbar。t406 仅改背景 token，未动布局。
 - 测试缺口：应断言 grid 顶边对齐 toggle 行底边，或与 rail-scroll 同基线（已有第二断言）；更新 t323 AC 语义。
 - 线索：t406 黑盒 e2e；`SessionShell` 结构 header → rail-toggle-row → main
-- 处理：未开
+- 处理：t413

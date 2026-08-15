@@ -232,25 +232,29 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(before(view, refresh)).toBe(true);
     });
 
-    it("t380 AC-004：rail-toggle 下移为标题栏下方独立行，折叠/展开行为不变", async () => {
+    it("t413 AC-001/002：无 session-rail-toggle-row；折叠按钮在侧栏头部，折叠/展开不变", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
+        // AC-001：不再渲染独立空带行；页签栏之下直接内容区。
+        expect(document.querySelector(".session-rail-toggle-row")).toBeNull();
+        const topbar = document.querySelector(".session-topbar");
+        const body = document.querySelector(".session-body");
+        expect(topbar).toBeTruthy();
+        expect(body).toBeTruthy();
+        // 顶栏下一节点即 session-body（中间无 toggle-row）。
+        expect(topbar?.nextElementSibling).toBe(body);
+
         const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
-        // t380: toggle 在标题栏下方独立行（.session-rail-toggle-row），不在 header。
-        expect(toggle.closest(".session-rail-toggle-row")).not.toBeNull();
+        // AC-002：toggle 在侧栏头部行内，不在顶栏。
+        expect(toggle.closest(".session-rail-header")).not.toBeNull();
+        expect(toggle.closest(".session-rail")).not.toBeNull();
         expect(toggle.closest(".session-topbar")).toBeNull();
-        expect(document.querySelector(".session-workspace")?.contains(toggle)).toBe(false);
-        // t406 AC-002/003: rail-toggle 行与按钮底 = surface-window，无 color-mix；hover 仍可用 raised。
         const toggle_cls = toggle.className;
-        expect(toggle_cls).toContain("bg-[var(--color-surface-window)]");
+        expect(toggle_cls).toContain("session-rail-toggle");
         expect(toggle_cls).not.toContain("color-mix");
-        expect(toggle_cls).toContain("hover:bg-[var(--color-surface-raised)]");
-        const row_cls = toggle.closest(".session-rail-toggle-row")?.className ?? "";
-        expect(row_cls).toContain("bg-[var(--color-surface-window)]");
-        expect(row_cls).not.toContain("color-mix");
-        // 折叠行为不变。
+
         expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
         fireEvent.click(toggle);
         expect(document.querySelector(".session-rail")?.className).toContain("collapsed");

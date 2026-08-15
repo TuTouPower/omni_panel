@@ -114,6 +114,7 @@ function render_workspace(overrides: Partial<ComponentProps<typeof WorkspaceView
             view={{ show_time: false, compact: false }}
             recent_open={false}
             rail_collapsed={false}
+            on_rail_toggle={() => undefined}
             on_layout_change={() => undefined}
             on_recent={() => undefined}
             on_recent_close={() => undefined}
