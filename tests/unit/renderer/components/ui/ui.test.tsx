@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -206,6 +206,69 @@ describe("ui 组件库（t269）", () => {
         expect(cb?.getAttribute("type")).toBe("checkbox");
     });
 
+    it("t421: Checkbox select 形态 20px agent accent + ✓", () => {
+        const onClick = vi.fn();
+        const { container, rerender } = render(
+            <Checkbox
+                variant="select"
+                accent="agent"
+                checked={false}
+                aria-label="会话 x"
+                onClick={onClick}
+            />,
+        );
+        const btn = container.querySelector("button");
+        if (!btn) throw new Error("select checkbox button missing");
+        expect(btn.getAttribute("aria-pressed")).toBe("false");
+        expect(btn.className).toContain("h-5");
+        expect(btn.className).toContain("w-5");
+        expect(btn.textContent).toBe("");
+        fireEvent.click(btn);
+        expect(onClick).toHaveBeenCalledTimes(1);
+        rerender(
+            <Checkbox
+                variant="select"
+                accent="agent"
+                checked
+                aria-label="会话 x"
+                onClick={onClick}
+            />,
+        );
+        const on_btn = container.querySelector("button");
+        expect(on_btn?.getAttribute("aria-pressed")).toBe("true");
+        expect(on_btn?.textContent).toBe("✓");
+        expect(on_btn?.className).toContain("bg-[var(--agent-accent)]");
+    });
+
+    it("t421: Checkbox order 形态序号 + on class + primary", () => {
+        const { container, rerender } = render(
+            <Checkbox
+                variant="order"
+                accent="primary"
+                checked={false}
+                order={null}
+                data-testid="session-recent-check"
+            />,
+        );
+        const el = container.querySelector('[data-testid="session-recent-check"]');
+        expect(el?.tagName.toLowerCase()).toBe("span");
+        expect(el?.textContent).toBe("");
+        expect(el?.className.split(/\s+/).includes("on")).toBe(false);
+        rerender(
+            <Checkbox
+                variant="order"
+                accent="primary"
+                checked
+                order={3}
+                data-testid="session-recent-check"
+            />,
+        );
+        const on_el = container.querySelector('[data-testid="session-recent-check"]');
+        expect(on_el?.textContent).toBe("3");
+        expect(on_el?.className.split(/\s+/).includes("on")).toBe(true);
+        expect(on_el?.className).toContain("bg-[var(--color-primary)]");
+    });
+
     it("Switch 点击切换 checked 状态", () => {
         let checked = false;
         const { container, rerender } = render(
@@ -252,6 +315,34 @@ describe("ui 组件库（t269）", () => {
         rerender(<Segmented options={options} value={value} onChange={(v) => (value = v)} />);
         expect(second.getAttribute("aria-pressed")).toBe("true");
         expect(buttons[0]?.getAttribute("aria-pressed")).toBe("false");
+    });
+
+    it("t421: Segmented option 透传 title / aria-label / data-testid", () => {
+        render(
+            <Segmented
+                value="grid"
+                onChange={() => undefined}
+                options={[
+                    {
+                        value: "grid",
+                        label: "网格",
+                        "aria-label": "网格视图",
+                        title: "网格",
+                        "data-testid": "seg-grid",
+                    },
+                    {
+                        value: "list",
+                        label: "列表",
+                        "aria-label": "列表视图",
+                        "data-testid": "seg-list",
+                    },
+                ]}
+            />,
+        );
+        expect(screen.getByRole("button", { name: "网格视图" }).getAttribute("title")).toBe(
+            "网格",
+        );
+        expect(screen.getByTestId("seg-list").getAttribute("aria-pressed")).toBe("false");
     });
 
     it("Menu + MenuItem 渲染，danger 项加 error 类", () => {

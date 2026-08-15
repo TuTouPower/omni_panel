@@ -11,6 +11,7 @@ import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
 import { Button } from "./ui/Button";
+import { Segmented } from "./ui/Segmented";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
@@ -158,41 +159,23 @@ export const ProviderCard = memo(function ProviderCard({
                 </span>
             )}
             {accountCount > 1 && expanded !== false && (
-                <span
-                    className="ml-px inline-flex shrink-0 items-center gap-0.5 rounded-[9px] bg-[var(--color-surface-raised)] p-0.5"
-                    role="tablist"
-                >
-                    <button
-                        className={
-                            "rounded-[7px] border-0 px-[9px] py-[3px] text-[length:var(--text-label-md)] font-semibold leading-normal whitespace-nowrap " +
-                            (!l2Open
-                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-card"
-                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
-                        }
-                        title="概览"
-                        type="button"
-                        onClick={() => {
-                            if (l2Open) onToggleL2Open?.(provider);
-                        }}
-                    >
-                        概览
-                    </button>
-                    <button
-                        className={
-                            "rounded-[7px] border-0 px-[9px] py-[3px] text-[length:var(--text-label-md)] font-semibold leading-normal whitespace-nowrap " +
-                            (l2Open
-                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-card"
-                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
-                        }
-                        title="账号明细"
-                        type="button"
-                        onClick={() => {
-                            if (!l2Open) onToggleL2Open?.(provider);
-                        }}
-                    >
-                        {String(accountCount)}账号
-                    </button>
-                </span>
+                <Segmented
+                    size="sm"
+                    className="ml-px shrink-0"
+                    value={l2Open ? "detail" : "overview"}
+                    options={[
+                        { value: "overview", label: "概览", title: "概览" },
+                        {
+                            value: "detail",
+                            label: `${String(accountCount)}账号`,
+                            title: "账号明细",
+                        },
+                    ]}
+                    onChange={(next) => {
+                        if (next === "overview" && l2Open) onToggleL2Open?.(provider);
+                        if (next === "detail" && !l2Open) onToggleL2Open?.(provider);
+                    }}
+                />
             )}
             {is_refreshing && (
                 <span

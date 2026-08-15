@@ -5,13 +5,14 @@ import { createLogger } from "../../shared/lib/logger";
 import { is_auth_error } from "../../shared/lib/auth-error";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
-import { relative_time, cn } from "../lib/utils";
+import { relative_time } from "../lib/utils";
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { TrendSparkline } from "./TrendSparkline";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
 import { Button } from "./ui/Button";
+import { Segmented } from "./ui/Segmented";
 
 const log = createLogger("renderer:provider-account-row");
 
@@ -253,28 +254,20 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 forcePercent={forcePercent}
             />
             {!collapsed && account.periods.length > 0 && (
-                <div className="mt-2.5 flex gap-1" role="group" aria-label="趋势窗口">
-                    {[1, 7, 30].map((d) => (
-                        <button
-                            key={d}
-                            type="button"
-                            className={cn(
-                                "cursor-pointer rounded-md border-[0.5px] bg-transparent px-2 py-0.5 text-[11px] text-[var(--color-on-surface-variant)] " +
-                                    "transition-feedback hover:bg-[var(--color-surface-raised)]",
-                                trend_days === d
-                                    ? " border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-primary)]"
-                                    : " border-[var(--color-outline)]",
-                            )}
-                            aria-pressed={trend_days === d}
-                            data-testid="trend-window-btn"
-                            onClick={() => {
-                                handle_window_change(d);
-                            }}
-                        >
-                            {d === 1 ? "1天" : d === 7 ? "7天" : "30天"}
-                        </button>
-                    ))}
-                </div>
+                <Segmented
+                    size="sm"
+                    className="mt-2.5"
+                    aria-label="趋势窗口"
+                    value={String(trend_days) as "1" | "7" | "30"}
+                    options={[
+                        { value: "1", label: "1天", "data-testid": "trend-window-btn" },
+                        { value: "7", label: "7天", "data-testid": "trend-window-btn" },
+                        { value: "30", label: "30天", "data-testid": "trend-window-btn" },
+                    ]}
+                    onChange={(next) => {
+                        handle_window_change(Number(next));
+                    }}
+                />
             )}
             {!collapsed &&
                 account.periods.map((period) => {

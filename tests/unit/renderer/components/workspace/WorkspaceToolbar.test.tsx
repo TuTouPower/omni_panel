@@ -41,8 +41,8 @@ describe("WorkspaceToolbar (t323 顶栏内联)", () => {
     it("AC-002：视图下拉含显示时间戳/紧凑模式，count>0 时含会话排布", () => {
         render_toolbar({ count: 3, layout: 3 });
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
-        expect(screen.getByLabelText("显示时间戳")).toBeTruthy();
-        expect(screen.getByLabelText("紧凑模式")).toBeTruthy();
+        expect(screen.getByRole("menuitemcheckbox", { name: "显示时间戳" })).toBeTruthy();
+        expect(screen.getByRole("menuitemcheckbox", { name: "紧凑模式" })).toBeTruthy();
         // 3 个会话 → 3 列 × 1 行。
         expect(screen.getByRole("button", { name: "3 列 × 1 行" })).toBeTruthy();
         // 当前布局选中态。
@@ -54,8 +54,23 @@ describe("WorkspaceToolbar (t323 顶栏内联)", () => {
     it("AC-002：count=0 时不渲染会话排布区", () => {
         render_toolbar();
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
-        expect(screen.getByLabelText("显示时间戳")).toBeTruthy();
-        expect(screen.getByLabelText("紧凑模式")).toBeTruthy();
+        expect(screen.getByRole("menuitemcheckbox", { name: "显示时间戳" })).toBeTruthy();
+        expect(screen.getByRole("menuitemcheckbox", { name: "紧凑模式" })).toBeTruthy();
         expect(screen.queryByRole("group", { name: "会话排布" })).toBeNull();
+    });
+
+    it("t421 AC-003：菜单走 ui/Menu，项 hover 蓝底白字", () => {
+        render_toolbar({ count: 2, layout: 2 });
+        fireEvent.click(screen.getByRole("button", { name: /视图/ }));
+        const menu = screen.getByTestId("session-view-menu");
+        expect(menu.className).toContain("glass-menu");
+        const time_item = screen.getByRole("menuitemcheckbox", { name: "显示时间戳" });
+        expect(time_item.className).toContain("hover:bg-[var(--color-primary)]");
+        expect(time_item.className).toContain("hover:text-[var(--color-on-primary)]");
+        // 不得再使用 surface-raised 作 hover。
+        expect(time_item.className).not.toContain("hover:bg-[var(--color-surface-raised)]");
+        const layout_item = screen.getByRole("button", { name: "2 列 × 1 行" });
+        expect(layout_item.className).toContain("hover:bg-[var(--color-primary)]");
+        expect(layout_item.className).toContain("hover:text-[var(--color-on-primary)]");
     });
 });

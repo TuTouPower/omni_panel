@@ -1,8 +1,17 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
+interface SegmentedOption<T extends string> {
+    value: T;
+    label: ReactNode;
+    disabled?: boolean;
+    title?: string;
+    "aria-label"?: string;
+    "data-testid"?: string;
+}
+
 interface SegmentedProps<T extends string> {
-    options: readonly { value: T; label: ReactNode; disabled?: boolean }[];
+    options: readonly SegmentedOption<T>[];
     value: T | "" | null;
     onChange: (value: T) => void;
     size?: "sm" | "default";
@@ -10,7 +19,7 @@ interface SegmentedProps<T extends string> {
     "aria-label"?: string;
 }
 
-/** t269: 统一 Segmented（分段控件）。只消费语义 token。 */
+/** t269: 统一 Segmented（分段控件）。只消费语义 token。t421: option 支持 title/aria-label/data-testid。 */
 export function Segmented<T extends string>({
     options,
     value,
@@ -33,7 +42,10 @@ export function Segmented<T extends string>({
                     key={opt.value}
                     type="button"
                     disabled={opt.disabled}
+                    title={opt.title}
+                    aria-label={opt["aria-label"]}
                     aria-pressed={value === opt.value}
+                    data-testid={opt["data-testid"]}
                     className={cn(
                         "rounded transition-feedback disabled:pointer-events-none disabled:opacity-50 " +
                             "focus-visible:outline-none focus-visible:ring-2 " +
