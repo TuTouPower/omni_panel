@@ -143,6 +143,38 @@ describe("token-stats-ipc sender validation", () => {
         );
     });
 
+    it("t389 AC-002: TOKEN_STATS_SESSIONS 正常小 limit 行为不变", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const result = pick_handler("tokenStats:sessions")(good_event(), { limit: 100 });
+        expect(result).toEqual({ ok: true, data: [] });
+        expect(query_sessions).toHaveBeenCalledWith({ limit: 100 });
+    });
+
+    it("t389 AC-002/004: TOKEN_STATS_SESSIONS 超大/非法 limit 被拒", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        for (const bad of [Number.MAX_SAFE_INTEGER, 0, -5, 1.5, Number.NaN]) {
+            const result = pick_handler("tokenStats:sessions")(good_event(), { limit: bad });
+            expect((result as { ok: boolean }).ok, `limit=${String(bad)}`).toBe(false);
+        }
+        expect(query_sessions).not.toHaveBeenCalled();
+    });
+
     it("TOKEN_STATS_SESSION_STATS rejects unknown sender", async () => {
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
@@ -177,6 +209,41 @@ describe("token-stats-ipc sender validation", () => {
         expect(() => pick_handler("tokenStats:records")(bad_event())).toThrow(
             "IPC not allowed from unknown origin",
         );
+    });
+
+    it("t389 AC-003: TOKEN_STATS_RECORDS 正常小 limit 行为不变（缺省走 store 默认）", async () => {
+        const deps = createMockDeps();
+        const query_records = (
+            deps.store as TokenStatsStore & {
+                query_records: ReturnType<typeof vi.fn>;
+            }
+        ).query_records;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const result = pick_handler("tokenStats:records")(good_event(), { limit: 100 });
+        expect(result).toEqual({ ok: true, data: [] });
+        expect(query_records).toHaveBeenCalledWith({ limit: 100 });
+        // 缺省 limit 语义不变。
+        pick_handler("tokenStats:records")(good_event(), {});
+        expect(query_records).toHaveBeenCalledWith({});
+    });
+
+    it("t389 AC-003/004: TOKEN_STATS_RECORDS 超大/非法 limit 被拒", async () => {
+        const deps = createMockDeps();
+        const query_records = (
+            deps.store as TokenStatsStore & {
+                query_records: ReturnType<typeof vi.fn>;
+            }
+        ).query_records;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        for (const bad of [Number.MAX_SAFE_INTEGER, 0, -5, 1.5, Number.NaN]) {
+            const result = pick_handler("tokenStats:records")(good_event(), { limit: bad });
+            expect((result as { ok: boolean }).ok, `limit=${String(bad)}`).toBe(false);
+        }
+        expect(query_records).not.toHaveBeenCalled();
     });
 
     it("TOKEN_STATS_HEATMAP rejects unknown sender", async () => {

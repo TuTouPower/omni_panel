@@ -2,11 +2,11 @@
 tid: "t389"
 slug: "ipc_limit_upper_bound"
 title: "RECENT/TOKEN_STATS IPC limit 上界校验钳制"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t389_ipc_limit_upper_bound"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "ce0fcd6133a6e383b97b0b7e096d764b80a8c601"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p173"
@@ -44,14 +44,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 08:15 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t389_code_f001|minor|已修|RECENT 内联校验与 TOKEN_STATS helper 重复：补交叉引用注释（同步风险声明） | src/main/ipc/session-history-ipc.ts:228 |
+|t389_test_f001|minor|已修|RECORDS 正常路径补 ok:true 断言 + 坏值数组补 NaN | tests/unit/ipc/token-stats-ipc.test.ts:224 |
+
+### Round 2 (2026-08-15 08:20 UTC+8)
+
+- 复核：code PASS（f001 交叉引用注释）；test PASS（f001 消除）。无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +62,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（RECENT 校验）、AC-002/003（SESSIONS/RECORDS 校验 + 缺省不变）、AC-004（非法拒绝）均列于 `handoff.json` 的 `ac_evidence`，mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +71,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001 minor）
+- Round 1 test：PASS（f001 minor）
+- Round 2 code：PASS（f001 注释消除）
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 三处 IPC limit 校验（RECENT + TOKEN_STATS_SESSIONS/RECORDS）；IPC 全量 226 passed，code/test 双轴 2 轮 PASS。

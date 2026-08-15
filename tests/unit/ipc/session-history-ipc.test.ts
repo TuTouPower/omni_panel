@@ -369,6 +369,26 @@ describe("session-history-ipc (t210)", () => {
         expect(service.recent_sessions).toHaveBeenCalledTimes(1);
     });
 
+    it("t389 AC-001: RECENT 超大 limit 被拒，不触发全量拉取", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:recent");
+        const result = handler(valid_sender, "claude_code", "win", Number.MAX_SAFE_INTEGER) as {
+            ok: boolean;
+        };
+        expect(result.ok).toBe(false);
+        expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
+    it("t389 AC-004: RECENT 非法 limit（0/负/非整数）被拒", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:recent");
+        for (const bad of [0, -5, 1.5, Number.NaN]) {
+            const result = handler(valid_sender, "claude_code", "win", bad) as { ok: boolean };
+            expect(result.ok, `limit=${String(bad)}`).toBe(false);
+        }
+        expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
     it("SEARCH_CONTENT resolve 后调 service.searchContent 并返回命中数组", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/sess.jsonl",
