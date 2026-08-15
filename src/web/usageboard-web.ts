@@ -165,16 +165,15 @@ export function create_web_usageboard(): UsageboardApi {
         for (const cb of token_stats_callbacks) cb(0);
     }, POLL_MS);
 
-    // t279: web 会话实时订阅。每个订阅一个专属 SSE 连接（subscriber_id 查询参数），
-    // 服务端把 watcher 增量经该连接推 `messagesUpdated`；连接关闭即注销（防泄漏），
-    // 无需依赖 beforeunload 可靠送达。同 loc 重复 subscribe 幂等返回既有订阅。
-    // `registered` 标记首次 open 已完成订阅 POST，重连 open 时按 AC3 重挂。
+    // t414: 每页一条共享 SSE（connectionId）。state/config/theme 与会话
+    // messagesUpdated 复用同一 EventSource，避免每会话一条长连接占满
+    // Chrome HTTP/1.1 同 origin 6 连接上限（p187）。同 loc 重复 subscribe 幂等。
+    // `registered` 标记首次订阅 POST 成功；共享连接 open/重连时按仍打开的会话重挂。
     interface WebSessionSubEntry {
         readonly subscriber_id: string;
         readonly source: string;
         readonly env: string;
         readonly session_id: string;
-        readonly events: EventSource;
         registered: boolean;
     }
     const session_message_callbacks = new Set<
@@ -182,12 +181,41 @@ export function create_web_usageboard(): UsageboardApi {
     >();
     const web_session_subs = new Map<string, WebSessionSubEntry>();
     let web_session_sub_seq = 0;
+    // 页级连接 id 须跨 tab 唯一：服务端 sse_connections 以 id 为键，重复会互相覆盖（AC-006）。
+    const page_connection_id = `web-conn-${crypto.randomUUID()}`;
+
+    function session_sub_key(source: string, env: string, session_id: string): string {
+        return `${source}|${env}|${session_id}`;
+    }
+
+    function post_session_subscribe(key: string, sub: WebSessionSubEntry): void {
+        void post_json("/v1/sessionHistory/subscribe", {
+            source: sub.source,
+            env: sub.env,
+            session_id: sub.session_id,
+            subscriber_id: sub.subscriber_id,
+            connection_id: page_connection_id,
+        })
+            .then(() => {
+                sub.registered = true;
+            })
+            .catch(() => {
+                if (!sub.registered) {
+                    // 初始登记失败：只清本会话条目，共享 EventSource 继续服务
+                    // state/config/theme 与其它会话（renderer 轮询兜底）。
+                    if (web_session_subs.get(key) === sub) {
+                        web_session_subs.delete(key);
+                    }
+                }
+                // 重连重挂失败：renderer 5s 轮询兜底，下次 open 再试。
+            });
+    }
 
     function unsubscribe_loc(key: string): void {
         const sub = web_session_subs.get(key);
         if (!sub) return;
         web_session_subs.delete(key);
-        sub.events.close();
+        // 共享连接不得因单会话 unsubscribe 关闭（AC-004/007）。
         void post_json("/v1/sessionHistory/unsubscribe", {
             subscriber_id: sub.subscriber_id,
         }).catch(() => {
@@ -198,12 +226,14 @@ export function create_web_usageboard(): UsageboardApi {
     // SSE push channel — mirrors the desktop IPC EVENT_STATE_CHANGE broadcast.
     // local-api streams runtimeStore state changes over GET /v1/events; this
     // relays them to renderer subscribers (use_plugins) so the web panel
-    // refreshes without polling.
+    // refreshes without polling. t414: 同一条也承载 messagesUpdated。
     const state_change_cbs = new Set<(instanceId: string, state: ConnectorSnapshotDTO) => void>();
     let events_source: EventSource | null = null;
     function ensure_events(): void {
         if (events_source || typeof EventSource === "undefined") return;
-        events_source = new EventSource("/v1/events");
+        events_source = new EventSource(
+            `/v1/events?connectionId=${encodeURIComponent(page_connection_id)}`,
+        );
         events_source.addEventListener("message", (ev: MessageEvent) => {
             try {
                 const payload = JSON.parse(ev.data as string) as {
@@ -215,6 +245,25 @@ export function create_web_usageboard(): UsageboardApi {
                 }
             } catch {
                 /* ignore malformed SSE frame */
+            }
+        });
+        events_source.addEventListener("messagesUpdated", (ev: MessageEvent) => {
+            try {
+                const payload = JSON.parse(
+                    ev.data as string,
+                ) as SessionHistoryMessagesUpdatedPayload;
+                const key = session_sub_key(payload.source, payload.env, payload.session_id);
+                // 本页已 unsubscribe 的 loc 不再投递（AC-004）。
+                if (!web_session_subs.has(key)) return;
+                for (const cb of session_message_callbacks) cb(payload);
+            } catch {
+                /* ignore malformed SSE frame */
+            }
+        });
+        // 初始 open 与断线重连 open：把仍打开的会话重挂到本连接（AC-005）。
+        events_source.addEventListener("open", () => {
+            for (const [key, sub] of web_session_subs) {
+                post_session_subscribe(key, sub);
             }
         });
     }
@@ -638,63 +687,29 @@ export function create_web_usageboard(): UsageboardApi {
                 return Promise.resolve();
             },
             subscribe: (source: string, env: string, session_id: string) => {
-                const key = `${source}|${env}|${session_id}`;
+                const key = session_sub_key(source, env, session_id);
                 const existing = web_session_subs.get(key);
                 if (existing) return Promise.resolve({ subscribed: true });
                 const subscriber_id = `web-${String(++web_session_sub_seq)}`;
-                const events = new EventSource(
-                    `/v1/events?subscriberId=${encodeURIComponent(subscriber_id)}`,
-                );
-                events.addEventListener("messagesUpdated", (ev: MessageEvent) => {
-                    try {
-                        const payload = JSON.parse(
-                            ev.data as string,
-                        ) as SessionHistoryMessagesUpdatedPayload;
-                        for (const cb of session_message_callbacks) cb(payload);
-                    } catch {
-                        /* ignore malformed SSE frame */
-                    }
-                });
-                // 初始与重连注册统一在 open 时机发送（f007）：初次 open 即注册，
-                // 断连重连 open 时以同 subscriber_id 幂等重挂（服务端对已存在订阅只换
-                // on_update）。POST 在 SSE 已连后发出，消除初始 POST 先于连接导致的
-                // 409 竞态；失败路径清理连接与条目，renderer catch 忽略 + 轮询兜底。
-                const sub_entry = {
+                // t414: 复用页级共享 EventSource，不再每会话 new EventSource。
+                const sub_entry: WebSessionSubEntry = {
                     subscriber_id,
                     source,
                     env,
                     session_id,
-                    events,
                     registered: false,
                 };
-                events.addEventListener("open", () => {
-                    void post_json("/v1/sessionHistory/subscribe", {
-                        source,
-                        env,
-                        session_id,
-                        subscriber_id,
-                    })
-                        .then(() => {
-                            sub_entry.registered = true;
-                        })
-                        .catch(() => {
-                            if (!sub_entry.registered) {
-                                // 初始注册失败：关闭连接清理残留，服务端 SSE close 兜底注销。
-                                if (web_session_subs.get(key) === sub_entry) {
-                                    web_session_subs.delete(key);
-                                }
-                                sub_entry.events.close();
-                            }
-                            // 重连重挂失败：renderer 5s 轮询兜底，下次 open 再试。
-                        });
-                });
                 web_session_subs.set(key, sub_entry);
-                // 注册在 open 后异步完成；返回即视为已接受（失败由 renderer catch 忽略，
-                // 轮询兜底保证数据可达）。与桌面 subscribe 立即返回 subscribed 语义对齐。
+                ensure_events();
+                // 连接已 OPEN 时 open 不会再触发，立即登记；CONNECTING 等 open 统一发。
+                if (events_source?.readyState === EventSource.OPEN) {
+                    post_session_subscribe(key, sub_entry);
+                }
+                // 注册异步完成；返回即视为已接受（失败由 renderer 忽略 + 轮询兜底）。
                 return Promise.resolve({ subscribed: true });
             },
             unsubscribe: (source: string, env: string, session_id: string) => {
-                unsubscribe_loc(`${source}|${env}|${session_id}`);
+                unsubscribe_loc(session_sub_key(source, env, session_id));
                 return Promise.resolve({ unsubscribed: true });
             },
             // t228/t237: web 端经 local-api mock 读会话消息（fixture 按 session_id 索引）。
