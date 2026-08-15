@@ -597,6 +597,39 @@ describe("LabelMapDialog", () => {
         expect(bell).toHaveAttribute("aria-pressed", "false");
     });
 
+    it("未监控 icon 带 data-slash、已监控 icon 不带（t397 AC-001）", async () => {
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                watched_metrics={{
+                    "cpa-1|label|Account 1": ["five_hour"],
+                }}
+                on_save={on_save}
+                on_close={on_close}
+                on_toggle_watched={vi.fn()}
+            />,
+        );
+
+        await screen.findByText("five_hour");
+        // 两条 raw label：five_hour（已监控）与 seven_day（未监控）。
+        const bells = screen.getAllByRole("button", {
+            name: "监控该数据标签的即将重置",
+        });
+        expect(bells).toHaveLength(2);
+        // 已监控（five_hour）：icon 无 data-slash。
+        const bell_icons = document.querySelectorAll("[data-slash]");
+        expect(bell_icons).toHaveLength(1);
+        expect(bells[0]).toHaveAttribute("aria-pressed", "true");
+        // 未监控（seven_day）：icon 带 data-slash="true"。
+        expect(bells[1]).toHaveAttribute("aria-pressed", "false");
+        const slashed = bells[1]?.querySelector("[data-slash='true']");
+        expect(slashed).not.toBeNull();
+    });
+
     it("passes every CPA account key for a raw label when its bell is clicked", async () => {
         const user = userEvent.setup();
         const on_toggle_watched = vi.fn();

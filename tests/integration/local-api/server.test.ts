@@ -1635,11 +1635,17 @@ describe("local-api web read endpoints", () => {
             `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-a`,
         );
         expect(res_a.status).toBe(200);
-        const series_a = (await res_a.json()) as ({ percent: number } | null)[];
+        const series_a = (await res_a.json()) as ({ percent: number; date: string } | null)[];
         const points_a = series_a.filter((p) => p !== null);
         expect(points_a.length).toBe(1);
         // inst-a: used 100/1000 = 10%
         expect(points_a[0]?.percent).toBe(10);
+        // t397 AC-005: date 为 UTC ISO 时刻格式（保留时分，同一 UTC 日内多点可区分；
+        // 纯日期 YYYY-MM-DD 或丢时分断言必挂）。
+        expect(points_a[0]?.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$/);
+        // 且 date 与插入的 observed_at（now）对应同一 UTC 时刻（非日期截断）。
+        const expected_iso = new Date(now).toISOString().slice(0, 16) + "Z";
+        expect(points_a[0]?.date).toBe(expected_iso);
 
         const res_b = await fetch(
             `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-b`,
