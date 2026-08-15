@@ -5987,6 +5987,36 @@
             "schedule_status": "",
             "note": "双击进 GUI;命令行无参打印帮助含 --gui;serve/quit 等免 --cli 前缀自动注入;--cli 兼容保留",
             "dir": "docs/archive/tasks/t399_cli_launcher_parse"
+        },
+        {
+            "tid": "t416",
+            "slug": "typography_token_unify",
+            "title": "字号与字重回归九级五档 token",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t424",
+            "dir": "docs/archive/tasks/t416_typography_token_unify"
+        },
+        {
+            "tid": "t417",
+            "slug": "spacing_radius_token_unify",
+            "title": "布局间距与圆角回归基网档位",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t424",
+            "dir": "docs/archive/tasks/t417_spacing_radius_token_unify"
         }
     ]
 }

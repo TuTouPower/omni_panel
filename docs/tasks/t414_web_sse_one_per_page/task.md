@@ -8,7 +8,8 @@ worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: ""
+conflicts_with: "t404"
+schedule_status: "scheduled"
 note: "来源 p187；一页一条 EventSource 多路复用"
 ---
 

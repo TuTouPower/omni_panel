@@ -7,8 +7,9 @@ branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
-depends_on: ""
-conflicts_with: ""
+depends_on: "t401"
+conflicts_with: "t424"
+schedule_status: "scheduled"
 note: ""
 ---
 

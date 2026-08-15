@@ -1,16 +1,16 @@
 ---
-tid: "t422"
-slug: "semantic_pattern_utilities"
-title: "告警条/code chip/徽章/toast 复合模式沉淀复用"
+tid: "t424"
+slug: "type_space_token_unify"
+title: "字号字重与间距圆角回归 token 档位"
 status: "backlog"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: "t404,t405,t406,t409,t410,t411,t412,t415,t419,t421,t424"
+conflicts_with: "t402,t403,t404,t405,t406,t407,t408,t409,t410,t411,t412,t413,t415,t418,t419,t420,t421,t422,t423"
 schedule_status: "scheduled"
-note: ""
+note: "merged from t416,t417"
 ---
 
 # Task 过程总账
