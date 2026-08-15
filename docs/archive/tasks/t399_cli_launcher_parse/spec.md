@@ -80,8 +80,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 <!-- /规范 -->
 
 - launcher 参数翻译抽成纯函数（输入 argv，输出转发 argv + 模式判定），单测覆盖 AC-001/002/003/004/005 映射表。
-- 现有 `tests/e2e/cli/cli_flow.spec.ts` 直接 launch Electron 二进制、不经 launcher，不受影响；确认不回归。
-- `tests/e2e/packaged/smoke.spec.ts` 经 launcher 启动，核对无参行为变化是否影响其断言。
+- 现有 `tests/e2e/cli/cli_flow.spec.ts` 与 `tests/e2e/packaged/smoke.spec.ts` 均直接 launch/spawn Electron 二进制、不经 launcher，不受本次 launcher 改动影响；确认不回归。
+- 黑盒：软链主仓 artifacts，真实跑 launcher 的 serve/quit/help/invalid 分支与 symlink 执行。
 
 ### 未知契约清单
 

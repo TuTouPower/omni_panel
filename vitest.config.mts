@@ -39,6 +39,7 @@ export default defineConfig({
                     name: "node",
                     include: [
                         "tests/unit/main/**/*.test.{ts,tsx}",
+                        "tests/unit/scripts/**/*.test.{ts,tsx}",
                         "tests/unit/ipc/**/*.test.{ts,tsx}",
                         "tests/unit/local-api/**/*.test.{ts,tsx}",
                         "tests/unit/shared/**/*.test.{ts,tsx}",
