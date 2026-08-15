@@ -2,5 +2,66 @@
     "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t400",
+            "slug": "cli_help_unify",
+            "title": "CLI 帮助单一真相源:四入口输出统一含 --gui",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "无参/--help/help/--cli help 四入口输出同一份帮助(含 --gui);消除 launcher 与主进程两处内联帮助文本",
+            "dir": "docs/tasks/t400_cli_help_unify"
+        },
+        {
+            "tid": "t401",
+            "slug": "resume_command_template_core",
+            "title": "续接命令模板：config 字段 + resume_command 支持 {session_id} 替换",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t401_resume_command_template_core"
+        },
+        {
+            "tid": "t402",
+            "slug": "resume_command_template_settings_ui",
+            "title": "设置面板新增会话续接命令自定义（4 来源输入）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t402_resume_command_template_settings_ui"
+        },
+        {
+            "tid": "t403",
+            "slug": "resume_command_template_callers",
+            "title": "工作台/会话库 session id 复制接入自定义续接命令",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t403_resume_command_template_callers"
+        }
+    ]
 }
