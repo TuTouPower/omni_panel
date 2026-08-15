@@ -8,7 +8,8 @@ worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: ""
+conflicts_with: "t414,t415,t419,t421,t422,t424"
+schedule_status: "scheduled"
 note: "p186;4000 会话冷缓存首次搜索 45s+;searchContent 全量解析+无进度反馈"
 ---
 

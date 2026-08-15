@@ -8,7 +8,8 @@ worktree: ""
 review_level: "full"
 diff_anchor: ""
 depends_on: ""
-conflicts_with: ""
+conflicts_with: "t403,t405,t406,t407,t408,t409,t410,t413,t415,t418,t419,t421,t424"
+schedule_status: "scheduled"
 note: ""
 ---
 

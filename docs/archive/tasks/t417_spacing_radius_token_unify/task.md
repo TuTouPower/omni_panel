@@ -1,15 +1,15 @@
 ---
-tid: "t416"
-slug: "typography_token_unify"
-title: "字号与字重回归九级五档 token"
-status: "backlog"
+tid: "t417"
+slug: "spacing_radius_token_unify"
+title: "布局间距与圆角回归基网档位"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "dropped: merged into t424"
 ---
 
 # Task 过程总账

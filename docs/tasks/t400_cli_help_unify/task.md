@@ -9,6 +9,7 @@ review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
+schedule_status: "scheduled"
 note: "无参/--help/help/--cli help 四入口输出同一份帮助(含 --gui);消除 launcher 与主进程两处内联帮助文本"
 ---
 
