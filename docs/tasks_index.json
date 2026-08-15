@@ -2,21 +2,5 @@
     "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t399",
-            "slug": "cli_launcher_parse",
-            "title": "launcher 参数语义反转:无参=CLI 帮助,--gui=GUI,子命令免 --cli 前缀",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "双击进 GUI;命令行无参打印帮助含 --gui;serve/quit 等免 --cli 前缀自动注入;--cli 兼容保留",
-            "dir": "docs/tasks/t399_cli_launcher_parse"
-        }
-    ]
+    "tasks": []
 }
