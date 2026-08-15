@@ -98,6 +98,61 @@ describe("run_retention_prune（t343）", () => {
         expect(removed).toBe(5);
         expect(pruned).toBe(5); // 仅日期阈值一次
     });
+
+    it("空窗口继续推进 cutoff 直至预算达成或达 now（t398 AC-003）", () => {
+        // cacheMaxMb=1MB → max_rows = 2048；count 恒定 3000 超预算，但 prune 恒返回 0
+        // （稀疏数据空窗口）。修复前遇首个 0 break，预算未达成；修复后继续推进
+        // cutoff 直至 cutoff >= now（循环条件终止），期间持续调用 prune。
+        const count = 3000;
+        const calls: number[] = [];
+        const removed = run_retention_prune(
+            {
+                prune: (older_than_ms) => {
+                    calls.push(older_than_ms);
+                    return 0; // 空窗口：无行可删
+                },
+                count_observations: () => count,
+            },
+            1,
+            NOW,
+        );
+        // 空窗口 prune 全部返回 0 → removed 仅首步日期阈值 0，行数预算未达成。
+        expect(removed).toBe(0);
+        // 但循环继续推进：cutoff 从 older_than_ms 逐步 +1 天直至 >= NOW（上限兜底），
+        // 而非遇首个空窗口提前 break（修复前 calls.length 远小于此）。
+        const older_than = NOW - DEFAULT_RETENTION_DAYS * DAY_MS;
+        const expected_steps = Math.ceil((NOW - older_than) / DAY_MS);
+        expect(calls.length).toBeGreaterThanOrEqual(expected_steps);
+        // 最后一次调用 cutoff 已推进到 >= NOW（循环终止条件）。
+        expect(calls[calls.length - 1]).toBeDefined();
+        if (calls[calls.length - 1] === undefined) throw new Error("calls 越界");
+        expect(calls[calls.length - 1]).toBeGreaterThanOrEqual(NOW - DAY_MS);
+    });
+
+    it("prune 返回 0 仍超预算时到达 now 上限即停止（t398 AC-003 达成条件）", () => {
+        // 稀疏数据边界：空窗口推进到最后 cutoff >= now，循环停止，不再额外调用。
+        const count = 2049; // 恰超预算 1
+        const calls: number[] = [];
+        run_retention_prune(
+            {
+                prune: (older_than_ms) => {
+                    calls.push(older_than_ms);
+                    return 0;
+                },
+                count_observations: () => count,
+            },
+            1,
+            NOW,
+        );
+        // 推进至 cutoff >= NOW 后循环停止（无越界/无限循环）。
+        const last = calls[calls.length - 1];
+        expect(last).toBeDefined();
+        if (last === undefined) throw new Error("calls 越界");
+        // 最后一次调用 cutoff <= now（可达恰 = NOW）；此后 cutoff >= now 循环终止。
+        expect(last).toBeLessThanOrEqual(NOW);
+        // 最后一次调用后 cutoff + 1 天 >= now → 不再有下一次调用。
+        expect(last + DAY_MS).toBeGreaterThanOrEqual(NOW);
+    });
 });
 
 describe("create_retention_scheduler（t343 接线）", () => {

@@ -8,6 +8,10 @@ interface CpaCardRow {
     provider: VendorId;
     account_id: string;
     account_label: string;
+    /** t398 AC-001: 行级 override 键（sourceInstanceId|label|accountLabel 等），
+     *  与 settings 侧 hide/unhide/clear 写读键一致；同 provider 同 accountId
+     *  不同 label 的多账号各自携带自己的键，不被 find 首匹配误删。 */
+    account_key: string;
     status: "ok" | "error" | "auth" | "disabled" | "unknown";
     is_hidden: boolean;
     is_removed: boolean;
@@ -23,9 +27,9 @@ interface CpaCardProps {
     on_refresh: () => void;
     on_edit: () => void;
     on_delete: () => void;
-    on_hide: (target: { provider: string; account_id: string }) => void;
-    on_unhide: (target: { provider: string; account_id: string }) => void;
-    on_clear: (target: { provider: string; account_id: string }) => void;
+    on_hide: (target: { provider: string; account_id: string; account_key: string }) => void;
+    on_unhide: (target: { provider: string; account_id: string; account_key: string }) => void;
+    on_clear: (target: { provider: string; account_id: string; account_key: string }) => void;
     on_rename: (target: { provider: string; account_id: string }) => void;
     desensitizeRemarks?: boolean | undefined;
 }
@@ -181,18 +185,24 @@ export function CpaCard({
                     is_removed={row.is_removed}
                     desensitizeRemarks={desensitizeRemarks}
                     on_hide={() => {
-                        on_hide({ provider: row.provider, account_id: row.account_id });
+                        on_hide({
+                            provider: row.provider,
+                            account_id: row.account_id,
+                            account_key: row.account_key,
+                        });
                     }}
                     on_unhide={() => {
                         on_unhide({
                             provider: row.provider,
                             account_id: row.account_id,
+                            account_key: row.account_key,
                         });
                     }}
                     on_clear={() => {
                         on_clear({
                             provider: row.provider,
                             account_id: row.account_id,
+                            account_key: row.account_key,
                         });
                     }}
                     on_rename={() => {

@@ -41,12 +41,12 @@ export function run_retention_prune(
     if (max_rows !== null) {
         let count = deps.count_observations();
         // 若仍超预算，按最新观测时间向前提前阈值（每步 1 天）收紧。
+        // t398 AC-003: 空窗口（prune 返回 0）不提前 break——稀疏数据下继续推进
+        // cutoff 直至预算达成或 cutoff 达 now（既有 cutoff<now 上限兜底）。
         let cutoff = older_than_ms;
         while (count > max_rows && cutoff < now_ms) {
             cutoff += 24 * 60 * 60 * 1000;
-            const additional = deps.prune(cutoff);
-            if (additional === 0) break;
-            removed += additional;
+            removed += deps.prune(cutoff);
             count = deps.count_observations();
         }
     }
