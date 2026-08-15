@@ -166,6 +166,25 @@ function prune_emitted(now: number = Date.now()): void {
     }
 }
 
+/** 记录是否本轮发出（去重判定）。
+ *  t393 AC-003: 过窗且会话不活跃（>30 天未触碰）的 key 视为未 emit 本轮即重发，
+ *  不延迟一轮；窗口内或活跃会话 key 跳过（活跃 key 顺带保活刷新 ts，防整段重发）。
+ *  touch 就绪性：在本 source 的 records 循环内调用时，本 source 的会话 touch
+ *  已刷新（见 collect 源循环），跨源 key 不受影响。 */
+function should_emit_record(key: string, now: number = Date.now()): boolean {
+    const ts = emitted_record_keys.get(key);
+    if (ts === undefined) return true;
+    if (now - ts <= EMITTED_WINDOW_MS) return false;
+    const parts = key.split("|");
+    const session_key = `${parts[0] ?? ""}|${parts[1] ?? ""}|${parts[2] ?? ""}`;
+    const session_touch = session_touch_ts.get(session_key);
+    if (session_touch !== undefined && now - session_touch <= EMITTED_WINDOW_MS) {
+        emitted_record_keys.set(key, now);
+        return false;
+    }
+    return true;
+}
+
 // --- Scan-state persistence (t114, extracted to scan-state.ts in t117) ---
 //
 // serialize/save/load live in scan-state.ts; thin wrappers here read the
@@ -631,7 +650,9 @@ function collect(): void {
         }
         for (const r of result.records) {
             const key = record_key(r);
-            if (emitted_record_keys.has(key)) continue;
+            // t393 AC-003: 过窗且会话不活跃的 key 视为未 emit 本轮重发（不再延迟
+            // 一轮）；活跃/窗口内 key 跳过。
+            if (!should_emit_record(key)) continue;
             // Capacity check BEFORE marking emitted: a break here must leave the
             // key unseen so the next collect retries it, otherwise a record that
             // hit the cap would be silently dropped forever (it is marked emitted
@@ -669,6 +690,11 @@ function collect(): void {
             source_cursors.delete(src.key);
         }
     }
+
+    // t393 AC-003: 内存裁剪放源循环后——所有 source 的会话 touch 已刷新，
+    // prune 能正确保留活跃长会话的 key（t386 AC-001）；边界到期且会话不活跃的
+    // key 已在去重循环被放行重发（should_emit_record），此处删除防 Map 膨胀。
+    prune_emitted();
 
     const update: TokenStatsUpdate = {
         type: "token_stats_update",
@@ -709,9 +735,6 @@ function collect(): void {
     if (truncated_sources.length > 0) {
         forward_log("warn", "collector", "sessions exceed limit, stopping source collection");
     }
-
-    // t346 AC-001: 裁剪超出时间窗的已发出记录，控制内存上界。
-    prune_emitted();
 
     // Persist scan state for incremental resume after restart (t114).
     // t346 AC-002: 本轮无新数据时跳过保存，避免每轮无条件全量序列化 + fsync。
@@ -795,6 +818,7 @@ export {
     source_cursors,
     emitted_record_keys,
     session_touch_ts,
+    EMITTED_WINDOW_MS,
     claude_costs_path,
     claude_projects_path,
     opencode_path,

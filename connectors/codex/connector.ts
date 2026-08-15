@@ -116,6 +116,9 @@ async function main(): Promise<ScriptObservation[]> {
     const observations: ScriptObservation[] = [];
     for (const [key, used] of aggregates) {
         const model = key.split("|", 1)[0] ?? "unknown";
+        // t393 AC-004: 观测携带所属分桶日（day 派生字段）——测试可对
+        // 月偏位/去零填充做精确断言，无需复制 day_key 实现。
+        const day = key.split("|")[1] ?? "unknown";
         observations.push({
             provider: "codex",
             account_id: "codex",
@@ -134,6 +137,7 @@ async function main(): Promise<ScriptObservation[]> {
             source: "local",
             stale: false,
             last_error: null,
+            day,
         });
     }
 

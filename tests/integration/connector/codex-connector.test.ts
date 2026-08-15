@@ -282,5 +282,10 @@ describe("codex connector", () => {
         const gpt5 = result.observations.filter((o) => o.raw_label === "gpt-5");
         expect(gpt5).toHaveLength(2);
         expect(gpt5.map((o) => o.used).sort()).toEqual([1000, 2000]);
+
+        // t393 AC-004: obs 的 day 派生字段精确断言（不复制实现）——捕月偏位与
+        // 缺零填充回归：仅桶数量断言对「12-31/01-01 用错月份」与「01-01 未补零
+        // （会成 2027-1-1）」不敏感，此处直接锁 day 派生输出。
+        expect(gpt5.map((o) => o.day).sort()).toEqual(["2026-12-31", "2027-01-01"]);
     });
 });

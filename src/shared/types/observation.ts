@@ -31,6 +31,11 @@ export interface ScriptObservation {
     readonly name?: string;
     readonly window: ObservationWindow;
     /**
+     * 分桶派生日（UTC，`YYYY-MM-DD`）。day 窗口聚合的 connector 可选产出，
+     * 供测试与下游对「月偏位/去零填充」做精确断言；非 day 窗口或未实现时不填。
+     */
+    readonly day?: string;
+    /**
      * 完整周期时长（ms），非「距重置剩余时间」。固定周期用常量（如 7d），
      * rolling/未知用 null。下游进度/刷新节奏依赖此字段，必须 >= 0。
      */
