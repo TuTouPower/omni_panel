@@ -169,3 +169,74 @@ describe("SessionCard (t326)", () => {
         expect(on_toggle).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
     });
 });
+
+describe("SessionCard 自定义续接命令模板 (t403)", () => {
+    const base_cfg = {
+        schemaVersion: 1 as const,
+        language: "zh-Hans" as const,
+        launchAtLogin: false,
+        plugins: [],
+    };
+
+    function mock_config(
+        resumeCommandTemplates?: Readonly<Partial<Record<string, string>>>,
+    ): void {
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                ...base_cfg,
+                ...(resumeCommandTemplates
+                    ? { resumeCommandTemplates }
+                    : {}),
+            },
+            hasSecrets: {},
+        });
+    }
+
+    beforeEach(() => {
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("AC-002：配置 kimi 自定义模板后点击 session id 复制替换后命令", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render_card({ s: sess("sess_kimi", "kimi_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        fireEvent.click(session_id_button());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("kimi --yolo -r sess_kimi");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-003：未配置自定义模板的来源仍复制内置默认命令", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render_card({ s: sess("sess_a", "claude_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("claude --resume sess_a");
+        });
+        fireEvent.click(session_id_button());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("claude --resume sess_a");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-004：clipboard 缺失时静默跳过、无 toast", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render_card({ s: sess("sess_kimi", "kimi_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        expect(() => fireEvent.click(session_id_button())).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
+    });
+});

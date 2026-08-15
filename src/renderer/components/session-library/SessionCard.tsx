@@ -1,5 +1,6 @@
 import { memo, type CSSProperties } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
+import { use_config } from "../../hooks/use-config";
 import { resume_command } from "../../lib/session-resume";
 import { format_precise_datetime, last_dir_segment } from "../../lib/workspace/pane";
 import { agent_accent, vendor_id_for_source } from "../../lib/workspace/slots";
@@ -35,7 +36,9 @@ export const SessionCard = memo(function SessionCard({
     onRender,
 }: CardProps) {
     onRender?.();
-    const session_command = resume_command(s.source, s.id);
+    const { config } = use_config();
+    // t403: 第三参接 config.resumeCommandTemplates；缺省/加载中回退内置默认。
+    const session_command = resume_command(s.source, s.id, config?.resumeCommandTemplates);
 
     function copy_session_command(): void {
         if (session_command === null) return;

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
+import { use_config } from "../../hooks/use-config";
 import { format_time_short } from "../../lib/session-history/markdown";
 import { resume_command } from "../../lib/session-resume";
 import { agent_accent, vendor_id_for_source, type SlotSession } from "../../lib/workspace/slots";
@@ -65,6 +66,7 @@ export function SessionPane({
     on_toggle_outline,
     show_toast,
 }: SessionPaneProps) {
+    const { config } = use_config();
     const [scroll_el, set_scroll_el] = useState<HTMLDivElement | null>(null);
     const [at_bottom, set_at_bottom] = useState(true);
     const [locate_target, set_locate_target] = useState<string | null>(null);
@@ -111,7 +113,12 @@ export function SessionPane({
         set_locate_target(id);
     }
 
-    const session_command = resume_command(column.loc.source, column.loc.session_id);
+    // t403: 第三参接 config.resumeCommandTemplates；缺省/加载中回退内置默认。
+    const session_command = resume_command(
+        column.loc.source,
+        column.loc.session_id,
+        config?.resumeCommandTemplates,
+    );
 
     function copy_session_command(): void {
         if (session_command === null) return;
