@@ -21,6 +21,9 @@ interface UseConfigResult {
 export function use_config(): UseConfigResult {
     const [config, setConfig] = useState<AppConfiguration | null>(null);
     const config_ref = useRef<AppConfiguration | null>(null);
+    // t390 AC-001: 最近一次成功写盘的确认值——失败回滚目标（非本次乐观前值）。
+    // 串行队列下连续失败时，回滚到最近确认值而非前一乐观值，内存与磁盘一致。
+    const confirmed_ref = useRef<AppConfiguration | null>(null);
     const save_queue_ref = useRef(Promise.resolve());
     const [hasSecrets, setHasSecrets] = useState<Record<string, Record<string, boolean>>>({});
     const [loading, setLoading] = useState(true);
@@ -39,6 +42,7 @@ export function use_config(): UseConfigResult {
                         message: `Config loaded: ${String(result.config.plugins.length)} plugins`,
                     });
                     config_ref.current = result.config;
+                    confirmed_ref.current = result.config;
                     setConfig(result.config);
                     setHasSecrets(result.hasSecrets);
                     setLoading(false);
@@ -72,6 +76,9 @@ export function use_config(): UseConfigResult {
             // window on every config save.
             if (current !== null && JSON.stringify(incoming) === JSON.stringify(current)) return;
             config_ref.current = incoming;
+            // t390 f001: 外部广播（其它窗口已写盘）同步最近确认值——否则本窗口
+            // save 失败会回滚到过期 base。
+            confirmed_ref.current = incoming;
             setConfig(incoming);
         });
         return unsub;
@@ -79,23 +86,29 @@ export function use_config(): UseConfigResult {
 
     const save = useCallback((newConfig: AppConfiguration): Promise<void> => {
         window.usageboard.log({ level: "debug", module: MODULE, message: "Saving config" });
-        const previous = config_ref.current;
         config_ref.current = newConfig;
         setConfig(newConfig);
         const p = save_queue_ref.current.then(() => window.usageboard.config.save(newConfig));
-        save_queue_ref.current = p.catch((err: unknown) => {
-            // t356 AC-002: 写盘失败回滚乐观更新到上一已确认状态，内存态与磁盘一致。
-            if (config_ref.current === newConfig) {
-                config_ref.current = previous;
-                setConfig(previous);
-            }
-            window.usageboard.log({
-                level: "error",
-                module: MODULE,
-                message: `config save failed: ${err instanceof Error ? err.message : String(err)}`,
+        save_queue_ref.current = p
+            .then(() => {
+                // t390 AC-001: 写盘成功 → 更新最近确认值。
+                confirmed_ref.current = newConfig;
+            })
+            .catch((err: unknown) => {
+                // t356 AC-002 + t390 AC-001: 写盘失败回滚到最近确认值（非本次
+                // 乐观前值）——串行队列连续失败时终态与磁盘一致。仅当本次乐观
+                // 更新仍是当前值时回滚（后值已覆盖时不破坏后续乐观更新）。
+                if (config_ref.current === newConfig) {
+                    config_ref.current = confirmed_ref.current;
+                    setConfig(confirmed_ref.current);
+                }
+                window.usageboard.log({
+                    level: "error",
+                    module: MODULE,
+                    message: `config save failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
+                return undefined;
             });
-            return undefined;
-        });
         return p;
     }, []);
 
@@ -105,13 +118,16 @@ export function use_config(): UseConfigResult {
         const next = updater(current);
         config_ref.current = next;
         setConfig(next);
-        // t356 AC-002: 写盘失败回滚乐观更新到上一已确认状态。
+        // t356 AC-002 + t390 AC-003: 写盘失败回滚到最近确认值（非本次乐观前值）。
         save_queue_ref.current = save_queue_ref.current
             .then(() => window.usageboard.config.save(next))
+            .then(() => {
+                confirmed_ref.current = next;
+            })
             .catch((err: unknown) => {
                 if (config_ref.current === next) {
-                    config_ref.current = current;
-                    setConfig(current);
+                    config_ref.current = confirmed_ref.current;
+                    setConfig(confirmed_ref.current);
                 }
                 window.usageboard.log({
                     level: "error",
@@ -152,6 +168,7 @@ export function use_config(): UseConfigResult {
         // Reload config to reflect the new duplicate
         const result = await window.usageboard.config.get();
         config_ref.current = result.config;
+        confirmed_ref.current = result.config;
         setConfig(result.config);
         setHasSecrets(result.hasSecrets);
         return created;
@@ -160,6 +177,9 @@ export function use_config(): UseConfigResult {
     const reload = useCallback(async (): Promise<void> => {
         const result = await window.usageboard.config.get();
         config_ref.current = result.config;
+        // t390 f001: 从权威源刷新时同步最近确认值——否则外部广播/重载后 save
+        // 失败会回滚到过期 base（跨窗口漂移回归）。
+        confirmed_ref.current = result.config;
         setConfig(result.config);
         setHasSecrets(result.hasSecrets);
         setLoading(false);
