@@ -89,7 +89,7 @@ function legacy_row_of(loc: { source: string; env: string; session_id: string })
 function query_all_sessions(
     deps: SessionHistoryIpcDeps,
     filters: SessionQueryFilters,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     const rows: SessionRow[] = [];
     let offset = 0;
     let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
@@ -99,15 +99,21 @@ function query_all_sessions(
         page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
         rows.push(...page);
     }
-    return rows;
+    // t388 AC-001: 达 SEARCH_ENUM_CAP 截断（仍可能有更多页）→ truncated=true。
+    // 边界：总数恰等于 CAP 且最后页满时误报 true（循环因 rows.length<CAP 失配
+    // 退出、cap 之后那页未 fetch 无法区分）——仅误报、无数据丢失、极罕见。
+    return {
+        rows,
+        truncated: rows.length >= SEARCH_ENUM_CAP && page.length === CONTENT_SEARCH_PAGE_SIZE,
+    };
 }
 
 function content_search_candidates(
     deps: SessionHistoryIpcDeps,
     request: SearchContentRequest,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     if (is_legacy_search_request(request)) {
-        return request.locs.map(legacy_row_of);
+        return { rows: request.locs.map(legacy_row_of), truncated: false };
     }
 
     const filters: SessionQueryFilters = {
@@ -238,10 +244,11 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             content_search_controllers.set(event.sender.id, controller);
 
             try {
-                const candidate_rows = content_search_candidates(deps, request);
-                const metadata_rows =
+                const candidates = content_search_candidates(deps, request);
+                const candidate_rows = candidates.rows;
+                const metadata =
                     is_legacy_search_request(request) || !request.filters.search
-                        ? []
+                        ? { rows: [] as SessionRow[], truncated: false }
                         : query_all_sessions(deps, {
                               ...(request.filters.sources
                                   ? { sources: [...request.filters.sources] }
@@ -254,6 +261,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                                   ? { end_at: request.filters.end_at }
                                   : {}),
                           });
+                const metadata_rows = metadata.rows;
                 const resolved_locs: ResolvedSessionLoc[] = [];
                 for (const row of candidate_rows) {
                     if (controller.signal.aborted) break;
@@ -287,7 +295,8 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                           controller.signal,
                       )
                     : await deps.service.searchContent(resolved_locs, request.keyword);
-                if (controller.signal.aborted) return ok({ hits: [], sessions: [] });
+                if (controller.signal.aborted)
+                    return ok({ hits: [], sessions: [], truncated: false });
                 const hit_keys = new Set(hits);
                 // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原
                 // includes 对 metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），
@@ -306,6 +315,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 return ok({
                     hits: [...hit_keys],
                     sessions: response_sessions,
+                    truncated: candidates.truncated || metadata.truncated,
                 });
             } finally {
                 if (content_search_controllers.get(event.sender.id) === controller) {

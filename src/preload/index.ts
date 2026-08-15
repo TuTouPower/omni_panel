@@ -289,7 +289,7 @@ const session_history_disabled_methods = {
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
-        Promise.resolve({ hits: [], sessions: [] }),
+        Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */
@@ -312,7 +312,7 @@ const session_history_open_only_methods = {
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
-        Promise.resolve({ hits: [], sessions: [] }),
+        Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
     onMessagesUpdated: () => () => {
         /* noop */

@@ -1884,6 +1884,60 @@ describe("local-api session history endpoints (t259)", () => {
         );
     });
 
+    it("t388 AC-002: web 搜索未超限 truncated=false", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: { sources: ["claude_code"] }, keyword: "hello" }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { truncated?: boolean };
+        expect(data.truncated).toBe(false);
+    });
+
+    it("t388 AC-001: web 搜索枚举达 SEARCH_ENUM_CAP 截断时 truncated=true", async () => {
+        const service = base_session_service();
+        // provider 恒返回满页 100 条 → 枚举达 cap 截断。
+        const full_page = Array.from({ length: 100 }, (_, i) =>
+            make_session_row({
+                id: `sess-${String(i)}`,
+                session: {
+                    ...(make_session_row().session as unknown as Record<string, unknown>),
+                    id: `sess-${String(i)}`,
+                } as never,
+            }),
+        );
+        setup_session_api(
+            service,
+            vi.fn(() => full_page),
+        );
+        service.searchContentWithAbort.mockResolvedValue(new Set(["claude_code|local|sess-0"]));
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { sources: ["claude_code"], search: "hello" },
+                    keyword: "hello",
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { truncated?: boolean };
+        expect(data.truncated).toBe(true);
+    });
+
     it("POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)", async () => {
         const service = base_session_service();
         // 挂起搜索直到 abort signal 触发，模拟长时间扫盘。
