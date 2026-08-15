@@ -191,3 +191,11 @@
 - 结论：选 A（s029/d038 验证：主进程 import 外部 `.mjs` 会被 rollup/esbuild 内联进 `out/main`，打包 `files` 仅 `out/**` 时运行时不依赖 `scripts/`）。launcher 运行时 import 同文件。`help` 子命令由 launcher 直打帮助，不再注入 `--cli`；`--cli help` 兼容路径仍进主进程但打印同一常量。
 - 落地：t400。
 - 替代：无
+
+## 020 会话库内容搜索冷缓存：renderer 分块多次 searchContent（2026-08-16）
+
+- 背景：内容搜索冷缓存对全部候选 `extract_full`，4000 会话首次 45s+，UI 仅「搜索中…」无进度；用户中断看到中间态误判结果不全（p186）。
+- 选项：A) renderer 分页多次 `searchContent`（`offset`/`limit` + `progress`）；B) 主进程进度事件 + web SSE/NDJSON。
+- 结论：选 A（s030/d039）。可选字段省略时行为与旧全量一次调用兼容；本批只 resolve/extract 候选 slice；renderer 默认 limit=64 循环合并 sessions 并展示「已扫描 N/M」。不引入新 IPC channel/SSE。keyword 匹配语义不变；extract_cache 磁盘持久化另议。
+- 落地：t404。
+- 替代：无

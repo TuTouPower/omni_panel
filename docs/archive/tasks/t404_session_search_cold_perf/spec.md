@@ -89,7 +89,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 分块/增量返回的 IPC 契约形态：searchContent 当前是单次 Promise 返回全部 hits；改增量需引入流式/分页协议（或 renderer 轮询进度）。实现方式候选：(A) renderer 侧分页多次调用 searchContent（每次小候选集，结果合并展示）；(B) 主进程回调/事件推送进度。选型 `UNVERIFIED-SPIKE`，task-work Step 1 实验评估协议侵入度与复杂度，倾向最小侵入方案。
+- 分块/增量 IPC 契约（s030 验证）：选 (A) renderer 分页多次 `searchContent`。Request 可选 `offset`/`limit`（省略=全量一次，兼容旧调用）；Response 可选 `progress: { scanned, total, done, next_offset }`，本批 `hits`/`sessions` 仅含本 slice（offset=0 时附带 metadata 命中）。不新增事件 channel/SSE。验证：读现网单次 Promise 契约 + resolve 进程缓存/索引；相对 (B) 侵入更小且 HTTP/IPC 同形。
 
 ### 风险与回退
 

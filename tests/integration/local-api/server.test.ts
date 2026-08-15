@@ -1879,15 +1879,78 @@ describe("local-api session history endpoints (t259)", () => {
         const data = (await res.json()) as {
             hits: string[];
             sessions: { id: string; source: string }[];
+            progress?: { scanned: number; total: number; done: boolean };
         };
         expect(data.hits).toEqual(["claude_code|local|sess-1"]);
         expect(data.sessions).toHaveLength(1);
         expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
+        expect(data.progress).toEqual({
+            scanned: 1,
+            total: 1,
+            done: true,
+            next_offset: 1,
+        });
         expect(service.searchContentWithAbort).toHaveBeenCalledWith(
             [expect.objectContaining({ session_id: "sess-1" })],
             "hello",
             expect.any(AbortSignal),
         );
+    });
+
+    it("t404: POST searchContent offset/limit 分块返回 progress", async () => {
+        const service = base_session_service();
+        // 夹具仅有 sess-1 文件；候选 3 行，limit=2 时 progress 仍按候选下标计。
+        const rows = [
+            make_session_row({ id: "sess-a" }),
+            make_session_row({ id: "sess-1" }),
+            make_session_row({ id: "sess-c" }),
+        ];
+        service.searchContentWithAbort.mockImplementation((locs: unknown[]) =>
+            Promise.resolve(
+                new Set(
+                    locs.map((loc) => {
+                        const session_id = (loc as { session_id: string }).session_id;
+                        return `claude_code|local|${session_id}`;
+                    }),
+                ),
+            ),
+        );
+        setup_session_api(
+            service,
+            vi.fn(() => rows),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { sources: ["claude_code"] },
+                    keyword: "hello",
+                    offset: 0,
+                    limit: 2,
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            hits: string[];
+            progress: { scanned: number; total: number; done: boolean; next_offset: number };
+        };
+        expect(data.progress).toEqual({
+            scanned: 2,
+            total: 3,
+            done: false,
+            next_offset: 2,
+        });
+        // 本批 2 候选中仅 sess-1 可 resolve，search 只收到可解析 locs。
+        expect(service.searchContentWithAbort).toHaveBeenCalledWith(
+            [expect.objectContaining({ session_id: "sess-1" })],
+            "hello",
+            expect.any(AbortSignal),
+        );
+        expect(data.hits).toEqual(["claude_code|local|sess-1"]);
     });
 
     it("t388 AC-002: web 搜索未超限 truncated=false", async () => {

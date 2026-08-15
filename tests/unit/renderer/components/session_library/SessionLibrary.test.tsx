@@ -889,6 +889,173 @@ describe("SessionLibrary (t227)", () => {
         expect(document.querySelectorAll(".library-agent-chip")).toHaveLength(1);
         expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
     });
+    it("t404 AC-001/002：内容搜索分块进度文案与增量结果", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        const first_hit = sess("first", "claude_code");
+        const second_hit = sess("second", "opencode");
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        let resolve_second: (value: {
+            hits: string[];
+            sessions: TokenStatsSession[];
+            truncated: boolean;
+            progress: {
+                scanned: number;
+                total: number;
+                done: boolean;
+                next_offset: number;
+            };
+        }) => void = () => undefined;
+        ub.sessionHistory.searchContent
+            .mockResolvedValueOnce({
+                hits: [key_of(first_hit)],
+                sessions: [first_hit],
+                truncated: false,
+                progress: { scanned: 64, total: 128, done: false, next_offset: 64 },
+            })
+            .mockImplementationOnce(
+                () =>
+                    new Promise((resolve) => {
+                        resolve_second = resolve;
+                    }),
+            );
+        await renderLibrary();
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "启用" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+
+        // 首批到达、第二批挂起：进度 N/M + 增量结果（全量未完成）。
+        await waitFor(() => {
+            expect(screen.getByTestId("content-search-progress").textContent).toMatch(
+                /已扫描 64\/128/,
+            );
+            expect(screen.getByText("会话 first")).toBeTruthy();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledWith(
+            expect.objectContaining({
+                keyword: "启用",
+                offset: 0,
+                limit: 64,
+            }),
+            expect.any(AbortSignal),
+        );
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(2);
+        expect(ub.sessionHistory.searchContent).toHaveBeenLastCalledWith(
+            expect.objectContaining({ offset: 64, limit: 64, keyword: "启用" }),
+            expect.any(AbortSignal),
+        );
+
+        resolve_second({
+            hits: [key_of(second_hit)],
+            sessions: [second_hit],
+            truncated: false,
+            progress: { scanned: 128, total: 128, done: true, next_offset: 128 },
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await waitFor(() => {
+            expect(screen.getByText("会话 second")).toBeTruthy();
+            expect(screen.getByText("会话 first")).toBeTruthy();
+            expect(screen.queryByTestId("content-search-progress")).toBeNull();
+        });
+        vi.useRealTimers();
+    });
+
+    it("t404 AC-005：切换关键词中止未完成分块循环，不继续后续 offset", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        let resolve_first_batch: (value: {
+            hits: string[];
+            sessions: TokenStatsSession[];
+            truncated: boolean;
+            progress: {
+                scanned: number;
+                total: number;
+                done: boolean;
+                next_offset: number;
+            };
+        }) => void = () => undefined;
+        ub.sessionHistory.searchContent.mockImplementation(
+            (request: Record<string, unknown>, signal?: AbortSignal) => {
+                const keyword = request["keyword"];
+                if (keyword === "旧" && request["offset"] === 0) {
+                    return new Promise((resolve, reject) => {
+                        const on_abort = (): void => {
+                            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+                        };
+                        if (signal?.aborted) {
+                            on_abort();
+                            return;
+                        }
+                        signal?.addEventListener("abort", on_abort, { once: true });
+                        resolve_first_batch = (value) => {
+                            signal?.removeEventListener("abort", on_abort);
+                            resolve(value);
+                        };
+                    });
+                }
+                if (keyword === "新") {
+                    return Promise.resolve({
+                        hits: [key_of(session_at(1))],
+                        sessions: [session_at(1)],
+                        truncated: false,
+                        progress: { scanned: 1, total: 1, done: true, next_offset: 1 },
+                    });
+                }
+                // 旧词第二批不应被调用。
+                return Promise.resolve({
+                    hits: [key_of(session_at(0))],
+                    sessions: [session_at(0)],
+                    truncated: false,
+                    progress: { scanned: 128, total: 128, done: true, next_offset: 128 },
+                });
+            },
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
+
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新" } });
+        await act(async () => {
+            vi.advanceTimersByTime(400);
+            await Promise.resolve();
+        });
+        await waitFor(() => {
+            expect(screen.getByText("会话 b")).toBeTruthy();
+        });
+        // 旧词仅首批挂起后被 abort，不应出现 offset=64 的旧词调用。
+        const old_offsets = ub.sessionHistory.searchContent.mock.calls
+            .filter((call) => (call[0] as { keyword?: string }).keyword === "旧")
+            .map((call) => (call[0] as { offset?: number }).offset);
+        expect(old_offsets).toEqual([0]);
+        // 晚到的旧批 resolve 不得覆盖新结果。
+        resolve_first_batch({
+            hits: [key_of(session_at(0))],
+            sessions: [session_at(0)],
+            truncated: false,
+            progress: { scanned: 64, total: 128, done: false, next_offset: 64 },
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByText("会话 a")).toBeNull();
+        expect(screen.getByText("会话 b")).toBeTruthy();
+        vi.useRealTimers();
+    });
+
     it("内容搜索防抖：快速输入两次只触发一次 searchContent（t239）", async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const ub = usageboard();

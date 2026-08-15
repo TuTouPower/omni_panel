@@ -624,6 +624,151 @@ describe("session-history-ipc (t210)", () => {
         expect(result.data.sessions.map((s) => s.id)).toEqual(["s1"]);
     });
 
+    it("t404: SEARCH_CONTENT 带 limit 只扫描本批并返回 progress", async () => {
+        locator_mock.resolve_session_file.mockImplementation(
+            (_source: string, _env: string, session_id: string) => ({
+                file_path: `/x/${session_id}.jsonl`,
+                extractor_kind: "claude_code",
+            }),
+        );
+        const rows = Array.from({ length: 5 }, (_, i) => ({
+            id: `s${String(i)}`,
+            source: "claude_code",
+            env: "win",
+            title: null,
+            model: null,
+            started_at: i,
+            ended_at: i + 1,
+            session: {
+                id: `s${String(i)}`,
+                source: "claude_code",
+                env: "win",
+                model: "sonnet",
+                title: `t${String(i)}`,
+                directory: "/x",
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 1,
+                started_at: i,
+                ended_at: i + 1,
+            },
+        }));
+        service.searchContent.mockImplementation((locs: { session_id: string }[]) =>
+            Promise.resolve(new Set(locs.map((loc) => `claude_code|win|${loc.session_id}`))),
+        );
+        await register(vi.fn().mockReturnValue(rows));
+        const handler = get_handler("sessionHistory:searchContent");
+
+        const first = (await handler(valid_sender, {
+            filters: { sources: ["claude_code"] },
+            keyword: "x",
+            offset: 0,
+            limit: 2,
+        })) as {
+            ok: boolean;
+            data: {
+                hits: string[];
+                sessions: { id: string }[];
+                progress: {
+                    scanned: number;
+                    total: number;
+                    done: boolean;
+                    next_offset: number;
+                };
+            };
+        };
+        expect(first.ok).toBe(true);
+        expect(first.data.progress).toEqual({
+            scanned: 2,
+            total: 5,
+            done: false,
+            next_offset: 2,
+        });
+        expect(first.data.hits).toEqual(["claude_code|win|s0", "claude_code|win|s1"]);
+        expect(service.searchContent.mock.calls[0]?.[0]).toHaveLength(2);
+
+        const second = (await handler(valid_sender, {
+            filters: { sources: ["claude_code"] },
+            keyword: "x",
+            offset: 2,
+            limit: 2,
+        })) as {
+            ok: boolean;
+            data: {
+                hits: string[];
+                progress: { scanned: number; done: boolean; next_offset: number };
+            };
+        };
+        expect(second.data.progress.scanned).toBe(4);
+        expect(second.data.progress.done).toBe(false);
+        expect(second.data.hits).toEqual(["claude_code|win|s2", "claude_code|win|s3"]);
+
+        const third = (await handler(valid_sender, {
+            filters: { sources: ["claude_code"] },
+            keyword: "x",
+            offset: 4,
+            limit: 2,
+        })) as {
+            ok: boolean;
+            data: {
+                hits: string[];
+                progress: { scanned: number; total: number; done: boolean };
+            };
+        };
+        expect(third.data.progress).toEqual({
+            scanned: 5,
+            total: 5,
+            done: true,
+            next_offset: 5,
+        });
+        expect(third.data.hits).toEqual(["claude_code|win|s4"]);
+        // 三批 hits 并集覆盖全部 5 个候选（AC-003 不丢）。
+        const all_hits = new Set([...first.data.hits, ...second.data.hits, ...third.data.hits]);
+        expect([...all_hits].sort()).toEqual([
+            "claude_code|win|s0",
+            "claude_code|win|s1",
+            "claude_code|win|s2",
+            "claude_code|win|s3",
+            "claude_code|win|s4",
+        ]);
+    });
+
+    it("t404: SEARCH_CONTENT 省略 limit 时全量扫描 progress.done=true", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        const rows = [
+            {
+                id: "only",
+                source: "claude_code",
+                env: "win",
+                title: null,
+                model: null,
+                started_at: 0,
+                ended_at: 1,
+            },
+        ];
+        await register(vi.fn().mockReturnValue(rows));
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { sources: ["claude_code"] },
+            keyword: "x",
+        })) as {
+            ok: boolean;
+            data: { progress?: { done: boolean; scanned: number; total: number } };
+        };
+        expect(result.ok).toBe(true);
+        expect(result.data.progress).toEqual({
+            scanned: 1,
+            total: 1,
+            done: true,
+            next_offset: 1,
+        });
+    });
+
     it("SEARCH_CONTENT 分页枚举有总量上限，不随会话库规模无限分页 (t354 AC-003)", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/sess.jsonl",
