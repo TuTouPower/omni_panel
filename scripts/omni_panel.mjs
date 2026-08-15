@@ -28,6 +28,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parse_cli_json } from "./cli_json_parse.mjs";
 import { translate_launcher_args } from "./cli_arg_translate.mjs";
+import { CLI_HELP_TEXT } from "./cli_help.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, "..");
@@ -45,27 +46,13 @@ const args = process.argv.slice(2);
 // help 判定置于 RELEASE_BIN 检查前：无产物时也能查看帮助（f001）。
 const { mode, forwardArgs } = translate_launcher_args(args);
 
-const HELP_TEXT =
-    "OmniPanel CLI\n" +
-    "用法：\n" +
-    "  omni_panel <子命令> [选项]                    命令行操作（默认 CLI；无参打印本帮助）\n" +
-    "  omni_panel --gui                              启动图形界面（双击桌面图标同效）\n" +
-    "  omni_panel serve [--port <n>] [--user-data-dir <dir>] [--foreground]   无窗口常驻服务（默认后台；--foreground 前台）\n" +
-    "  omni_panel open|refresh-all|pause|resume|restart|quit|autostart [--port <n>]\n" +
-    "                                                                        瘦客户端控制\n" +
-    "  omni_panel export                                                       导出配置\n" +
-    "  omni_panel help                                                         子命令帮助\n" +
-    "停止后台服务：omni_panel quit --port <n>\n" +
-    "兼容：--cli 前缀仍可用（omni_panel --cli serve ...），行为不变。\n" +
-    "数据：全局命令使用真实用户数据（~/.config/OmniPanel，可用 --user-data-dir 覆盖）\n";
-
 if (mode === "help") {
-    process.stdout.write(HELP_TEXT);
+    process.stdout.write(CLI_HELP_TEXT);
     process.exit(0);
 }
 if (mode === "invalid") {
     process.stderr.write(`[omni_panel] 无法识别的命令：${args.join(" ")}\n`);
-    process.stderr.write(HELP_TEXT);
+    process.stderr.write(CLI_HELP_TEXT);
     process.exit(1);
 }
 

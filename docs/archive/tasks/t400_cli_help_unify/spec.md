@@ -89,7 +89,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 跨进程共享方式：launcher（node 脚本 `.mjs`）与主进程（electron-vite bundle，打包 `files` 仅 `out/**`）如何共用帮助文本。两种候选：(A) 帮助源放 `scripts/cli_help.mjs`，主进程能否 import 进 bundle 未验证；(B) 帮助源放 `src/main/cli/help-text.ts`（TS，主进程原生可 import），launcher 侧需编译产物——不可行（launcher 运行时无 src）。候选 A 为 `UNVERIFIED-SPIKE`，task-work Step 1 需实验 electron-vite 外部 .mjs 打包行为。
+- 跨进程共享方式（s029 已验证）：帮助源放 `scripts/cli_help.mjs`。launcher 运行时 `import`；主进程 `import` 后由 electron-vite/rollup **构建期内联**进 `out/main`，打包运行时不依赖 `scripts/`（d038）。候选 B（源在 `src/` + launcher 复制）不采用。
 
 ### 风险与回退
 
