@@ -113,6 +113,61 @@ describe("parse_cli_json（t344）", () => {
         }
     });
 
+    it("url 类型错误（number）返回可读错误（t394 AC-003）", async () => {
+        const parse = await load_parse();
+        const { dir, path } = temp_cli_json(JSON.stringify({ port: 17864, url: 123, pid: 1 }));
+        try {
+            const result = parse(path);
+            expect(result.ok).toBe(false);
+            if (result.ok) return;
+            expect(result.error).toContain("string 字段 url");
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("pid 类型错误（string）返回可读错误（t394 AC-003）", async () => {
+        const parse = await load_parse();
+        const { dir, path } = temp_cli_json(JSON.stringify({ port: 17864, url: "u", pid: "1234" }));
+        try {
+            const result = parse(path);
+            expect(result.ok).toBe(false);
+            if (result.ok) return;
+            expect(result.error).toContain("number 字段 pid");
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("userData/startedAt 缺省时补空串（t394 AC-003）", async () => {
+        const parse = await load_parse();
+        const { dir, path } = temp_cli_json(JSON.stringify({ port: 17864, url: "u", pid: 1234 }));
+        try {
+            const result = parse(path);
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.info.userData).toBe("");
+            expect(result.info.startedAt).toBe("");
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("根节点为数组返回可读错误而非 TypeError（t394 AC-003）", async () => {
+        const parse = await load_parse();
+        const { dir, path } = temp_cli_json(JSON.stringify([1, 2, 3]));
+        try {
+            const result = parse(path);
+            expect(result.ok).toBe(false);
+            if (result.ok) return;
+            // 数组 typeof 为 object 非 null，通过根节点对象检查 → 落到字段校验
+            // （缺 port）报可读错误；关键是不抛 TypeError 透传。
+            expect(result.error).toContain("port");
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     it("损坏 JSON 返回可读错误", async () => {
         const parse = await load_parse();
         const { dir, path } = temp_cli_json("{ not valid json");
