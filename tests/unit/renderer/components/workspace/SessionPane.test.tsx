@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useCallback, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionPane } from "../../../../../src/renderer/components/workspace/SessionPane";
 import type { PaneData } from "../../../../../src/renderer/lib/workspace/pane";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
@@ -10,6 +10,12 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
  * 覆盖：头部（agent 色条/徽标/标题/cwd/meta）、Markdown 消息渲染、
  * 时间分隔线、回到底部按钮状态、大纲抽屉、骨架屏；t405 无 footer。
  */
+
+/** t407：固定「当前年=2026」，使组件侧 format_compact_datetime 当年分支断言与真实时钟解耦。 */
+function pin_system_year_2026(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 16, 12, 0, 0));
+}
 
 function msg(id: string, role: "user" | "assistant", text: string, timestamp: number | null) {
     return { id, role, text, timestamp };
@@ -62,8 +68,12 @@ beforeEach(() => {
     install_history_usageboard();
 });
 
+afterEach(() => {
+    vi.useRealTimers();
+});
+
 describe("SessionPane (t225)", () => {
-    it("头部显示 agent 徽标（含 model）、标题、末级目录与 轮数·tokens·日期 meta（t257）", () => {
+    it("头部显示 agent 徽标（含 model）、标题、完整 cwd 与 轮数·tokens·日期 meta（t407）", () => {
         render(
             <SessionPane
                 {...PROPS}
@@ -75,9 +85,9 @@ describe("SessionPane (t225)", () => {
         expect(screen.getByText("会话标题")).toBeTruthy();
         expect(screen.getByText(/5 轮/)).toBeTruthy();
         expect(screen.getByText(/1,200 tokens/)).toBeTruthy();
-        // t257 AC2：目录只显示末级。
-        expect(screen.getByText(/proj/)).toBeTruthy();
-        expect(screen.queryByText(/\/path\/to\/proj/)).toBeNull();
+        // t407 AC-001：cwd 完整路径可见，不截末级。
+        const cwd_el = document.querySelector(".conversation-title-cwd");
+        expect(cwd_el?.textContent).toBe("/path/to/proj");
         expect(screen.getByText(/claude-sonnet-4/)).toBeTruthy();
         expect(document.querySelector(".conversation-agent-badge")?.getAttribute("title")).toBe(
             "claude-sonnet-4",
@@ -85,7 +95,8 @@ describe("SessionPane (t225)", () => {
         expect(document.querySelector(".conversation-accent")).toBeTruthy();
     });
 
-    it("AC1/AC4：元信息不显示 source 文字，日期为最后一条消息精确时间", () => {
+    it("AC1：元信息不显示 source 文字；日期为最后一条消息紧凑时间（t407）", () => {
+        pin_system_year_2026();
         const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
         render(
             <SessionPane
@@ -97,11 +108,13 @@ describe("SessionPane (t225)", () => {
         );
         // AC1：无完整软件名文字。
         expect(screen.queryByText(/claude_code/)).toBeNull();
-        // AC4：日期为最后消息精确时间（含时分秒）。
-        expect(screen.getByText(/2026-08-07 09:08:07/)).toBeTruthy();
+        // t407 AC-002：当年紧凑时间 MMDD HH:mm（时钟钉在 2026）。
+        expect(screen.getByText(/0807 09:08/)).toBeTruthy();
+        expect(screen.queryByText(/2026-08-07 09:08:07/)).toBeNull();
     });
 
-    it("AC4：无消息时日期回退到打开时间", () => {
+    it("无消息时日期回退到打开时间（紧凑格式）", () => {
+        pin_system_year_2026();
         render(
             <SessionPane
                 {...PROPS}
@@ -111,7 +124,7 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(screen.getByText(/2026-01-02 03:04:05/)).toBeTruthy();
+        expect(screen.getByText(/0102 03:04/)).toBeTruthy();
     });
 
     it("按 source 渲染对应 provider logo，未知 source 使用 overview 兜底", () => {
@@ -371,7 +384,8 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         install_history_usageboard();
     });
 
-    it("AC1：第一行渲染 cwd 末段·最后消息时间·session id；第二行渲染模型·轮次·tokens·会话名字", () => {
+    it("AC1：第一行渲染完整 cwd·紧凑时间·session id；第二行渲染模型·轮次·tokens·会话名字（t407）", () => {
+        pin_system_year_2026();
         const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
         render(
             <SessionPane
@@ -385,14 +399,14 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         const first = document.querySelector(".conversation-title");
         const second = document.querySelector(".conversation-meta");
         if (!first || !second) throw new Error("header rows missing");
-        const first_text = first.textContent;
-        const second_text = second.textContent;
-        // 第一行：cwd 末段 → 时间 → session id（内容与数据源一致）。
-        expect(first_text).toContain("proj");
-        expect(first_text).toContain("2026-08-07 09:08:07");
+        const first_text = first.textContent ?? "";
+        const second_text = second.textContent ?? "";
+        // 第一行：完整 cwd → 紧凑时间 → session id。
+        expect(first_text).toContain("/path/to/proj");
+        expect(first_text).toContain("0807 09:08");
         expect(first_text).toContain("sess_a");
-        expect(first_text.indexOf("proj")).toBeLessThan(first_text.indexOf("2026-08-07"));
-        expect(first_text.indexOf("2026-08-07")).toBeLessThan(first_text.indexOf("sess_a"));
+        expect(first_text.indexOf("/path/to/proj")).toBeLessThan(first_text.indexOf("0807 09:08"));
+        expect(first_text.indexOf("0807 09:08")).toBeLessThan(first_text.indexOf("sess_a"));
         expect(first_text).not.toContain("会话标题");
         // 第二行：模型 → 轮次 → tokens → 会话名字。
         expect(second_text).toContain("claude-sonnet-4");
@@ -403,6 +417,41 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         expect(second_text.indexOf("5 轮")).toBeLessThan(second_text.indexOf("1,200 tokens"));
         expect(second_text.indexOf("1,200 tokens")).toBeLessThan(second_text.indexOf("会话标题"));
         expect(second_text).not.toContain("sess_a");
+    });
+
+    it("t407 AC-001/004：cwd 完整无 truncate；session id/标题可截断，cwd/时间 shrink-0", () => {
+        pin_system_year_2026();
+        const long_cwd = "/home/karon/very/long/project/path/for/session/panel";
+        const long_id = "sess_" + "x".repeat(64);
+        render(
+            <SessionPane
+                {...PROPS}
+                slot_meta={{ ...META, cwd: long_cwd }}
+                column={column({
+                    loc: { source: "claude_code", env: "win", session_id: long_id },
+                    title: "very-long-session-title-that-may-truncate",
+                    messages: [msg("m1", "user", "hi", new Date(2026, 7, 17, 23, 25, 0).getTime())],
+                })}
+            />,
+        );
+        const cwd_el = document.querySelector(".conversation-title-cwd");
+        const time_el = document.querySelector(".conversation-title-time");
+        const id_el = document.querySelector(".conversation-session-id");
+        const title_el = document.querySelector(".conversation-meta-title");
+        if (!cwd_el || !time_el || !id_el || !title_el) throw new Error("header meta nodes missing");
+        // cwd 完整文本，无尾部省略类。
+        expect(cwd_el.textContent).toBe(long_cwd);
+        expect(cwd_el.className).not.toMatch(/\btruncate\b/);
+        expect(cwd_el.className).toMatch(/\bshrink-0\b/);
+        // 时间完整且不截断。
+        expect(time_el.textContent).toBe("0817 23:25");
+        expect(time_el.className).toMatch(/\bshrink-0\b/);
+        expect(time_el.className).not.toMatch(/\btruncate\b/);
+        // session id / 标题允许截断。
+        expect(id_el.className).toMatch(/\btruncate\b/);
+        expect(id_el.className).toMatch(/\bmin-w-0\b/);
+        expect(title_el.className).toMatch(/\btruncate\b/);
+        expect(title_el.className).toMatch(/\bmin-w-0\b/);
     });
 
     it.each([

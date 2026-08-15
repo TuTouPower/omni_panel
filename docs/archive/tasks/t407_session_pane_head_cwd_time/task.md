@@ -2,11 +2,11 @@
 tid: "t407"
 slug: "session_pane_head_cwd_time"
 title: "会话面板头部完整展示 cwd 与紧凑时间"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t407_session_pane_head_cwd_time"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "ede5702d78abe1f578334eeffebea12dd4125f4e"
 depends_on: ""
 conflicts_with: "t403,t405,t406,t408,t409,t410,t413,t415,t419,t420,t424"
 schedule_status: "scheduled"
@@ -19,11 +19,10 @@ note: ""
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
-
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
-
-无
+- doctor_cmd：无
+- 实现：`format_compact_datetime(ts, now?)`；SessionPane cwd 直渲 + shrink-0；时间用紧凑格式；session id/标题保留 truncate
+- 会话库 SessionCard 仍用 last_dir_segment + format_precise_datetime（非范围）
+- Round 1 FAIL：组件测试依赖真实年份；`pin_system_year_2026` + afterEach 还原时钟
 
 ## Review 处置
 
@@ -39,20 +38,12 @@ note: ""
 
 reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符），处置为改 spec 上下文区，不计 FAIL。
 
-### Round 1 场景说明
-
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-16 03:40 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t407_gen_f001|important|已修|组件测试 pin_system_year_2026 + afterEach useRealTimers，与真实年份解耦|SessionPane.test.tsx:pin_system_year_2026|
+|t407_gen_f002|minor|已修|上游 AC4 改为两行布局真实顺序 + 紧凑时间语义|session-pane-display-adjust.md AC4|
 
 ## 收尾报告
 
@@ -61,24 +52,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~004 由 SessionPane 组件测试与 format_compact_datetime 纯函数单测覆盖；AC-005 上游 spec AC2/AC4 已改写；AC-006 全量 pnpm test 绿。详见 handoff.json ac_evidence。
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：FAIL
+- Round 2 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- SessionPane 头部 cwd 完整展示 + 紧凑时间（MMDD/YYMMDD HH:mm）；截断优先级 id/标题先于 cwd/时间；上游 session-pane-display-adjust AC2/AC4 同步修订。

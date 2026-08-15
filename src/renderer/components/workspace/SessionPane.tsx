@@ -4,9 +4,8 @@ import { format_time_short } from "../../lib/session-history/markdown";
 import { resume_command } from "../../lib/session-resume";
 import { agent_accent, vendor_id_for_source, type SlotSession } from "../../lib/workspace/slots";
 import {
-    format_precise_datetime,
+    format_compact_datetime,
     is_near_bottom,
-    last_dir_segment,
     should_insert_divider,
     summarize,
     type PaneData,
@@ -152,10 +151,10 @@ export function SessionPane({
                         {slot_meta.cwd ? (
                             <>
                                 <span
-                                    className="conversation-title-cwd min-w-0 truncate"
+                                    className="conversation-title-cwd shrink-0"
                                     title={slot_meta.cwd}
                                 >
-                                    {last_dir_segment(slot_meta.cwd)}
+                                    {slot_meta.cwd}
                                 </span>
                                 <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                     ·
@@ -163,7 +162,7 @@ export function SessionPane({
                             </>
                         ) : null}
                         <span className="conversation-title-time shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]">
-                            {format_precise_datetime(last_message_time(column))}
+                            {format_compact_datetime(last_message_time(column))}
                         </span>
                         <span className="shrink-0 text-[var(--color-on-surface-muted)]">·</span>
                         <button
