@@ -449,12 +449,27 @@ export interface SessionHistorySearchContentFilters {
 export interface SessionHistorySearchContentRequest {
     readonly filters: SessionHistorySearchContentFilters;
     readonly keyword: string;
+    /** t404: 内容扫描起点（候选行下标），省略=0。 */
+    readonly offset?: number;
+    /** t404: 本批最多扫描候选行数；省略=从 offset 扫到末尾（兼容旧全量一次）。 */
+    readonly limit?: number;
 }
 
 /** Legacy t239 request retained for old IPC callers/tests. */
 export interface SessionHistorySearchContentLegacyRequest {
     readonly locs: readonly SessionHistoryLoc[];
     readonly keyword: string;
+    /** t404: 同现代请求，按 locs 下标分块。 */
+    readonly offset?: number;
+    readonly limit?: number;
+}
+
+/** t404: 内容搜索分块进度（省略时调用方视同全量完成）。 */
+export interface SessionHistorySearchContentProgress {
+    readonly scanned: number;
+    readonly total: number;
+    readonly done: boolean;
+    readonly next_offset: number;
 }
 
 /** t248: 批量内容搜索响应：命中键及后端筛选得到的会话元信息。 */
@@ -463,6 +478,8 @@ export interface SessionHistorySearchContentResponse {
     readonly sessions: readonly TokenStatsSession[];
     /** t388 AC-001: 枚举达 SEARCH_ENUM_CAP 截断时 true，renderer 展示降级提示。 */
     readonly truncated: boolean;
+    /** t404: 本批扫描进度；旧调用方可不读。 */
+    readonly progress?: SessionHistorySearchContentProgress;
 }
 
 /** t239: 批量首条用户消息摘要请求。 */

@@ -79,6 +79,7 @@ import type {
     SessionHistorySummariesResponse,
 } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
+import { clamp_search_content_range } from "../session-history/search_content_range";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -445,8 +446,15 @@ async function handle_session_history_search_content(
     const request = body as unknown as SessionHistorySearchRequest;
     const candidates = content_search_candidates(deps, request);
     const candidate_rows = candidates.rows;
+    // t404: 仅 resolve/extract 本批候选 slice；省略 limit 时 end=total（全量兼容）。
+    const range = clamp_search_content_range(
+        candidate_rows.length,
+        typeof request.offset === "number" ? request.offset : undefined,
+        typeof request.limit === "number" ? request.limit : undefined,
+    );
+    const batch_rows = candidate_rows.slice(range.offset, range.end);
     const metadata =
-        is_legacy_search_request(request) || !request.filters.search
+        range.offset > 0 || is_legacy_search_request(request) || !request.filters.search
             ? { rows: [] as SessionRow[], truncated: false }
             : session_history_query_all_sessions(deps, {
                   ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
@@ -459,7 +467,7 @@ async function handle_session_history_search_content(
                       : {}),
               });
     const metadata_rows = metadata.rows;
-    const resolved_locs = resolve_session_rows(deps, candidate_rows);
+    const resolved_locs = resolve_session_rows(deps, batch_rows);
     // t263: 客户端断连（fetch abort / 页面关闭）时中止底层搜索扫描，避免连续搜索
     // 前序请求持续扫盘并发堆积。res 'close' 在响应正常结束或连接关闭时触发；正常
     // 完成后 abort 无副作用（搜索已结束）。
@@ -475,11 +483,11 @@ async function handle_session_history_search_content(
     const hit_keys = new Set(hits);
     // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原 includes 对
     // metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），语义等价（同引用
-    // 必有同 key）。合并循环单次遍历已由 [...metadata, ...candidate] + response_keys 保证。
+    // 必有同 key）。t404: 本批 sessions = 首批 metadata ∪ 本 slice 内容命中。
     const metadata_keys = new Set(metadata_rows.map(session_history_key_of));
     const response_sessions: TokenStatsSession[] = [];
     const response_keys = new Set<string>();
-    for (const row of [...metadata_rows, ...candidate_rows]) {
+    for (const row of [...metadata_rows, ...batch_rows]) {
         const key = session_history_key_of(row);
         if (response_keys.has(key)) continue;
         if (metadata_keys.has(key) || (row.session && hit_keys.has(key))) {
@@ -491,6 +499,12 @@ async function handle_session_history_search_content(
         hits: [...hit_keys],
         sessions: response_sessions,
         truncated: candidates.truncated || metadata.truncated,
+        progress: {
+            scanned: range.scanned,
+            total: range.total,
+            done: range.done,
+            next_offset: range.next_offset,
+        },
     };
     json_response(res, 200, result);
 }
