@@ -22,11 +22,11 @@ export function SelectionDock({
 }: SelectionDockProps) {
     if (selected.length === 0) return null;
     return (
-        <div className="selection-dock sticky bottom-0 z-sticky flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] bg-[var(--color-surface-window)] px-4 py-2.5">
-            <div className="selection-dock-slots flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+        <div className="sticky bottom-0 z-sticky flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] bg-[var(--color-surface-window)] px-4 py-2.5">
+            <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
                 {selected.map((s) => (
                     <span
-                        className="selection-dock-slot inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                         style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
                         key={key_of(s)}
                         title={s.title ?? s.id}
@@ -35,7 +35,7 @@ export function SelectionDock({
                         · {s.title ?? s.id}
                         <button
                             type="button"
-                            className="selection-dock-remove flex h-4 w-4 items-center justify-center rounded text-[var(--color-on-surface-muted)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--color-on-surface-muted)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                             aria-label={`移除 ${key_of(s)}`}
                             onClick={() => {
                                 on_remove(s);
@@ -46,21 +46,16 @@ export function SelectionDock({
                     </span>
                 ))}
             </div>
-            <span className="selection-dock-count shrink-0 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+            <span className="shrink-0 font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                 {String(selected.length)}/{String(max_select)}
             </span>
-            <Button
-                variant="secondary"
-                size="sm"
-                className="selection-dock-clear"
-                onClick={on_clear}
-            >
+            <Button variant="secondary" size="sm" onClick={on_clear}>
                 清空
             </Button>
             <Button
                 variant="primary"
                 size="sm"
-                className={cn("selection-dock-open shrink-0")}
+                className={cn("shrink-0")}
                 onClick={() => {
                     on_open_all(selected);
                 }}

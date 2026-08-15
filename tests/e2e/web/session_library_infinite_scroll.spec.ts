@@ -53,9 +53,9 @@ async function route_many_sessions(
 
 async function open_library(page: Page): Promise<void> {
     await page.goto("/#session");
-    await page.locator(".session-shell").first().waitFor({ state: "visible" });
+    await page.locator('[data-testid="session-shell"]').first().waitFor({ state: "visible" });
     await page.getByRole("button", { name: "会话库", exact: true }).click();
-    await expect(page.locator(".library-grid").first()).toBeVisible();
+    await expect(page.locator('[data-testid="library-grid"]').first()).toBeVisible();
 }
 
 /** 滚动容器触底并派发原生 scroll（t328；与用户滚轮产生的 scroll 事件同路径入 React onScroll）。 */
@@ -78,27 +78,27 @@ test.describe("session library infinite scroll (web, t328)", () => {
         const offsets: number[] = [];
         await route_many_sessions(page, TOTAL_SESSIONS, (o) => offsets.push(o));
         await open_library(page);
-        await expect(page.locator(".library-card").first()).toBeVisible();
-        await expect(page.locator(".library-card")).toHaveCount(50);
+        await expect(page.locator('[data-testid="library-card"]').first()).toBeVisible();
+        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(50);
 
         // AC-001：无「加载更多」按钮。
         await expect(page.getByRole("button", { name: /加载更多/ })).toHaveCount(0);
 
         // AC-002：滚到底自动加载第二页 → 100。
-        await scroll_container_to_bottom(page, ".library-grid");
+        await scroll_container_to_bottom(page, '[data-testid="library-grid"]');
         await expect
-            .poll(async () => page.locator(".library-card").count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
             .toBe(100);
 
         // 再次触底 → 第三页 30 条 → 130（末页 < 50 → has_more=false）。
-        await scroll_container_to_bottom(page, ".library-grid");
+        await scroll_container_to_bottom(page, '[data-testid="library-grid"]');
         await expect
-            .poll(async () => page.locator(".library-card").count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
             .toBe(130);
 
         // AC-003：has_more=false 后触底不再发起新请求。
         const before = offsets.length;
-        await scroll_container_to_bottom(page, ".library-grid");
+        await scroll_container_to_bottom(page, '[data-testid="library-grid"]');
         await page.waitForTimeout(600);
         expect(offsets.length).toBe(before);
         // 每页偏移各请求一次（0/50/100），无重复。
@@ -113,20 +113,20 @@ test.describe("session library infinite scroll (web, t328)", () => {
         await page.setViewportSize({ width: 1280, height: 720 });
         await route_many_sessions(page, TOTAL_SESSIONS);
         await open_library(page);
-        await expect(page.locator(".library-card").first()).toBeVisible();
+        await expect(page.locator('[data-testid="library-card"]').first()).toBeVisible();
 
         await page.getByRole("button", { name: "列表视图" }).click();
-        await expect(page.locator(".library-list").first()).toBeVisible();
-        await expect(page.locator(".library-card")).toHaveCount(0);
-        await expect(page.locator(".library-row")).toHaveCount(50);
+        await expect(page.locator('[data-testid="library-list"]').first()).toBeVisible();
+        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(0);
+        await expect(page.locator('[data-testid="library-row"]')).toHaveCount(50);
 
         // AC-001：列表视图也无「加载更多」按钮。
         await expect(page.getByRole("button", { name: /加载更多/ })).toHaveCount(0);
 
         // AC-006：列表滚动触底自动加载 → 100。
-        await scroll_container_to_bottom(page, ".library-list");
+        await scroll_container_to_bottom(page, '[data-testid="library-list"]');
         await expect
-            .poll(async () => page.locator(".library-row").count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-row"]').count(), { timeout: 5000 })
             .toBe(100);
     });
 });

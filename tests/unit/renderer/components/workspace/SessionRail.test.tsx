@@ -67,7 +67,7 @@ describe("SessionRail provider 徽标", () => {
             />,
         );
 
-        const badges = Array.from(document.querySelectorAll(".session-badge"));
+        const badges = Array.from(document.querySelectorAll('[data-testid="session-badge"]'));
         expect(badges).toHaveLength(5);
         // t314: badge 无 accent 圆环描边（防「icon 套圈」回归）。
         for (const badge of badges) {
@@ -117,7 +117,7 @@ describe("SessionRail t257 展示调整", () => {
         const { container } = render(
             <SessionRail {...base} slots={empty_slots()} collapsed={true} />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll('[data-testid="session-slot-empty"]'));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+");
@@ -128,7 +128,7 @@ describe("SessionRail t257 展示调整", () => {
         const { container } = render(
             <SessionRail {...base} slots={empty_slots()} collapsed={false} />,
         );
-        const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
+        const empty_btns = Array.from(container.querySelectorAll('[data-testid="session-slot-empty"]'));
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+ 添加会话");
@@ -137,7 +137,7 @@ describe("SessionRail t257 展示调整", () => {
 
     it("t406 AC-002：侧边栏背景 surface-window，无 color-mix", () => {
         const { container } = render(<SessionRail {...base} />);
-        const rail = container.querySelector(".session-rail");
+        const rail = container.querySelector('[data-testid="session-rail"]');
         const cls = rail?.className ?? "";
         expect(cls).toContain("bg-[var(--color-surface-window)]");
         expect(cls).not.toContain("color-mix");
@@ -147,7 +147,7 @@ describe("SessionRail t257 展示调整", () => {
 
     it("t381 AC-002：非空槽位卡片用 surface-card，不含 surface-window", () => {
         const { container } = render(<SessionRail {...base} />);
-        const slot = container.querySelector(".session-slot:not(.session-slot-empty)");
+        const slot = container.querySelector('[data-testid="session-slot"]:not([data-testid="session-slot-empty"])');
         const cls = slot?.className ?? "";
         expect(cls).toContain("var(--color-surface-card)");
         expect(cls).not.toContain("bg-[var(--color-surface-window)]");
@@ -157,7 +157,7 @@ describe("SessionRail t257 展示调整", () => {
         const { container } = render(
             <SessionRail {...base} slots={empty_slots()} collapsed={false} />,
         );
-        const empty = container.querySelector(".session-slot-empty");
+        const empty = container.querySelector('[data-testid="session-slot-empty"]');
         const cls = empty?.className ?? "";
         expect(cls).toContain("bg-transparent");
         expect(cls).toContain("border-dashed");
@@ -178,30 +178,32 @@ describe("SessionRail t413 头部折叠 + 底部固定添加", () => {
         const on_toggle_collapse = vi.fn();
         render(<SessionRail {...base} on_toggle_collapse={on_toggle_collapse} />);
         const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
-        expect(toggle.closest(".session-rail-header")).not.toBeNull();
+        expect(toggle.closest('[data-testid="session-rail-header"]')).not.toBeNull();
         fireEvent.click(toggle);
         expect(on_toggle_collapse).toHaveBeenCalledTimes(1);
     });
 
     it("AC-003：展开态底部固定「添加会话」，footer 有 border-t 发丝分隔，不在 scroll 区", () => {
         const { container } = render(<SessionRail {...base} collapsed={false} />);
-        const add = require_el(container, ".session-slot-add");
+        const add = require_el(container, '[data-testid="session-slot-add"]');
         expect(add.textContent.trim()).toBe("+ 添加会话");
-        const footer = add.closest(".session-rail-footer");
+        const footer = add.closest('[data-testid="session-rail-footer"]');
         if (!footer) throw new Error("footer missing");
         expect(footer.className).toMatch(/border-t/);
         expect(footer.className).toMatch(/shrink-0/);
         // 不在可滚动列表内。
-        expect(add.closest(".session-rail-scroll")).toBeNull();
+        expect(add.closest('[data-testid="session-rail-scroll"]')).toBeNull();
         // 列表区可滚、footer 在 rail 根下与 scroll 并列。
-        const rail = require_el(container, ".session-rail");
+        const rail = require_el(container, '[data-testid="session-rail"]');
         expect(rail.contains(footer)).toBe(true);
-        expect(footer.previousElementSibling?.className).toMatch(/session-rail-scroll/);
+        expect(footer.previousElementSibling?.getAttribute("data-testid")).toBe(
+            "session-rail-scroll",
+        );
     });
 
     it("AC-004：折叠态添加入口为加号 icon（无文字「添加会话」）", () => {
         const { container } = render(<SessionRail {...base} collapsed={true} />);
-        const add = require_el(container, ".session-slot-add");
+        const add = require_el(container, '[data-testid="session-slot-add"]');
         expect(add.textContent.trim()).toBe("+");
         expect(add.textContent).not.toMatch(/添加会话/);
     });
@@ -212,12 +214,12 @@ describe("SessionRail t413 头部折叠 + 底部固定添加", () => {
         const { rerender, container } = render(
             <SessionRail {...base} on_pick={on_pick} collapsed={false} />,
         );
-        fireEvent.click(require_el(container, ".session-slot-add"));
+        fireEvent.click(require_el(container, '[data-testid="session-slot-add"]'));
         expect(on_pick).toHaveBeenCalledWith(2);
 
         on_pick.mockClear();
         rerender(<SessionRail {...base} on_pick={on_pick} collapsed={true} />);
-        fireEvent.click(require_el(container, ".session-slot-add"));
+        fireEvent.click(require_el(container, '[data-testid="session-slot-add"]'));
         expect(on_pick).toHaveBeenCalledWith(2);
     });
 
@@ -232,7 +234,7 @@ describe("SessionRail t413 头部折叠 + 底部固定添加", () => {
                 collapsed={false}
             />,
         );
-        const add = require_el(container, ".session-slot-add");
+        const add = require_el(container, '[data-testid="session-slot-add"]');
         expect(add).toBeInstanceOf(HTMLButtonElement);
         expect((add as HTMLButtonElement).disabled).toBe(true);
         fireEvent.click(add);

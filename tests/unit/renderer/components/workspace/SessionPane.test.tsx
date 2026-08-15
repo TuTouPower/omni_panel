@@ -82,13 +82,13 @@ describe("SessionPane (t225)", () => {
         expect(screen.getByText(/5 轮/)).toBeTruthy();
         expect(screen.getByText(/1,200 tokens/)).toBeTruthy();
         // t407 AC-001：cwd 完整路径可见，不截末级。
-        const cwd_el = document.querySelector(".conversation-title-cwd");
+        const cwd_el = document.querySelector('[data-testid="conversation-title-cwd"]');
         expect(cwd_el?.textContent).toBe("/path/to/proj");
         expect(screen.getByText(/claude-sonnet-4/)).toBeTruthy();
-        expect(document.querySelector(".conversation-agent-badge")?.getAttribute("title")).toBe(
+        expect(document.querySelector('[data-testid="conversation-agent-badge"]')?.getAttribute("title")).toBe(
             "claude-sonnet-4",
         );
-        expect(document.querySelector(".conversation-accent")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-accent"]')).toBeTruthy();
     });
 
     it("AC1：元信息不显示 source 文字；日期为最后一条消息紧凑时间（t407）", () => {
@@ -142,7 +142,7 @@ describe("SessionPane (t225)", () => {
                     })}
                 />,
             );
-            const badge = document.querySelector(".conversation-agent-badge");
+            const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
             expect(badge?.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
             if (assets.length === 0) {
                 expect(badge?.querySelector("svg")).toBeTruthy();
@@ -183,7 +183,7 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(document.querySelectorAll(".conversation-divider").length).toBe(1);
+        expect(document.querySelectorAll('[data-testid="conversation-divider"]').length).toBe(1);
     });
 
     it("t405 AC-001/002：DOM 无 .conversation-foot，无槽位/用户/Agent footer 文案", () => {
@@ -205,13 +205,13 @@ describe("SessionPane (t225)", () => {
 
     it("加载中无消息时显示骨架屏", () => {
         render(<SessionPane {...PROPS} column={column({ status: "loading", messages: [] })} />);
-        expect(document.querySelector(".conversation-skeleton")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-skeleton"]')).toBeTruthy();
     });
 
     it("源文件缺失显示空态（不渲染骨架屏）", () => {
         render(<SessionPane {...PROPS} column={column({ status: "missing", messages: [] })} />);
         expect(screen.getByText("该会话的原始记录文件不存在或已删除")).toBeTruthy();
-        expect(document.querySelector(".conversation-skeleton")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-skeleton"]')).toBeNull();
     });
 
     it("大纲抽屉列消息（角色序号+摘要+时间），点击滚动定位", () => {
@@ -227,12 +227,12 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(document.querySelector(".conversation-outline")).toBeTruthy();
-        const rows = document.querySelectorAll(".conversation-outline-row");
+        expect(document.querySelector('[data-testid="conversation-outline"]')).toBeTruthy();
+        const rows = document.querySelectorAll('[data-testid="conversation-outline-row"]');
         expect(rows.length).toBe(2);
         const first = rows[0];
         if (!first) throw new Error("outline row missing");
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
         fireEvent.click(first);
@@ -242,7 +242,7 @@ describe("SessionPane (t225)", () => {
 
     it("t406 AC-001：卡片背景为 surface-card（非 surface-raised 整面）", () => {
         render(<SessionPane {...PROPS} />);
-        const pane = document.querySelector(".conversation-pane");
+        const pane = document.querySelector('[data-testid="conversation-pane"]');
         expect(pane?.className).toContain("bg-[var(--color-surface-card)]");
         // 排除 hover:bg-...raised 误匹配：整面底色不得是 raised。
         expect(pane?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
@@ -272,11 +272,11 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         const { rerender } = render(
             <SessionPane {...PROPS} outline_open column={column({ messages })} />,
         );
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
 
-        const rows = document.querySelectorAll(".conversation-outline-row");
+        const rows = document.querySelectorAll('[data-testid="conversation-outline-row"]');
         const third = rows[2];
         if (!third) throw new Error("third outline row missing");
         fireEvent.click(third);
@@ -291,21 +291,21 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
             msg(`m${String(i)}`, "user", `消息 ${String(i)}`, i * 100),
         );
         const { rerender } = render(<SessionPane {...PROPS} column={column({ messages })} />);
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
 
         // 初始 at_bottom=true → 无回底按钮。
-        expect(document.querySelector(".conversation-to-bottom")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeNull();
         // 滚到中部（非底部）。
         container.scrollTop = 400;
         fireEvent.scroll(container);
-        expect(document.querySelector(".conversation-to-bottom")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeTruthy();
         // 回到底部按钮点击 → scrollTop = scrollHeight（mock 2000）+ at_bottom。
         fireEvent.click(screen.getByText(/回到底部/));
         expect(container.scrollTop).toBe(2000);
         rerender(<SessionPane {...PROPS} column={column({ messages })} />);
-        expect(document.querySelector(".conversation-to-bottom")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeNull();
     });
 
     it("AC2：长列表虚拟滚动下选中态保持且 DOM 行数受控", () => {
@@ -339,29 +339,29 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         render(<Parent />);
         // jsdom 下 VirtualMessageList clientHeight=400（mock）、estimateHeight=80 →
         // 可见窗口 + overscan 渲染部分消息，DOM 行数远小于 100（虚拟化生效）。
-        const rendered_rows = document.querySelectorAll(".conversation-message-row");
+        const rendered_rows = document.querySelectorAll('[data-testid="conversation-message-row"]');
         expect(rendered_rows.length).toBeGreaterThan(0);
         expect(rendered_rows.length).toBeLessThan(100);
         // 勾选一条远端消息（m94，初始不可见）→ 滚动到含 m94 的窗口。
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 94 * 80, writable: true });
         fireEvent.scroll(container);
         const m94_check = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest(".conversation-message-row")?.textContent.includes("消息 94"));
+            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
         if (!m94_check) throw new Error("m94 checkbox missing");
         fireEvent.click(m94_check);
         expect(m94_check).toBeChecked();
         // 滚动到中间 → 新窗口渲染（m94 虚拟化卸载）。
         container.scrollTop = 2000;
         fireEvent.scroll(container);
-        expect(document.querySelectorAll(".conversation-message-row").length).toBeLessThan(100);
+        expect(document.querySelectorAll('[data-testid="conversation-message-row"]').length).toBeLessThan(100);
         expect(
             screen
                 .queryAllByRole("checkbox")
                 .some((c) =>
-                    c.closest(".conversation-message-row")?.textContent.includes("消息 94"),
+                    c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"),
                 ),
         ).toBe(false);
         // 滚回 m94 窗口 → 重挂后仍选中（AC2 选中态保持回归）。
@@ -369,7 +369,7 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         fireEvent.scroll(container);
         const m94_again = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest(".conversation-message-row")?.textContent.includes("消息 94"));
+            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
         if (!m94_again) throw new Error("m94 checkbox missing after re-scroll");
         expect(m94_again).toBeChecked();
     });
@@ -392,8 +392,8 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
                 })}
             />,
         );
-        const first = document.querySelector(".conversation-title");
-        const second = document.querySelector(".conversation-meta");
+        const first = document.querySelector('[data-testid="conversation-title"]');
+        const second = document.querySelector('[data-testid="conversation-meta"]');
         if (!first || !second) throw new Error("header rows missing");
         const first_text = first.textContent || "";
         const second_text = second.textContent || "";
@@ -430,10 +430,10 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
                 })}
             />,
         );
-        const cwd_el = document.querySelector(".conversation-title-cwd");
-        const time_el = document.querySelector(".conversation-title-time");
-        const id_el = document.querySelector(".conversation-session-id");
-        const title_el = document.querySelector(".conversation-meta-title");
+        const cwd_el = document.querySelector('[data-testid="conversation-title-cwd"]');
+        const time_el = document.querySelector('[data-testid="conversation-title-time"]');
+        const id_el = document.querySelector('[data-testid="conversation-session-id"]');
+        const title_el = document.querySelector('[data-testid="conversation-meta-title"]');
         if (!cwd_el || !time_el || !id_el || !title_el) throw new Error("header meta nodes missing");
         // cwd 完整文本，无尾部省略类。
         expect(cwd_el.textContent).toBe(long_cwd);
@@ -537,7 +537,7 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
                 on_drag_end={on_drag_end}
             />,
         );
-        const badge = document.querySelector(".conversation-agent-badge");
+        const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
         if (!badge) throw new Error("badge missing");
         expect(badge.getAttribute("draggable")).toBe("true");
         fireEvent.click(badge);
@@ -551,7 +551,7 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
         const { rerender } = render(
             <SessionPane {...PROPS} on_drag_start={on_drag_start} on_drag_end={() => undefined} />,
         );
-        const badge = document.querySelector(".conversation-agent-badge");
+        const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
         if (!badge) throw new Error("badge missing");
         fireEvent.dragStart(badge);
         expect(on_drag_start).toHaveBeenCalledTimes(1);
@@ -563,7 +563,7 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
                 on_drag_end={() => undefined}
             />,
         );
-        expect(document.querySelector(".conversation-pane.conversation-pane-dragging")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-pane"][data-dragging="true"]')).toBeTruthy();
     });
 
     it("AC-002：drop_active 时面板带落点高亮类", () => {
@@ -576,7 +576,7 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
             />,
         );
         expect(
-            document.querySelector(".conversation-pane.conversation-pane-drop-target"),
+            document.querySelector('[data-testid="conversation-pane"][data-drop-target="true"]'),
         ).toBeTruthy();
     });
 });
@@ -613,7 +613,7 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };
@@ -647,7 +647,7 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };
@@ -680,7 +680,7 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };

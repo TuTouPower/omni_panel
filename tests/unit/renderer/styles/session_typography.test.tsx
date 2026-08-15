@@ -105,8 +105,8 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
 
     it("会话面板标题字号小于元信息字号（title 11px < meta 13px，t257 互换）", () => {
         render(<SessionPane {...PANE_PROPS} />);
-        const title = require_el(".conversation-title");
-        const meta = require_el(".conversation-meta");
+        const title = require_el('[data-testid="conversation-title"]');
+        const meta = require_el('[data-testid="conversation-meta"]');
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
         expect(title_px).toBe(11);
@@ -127,8 +127,8 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
                 on_move={() => undefined}
             />,
         );
-        const title = require_el(".session-slot-title");
-        const meta = require_el(".session-slot-meta");
+        const title = require_el('[data-testid="session-slot-title"]');
+        const meta = require_el('[data-testid="session-slot-meta"]');
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
         expect(title_px).toBe(12.5);

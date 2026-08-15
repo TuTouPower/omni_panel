@@ -49,7 +49,7 @@ async function route_many_sessions(page: Page, total: number): Promise<void> {
 /** 滚到底并派发 scroll 事件（t328 无限滚动；scrollTop 赋值触发原生 scroll）。 */
 async function scroll_grid_to_bottom(page: Page): Promise<void> {
     await page
-        .locator(".library-grid")
+        .locator('[data-testid="library-grid"]')
         .first()
         .evaluate((el) => {
             const target = el as HTMLElement;
@@ -60,9 +60,9 @@ async function scroll_grid_to_bottom(page: Page): Promise<void> {
 
 async function open_library_grid(page: Page): Promise<void> {
     await page.goto("/#session");
-    await page.locator(".session-shell").first().waitFor({ state: "visible" });
+    await page.locator('[data-testid="session-shell"]').first().waitFor({ state: "visible" });
     await page.getByRole("button", { name: "会话库", exact: true }).click();
-    await expect(page.locator(".library-grid").first()).toBeVisible();
+    await expect(page.locator('[data-testid="library-grid"]').first()).toBeVisible();
 }
 
 test.describe("session library grid card height (web, t327)", () => {
@@ -75,26 +75,26 @@ test.describe("session library grid card height (web, t327)", () => {
 
         // 首屏 50 个已超过一屏（1280x720），先断言卡片高度正常（未压扁）。
         const first_h = await page
-            .locator(".library-card")
+            .locator('[data-testid="library-card"]')
             .first()
             .evaluate((el) => (el as HTMLElement).offsetHeight);
         expect(first_h).toBeGreaterThan(50);
 
         // AC-003：连续滚到底自动加载直至 350+ 卡片。
         for (let i = 0; i < 20; i += 1) {
-            const count = await page.locator(".library-card").count();
+            const count = await page.locator('[data-testid="library-card"]').count();
             if (count >= 350) break;
             await scroll_grid_to_bottom(page);
             await expect
-                .poll(async () => page.locator(".library-card").count(), { timeout: 5000 })
+                .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
                 .toBeGreaterThan(count);
         }
-        const total = await page.locator(".library-card").count();
+        const total = await page.locator('[data-testid="library-card"]').count();
         expect(total).toBeGreaterThanOrEqual(350);
 
         // AC-001/003：卡片高度为内容自然高度（>2px 细条），前 12 张高度固定一致。
         const heights = await page
-            .locator(".library-card")
+            .locator('[data-testid="library-card"]')
             .evaluateAll((els) => els.slice(0, 12).map((el) => (el as HTMLElement).offsetHeight));
         for (const h of heights) {
             expect(h).toBeGreaterThan(50);
@@ -102,12 +102,12 @@ test.describe("session library grid card height (web, t327)", () => {
         expect(new Set(heights.map((h) => Math.round(h))).size).toBe(1);
 
         // 标题可见（压扁时标题 0 高不可见）。
-        await expect(page.locator(".library-card-title").first()).toBeVisible();
+        await expect(page.locator('[data-testid="library-card-title"]').first()).toBeVisible();
 
         // AC-001：卡片不重叠（仅 items-start 时行压缩致跨行重叠，auto-rows-max 修复）。
         // 逐卡取 boundingBox，按垂直区间断言无覆盖：每张卡 top ≥ 已见最大 bottom（同列下行）
         // 或属于新行（top 与上一行同一水平带，仅允许与同列上张相接）。
-        const boxes = await page.locator(".library-card").evaluateAll((els) =>
+        const boxes = await page.locator('[data-testid="library-card"]').evaluateAll((els) =>
             els.slice(0, 24).map((el) => {
                 const r = (el as HTMLElement).getBoundingClientRect();
                 return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
@@ -128,7 +128,7 @@ test.describe("session library grid card height (web, t327)", () => {
 
         // AC-002：内容超高 → 网格容器可垂直滚动（scrollHeight > clientHeight）。
         const scroll = await page
-            .locator(".library-grid")
+            .locator('[data-testid="library-grid"]')
             .first()
             .evaluate((el) => ({
                 sh: el.scrollHeight,

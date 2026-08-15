@@ -53,7 +53,7 @@
 |design-tokens-foundation|Desktop|t268|2026-08-09|
 |ui-component-library|Desktop|t269，t301，t303|2026-08-11|
 |ui-component-theme-contrast|Web|t283，t298，t302，t301|2026-08-11|
-|legacy_css_cleanup|Web+Desktop|t274|2026-08-09|
+|legacy_css_cleanup|Web+Desktop|t274，t419|2026-08-16|
 |ui-views-desktop|Desktop|拆自 ui-views（t037），t153|2026-07-27|
 |cli-mode|Desktop|t275, t285, t322, t335, t399, t400|2026-08-16|
 |cli_help_unify|Desktop|t400|2026-08-16|

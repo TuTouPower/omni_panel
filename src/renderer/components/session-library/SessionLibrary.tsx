@@ -450,26 +450,29 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
               ? "统计加载中…"
               : "统计不可用";
     return (
-        <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
-            <header className="library-header flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
-                <span className="library-title text-[length:var(--text-title-lg)] font-bold tracking-tight">
+        <div
+            className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]"
+            data-testid="library-view"
+        >
+            <header className="flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
+                <span className="text-[length:var(--text-title-lg)] font-bold tracking-tight">
                     会话库
                 </span>
-                <span className="library-stats font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                <span className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                     {stats_text}
                 </span>
             </header>
 
-            <div className="library-toolbar flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
                 <Input
-                    className="library-search min-w-[200px] flex-1"
+                    className="min-w-[200px] flex-1"
                     placeholder="搜索标题 / 路径 / 会话 ID"
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
                     }}
                 />
-                <label className="library-content-search inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                     <Checkbox
                         checked={search_content}
                         aria-label="包含消息内容"
@@ -479,7 +482,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     />
                     包含消息内容
                 </label>
-                <div className="library-date-range flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                     <Input
                         type="date"
                         className="w-auto min-w-[130px]"
@@ -501,7 +504,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     />
                 </div>
                 <Select
-                    className="library-sort w-auto min-w-[120px]"
+                    className="w-auto min-w-[120px]"
                     aria-label="排序方式"
                     value={sort}
                     onChange={(e) => {
@@ -513,7 +516,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <option value="calls">轮次最多</option>
                     <option value="earliest">最早创建</option>
                 </Select>
-                <div className="library-view-switch inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5">
+                <div className="inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5">
                     <button
                         type="button"
                         className={cn(
@@ -557,7 +560,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
 
             {content_searching && (
                 <div
-                    className="library-content-searching px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
+                    className="px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                     data-testid="content-search-progress"
                 >
                     {content_search_progress
@@ -566,20 +569,20 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 </div>
             )}
             {content_search_error && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <div className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
                     消息内容搜索失败
                 </div>
             )}
 
             {load_error && visible_sessions.length > 0 && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <div className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
                     会话列表加载中断，已显示部分数据
                 </div>
             )}
 
             {content_truncated && (
                 <div
-                    className="library-search-truncated mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]"
+                    className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]"
                     data-testid="search-truncated-hint"
                 >
                     结果已截断，仅显示部分匹配项
@@ -587,7 +590,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             )}
 
             {visible_sessions.length === 0 ? (
-                <div className="library-empty flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <p>{empty_text}</p>
                     {show_clear && (
                         <Button
@@ -645,7 +648,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 }}
             />
             {toast !== null && (
-                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu">
+                <div className="fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu">
                     {toast}
                 </div>
             )}

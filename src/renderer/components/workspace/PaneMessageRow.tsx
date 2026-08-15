@@ -72,12 +72,13 @@ export const PaneMessageRow = memo(function PaneMessageRow({
     return (
         <div
             className={cn(
-                "conversation-message-row group flex gap-2 py-1",
+                "group flex gap-2 py-1",
                 message.role === "user" && "rounded-md bg-[var(--color-primary-container)]",
                 selected && "selected",
                 compact && "compact",
                 expanded && "expanded",
             )}
+            data-testid="conversation-message-row"
             data-message-id={message.id}
             data-selected={selected}
             onMouseEnter={() => {
@@ -88,7 +89,8 @@ export const PaneMessageRow = memo(function PaneMessageRow({
             }}
         >
             <Checkbox
-                className="conversation-message-check mt-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                className="mt-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                data-testid="conversation-message-check"
                 aria-label={`选择消息 ${message.text.slice(0, 24) || "(空)"}`}
                 checked={selected}
                 readOnly
@@ -96,28 +98,27 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                     on_toggle(message.id, e.shiftKey);
                 }}
             />
-            <div className="conversation-message-body min-w-0 flex-1" onClick={on_body_click}>
+            <div className="min-w-0 flex-1" onClick={on_body_click}>
                 <div
-                    className={cn(
-                        "conversation-message-meta items-center gap-2",
-                        compact ? "inline-flex" : "mb-0.5 flex",
-                    )}
+                    className={cn("items-center gap-2", compact ? "inline-flex" : "mb-0.5 flex")}
+                    data-testid="conversation-message-meta"
                 >
-                    <span className="conversation-message-role text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+                    <span className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         {message.role === "user" ? "用户" : "Agent"}
                     </span>
                     {show_time && message.timestamp !== null && (
-                        <span className="conversation-message-time font-code-md text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)]">
+                        <span
+                            className="font-code-md text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)]"
+                            data-testid="conversation-message-time"
+                        >
                             {format_time_short(message.timestamp)}
                         </span>
                     )}
                 </div>
                 <div
                     ref={content_ref}
-                    className={cn(
-                        "conversation-message-content min-w-0",
-                        !expanded && "single-line line-clamp-1",
-                    )}
+                    className={cn("min-w-0", !expanded && "single-line line-clamp-1")}
+                    data-testid="conversation-message-content"
                 >
                     <MarkdownMessage text={message.text} />
                 </div>
