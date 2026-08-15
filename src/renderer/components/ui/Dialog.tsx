@@ -44,8 +44,8 @@ export function Dialog({
             />
             <div
                 className={cn(
-                    "relative z-10 rounded-xl border border-[var(--color-outline)] " +
-                        "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-[var(--shadow-window)] " +
+                    "relative rounded-xl border border-[var(--color-outline)] " +
+                        "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-window " +
                         "animate-[dialogIn_160ms_var(--motion-easing)] motion-reduce:animate-none",
                     width === 372 ? "w-[372px]" : "w-[420px]",
                 )}

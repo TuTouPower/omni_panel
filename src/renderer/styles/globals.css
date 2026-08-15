@@ -254,6 +254,9 @@
     --color-heat-8: var(--color-heat-8-dark);
     --color-scrollbar-thumb: var(--color-scrollbar-thumb-dark);
     --color-scrollbar-thumb-hover: var(--color-scrollbar-thumb-hover-dark);
+    /* t415: 阴影成对值在变量层翻转，组件只写 shadow-window / shadow-card。 */
+    --shadow-window: var(--shadow-window-dark);
+    --shadow-card: var(--shadow-card-dark);
 }
 
 * {
@@ -326,6 +329,11 @@ html[data-window="tray"] #root {
     background-color: var(--color-menu-bg);
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow-menu);
+}
+
+/* t415: logo 品牌投影（标题栏 / 托盘菜单）。 */
+@utility logo-drop-shadow {
+    filter: drop-shadow(0 3px 7px rgba(61, 122, 253, 0.26));
 }
 
 /* 骨架屏 shimmer 高光扫动。 */

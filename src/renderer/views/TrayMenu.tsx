@@ -197,7 +197,7 @@ export function TrayMenu() {
         >
             <div className="mb-0.5 flex items-center gap-2 border-b-[0.5px] border-b-[var(--color-hairline)] px-3.5 py-3 text-[13.5px] font-bold text-[var(--color-on-surface)]">
                 <img
-                    className="block h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+                    className="logo-drop-shadow block h-6 w-6 shrink-0 object-contain"
                     src={logo}
                     alt=""
                     width={24}

@@ -93,7 +93,7 @@ export function RangePicker({
             </Button>
             {open && (
                 <div
-                    className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)] p-3 shadow-lg"
+                    className="absolute right-0 z-menu mt-2 w-[280px] rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)] p-3 shadow-menu"
                     onClick={(e) => {
                         e.stopPropagation();
                     }}

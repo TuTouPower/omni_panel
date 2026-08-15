@@ -2,7 +2,7 @@
 
 ## 行为
 
-- `src/renderer/components/ui/` 统一组件库，组件只消费 DESIGN.md front matter 的语义 token（颜色/字号/圆角/间距/阴影经 `globals.css` 导出），不写散落字面量；复合模式沉淀为 `@utility`（`glass-menu`/`shimmer`/`metric-num`/`transition-feedback`）。
+- `src/renderer/components/ui/` 统一组件库，组件只消费 DESIGN.md front matter 的语义 token（颜色/字号/圆角/间距/阴影经 `globals.css` 导出），不写散落字面量；复合模式沉淀为 `@utility`（`glass-menu`/`logo-drop-shadow`/`shimmer`/`metric-num`/`transition-feedback`/`scrollbar-token`）。阴影明暗由变量层翻转（见 `elevation_layering_unify`），组件不写 `dark:shadow-*`。
 - 组件形态全集与各形态 token 取值以 DESIGN.md `components` 节为真相源。取值规范（t301 六项对齐结果）：
     - **Switch**：轨道 38×22 pill（`switch-track`），开态 success 绿、关态 `surface-raised`；圆钮 18px `surface-window`，关态留白 2px 起步，开态对称到右缘。
     - **Badge count**：`badge-count` 12% 浅底（`primary-container`）+ primary 字 + full 圆角；label 形态保持 `badge-tag` 灰底 + 分类色点。

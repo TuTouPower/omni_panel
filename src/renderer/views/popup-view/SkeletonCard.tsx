@@ -3,7 +3,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 export function SkeletonCard() {
     return (
         <div
-            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 py-3.5 shadow-card dark:shadow-card-dark"
+            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 py-3.5 shadow-card"
             data-testid="card-skeleton"
         >
             <div className="flex items-center gap-[9px]">
