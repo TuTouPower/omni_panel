@@ -11,6 +11,7 @@ import { CollapsibleCard } from "./CollapsibleCard";
 import { TrendSparkline } from "./TrendSparkline";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
+import { Button } from "./ui/Button";
 
 const log = createLogger("renderer:provider-account-row");
 
@@ -201,16 +202,16 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 </div>
             </div>
             {show_relogin_button && (
-                <button
-                    type="button"
-                    className="ml-auto cursor-pointer rounded-lg border-0 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-[var(--color-accent)] hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]"
+                <Button
+                    variant="text"
+                    className="ml-auto rounded-lg"
                     data-testid="row-relogin-btn"
                     onClick={() => {
                         _onReLogin(account.sourceInstanceId, account.accountId, provider);
                     }}
                 >
                     重新登录
-                </button>
+                </Button>
             )}
         </div>
     );

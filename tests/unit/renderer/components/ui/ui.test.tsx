@@ -46,6 +46,108 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector("button")?.disabled).toBe(true);
     });
 
+    it("Button text/icon 尺寸档与 as-link（t420）", () => {
+        const { container, rerender } = render(<Button variant="text">重试</Button>);
+        const text_btn = container.querySelector("button");
+        expect(text_btn).not.toBeNull();
+        expect(text_btn?.className).toContain("text-[var(--color-accent)]");
+        expect(text_btn?.className).toContain("px-2.5");
+        expect(text_btn?.className).toContain("py-1");
+
+        for (const [size, token] of [
+            ["icon", "h-8"],
+            ["icon-md", "h-7"],
+            ["icon-sm", "h-[26px]"],
+            ["icon-xs", "h-[22px]"],
+        ] as const) {
+            rerender(
+                <Button variant="icon" size={size} aria-label={size}>
+                    ×
+                </Button>,
+            );
+            const icon_btn = container.querySelector("button");
+            expect(icon_btn?.className).toContain(token);
+            expect(icon_btn?.className).toContain("p-0");
+        }
+
+        rerender(
+            <Button as="a" href="#setting" variant="primary">
+                添加服务
+            </Button>,
+        );
+        const link = container.querySelector("a");
+        expect(link).not.toBeNull();
+        expect(link?.getAttribute("href")).toBe("#setting");
+        expect(link?.className).toContain("bg-[var(--color-primary)]");
+        expect(link?.className).toContain("no-underline");
+        expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("Button text 语义 button + onClick 通路（t420）", () => {
+        // jsdom 下 fireEvent.keyDown(Enter/Space) 不触发原生 button click，不在此冒充键盘。
+        // 键盘可达由原生 <button type="button"> 语义承担（AC-003：无 span onClick 伪按钮）。
+        let clicks = 0;
+        const { container } = render(
+            <Button
+                variant="text"
+                onClick={() => {
+                    clicks += 1;
+                }}
+            >
+                动作
+            </Button>,
+        );
+        const btn = container.querySelector("button");
+        if (!btn) throw new Error("button missing");
+        expect(btn.tagName).toBe("BUTTON");
+        expect(btn.getAttribute("type")).toBe("button");
+        fireEvent.click(btn);
+        expect(clicks).toBe(1);
+        fireEvent.click(btn);
+        expect(clicks).toBe(2);
+    });
+
+    it("业务代码无 t420 手拼按钮配方与 span onClick 伪按钮（AC-001/003）", () => {
+        // 审计清单：ACTION_CLS / EmptyState primary a 复制 / AliasEditor secondary 复制 / 26px icon 串
+        const recipe =
+            /ACTION_CLS|hover:bg-\[color-mix\(in_srgb,var\(--color-accent\)_10%|bg-\[var\(--color-field-bg\)\] px-2\.5 py-1\.5 text-\[12px\]|flex h-\[26px\] w-\[26px\] items-center justify-center rounded-md text-\[length:var\(--text-body-md\)\]/;
+        const span_onclick = /<span[\s\S]{0,200}onClick=/;
+        const roots = [
+            "src/renderer/components",
+            "src/renderer/views",
+        ];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const recipe_hits: string[] = [];
+        const span_hits: string[] = [];
+        for (const f of files) {
+            // ui/Button 自身定义允许含 token 字面量
+            if (f.replace(/\\/g, "/").endsWith("components/ui/Button.tsx")) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                if (recipe.test(line)) recipe_hits.push(`${f}: ${line.trim().slice(0, 120)}`);
+            }
+            if (span_onclick.test(content)) {
+                // 仅标记带 onClick 的 span（伪按钮）；允许纯展示 span
+                const re = /<span\b[^>]*\bonClick=/g;
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(content)) !== null) {
+                    span_hits.push(`${f}: ${m[0].slice(0, 80)}`);
+                }
+            }
+        }
+        expect(recipe_hits).toEqual([]);
+        expect(span_hits).toEqual([]);
+    });
+
     it("Card raised 切换背景 token 类", () => {
         const { container, rerender } = render(<Card>c</Card>);
         expect(container.querySelector("div")?.className).toContain(

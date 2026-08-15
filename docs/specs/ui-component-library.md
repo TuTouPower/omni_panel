@@ -7,7 +7,7 @@
     - **Switch**：轨道 38×22 pill（`switch-track`），开态 success 绿、关态 `surface-raised`；圆钮 18px `surface-window`，关态留白 2px 起步，开态对称到右缘。
     - **Badge count**：`badge-count` 12% 浅底（`primary-container`）+ primary 字 + full 圆角；label 形态保持 `badge-tag` 灰底 + 分类色点。
     - **Progress**：细线 `progress-track` 6px、胶囊 `progress-capsule` 22px，共用风险阶梯填充色。
-    - **Button**：标准档字重 600（DESIGN 按钮节正文权威，独立于 body-md 通用 450）；变体配色取 `button-*` token。
+    - **Button**：标准档字重 600（DESIGN 按钮节正文权威，独立于 body-md 通用 450）；变体配色取 `button-*` token。variant 全集：`primary` / `secondary` / `danger` / `ghost` / `icon` / `text`（t420：`text` = accent 行内文字动作钮）。size 全集：`standard` / `sm` / `inline`（行内无固定高）/ `icon`（32）/ `icon-md`（28）/ `icon-sm`（26）/ `icon-xs`（22）。`as="a"` 渲染原生 `<a>`（透传 href/target/rel，附 `no-underline`），web 中键/Ctrl+Click 新开标签页走此路径；业务侧禁止第三处复制同配方 class 串，手拼按钮收进本组件。
     - **Menu**：菜单项 hover `menu-item-hover` primary 底 + on-primary 字；danger 项 hover error 底 + on-primary 字。
     - **Dialog**：卡片入场 `@keyframes dialogIn`（160ms 上浮淡入，`animate-[dialogIn_160ms_var(--motion-easing)]`），`motion-reduce:animate-none`。
 - 自定义字号类须用显式 `text-[length:var(--text-*)]`（d032 机制），避免 tailwind-merge 吞颜色类。

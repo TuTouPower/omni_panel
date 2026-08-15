@@ -52,16 +52,17 @@ export function SessionPreview({
                             {relative_date(preview.ended_at)}
                         </span>
                     </div>
-                    <button
-                        type="button"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-lg text-[var(--color-on-surface-muted)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                    <Button
+                        variant="icon"
+                        size="icon-md"
+                        className="shrink-0 text-lg text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface)] focus-visible:ring-[var(--color-accent-ring)]"
                         aria-label="关闭预览"
                         onClick={() => {
                             on_close();
                         }}
                     >
                         ×
-                    </button>
+                    </Button>
                 </div>
                 <div className="shrink-0 truncate border-b border-[var(--color-hairline)] px-4 py-2 font-code-md text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                     {preview.directory ?? "—"}

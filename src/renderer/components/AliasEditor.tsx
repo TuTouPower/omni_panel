@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { SetGroupLabel } from "./settings/SetRow";
+import { Button } from "./ui/Button";
 
 export interface AliasEntry {
     alias: string;
@@ -72,24 +73,26 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
                             set_values(i, e.target.value);
                         }}
                     />
-                    <button
-                        type="button"
-                        className="shrink-0 cursor-pointer rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 px-2.5 py-1.5 text-[12px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
                         onClick={() => {
                             remove(i);
                         }}
                     >
                         删除
-                    </button>
+                    </Button>
                 </div>
             ))}
-            <button
-                type="button"
-                className="self-start cursor-pointer rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
+            <Button
+                variant="secondary"
+                size="sm"
+                className="self-start px-2.5 py-1.5 text-[12px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
                 onClick={add}
             >
                 添加
-            </button>
+            </Button>
         </div>
     );
 }

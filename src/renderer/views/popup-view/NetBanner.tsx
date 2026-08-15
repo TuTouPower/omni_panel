@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { Button } from "../../components/ui/Button";
 
 interface NetBannerProps {
     is_live: boolean;
@@ -11,12 +12,13 @@ export function NetBanner(props: NetBannerProps) {
         <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]">
             <Icon name="cloud_off" size={18} />
             <span>网络连接异常，部分数据可能不是最新</span>
-            <span
-                className="ml-auto cursor-pointer text-[var(--color-on-surface)] underline"
+            <Button
+                variant="text"
+                className="ml-auto p-0 font-normal text-[var(--color-on-surface)] underline hover:bg-transparent"
                 onClick={is_live ? onRefreshAll : undefined}
             >
                 重新连接
-            </span>
+            </Button>
         </div>
     );
 }

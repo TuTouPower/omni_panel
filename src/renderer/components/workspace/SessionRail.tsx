@@ -9,6 +9,7 @@ import {
     type SlotsState,
 } from "../../lib/workspace/slots";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
 
 interface SessionRailProps {
     readonly slots: SlotsState;
@@ -150,16 +151,17 @@ export function SessionRail({
                                 </div>
                             )}
                             {!collapsed && (
-                                <button
-                                    type="button"
-                                    className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                <Button
+                                    variant="icon"
+                                    size="icon-xs"
+                                    className="shrink-0 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] opacity-0 hover:bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-[var(--color-accent-ring)]"
                                     aria-label="关闭会话"
                                     onClick={() => {
                                         on_close(index);
                                     }}
                                 >
                                     ×
-                                </button>
+                                </Button>
                             )}
                         </div>
                     ),

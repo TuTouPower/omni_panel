@@ -128,16 +128,17 @@ export function SelectionTray() {
                                             <span className="shrink-0 tabular-nums text-[var(--color-on-surface-muted)]">
                                                 {String(estimate_tokens(item.message.text))}
                                             </span>
-                                            <button
-                                                type="button"
-                                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[length:var(--text-body-sm)] leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                            <Button
+                                                variant="icon"
+                                                size="icon-xs"
+                                                className="h-4 w-4 shrink-0 rounded text-[length:var(--text-body-sm)] leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:ring-[var(--color-accent-ring)]"
                                                 aria-label={`移除片段 ${item.key}`}
                                                 onClick={() => {
                                                     selection_store.toggle(item);
                                                 }}
                                             >
                                                 ×
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>

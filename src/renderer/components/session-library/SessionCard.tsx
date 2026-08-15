@@ -107,15 +107,15 @@ export const SessionCard = memo(function SessionCard({
                                 {` · ${format_tokens(session_tokens(s))} tokens`}
                             </span>
                             <span className="shrink-0"> · </span>
-                            <button
-                                type="button"
-                                className="min-w-0 cursor-pointer truncate rounded border-0 bg-transparent p-0 text-left hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                            <Button
+                                variant="text"
+                                className="min-w-0 truncate p-0 text-left text-[length:var(--text-label-md)] font-normal text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                                 data-testid="library-card-session-id"
                                 title={session_command ?? undefined}
                                 onClick={copy_session_command}
                             >
                                 {s.id}
-                            </button>
+                            </Button>
                         </div>
                         <div
                             className="min-w-0 truncate text-[11px] font-semibold text-[var(--color-on-surface)]"

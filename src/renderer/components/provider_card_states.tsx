@@ -2,6 +2,7 @@ import { Icon } from "./Icon";
 import type { ProviderError } from "./ProviderOverview";
 import { is_auth_error } from "../../shared/lib/auth-error";
 import { cn } from "../lib/utils";
+import { Button } from "./ui/Button";
 
 export { is_auth_error };
 
@@ -22,10 +23,6 @@ interface ProviderCardStateProps {
 
 const STATE_BASE =
     "mt-[11px] flex items-center gap-[9px] text-[13px] text-[var(--color-on-surface-variant)]";
-
-const ACTION_CLS =
-    "ml-auto cursor-pointer rounded-lg px-2.5 py-1 text-[12.5px] font-semibold " +
-    "text-[var(--color-accent)] hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]";
 
 export function ProviderCardState({
     provider,
@@ -50,8 +47,9 @@ export function ProviderCardState({
                         <Icon name="lock" size={15} />
                     </span>
                     <span>{auth_label}</span>
-                    <span
-                        className={ACTION_CLS}
+                    <Button
+                        variant="text"
+                        className="ml-auto rounded-lg"
                         data-testid="cs-action"
                         onClick={() => {
                             if (onReLogin) {
@@ -64,7 +62,7 @@ export function ProviderCardState({
                         }}
                     >
                         重新登录
-                    </span>
+                    </Button>
                 </div>
             );
         }
@@ -79,8 +77,9 @@ export function ProviderCardState({
                 </span>
                 <span>{connectorError.error}</span>
                 {onRefresh && (
-                    <span
-                        className={ACTION_CLS}
+                    <Button
+                        variant="text"
+                        className="ml-auto rounded-lg"
                         data-testid="cs-action"
                         onClick={(e) => {
                             e.stopPropagation();
@@ -88,7 +87,7 @@ export function ProviderCardState({
                         }}
                     >
                         重试
-                    </span>
+                    </Button>
                 )}
             </div>
         );
@@ -132,8 +131,9 @@ export function ProviderCardErrorBanner({
             </span>
             <span>采集失败：{connectorError.error}</span>
             {onRefresh && (
-                <span
-                    className={ACTION_CLS}
+                <Button
+                    variant="text"
+                    className="ml-auto rounded-lg"
                     data-testid="cs-action"
                     onClick={(e) => {
                         e.stopPropagation();
@@ -141,7 +141,7 @@ export function ProviderCardErrorBanner({
                     }}
                 >
                     重试
-                </span>
+                </Button>
             )}
         </div>
     );
