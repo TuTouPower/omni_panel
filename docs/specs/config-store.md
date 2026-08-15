@@ -6,7 +6,7 @@
 
 ### AppConfiguration（`src/shared/types/config.ts` + `appConfigurationSchema`，Zod）
 
-`schemaVersion`、`language`（zh-Hans|en）、`plugins: ConnectorConfiguration[]`、`launchAtLogin`，及可选：`proxy{url,noProxy?}`、`accentColor`、`theme`、`logLevel`、`pinToTop`、`minimizeToTray`、`globalRefreshIntervalSeconds`、`pauseAutoRefresh`、`providerOrder`、`accountOrders`、`cacheMaxMb`、`mainPanelMode`（`system|popup|floating`，见 `window-management.md`）、`floatingHeightMode`、`usageBarColorScheme`、`usageBarStyle`、`providerLabelMaps`、`accountLabelMaps`、`labelMapSync`、`uiDesensitizeRemarks`、`providerForcePercent`、`settingsBounds`、`floatingBounds`、`collapsedAccounts`、`expandedProviders`、`convergentTimeMinutes`、`accountLabels`、`dirAliases`、`modelAliases`、`sparklineWindowDays`（t222，账号展开区 sparkline 窗口偏好 1/7/30 天，全局共享，缺省 7）。
+`schemaVersion`、`language`（zh-Hans|en）、`plugins: ConnectorConfiguration[]`、`launchAtLogin`，及可选：`proxy{url,noProxy?}`、`accentColor`、`theme`、`logLevel`、`pinToTop`、`minimizeToTray`、`globalRefreshIntervalSeconds`、`pauseAutoRefresh`、`providerOrder`、`accountOrders`、`cacheMaxMb`、`mainPanelMode`（`system|popup|floating`，见 `window-management.md`）、`floatingHeightMode`、`usageBarColorScheme`、`usageBarStyle`、`providerLabelMaps`、`accountLabelMaps`、`labelMapSync`、`uiDesensitizeRemarks`、`providerForcePercent`、`settingsBounds`、`floatingBounds`、`collapsedAccounts`、`expandedProviders`、`convergentTimeMinutes`、`accountLabels`、`dirAliases`、`modelAliases`、`sparklineWindowDays`（t222，账号展开区 sparkline 窗口偏好 1/7/30 天，全局共享，缺省 7）、`resumeCommandTemplates`（t401，source → 续接命令模板，含 `{session_id}`；见 `resume_command_template.md`）。
 
 - `uiDesensitizeRemarks`：为 true 时用量面板与设置账号列表隐藏备注/displayName。
 - `providerForcePercent`：`Partial<Record<string, boolean>>`，厂商级强制用量数字显示为百分比。

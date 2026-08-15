@@ -102,6 +102,11 @@ export interface AppConfiguration {
     readonly upcomingResetThresholdPercent?: number | null;
     /** t222: sparkline 窗口偏好（1/7/30 天，全局共享）。缺省 7 天。 */
     readonly sparklineWindowDays?: number;
+    /**
+     * t401: source → 续接命令模板（含 `{session_id}` 占位符）。
+     * 缺省/空串 = 使用 `resume_command` 内置默认。UI 接线见 t402，调用点见 t403。
+     */
+    readonly resumeCommandTemplates?: Readonly<Partial<Record<string, string>>>;
 }
 
 export interface ConnectorConfiguration {
