@@ -143,16 +143,14 @@ describe("SessionRail t257 展示调整", () => {
         }
     });
 
-    it("t381 AC-001：侧边栏用混色背景，不含桌面衬底色 surface", () => {
+    it("t406 AC-002：侧边栏背景 surface-window，无 color-mix", () => {
         const { container } = render(<SessionRail {...base} />);
         const rail = container.querySelector(".session-rail");
         const cls = rail?.className ?? "";
-        expect(cls).toContain("color-mix");
-        expect(cls).toContain("var(--color-surface-window)");
+        expect(cls).toContain("bg-[var(--color-surface-window)]");
+        expect(cls).not.toContain("color-mix");
         expect(cls).not.toContain("bg-[var(--color-surface)]");
-        // t397 AC-004: 混色比例锁定——改 70%/8% 测试失败（原断言只验 color-mix 存在）。
-        expect(cls).toContain("_70%");
-        expect(cls).toContain("_8%");
+        expect(cls).not.toContain("bg-[var(--color-surface-raised)]");
     });
 
     it("t381 AC-002：非空槽位卡片用 surface-card，不含 surface-window", () => {

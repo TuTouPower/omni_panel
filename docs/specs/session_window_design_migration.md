@@ -23,6 +23,7 @@
 - 会话窗口独立样式文件、旧色板变量、旧字体栈和旧 token 桥接不保留引用。
 - 组件代码不增加窗口专属 `dark:` 分支；明暗值由全局语义 token 提供。
 - agent 识别色在明暗主题下均从统一 token 读取，未知来源回退到 primary 语义色。
+- 背景两级（t406）：壳/侧栏/主区 `surface-window`；会话 pane 与会话库卡/行 `surface-card`；`surface-raised` 仅 hover/分段/徽章等交互态。详见 [`surface_token_unify.md`](surface_token_unify.md)。
 
 ## 验证
 

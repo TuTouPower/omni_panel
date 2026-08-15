@@ -231,10 +231,12 @@ describe("SessionPane (t225)", () => {
         expect((container as HTMLElement).scrollTop).toBe(0);
     });
 
-    it("t315 AC2：卡片背景为第二色 surface-raised（与根 surface-window 两色可辨）", () => {
+    it("t406 AC-001：卡片背景为 surface-card（非 surface-raised 整面）", () => {
         render(<SessionPane {...PROPS} />);
         const pane = document.querySelector(".conversation-pane");
-        expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(pane?.className).toContain("bg-[var(--color-surface-card)]");
+        // 排除 hover:bg-...raised 误匹配：整面底色不得是 raised。
+        expect(pane?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
         expect(pane?.className).not.toContain("bg-[var(--color-surface-window)]");
     });
 });

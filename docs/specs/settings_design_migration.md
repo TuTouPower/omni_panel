@@ -21,6 +21,7 @@
 - 设置窗口专属手写控件 CSS 类及其残留引用全部删除；仍被使用的结构布局规则可以保留。
 - 颜色、背景、边框、焦点环和状态样式通过语义 token 表达；组件代码不增加 `dark:` 分支。
 - 明暗主题由全局语义 token 提供值，设置分区和共享控件不直接写主题分支。
+- 侧栏与窗口外壳同底 `surface-window`（t406）；禁止面板级 `color-mix(window, surface)` 混色底。详见 [`surface_token_unify.md`](surface_token_unify.md)。
 
 ## 验证
 

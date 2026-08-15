@@ -30,7 +30,7 @@ export const SessionRow = memo(function SessionRow({
     return (
         <div
             className={cn(
-                "library-row flex min-w-0 items-center gap-2.5 rounded-lg bg-[var(--color-surface-raised)] px-2.5 py-2 transition-colors hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))]",
+                "library-row flex min-w-0 items-center gap-2.5 rounded-lg bg-[var(--color-surface-card)] px-2.5 py-2 transition-colors hover:bg-[var(--color-surface-raised)]",
                 selected && "bg-[var(--color-primary-container)]",
             )}
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}

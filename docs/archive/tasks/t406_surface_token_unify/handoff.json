@@ -1,0 +1,43 @@
+{
+  "tid": "t406",
+  "attempt": 1,
+  "execution_id": "27498a643fd840ba8de25b2b881c6364",
+  "status": "done",
+  "branch": "t406_surface_token_unify",
+  "base_sha": "e65b6ae7bc0c567fd047578a4d41602591a8d45f",
+  "tests": "pnpm test：3273 passed | 9 skipped；pnpm typecheck 通过",
+  "blackbox": "pnpm test 主门禁通过；MOCK_FIXTURE=synthetic pnpm test:e2e:web 90 passed / 2 failed（p188/p189 存量，与 surface 无关）；t406 surface e2e 通过；AC-003 grep 面板级 color-mix 零残留",
+  "review": "第 2 轮 general PASS（Round 1 零 finding；Round 2 收尾文档后 scope 重审 PASS）",
+  "ac_evidence": {
+    "AC-001": [
+      "SessionPane.tsx conversation-pane → bg surface-card",
+      "tests/unit/renderer/components/workspace/SessionPane.test.tsx t406 AC-001 通过",
+      "tests/e2e/web/session_panel.spec.ts t406 computed pane_bg===card_bg 且异于 shell 通过"
+    ],
+    "AC-002": [
+      "SessionRail.tsx 容器 bg surface-window、无 color-mix",
+      "SessionShell rail-toggle 行/按钮 surface-window",
+      "SessionRail.test / SessionShell.test t406 断言通过"
+    ],
+    "AC-003": [
+      "SettingsView sidebar color-mix→surface-window",
+      "SessionCard 去 raised；SessionRow surface-card",
+      "grep color-mix(window 70%, surface 8%) 零残留；审计清单写入 spec 上下文"
+    ],
+    "AC-004": [
+      "SessionRail slot hover:surface-raised 保留",
+      "SessionShell toggle hover:raised 保留",
+      "SessionRow hover:raised；settings nav hover:raised；Segmented/Switch 等 raised 保留"
+    ],
+    "AC-005": [
+      "[deploy] 暗色会话/设置/用量人工目检：窗口与侧栏同底、卡片仅略亮一档"
+    ],
+    "AC-006": [
+      "pnpm test 3273 passed",
+      "pnpm typecheck 通过",
+      "t406 surface e2e 通过；全量 e2e 2 条存量失败登记 p188/p189"
+    ]
+  },
+  "pending": ["p188", "p189"],
+  "findings": ["d040"]
+}

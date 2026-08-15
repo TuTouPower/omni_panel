@@ -105,3 +105,19 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 ### Finalization 时更新的 blueprint
 
 - `docs/blueprint/decisions.md`：记录「面板背景两级（window/card），raised 仅交互态」为长期约束（若已有等价条目则不重复）。
+
+### AC-003 审计清单（t406 实施）
+
+| 路径 | 原状态 | 处置 |
+|---|---|---|
+| `SessionPane` conversation-pane | `surface-raised` 整面 | → `surface-card` |
+| `SessionRail` 容器 | color-mix window70/surface8 | → `surface-window` |
+| `SessionShell` rail-toggle 行/按钮 | 同上 color-mix | → `surface-window`（hover raised） |
+| `SettingsView` settings-sidebar | 同上 color-mix | → `surface-window` |
+| `SessionCard` | `Card raised` | 去 raised → 默认 card |
+| `SessionRow` | `surface-raised` 整面 | → `surface-card` + hover raised |
+| PopupView / TokenStatsView 外壳 | 已是 surface-window | 无改 |
+| toast/dock 半透明 color-mix | window 浮层 | 保留（非面板整面） |
+| Segmented/Switch/Progress/chip/hover | surface-raised | 保留（AC-004） |
+
+面板级 `color-mix(window 70%, surface 8%)` 残留：零。

@@ -42,9 +42,10 @@
 |platform-services-electron|Desktop|拆自 platform-services（t037）|2026-07-21|
 |scheduler|API|迁移自 omni_powers，t039，t155|2026-07-27|
 |secret-vault|API|迁移自 omni_powers，t045，t195，t296|2026-08-11|
-|settings_design_migration|Web+Desktop|设置窗口统一设计系统、组件与语义状态|2026-08-09|
+|settings_design_migration|Web+Desktop|设置窗口统一设计系统、组件与语义状态，t406|2026-08-16|
 |agent_window_design_migration|Web+Desktop|Agent 统计窗口统一设计系统、组件与语义 token|2026-08-09|
-|session_window_design_migration|Web+Desktop|会话历史窗口统一设计系统、组件与语义 token|2026-08-09|
+|session_window_design_migration|Web+Desktop|会话历史窗口统一设计系统、组件与语义 token，t406|2026-08-16|
+|surface_token_unify|Web+Desktop|t406 全窗口背景两级（window/card），raised 仅交互态|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|
 |ui-component-library|Desktop|t269，t301，t303|2026-08-11|
