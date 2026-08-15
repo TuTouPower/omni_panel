@@ -167,8 +167,10 @@ describe("connector-runtime", () => {
 
         // 冷却过期后恢复——新执行正常受理。冷却窗 100ms；并行全目录下 CPU 饥饿
         // 可使相邻 await 间同步段抢占超窗，等待 500ms 放宽边距防 flake（f004）。
+        // 恢复执行仅验证受理，timeout 只作防挂死保护：`return [];` 立即完成，放大
+        // 预算到 1000ms 避免 vm 同步段在 CPU 饥饿下误判超时。
         await new Promise((resolve) => setTimeout(resolve, 500));
-        const third = await run_connector(manifest, `return [];`, stub_ctx, 50);
+        const third = await run_connector(manifest, `return [];`, stub_ctx, 1000);
         expect(third.error).toBeNull();
     });
 
