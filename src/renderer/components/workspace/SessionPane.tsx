@@ -248,7 +248,7 @@ export function SessionPane({
                     </div>
                 ) : (
                     <div
-                        className="conversation-message-scroll min-w-0 flex-1 overflow-y-auto px-3 py-2"
+                        className="conversation-message-scroll scrollbar-token min-w-0 flex-1 overflow-y-auto px-3 py-2"
                         ref={set_scroll_el}
                         onScroll={handle_scroll}
                     >
@@ -321,7 +321,7 @@ export function SessionPane({
                         <div className="conversation-outline-head shrink-0 border-b border-[var(--color-outline)] px-3.5 py-2.5 text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                             大纲
                         </div>
-                        <div className="conversation-outline-list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
+                        <div className="conversation-outline-list scrollbar-token flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
                             {outline_items.map((item) => (
                                 <button
                                     type="button"

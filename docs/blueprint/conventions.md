@@ -148,3 +148,9 @@ Vault 存储（per instance_id）：`OAUTH_TOKEN` / `OAUTH_REFRESH_TOKEN` / `OAU
 Endpoint 安全：Grok billing bearer 请求固定使用 manifest 中 `grok_billing` endpoint；实例 `endpointOverrides.grok_billing` 在进入 NetClient 前删除，避免 token 发往自定义主机。
 
 OAuth 常量（公开，非 secret）：`GROK_CLIENT_ID`、`GROK_DEVICE_AUTH_URL`、`GROK_TOKEN_URL`、`GROK_SCOPE` 定义在 `grok_oauth_manager.ts`，来自 xAI OIDC discovery 文档与 grok CLI Rust 源码。
+
+### 滚动条 token（t412）
+
+- thumb 色：`DESIGN.md` `colors.scrollbar-thumb` / `scrollbar-thumb-hover`（及 `-dark`），导出 `--color-scrollbar-*`。
+- 会话容器挂 `@utility scrollbar-token`（`globals.css`）；禁止组件内滚动条色字面量。
+- 设置/CPA 的 `scrollbar-color` 引用同一 token；全应用 webkit 结构统一另开 task。

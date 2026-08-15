@@ -266,7 +266,7 @@ export function CpaConnectorSettings({
             onSubmit={handle_submit}
         >
             {/* left column: config */}
-            <div className="w-1/2 shrink-0 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] pb-4 pr-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
+            <div className="w-1/2 shrink-0 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] pb-4 pr-[22px] [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar-thumb)_transparent]">
                 <div
                     className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
                     data-testid="cfg-row"
@@ -459,7 +459,7 @@ export function CpaConnectorSettings({
             </div>
 
             {/* right column: sync scope */}
-            <div className="min-w-0 flex-1 overflow-y-auto pb-4 pl-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
+            <div className="min-w-0 flex-1 overflow-y-auto pb-4 pl-[22px] [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar-thumb)_transparent]">
                 <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] first:mt-0 [&:not(:first-child)]:mt-[22px]">
                     同步范围
                 </div>
