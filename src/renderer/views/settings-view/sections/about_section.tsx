@@ -67,56 +67,56 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             icon: "refresh",
                             label: "检查更新",
                             sub: "当前已是最新",
-                            tint: "#3d7afd",
+                            tint: "var(--color-accent-blue)",
                         },
                         {
                             id: "site",
                             icon: "globe",
                             label: "官网",
                             sub: "omnipanel.app",
-                            tint: "#3d7afd",
+                            tint: "var(--color-accent-blue)",
                         },
                         {
                             id: "docs",
                             icon: "book",
                             label: "文档与帮助",
                             sub: "使用指南、常见问题",
-                            tint: "#6f5cf6",
+                            tint: "var(--color-accent-purple)",
                         },
                         {
                             id: "contact",
                             icon: "feedback",
                             label: "反馈与联系",
                             sub: "提交建议、报告问题",
-                            tint: "#0ea5a3",
+                            tint: "var(--color-accent-teal)",
                         },
                         {
                             id: "donate",
                             icon: "heart",
                             label: "支持作者",
                             sub: "请作者喝杯咖啡",
-                            tint: "#e23744",
+                            tint: "var(--color-accent-red)",
                         },
                         {
                             id: "privacy",
                             icon: "shield",
                             label: "隐私政策",
                             sub: "我们如何处理数据",
-                            tint: "#6f5cf6",
+                            tint: "var(--color-accent-purple)",
                         },
                         {
                             id: "terms",
                             icon: "file",
                             label: "服务条款",
                             sub: "使用本软件的约定",
-                            tint: "#3d7afd",
+                            tint: "var(--color-accent-blue)",
                         },
                         {
                             id: "oss",
                             icon: "code",
                             label: "开源许可",
                             sub: "第三方组件与协议",
-                            tint: "#0ea5a3",
+                            tint: "var(--color-accent-teal)",
                         },
                     ] as const
                 ).map((c) => {
@@ -148,7 +148,9 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                                     name={c.icon}
                                     size={23}
                                     strokeWidth={1.7}
-                                    color={c.id === "update" ? "#fff" : c.tint}
+                                    color={
+                                        c.id === "update" ? "var(--color-on-primary)" : c.tint
+                                    }
                                 />
                             </span>
                             <span className="text-[length:var(--text-title-sm)] font-semibold">
