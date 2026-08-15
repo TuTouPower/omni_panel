@@ -176,4 +176,34 @@ describe("echarts token resolver", () => {
         expect(spy.mock.calls.length).toBeGreaterThan(0);
         spy.mockRestore();
     });
+
+    it("不同 root 不命中同一缓存条目（t396 AC-004）", () => {
+        reset_chart_palette_cache();
+        const rootA = document.createElement("html");
+        rootA.setAttribute("class", "root-a");
+        const rootB = document.createElement("html");
+        rootB.setAttribute("class", "root-b");
+        const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(
+            () =>
+                ({
+                    getPropertyValue: (name: string) => active_css_tokens[name] ?? "",
+                }) as CSSStyleDeclaration,
+        );
+
+        // rootA 首次 resolve 构建 palette（~30 次 getComputedStyle）。
+        resolve_chart_palette("dark", rootA);
+        const rootA_count = spy.mock.calls.length;
+        expect(rootA_count).toBeGreaterThan(0);
+
+        // 不同 root（class 不同 → key 含 root 签名不同）→ 不命中缓存，重建。
+        spy.mockClear();
+        resolve_chart_palette("dark", rootB);
+        expect(spy.mock.calls.length).toBeGreaterThan(0);
+
+        // 同一 root 再次 resolve → 命中缓存，不重建。
+        spy.mockClear();
+        resolve_chart_palette("dark", rootA);
+        expect(spy.mock.calls.length).toBe(0);
+        spy.mockRestore();
+    });
 });

@@ -307,13 +307,16 @@ export function color_with_alpha(color: string, alpha: number): string {
     return alpha_color(color, Math.max(0, Math.min(1, alpha)));
 }
 
-// t350: 模块级 palette 缓存，key = `${theme}:${revision}`。同一 (theme, revision)
-// 下 palette 只构建一次，agent_color/top_category_color/palette_for 复用，
-// 避免渲染路径逐行/逐 segment 反复重建（每次 ~30 次 resolved_token）。
+// t350 + t396: 模块级 palette 缓存，key = `${theme}:${revision}:${root 签名}`
+// （t396 AC-004 key 纳入 root，见 palette_cache_key）。同一 key 下 palette 只
+// 构建一次，agent_color/top_category_color/palette_for 复用，避免渲染路径逐行/
+// 逐 segment 反复重建（每次 ~30 次 resolved_token）。
 const palette_cache = new Map<string, ChartPalette>();
 
-function palette_cache_key(theme: ChartTheme): string {
-    return `${theme}:${String(palette_revision)}`;
+function palette_cache_key(theme: ChartTheme, root: HTMLElement | null): string {
+    // t396 AC-004: key 纳入 root 签名——root 影响 CSS 变量读取，不同 root 不得
+    // 命中同一缓存条目（此前 root 仅首次构建生效，后续调用复用首次 palette）。
+    return `${theme}:${String(palette_revision)}:${root ? root_signature(root) : "default"}`;
 }
 
 /** 清空 palette 缓存（主题切换由 notify_chart_palette_change 自动清；测试用）。 */
@@ -325,7 +328,7 @@ export function resolve_chart_palette(
     theme: ChartTheme,
     root: HTMLElement | null = current_root(),
 ): ChartPalette {
-    const key = palette_cache_key(theme);
+    const key = palette_cache_key(theme, root);
     const cached = palette_cache.get(key);
     if (cached) {
         return cached;

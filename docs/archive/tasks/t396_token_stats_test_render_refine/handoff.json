@@ -1,0 +1,37 @@
+{
+    "tid": "t396",
+    "attempt": 1,
+    "execution_id": "8c88211530924482bfed797570430bf0",
+    "status": "done",
+    "branch": "t396_token_stats_test_render_refine",
+    "base_sha": "c2ffe16cf151b7030359bc71bfd57cb95db0631b",
+    "tests": "vitest 全量 unit + integration：265 files 3192 passed（0 failed）；manager 21 passed（含 AC-001 末批 rebuild、AC-002 is_tripped）；build-config 3 passed（AC-005）；palette 7 passed（含 AC-004 root 隔离）；chart-data 既有用例保持绿（AC-003 输出不变）；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: manager 测试补末批 rebuild_buckets=true 断言——5000 sessions→3 批，calls[0]/[1] rebuild=false、calls[2] rebuild=true。AC-002: manager 加 is_tripped()（熔断跳闸置 true，start/stop 复位），A14/t347-AC-003 测试断言 stopped vs tripped 区分；t347 AC-003 测试改 try/finally 隔离 fake timers（原无）。AC-003: prepareBarDataFromRollup 两处轴查找改预构建 Map（dir→index、session key→index，对齐 prepareBarData），既有 chart-data 用例全绿输出不变。AC-004: palette_cache_key 纳入 root 签名（root_signature），不同 root 不命中同一缓存条目；测试用 getComputedStyle spy 计数验证 rootB 重建、rootA 复用。AC-005: build_token_stats_config 从 index.ts 抽导出至 core/token-stats/build-config.ts，单测覆盖 wsl/poll 默认值 + 持久化值分支（3 用例）",
+    "review": "single 级 general：Round 1 PASS（1 条 minor f001：palette 模块缓存注释仍写 key=theme:revision，与 AC-004 key 含 root 不符；已修注释并 amend）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "manager.test.ts::仅末批触发 buckets 重建（t396 AC-001）——5000 sessions 分 3 批，upsert_sessions 第 3 次调用 rebuild_buckets=true、前 2 次 false",
+            "src/main/core/token-stats/manager.ts::apply_batches is_last = offset + UPDATE_BATCH_SIZE >= total，仅末批传 is_last"
+        ],
+        "AC-002": [
+            "src/main/core/token-stats/manager.ts::TokenStatsManager 加 is_tripped(): boolean；tripped 熔断跳闸置 true、start/stop 复位 false",
+            "manager.test.ts::A14 熔断后 is_tripped()===true，stop 后===false；t347 AC-003 熔断后===true、update_config 恢复后===false",
+            "manager.test.ts::t347 AC-003 测试从裸 vi.useFakeTimers 改 try/finally（原无 finally 隔离）"
+        ],
+        "AC-003": [
+            "src/renderer/lib/token-stats/chart-data.ts::prepareBarDataFromRollup project 轴 dirs.indexOf 改 dir_idx Map；session 轴 ranked.findIndex 改 session_idx Map（对齐 prepareBarData t349）",
+            "chart-data.test.ts 既有 rollup 用例保持绿——输出不变"
+        ],
+        "AC-004": [
+            "src/renderer/lib/echarts_token_resolver.ts::palette_cache_key(theme, root) 纳入 root_signature(root)；不同 root 不同 key",
+            "palette.test.ts::t396 AC-004——rootA 构建后 rootB（class 不同）resolve 重建（getComputedStyle 有新调用）、rootA 再 resolve 命中缓存（无调用）；旧实现（key 无 root）rootB 命中 rootA 缓存不重建断言必挂"
+        ],
+        "AC-005": [
+            "src/main/core/token-stats/build-config.ts::build_token_stats_config 抽导出（原 index.ts:434 内联闭包），wsl/poll 默认 + 持久化值分支",
+            "src/main/index.ts::调用点改 import build_token_stats_config；删内联闭包与 unused import（TokenStatsConfig、getTokenStatsStatePath）",
+            "build-config.test.ts 3 用例：空 tokenStats 默认值、持久化值覆盖、部分字段缺省独立性"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
