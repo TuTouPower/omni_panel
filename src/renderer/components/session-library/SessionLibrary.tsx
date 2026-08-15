@@ -6,11 +6,13 @@ import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
+import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Input } from "../ui/Input";
 import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
+import { Toast } from "../ui/Toast";
 import { format_tokens, key_of } from "./session-library-utils";
 
 interface SessionLibraryProps {
@@ -546,24 +548,21 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 </div>
             )}
             {content_search_error && (
-                <div className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <Alert tone="error" className="mx-[18px] mb-2.5">
                     消息内容搜索失败
-                </div>
+                </Alert>
             )}
 
             {load_error && visible_sessions.length > 0 && (
-                <div className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <Alert tone="error" className="mx-[18px] mb-2.5">
                     会话列表加载中断，已显示部分数据
-                </div>
+                </Alert>
             )}
 
             {content_truncated && (
-                <div
-                    className="mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]"
-                    data-testid="search-truncated-hint"
-                >
+                <Alert tone="warning" className="mx-[18px] mb-2.5" data-testid="search-truncated-hint">
                     结果已截断，仅显示部分匹配项
-                </div>
+                </Alert>
             )}
 
             {visible_sessions.length === 0 ? (
@@ -624,11 +623,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     on_switch_workspace();
                 }}
             />
-            {toast !== null && (
-                <div className="fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu">
-                    {toast}
-                </div>
-            )}
+            {toast !== null && <Toast>{toast}</Toast>}
         </div>
     );
 }

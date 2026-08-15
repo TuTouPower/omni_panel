@@ -1,6 +1,7 @@
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { DragGrip } from "./DragGrip";
+import { Badge } from "./ui/Badge";
 import { UpcomingResetRow } from "./UpcomingResetRow";
 
 export const UPCOMING_RESET_CARD_ID = "__upcoming_reset__";
@@ -38,9 +39,9 @@ export function UpcomingResetCard({
             >
                 即将重置
             </span>
-            <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold leading-normal text-[var(--color-accent)]">
+            <Badge variant="accent">
                 {items.length} 项
-            </span>
+            </Badge>
         </>
     );
     const drag_root_props = onDragStart

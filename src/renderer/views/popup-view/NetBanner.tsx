@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 
 interface NetBannerProps {
@@ -9,7 +10,7 @@ interface NetBannerProps {
 export function NetBanner(props: NetBannerProps) {
     const { is_live, onRefreshAll } = props;
     return (
-        <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]">
+        <Alert tone="warning" className="flex items-center gap-2">
             <Icon name="cloud_off" size={18} />
             <span>网络连接异常，部分数据可能不是最新</span>
             <Button
@@ -19,6 +20,6 @@ export function NetBanner(props: NetBannerProps) {
             >
                 重新连接
             </Button>
-        </div>
+        </Alert>
     );
 }

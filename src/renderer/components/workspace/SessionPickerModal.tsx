@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { agent_friendly, agent_slug, format_date } from "../../lib/session-history/markdown";
 import { format_tokens } from "../../lib/workspace/slots";
+import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Input } from "../ui/Input";
@@ -144,9 +145,9 @@ export function SessionPickerModal({
                                 >
                                     <span className="min-w-0 truncate">{s.title ?? s.id}</span>
                                     {open_session_ids.has(s.id) && (
-                                        <span className="shrink-0 rounded-full bg-[var(--color-primary-container)] px-1.5 py-px text-[length:var(--text-label-caps)] font-semibold text-[var(--color-primary)]">
+                                        <Badge variant="count" className="shrink-0 font-semibold">
                                             已打开
-                                        </span>
+                                        </Badge>
                                     )}
                                 </span>
                                 <span className="flex min-w-0 items-center gap-2.5 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">

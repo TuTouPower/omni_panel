@@ -10,6 +10,7 @@ import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/conf
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
+import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Segmented } from "./ui/Segmented";
 import { CollapsibleCard } from "./CollapsibleCard";
@@ -154,9 +155,7 @@ export const ProviderCard = memo(function ProviderCard({
                 {label}
             </span>
             {accountCount > 1 && expanded === false && (
-                <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold leading-normal text-[var(--color-accent)]">
-                    {String(accountCount)}账号
-                </span>
+                <Badge variant="accent">{String(accountCount)}账号</Badge>
             )}
             {accountCount > 1 && expanded !== false && (
                 <Segmented

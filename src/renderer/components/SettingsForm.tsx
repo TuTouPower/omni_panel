@@ -12,6 +12,7 @@ import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
 import { Icon } from "./Icon";
 import { Button } from "./ui/Button";
 import { Checkbox } from "./ui/Checkbox";
+import { CodeChip } from "./ui/CodeChip";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
 import { Switch } from "./ui/Switch";
@@ -637,9 +638,9 @@ export function SettingsForm({
                                     );
                                     return (
                                         <div className="flex items-center gap-2" key={r.raw}>
-                                            <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
+                                            <CodeChip className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                                                 {r.raw}
-                                            </code>
+                                            </CodeChip>
                                             <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                                 <Icon name="chevron" size={14} />
                                             </span>

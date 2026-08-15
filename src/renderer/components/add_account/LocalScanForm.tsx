@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "../Icon";
 import { Button } from "../ui/Button";
+import { CodeChip } from "../ui/CodeChip";
 import type { AddServiceId } from "../../lib/common-services";
 
 const AUTH_LOCAL_PATHS: Partial<Record<AddServiceId, string[]>> = {
@@ -37,12 +38,9 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
                     扫描位置
                 </span>
                 {paths.map((p) => (
-                    <code
-                        key={p}
-                        className="break-all rounded-md bg-[var(--color-surface-raised)] px-2.5 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
-                    >
+                    <CodeChip key={p} className="break-all px-2.5">
                         {p}
-                    </code>
+                    </CodeChip>
                 ))}
             </div>
 

@@ -17,6 +17,7 @@ import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { Icon } from "../components/Icon";
+import { Alert } from "../components/ui/Alert";
 import type { ConnectorInfo, ConnectorSnapshotDTO } from "../../shared/types/ipc";
 import type { AppConfiguration, AccountOverrides } from "../../shared/types/config";
 import type { MetricRecord, UsageProvider } from "../../shared/schemas/plugin-output";
@@ -405,10 +406,13 @@ export function SettingsView() {
             >
                 <PanelTitleBar panel="Settings" />
                 <div className="p-6">
-                    <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)] px-3.5 py-[11px] text-[13px] text-[var(--color-error)]">
+                    <Alert
+                        tone="error"
+                        className="flex items-center gap-2 px-3.5 py-[11px] text-[13px]"
+                    >
                         <Icon name="cloud_off" size={18} />
                         <span>{error}</span>
-                    </div>
+                    </Alert>
                 </div>
             </div>
         );
