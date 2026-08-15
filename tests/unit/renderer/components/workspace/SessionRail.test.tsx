@@ -1,8 +1,9 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { SessionRail } from "../../../../../src/renderer/components/workspace/SessionRail";
 import {
     empty_slots,
+    MAX_SLOTS,
     session_meta,
     try_assign_slot,
     type SlotsState,
@@ -39,6 +40,14 @@ function slots_with_sources(sources: readonly string[]): SlotsState {
     return slots;
 }
 
+const noop = (): void => undefined;
+
+function require_el(root: ParentNode, selector: string): HTMLElement {
+    const el = root.querySelector<HTMLElement>(selector);
+    if (!el) throw new Error(`元素未渲染: ${selector}`);
+    return el;
+}
+
 describe("SessionRail provider 徽标", () => {
     it("四个已知 source 与未知 source 都使用 VendorMark", () => {
         render(
@@ -51,9 +60,10 @@ describe("SessionRail provider 徽标", () => {
                     "unknown",
                 ])}
                 collapsed={false}
-                on_pick={() => undefined}
-                on_close={() => undefined}
-                on_move={() => undefined}
+                on_toggle_collapse={noop}
+                on_pick={noop}
+                on_close={noop}
+                on_move={noop}
             />,
         );
 
@@ -92,9 +102,10 @@ describe("SessionRail t257 展示调整", () => {
     const base = {
         slots: slots_with_sources(["claude_code", "kimi_code"]),
         collapsed: false,
-        on_pick: () => undefined,
-        on_close: () => undefined,
-        on_move: () => undefined,
+        on_toggle_collapse: noop,
+        on_pick: noop,
+        on_close: noop,
+        on_move: noop,
     };
 
     it("AC5：槽位不渲染 provider 颜色条（session-slot-accent）", () => {
@@ -102,21 +113,9 @@ describe("SessionRail t257 展示调整", () => {
         expect(document.querySelector(".session-slot-accent")).toBeNull();
     });
 
-    it("AC6：折叠态空槽只显示「+」；AC7：底部无「添加会话」按钮", () => {
-        render(<SessionRail {...base} collapsed={false} />);
-        // AC7：底部添加按钮移除。
-        expect(document.querySelector(".session-slot-add")).toBeNull();
-
-        // AC6：折叠态空槽按钮文案为「+」。
+    it("AC6：折叠态空槽只显示「+」", () => {
         const { container } = render(
-            <SessionRail
-                {...base}
-                slots={empty_slots()}
-                collapsed={true}
-                on_pick={() => undefined}
-                on_close={() => undefined}
-                on_move={() => undefined}
-            />,
+            <SessionRail {...base} slots={empty_slots()} collapsed={true} />,
         );
         const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
@@ -127,14 +126,7 @@ describe("SessionRail t257 展示调整", () => {
 
     it("展开态空槽显示「+ 添加会话」文案", () => {
         const { container } = render(
-            <SessionRail
-                {...base}
-                slots={empty_slots()}
-                collapsed={false}
-                on_pick={() => undefined}
-                on_close={() => undefined}
-                on_move={() => undefined}
-            />,
+            <SessionRail {...base} slots={empty_slots()} collapsed={false} />,
         );
         const empty_btns = Array.from(container.querySelectorAll(".session-slot-empty"));
         expect(empty_btns.length).toBeGreaterThan(0);
@@ -169,5 +161,81 @@ describe("SessionRail t257 展示调整", () => {
         const cls = empty?.className ?? "";
         expect(cls).toContain("bg-transparent");
         expect(cls).toContain("border-dashed");
+    });
+});
+
+describe("SessionRail t413 头部折叠 + 底部固定添加", () => {
+    const base = {
+        slots: slots_with_sources(["claude_code", "kimi_code"]),
+        collapsed: false,
+        on_toggle_collapse: noop,
+        on_pick: noop,
+        on_close: noop,
+        on_move: noop,
+    };
+
+    it("AC-002：折叠按钮在 session-rail-header 内，点击触发 on_toggle_collapse", () => {
+        const on_toggle_collapse = vi.fn();
+        render(<SessionRail {...base} on_toggle_collapse={on_toggle_collapse} />);
+        const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
+        expect(toggle.closest(".session-rail-header")).not.toBeNull();
+        fireEvent.click(toggle);
+        expect(on_toggle_collapse).toHaveBeenCalledTimes(1);
+    });
+
+    it("AC-003：展开态底部固定「添加会话」，footer 有 border-t 发丝分隔，不在 scroll 区", () => {
+        const { container } = render(<SessionRail {...base} collapsed={false} />);
+        const add = require_el(container, ".session-slot-add");
+        expect(add.textContent.trim()).toBe("+ 添加会话");
+        const footer = add.closest(".session-rail-footer");
+        if (!footer) throw new Error("footer missing");
+        expect(footer.className).toMatch(/border-t/);
+        expect(footer.className).toMatch(/shrink-0/);
+        // 不在可滚动列表内。
+        expect(add.closest(".session-rail-scroll")).toBeNull();
+        // 列表区可滚、footer 在 rail 根下与 scroll 并列。
+        const rail = require_el(container, ".session-rail");
+        expect(rail.contains(footer)).toBe(true);
+        expect(footer.previousElementSibling?.className).toMatch(/session-rail-scroll/);
+    });
+
+    it("AC-004：折叠态添加入口为加号 icon（无文字「添加会话」）", () => {
+        const { container } = render(<SessionRail {...base} collapsed={true} />);
+        const add = require_el(container, ".session-slot-add");
+        expect(add.textContent.trim()).toBe("+");
+        expect(add.textContent).not.toMatch(/添加会话/);
+    });
+
+    it("AC-005：展开/折叠态点击底部添加会话均 on_pick 首个空槽", () => {
+        const on_pick = vi.fn();
+        // 槽 0、1 占用 → 首空槽 index=2
+        const { rerender, container } = render(
+            <SessionRail {...base} on_pick={on_pick} collapsed={false} />,
+        );
+        fireEvent.click(require_el(container, ".session-slot-add"));
+        expect(on_pick).toHaveBeenCalledWith(2);
+
+        on_pick.mockClear();
+        rerender(<SessionRail {...base} on_pick={on_pick} collapsed={true} />);
+        fireEvent.click(require_el(container, ".session-slot-add"));
+        expect(on_pick).toHaveBeenCalledWith(2);
+    });
+
+    it("满槽时底部添加会话 disabled", () => {
+        const sources = Array.from({ length: MAX_SLOTS }, () => "claude_code");
+        const on_pick = vi.fn();
+        const { container } = render(
+            <SessionRail
+                {...base}
+                slots={slots_with_sources(sources)}
+                on_pick={on_pick}
+                collapsed={false}
+            />,
+        );
+        const add = require_el(container, ".session-slot-add");
+        expect(add).toBeInstanceOf(HTMLButtonElement);
+        expect((add as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(add);
+        expect(on_pick).not.toHaveBeenCalled();
     });
 });

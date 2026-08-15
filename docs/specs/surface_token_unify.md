@@ -16,7 +16,7 @@
 |---|---|
 | `SessionPane` `.conversation-pane` | `surface-raised` → `surface-card` |
 | `SessionRail` 容器 | color-mix → `surface-window` |
-| `SessionShell` rail-toggle 行/按钮底 | color-mix → `surface-window`（hover 仍 raised） |
+| `SessionRail` 折叠钮（原 SessionShell rail-toggle 行，t413 迁入 rail 头部） | color-mix → 透明底 + hover raised |
 | `SettingsView` 侧栏 | color-mix → `surface-window` |
 | `SessionCard` | 去掉 `Card raised`，默认 `surface-card` |
 | `SessionRow` | 整面 `surface-card`，hover `surface-raised` |

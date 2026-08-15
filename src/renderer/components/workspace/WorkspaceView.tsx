@@ -27,6 +27,8 @@ interface WorkspaceViewProps {
     view: PaneViewState;
     recent_open: boolean;
     rail_collapsed: boolean;
+    /** t413：折叠钮迁入 SessionRail 头部，状态仍由 SessionShell 持有。 */
+    on_rail_toggle: () => void;
     on_layout_change: (layout: LayoutCount) => void;
     on_recent: () => void;
     on_recent_close: () => void;
@@ -41,6 +43,7 @@ export function WorkspaceView({
     view,
     recent_open,
     rail_collapsed,
+    on_rail_toggle,
     on_layout_change,
     on_recent,
     on_recent_close,
@@ -307,6 +310,7 @@ export function WorkspaceView({
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
+                    on_toggle_collapse={on_rail_toggle}
                     on_pick={open_picker}
                     on_close={close_slot}
                     on_move={move_slot_ui}

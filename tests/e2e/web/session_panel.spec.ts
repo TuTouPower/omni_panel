@@ -310,13 +310,16 @@ test.describe("session panel layout (web, t323)", () => {
         expect(clear.right).toBeLessThanOrEqual(view.left + 1);
         expect(view.right).toBeLessThanOrEqual(refresh.left + 1);
 
-        // AC-003：grid 顶边与顶栏（header）下边直接相接，无额外空白行。
+        // t413 AC-001：无独立 session-rail-toggle-row；grid 顶边直贴顶栏下边。
+        expect(await page.locator(".session-rail-toggle-row").count()).toBe(0);
         const topbar = await box(".session-topbar");
         const grid = await box(".session-grid");
+        const rail = await box(".session-rail");
         const rail_scroll = await box(".session-rail-scroll");
         expect(Math.abs(grid.top - topbar.bottom)).toBeLessThanOrEqual(1);
-        // AC-003：grid 与 rail 内容区从同一水平基线开始。
-        expect(Math.abs(grid.top - rail_scroll.top)).toBeLessThanOrEqual(1);
+        // grid 与侧栏外框同顶；rail-scroll 在侧栏头部（折叠钮）之下。
+        expect(Math.abs(grid.top - rail.top)).toBeLessThanOrEqual(1);
+        expect(rail_scroll.top).toBeGreaterThan(rail.top + 1);
 
         // AC-004 回归防护：视图下拉右锚定于按钮（right-0），不溢出窗口。
         await page.getByRole("button", { name: /视图/ }).click();

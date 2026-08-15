@@ -3,6 +3,8 @@ import { VendorMark } from "../Icon";
 import {
     agent_accent,
     format_tokens,
+    MAX_SLOTS,
+    occupied_count,
     vendor_id_for_source,
     type SlotsState,
 } from "../../lib/workspace/slots";
@@ -11,14 +13,24 @@ import { cn } from "../../lib/utils";
 interface SessionRailProps {
     readonly slots: SlotsState;
     readonly collapsed: boolean;
+    readonly on_toggle_collapse: () => void;
     readonly on_pick: (index: number) => void;
     readonly on_close: (index: number) => void;
     readonly on_move: (from: number, to: number) => void;
 }
 
-/** 左侧会话槽位栏：占用槽位显示 provider 标识与元数据，空槽提供装入入口。 */
-export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: SessionRailProps) {
+/** 左侧会话槽位栏：头部折叠钮、占用槽位元数据、底部固定添加入口。 */
+export function SessionRail({
+    slots,
+    collapsed,
+    on_toggle_collapse,
+    on_pick,
+    on_close,
+    on_move,
+}: SessionRailProps) {
     const [drag_from, set_drag_from] = useState<number | null>(null);
+    const first_empty = slots.findIndex((s) => s === null);
+    const count = occupied_count(slots);
 
     function handle_drop(e: DragEvent, to: number): void {
         e.preventDefault();
@@ -34,6 +46,35 @@ export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: Se
             )}
             data-collapsed={collapsed}
         >
+            <div
+                className={cn(
+                    "session-rail-header flex h-8 shrink-0 items-center gap-1.5 border-b border-[var(--color-hairline)] px-2",
+                    collapsed && "justify-center px-0",
+                )}
+            >
+                {!collapsed && (
+                    <>
+                        <span className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+                            会话槽位
+                        </span>
+                        <span className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                            {String(count)}/{String(MAX_SLOTS)}
+                        </span>
+                    </>
+                )}
+                <button
+                    type="button"
+                    className={cn(
+                        "session-rail-toggle flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                        !collapsed && "ml-auto",
+                    )}
+                    title={collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    aria-label={collapsed ? "展开槽位栏" : "折叠槽位栏"}
+                    onClick={on_toggle_collapse}
+                >
+                    {collapsed ? "»" : "«"}
+                </button>
+            </div>
             <div
                 className={cn(
                     "session-rail-scroll scrollbar-token flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
@@ -110,6 +151,29 @@ export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: Se
                         </div>
                     ),
                 )}
+            </div>
+            <div
+                className={cn(
+                    "session-rail-footer shrink-0 border-t border-[var(--color-hairline)] p-2",
+                    collapsed && "px-1.5",
+                )}
+            >
+                <button
+                    type="button"
+                    className={cn(
+                        "session-slot-add flex w-full items-center justify-center rounded-lg border border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--color-outline)] disabled:hover:bg-transparent disabled:hover:text-[var(--color-on-surface-muted)]",
+                        collapsed ? "mx-auto h-9 w-9 p-0" : "h-8 px-2",
+                    )}
+                    disabled={first_empty === -1}
+                    title={first_empty === -1 ? "槽位已满" : "添加会话"}
+                    aria-label="添加会话"
+                    onClick={() => {
+                        if (first_empty === -1) return;
+                        on_pick(first_empty);
+                    }}
+                >
+                    {collapsed ? "+" : "+ 添加会话"}
+                </button>
             </div>
         </div>
     );

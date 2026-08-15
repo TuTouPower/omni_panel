@@ -121,6 +121,7 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
             <SessionRail
                 slots={slots}
                 collapsed={false}
+                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}

@@ -9,7 +9,7 @@ t408 起：去掉「展开/收起」按钮，改为点击消息本体切换折�
 ## 范围
 
 - 会话面板（SessionPane）头部元信息：不再显示完整软件名文字（source 字符串），软件识别由 icon 徽标承担；目录（cwd）显示完整路径、不尾部省略；字号层级互换（标题小字号、元信息大字号）；元信息组成为模型、目录、轮次、token、日期，其中日期为最后一条消息的紧凑时间（当年 `MMDD HH:mm`，非当年 `YYMMDD HH:mm`）；宽度不足时 session id/标题先于 cwd 与时间截断。
-- 侧边栏（SessionRail）：槽位不再显示 provider 颜色条；折叠后槽位正方形、icon 居中；折叠态添加会话按钮只保留加号；移除侧边栏底部添加会话按钮。
+- 侧边栏（SessionRail）：槽位不再显示 provider 颜色条；折叠后槽位正方形、icon 居中；折叠态空槽添加会话按钮只保留加号；侧栏底部固定「添加会话」按钮（展开态全宽文字，折叠态退化为加号 icon；t413 修订 AC7）。
 - 会话库（SessionLibrary）：字号层级互换（元信息大字号、标题小字号）。
 - 消息列表：所有消息默认单行显示，超出一行内容折叠不可见；**无「展开/收起」按钮**；点击超行消息本体在完整内容与单行折叠间切换；不超行消息点击无折叠效果。用户消息（role=user）整行铺 `primary-container` 背景；Agent 消息无该底色。
 
@@ -27,7 +27,7 @@ t408 起：去掉「展开/收起」按钮，改为点击消息本体切换折�
 - [x] AC4：头部两行元信息——第一行 cwd 完整路径 · 紧凑时间 · session id；第二行模型 · 轮次 · tokens · 会话标题。日期为最后一条消息的紧凑时间：当年 `MMDD HH:mm`（如 `0817 23:25`），非当年 `YYMMDD HH:mm`（如 `250817 23:25`）；session id 允许尾部省略，行宽不足时 session id/标题先于 cwd 与时间被截断。
 - [x] AC5：侧边栏槽位不再渲染 provider 颜色条。
 - [x] AC6：侧边栏折叠后槽位为正方形且 icon 居中；折叠态添加会话按钮只显示「+」。
-- [x] AC7：侧边栏底部不再存在「添加会话」按钮；展开态添加会话入口由折叠态加号承担。
+- [x] AC7：侧栏底部固定「添加会话」按钮（border-top 发丝分隔、不随列表滚动）；展开态为全宽文字按钮，折叠态退化为加号 icon；满槽时 disabled（t413 修订）。
 - [x] AC8：会话库中元信息字号大于标题字号。
 - [x] AC9：内容超出一行的消息默认只呈现第一行且**不显示**展开/收起按钮；不超行消息同样无按钮。点击超行消息本体在完整内容与单行折叠间切换；不超行消息点击无折叠变化。
 - [x] AC10：各消息展开态互不影响；点击行首 checkbox 只改选中态不触发展开切换；消息文本拖选产生选区后松开不触发展开切换。
@@ -39,7 +39,7 @@ t408 起：去掉「展开/收起」按钮，改为点击消息本体切换折�
 
 - `pane.ts` 纯函数：`last_dir_segment`（目录末级，会话库卡片仍用）+ `format_precise_datetime`（年月日时分秒，会话库卡片仍用）+ `format_compact_datetime`（t407 面板头部紧凑时间，可注入 now）。
 - `SessionPane`：元信息去 source 文字；cwd 直接展示完整路径且 `shrink-0`（无 truncate）；日期用 `format_compact_datetime(messages.at(-1)?.timestamp ?? openedAt)`；session id / 标题 `min-w-0 truncate`。
-- `SessionRail`：去 rail-accent、折叠态空槽「+」/icon 居中、移除底部 rail-add 按钮。
+- `SessionRail`：去 rail-accent、折叠态空槽「+」/icon 居中；底部固定 `session-slot-add`（t413 恢复，折叠态为「+」）。
 - `PaneMessageRow`（t408）：默认单行折叠（single-line clamp）+ `content_overflows` 测量（scrollHeight>clientHeight，jsdom 退换行启发式）判定超行；**无展开按钮**；点击消息本体切换，交互子元素/文本选区/不超行时不切换。测量不依赖 expanded。用户消息 `bg-[var(--color-primary-container)]`。
 - 字号互换：pane-title/meta、lib-card-title/summary。
 
@@ -47,6 +47,6 @@ t408 起：去掉「展开/收起」按钮，改为点击消息本体切换折�
 
 - `tests/unit/renderer/lib/workspace/pane.test.ts`：last_dir_segment（POSIX/Windows/尾随斜杠/根）+ format_precise_datetime + format_compact_datetime（当年/非当年/跨年边界）。
 - `tests/unit/renderer/components/workspace/SessionPane.test.tsx`：元信息无 source 文字、完整 cwd、紧凑时间、空消息回退 openedAt、截断优先级类名。
-- `tests/unit/renderer/components/workspace/SessionRail.test.tsx`：无 rail-accent、折叠态「+」、无底部添加按钮、展开态「+ 添加会话」。
+- `tests/unit/renderer/components/workspace/SessionRail.test.tsx`：无 rail-accent、折叠态空槽「+」、底部固定添加按钮（展开文字/折叠加号）、展开态空槽「+ 添加会话」。
 - `tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx`：无展开按钮、点击本体切换、checkbox/拖选隔离、user 底色、选中态保持（mock 尺寸）。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + web e2e session_panel + `pnpm test:packaged`。
