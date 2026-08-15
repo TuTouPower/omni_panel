@@ -345,6 +345,12 @@ describe("WorkspaceView (t224)", () => {
         expect(screen.getByRole("button", { name: "最近 4 个" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "最近 8 个" })).toBeTruthy();
 
+        // 快速选择按钮无条件渲染，但 sessions 由异步 getSessions() 加载——等待
+        // 全部 7 行渲染完成再点快捷选择，避免 CPU 饥饿下 pick_first_n 拿到空列表。
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-recent-row")).toHaveLength(7);
+        });
+
         fireEvent.click(screen.getByRole("button", { name: "最近 6 个" }));
 
         expect(
