@@ -12,6 +12,7 @@ import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
 import { Button } from "../ui/Button";
+import { Toast } from "../ui/Toast";
 import { SessionRail } from "./SessionRail";
 import { SessionPickerModal } from "./SessionPickerModal";
 import { RecentSessionsModal } from "./RecentSessionsModal";
@@ -433,14 +434,7 @@ export function WorkspaceView({
             {recent_open && (
                 <RecentSessionsModal on_confirm={confirm_recent} on_close={on_recent_close} />
             )}
-            {toast !== null && (
-                <div
-                    className="fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu"
-                    data-testid="session-toast"
-                >
-                    {toast}
-                </div>
-            )}
+            {toast !== null && <Toast data-testid="session-toast">{toast}</Toast>}
         </div>
     );
 }

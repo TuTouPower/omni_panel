@@ -22,6 +22,9 @@ import {
     Skeleton,
     PanelTitleBar,
     ListRow,
+    Alert,
+    CodeChip,
+    Toast,
 } from "../../../../../src/renderer/components/ui";
 
 describe("ui 组件库（t269）", () => {
@@ -429,6 +432,133 @@ describe("ui 组件库（t269）", () => {
             </Badge>,
         );
         expect(container.querySelector(".rounded-full")).toBeNull();
+    });
+
+    it("Badge accent/recommend 形态（t422）", () => {
+        const { container, rerender } = render(<Badge variant="accent">3 项</Badge>);
+        const accent = container.querySelector("span");
+        expect(accent?.className).toContain("rounded-[7px]");
+        expect(accent?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)]",
+        );
+        expect(accent?.className).toContain("text-[var(--color-accent)]");
+        rerender(<Badge variant="recommend">推荐</Badge>);
+        const rec = container.querySelector("span");
+        expect(rec?.className).toContain("bg-[var(--color-primary-container)]");
+        expect(rec?.className).toContain("text-[var(--color-accent)]");
+        expect(rec?.className).toContain("px-2");
+    });
+
+    it("Alert error/warning/success 12% 浅底容器（t422）", () => {
+        const { container, rerender } = render(<Alert tone="error">err</Alert>);
+        let el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-error)]");
+        expect(el?.className).toContain("rounded-md");
+        rerender(<Alert tone="warning">warn</Alert>);
+        el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-warning)]");
+        rerender(<Alert tone="success">ok</Alert>);
+        el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-success)]");
+    });
+
+    it("CodeChip 只读 code 值配方（t422）", () => {
+        const { container } = render(<CodeChip>raw_key</CodeChip>);
+        const code = container.querySelector("code");
+        expect(code).not.toBeNull();
+        expect(code?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(code?.className).toContain("font-[var(--font-code-md)]");
+        expect(code?.className).toContain("rounded-md");
+        expect(code?.textContent).toBe("raw_key");
+    });
+
+    it("Toast 浮层唯一配方（t422）", () => {
+        const { container } = render(<Toast data-testid="t">已复制</Toast>);
+        const el = container.querySelector("[data-testid='t']");
+        expect(el?.className).toContain("fixed");
+        expect(el?.className).toContain("bottom-7");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)]",
+        );
+        expect(el?.className).toContain("shadow-menu");
+        expect(el?.textContent).toBe("已复制");
+    });
+
+    it("业务代码无 t422 告警条/code chip/徽章/toast 手拼配方（AC-001）", () => {
+        // 审计清单：spec 14 处复制点；实现侧唯一定义在 ui/*，业务侧禁同配方 class 串
+        // 精确匹配 spec 14 处告警条/code chip/徽章/toast 配方，不扫 icon 光晕/hover 态等其它 color-mix 用法。
+        const recipes: { name: string; re: RegExp }[] = [
+            {
+                name: "alert-error-bar",
+                re: /rounded-md bg-\[color-mix\(in_srgb,var\(--color-error\)_1[02]%,transparent\)\]/,
+            },
+            {
+                name: "alert-warning-bar",
+                re: /rounded-md bg-\[color-mix\(in_srgb,var\(--color-warning\)_12%,transparent\)\]/,
+            },
+            {
+                name: "alert-error-container-token",
+                re: /bg-\[var\(--color-error-container\)\]/,
+            },
+            {
+                name: "code-chip",
+                re: /rounded-md bg-\[var\(--color-surface-raised\)\] px-2(?:\.5)? py-1\.5 font-\[var\(--font-code-md\)\]/,
+            },
+            {
+                name: "badge-accent",
+                re: /rounded-\[7px\] bg-\[color-mix\(in_srgb,var\(--color-accent\)_12%,transparent\)\]/,
+            },
+            {
+                name: "badge-count-inline",
+                re: /rounded-full bg-\[var\(--color-primary-container\)\] px-1\.5 py-px text-\[length:var\(--text-label-caps\)\]/,
+            },
+            {
+                name: "badge-recommend",
+                re: /rounded bg-\[var\(--color-primary-container\)\] px-2 py-0\.5 text-\[length:var\(--text-label-md\)\] text-\[var\(--color-accent\)\]/,
+            },
+            {
+                name: "toast",
+                re: /fixed bottom-7 left-1\/2 z-\[var\(--z-context\)\] -translate-x-1\/2/,
+            },
+        ];
+        const allow = new Set([
+            "src/renderer/components/ui/Alert.tsx",
+            "src/renderer/components/ui/Badge.tsx",
+            "src/renderer/components/ui/CodeChip.tsx",
+            "src/renderer/components/ui/Toast.tsx",
+        ]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                for (const { name, re } of recipes) {
+                    if (re.test(line)) hits.push(`${name} @ ${norm}: ${line.trim().slice(0, 100)}`);
+                }
+            }
+        }
+        expect(hits).toEqual([]);
     });
 
     it("StatusDot tone 类", () => {

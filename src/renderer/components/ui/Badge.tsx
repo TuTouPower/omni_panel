@@ -3,8 +3,11 @@ import { cn } from "../../lib/utils";
 
 interface BadgeProps {
     children: ReactNode;
-    /** count 计数 / label 来源标签。 */
-    variant?: "count" | "label";
+    /**
+     * count 计数 / label 来源标签 /
+     * accent 卡片头计数（12% accent 浅底）/ recommend 推荐徽章。
+     */
+    variant?: "count" | "label" | "accent" | "recommend";
     /** label 形态的着色 key（DESIGN.md 分类色）。 */
     color?: string;
     /** label 形态前置圆点开关（默认开启；t320 会话明细表关闭）。 */
@@ -12,14 +15,49 @@ interface BadgeProps {
     className?: string;
 }
 
-/** t269: 统一 Badge——count 计数 / label 来源标签双形态。 */
-export function Badge({ children, variant = "count", color, dot = true, className }: BadgeProps) {
+/** t269: 统一 Badge；t422 增 accent/recommend 收拢手拼配方。 */
+export function Badge({
+    children,
+    variant = "count",
+    color,
+    dot = true,
+    className,
+}: BadgeProps) {
     if (variant === "count") {
         return (
             <span
                 className={cn(
                     "inline-flex min-w-[18px] items-center justify-center rounded-full " +
-                        "bg-[var(--color-primary-container)] px-1.5 py-px text-[length:var(--text-label-caps)] text-[var(--color-primary)]",
+                        "bg-[var(--color-primary-container)] px-1.5 py-px " +
+                        "text-[length:var(--text-label-caps)] text-[var(--color-primary)]",
+                    className,
+                )}
+            >
+                {children}
+            </span>
+        );
+    }
+    if (variant === "accent") {
+        return (
+            <span
+                className={cn(
+                    "inline-flex shrink-0 items-center justify-center rounded-[7px] " +
+                        "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] " +
+                        "px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold " +
+                        "leading-normal text-[var(--color-accent)]",
+                    className,
+                )}
+            >
+                {children}
+            </span>
+        );
+    }
+    if (variant === "recommend") {
+        return (
+            <span
+                className={cn(
+                    "inline-flex items-center rounded bg-[var(--color-primary-container)] " +
+                        "px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-accent)]",
                     className,
                 )}
             >
