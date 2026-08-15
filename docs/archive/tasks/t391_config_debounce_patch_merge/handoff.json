@@ -1,0 +1,27 @@
+{
+    "tid": "t391",
+    "attempt": 1,
+    "execution_id": "73ab88c9749a4760b3b8e307533428c9",
+    "status": "done",
+    "branch": "t391_config_debounce_patch_merge",
+    "base_sha": "2f1a3e631cceb794694d8fe19a68359cc9d33a4f",
+    "tests": "vitest renderer 全量 111 文件 1214 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: config-debounce flush_pending catch 改「只补缺失键」——失败旧值不覆盖在途同键新值。AC-002: 非冲突键仍合并回。AC-003: 正常 patch 路径不变。mutation（改回 Object.assign）AC-001 1 failed 验证",
+    "review": "full 级：Round 1 code PASS（f001 minor 方向正确维持）/ test PASS；check_review_status overall=PASS / review_scope=ok / round=1",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/lib/config-debounce.ts::catch 只补缺失键（Object.entries + key in pending 守卫）",
+            "tests/unit/renderer/lib/config-debounce.test.ts::t391 AC-001 失败后同键新值不被覆盖，重试保存用新值 通过"
+        ],
+        "AC-002": [
+            "src/renderer/lib/config-debounce.ts::非冲突键仍合并回 pending",
+            "tests/unit/renderer/lib/config-debounce.test.ts::t391 AC-002 失败合并保留非冲突键 通过"
+        ],
+        "AC-003": [
+            "src/renderer/lib/config-debounce.ts::patch 方法正常合并路径不变",
+            "tests/unit/renderer/lib/config-debounce.test.ts::last patch for the same key wins 保持"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

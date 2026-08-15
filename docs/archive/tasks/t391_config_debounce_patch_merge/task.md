@@ -2,11 +2,11 @@
 tid: "t391"
 slug: "config_debounce_patch_merge"
 title: "config-debounce 失败合并只补缺失键防丢最新修改"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t391_config_debounce_patch_merge"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "2f1a3e631cceb794694d8fe19a68359cc9d33a4f"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p175"
@@ -44,14 +44,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 09:30 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t391_code_f001|minor|已修|嵌套对象按顶层键原子合并：caller 均 patch 全量快照，最新全量胜出正确，方向非缺陷；`in` 原型链理论隐患配置键封闭集无冲突 | src/renderer/lib/config-debounce.ts:62-66 |
 
 ## 收尾报告
 
@@ -60,8 +57,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（同键新值不覆盖）、AC-002（非冲突键保留）、AC-003（正常路径不变）均列于 `handoff.json` 的 `ac_evidence`，mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +66,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001 minor 方向正确维持）
+- Round 1 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- config-debounce 失败合并只补缺失键（同键新值不覆盖）；renderer 全量 1214 passed，code/test 双轴 PASS。
