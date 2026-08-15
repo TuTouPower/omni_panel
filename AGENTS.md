@@ -12,6 +12,7 @@
 
 |路径|用途|写权归属|
 |---|---|---|
+|`DESIGN.md`|设计语言真相源（front matter → designmd → globals.css）|改 token/形态走 task，并跑 `pnpm designmd:export` / `check`；UI task 默认只消费、不改数值；不由 `task.py` 管理|
 |`docs/specs_index.md`|当前生效 spec 清单（在表即生效）|task 收尾时更新；废弃删除行|
 |`docs/specs/<slug>.md`|需求级 spec（按已完成 task 累积）|task 收尾时累积更新；废弃移入 `docs/archive/specs/`|
 |`docs/tasks/{tid}_{slug}/`|task 工作区兼**状态权威**（backlog 起即存在）|`spec.md` / `task.md` 正文由实现侧写；`task.md` front matter 只经 `scripts/repo_template/task.py`；reviewer 写 `review_code.md` / `review_test.md`（`single` 级写 `review_general.md`）；`finish`/`drop` 由脚本移入 archive|
