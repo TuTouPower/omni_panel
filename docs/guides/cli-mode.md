@@ -13,7 +13,7 @@ Electron 需要 Linux 图形库。WSL 环境通常缺省不带显示服务器：
 
 ```bash
 sudo apt install xvfb   # 一次性
-xvfb-run -a omni-panel --cli serve --config ~/import.json
+xvfb-run -a omni-panel serve --config ~/import.json
 ```
 
 ### Electron GUI 运行时依赖（apt）
@@ -46,18 +46,19 @@ sudo apt install \
 **旧发行版（Ubuntu ≤22.04 / Debian ≤12）**：同上清单去掉 `t64` 后缀（`libgtk-3-0`
 `libasound2` `libatk1.0-0` `libatk-bridge2.0-0` `libcups2` `libatspi2.0-0`）。
 
-安装后可用 `omni-panel --cli serve --config ~/import.json` 直接验证；仍报缺库时按
+安装后可用 `omni-panel serve --config ~/import.json` 直接验证；仍报缺库时按
 报错的 `.so` 名用 `apt-file search` 定位对应包。
 
 ## 启动语法
 
 ```bash
-omni-panel --cli serve [--config <path>] [--port <n>]   # 默认后台运行
-omni-panel --cli serve --foreground [--config <path>] [--port <n>]  # 前台阻塞
+omni-panel serve [--config <path>] [--port <n>]   # 默认后台运行
+omni-panel serve --foreground [--config <path>] [--port <n>]  # 前台阻塞
 ```
 
-- `--cli`：CLI 模式总开关。
-- `serve`：唯一子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `--cli quit --port <n>` 停止。
+- 命令行默认是 CLI 模式：`omni_panel serve` 等价于旧 `omni_panel --cli serve`（launcher 自动注入 `--cli`）。`--cli` 前缀仍兼容。
+- `--gui`：启动图形界面（双击桌面图标同效），非 CLI。
+- `serve`：唯一子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `omni-panel quit --port <n>` 停止。
 - `--foreground`：可选。显式指定前台运行——打印面板地址后阻塞终端，`Ctrl+C` 停止（旧行为）。
 - `--config <path>`：可选。启动时把指定配置文件内容覆盖写入规范配置（`config.json`），并做 `.bak` 备份。配置文件是规范 config.json 形态，secret 参数（如 `API_KEY`）以明文内嵌于 `plugins[].parameterValues`；导入时明文 secret 转存加密 vault，落盘的规范配置只保留非 secret 参数与 `hasSecret` 标志。
 - `--port <n>`：可选。覆盖 local-api 监听端口，优先级高于 `OMNI_PANEL_PORT` 环境变量。
@@ -101,14 +102,16 @@ OmniPanel CLI mode listening on http://localhost:18263/
 CLI 进程常驻。控制子命令（瘦客户端）经 local-api 作用于运行中实例，执行完即退出：
 
 ```bash
-omni-panel --cli refresh-all     # 触发全部连接器刷新
-omni-panel --cli pause           # 暂停自动刷新（幂等）
-omni-panel --cli resume          # 恢复自动刷新
-omni-panel --cli restart         # 重启实例（保持原 argv，端口可能因旧进程未释放而变化）
-omni-panel --cli quit            # 干净退出实例
-omni-panel --cli open            # 打印面板 URL，WSL 下尝试经 wslview 打开宿主机浏览器
-omni-panel --cli autostart       # Linux 返回 unsupported；Windows 切换开机自启
+omni-panel refresh-all     # 触发全部连接器刷新
+omni-panel pause            # 暂停自动刷新（幂等）
+omni-panel resume           # 恢复自动刷新
+omni-panel restart          # 重启实例（保持原 argv，端口可能因旧进程未释放而变化）
+omni-panel quit             # 干净退出实例
+omni-panel open             # 打印面板 URL，WSL 下尝试经 wslview 打开宿主机浏览器
+omni-panel autostart        # Linux 返回 unsupported；Windows 切换开机自启
 ```
+
+以上命令等价于旧 `omni-panel --cli <子命令>`（launcher 自动注入 `--cli`）。
 
 - 实例发现：默认读 `<dataRoot>/cli.json` 取得端口；`--port <n>` 可覆盖（桌面/自建实例）。
 - 实例未运行时给出「实例未运行」可读错误 + 非零退出码。
@@ -129,7 +132,7 @@ pnpm cli:quit     # 停掉该实例（瘦客户端，--port 17864 对齐）
 
 全局 CLI 命令名 `omni_panel`（下划线），由 `scripts/omni_panel.mjs` launcher 提供，**永远指向 electron-builder 打包产物**（`artifacts/linux-unpacked/omni_panel`，`pnpm make:linux` 生成），**不回退 dev 产物（`out/`）**：
 
-- 全局用户：`omni_panel --cli serve [--port <n>]`（**真实用户数据** `~/.config/OmniPanel`）——稳定版，不受开发构建影响。
+- 全局用户：`omni_panel serve [--port <n>]`（**真实用户数据** `~/.config/OmniPanel`）——稳定版，不受开发构建影响。`--gui` 显式开图形界面。
 - release 产物缺失时 launcher 明确报错「先 `pnpm make:linux`」，不回退。
 - 全局命令始终使用真实用户数据（可用 `--user-data-dir` 显式指向其他目录）；**沙盒只属于开发命令** `pnpm cli:serve`（`.scratch/dev-serve`）。
 - 开发/测试不要用 `omni_panel`（它是给全局稳定版用户的），用 `pnpm cli:serve`。
@@ -140,6 +143,7 @@ pnpm cli:quit     # 停掉该实例（瘦客户端，--port 17864 对齐）
 | ------------- | ---------------------- | ----------------------- | -------------------------------- | ---------------- |
 | GUI 开发      | `pnpm start`           | `out/`（dev）           | 真实                             | 开窗口（调试用） |
 | 开发/测试 CLI | `pnpm cli:serve`       | `out/`（build）         | `.scratch/dev-serve` 沙盒        | 无               |
-| 全局稳定版    | `omni_panel --cli ...` | `artifacts/`（release） | 真实（`--user-data-dir` 可覆盖） | 无               |
+| 全局稳定版 CLI | `omni_panel serve ...` | `artifacts/`（release） | 真实（`--user-data-dir` 可覆盖） | 无               |
+| 全局 GUI      | `omni_panel --gui`     | `artifacts/`（release） | 真实                             | 开窗口           |
 
 开发（改 `out/`）与全局（用 `artifacts/`）产物隔离，互不影响；`pnpm make:linux` 打包新稳定版后全局自动用新版本。
