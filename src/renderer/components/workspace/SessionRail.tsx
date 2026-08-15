@@ -29,7 +29,7 @@ export function SessionRail({ slots, collapsed, on_pick, on_close, on_move }: Se
     return (
         <div
             className={cn(
-                "session-rail flex w-[220px] shrink-0 flex-col border-r border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] transition-[width] duration-200",
+                "session-rail flex w-[220px] shrink-0 flex-col border-r border-[var(--color-outline)] bg-[var(--color-surface-window)] transition-[width] duration-200",
                 collapsed && "collapsed w-11",
             )}
             data-collapsed={collapsed}

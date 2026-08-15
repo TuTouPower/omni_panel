@@ -594,4 +594,13 @@ describe("SettingsView", () => {
             expect(css).not.toMatch(new RegExp(`${escaped}\\s*\\{`));
         }
     });
+
+    it("t406 AC-002/003：侧栏背景 surface-window，无 color-mix；nav hover 仍用 raised", async () => {
+        render(<SettingsView />);
+        const sidebar = await screen.findByTestId("settings-sidebar");
+        expect(sidebar.className).toContain("bg-[var(--color-surface-window)]");
+        expect(sidebar.className).not.toContain("color-mix");
+        const idle_nav = screen.getByTestId("settings-plugin-nav-appearance");
+        expect(idle_nav.className).toContain("hover:bg-[var(--color-surface-raised)]");
+    });
 });

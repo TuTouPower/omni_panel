@@ -132,7 +132,7 @@ export function SessionPane({
     return (
         <section
             className={cn(
-                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-raised)]",
+                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)]",
                 focused && "focused absolute inset-0 z-10 rounded-none",
             )}
             style={{ "--agent-accent": agent_accent(column.loc.source) } as CSSProperties}

@@ -432,7 +432,7 @@ export function SettingsView() {
                 <div className="flex min-h-0 flex-1">
                     {/* left nav */}
                     <div
-                        className="flex w-[176px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] px-3 py-[14px]"
+                        className="flex w-[176px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[var(--color-surface-window)] px-3 py-[14px]"
                         data-testid="settings-sidebar"
                     >
                         {NAV_ITEMS.map((n) => (

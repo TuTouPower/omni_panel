@@ -959,7 +959,7 @@ describe("WorkspaceView (t224)", () => {
         vi.useRealTimers();
     });
 
-    it("t315 AC2/AC3：根背景 surface-window、发丝线网格保留、卡片第二色 surface-raised", async () => {
+    it("t406 AC-001/002：根背景 surface-window、发丝线网格保留、卡片 surface-card", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "你好", 100)],
@@ -980,12 +980,16 @@ describe("WorkspaceView (t224)", () => {
         expect(grid?.className).toContain("gap-px");
         expect(grid?.className).toContain("bg-[var(--color-outline)]");
         expect(grid?.className).toContain("p-px");
-        // 单元格与根同色（surface-window），卡片为第二色 surface-raised。
+        // 单元格与根同色（surface-window），卡片为 surface-card（非 raised 整面）。
         const cell = document.querySelector(".session-cell");
         expect(cell?.className).toContain("bg-[var(--color-surface-window)]");
         expect(cell?.className).not.toContain("bg-[var(--color-surface)]");
         const pane = document.querySelector(".conversation-pane");
-        expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(pane?.className).toContain("bg-[var(--color-surface-card)]");
+        expect(pane?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
+        const rail = document.querySelector(".session-rail");
+        expect(rail?.className).toContain("bg-[var(--color-surface-window)]");
+        expect(rail?.className).not.toContain("color-mix");
     });
 });
 

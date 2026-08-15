@@ -1423,7 +1423,7 @@ describe("SessionLibrary (t227)", () => {
         expect(counts).toEqual({ a: 1, b: 2 });
     });
 
-    it("t315 AC2：根背景 surface-window，网格卡片/列表行为第二色 surface-raised", async () => {
+    it("t406 AC-001/003：根背景 surface-window，网格卡片/列表行为 surface-card", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
@@ -1433,13 +1433,16 @@ describe("SessionLibrary (t227)", () => {
         const root = document.querySelector(".library-view");
         expect(root?.className).toContain("bg-[var(--color-surface-window)]");
         expect(root?.className).not.toContain("bg-[var(--color-surface)]");
-        // 网格视图：卡片为第二色 surface-raised。
+        // 网格视图：内容卡片 surface-card，非 raised 整面。
         const card = document.querySelector(".library-card");
-        expect(card?.className).toContain("bg-[var(--color-surface-raised)]");
-        // 列表视图：行同样为第二色 surface-raised。
+        expect(card?.className).toContain("bg-[var(--color-surface-card)]");
+        expect(card?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
+        // 列表视图：行同样 surface-card；hover 仍可用 raised（AC-004）。
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         expect(document.querySelector(".library-list")).toBeTruthy();
         const row = document.querySelector(".library-row");
-        expect(row?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(row?.className).toContain("bg-[var(--color-surface-card)]");
+        expect(row?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
+        expect(row?.className).toContain("hover:bg-[var(--color-surface-raised)]");
     });
 });

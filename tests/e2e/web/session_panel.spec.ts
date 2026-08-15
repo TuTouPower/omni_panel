@@ -222,7 +222,7 @@ test.describe("session panel (web, t228)", () => {
         await expect(page.locator(".conversation-message-row").first()).toBeVisible();
     });
 
-    test("t315：会话窗口根背景统一 surface-window，卡片为第二色 surface-raised（computed 两色可辨）", async ({
+    test("t406：会话窗口根背景统一 surface-window，卡片为 surface-card（computed 两色可辨）", async ({
         webPage,
     }) => {
         const page = webPage;
@@ -240,7 +240,7 @@ test.describe("session panel (web, t228)", () => {
         const library_bg = await bg(".library-view");
         const pane_bg = await bg(".conversation-pane");
         const card_bg = await bg(".library-card");
-        // 三个根容器背景一致（surface-window），卡片/内容区第二色（surface-raised），两色可辨。
+        // 三个根容器背景一致（surface-window），卡片/内容区 surface-card，两色可辨。
         expect(workspace_bg).toBe(shell_bg);
         expect(library_bg).toBe(shell_bg);
         expect(pane_bg).not.toBe(shell_bg);

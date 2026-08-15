@@ -199,3 +199,11 @@
 - 结论：选 A（s030/d039）。可选字段省略时行为与旧全量一次调用兼容；本批只 resolve/extract 候选 slice；renderer 默认 limit=64 循环合并 sessions 并展示「已扫描 N/M」。不引入新 IPC channel/SSE。keyword 匹配语义不变；extract_cache 磁盘持久化另议。
 - 落地：t404。
 - 替代：无
+
+## 021 面板背景两级（window/card），raised 仅交互态（2026-08-16）
+
+- 背景：会话窗口实测卡片用 `surface-raised`（#262b34）比窗口亮两档；侧栏用无 token 依据的 `color-mix(window 70%, surface 8%)`，与 DESIGN Colors 节两级体系偏离，多窗口层次混乱。
+- 选项：A) 继续三档（window / 混色侧栏 / raised 卡片）；B) 回归 DESIGN：window/card 两级，raised 只做 hover/选中块/徽章。
+- 结论：选 B。窗口/侧栏/主区 = `surface-window`；内容卡片 = `surface-card`；禁止面板级无依据 color-mix 底色；`surface-raised` 保留交互态。token 数值不改。
+- 落地：t406；权威规则见 `docs/specs/surface_token_unify.md` 与 DESIGN.md Colors。
+- 替代：无
