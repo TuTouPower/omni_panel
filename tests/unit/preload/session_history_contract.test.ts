@@ -44,6 +44,10 @@ describe("preload sessionHistory contract (t341)", () => {
             { source: "claude", env: "win", session_id: "s1" },
         ]);
         expect(result).toEqual({ "loc-key": "摘要文本" });
+        // t394 AC-005: 断言 summaries 的 IPC channel 与 payload（locs 包装对象）。
+        expect(electron_mock.ipcRenderer.invoke).toHaveBeenCalledWith("sessionHistory:summaries", {
+            locs: [{ source: "claude", env: "win", session_id: "s1" }],
+        });
     });
 
     it("open 不校验 IpcResult 信封、不抛 Invalid IPC response（AC-002）", async () => {
