@@ -50,17 +50,13 @@ const VIEW = { show_time: true, compact: false };
 const PROPS = {
     column: column(),
     slot_meta: META,
-    focused: false,
     outline_open: false,
     view: VIEW,
     is_selected: () => false,
     on_close: () => undefined,
     on_toggle: () => undefined,
     on_hover: () => undefined,
-    on_select_all: () => undefined,
-    on_clear_select: () => undefined,
     on_load_older: () => undefined,
-    on_focus: () => undefined,
     on_toggle_outline: () => undefined,
 };
 
@@ -514,11 +510,18 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         delete (navigator as { clipboard?: unknown }).clipboard;
     });
 
-    it("AC5：会话标题在第二行可见，五个头部动作按钮不变", () => {
+    it("会话标题在第二行可见，头部保留大纲/关闭（t324 标题可见 + t409 动作保留）", () => {
         render(<SessionPane {...PROPS} show_toast={() => undefined} />);
         expect(screen.getByText("会话标题")).toBeTruthy();
-        for (const label of ["大纲", "全选可见", "清空选择", "聚焦此面板", "关闭面板"]) {
+        for (const label of ["大纲", "关闭面板"]) {
             expect(screen.getByRole("button", { name: label })).toBeTruthy();
+        }
+    });
+
+    it("AC-001：头部不再渲染全选可见/清空选择/聚焦此面板", () => {
+        render(<SessionPane {...PROPS} show_toast={() => undefined} />);
+        for (const label of ["全选可见", "清空选择", "聚焦此面板"]) {
+            expect(screen.queryByRole("button", { name: label })).toBeNull();
         }
     });
 });
