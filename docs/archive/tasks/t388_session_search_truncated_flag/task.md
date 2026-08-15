@@ -2,11 +2,11 @@
 tid: "t388"
 slug: "session_search_truncated_flag"
 title: "会话内容搜索超限加 truncated 降级信号"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t388_session_search_truncated_flag"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "0fb69385a9ddc366f93dcd8853424a3b609a2936"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p172"
@@ -44,14 +44,19 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-15 07:50 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t388_code_f001|minor|已修|恰满 cap 边界误报：注释说明（仅误报无数据丢失，双入口对称补） | src/main/ipc/session-history-ipc.ts:102-104, server.ts:274-278 |
+|t388_code_f002|minor|已修|搜索清空/新搜索未重置 content_truncated：两处补 set_content_truncated(false) | src/renderer/components/session-library/SessionLibrary.tsx:223-231 |
+|t388_code_f003|minor|已修|提示文案用分页数误导：改「仅显示部分匹配项」 | src/renderer/components/session-library/SessionLibrary.tsx:501 |
+|t388_test_f001|minor|已修|恰满边界未测：注释声明意图（conservative-true 安全方向） | 同上 |
+|t388_test_f002|minor|已修|补 truncated=false 负向断言 | tests/unit/renderer/components/session_library/SessionLibrary.test.tsx:860 |
+
+### Round 2 (2026-08-15 07:55 UTC+8)
+
+- 复核：code PASS（f001-f003 消除）；test PASS（f001/f002 消除）。无新 finding。
 
 ## 收尾报告
 
@@ -60,8 +65,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001（双入口 truncated）、AC-002（未超限 false）、AC-003（renderer 提示）均列于 `handoff.json` 的 `ac_evidence`，mutation 验证
 
 ### Reviewer verdict
 
@@ -69,15 +74,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS（f001-f003 minor）
+- Round 1 test：PASS（f001/f002 minor）
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话搜索超限 truncated 降级信号（双入口 + renderer 提示）；IPC/SessionLibrary/local-api 359 passed，code/test 双轴 2 轮 PASS。

@@ -838,6 +838,44 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
+    it("t388 AC-003: 搜索响应 truncated=true 时展示降级提示", async () => {
+        const ub = usageboard();
+        const hit = sess("hit", "claude_code");
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(hit)],
+            sessions: [hit],
+            truncated: true,
+        });
+        await renderLibrary();
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "关键词" } });
+        await waitFor(() => {
+            expect(screen.getByTestId("search-truncated-hint")).toBeInTheDocument();
+        });
+        expect(screen.getByTestId("search-truncated-hint").textContent).toContain("结果已截断");
+    });
+
+    it("t388 AC-002 负向: 搜索响应 truncated=false 时不展示降级提示", async () => {
+        const ub = usageboard();
+        const hit = sess("hit", "claude_code");
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(hit)],
+            sessions: [hit],
+            truncated: false,
+        });
+        await renderLibrary();
+
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "关键词" } });
+        await waitFor(() => {
+            expect(screen.getByText("会话 hit")).toBeTruthy();
+        });
+        expect(screen.queryByTestId("search-truncated-hint")).not.toBeInTheDocument();
+    });
+
     it("getSessionStats 失败时不显示首屏部分统计或 source chips", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);

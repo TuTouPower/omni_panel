@@ -435,6 +435,47 @@ describe("session-history-ipc (t210)", () => {
         );
     });
 
+    it("t388 AC-002: 未超限搜索响应 truncated=false", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        await register(vi.fn().mockReturnValue([]));
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { search: "hello" },
+            keyword: "hello",
+        })) as { ok: boolean; data: { truncated?: boolean } };
+        expect(result.ok).toBe(true);
+        expect(result.data.truncated).toBe(false);
+    });
+
+    it("t388 AC-001: 枚举达 SEARCH_ENUM_CAP 截断时 truncated=true", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        // provider 恒返回满页 100 条（filter 搜索路径枚举达 cap 触发截断）。
+        const full_page = Array.from({ length: 100 }, (_, i) => ({
+            id: `s${String(i)}`,
+            source: "claude_code",
+            env: "win",
+            title: null,
+            model: null,
+            started_at: 0,
+            ended_at: 0,
+        }));
+        await register(vi.fn().mockReturnValue(full_page));
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|s0"]));
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { search: "hello" },
+            keyword: "hello",
+        })) as { ok: boolean; data: { truncated?: boolean } };
+        expect(result.ok).toBe(true);
+        expect(result.data.truncated).toBe(true);
+    });
+
     it("SEARCH_CONTENT 从后端筛选候选集，不要求 renderer 传入全量 locs（t248 AC5）", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/hidden.jsonl",
