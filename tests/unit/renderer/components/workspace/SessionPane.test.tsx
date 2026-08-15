@@ -473,3 +473,114 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         }
     });
 });
+
+describe("SessionPane 自定义续接命令模板 (t403)", () => {
+    const base_cfg = {
+        schemaVersion: 1 as const,
+        language: "zh-Hans" as const,
+        launchAtLogin: false,
+        plugins: [],
+    };
+
+    beforeEach(() => {
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("AC-001：配置 kimi 自定义模板后点击 session id 复制替换后命令", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "kimi_code", env: "win", session_id: "sess_kimi" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        fireEvent.click(btn());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("kimi --yolo -r sess_kimi");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-003：未配置自定义模板的来源仍复制内置默认命令", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "claude_code", env: "win", session_id: "sess_a" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("claude --resume sess_a");
+        });
+        fireEvent.click(btn());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("claude --resume sess_a");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-004：clipboard 缺失时静默跳过、无 toast", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "kimi_code", env: "win", session_id: "sess_kimi" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>(".conversation-session-id");
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        expect(() => fireEvent.click(btn())).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
+    });
+});

@@ -23,7 +23,7 @@
 |ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321|2026-08-12|
 |tokenstats-performance-baseline|API|t189|2026-08-02|
 |config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401|2026-08-16|
-|resume_command_template|API / Web|t401, t402|2026-08-16|
+|resume_command_template|API / Web|t401, t402, t403|2026-08-16|
 |config_fallback_p0_protection|API|t111|2026-07-25|
 |connector-auth|API|t107, t112, t159|2026-07-28|
 |connector-cpa-runtime|API|拆自 connector-cpa（t037）|2026-07-21|
