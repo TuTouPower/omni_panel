@@ -57,6 +57,10 @@ export function translate_launcher_args(args) {
     }
 
     if (command === null) return { mode: "help", forwardArgs: [] };
+    // t400: help 子命令由 launcher 直接打印共享帮助，不转发主进程。
+    if (command === "help") {
+        return { mode: "help", forwardArgs: [] };
+    }
     if (CLI_COMMANDS.has(command)) {
         return { mode: "cli", forwardArgs: ["--cli", ...args] };
     }

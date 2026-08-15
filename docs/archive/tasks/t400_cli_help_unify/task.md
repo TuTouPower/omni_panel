@@ -2,11 +2,11 @@
 tid: "t400"
 slug: "cli_help_unify"
 title: "CLI 帮助单一真相源:四入口输出统一含 --gui"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t400_cli_help_unify"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "66b8d5a375ee63bc729bb9e25d693aeed9a3d514"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "scheduled"
@@ -31,6 +31,16 @@ note: "无参/--help/help/--cli help 四入口输出同一份帮助(含 --gui);�
 
 实施步骤执行期记录。
 
+### 实施（2026-08-16 02:35 UTC+8）
+
+- doctor_cmd：无。
+- s029：候选 A 可行——主进程 import `scripts/*.mjs` 构建期内联（esbuild/vite 实测 + `pnpm build` 产物含 `CLI_HELP_TEXT`）。finding d038。
+- 实现：`scripts/cli_help.mjs` 单一真相源；launcher / 主进程 import；`help` 子命令 → launcher `mode: help`（不转发）；`--cli help` 主进程打印同一常量。
+- 测试：`tests/unit/scripts/cli_help.test.ts` + 更新 `launcher_arg_translate.test.ts`；相关 + 全量 `pnpm test` 绿。
+- 黑盒：launcher 四入口 md5 一致；`electron . --cli help` 与 launcher 字节一致；AC-005 `[deploy]` 未跑 `make:linux`。
+- review round 1 code+test PASS，零 finding。
+- 工具链缺陷（任务结束后汇报）：`spikes.py new` 因历史 s004 编号重复失败，本 task 手建 s029。
+
 ## Review 处置
 
 本小节 = 处置表唯一落点。review 结束后在此追加轮次小节与表格；不写进 `review_code.md` / `review_test.md` / `review_general.md`，也不另建文件。
@@ -51,14 +61,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-08-16 02:35 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -67,24 +72,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足（AC-005 `[deploy]` 标注人工/打包验证）
+- 证据：见 `handoff.json` `ac_evidence`（四入口 mode + 共享文本 + electron 字节比对 + 源码去内联 + build 内联）
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- CLI 帮助收敛到 `scripts/cli_help.mjs`；launcher 四入口与 `--cli help` 输出一致（含 `--gui`）。

@@ -183,3 +183,11 @@
 - 结论：`cacheMaxMb: 0` 合法且语义为「不限制」。schema `min(0)`（不放开负数）；retention `retention_params` 对 `cache_max_mb<=0` 返回无行数预算（仅日期阈值），与 `undefined` 等同。
 - 落地：t398（config types schema 放宽 + retention 0 分支测试）；retention 空窗口推进见 AC-003（p159）。
 - 替代：无
+
+## 019 CLI 帮助单一真相源在 scripts/cli_help.mjs（2026-08-16）
+
+- 背景：launcher（`scripts/omni_panel.mjs`）与主进程（`src/main`）各内联一份 CLI 帮助，四入口（无参/`--help`/`help`/`--cli help`）输出不一致（漏 `--gui` 等）。
+- 选项：A) 源放 `scripts/cli_help.mjs`，主进程 import 靠 electron-vite 构建期内联；B) 源放 `src/`，launcher 构建期复制/软链；C) 两处内联 + 单测锁一致性。
+- 结论：选 A（s029/d038 验证：主进程 import 外部 `.mjs` 会被 rollup/esbuild 内联进 `out/main`，打包 `files` 仅 `out/**` 时运行时不依赖 `scripts/`）。launcher 运行时 import 同文件。`help` 子命令由 launcher 直打帮助，不再注入 `--cli`；`--cli help` 兼容路径仍进主进程但打印同一常量。
+- 落地：t400。
+- 替代：无
