@@ -69,6 +69,8 @@ function loc_of(source: string, env: string, session_id: string): SessionLoc {
 const CONTENT_SEARCH_PAGE_SIZE = 100;
 /** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
 const SEARCH_ENUM_CAP = 100_000;
+/** t389 AC-001: RECENT limit 上界——超限拒绝，防 SQLite LIMIT 巨大值全量拉取。 */
+const RECENT_LIMIT_MAX = 10_000;
 
 function key_of(row: SessionRow): string {
     return `${row.source}|${row.env}|${row.id}`;
@@ -221,6 +223,18 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             limit: number,
         ): IpcResult<RecentSession[]> => {
             assert_valid_sender(event);
+            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
+            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
+            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
+            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
+            // 与 token-stats-ipc 的 valid_limit/TOKEN_STATS_LIMIT_MAX 同语义；
+            // 两处上界常量若调整需同步。
+            if (!Number.isInteger(limit) || limit <= 0 || limit > RECENT_LIMIT_MAX) {
+                return fail(
+                    "INVALID_LIMIT",
+                    `limit must be an integer in [1, ${String(RECENT_LIMIT_MAX)}]`,
+                );
+            }
             const recent = deps.service.recent_sessions(
                 source,
                 env as Env,

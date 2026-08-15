@@ -25,6 +25,19 @@ import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../core/token-stats/manager";
 import type { TokenStatsQueryDispatcher } from "../core/token-stats/query-dispatcher";
 
+/** t389 AC-002/003: TOKEN_STATS_SESSIONS/RECORDS limit 上界——超限拒绝，防
+ *  SQLite LIMIT 巨大值全量拉取。缺省（undefined）走 store 默认语义不变。 */
+const TOKEN_STATS_LIMIT_MAX = 10_000;
+
+function valid_limit(limit: number | undefined): limit is number {
+    return (
+        limit !== undefined &&
+        Number.isInteger(limit) &&
+        limit > 0 &&
+        limit <= TOKEN_STATS_LIMIT_MAX
+    );
+}
+
 export function registerTokenStatsIpc(
     ipc: IpcMain,
     deps: {
@@ -56,6 +69,13 @@ export function registerTokenStatsIpc(
             filters?: TokenStatsSessionFilters,
         ): IpcResult<TokenStatsSession[]> => {
             assert_valid_sender(event);
+            // t389 AC-002/004: limit 校验——非有限正整数或超上界拒绝。
+            if (filters?.limit !== undefined && !valid_limit(filters.limit)) {
+                return fail(
+                    "INVALID_LIMIT",
+                    `limit must be an integer in [1, ${String(TOKEN_STATS_LIMIT_MAX)}]`,
+                );
+            }
             return ok(deps.store.query_sessions(filters ?? {}));
         },
     );
@@ -75,6 +95,13 @@ export function registerTokenStatsIpc(
             filters?: TokenStatsRecordFilters,
         ): IpcResult<AgentSessionUsage[]> => {
             assert_valid_sender(event);
+            // t389 AC-003/004: limit 校验——非有限正整数或超上界拒绝。
+            if (filters?.limit !== undefined && !valid_limit(filters.limit)) {
+                return fail(
+                    "INVALID_LIMIT",
+                    `limit must be an integer in [1, ${String(TOKEN_STATS_LIMIT_MAX)}]`,
+                );
+            }
             return ok(deps.store.query_records(filters ?? {}));
         },
     );
