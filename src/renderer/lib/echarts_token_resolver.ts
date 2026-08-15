@@ -4,6 +4,32 @@ import { useMemo, useSyncExternalStore } from "react";
 
 export type ChartTheme = "dark" | "light";
 
+/**
+ * DESIGN.md 九级字号（px）。canvas/SVG 不读 CSS class，须从此表取值，禁止散落数字字面量。
+ * 与 globals.css `--text-*` 同源（designmd 导出）。
+ */
+export const TEXT_SCALE_PX = {
+    "display-num": 30,
+    "title-lg": 21,
+    "title-md": 17,
+    "title-sm": 15,
+    "body-md": 13.5,
+    "body-sm": 12.5,
+    "label-md": 11.5,
+    "label-caps": 10.5,
+    "code-md": 12.5,
+} as const;
+
+/** 圆角六档（px），canvas 就近归档用。 */
+export const RADIUS_SCALE_PX = {
+    xs: 6,
+    sm: 8,
+    md: 10,
+    lg: 14,
+    xl: 18,
+    full: 999,
+} as const;
+
 export interface ChartPalette {
     accent: string;
     axis: string;

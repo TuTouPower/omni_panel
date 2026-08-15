@@ -51,11 +51,11 @@ function percent(used: number, limit: number | null): number {
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
-const GRID_THIN = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-1.5";
-const GRID_CAPSULE = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-1.5";
+const GRID_THIN = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-2";
+const GRID_CAPSULE = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-2";
 
 const META_CLS =
-    "min-w-0 whitespace-nowrap text-right text-[12px] tabular-nums text-[var(--color-on-surface-muted)]";
+    "min-w-0 whitespace-nowrap text-right text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-muted)]";
 
 export const UsageBarRow = memo(function UsageBarRow({
     period,
@@ -105,7 +105,7 @@ export const UsageBarRow = memo(function UsageBarRow({
             data-ratio={is_ratio ? "true" : undefined}
         >
             <span
-                className="min-w-0 truncate text-[12.5px] text-[var(--color-on-surface-variant)]"
+                className="min-w-0 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]"
                 title={label}
                 data-testid="bar-lbl"
             >
@@ -132,13 +132,13 @@ export const UsageBarRow = memo(function UsageBarRow({
                 {is_capsule && (
                     <>
                         <span
-                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-bold tabular-nums text-[var(--color-on-surface)]"
+                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[length:var(--text-label-md)] font-bold tabular-nums text-[var(--color-on-surface)]"
                             data-testid="bar-capsule-value-dark"
                         >
                             {value}
                         </span>
                         <span
-                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[11px] font-bold tabular-nums text-white"
+                            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center text-[length:var(--text-label-md)] font-bold tabular-nums text-white"
                             data-testid="bar-capsule-value-light"
                             style={{ clipPath: `inset(0 ${String(100 - pct)}% 0 0)` }}
                         >
@@ -149,7 +149,7 @@ export const UsageBarRow = memo(function UsageBarRow({
             </div>
             {!is_capsule && (
                 <span
-                    className="min-w-0 whitespace-nowrap text-right text-[12.5px] font-semibold tabular-nums text-[var(--color-on-surface)]"
+                    className="min-w-0 whitespace-nowrap text-right text-[length:var(--text-body-sm)] font-semibold tabular-nums text-[var(--color-on-surface)]"
                     data-testid="bar-pct"
                 >
                     {value}
@@ -193,12 +193,12 @@ export function AccountUsageRow({
                 {beforeName}
                 <StatusDot tone="success" />
                 {display_label ? (
-                    <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--color-on-surface)]">
+                    <span className="text-[length:var(--text-body-md)] font-semibold tracking-[-0.01em] text-[var(--color-on-surface)]">
                         {display_label}
                     </span>
                 ) : null}
                 <span
-                    className="ml-auto shrink-0 text-[11.5px] text-[var(--color-on-surface-muted)]"
+                    className="ml-auto shrink-0 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
                     data-testid="ai-time"
                 >
                     {/* t174: 同 ProviderAccountRow——相对时间取 per-账号 observedAt */}
@@ -210,7 +210,7 @@ export function AccountUsageRow({
                 </span>
                 {afterHeader}
             </div>
-            <div className={"flex flex-col " + (barStyle === "capsule" ? "gap-[7px]" : "gap-2")}>
+            <div className={"flex flex-col " + (barStyle === "capsule" ? "gap-2" : "gap-2")}>
                 {account.periods.map((period, index) => (
                     <UsageBarRow
                         key={period.id}

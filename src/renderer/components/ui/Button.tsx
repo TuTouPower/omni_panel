@@ -33,7 +33,7 @@ type ButtonAsLinkProps = ButtonBaseProps &
 export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const base =
-    "inline-flex items-center justify-center gap-1.5 rounded-md font-semibold " +
+    "inline-flex items-center justify-center gap-2 rounded-md font-semibold " +
     "transition-feedback disabled:pointer-events-none disabled:opacity-50 " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-0";
 
@@ -56,7 +56,7 @@ const sizes: Record<ButtonSize, string> = {
     // 误判为颜色类，吞掉 primary/danger 的 text-[var(--color-on-primary)]（t298，sm 档 t283）。
     standard: "h-9 px-[18px] text-[length:var(--text-body-md)]",
     sm: "h-8 px-3 text-[length:var(--text-label-md)]",
-    inline: "h-auto px-2.5 py-1 text-[12.5px]",
+    inline: "h-auto px-2.5 py-1 text-[length:var(--text-body-sm)]",
     // icon 尺寸档：DESIGN 默认 32；既有 28/26/22 用量收档
     icon: "h-8 w-8 p-0",
     "icon-md": "h-7 w-7 p-0",

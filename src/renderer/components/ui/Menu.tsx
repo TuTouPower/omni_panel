@@ -68,7 +68,7 @@ export function MenuItem({
             aria-pressed={aria_pressed}
             aria-checked={aria_checked}
             className={cn(
-                "flex w-full items-center gap-2 rounded px-3 py-1.5 text-[length:var(--text-body-sm)] " +
+                "flex w-full items-center gap-2 rounded px-3 py-2 text-[length:var(--text-body-sm)] " +
                     "text-[var(--color-on-surface)] hover:bg-[var(--color-primary)] hover:text-[var(--color-on-primary)] " +
                     "disabled:pointer-events-none disabled:opacity-50 " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",

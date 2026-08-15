@@ -136,7 +136,7 @@ export function LabelMapDialog({
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
                             数据标签映射
                         </div>
-                        <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {vendor_id} · {account_name}
                         </div>
                     </div>
@@ -210,16 +210,16 @@ export function LabelMapDialog({
                 </div>
             ) : (
                 <>
-                    <div className="mb-3.5 flex items-center gap-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                    <div className="mb-3.5 flex items-center gap-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         <Icon name="info" size={13} />
                         以下标签来自接口最近一次返回
                         {synced ? ` · ${synced}` : ""}
                     </div>
-                    <div className="mb-2 flex items-center gap-3 px-0.5 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                    <div className="mb-2 flex items-center gap-3 px-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                         <span className="min-w-0 flex-1">原始标签（来自接口）</span>
                         <span className="w-[140px] shrink-0">显示名称</span>
                     </div>
-                    <div className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto">
+                    <div className="flex max-h-[280px] flex-col gap-2 overflow-y-auto">
                         {rows.map((r) => {
                             const v = effective(r);
                             const changed = v !== r.default;

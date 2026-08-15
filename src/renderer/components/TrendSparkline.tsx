@@ -1,5 +1,6 @@
 import { memo } from "react";
 
+import { TEXT_SCALE_PX } from "../lib/echarts_token_resolver";
 import type { TrendPoint } from "../../shared/types/ipc";
 
 interface TrendSparklineProps {
@@ -48,7 +49,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                 role="img"
                 aria-label={label ? `${label} 趋势数据不足` : "趋势数据不足"}
             >
-                <span className="px-0.5 py-1.5 text-[11px] text-[var(--color-on-surface-muted)]">
+                <span className="px-1 py-2 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                     {label ? `${label}:` : ""}近 7 天数据不足
                 </span>
             </div>
@@ -87,7 +88,7 @@ export const TrendSparkline = memo(function TrendSparkline({
     const same_day = day_keys.size <= 1;
     const label_text = (p: TrendPoint): string =>
         same_day ? p.date.slice(11, 16) : p.date.slice(5, 10);
-    // MM-DD / HH:mm 均 ~5 字符，fontSize 9.5 估算字宽 ~6px，加间隔余量。
+    // MM-DD / HH:mm 均 ~5 字符；字号取 label-caps，估算字宽 ~6px + 间隔。
     const est_label_width = 5 * 6 + 8;
     const max_labels = Math.max(1, Math.floor(inner_width / est_label_width));
     const target_labels = Math.min(n, max_labels);
@@ -136,7 +137,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                             x={pad_left - 6}
                             y={y_at(g) + 3.5}
                             fill="var(--color-on-surface-muted)"
-                            fontSize={9.5}
+                            fontSize={TEXT_SCALE_PX["label-caps"]}
                             textAnchor="end"
                         >
                             {String(g)}%
@@ -151,7 +152,7 @@ export const TrendSparkline = memo(function TrendSparkline({
                             x={x_at(i)}
                             y={height - 8}
                             fill="var(--color-on-surface-muted)"
-                            fontSize={9.5}
+                            fontSize={TEXT_SCALE_PX["label-caps"]}
                             textAnchor="middle"
                         >
                             {label_text(p)}

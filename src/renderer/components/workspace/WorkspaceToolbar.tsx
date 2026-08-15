@@ -103,7 +103,7 @@ export function WorkspaceToolbar({
                             </MenuItem>
                             {layout_choices.length > 0 && (
                                 <div
-                                    className="mt-1 flex flex-col gap-0.5 border-t border-[var(--color-hairline)] pt-1"
+                                    className="mt-1 flex flex-col gap-1 border-t border-[var(--color-hairline)] pt-1"
                                     role="group"
                                     aria-label="会话排布"
                                 >

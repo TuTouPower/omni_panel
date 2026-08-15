@@ -25,7 +25,7 @@ export function ProviderCardOverview({
 }: ProviderCardOverviewProps) {
     if (isRefreshing && !overviewPeriods.length) {
         return (
-            <div className="mt-[11px] flex flex-col gap-[9px]">
+            <div className="mt-3 flex flex-col gap-[9px]">
                 <div className="grid grid-cols-[42px_1fr] items-center gap-2.5">
                     <Skeleton className="h-3 w-10" />
                     <Skeleton className="h-3 w-full" />
@@ -39,7 +39,7 @@ export function ProviderCardOverview({
     }
     if (!overviewPeriods.length)
         return (
-            <div className="mt-[11px] flex items-center gap-[9px] text-[13px] text-[var(--color-on-surface-muted)]">
+            <div className="mt-3 flex items-center gap-[9px] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                 暂无有效用量数据
             </div>
         );

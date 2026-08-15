@@ -99,15 +99,15 @@ export function CpaCard({
                 data-mode="cpa-source"
             >
                 <VendorMark id="cpa" size={24} />
-                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span
-                        className="shrink-0 whitespace-nowrap text-[14px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        className="shrink-0 whitespace-nowrap text-[length:var(--text-body-md)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                         data-testid="account-vendor"
                     >
                         CPA
                     </span>
                     {note && note !== "CPA" && (
-                        <span className="truncate text-[13.5px] font-[550] text-[var(--color-on-surface-muted)]">
+                        <span className="truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface-muted)]">
                             · {note}
                         </span>
                     )}
@@ -119,14 +119,14 @@ export function CpaCard({
                     <StatusDot tone={cpa_status.tone} />
                     <span
                         className={
-                            "whitespace-nowrap text-[11.5px] font-semibold text-[var(--color-on-surface-muted)]" +
+                            "whitespace-nowrap text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-muted)]" +
                             (cpa_status.severity_class ? " text-[var(--color-risk-critical)]" : "")
                         }
                     >
                         {cpa_status.text}
                     </span>
                 </span>
-                <div className="ml-auto flex shrink-0 items-center gap-[3px]">
+                <div className="ml-auto flex shrink-0 items-center gap-1">
                     <Switch
                         checked={enabled}
                         data-on={enabled ? "1" : "0"}

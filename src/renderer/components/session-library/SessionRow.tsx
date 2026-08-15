@@ -48,13 +48,13 @@ export const SessionRow = memo(function SessionRow({
                 }}
             />
             <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]"
                 data-testid="library-row-badge"
             >
                 {agent_abbrev(s.source)}
             </span>
             <span
-                className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
+                className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]"
                 data-testid="library-row-title"
             >
                 {s.title ?? s.id}

@@ -13,7 +13,7 @@ export function Toast({ className, children, ...props }: ToastProps) {
                 "fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 " +
                     "rounded-lg border border-[var(--color-outline)] " +
                     "bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] " +
-                    "px-[18px] py-2 text-[length:var(--text-body-md)] font-medium " +
+                    "px-[18px] py-2 text-[length:var(--text-body-md)] font-[550] " +
                     "text-[var(--color-on-surface)] shadow-menu",
                 className,
             )}

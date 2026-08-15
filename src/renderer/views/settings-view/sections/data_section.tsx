@@ -68,7 +68,7 @@ export function DataSection({
             >
                 <div className="flex items-center gap-3">
                     {show_secret_option && (
-                        <label className="flex items-center gap-1.5 text-[12px] text-[var(--color-on-surface-variant)]">
+                        <label className="flex items-center gap-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                             <Checkbox
                                 aria-label="包含明文密钥"
                                 checked={include_secrets}
@@ -80,7 +80,7 @@ export function DataSection({
                         </label>
                     )}
                     {show_secret_option && include_secrets && (
-                        <span className="text-[11px] text-[var(--color-error)]">
+                        <span className="text-[length:var(--text-label-md)] text-[var(--color-error)]">
                             文件含明文密钥，请妥善保管
                         </span>
                     )}
@@ -109,7 +109,7 @@ export function DataSection({
                     {data_msg?.startsWith("导入失败") && (
                         <div
                             role="alert"
-                            className="max-w-[360px] text-right text-[11px] text-[var(--color-error)]"
+                            className="max-w-[360px] text-right text-[length:var(--text-label-md)] text-[var(--color-error)]"
                         >
                             {data_msg}
                         </div>

@@ -117,7 +117,7 @@ export function SessionList({
     return (
         <div
             ref={list_ref}
-            className="scrollbar-token flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-[18px] pb-3.5 pt-2"
+            className="scrollbar-token flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-[18px] pb-3.5 pt-2"
             data-testid="library-list"
             onScroll={handle_scroll}
         >

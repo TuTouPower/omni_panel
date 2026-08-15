@@ -22,7 +22,7 @@ function to_mutable(
 
 const alias_input_class =
     "h-8 rounded-md border border-[var(--color-outline)] bg-[var(--color-field-bg)] " +
-    "px-2 text-[12.5px] text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-muted)] " +
+    "px-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-muted)] " +
     "focus-visible:outline-none focus-visible:border-[var(--color-accent)] focus-visible:ring-2 " +
     "focus-visible:ring-[var(--color-accent-ring)]";
 
@@ -76,7 +76,7 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="shrink-0 px-2.5 py-1.5 text-[12px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+                        className="shrink-0 px-2.5 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
                         onClick={() => {
                             remove(i);
                         }}
@@ -88,7 +88,7 @@ export function AliasEditor({ label, itemLabel, entries, onChange }: AliasEditor
             <Button
                 variant="secondary"
                 size="sm"
-                className="self-start px-2.5 py-1.5 text-[12px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+                className="self-start px-2.5 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
                 onClick={add}
             >
                 添加

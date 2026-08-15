@@ -240,7 +240,7 @@ export function SessionTable({
                                         <div className="truncate text-[var(--color-on-surface)]">
                                             {r.title}
                                         </div>
-                                        <div className="mt-0.5 truncate font-mono text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                                        <div className="mt-1 truncate font-mono text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                             {r.slug ?? ""}
                                             {r.sub && (
                                                 <Badge
@@ -383,7 +383,7 @@ function SortHeader({
     const active = sortKey === k;
     return (
         <th
-            className="cursor-pointer whitespace-nowrap px-3 py-2 text-left text-[length:var(--text-label-md)] font-medium text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)]"
+            className="cursor-pointer whitespace-nowrap px-3 py-2 text-left text-[length:var(--text-label-md)] font-[550] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)]"
             onClick={() => {
                 onSort(k);
             }}

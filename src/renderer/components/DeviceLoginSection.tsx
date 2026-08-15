@@ -115,7 +115,7 @@ export function DeviceLoginSection({
     if (checking) {
         return (
             <div
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-2"
                 data-testid={`device-login-checking-${instance_id}`}
             >
                 <p className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
@@ -128,7 +128,7 @@ export function DeviceLoginSection({
     if (has_token && phase !== "error") {
         return (
             <div
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-2"
                 data-testid={`device-login-logged-in-${instance_id}`}
             >
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
@@ -158,7 +158,7 @@ export function DeviceLoginSection({
     }
 
     return (
-        <div className="flex flex-col gap-1.5" data-testid={`device-login-section-${instance_id}`}>
+        <div className="flex flex-col gap-2" data-testid={`device-login-section-${instance_id}`}>
             <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 {vendor_label[vendor]} 授权
             </label>

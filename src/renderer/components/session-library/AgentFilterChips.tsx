@@ -12,7 +12,7 @@ interface AgentFilterChipsProps {
 
 export function AgentFilterChips({ agents, counts, on_change }: AgentFilterChipsProps) {
     return (
-        <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-[var(--color-hairline)] px-[18px] py-2">
             <Button
                 variant="ghost"
                 size="sm"

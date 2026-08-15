@@ -149,7 +149,7 @@ export const ProviderCard = memo(function ProviderCard({
             {onDragStart && <DragGrip iconSize={18} />}
             <VendorMark id={provider} size={26} />
             <span
-                className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                 data-testid="card-name"
             >
                 {label}
@@ -178,7 +178,7 @@ export const ProviderCard = memo(function ProviderCard({
             )}
             {is_refreshing && (
                 <span
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     刷新中…
@@ -186,16 +186,16 @@ export const ProviderCard = memo(function ProviderCard({
             )}
             {!is_refreshing && hasUsage && (
                 <span
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     {updated_text}
                 </span>
             )}
             {!is_refreshing && hasUsage && group && group.stale && (
-                <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-[var(--color-on-surface-muted)]">
+                <span className="inline-flex items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     <span
-                        className="ml-1.5 font-[650] text-[var(--color-warning)]"
+                        className="ml-2 font-[650] text-[var(--color-warning)]"
                         data-testid="stale-badge"
                     >
                         已过期

@@ -99,7 +99,7 @@ export function SessionPickerModal({
                         set_search(e.target.value);
                     }}
                 />
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                     <Button
                         variant={agent === null ? "primary" : "secondary"}
                         size="sm"
@@ -134,13 +134,13 @@ export function SessionPickerModal({
                             <button
                                 type="button"
                                 key={`${s.source}|${s.env}|${s.id}`}
-                                className="flex min-w-0 flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                className="flex min-w-0 flex-col gap-1 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--color-surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                 onClick={() => {
                                     open(s);
                                 }}
                             >
                                 <span
-                                    className="flex min-w-0 items-center gap-2 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
+                                    className="flex min-w-0 items-center gap-2 truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]"
                                     data-testid="session-picker-row-title"
                                 >
                                     <span className="min-w-0 truncate">{s.title ?? s.id}</span>
