@@ -29,7 +29,6 @@ import {
     get_observations_db_path,
     get_token_stats_db_path,
     get_snapshot_cache_path,
-    getTokenStatsStatePath,
 } from "./core/paths";
 import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
@@ -77,11 +76,12 @@ import { create_token_stats_store } from "./core/token-stats/token-stats-store";
 import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
 import { host_from_platform } from "./core/token-stats/paths";
+import { build_token_stats_config } from "./core/token-stats/build-config";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
 import { createOnConfigImported } from "./config-callbacks";
-import type { TokenStatsConfig, TokenStatsSessionFilters } from "../shared/types/token-stats";
+import type { TokenStatsSessionFilters } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
@@ -430,15 +430,6 @@ void app.whenReady().then(async () => {
                     }
                 });
             },
-        });
-        const build_token_stats_config = (cfg: typeof currentConfigSnapshot): TokenStatsConfig => ({
-            win_home: homedir(),
-            // WSL 默认开启：无 WSL 的机器上 UNC 读取会静默失败（reader 已容错）
-            wsl_enabled: cfg.tokenStats?.wslEnabled ?? true,
-            wsl_distro: cfg.tokenStats?.wslDistro ?? "Ubuntu-22.04",
-            wsl_user: cfg.tokenStats?.wslUser ?? "", // 空 = collector 自动探测
-            poll_interval_ms: (cfg.tokenStats?.pollIntervalMinutes ?? 10) * 60_000,
-            state_path: getTokenStatsStatePath(),
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
 
