@@ -2,11 +2,11 @@
 tid: "t418"
 slug: "usage_color_single_source"
 title: "用量九色与 accent 预设颜色收口单一来源"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t418_usage_color_single_source"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "22d51152b6a411c104c7568c5727e1460305c7dd"
 depends_on: ""
 conflicts_with: "t420,t424"
 schedule_status: "scheduled"
@@ -23,7 +23,12 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- doctor：无
+- 九色：与 RISK_TOKENS 同模式，注入 `var(--color-usage-N)` 而非 getComputedStyle 解析；hex 仅留 globals.css / DESIGN.md
+- accent：`theme.ts` 导出 `ACCENT_PRESET_LIST` 派生表；appearance 只引用导出
+- about：tint 改 `var(--color-accent-*)`；update 图标 `#fff` → `var(--color-on-primary)`
+- 预存 lint 红（session-resume / general_section dynamic-delete）在 base 已存在，本 task 未引入
+- review 2 minor 已修：settings mock 改 importOriginal；九色 hex 清零改正则全覆盖
 
 ## Review 处置
 
@@ -39,20 +44,12 @@ note: ""
 
 reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符），处置为改 spec 上下文区，不计 FAIL。
 
-### Round 1 场景说明
-
-- **无 finding**：写「Round 1 零 finding，未进处置表。」
-- **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
-- **有 critical / important**：建表，逐条填 status（不得留空）。
-
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-16 05:35 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t418_gen_f001|minor|已修|theme mock 改 importOriginal，只覆盖 useTheme/apply_accent|settings_view_general.test.tsx|
+|t418_gen_f002|minor|已修|九色清零断言改为 `#[0-9a-fA-F]{6}` 正则全覆盖|usage-colors.test.ts|
 
 ## 收尾报告
 
@@ -61,24 +58,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~003 源码 grep + 单测；AC-004 单测观感不回归（deploy 目检留给合并后）；AC-005 全量 3326 passed
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
+- Round 2 general：PASS
+- Round 3 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+九色/accent 预设/about tint 收口单一 token 来源；全量单测绿；review Round 3 PASS；finding d044。

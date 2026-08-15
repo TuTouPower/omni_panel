@@ -28,9 +28,14 @@ vi.mock("../../../../src/renderer/hooks/use-config", () => ({
     }),
 }));
 
-vi.mock("../../../../src/renderer/lib/theme", () => ({
-    useTheme: () => undefined,
-}));
+vi.mock("../../../../src/renderer/lib/theme", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../../src/renderer/lib/theme")>();
+    return {
+        ...actual,
+        useTheme: () => undefined,
+        apply_accent: () => undefined,
+    };
+});
 
 describe("SettingsView", () => {
     beforeEach(() => {

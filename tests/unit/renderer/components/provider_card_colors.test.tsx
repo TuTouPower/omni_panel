@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, beforeEach } from "vitest";
 import { ProviderCard } from "../../../../src/renderer/components/ProviderCard";
 import { bar_fill_color, usage_color } from "../../../../src/renderer/lib/usage-colors";
-import { makeGroup, makePeriod, hex_to_rgb, setupWindowUsageboard } from "./provider_card_fixture";
+import { makeGroup, makePeriod, setupWindowUsageboard } from "./provider_card_fixture";
 
 vi.mock("../../../../src/renderer/lib/theme", () => ({
     useTheme: () => undefined,
@@ -93,10 +93,11 @@ describe("ProviderCard - colors", () => {
         );
 
         // Overview mode: aggregated bars by period type ("一周" idx=0, "5小时" idx=1)
+        // t418: nine-cycle 注入 CSS var token，不再解析为 rgb hex。
         const fills = document.querySelectorAll('[data-testid="bar-fill"]');
         expect(fills.length).toBeGreaterThanOrEqual(2);
-        expect((fills[0] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(0)));
-        expect((fills[1] as HTMLElement).style.background).toBe(hex_to_rgb(usage_color(1)));
+        expect((fills[0] as HTMLElement).style.background).toBe(usage_color(0));
+        expect((fills[1] as HTMLElement).style.background).toBe(usage_color(1));
     });
 
     it("uses current-only risk colors by default", () => {
@@ -238,7 +239,8 @@ describe("ProviderCard - colors", () => {
 
         const fill = document.querySelector<HTMLElement>('[data-testid="bar-fill"]');
         if (!fill) throw new Error("missing fill");
-        expect(fill.style.background).toBe(hex_to_rgb(usage_color(0)));
+        expect(fill.style.background).toBe(usage_color(0));
+        expect(fill.style.background).toBe("var(--color-usage-1)");
     });
 
     it("does not apply fill.blue, fill.purple, or fill.danger classes", () => {

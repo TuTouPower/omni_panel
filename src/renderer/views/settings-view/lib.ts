@@ -8,6 +8,7 @@ import type {
 import type { ConnectorInfo } from "../../../shared/types/ipc";
 import type { MetricRecord } from "../../../shared/schemas/plugin-output";
 import { createLogger } from "../../../shared/lib/logger";
+import { USAGE_COLOR_TOKENS } from "../../lib/usage-colors";
 
 /* ── constants ── */
 export const BAR_COLOR_SCHEMES: {
@@ -44,7 +45,8 @@ export const BAR_COLOR_SCHEMES: {
         value: "nine-cycle",
         title: "彩色区分：九色循环",
         sub: "按位置循环九色，只做视觉区分，不表达风险。",
-        swatch: ["#5B8CFF", "#8B72F8", "#46C7C7", "#7EA2FF", "#A18CFF"],
+        // t418: 与 usage_color 同源 token，不另写 hex 副本。
+        swatch: [...USAGE_COLOR_TOKENS.slice(0, 5)],
     },
 ];
 

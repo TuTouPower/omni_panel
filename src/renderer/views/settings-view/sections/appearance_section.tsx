@@ -3,9 +3,11 @@ import { BarSchemeField } from "../../../components/settings/BarSchemeField";
 import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Segmented } from "../../../components/ui/Segmented";
 import { BAR_STYLE_LABELS, bar_style_label_to_value } from "../lib";
-import { apply_accent } from "../../../lib/theme";
-
-const ACCENTS = ["#3d7afd", "#6f5cf6", "#0ea5a3", "#f5772f", "#e23744"];
+import {
+    ACCENT_PRESET_COLORS,
+    DEFAULT_ACCENT_COLOR,
+    apply_accent,
+} from "../../../lib/theme";
 
 export function AppearanceSection({
     config,
@@ -14,7 +16,7 @@ export function AppearanceSection({
     config: AppConfiguration;
     save_config: (payload: AppConfiguration) => Promise<void>;
 }) {
-    const accentColor = config.accentColor ?? "#3d7afd";
+    const accentColor = config.accentColor ?? DEFAULT_ACCENT_COLOR;
     const themeMode = config.theme ?? "light";
     const usageBarColorScheme = config.usageBarColorScheme ?? "risk-current";
     const usageBarStyle = config.usageBarStyle ?? "thin";
@@ -41,7 +43,7 @@ export function AppearanceSection({
             </SetRow>
             <SetRow title="强调色" sub="用于选中状态、进度条与主要操作">
                 <div className="flex items-center gap-2">
-                    {ACCENTS.map((c) => {
+                    {ACCENT_PRESET_COLORS.map((c) => {
                         const selected = accentColor === c;
                         return (
                             <button

@@ -48,6 +48,7 @@
 |session_scrollbar_unify|Web+Desktop|t412|2026-08-16|
 |surface_token_unify|Web+Desktop|t406 全窗口背景两级（window/card），raised 仅交互态|2026-08-16|
 |elevation_layering_unify|Web+Desktop|t415 阴影变量翻转、z 五层、logo-drop-shadow、SelectionDock 去 blur|2026-08-16|
+|usage_color_single_source|Web+Desktop|t418 九色/accent 预设/about tint 收口单一 token 来源|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|
 |ui-component-library|Desktop|t269，t301，t303|2026-08-11|
