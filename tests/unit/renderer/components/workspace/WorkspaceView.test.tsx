@@ -947,7 +947,8 @@ describe("WorkspaceView (t224)", () => {
         vi.useRealTimers();
     });
 
-    it("t406 AC-001/002：根背景 surface-window、发丝线网格保留、卡片 surface-card", async () => {
+    it("t406 AC-001/002：根背景 surface-window、卡片 surface-card", async () => {
+        // t411 起网格改透明 card-gap，不再断言 gap-px 描线网格（见 t411 AC-001/002 用例）。
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "你好", 100)],
@@ -957,17 +958,12 @@ describe("WorkspaceView (t224)", () => {
         const root = document.querySelector(".session-workspace");
         expect(root?.className).toContain("bg-[var(--color-surface-window)]");
         expect(root?.className).not.toContain("bg-[var(--color-surface)]");
-        // 装入会话后出现网格：gap-px + bg-outline + p-px 发丝线网格保留。
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
         await waitFor(() => {
             expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
         });
-        const grid = document.querySelector(".session-grid");
-        expect(grid?.className).toContain("gap-px");
-        expect(grid?.className).toContain("bg-[var(--color-outline)]");
-        expect(grid?.className).toContain("p-px");
         // 单元格与根同色（surface-window），卡片为 surface-card（非 raised 整面）。
         const cell = document.querySelector(".session-cell");
         expect(cell?.className).toContain("bg-[var(--color-surface-window)]");
@@ -978,6 +974,30 @@ describe("WorkspaceView (t224)", () => {
         const rail = document.querySelector(".session-rail");
         expect(rail?.className).toContain("bg-[var(--color-surface-window)]");
         expect(rail?.className).not.toContain("color-mix");
+    });
+
+    it("t411 AC-001/002：session-grid 透明 card-gap，无描线网格", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        render_workspace();
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(1);
+        });
+        const grid = document.querySelector(".session-grid");
+        expect(grid).toBeTruthy();
+        const cn = grid?.className ?? "";
+        // AC-001：去掉 gap-px 描线网格（bg-outline + p-px）。
+        expect(cn).not.toContain("gap-px");
+        expect(cn).not.toContain("bg-[var(--color-outline)]");
+        expect(cn).not.toMatch(/(?:^|\s)p-px(?:\s|$)/);
+        // AC-002：间隙宽度取 spacing.card-gap token。
+        expect(cn).toContain("gap-[var(--spacing-card-gap)]");
     });
 });
 

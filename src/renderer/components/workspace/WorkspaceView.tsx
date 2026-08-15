@@ -339,7 +339,7 @@ export function WorkspaceView({
                         </div>
                     ) : (
                         <div
-                            className="session-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-px bg-[var(--color-outline)] p-px"
+                            className="session-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-[var(--spacing-card-gap)]"
                             style={{ "--cols": String(cols) } as CSSProperties}
                         >
                             {slots_state.map((slot, index) =>
