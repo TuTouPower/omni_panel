@@ -5972,6 +5972,21 @@
             "schedule_status": "",
             "note": "来源 p157/p158/p159；含 schema 变更，full",
             "dir": "docs/archive/tasks/t398_config_account_logic_fix"
+        },
+        {
+            "tid": "t399",
+            "slug": "cli_launcher_parse",
+            "title": "launcher 参数语义反转:无参=CLI 帮助,--gui=GUI,子命令免 --cli 前缀",
+            "status": "done",
+            "branch": "t399_cli_launcher_parse",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "4e540e81dbededb75bd796a04a9ef8729b58c669",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "双击进 GUI;命令行无参打印帮助含 --gui;serve/quit 等免 --cli 前缀自动注入;--cli 兼容保留",
+            "dir": "docs/archive/tasks/t399_cli_launcher_parse"
         }
     ]
 }
