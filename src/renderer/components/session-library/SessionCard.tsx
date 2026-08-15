@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Checkbox } from "../ui/Checkbox";
 import { format_tokens, session_tokens } from "./session-library-utils";
 
 interface CardProps {
@@ -147,22 +148,17 @@ export const SessionCard = memo(function SessionCard({
                     预览
                 </Button>
             </div>
-            <button
-                type="button"
-                className={cn(
-                    "absolute right-2 top-2 flex h-[22px] w-[22px] items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                    selected
-                        ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
-                        : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",
-                )}
+            <Checkbox
+                variant="select"
+                accent="agent"
+                boxSize="lg"
+                className="absolute right-2 top-2"
+                checked={selected}
                 aria-label={`会话 ${s.id}`}
-                aria-pressed={selected}
                 onClick={() => {
                     on_toggle(s);
                 }}
-            >
-                {selected ? "✓" : ""}
-            </button>
+            />
         </Card>
     );
 });

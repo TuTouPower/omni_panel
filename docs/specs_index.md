@@ -51,7 +51,8 @@
 |usage_color_single_source|Web+Desktop|t418 九色/accent 预设/about tint 收口单一 token 来源|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|
-|ui-component-library|Desktop|t269，t301，t303，t420|2026-08-16|
+|ui-component-library|Desktop|t269，t301，t303，t420，t421|2026-08-16|
+|ui_selection_controls_adopt|Web / Desktop|t421|2026-08-16|
 |ui-component-theme-contrast|Web|t283，t298，t302，t301|2026-08-11|
 |legacy_css_cleanup|Web+Desktop|t274，t419|2026-08-16|
 |ui-views-desktop|Desktop|拆自 ui-views（t037），t153|2026-07-27|

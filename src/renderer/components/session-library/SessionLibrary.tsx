@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
 import { count_stats, sort_sessions, type LibrarySort } from "../../lib/session-library/filter";
-import { cn } from "../../lib/utils";
 import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
@@ -10,6 +9,7 @@ import { SessionPreview } from "./SessionPreview";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Input } from "../ui/Input";
+import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
 import { format_tokens, key_of } from "./session-library-utils";
 
@@ -516,38 +516,15 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <option value="calls">轮次最多</option>
                     <option value="earliest">最早创建</option>
                 </Select>
-                <div className="inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5">
-                    <button
-                        type="button"
-                        className={cn(
-                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            view_mode === "grid" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-card",
-                        )}
-                        aria-label="网格视图"
-                        aria-pressed={view_mode === "grid"}
-                        onClick={() => {
-                            set_view_mode("grid");
-                        }}
-                    >
-                        网格
-                    </button>
-                    <button
-                        type="button"
-                        className={cn(
-                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            view_mode === "list" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-card",
-                        )}
-                        aria-label="列表视图"
-                        aria-pressed={view_mode === "list"}
-                        onClick={() => {
-                            set_view_mode("list");
-                        }}
-                    >
-                        列表
-                    </button>
-                </div>
+                <Segmented
+                    value={view_mode}
+                    aria-label="视图模式"
+                    options={[
+                        { value: "grid", label: "网格", "aria-label": "网格视图" },
+                        { value: "list", label: "列表", "aria-label": "列表视图" },
+                    ]}
+                    onChange={set_view_mode}
+                />
             </div>
 
             <AgentFilterChips

@@ -3,6 +3,7 @@ import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { agent_accent } from "../../lib/workspace/slots";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import {
     agent_abbrev,
     format_tokens,
@@ -36,22 +37,16 @@ export const SessionRow = memo(function SessionRow({
             data-testid="library-row"
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
         >
-            <button
-                type="button"
-                className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                    selected
-                        ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
-                        : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",
-                )}
+            <Checkbox
+                variant="select"
+                accent="agent"
+                boxSize="md"
+                checked={selected}
                 aria-label={`会话 ${s.id}`}
-                aria-pressed={selected}
                 onClick={() => {
                     on_toggle(s);
                 }}
-            >
-                {selected ? "✓" : ""}
-            </button>
+            />
             <span
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]"
                 data-testid="library-row-badge"

@@ -3,6 +3,7 @@ import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { agent_slug, format_date } from "../../lib/session-history/markdown";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { Dialog } from "../ui/Dialog";
 
 interface RecentSessionsModalProps {
@@ -132,16 +133,14 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                                         toggle(s);
                                     }}
                                 >
-                                    <span
-                                        className={cn(
-                                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] border-[var(--color-on-surface-variant)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]",
-                                            is_picked &&
-                                                "on border-[var(--color-primary)] bg-[var(--color-primary)]",
-                                        )}
+                                    <Checkbox
+                                        variant="order"
+                                        accent="primary"
+                                        checked={is_picked}
+                                        order={is_picked ? order + 1 : null}
                                         data-testid="session-recent-check"
-                                    >
-                                        {is_picked ? String(order + 1) : ""}
-                                    </span>
+                                        className="text-[length:var(--text-label-caps)]"
+                                    />
                                     <span
                                         className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
                                         data-testid="session-recent-title"
