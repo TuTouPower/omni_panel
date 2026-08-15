@@ -10,7 +10,6 @@ import {
     summarize,
     type PaneData,
 } from "../../lib/workspace/pane";
-import { cn } from "../../lib/utils";
 import { VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
@@ -25,17 +24,13 @@ export interface PaneView {
 export interface SessionPaneProps {
     readonly column: PaneData;
     readonly slot_meta: SlotSession;
-    readonly focused: boolean;
     readonly outline_open: boolean;
     readonly view: PaneView;
     readonly is_selected: (messageId: string) => boolean;
     readonly on_close: () => void;
     readonly on_toggle: (messageId: string, shift: boolean) => void;
     readonly on_hover: (messageId: string | null) => void;
-    readonly on_select_all: () => void;
-    readonly on_clear_select: () => void;
     readonly on_load_older: () => void;
-    readonly on_focus: () => void;
     readonly on_toggle_outline: () => void;
     /** t324：复制续接命令成功后提示（复用 WorkspaceView 的 show_toast）。 */
     readonly show_toast?: (message: string) => void;
@@ -48,17 +43,13 @@ const BOTTOM_THRESHOLD_PX = 120;
 export function SessionPane({
     column,
     slot_meta,
-    focused,
     outline_open,
     view,
     is_selected,
     on_close,
     on_toggle,
     on_hover,
-    on_select_all,
-    on_clear_select,
     on_load_older,
-    on_focus,
     on_toggle_outline,
     show_toast,
 }: SessionPaneProps) {
@@ -130,10 +121,7 @@ export function SessionPane({
 
     return (
         <section
-            className={cn(
-                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)]",
-                focused && "focused absolute inset-0 z-10 rounded-none",
-            )}
+            className="conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)]"
             style={{ "--agent-accent": agent_accent(column.loc.source) } as CSSProperties}
             data-loc-key={`${column.loc.source}|${column.loc.env}|${column.loc.session_id}`}
             aria-label={`会话 ${column.title}`}
@@ -204,33 +192,6 @@ export function SessionPane({
                         onClick={on_toggle_outline}
                     >
                         ≡
-                    </button>
-                    <button
-                        type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
-                        title="全选可见"
-                        aria-label="全选可见"
-                        onClick={on_select_all}
-                    >
-                        ☑
-                    </button>
-                    <button
-                        type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
-                        title="清空选择"
-                        aria-label="清空选择"
-                        onClick={on_clear_select}
-                    >
-                        ⊘
-                    </button>
-                    <button
-                        type="button"
-                        className="conversation-action flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
-                        title="聚焦此面板"
-                        aria-label="聚焦此面板"
-                        onClick={on_focus}
-                    >
-                        ⛶
                     </button>
                     <button
                         type="button"

@@ -44,7 +44,7 @@
 |secret-vault|API|迁移自 omni_powers，t045，t195，t296|2026-08-11|
 |settings_design_migration|Web+Desktop|设置窗口统一设计系统、组件与语义状态，t406|2026-08-16|
 |agent_window_design_migration|Web+Desktop|Agent 统计窗口统一设计系统、组件与语义 token|2026-08-09|
-|session_window_design_migration|Web+Desktop|会话历史窗口统一设计系统、组件与语义 token，t406|2026-08-16|
+|session_window_design_migration|Web+Desktop|会话历史窗口统一设计系统、组件与语义 token，t406，t409|2026-08-16|
 |surface_token_unify|Web+Desktop|t406 全窗口背景两级（window/card），raised 仅交互态|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|
@@ -72,7 +72,7 @@
 |session-history-window|Desktop|t211，t212，t213|2026-08-05|
 |session_content_search_cold_perf|Web+Desktop|t404|2026-08-16|
 |session-shell|Desktop|t223，t224，t245，t326，t327，t328，t334|2026-08-13|
-|workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407|2026-08-16|
+|workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407，t409|2026-08-16|
 |draggable_provider_tabs|Web|t242|2026-08-07|
 |provider-tab-active-state|Web|t305|2026-08-11|
 |renderer-bundle-code-split|Web+Desktop|t249|2026-08-07|

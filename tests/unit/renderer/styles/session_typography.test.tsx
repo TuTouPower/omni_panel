@@ -56,17 +56,13 @@ const VIEW = { show_time: true, compact: false };
 const PANE_PROPS = {
     column: column(),
     slot_meta: META,
-    focused: false,
     outline_open: false,
     view: VIEW,
     is_selected: () => false,
     on_close: () => undefined,
     on_toggle: () => undefined,
     on_hover: () => undefined,
-    on_select_all: () => undefined,
-    on_clear_select: () => undefined,
     on_load_older: () => undefined,
-    on_focus: () => undefined,
     on_toggle_outline: () => undefined,
 };
 
