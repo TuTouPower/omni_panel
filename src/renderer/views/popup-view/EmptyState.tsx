@@ -22,20 +22,11 @@ export function EmptyState(props: EmptyStateProps) {
             </div>
             {is_web() ? (
                 // t311：web 端「添加服务」为原生 `<a href="#setting">`（左键进设置，
-                // 中键/Ctrl+Click 由浏览器新开标签页）。
-                <a
-                    className={
-                        "inline-flex h-9 items-center justify-center gap-1.5 rounded-md " +
-                        "bg-[var(--color-primary)] px-[18px] font-semibold no-underline " +
-                        "text-[length:var(--text-body-md)] text-[var(--color-on-primary)] " +
-                        "transition-feedback hover:bg-[var(--color-primary-strong)] " +
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-                    }
-                    href="#setting"
-                >
+                // 中键/Ctrl+Click 由浏览器新开标签页）；t420 走 Button as-link。
+                <Button as="a" href="#setting" variant="primary">
                     <Icon name="plus" size={15} />
                     添加服务
-                </a>
+                </Button>
             ) : (
                 <Button variant="primary" onClick={is_live ? onAddService : undefined}>
                     <Icon name="plus" size={15} />

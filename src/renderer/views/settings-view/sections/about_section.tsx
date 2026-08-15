@@ -121,17 +121,10 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                     ] as const
                 ).map((c) => {
                     const url = ABOUT_URLS[c.id];
-                    // t311：web 端有外链地址的卡片渲染为原生 `<a target="_blank" rel="noopener noreferrer">`
-                    // （中键/Ctrl+Click 由浏览器新开标签页）；「检查更新」无外链地址与桌面端保持 Button。
-                    const card_class =
-                        (c.id === "update"
-                            ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-strong)]"
-                            : "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] border border-[var(--color-outline)] hover:bg-[var(--color-surface-raised)]") +
-                        // t311_code_f002: 只保留意图类——去掉 Button base 复制的
-                        // font-semibold/rounded-md（web <a> 不经 twMerge，同名
-                        // utility 由 CSS 源顺序决胜导致字重/圆角回归桌面端）。
-                        " inline-flex items-center justify-center transition-feedback " +
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] " +
+                    // t311：web 端有外链地址的卡片走 Button as-link（原生 a，中键/Ctrl+Click 新开标签）；
+                    // 「检查更新」无外链地址与桌面端保持 button。
+                    // t311_code_f002 / t420：布局意图类与 variant 色分离，避免复制 primary/secondary 配方。
+                    const card_layout =
                         "h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-normal";
                     const content = (
                         <>
@@ -167,25 +160,28 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                             </span>
                         </>
                     );
+                    const variant = c.id === "update" ? "primary" : "secondary";
                     if (is_web() && url) {
                         return (
-                            <a
+                            <Button
                                 key={c.id}
+                                as="a"
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`${card_class} no-underline`}
+                                variant={variant}
+                                className={card_layout}
                                 data-testid={`about-card-${c.id}`}
                             >
                                 {content}
-                            </a>
+                            </Button>
                         );
                     }
                     return (
                         <Button
                             key={c.id}
-                            variant={c.id === "update" ? "primary" : "secondary"}
-                            className={card_class}
+                            variant={variant}
+                            className={card_layout}
                             data-testid={`about-card-${c.id}`}
                             type="button"
                             onClick={() => {

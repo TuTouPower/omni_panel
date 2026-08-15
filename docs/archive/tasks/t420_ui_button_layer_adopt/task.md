@@ -2,11 +2,11 @@
 tid: "t420"
 slug: "ui_button_layer_adopt"
 title: "按钮统一走 Button 组件层"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t420_ui_button_layer_adopt"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "7c71df8aa891467a3c61987309f8094a2f66a6e8"
 depends_on: ""
 conflicts_with: "t403,t405,t406,t407,t408,t409,t410,t413,t415,t418,t419,t421,t424"
 schedule_status: "scheduled"
@@ -23,7 +23,13 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- doctor：无
+- Button 加法扩展：`variant=text`（accent 行内动作）、size `inline`/`icon`/`icon-md`/`icon-sm`/`icon-xs`（32/28/26/22）、`as="a"` 渲染原生链接；既有 primary/secondary/danger/ghost/icon + standard/sm 默认行为不变。
+- 替换位点：provider_card_states×3、ProviderAccountRow 重登、SessionCard/SessionPane session-id、SessionPane 大纲/关闭 icon×2、SessionPreview 关闭、SessionRail 关闭、SelectionDock/Tray 移除、EmptyState/about as-link、AliasEditor secondary×2。
+- 审计外但 AC-003 命中：NetBanner「重新连接」span onClick → Button text。
+- SessionPane 审计写「icon 串复制 5 次」；现码仅 2 处（大纲/关闭），其余已先于本 task 收敛。PaneMessageRow 展开钮已不在（t408 范围）。
+- AliasEditor secondary bg 从 field-bg 收敛到 surface-window（既有 secondary token）。
+- 验证：`pnpm test` 3329 passed / 9 skipped；`pnpm typecheck` 绿；变更文件 eslint 绿（全仓 lint 有 4 条存量与本 diff 无关）。
 
 ## Review 处置
 
@@ -45,14 +51,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-16 06:10 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t420_code_f001|important|已修|session-id 钮补回原字号 text-[11px] / text-label-md|SessionPane.tsx / SessionCard.tsx|
+|t420_code_f002|minor|已修|16px 移除钮 className 补 rounded|SelectionDock.tsx / SelectionTray.tsx|
+|t420_test_f001|important|已修|键盘用例诚实化为语义 button + onClick 精确次数；可达性由 button 语义+AC-003 grep 承担|ui.test.tsx|
 
 ## 收尾报告
 
@@ -61,24 +66,22 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001~003/005 由组件测 + 配方/span-onClick grep + 全量 `pnpm test`；AC-004 组件层字号/圆角已修，观感 [deploy] 目检保留
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
+- Round 1 code：FAIL（f001 字号 / f002 圆角）
+- Round 1 test：FAIL（f001 键盘断言恒真）
+- Round 2 code：PASS
+- Round 2 test：PASS
+- Round 3 code：PASS（仅 specs/findings 收尾，无代码变）
+- Round 3 test：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- Button 扩展 text/icon 尺寸/as-link；审计手拼按钮与 NetBanner span 伪按钮收组件层；review 2 轮 PASS。

@@ -33,16 +33,17 @@ export function SelectionDock({
                     >
                         <span className="text-[var(--agent-accent)]">{agent_abbrev(s.source)}</span>{" "}
                         · {s.title ?? s.id}
-                        <button
-                            type="button"
-                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--color-on-surface-muted)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        <Button
+                            variant="icon"
+                            size="icon-xs"
+                            className="h-4 w-4 rounded text-[var(--color-on-surface-muted)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:ring-[var(--color-accent-ring)]"
                             aria-label={`移除 ${key_of(s)}`}
                             onClick={() => {
                                 on_remove(s);
                             }}
                         >
                             ×
-                        </button>
+                        </Button>
                     </span>
                 ))}
             </div>

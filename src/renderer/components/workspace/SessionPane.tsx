@@ -197,15 +197,15 @@ export function SessionPane({
                             {format_compact_datetime(last_message_time(column))}
                         </span>
                         <span className="shrink-0 text-[var(--color-on-surface-muted)]">·</span>
-                        <button
-                            type="button"
-                            className="min-w-0 cursor-pointer truncate rounded border-0 bg-transparent p-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                        <Button
+                            variant="text"
+                            className="min-w-0 truncate p-0 font-code-md text-[11px] font-normal tabular-nums text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                             data-testid="conversation-session-id"
                             title={session_command ?? undefined}
                             onClick={copy_session_command}
                         >
                             {column.loc.session_id}
-                        </button>
+                        </Button>
                     </div>
                     <div
                         className="flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[13px] tabular-nums text-[var(--color-on-surface-muted)]"
@@ -229,26 +229,28 @@ export function SessionPane({
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    <button
-                        type="button"
-                        className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                    <Button
+                        variant="icon"
+                        size="icon-sm"
+                        className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                         data-testid="conversation-action"
                         title="大纲"
                         aria-label="大纲"
                         onClick={on_toggle_outline}
                     >
                         ≡
-                    </button>
-                    <button
-                        type="button"
-                        className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                    </Button>
+                    <Button
+                        variant="icon"
+                        size="icon-sm"
+                        className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                         data-testid="conversation-action"
                         title="关闭"
                         aria-label="关闭面板"
                         onClick={on_close}
                     >
                         ×
-                    </button>
+                    </Button>
                 </div>
             </header>
             <div className="relative flex min-h-0 flex-1" data-testid="conversation-body">
