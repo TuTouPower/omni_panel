@@ -121,10 +121,10 @@ export interface SessionHistoryDeps {
     readonly locator_paths?: LocatorPaths;
 }
 
-/** t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
- * 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
- * SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
- * service.unsubscribe 双删保持一致。 */
+/** t279/t414: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）。
+ * t414: 一页一条 SSE（connectionId），多 subscriber_id 挂同一 client；
+ * 兼容旧客户端仍可经 `?subscriberId=` 开专属流。on_update 只发给该 client；
+ * SSE 连接关闭时逐条注销该连接上全部订阅，防 watcher 膨胀。 */
 interface WebSessionSub {
     readonly source: string;
     readonly env: Env;
@@ -550,7 +550,8 @@ async function handle_session_history_summaries(
     json_response(res, 200, result);
 }
 
-/** t279: web 会话实时订阅——复用 subscription-service watcher，经持有订阅的 SSE 客户端推 `messagesUpdated`。 */
+/** t279/t414: web 会话实时订阅——复用 subscription-service watcher，经持有订阅的 SSE 客户端推 `messagesUpdated`。
+ * t414: body.connection_id 定位页级共享 SSE；无 connection_id 时回退 subscriber_id 查询参数映射（旧客户端）。 */
 async function handle_web_session_history_subscribe(
     req: IncomingMessage,
     res: ServerResponse,
@@ -558,6 +559,7 @@ async function handle_web_session_history_subscribe(
     ctx: {
         readonly subs: Map<string, WebSessionSub>;
         readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly sse_connections: Map<string, ServerResponse>;
         readonly write_event: (
             client: ServerResponse,
             event: string | undefined,
@@ -572,6 +574,7 @@ async function handle_web_session_history_subscribe(
     const env = body["env"];
     const session_id = body["session_id"];
     const subscriber_id = body["subscriber_id"];
+    const connection_id = body["connection_id"];
     if (
         typeof source !== "string" ||
         typeof env !== "string" ||
@@ -594,9 +597,18 @@ async function handle_web_session_history_subscribe(
     }
     // 订阅必须挂在真实 SSE 客户端上：on_update 只发给该 client，
     // client 断开（SSE close）时统一注销，杜绝 watcher 泄漏。
-    const sse_client = ctx.sse_clients_by_sub.get(subscriber_id);
+    // t414: 优先 connection_id（一页多会话共享连接）；否则按 subscriber_id 查专属流（旧客户端）。
+    const sse_client =
+        typeof connection_id === "string" && connection_id
+            ? ctx.sse_connections.get(connection_id)
+            : ctx.sse_clients_by_sub.get(subscriber_id);
     if (!sse_client) {
-        json_response(res, 409, { error: "subscriber_id not connected via /v1/events" });
+        json_response(res, 409, {
+            error:
+                typeof connection_id === "string" && connection_id
+                    ? "connection_id not connected via /v1/events"
+                    : "subscriber_id not connected via /v1/events",
+        });
         return;
     }
     const loc = { source, env: env as Env, session_id };
@@ -611,6 +623,7 @@ async function handle_web_session_history_subscribe(
             subscriber_id,
         );
     }
+    ctx.sse_clients_by_sub.set(subscriber_id, sse_client);
     ctx.subs.set(subscriber_id, { ...loc, client: sse_client });
     deps.service.subscribe({
         ...loc,
@@ -663,6 +676,7 @@ async function handle_web_session_history(
     ctx: {
         readonly subs: Map<string, WebSessionSub>;
         readonly sse_clients_by_sub: Map<string, ServerResponse>;
+        readonly sse_connections: Map<string, ServerResponse>;
         readonly write_event: (
             client: ServerResponse,
             event: string | undefined,
@@ -854,12 +868,11 @@ export function create_local_api_server(
         options?.port ?? (Number.isFinite(env_port) && env_port > 0 ? env_port : default_port);
     let server: ReturnType<typeof createServer> | null = null;
     const sse_clients = new Set<ServerResponse>();
-    // t279: web 会话订阅表（subscriber_id → loc + 持有它的 SSE client）+ 订阅 id → SSE client。
-    // 订阅经 SSE 连接注册（subscriber_id 查询参数），on_update 只发给该 client；
-    // SSE 连接关闭时逐条注销，防止订阅泄漏导致 watcher 膨胀。注销与
-    // service.unsubscribe 双删保持一致。
+    // t279/t414: web 会话订阅表 + 订阅 id → SSE client + 页级 connectionId → SSE client。
+    // t414: 多 subscriber_id 可挂同一 connection；连接关闭时清该连接上全部订阅。
     const web_session_subs = new Map<string, WebSessionSub>();
     const sse_client_sub_ids = new Map<string, ServerResponse>();
+    const sse_connections = new Map<string, ServerResponse>();
 
     async function handle_ingest(req: IncomingMessage, res: ServerResponse): Promise<void> {
         let parsed: unknown;
@@ -1142,6 +1155,7 @@ export function create_local_api_server(
                 (await handle_web_session_history(req, res, url, session_history_deps, {
                     subs: web_session_subs,
                     sse_clients_by_sub: sse_client_sub_ids,
+                    sse_connections,
                     write_event: write_sse_event,
                 }))
             ) {
@@ -1654,11 +1668,11 @@ export function create_local_api_server(
             json_response(res, 503, { error: "events unavailable" });
             return;
         }
-        // t279: web 会话订阅经 SSE 连接注册——浏览器以 subscriber_id 查询参数打开
-        // 专属事件流，服务端把订阅挂到该连接；连接关闭即逐条注销，防 watcher 泄漏。
-        const subscriber_id = new URL(req.url ?? "/", "http://local").searchParams.get(
-            "subscriberId",
-        );
+        // t414: 页级共享流用 connectionId；t279 旧客户端仍可用 subscriberId 专属流。
+        // 连接关闭时清该 res 上全部会话订阅（一连接多 sub），防 watcher 泄漏。
+        const params = new URL(req.url ?? "/", "http://local").searchParams;
+        const connection_id = params.get("connectionId");
+        const subscriber_id = params.get("subscriberId");
         res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
@@ -1666,6 +1680,9 @@ export function create_local_api_server(
         });
         res.flushHeaders();
         sse_clients.add(res);
+        if (connection_id) {
+            sse_connections.set(connection_id, res);
+        }
         if (subscriber_id) {
             sse_client_sub_ids.set(subscriber_id, res);
         }
@@ -1684,29 +1701,32 @@ export function create_local_api_server(
             sse_clients.delete(res);
             unsub();
             // 该 SSE 连接关闭时清理其持有的全部会话订阅（不依赖 unload 信号）。
-            // t279 f005：重连竞态防护——旧连接 cleanup 可能晚于新连接注册到达，
-            // 必须校验当前映射仍指向本 res（订阅表与 SSE 映射），否则会误删新注册
-            // 的订阅或把重挂中的订阅注销，导致实时推送永久丢失。
-            if (subscriber_id) {
+            // t279 f005 / t414：重连竞态防护——旧连接 cleanup 可能晚于新连接注册到达，
+            // 必须校验当前映射仍指向本 res，否则会误删新注册的订阅。
+            if (connection_id && sse_connections.get(connection_id) === res) {
+                sse_connections.delete(connection_id);
+            }
+            for (const [sid, mapped] of [...sse_client_sub_ids.entries()]) {
+                if (mapped !== res) continue;
                 if (
                     !sse_cleanup_should_unsubscribe(
-                        subscriber_id,
+                        sid,
                         res,
                         web_session_subs,
                         sse_client_sub_ids,
                     )
                 ) {
-                    return;
+                    continue;
                 }
-                const sub = web_session_subs.get(subscriber_id);
-                web_session_subs.delete(subscriber_id);
-                sse_client_sub_ids.delete(subscriber_id);
+                const sub = web_session_subs.get(sid);
+                web_session_subs.delete(sid);
+                sse_client_sub_ids.delete(sid);
                 if (sub) {
                     session_history_deps?.service.unsubscribe(
                         sub.source,
                         sub.env,
                         sub.session_id,
-                        subscriber_id,
+                        sid,
                     );
                 }
             }

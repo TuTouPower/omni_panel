@@ -16,7 +16,9 @@
 - `GET /v1/trend?provider&accountId&metricId&days?` - sparkline 走势序列（`build_trend_series`，缺失日期填 null，默认 7 天）。
 - `GET /v1/connectors` / `POST /v1/connectors` - 连接器列表 / 全量刷新（POST = `refreshAll`）。
 - `GET /v1/connectors/:id/state` / `POST /v1/connectors/:id/refresh` - 单连接器快照 / 刷新。
-- `GET /v1/events` - connector 状态变更 SSE 推送（`text/event-stream`，无 auth；每连接 `runtimeStore.subscribe`，帧 `data: {instanceId, state: ConnectorSnapshotDTO}`；连接关闭即 unsub）。web 面板借此对齐桌面端 IPC `EVENT_STATE_CHANGE`，无需轮询。
+- `GET /v1/events` - SSE 推送（`text/event-stream`，无 auth）。每连接 `runtimeStore.subscribe`，默认 `message` 帧 `data: {instanceId, state: ConnectorSnapshotDTO}`；另可推命名事件 `config` / `theme` / `messagesUpdated`。查询参数：`connectionId`（t414 页级共享流，一连接挂多会话订阅）、`subscriberId`（t279 旧客户端专属流，仍兼容）。连接关闭时注销该连接上全部会话订阅（防 watcher 泄漏）。web 面板每页一条共享流，对齐桌面端 IPC 推送且不占满 HTTP/1.1 连接池。
+- `POST /v1/sessionHistory/subscribe` - body：`source`/`env`/`session_id`/`subscriber_id`，可选 `connection_id`（t414：定位页级 SSE；缺省则按 `subscriber_id` 查专属流）。须先建立对应 `/v1/events` 连接，否则 409。同 `subscriber_id` 重复订阅先卸旧 watcher。
+- `POST /v1/sessionHistory/unsubscribe` - body：`subscriber_id`；只卸该订阅方，不关 SSE 连接。
 - 非 `/v1/` 路径 GET - web 面板 SPA 静态 fallback（web_root 存在时；`index.html` 不缓存，path-traversal 由 `is_within_web_root` 守）。
 - **不支持任意上游 URL** -- 绝不变成通用开放代理。
 
