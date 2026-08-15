@@ -1,0 +1,21 @@
+{
+    "tid": "t399",
+    "attempt": 1,
+    "execution_id": "937de2f127414b5ba9f9de7e464603d0",
+    "status": "done",
+    "branch": "t399_cli_launcher_parse",
+    "base_sha": "4e540e81dbededb75bd796a04a9ef8729b58c669",
+    "tests": "pnpm test：3238 passed | 9 skipped（含新增 tests/unit/scripts/launcher_arg_translate.test.ts 10 用例）；typecheck / lint / format 均过",
+    "blackbox": "xvfb 环境软链主仓 artifacts 实测：无参打印帮助 exit0；--help exit0；未知命令 exit1；serve 免前缀起服务写 cli.json（port 正确）；quit 免前缀停止；--gui 仅首参生效（serve --gui 走 CLI）；symlink shebang 执行 help/无参正常",
+    "review": "Round 1 code=FAIL（f001 critical/f002 important/f003+f004 minor）test=PASS；Round 2 code=PASS test=PASS；overall=PASS",
+    "ac_evidence": {
+        "AC-001": ["tests/unit/scripts/launcher_arg_translate.test.ts 无参→help 用例", "黑盒：node scripts/omni_panel.mjs 打印帮助含 --gui 与全部子命令，exit 0"],
+        "AC-002": ["tests/unit/scripts/launcher_arg_translate.test.ts --gui 用例", "黑盒：symlink shebang 执行 --gui 转发正确；完整开窗属人工验证"],
+        "AC-003": ["tests/unit/scripts/launcher_arg_translate.test.ts serve 用例", "黑盒：serve 免前缀起服务写 cli.json，port=17999 正确，listening URL 打印"],
+        "AC-004": ["tests/unit/scripts/launcher_arg_translate.test.ts 子命令循环用例", "黑盒：quit 免前缀停止实例，health 无响应"],
+        "AC-005": ["tests/unit/scripts/launcher_arg_translate.test.ts --cli 兼容用例", "translate 层 --cli 原样转发，黑盒 serve --cli 路径同旧"],
+        "AC-006": ["tests/unit/scripts/launcher_arg_translate.test.ts --help/-h 用例", "黑盒：node scripts/omni_panel.mjs --help 打印与 AC-001 相同帮助（含 --gui）"]
+    },
+    "pending": ["p185"],
+    "findings": []
+}
