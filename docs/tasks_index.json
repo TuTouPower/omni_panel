@@ -62,6 +62,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t403_resume_command_template_callers"
+        },
+        {
+            "tid": "t404",
+            "slug": "session_search_cold_perf",
+            "title": "会话库内容搜索冷缓存性能修复:候选分块+增量反馈",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p186;4000 会话冷缓存首次搜索 45s+;searchContent 全量解析+无进度反馈",
+            "dir": "docs/tasks/t404_session_search_cold_perf"
+        },
+        {
+            "tid": "t405",
+            "slug": "session_pane_footer_remove",
+            "title": "移除会话面板 footer 槽位/消息计数条",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t405_session_pane_footer_remove"
         }
     ]
 }
