@@ -395,8 +395,8 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         const first = document.querySelector(".conversation-title");
         const second = document.querySelector(".conversation-meta");
         if (!first || !second) throw new Error("header rows missing");
-        const first_text = first.textContent ?? "";
-        const second_text = second.textContent ?? "";
+        const first_text = first.textContent || "";
+        const second_text = second.textContent || "";
         // 第一行：完整 cwd → 紧凑时间 → session id。
         expect(first_text).toContain("/path/to/proj");
         expect(first_text).toContain("0807 09:08");
@@ -523,6 +523,61 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         for (const label of ["全选可见", "清空选择", "聚焦此面板"]) {
             expect(screen.queryByRole("button", { name: label })).toBeNull();
         }
+    });
+});
+
+describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
+    it("AC-004：agent badge 可拖，单击不调用 on_drag_start 以外的布局回调", () => {
+        const on_drag_start = vi.fn();
+        const on_drag_end = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                on_drag_start={on_drag_start}
+                on_drag_end={on_drag_end}
+            />,
+        );
+        const badge = document.querySelector(".conversation-agent-badge");
+        if (!badge) throw new Error("badge missing");
+        expect(badge.getAttribute("draggable")).toBe("true");
+        fireEvent.click(badge);
+        // 单击不触发 HTML5 drag 生命周期
+        expect(on_drag_start).not.toHaveBeenCalled();
+        expect(on_drag_end).not.toHaveBeenCalled();
+    });
+
+    it("AC-001/002：dragStart 转发；dragging 时面板带标识类", () => {
+        const on_drag_start = vi.fn();
+        const { rerender } = render(
+            <SessionPane {...PROPS} on_drag_start={on_drag_start} on_drag_end={() => undefined} />,
+        );
+        const badge = document.querySelector(".conversation-agent-badge");
+        if (!badge) throw new Error("badge missing");
+        fireEvent.dragStart(badge);
+        expect(on_drag_start).toHaveBeenCalledTimes(1);
+        rerender(
+            <SessionPane
+                {...PROPS}
+                dragging
+                on_drag_start={on_drag_start}
+                on_drag_end={() => undefined}
+            />,
+        );
+        expect(document.querySelector(".conversation-pane.conversation-pane-dragging")).toBeTruthy();
+    });
+
+    it("AC-002：drop_active 时面板带落点高亮类", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                drop_active
+                on_drag_start={() => undefined}
+                on_drag_end={() => undefined}
+            />,
+        );
+        expect(
+            document.querySelector(".conversation-pane.conversation-pane-drop-target"),
+        ).toBeTruthy();
     });
 });
 

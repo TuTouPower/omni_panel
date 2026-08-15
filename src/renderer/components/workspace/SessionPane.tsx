@@ -1,4 +1,10 @@
-import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+    useLayoutEffect,
+    useMemo,
+    useState,
+    type CSSProperties,
+    type DragEvent,
+} from "react";
 import { use_config } from "../../hooks/use-config";
 import { format_time_short } from "../../lib/session-history/markdown";
 import { resume_command } from "../../lib/session-resume";
@@ -10,6 +16,7 @@ import {
     summarize,
     type PaneData,
 } from "../../lib/workspace/pane";
+import { cn } from "../../lib/utils";
 import { VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { Skeleton } from "../ui/Skeleton";
@@ -34,6 +41,14 @@ export interface SessionPaneProps {
     readonly on_toggle_outline: () => void;
     /** t324：复制续接命令成功后提示（复用 WorkspaceView 的 show_toast）。 */
     readonly show_toast?: (message: string) => void;
+    /** t410：agent icon 拖拽换槽；与侧栏 move_slot_ui 同语义。 */
+    readonly dragging?: boolean;
+    readonly drop_active?: boolean;
+    readonly on_drag_start?: (e: DragEvent) => void;
+    readonly on_drag_end?: () => void;
+    readonly on_drag_over?: (e: DragEvent) => void;
+    readonly on_drag_leave?: (e: DragEvent) => void;
+    readonly on_drop?: (e: DragEvent) => void;
 }
 
 const OLDER_THRESHOLD_PX = 120;
@@ -52,11 +67,19 @@ export function SessionPane({
     on_load_older,
     on_toggle_outline,
     show_toast,
+    dragging = false,
+    drop_active = false,
+    on_drag_start,
+    on_drag_end,
+    on_drag_over,
+    on_drag_leave,
+    on_drop,
 }: SessionPaneProps) {
     const { config } = use_config();
     const [scroll_el, set_scroll_el] = useState<HTMLDivElement | null>(null);
     const [at_bottom, set_at_bottom] = useState(true);
     const [locate_target, set_locate_target] = useState<string | null>(null);
+    const drag_enabled = on_drag_start !== undefined;
 
     const outline_items = useMemo(
         () =>
@@ -121,16 +144,30 @@ export function SessionPane({
 
     return (
         <section
-            className="conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)]"
+            className={cn(
+                "conversation-pane group relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)]",
+                dragging && "conversation-pane-dragging opacity-45",
+                drop_active &&
+                    "conversation-pane-drop-target ring-2 ring-inset ring-[var(--color-primary)]",
+            )}
             style={{ "--agent-accent": agent_accent(column.loc.source) } as CSSProperties}
             data-loc-key={`${column.loc.source}|${column.loc.env}|${column.loc.session_id}`}
             aria-label={`会话 ${column.title}`}
+            onDragOver={on_drag_over}
+            onDragLeave={on_drag_leave}
+            onDrop={on_drop}
         >
             <div className="conversation-accent h-0.5 shrink-0 bg-[var(--agent-accent)]" />
             <header className="conversation-head flex shrink-0 items-center gap-2.5 border-b border-[var(--color-outline)] px-3 py-2">
                 <span
-                    className="conversation-agent-badge flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)]"
+                    className={cn(
+                        "conversation-agent-badge flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)]",
+                        drag_enabled && "cursor-grab active:cursor-grabbing",
+                    )}
                     title={slot_meta.model}
+                    draggable={drag_enabled}
+                    onDragStart={drag_enabled ? on_drag_start : undefined}
+                    onDragEnd={drag_enabled ? on_drag_end : undefined}
                 >
                     <VendorMark id={vendor_id_for_source(column.loc.source)} size={22} />
                 </span>
