@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, DragEvent as ReactDragEvent } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import {
@@ -64,6 +64,9 @@ export function WorkspaceView({
     const [container_width, set_container_width] = useState(() => window.innerWidth);
     const [picker_target, set_picker_target] = useState<number | null>(null);
     const [outline_index, set_outline_index] = useState<number | null>(null);
+    // t410：面板 agent icon 拖拽换槽（语义同侧栏 move_slot_ui）。
+    const [pane_drag_from, set_pane_drag_from] = useState<number | null>(null);
+    const [pane_drop_over, set_pane_drop_over] = useState<number | null>(null);
 
     const container_ref = useRef<HTMLDivElement | null>(null);
     const anchors_ref = useRef<Record<string, string>>({});
@@ -258,6 +261,46 @@ export function WorkspaceView({
         set_picker_target(index);
     }, []);
 
+    const clear_pane_drag = useCallback((): void => {
+        set_pane_drag_from(null);
+        set_pane_drop_over(null);
+    }, []);
+
+    const handle_pane_drag_start = useCallback((index: number): void => {
+        set_pane_drag_from(index);
+        set_pane_drop_over(null);
+    }, []);
+
+    const handle_pane_drag_over = useCallback(
+        (index: number, e: ReactDragEvent): void => {
+            if (pane_drag_from === null || pane_drag_from === index) return;
+            e.preventDefault();
+            set_pane_drop_over((prev) => (prev === index ? prev : index));
+        },
+        [pane_drag_from],
+    );
+
+    const handle_pane_drag_leave = useCallback(
+        (index: number, e: ReactDragEvent): void => {
+            // 仅在离开当前 pane 根节点时清高亮（子节点 enter/leave 冒泡忽略）。
+            const related = e.relatedTarget;
+            if (related instanceof Node && e.currentTarget.contains(related)) return;
+            set_pane_drop_over((prev) => (prev === index ? null : prev));
+        },
+        [],
+    );
+
+    const handle_pane_drop = useCallback(
+        (index: number, e: ReactDragEvent): void => {
+            e.preventDefault();
+            if (pane_drag_from !== null && pane_drag_from !== index) {
+                move_slot_ui(pane_drag_from, index);
+            }
+            clear_pane_drag();
+        },
+        [pane_drag_from, move_slot_ui, clear_pane_drag],
+    );
+
     return (
         <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
             <div className="session-workspace-body flex min-h-0 flex-1">
@@ -340,6 +383,25 @@ export function WorkspaceView({
                                                 );
                                             }}
                                             show_toast={show_toast}
+                                            dragging={pane_drag_from === index}
+                                            drop_active={
+                                                pane_drop_over === index &&
+                                                pane_drag_from !== null &&
+                                                pane_drag_from !== index
+                                            }
+                                            on_drag_start={() => {
+                                                handle_pane_drag_start(index);
+                                            }}
+                                            on_drag_end={clear_pane_drag}
+                                            on_drag_over={(e) => {
+                                                handle_pane_drag_over(index, e);
+                                            }}
+                                            on_drag_leave={(e) => {
+                                                handle_pane_drag_leave(index, e);
+                                            }}
+                                            on_drop={(e) => {
+                                                handle_pane_drop(index, e);
+                                            }}
                                         />
                                     </div>
                                 ),

@@ -1004,6 +1004,135 @@ describe("WorkspaceView (t323 顶栏按钮上移后布局)", () => {
     });
 });
 
+describe("WorkspaceView 面板 agent icon 拖拽换槽 (t410)", () => {
+    function pane_badge_for(session_id: string): HTMLElement {
+        const cell = [...document.querySelectorAll<HTMLElement>(".session-cell")].find((el) =>
+            (el.getAttribute("data-loc-key") ?? "").includes(session_id),
+        );
+        const badge = cell?.querySelector<HTMLElement>(".conversation-agent-badge");
+        if (!badge) throw new Error(`badge for ${session_id} not found`);
+        return badge;
+    }
+
+    function pane_root_for(session_id: string): HTMLElement {
+        const pane = [...document.querySelectorAll<HTMLElement>(".conversation-pane")].find((el) =>
+            (el.getAttribute("data-loc-key") ?? "").includes(session_id),
+        );
+        if (!pane) throw new Error(`pane for ${session_id} not found`);
+        return pane;
+    }
+
+    async function open_two_sessions(): Promise<void> {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        render_workspace();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+            cb({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".session-slot-title")).toHaveLength(2);
+            expect(document.querySelectorAll(".conversation-pane")).toHaveLength(2);
+        });
+    }
+
+    it("AC-001：从 agent icon 拖到另一面板后槽位互换，侧栏顺序同步", async () => {
+        await open_two_sessions();
+        const titles_before = [...document.querySelectorAll(".session-slot-title")].map(
+            (el) => el.textContent,
+        );
+        expect(titles_before).toEqual(["sess_a", "sess_b"]);
+        const a_badge = pane_badge_for("sess_a");
+        const b_pane = pane_root_for("sess_b");
+        fireEvent.dragStart(a_badge);
+        fireEvent.dragOver(b_pane);
+        fireEvent.drop(b_pane);
+        await waitFor(() => {
+            const titles = [...document.querySelectorAll(".session-slot-title")].map(
+                (el) => el.textContent,
+            );
+            expect(titles).toEqual(["sess_b", "sess_a"]);
+        });
+        // 网格 data-loc-key 顺序同步（DOM 顺序即槽位顺序）
+        const cell_keys = [...document.querySelectorAll(".session-cell")].map((el) =>
+            el.getAttribute("data-loc-key"),
+        );
+        expect(cell_keys[0]).toContain("sess_b");
+        expect(cell_keys[1]).toContain("sess_a");
+    });
+
+    it("AC-002：悬停目标槽位出现 drop-target 高亮，离开后清除", async () => {
+        await open_two_sessions();
+        const a_badge = pane_badge_for("sess_a");
+        const b_pane = pane_root_for("sess_b");
+        fireEvent.dragStart(a_badge);
+        expect(document.querySelector(".conversation-pane-dragging")).toBeTruthy();
+        fireEvent.dragOver(b_pane);
+        expect(b_pane.classList.contains("conversation-pane-drop-target")).toBe(true);
+        fireEvent.dragLeave(b_pane);
+        expect(b_pane.classList.contains("conversation-pane-drop-target")).toBe(false);
+        fireEvent.dragEnd(a_badge);
+        expect(document.querySelector(".conversation-pane-dragging")).toBeNull();
+    });
+
+    it("AC-003：拖到无效区域松开后布局不变", async () => {
+        await open_two_sessions();
+        const titles_before = [...document.querySelectorAll(".session-slot-title")].map(
+            (el) => el.textContent,
+        );
+        const a_badge = pane_badge_for("sess_a");
+        fireEvent.dragStart(a_badge);
+        // 无 drop 目标：直接 dragEnd
+        fireEvent.dragEnd(a_badge);
+        const titles_after = [...document.querySelectorAll(".session-slot-title")].map(
+            (el) => el.textContent,
+        );
+        expect(titles_after).toEqual(titles_before);
+    });
+
+    it("AC-004：单击 agent icon 不改布局", async () => {
+        await open_two_sessions();
+        const titles_before = [...document.querySelectorAll(".session-slot-title")].map(
+            (el) => el.textContent,
+        );
+        fireEvent.click(pane_badge_for("sess_a"));
+        const titles_after = [...document.querySelectorAll(".session-slot-title")].map(
+            (el) => el.textContent,
+        );
+        expect(titles_after).toEqual(titles_before);
+    });
+
+    it("AC-005：面板拖拽换序后持久化，重挂载恢复交换后顺序", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        const first = render_workspace();
+        const cb = focus_cb();
+        act(() => {
+            cb({ source: "claude_code", env: "win", session_id: "sess_a" });
+            cb({ source: "opencode", env: "win", session_id: "sess_b" });
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll(".conversation-pane")).toHaveLength(2);
+        });
+        fireEvent.dragStart(pane_badge_for("sess_a"));
+        fireEvent.drop(pane_root_for("sess_b"));
+        await waitFor(() => {
+            const saved = saved_slots();
+            expect(saved[0]).toMatchObject({ source: "opencode", session_id: "sess_b" });
+            expect(saved[1]).toMatchObject({ source: "claude_code", session_id: "sess_a" });
+        });
+        first.unmount();
+        render_workspace();
+        await waitFor(() => {
+            const titles = [...document.querySelectorAll(".session-slot-title")].map(
+                (el) => el.textContent,
+            );
+            expect(titles).toEqual(["sess_b", "sess_a"]);
+        });
+    });
+});
+
 describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
     it("AC-001：打开会话写入 localStorage，重挂载恢复槽位数量与顺序", async () => {
         const ub = usageboard();

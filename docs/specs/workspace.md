@@ -18,6 +18,7 @@
 ## 会话面板（SessionPane，t225）
 
 - 头部：agent 识别色条 + provider logo 徽标（`claude_code`→`claude`、`kimi_code`→`kimi`、`grok`→`grok`、`opencode`→`opencode_go`；未知 source 使用 `overview` 兜底，复用 `VendorMark` 主题资源）+ 标题 + meta 行（source · model · cwd · 轮数 · tokens · 日期）；hover 浮现大纲/关闭操作（t409 移除全选可见/清空选择/聚焦面板）。
+- **面板拖拽换槽（t410）**：头部 `conversation-agent-badge` 为 HTML5 拖动手柄；拖到另一占用面板松开后调用 `move_slot_ui`（与侧栏 `SessionRail` 同语义交换两槽）；拖中源面板 `conversation-pane-dragging`（降透明度），悬停目标 `conversation-pane-drop-target`（primary ring）；无效区域松开或 dragEnd 不改槽；单击 icon 无副作用。侧栏既有拖拽行为不变；结果经既有 `workspace-slots` 持久化。
 - 消息区：Markdown 渲染（react-markdown@10 + remark-gfm@4，**无 rehype-raw**，会话 HTML 不当 HTML 执行）；相邻消息时间差超 10 分钟插分隔线；滚离底部超 120px 显示「回到底部」（点击回底，新消息在底部自动跟随）；加载骨架屏。
 - 大纲抽屉：pane 右侧滑出，每条消息一行（角色序号 U/A + 摘要 + 时间），点击滚动定位。
 - 无面板 footer（t405）：不再渲染 `.conversation-foot` 槽位号/用户·Agent 消息计数条；`SessionPane` 不接收 `slot_index` prop。
