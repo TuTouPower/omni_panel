@@ -76,7 +76,7 @@ export const SessionCard = memo(function SessionCard({
                     >
                         <VendorMark id={vendor_id_for_source(s.source)} size={20} />
                     </span>
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div
                             className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[length:var(--text-label-md)]"
                             data-testid="library-card-top"
@@ -110,7 +110,7 @@ export const SessionCard = memo(function SessionCard({
                             <span className="shrink-0"> · </span>
                             <Button
                                 variant="text"
-                                className="min-w-0 truncate p-0 text-left text-[length:var(--text-label-md)] font-normal text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
+                                className="min-w-0 truncate p-0 text-left text-[length:var(--text-label-md)] font-[450] text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                                 data-testid="library-card-session-id"
                                 title={session_command ?? undefined}
                                 onClick={copy_session_command}
@@ -119,7 +119,7 @@ export const SessionCard = memo(function SessionCard({
                             </Button>
                         </div>
                         <div
-                            className="min-w-0 truncate text-[11px] font-semibold text-[var(--color-on-surface)]"
+                            className="min-w-0 truncate text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface)]"
                             data-testid="library-card-title"
                         >
                             {s.title ?? s.id}
@@ -127,7 +127,7 @@ export const SessionCard = memo(function SessionCard({
                     </div>
                 </div>
             </div>
-            <div className="flex gap-1.5 px-3 pb-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="flex gap-2 px-3 pb-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <Button
                     variant="secondary"
                     size="sm"

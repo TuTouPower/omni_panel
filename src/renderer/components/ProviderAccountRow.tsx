@@ -167,14 +167,14 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
             <div>
                 {display_label ? (
                     <div
-                        className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                         data-testid="card-name"
                     >
                         {display_label}
                     </div>
                 ) : null}
                 <div
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     {/* t174: stale 副本保留原数据时间后，相对时间取 per-账号
@@ -187,13 +187,13 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                           ? relative_time(account.updatedAt)
                           : ""}
                     {account.stale && (
-                        <span className="ml-1.5 font-[650] text-[var(--color-warning)]">
+                        <span className="ml-2 font-[650] text-[var(--color-warning)]">
                             已过期
                         </span>
                     )}
                     {_error && (
                         <span
-                            className="ml-1.5 font-[650] text-[var(--color-error)]"
+                            className="ml-2 font-[650] text-[var(--color-error)]"
                             title={_error}
                             data-testid="error-badge"
                         >

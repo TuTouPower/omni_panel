@@ -474,7 +474,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         set_search(e.target.value);
                     }}
                 />
-                <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                     <Checkbox
                         checked={search_content}
                         aria-label="包含消息内容"
@@ -484,7 +484,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     />
                     包含消息内容
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                     <Input
                         type="date"
                         className="w-auto min-w-[130px]"

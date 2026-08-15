@@ -25,7 +25,7 @@ export function UpcomingResetRow({
     return (
         <button
             type="button"
-            className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-1.5 py-2 text-left [font-family:inherit] transition-feedback hover:bg-[var(--color-surface-raised)]"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2 py-2 text-left [font-family:inherit] transition-feedback hover:bg-[var(--color-surface-raised)]"
             data-testid="ur-row"
             onClick={() => {
                 onSelectProvider(item.provider);
@@ -34,14 +34,14 @@ export function UpcomingResetRow({
             aria-label={`切换到 ${item.provider} · ${item.metricLabel}`}
         >
             <VendorMark id={item.provider} size={22} />
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex min-w-0 items-center gap-2">
                     {account_label && (
-                        <span className="min-w-0 shrink truncate text-[12px] text-[var(--color-on-surface-muted)]">
+                        <span className="min-w-0 shrink truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {account_label}
                         </span>
                     )}
-                    <span className="min-w-0 shrink truncate text-[13px] font-semibold text-[var(--color-on-surface)]">
+                    <span className="min-w-0 shrink truncate text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface)]">
                         {item.metricLabel}
                     </span>
                 </span>
@@ -49,7 +49,7 @@ export function UpcomingResetRow({
                     {format_reset_time(item.resetAt)}
                 </span>
             </span>
-            <span className="shrink-0 text-[12.5px] font-[650] tabular-nums text-[var(--color-on-surface)]">
+            <span className="shrink-0 text-[length:var(--text-body-sm)] font-[650] tabular-nums text-[var(--color-on-surface)]">
                 {item.percent}%
             </span>
             <StatusDot

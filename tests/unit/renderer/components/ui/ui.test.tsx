@@ -468,7 +468,7 @@ describe("ui 组件库（t269）", () => {
     it("Badge accent/recommend 形态（t422）", () => {
         const { container, rerender } = render(<Badge variant="accent">3 项</Badge>);
         const accent = container.querySelector("span");
-        expect(accent?.className).toContain("rounded-[7px]");
+        expect(accent?.className).toContain("rounded-xs");
         expect(accent?.className).toContain(
             "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)]",
         );

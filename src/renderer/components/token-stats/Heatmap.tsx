@@ -1,7 +1,11 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
-import { use_chart_palette } from "../../lib/echarts_token_resolver";
+import {
+    RADIUS_SCALE_PX,
+    TEXT_SCALE_PX,
+    use_chart_palette,
+} from "../../lib/echarts_token_resolver";
 import type { ChartPalette } from "../../lib/echarts_token_resolver";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { prepareHeatmapFromCells } from "../../lib/token-stats/chart-data";
@@ -47,7 +51,11 @@ export function buildHeatmapOption(
         tooltip: {
             backgroundColor: pal.tipBg,
             borderColor: pal.tipBorder,
-            textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
+            textStyle: {
+                color: pal.tipText,
+                fontSize: TEXT_SCALE_PX["body-sm"],
+                fontFamily: pal.font_body,
+            },
             extraCssText: pal.tipShadow,
             formatter: (params: unknown) => {
                 const p = params as { value: [number, number, number] };
@@ -64,7 +72,7 @@ export function buildHeatmapOption(
             axisLabel: {
                 color: pal.axis,
                 fontFamily: pal.font_code,
-                fontSize: 10.5,
+                fontSize: TEXT_SCALE_PX["label-caps"],
                 interval: 3,
                 formatter: (v: string | number) => `${String(v).padStart(2, "0")}:00`,
             },
@@ -76,7 +84,11 @@ export function buildHeatmapOption(
             inverse: true,
             axisLine: { lineStyle: { color: pal.axisLine } },
             axisTick: { show: false },
-            axisLabel: { color: pal.axis, fontFamily: pal.font_body, fontSize: 11 },
+            axisLabel: {
+                color: pal.axis,
+                fontFamily: pal.font_body,
+                fontSize: TEXT_SCALE_PX["label-md"],
+            },
             splitLine: { show: false },
         },
         visualMap: {
@@ -88,7 +100,11 @@ export function buildHeatmapOption(
             {
                 type: "heatmap",
                 data,
-                itemStyle: { borderColor: pal.heatCellBorder, borderWidth: 2, borderRadius: 3 },
+                itemStyle: {
+                    borderColor: pal.heatCellBorder,
+                    borderWidth: 2,
+                    borderRadius: RADIUS_SCALE_PX.xs,
+                },
             },
         ],
     };

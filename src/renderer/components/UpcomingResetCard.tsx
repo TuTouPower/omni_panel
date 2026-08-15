@@ -34,7 +34,7 @@ export function UpcomingResetCard({
         <>
             {onDragStart && <DragGrip iconSize={18} />}
             <span
-                className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                 data-testid="card-name"
             >
                 即将重置
@@ -78,11 +78,11 @@ export function UpcomingResetCard({
             rootProps={drag_root_props}
         >
             {items.length === 0 ? (
-                <div className="px-2 pb-2.5 pt-4 text-center text-[12.5px] text-[var(--color-on-surface-muted)]">
+                <div className="px-2 pb-2.5 pt-4 text-center text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     当前无即将重置的用量项
                 </div>
             ) : (
-                <div className="flex flex-col gap-0.5 px-1 pb-1 pt-2">
+                <div className="flex flex-col gap-1 px-1 pb-1 pt-2">
                     {items.map((item) => {
                         const key = `${item.accountId}:${item.metricLabel}:${String(item.resetAt)}`;
                         return (

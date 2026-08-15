@@ -390,7 +390,7 @@ export function SettingsView() {
     if (loading) {
         return (
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
                 <PanelTitleBar panel="Settings" />
@@ -401,14 +401,14 @@ export function SettingsView() {
     if (error) {
         return (
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
                 <PanelTitleBar panel="Settings" />
                 <div className="p-6">
                     <Alert
                         tone="error"
-                        className="flex items-center gap-2 px-3.5 py-[11px] text-[13px]"
+                        className="flex items-center gap-2 px-3.5 py-3 text-[length:var(--text-body-md)]"
                     >
                         <Icon name="cloud_off" size={18} />
                         <span>{error}</span>
@@ -421,7 +421,7 @@ export function SettingsView() {
 
     return (
         <div
-            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
+            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
             data-window="settings"
         >
             <div className="relative flex min-h-0 flex-1 flex-col">
@@ -436,7 +436,7 @@ export function SettingsView() {
                 <div className="flex min-h-0 flex-1">
                     {/* left nav */}
                     <div
-                        className="flex w-[176px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[var(--color-surface-window)] px-3 py-[14px]"
+                        className="flex w-[176px] shrink-0 flex-col gap-1 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] bg-[var(--color-surface-window)] px-3 py-[14px]"
                         data-testid="settings-sidebar"
                     >
                         {NAV_ITEMS.map((n) => (
@@ -444,7 +444,7 @@ export function SettingsView() {
                                 key={n.id}
                                 aria-current={section === n.id ? "page" : undefined}
                                 className={
-                                    "flex w-full cursor-pointer items-center gap-[10px] rounded-[9px] border-0 px-[10px] py-2 text-left text-[13.5px] font-medium [font-family:inherit]" +
+                                    "flex w-full cursor-pointer items-center gap-[10px] rounded-md border-0 px-[10px] py-2 text-left text-[length:var(--text-body-md)] font-[550] [font-family:inherit]" +
                                     (section === n.id
                                         ? " bg-[var(--color-primary-container)] text-[var(--accent)]"
                                         : " text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)]")

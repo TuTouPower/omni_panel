@@ -340,7 +340,7 @@ export function SettingsForm({
             className="flex flex-col gap-3"
             data-testid={`settings-form-${instanceId}`}
         >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label
                     className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                     htmlFor="displayName"
@@ -437,7 +437,7 @@ export function SettingsForm({
                 />
             )}
             {visible_parameters.map((param) => (
-                <div className="flex flex-col gap-1.5" key={param.name}>
+                <div className="flex flex-col gap-2" key={param.name}>
                     <label
                         className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                         htmlFor={param.name}
@@ -506,7 +506,7 @@ export function SettingsForm({
             ))}
             {providerId !== "grok" &&
                 Object.keys(endpoints ?? {}).map((endpointName) => (
-                    <div className="flex flex-col gap-1.5" key={endpointName}>
+                    <div className="flex flex-col gap-2" key={endpointName}>
                         <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                             {endpointName === "default" ? "接口地址" : `接口地址 (${endpointName})`}
                         </label>
@@ -531,7 +531,7 @@ export function SettingsForm({
                         />
                     </div>
                 ))}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     刷新
                 </label>
@@ -589,7 +589,7 @@ export function SettingsForm({
                 )}
             </div>
             {providerId && onForcePercentChange && (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-[length:var(--text-body-md)] text-[var(--color-on-surface)]">
                             用量数字统一为百分比
@@ -611,7 +611,7 @@ export function SettingsForm({
                 </div>
             )}
             {onSaveLabelMap && providerId && (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                     <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         数据标签映射
                     </label>
@@ -626,7 +626,7 @@ export function SettingsForm({
                             </div>
                         ) : (
                             <>
-                                <div className="mb-2 flex items-center gap-3 px-0.5 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                                <div className="mb-2 flex items-center gap-3 px-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                                     <span className="min-w-0 flex-1">原始标签</span>
                                     <span className="min-w-0 flex-1">显示名称</span>
                                 </div>

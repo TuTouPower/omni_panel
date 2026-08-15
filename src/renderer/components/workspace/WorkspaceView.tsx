@@ -318,7 +318,7 @@ export function WorkspaceView({
                 />
                 <div className="flex min-w-0 flex-1 overflow-auto" ref={container_ref}>
                     {count === 0 ? (
-                        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
+                        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center">
                             <p className="text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                                 工作台为空
                             </p>

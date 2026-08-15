@@ -50,7 +50,7 @@ export function SessionRail({
         >
             <div
                 className={cn(
-                    "flex h-8 shrink-0 items-center gap-1.5 border-b border-[var(--color-hairline)] px-2",
+                    "flex h-8 shrink-0 items-center gap-2 border-b border-[var(--color-hairline)] px-2",
                     collapsed && "justify-center px-0",
                 )}
                 data-testid="session-rail-header"
@@ -81,8 +81,8 @@ export function SessionRail({
             </div>
             <div
                 className={cn(
-                    "scrollbar-token flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2",
-                    collapsed && "px-1.5",
+                    "scrollbar-token flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2",
+                    collapsed && "px-2",
                 )}
                 data-testid="session-rail-scroll"
             >
@@ -92,7 +92,7 @@ export function SessionRail({
                             type="button"
                             key={`empty-${String(index)}`}
                             className={cn(
-                                "flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                "flex min-h-12 items-center justify-center rounded-lg border border-dashed border-[var(--color-on-surface-variant)] bg-transparent px-2 text-[length:var(--text-body-sm)] font-[550] text-[var(--color-on-surface-muted)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                 collapsed && "mx-auto min-h-9 w-9 rounded-lg p-0",
                             )}
                             data-testid="session-slot-empty"
@@ -107,7 +107,7 @@ export function SessionRail({
                         <div
                             key={`${slot.loc.source}|${slot.loc.env}|${slot.loc.session_id}`}
                             className={cn(
-                                "group flex min-h-12 cursor-grab items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)] px-2 py-1.5 text-left hover:border-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] active:cursor-grabbing",
+                                "group flex min-h-12 cursor-grab items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-card)] px-2 py-2 text-left hover:border-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-raised)] active:cursor-grabbing",
                                 collapsed && "mx-auto min-h-9 w-9 justify-center rounded-lg p-0",
                             )}
                             data-testid="session-slot"
@@ -133,7 +133,7 @@ export function SessionRail({
                                 <VendorMark id={vendor_id_for_source(slot.loc.source)} size={20} />
                             </span>
                             {!collapsed && (
-                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <div className="flex min-w-0 flex-1 flex-col gap-1">
                                     <div
                                         className="truncate text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface)]"
                                         data-testid="session-slot-title"
@@ -170,14 +170,14 @@ export function SessionRail({
             <div
                 className={cn(
                     "shrink-0 border-t border-[var(--color-hairline)] p-2",
-                    collapsed && "px-1.5",
+                    collapsed && "px-2",
                 )}
                 data-testid="session-rail-footer"
             >
                 <button
                     type="button"
                     className={cn(
-                        "flex w-full items-center justify-center rounded-lg border border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--color-outline)] disabled:hover:bg-transparent disabled:hover:text-[var(--color-on-surface-muted)]",
+                        "flex w-full items-center justify-center rounded-lg border border-[var(--color-outline)] bg-transparent text-[length:var(--text-body-sm)] font-[550] text-[var(--color-on-surface-muted)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--color-outline)] disabled:hover:bg-transparent disabled:hover:text-[var(--color-on-surface-muted)]",
                         collapsed ? "mx-auto h-9 w-9 p-0" : "h-8 px-2",
                     )}
                     data-testid="session-slot-add"

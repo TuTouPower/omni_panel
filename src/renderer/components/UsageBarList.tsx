@@ -30,8 +30,8 @@ export function UsageBarList({
             className={
                 className ??
                 (barStyle === "capsule"
-                    ? "mt-[11px] flex flex-col gap-[7px]"
-                    : "mt-[11px] flex flex-col gap-[9px]")
+                    ? "mt-3 flex flex-col gap-2"
+                    : "mt-3 flex flex-col gap-[9px]")
             }
             data-testid="usage-bars"
         >

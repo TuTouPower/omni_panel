@@ -10,7 +10,7 @@ export function CodeChip({ className, children, ...props }: CodeChipProps) {
     return (
         <code
             className={cn(
-                "rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 " +
+                "rounded-md bg-[var(--color-surface-raised)] px-2 py-2 " +
                     "font-[var(--font-code-md)] text-[length:var(--text-label-md)] " +
                     "text-[var(--color-on-surface-variant)]",
                 className,

@@ -98,7 +98,7 @@ export function RangePicker({
                         e.stopPropagation();
                     }}
                 >
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-2">
                         <label className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
                             开始
                             <Input

@@ -598,7 +598,7 @@ export function TokenStatsView() {
     const deltaHtml = useCallback((current: number, previous: number, pp = false) => {
         if (previous <= 0 && !(pp && previous !== 0)) {
             return (
-                <b className="font-mono text-[length:var(--text-body-sm)] font-medium text-[var(--color-on-surface-muted)]">
+                <b className="font-mono text-[length:var(--text-body-sm)] font-[550] text-[var(--color-on-surface-muted)]">
                     前段无数据
                 </b>
             );
@@ -606,22 +606,22 @@ export function TokenStatsView() {
         if (pp) {
             const d = (current - previous) * 100;
             return d >= 0 ? (
-                <b className="font-mono text-[length:var(--text-body-sm)] font-medium text-[var(--color-success)]">
+                <b className="font-mono text-[length:var(--text-body-sm)] font-[550] text-[var(--color-success)]">
                     ▲ {d.toFixed(1)} pp
                 </b>
             ) : (
-                <b className="font-mono text-[length:var(--text-body-sm)] font-medium text-[var(--color-error)]">
+                <b className="font-mono text-[length:var(--text-body-sm)] font-[550] text-[var(--color-error)]">
                     ▼ {Math.abs(d).toFixed(1)} pp
                 </b>
             );
         }
         const d = previous === 0 ? 0 : (current - previous) / previous;
         return d >= 0 ? (
-            <b className="font-mono text-[length:var(--text-body-sm)] font-medium text-[var(--color-success)]">
+            <b className="font-mono text-[length:var(--text-body-sm)] font-[550] text-[var(--color-success)]">
                 ▲ {(d * 100).toFixed(1)}%
             </b>
         ) : (
-            <b className="font-mono text-[length:var(--text-body-sm)] font-medium text-[var(--color-error)]">
+            <b className="font-mono text-[length:var(--text-body-sm)] font-[550] text-[var(--color-error)]">
                 ▼ {Math.abs(d * 100).toFixed(1)}%
             </b>
         );
@@ -648,7 +648,7 @@ export function TokenStatsView() {
     const header_title_extra = (
         <>
             {updatedAgo && (
-                <span className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]">
+                <span className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-[550] text-[var(--color-on-surface-muted)]">
                     {updatedAgo}
                 </span>
             )}
@@ -656,7 +656,7 @@ export function TokenStatsView() {
                 <span
                     key={`${s.source}|${s.env}`}
                     data-testid="token-stats-source-status"
-                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-[550] text-[var(--color-error)]"
                     title={s.lastError}
                     role="status"
                 >
@@ -665,7 +665,7 @@ export function TokenStatsView() {
             ))}
             {refreshing && (
                 <span
-                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-[550] text-[var(--color-on-surface-muted)]"
                     data-testid="token-stats-refreshing"
                 >
                     刷新中...
@@ -673,7 +673,7 @@ export function TokenStatsView() {
             )}
             {error && dashboard && (
                 <span
-                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-medium text-[var(--color-error)]"
+                    className="shrink-0 font-mono text-[length:var(--text-label-caps)] font-[550] text-[var(--color-error)]"
                     role="status"
                 >
                     刷新失败

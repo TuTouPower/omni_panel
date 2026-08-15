@@ -42,7 +42,7 @@ export function SessionPreview({
                     <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-[var(--agent-accent)] text-[length:var(--text-label-md)] font-bold text-[var(--color-on-primary)]">
                         {agent_abbrev(preview.source)}
                     </span>
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="truncate text-[length:var(--text-title-sm)] font-semibold text-[var(--color-on-surface)]">
                             {preview.title ?? preview.id}
                         </span>
@@ -55,7 +55,7 @@ export function SessionPreview({
                     <Button
                         variant="icon"
                         size="icon-md"
-                        className="shrink-0 text-lg text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface)] focus-visible:ring-[var(--color-accent-ring)]"
+                        className="shrink-0 text-[length:var(--text-title-md)] text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface)] focus-visible:ring-[var(--color-accent-ring)]"
                         aria-label="关闭预览"
                         onClick={() => {
                             on_close();
@@ -75,7 +75,7 @@ export function SessionPreview({
                     ) : (
                         preview_msgs.map((m) => (
                             <div data-testid="preview-message" key={m.id}>
-                                <span className="mb-0.5 block text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+                                <span className="mb-1 block text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                                     {m.role === "user" ? "用户" : "Agent"}
                                 </span>
                                 <MarkdownMessage text={m.text} />

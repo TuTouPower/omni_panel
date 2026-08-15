@@ -100,7 +100,7 @@ export const PaneMessageRow = memo(function PaneMessageRow({
             />
             <div className="min-w-0 flex-1" onClick={on_body_click}>
                 <div
-                    className={cn("items-center gap-2", compact ? "inline-flex" : "mb-0.5 flex")}
+                    className={cn("items-center gap-2", compact ? "inline-flex" : "mb-1 flex")}
                     data-testid="conversation-message-meta"
                 >
                     <span className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">

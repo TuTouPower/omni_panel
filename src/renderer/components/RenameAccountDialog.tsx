@@ -43,7 +43,7 @@ export function RenameAccountDialog({
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
                             编辑备注
                         </div>
-                        <div className="mt-0.5 truncate font-[var(--font-code-md)] text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <div className="mt-1 truncate font-[var(--font-code-md)] text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {account_id}
                         </div>
                     </div>
@@ -78,13 +78,13 @@ export function RenameAccountDialog({
                 </>
             }
         >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label
                     className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
                     htmlFor="rename-input"
                 >
                     备注
-                    <span className="ml-1 font-normal text-[var(--color-on-surface-muted)]">
+                    <span className="ml-1 font-[450] text-[var(--color-on-surface-muted)]">
                         显示用
                     </span>
                 </label>

@@ -91,8 +91,8 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
             }
         >
             <div className="flex min-h-0 flex-col gap-2.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="mr-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="mr-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         快捷选择：
                     </span>
                     {[2, 4, 6, 8].map((n) => (
@@ -142,7 +142,7 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
                                         className="text-[length:var(--text-label-caps)]"
                                     />
                                     <span
-                                        className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)]"
+                                        className="min-w-0 flex-1 truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]"
                                         data-testid="session-recent-title"
                                     >
                                         {s.title ?? s.id}

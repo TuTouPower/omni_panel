@@ -28,7 +28,7 @@ export function Badge({
             <span
                 className={cn(
                     "inline-flex min-w-[18px] items-center justify-center rounded-full " +
-                        "bg-[var(--color-primary-container)] px-1.5 py-px " +
+                        "bg-[var(--color-primary-container)] px-2 py-px " +
                         "text-[length:var(--text-label-caps)] text-[var(--color-primary)]",
                     className,
                 )}
@@ -41,9 +41,9 @@ export function Badge({
         return (
             <span
                 className={cn(
-                    "inline-flex shrink-0 items-center justify-center rounded-[7px] " +
+                    "inline-flex shrink-0 items-center justify-center rounded-xs " +
                         "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] " +
-                        "px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold " +
+                        "px-2 py-0 text-[length:var(--text-label-md)] font-semibold " +
                         "leading-normal text-[var(--color-accent)]",
                     className,
                 )}
@@ -57,7 +57,7 @@ export function Badge({
             <span
                 className={cn(
                     "inline-flex items-center rounded bg-[var(--color-primary-container)] " +
-                        "px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-accent)]",
+                        "px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-accent)]",
                     className,
                 )}
             >
@@ -68,7 +68,7 @@ export function Badge({
     return (
         <span
             className={cn(
-                "inline-flex items-center gap-1 rounded-md px-1.5 py-px text-[length:var(--text-label-md)]",
+                "inline-flex items-center gap-1 rounded-md px-2 py-px text-[length:var(--text-label-md)]",
                 className,
             )}
             style={

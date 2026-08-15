@@ -103,10 +103,10 @@ export function SelectionTray() {
                                 <div className="mb-1 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                                     {g.title || g.loc.session_id}
                                 </div>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-2">
                                     {g.items.map((item) => (
                                         <div
-                                            className="inline-flex max-w-[320px] items-center gap-1.5 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                                            className="inline-flex max-w-[320px] items-center gap-2 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                                             key={item.key}
                                             title={item.message.text}
                                             style={
@@ -115,7 +115,7 @@ export function SelectionTray() {
                                                 } as CSSProperties
                                             }
                                         >
-                                            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]">
+                                            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--agent-accent)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]">
                                                 {agent_abbrev(item.loc.source)}
                                             </span>
                                             <span className="shrink-0 font-bold tabular-nums text-[var(--color-on-surface-muted)]">
@@ -145,7 +145,7 @@ export function SelectionTray() {
                             </div>
                         ))}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-1.5">
+                    <div className="flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-2">
                         <span
                             className="text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-variant)]"
                             data-testid="selection-tray-count"

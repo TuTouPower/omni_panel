@@ -15,7 +15,7 @@ export function NetBanner(props: NetBannerProps) {
             <span>网络连接异常，部分数据可能不是最新</span>
             <Button
                 variant="text"
-                className="ml-auto p-0 font-normal text-[var(--color-on-surface)] underline hover:bg-transparent"
+                className="ml-auto p-0 font-[450] text-[var(--color-on-surface)] underline hover:bg-transparent"
                 onClick={is_live ? onRefreshAll : undefined}
             >
                 重新连接

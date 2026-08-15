@@ -173,7 +173,7 @@ export function SessionPane({
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-px">
                     <div
-                        className="flex min-w-0 items-center gap-1 text-[11px] font-semibold text-[var(--color-on-surface)]"
+                        className="flex min-w-0 items-center gap-1 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface)]"
                         data-testid="conversation-title"
                     >
                         {slot_meta.cwd ? (
@@ -199,7 +199,7 @@ export function SessionPane({
                         <span className="shrink-0 text-[var(--color-on-surface-muted)]">·</span>
                         <Button
                             variant="text"
-                            className="min-w-0 truncate p-0 font-code-md text-[11px] font-normal tabular-nums text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
+                            className="min-w-0 truncate p-0 font-code-md text-[length:var(--text-label-md)] font-[450] tabular-nums text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                             data-testid="conversation-session-id"
                             title={session_command ?? undefined}
                             onClick={copy_session_command}
@@ -208,7 +208,7 @@ export function SessionPane({
                         </Button>
                     </div>
                     <div
-                        className="flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[13px] tabular-nums text-[var(--color-on-surface-muted)]"
+                        className="flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[length:var(--text-body-md)] tabular-nums text-[var(--color-on-surface-muted)]"
                         data-testid="conversation-meta"
                     >
                         {slot_meta.model ? (
@@ -228,7 +228,7 @@ export function SessionPane({
                         </span>
                     </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <Button
                         variant="icon"
                         size="icon-sm"
@@ -267,7 +267,7 @@ export function SessionPane({
                     >
                         {column.status === "loading" && column.messages.length === 0 && (
                             <div
-                                className="flex flex-col gap-2 py-1.5"
+                                className="flex flex-col gap-2 py-2"
                                 data-testid="conversation-skeleton"
                             >
                                 <Skeleton className="h-3" />
@@ -348,14 +348,14 @@ export function SessionPane({
                             大纲
                         </div>
                         <div
-                            className="scrollbar-token flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1.5"
+                            className="scrollbar-token flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2"
                             data-testid="conversation-outline-list"
                         >
                             {outline_items.map((item) => (
                                 <button
                                     type="button"
                                     key={item.id}
-                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                    className="flex items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-[color-mix(in_srgb,var(--color-surface-raised)_88%,var(--color-on-surface))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
                                     data-testid="conversation-outline-row"
                                     data-message-id={item.id}
                                     onClick={() => {

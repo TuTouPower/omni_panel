@@ -22,7 +22,7 @@ interface ProviderCardStateProps {
 }
 
 const STATE_BASE =
-    "mt-[11px] flex items-center gap-[9px] text-[13px] text-[var(--color-on-surface-variant)]";
+    "mt-3 flex items-center gap-[9px] text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)]";
 
 export function ProviderCardState({
     provider,

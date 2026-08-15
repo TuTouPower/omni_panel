@@ -32,8 +32,8 @@ export function LocalScanForm({ vendor_id }: LocalScanFormProps) {
 
     return (
         <>
-            <div className="mb-3.5 flex flex-col gap-1.5">
-                <span className="mb-0.5 flex items-center gap-1.5 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+            <div className="mb-3.5 flex flex-col gap-2">
+                <span className="mb-1 flex items-center gap-2 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     <Icon name="search" size={13} strokeWidth={1.8} />
                     扫描位置
                 </span>

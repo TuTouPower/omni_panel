@@ -22,7 +22,7 @@ export function ApiKeyForm({ account_name, set_account_name, form_ref }: ApiKeyF
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     备注
                     <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
@@ -41,7 +41,7 @@ export function ApiKeyForm({ account_name, set_account_name, form_ref }: ApiKeyF
                     placeholder="例如：工作账号"
                 />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     API 密钥
                 </label>
@@ -58,7 +58,7 @@ export function ApiKeyForm({ account_name, set_account_name, form_ref }: ApiKeyF
                     密钥仅加密保存在本地
                 </div>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     接口地址
                     <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">

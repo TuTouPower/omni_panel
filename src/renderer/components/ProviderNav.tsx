@@ -17,8 +17,8 @@ export interface ProviderNavProps {
 }
 
 const TAB_BASE =
-    "relative flex w-[62px] shrink-0 cursor-pointer flex-col items-center gap-[5px] " +
-    "rounded-t-[11px] border-0 bg-transparent px-0 pb-[11px] pt-[9px] " +
+    "relative flex w-[62px] shrink-0 cursor-pointer flex-col items-center gap-1 " +
+    "rounded-t-md border-0 bg-transparent px-0 pb-3 pt-[9px] " +
     "text-[var(--color-on-surface-variant)] transition-feedback " +
     "hover:bg-[var(--color-surface-raised)] focus-visible:outline-none " +
     "focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]";
@@ -28,7 +28,7 @@ const TAB_ACTIVE =
     "after:absolute after:inset-x-3 after:bottom-0 after:h-[2.5px] after:rounded-full " +
     "after:bg-[var(--color-accent)] after:content-['']";
 
-const TAB_LBL = "max-w-full truncate text-[length:var(--text-label-md)] font-medium";
+const TAB_LBL = "max-w-full truncate text-[length:var(--text-label-md)] font-[550]";
 
 export function ProviderNav({
     activeTab,
@@ -71,7 +71,7 @@ export function ProviderNav({
                 </span>
             </button>
             <div
-                className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-0.5 pl-1.5 pr-3 [scrollbar-width:none] [scroll-behavior:smooth] [&::-webkit-scrollbar]:hidden"
+                className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-1 pl-2 pr-3 [scrollbar-width:none] [scroll-behavior:smooth] [&::-webkit-scrollbar]:hidden"
                 data-testid="popup-tabs"
                 ref={scrollRef}
             >

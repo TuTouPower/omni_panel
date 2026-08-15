@@ -125,7 +125,7 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                     // 「检查更新」无外链地址与桌面端保持 button。
                     // t311_code_f002 / t420：布局意图类与 variant 色分离，避免复制 primary/secondary 配方。
                     const card_layout =
-                        "h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-normal";
+                        "h-auto min-h-[108px] flex-col gap-2 rounded-xl p-4 text-center font-[450]";
                     const content = (
                         <>
                             <span
