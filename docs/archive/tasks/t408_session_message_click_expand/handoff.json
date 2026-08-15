@@ -1,0 +1,46 @@
+{
+  "tid": "t408",
+  "attempt": 1,
+  "execution_id": "29a12ff0a02342dfaa6c6d0bec2bb642",
+  "status": "done",
+  "branch": "t408_session_message_click_expand",
+  "base_sha": "9066c819edff2647885bad38de6ee834f89f7974",
+  "tests": "pnpm test：3281 passed | 9 skipped；PaneMessageRow.test.tsx 9 passed；typecheck 通过",
+  "blackbox": "pnpm test 全量绿（含 renderer+node）；typecheck 通过；eslint 触达文件零 warning",
+  "review": "Round 1 general PASS（零 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "PaneMessageRow.tsx 删除 conversation-message-expand 按钮",
+      "PaneMessageRow.test.tsx AC-001：queryByRole/queryByText 无「展开」「收起」通过"
+    ],
+    "AC-002": [
+      "on_body_click 切换 expanded；各行独立 useState",
+      "PaneMessageRow.test.tsx AC-002：双消息点击切换互不影响通过"
+    ],
+    "AC-003": [
+      "message.role==='user' 时 bg-[var(--color-primary-container)]",
+      "PaneMessageRow.test.tsx AC-003：user 有 / agent 无 类名断言通过"
+    ],
+    "AC-004": [
+      "Checkbox 在 body 外，onClick 仅 on_toggle",
+      "PaneMessageRow.test.tsx AC-004：点 checkbox 折叠态不变通过"
+    ],
+    "AC-005": [
+      "has_text_selection() 非折叠选区时 return",
+      "PaneMessageRow.test.tsx AC-005：模拟选区后 click 不切换通过"
+    ],
+    "AC-006": [
+      "on_body_click 内 if (!overflows) return",
+      "PaneMessageRow.test.tsx AC-006：单行 mock 点击无变化通过"
+    ],
+    "AC-007": [
+      "docs/specs/session-pane-display-adjust.md AC9/AC10 改点击本体语义，补 AC13 用户底色"
+    ],
+    "AC-008": [
+      "PaneMessageRow.test.tsx 更新并通过",
+      "pnpm test 3281 passed 全套不红"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}
