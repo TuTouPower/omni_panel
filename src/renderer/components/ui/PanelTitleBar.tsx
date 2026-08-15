@@ -159,7 +159,7 @@ export function PanelTitleBar({
                     <img
                         src={logo}
                         alt="OmniPanel"
-                        className="h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+                        className="logo-drop-shadow h-6 w-6 shrink-0 object-contain"
                     />
                     <span
                         className="truncate text-[length:var(--text-title-md)] font-bold tracking-[-0.01em]"

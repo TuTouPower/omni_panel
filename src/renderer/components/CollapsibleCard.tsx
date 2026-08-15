@@ -37,7 +37,7 @@ export function CollapsibleCard({
             className={
                 "rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] " +
                 "bg-[var(--color-surface-card)] px-4 py-3.5 text-[var(--color-on-surface)] " +
-                "shadow-card dark:shadow-card-dark" +
+                "shadow-card" +
                 (className ? ` ${className}` : "")
             }
             data-testid="collapsible-card"

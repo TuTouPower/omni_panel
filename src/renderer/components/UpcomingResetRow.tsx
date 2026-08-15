@@ -11,13 +11,13 @@ export interface UpcomingResetRowProps {
 const STATUS_DOT_CLASS: Record<UpcomingResetItem["status"], string> = {
     critical:
         "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-error)] " +
-        "shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-error)_18%,transparent)]",
+        "ring-[3px] ring-[color-mix(in_srgb,var(--color-error)_18%,transparent)]",
     warning:
         "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-warning)] " +
-        "shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-warning)_18%,transparent)]",
+        "ring-[3px] ring-[color-mix(in_srgb,var(--color-warning)_18%,transparent)]",
     normal:
         "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-success)] " +
-        "shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-success)_18%,transparent)]",
+        "ring-[3px] ring-[color-mix(in_srgb,var(--color-success)_18%,transparent)]",
     unknown: "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-on-surface-muted)]",
 };
 

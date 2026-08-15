@@ -917,7 +917,7 @@ export function PopupView() {
     return (
         <>
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
                 data-popup="live"
             >
                 {render_body(true, false)}
@@ -933,7 +933,7 @@ export function PopupView() {
                         Mirrors must not bind live refs or interactive handlers. */}
                     <div
                         ref={content_mirror_ref}
-                        className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                        className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                         aria-hidden="true"
                         inert
                         data-popup="mirror"

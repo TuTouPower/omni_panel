@@ -57,7 +57,7 @@ export const SessionCard = memo(function SessionCard({
     return (
         <Card
             className={cn(
-                "library-card group relative flex min-w-0 flex-col overflow-hidden p-0 transition-shadow hover:shadow-[var(--shadow-card)]",
+                "library-card group relative flex min-w-0 flex-col overflow-hidden p-0 transition-shadow hover:shadow-card",
                 selected && "ring-1 ring-[var(--agent-accent)]",
             )}
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}

@@ -22,7 +22,7 @@ export function SelectionDock({
 }: SelectionDockProps) {
     if (selected.length === 0) return null;
     return (
-        <div className="selection-dock sticky bottom-0 z-20 flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_94%,transparent)] px-4 py-2.5 backdrop-blur-[14px]">
+        <div className="selection-dock sticky bottom-0 z-sticky flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] bg-[var(--color-surface-window)] px-4 py-2.5">
             <div className="selection-dock-slots flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
                 {selected.map((s) => (
                     <span

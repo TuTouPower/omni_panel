@@ -25,13 +25,13 @@ export function SessionPreview({
 }: SessionPreviewProps) {
     return (
         <div
-            className="preview-scrim fixed inset-0 z-[var(--z-modal)] flex justify-end bg-[color-mix(in_srgb,var(--color-on-surface)_20%,transparent)] backdrop-blur-[2px]"
+            className="preview-scrim fixed inset-0 z-[var(--z-modal)] flex justify-end bg-[color-mix(in_srgb,var(--color-on-surface)_20%,transparent)]"
             onClick={() => {
                 on_close();
             }}
         >
             <div
-                className="preview-panel flex h-full w-[420px] min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-[var(--shadow-window)]"
+                className="preview-panel flex h-full w-[420px] min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 style={{ "--agent-accent": agent_accent(preview.source) } as CSSProperties}
                 onClick={(e) => {
                     e.stopPropagation();

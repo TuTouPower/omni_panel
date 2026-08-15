@@ -14,7 +14,7 @@ export function TokenPanel({ total_tokens, has_real_data }: TokenPanelProps) {
 
     return (
         <div
-            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 pb-3.5 pt-[15px] shadow-card dark:shadow-card-dark"
+            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 pb-3.5 pt-[15px] shadow-card"
             data-testid="token-panel"
         >
             <div className="mb-3 flex items-center gap-[7px]">

@@ -389,7 +389,7 @@ export function SettingsView() {
     if (loading) {
         return (
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
                 <PanelTitleBar panel="Settings" />
@@ -400,7 +400,7 @@ export function SettingsView() {
     if (error) {
         return (
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
                 <PanelTitleBar panel="Settings" />
@@ -417,7 +417,7 @@ export function SettingsView() {
 
     return (
         <div
-            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+            className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
             data-window="settings"
         >
             <div className="relative flex min-h-0 flex-1 flex-col">

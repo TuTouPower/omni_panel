@@ -310,14 +310,14 @@ export function SessionPane({
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="conversation-to-bottom absolute bottom-3.5 right-[18px] z-10 rounded-full shadow-[var(--shadow-menu)]"
+                        className="conversation-to-bottom absolute bottom-3.5 right-[18px] z-sticky rounded-full shadow-menu"
                         onClick={scroll_to_bottom}
                     >
                         回到底部 ↓
                     </Button>
                 )}
                 {outline_open && (
-                    <div className="conversation-outline absolute bottom-0 right-0 top-0 z-20 flex w-60 min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-[-10px_0_30px_-14px_rgba(0,0,0,0.35)]">
+                    <div className="conversation-outline absolute bottom-0 right-0 top-0 z-context flex w-60 min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-menu">
                         <div className="conversation-outline-head shrink-0 border-b border-[var(--color-outline)] px-3.5 py-2.5 text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                             大纲
                         </div>

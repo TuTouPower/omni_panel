@@ -85,6 +85,7 @@ describe("globals css 清零守卫（t274 收口）", () => {
     it("保留 @utility 复合模式", () => {
         for (const util of [
             "glass-menu",
+            "logo-drop-shadow",
             "shimmer",
             "metric-num",
             "transition-feedback",

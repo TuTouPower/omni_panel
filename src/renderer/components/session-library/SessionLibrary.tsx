@@ -519,7 +519,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         className={cn(
                             "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             view_mode === "grid" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
+                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-card",
                         )}
                         aria-label="网格视图"
                         aria-pressed={view_mode === "grid"}
@@ -534,7 +534,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                         className={cn(
                             "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             view_mode === "list" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
+                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-card",
                         )}
                         aria-label="列表视图"
                         aria-pressed={view_mode === "list"}
@@ -645,7 +645,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                 }}
             />
             {toast !== null && (
-                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
+                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-menu">
                     {toast}
                 </div>
             )}

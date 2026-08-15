@@ -190,7 +190,7 @@ export function AccountUsageRow({
         <div className="border-t-[0.5px] border-t-[var(--color-hairline)] pb-1 pt-3.5 first:border-t-0 first:pt-0">
             <div className="mb-2.5 flex items-center gap-2">
                 {beforeName}
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-success)_16%,transparent)]" />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)] ring-[3px] ring-[color-mix(in_srgb,var(--color-success)_16%,transparent)]" />
                 {display_label ? (
                     <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--color-on-surface)]">
                         {display_label}
