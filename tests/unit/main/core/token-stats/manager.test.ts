@@ -308,6 +308,11 @@ describe("token-stats manager", () => {
             vi.advanceTimersByTime(120_000);
             expect(mock_fork).toHaveBeenCalledTimes(5);
             expect(manager.is_running()).toBe(false);
+            // t396 AC-002: 熔断跳闸与显式停止可区分。
+            expect(manager.is_tripped()).toBe(true);
+            // stop 复位熔断态 → 区别于熔断跳闸。
+            manager.stop();
+            expect(manager.is_tripped()).toBe(false);
         } finally {
             vi.useRealTimers();
         }
@@ -401,24 +406,30 @@ describe("token-stats manager", () => {
 
     it("restarts the collector on config update after circuit breaker trips (t347 AC-003)", () => {
         vi.useFakeTimers();
-        const store = create_mock_store();
-        const manager = create_token_stats_manager({ store });
-        manager.start(base_config);
+        try {
+            const store = create_mock_store();
+            const manager = create_token_stats_manager({ store });
+            manager.start(base_config);
 
-        // 5 次快速崩溃 + 30s 自动重启循环：每次崩溃计数+1，最终触发熔断。
-        for (let i = 0; i < 5; i++) {
-            last_child!.emit("exit", 1);
-            vi.advanceTimersByTime(30_000);
+            // 5 次快速崩溃 + 30s 自动重启循环：每次崩溃计数+1，最终触发熔断。
+            for (let i = 0; i < 5; i++) {
+                last_child!.emit("exit", 1);
+                vi.advanceTimersByTime(30_000);
+            }
+            expect(manager.is_running()).toBe(false);
+            expect(mock_fork).toHaveBeenCalledTimes(5);
+            // t396 AC-002: 熔断跳闸态可观察。
+            expect(manager.is_tripped()).toBe(true);
+
+            // 熔断后配置更新 → 恢复路径：重新 spawn，熔断态复位。
+            manager.update_config({ ...base_config, wsl_distro: "Debian" });
+            expect(manager.is_running()).toBe(true);
+            expect(manager.is_tripped()).toBe(false);
+            expect(mock_fork).toHaveBeenCalledTimes(6);
+            manager.stop();
+        } finally {
+            vi.useRealTimers();
         }
-        expect(manager.is_running()).toBe(false);
-        expect(mock_fork).toHaveBeenCalledTimes(5);
-
-        // 熔断后配置更新 → 恢复路径：重新 spawn。
-        manager.update_config({ ...base_config, wsl_distro: "Debian" });
-        expect(manager.is_running()).toBe(true);
-        expect(mock_fork).toHaveBeenCalledTimes(6);
-        manager.stop();
-        vi.useRealTimers();
     });
 
     it("same_config is order-independent (t347 AC-004)", () => {
@@ -463,6 +474,29 @@ describe("token-stats manager", () => {
         expect(store.upsert_records).toHaveBeenCalledTimes(3);
         // 全部批次走完后 on_update 仍回调。
         expect(on_update).toHaveBeenCalledTimes(1);
+        manager.stop();
+    });
+
+    it("仅末批触发 buckets 重建（t396 AC-001）", async () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        const sessions = Array.from({ length: 5000 }, (_, i) => ({ id: `s${String(i)}` }));
+        last_child!.emit("message", {
+            type: "token_stats_update",
+            sessions,
+            daily: [],
+            records: [],
+        });
+
+        await flush_macrotasks();
+        // 5000 sessions → 3 批（2000+2000+1000）；rebuild_buckets 仅末批 true。
+        expect(store.upsert_sessions).toHaveBeenCalledTimes(3);
+        const calls = store.upsert_sessions.mock.calls as [unknown, unknown, boolean][];
+        expect(calls[0]![2]).toBe(false);
+        expect(calls[1]![2]).toBe(false);
+        expect(calls[2]![2]).toBe(true);
         manager.stop();
     });
 

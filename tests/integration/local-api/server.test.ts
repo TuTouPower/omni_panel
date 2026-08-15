@@ -1635,11 +1635,17 @@ describe("local-api web read endpoints", () => {
             `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-a`,
         );
         expect(res_a.status).toBe(200);
-        const series_a = (await res_a.json()) as ({ percent: number } | null)[];
+        const series_a = (await res_a.json()) as ({ percent: number; date: string } | null)[];
         const points_a = series_a.filter((p) => p !== null);
         expect(points_a.length).toBe(1);
         // inst-a: used 100/1000 = 10%
         expect(points_a[0]?.percent).toBe(10);
+        // t397 AC-005: date 为 UTC ISO 时刻格式（保留时分，同一 UTC 日内多点可区分；
+        // 纯日期 YYYY-MM-DD 或丢时分断言必挂）。
+        expect(points_a[0]?.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$/);
+        // 且 date 与插入的 observed_at（now）对应同一 UTC 时刻（非日期截断）。
+        const expected_iso = new Date(now).toISOString().slice(0, 16) + "Z";
+        expect(points_a[0]?.date).toBe(expected_iso);
 
         const res_b = await fetch(
             `${base_url}?provider=tavily&accountId=tavily&metricId=tavily:total-month&sourceInstanceId=inst-b`,
@@ -1882,6 +1888,60 @@ describe("local-api session history endpoints (t259)", () => {
             "hello",
             expect.any(AbortSignal),
         );
+    });
+
+    it("t388 AC-002: web 搜索未超限 truncated=false", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: { sources: ["claude_code"] }, keyword: "hello" }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { truncated?: boolean };
+        expect(data.truncated).toBe(false);
+    });
+
+    it("t388 AC-001: web 搜索枚举达 SEARCH_ENUM_CAP 截断时 truncated=true", async () => {
+        const service = base_session_service();
+        // provider 恒返回满页 100 条 → 枚举达 cap 截断。
+        const full_page = Array.from({ length: 100 }, (_, i) =>
+            make_session_row({
+                id: `sess-${String(i)}`,
+                session: {
+                    ...(make_session_row().session as unknown as Record<string, unknown>),
+                    id: `sess-${String(i)}`,
+                } as never,
+            }),
+        );
+        setup_session_api(
+            service,
+            vi.fn(() => full_page),
+        );
+        service.searchContentWithAbort.mockResolvedValue(new Set(["claude_code|local|sess-0"]));
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { sources: ["claude_code"], search: "hello" },
+                    keyword: "hello",
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { truncated?: boolean };
+        expect(data.truncated).toBe(true);
     });
 
     it("POST /v1/sessionHistory/searchContent 客户端断连时中止底层搜索 (t263)", async () => {

@@ -15,6 +15,9 @@ export interface TokenStatsManager {
     start(config: TokenStatsConfig): void;
     update_config(config: TokenStatsConfig): void;
     is_running(): boolean;
+    /** 是否处于熔断跳闸态（t396 AC-002）：连续快速崩溃后已停止自动重启，
+     * 与显式 stop() 区分——跳闸可经 update_config 恢复，stop 后需显式 start。 */
+    is_tripped(): boolean;
     stop(): void;
 }
 
@@ -73,6 +76,7 @@ export function create_token_stats_manager(deps: {
     // rapid exits we give up and surface the error.
     let rapid_failure_count = 0;
     let last_started_at = 0;
+    let tripped = false;
     const RAPID_EXIT_THRESHOLD_MS = 5 * 60 * 1000;
     const MAX_RAPID_FAILURES = 5;
 
@@ -125,6 +129,7 @@ export function create_token_stats_manager(deps: {
         }
 
         current_config = config;
+        tripped = false;
         const collector_path = resolve_collector_path();
 
         log.info(`Starting collector subprocess: ${collector_path}`);
@@ -195,6 +200,7 @@ export function create_token_stats_manager(deps: {
                 );
                 current_config = null;
                 rapid_failure_count = 0;
+                tripped = true;
                 return;
             }
             // Auto-restart after 30 seconds
@@ -267,8 +273,13 @@ export function create_token_stats_manager(deps: {
         return child !== null;
     }
 
+    function is_tripped(): boolean {
+        return tripped;
+    }
+
     function stop(): void {
         current_config = null;
+        tripped = false;
         if (restart_timer) {
             clearTimeout(restart_timer);
             restart_timer = null;
@@ -281,7 +292,7 @@ export function create_token_stats_manager(deps: {
         }
     }
 
-    return { start, update_config, is_running, stop };
+    return { start, update_config, is_running, is_tripped, stop };
 }
 
 export type { TokenStatsUpdate };

@@ -1,0 +1,29 @@
+{
+    "tid": "t398",
+    "attempt": 1,
+    "execution_id": "936d3df52ea347f095261e5470e1322d",
+    "status": "done",
+    "branch": "t398_config_account_logic_fix",
+    "base_sha": "e85f38318812d5f2a1e4ba420c3c03bcfb568637",
+    "tests": "vitest 全量 unit + integration：269 files 3214 passed（0 failed）；accounts_list 1（AC-001）、cpa_card 14、config-schema 16（AC-002）、observation-retention 12（AC-003）；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: CpaCardRow 加 account_key 行级字段，CpaCard on_hide/unhide/clear 回调携带 account_key，accounts_list 按 accountKey(item)===target.account_key 精确匹配替代 find(provider,accountId) 首匹配——同 provider 同 accountId 不同 label 多账号删除各自行键不误删；accounts_list 测试验证显示行 unhide 删 Label A 键、不误删 Label B 键。AC-002: cacheMaxMb schema min(1)→min(0) 对齐「不限制」语义（settings 保存 0 可持久化、retention 0 分支可达）；config-schema 测试 0 通过 + 1/10000 边界 + -1/10001/0.5 拒绝。AC-003: run_retention_prune 去 `if (additional === 0) break`——空窗口继续推进 cutoff 至预算达成或 cutoff>=now（既有上限兜底）；测试稀疏数据空窗口推进 steps + prune 返回 0 仍超预算时达 now 即停止",
+    "review": "full 级：code Round 1 PASS（1 minor：AC-001 双可见行场景因 CpaCard 去重不可复现，防御性修复正确）；test Round 1 FAIL（f001 critical 恒真）→ Round 2 FAIL（f001 important 修不彻底）→ Round 3 PASS（vi.mock 双行锁定 account_key 匹配，回退 find 首匹配必挂；f002 clear 已补；余 1 minor f003 往返持久化）；code+test 均 PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/components/CpaCard.tsx::CpaCardRow 加 account_key: string（行级 override 键，sourceInstanceId|label|accountLabel）；on_hide/on_unhide/on_clear 回调 target 带 account_key",
+            "src/renderer/views/settings-view/sections/accounts_list.tsx::rows 构造 account_key: accountKey(item)；on_hide/unhide/clear 改 items.find((it) => accountKey(it) === target.account_key) 精确匹配",
+            "accounts_list.test.tsx::mock CpaCard 渲染双行（绕过 provider:account_id 去重，同 accountId 双 label 都可见可点击）——点击 Label B 行 unhide/clear → restore('claude','cpa-1|label|Label B') 且 not Label A",
+            "非恒真验证：临时回退 accounts_list 匹配为 find(provider, accountId) 首匹配 → unhide 测试必挂（restore Label A 非期望 Label B）；恢复后通过"
+        ],
+        "AC-002": [
+            "src/main/core/config/types.ts::cacheMaxMb z.number().int().min(1) → min(0)，注释说明 0=不限制对齐 settings「不限制」与 retention 0 分支",
+            "config-schema.test.ts::t398 AC-002 用例——cacheMaxMb:0 parse 通过且===0；边界 1/10000 通过、-1/10001/0.5 拒绝"
+        ],
+        "AC-003": [
+            "src/main/core/observation/observation-retention.ts::run_retention_prune 去 `if (additional === 0) break`，while (count > max_rows && cutoff < now_ms) 继续推进 cutoff",
+            "observation-retention.test.ts::空窗口继续推进——count 恒定 3000 超预算、prune 恒返回 0，断言 calls.length >= ceil((NOW-older)/DAY)（修复前遇首 0 break calls 少）；prune 返回 0 仍超预算时 cutoff 推进至 >= NOW 停止（last+DAY >= NOW）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

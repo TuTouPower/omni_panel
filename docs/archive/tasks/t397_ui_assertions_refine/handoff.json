@@ -1,0 +1,36 @@
+{
+    "tid": "t397",
+    "attempt": 1,
+    "execution_id": "8cc5404c70894a2fa77afdb6c1a2e691",
+    "status": "done",
+    "branch": "t397_ui_assertions_refine",
+    "base_sha": "325ccabdaa135501eaa7c1e80c02dbb5410fa531",
+    "tests": "vitest 全量 unit + integration：268 files 3209 passed（0 failed）；新增 label_map_dialog 20（AC-001）、settings_view_watched 6（AC-002）、route_api 21（AC-003 kimi）、App 5（AC-003）、CpaLabelMapDialog 2（AC-003）、AccountDialog 3（AC-003）、SessionRail 7（AC-004）、server 88（AC-005）；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: label_map_dialog.test.tsx 直接渲染 LabelMapDialog，断言未监控 bell 内 data-slash=true、已监控无 data-slash（不依赖 e2e）。AC-002: settings_view_watched.test.tsx 补斜杠随切换即时更新——点击铃铛 + save 更新 config + rerender 模拟重渲染，data-slash 即时消失无需重开对话框。AC-003: route_api 补 select_kimi_api 分权矩阵；App 路由分发 5 route 直接单测（lazy views stub）；CpaLabelMapDialog save_target provider/account 两分支写入断言；AccountDialog mode add/edit 分支 + Escape 关闭。AC-004: SessionRail 混色断言补 _70%/_8% 百分比子串（改比例测试失败）。AC-005: /v1/trend 集成测试补 date UTC ISO 时刻格式断言（正则 + 与 observed_at 对应时刻一致）",
+    "review": "single 级 general：Round 1 PASS（2 条 minor f001：handoff AC-001 证据误写「覆盖 AC-002」笔误——已修为「覆盖斜杠显隐」；f002：app.test.tsx 未知 hash 用例名过实（归一化在 use_route 被 mock，仅覆盖 App default 分支）——用例名已如实，不改）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "label_map_dialog.test.tsx::未监控 icon 带 data-slash、已监控 icon 不带（t397 AC-001）——watched_metrics 仅 five_hour，断言 bells[1] aria-pressed=false 且含 data-slash=true、bells[0] aria-pressed=true",
+            "直接渲染 LabelMapDialog（非 e2e 兜底），组件层覆盖斜杠显隐"
+        ],
+        "AC-002": [
+            "settings_view_watched.test.tsx::斜杠随切换即时更新——初始未监控带斜杠 → save.mockImplementationOnce 更新 current_config 为已监控 → rerender 模拟 config 驱动重渲染 → aria-pressed=true 且 data-slash 消失",
+            "对话框保持打开（不重开），验证「即时更新」而非重新打开"
+        ],
+        "AC-003": [
+            "route_api.test.ts::select_kimi_api describe——setting 暴露全量、usage/agent/tray/unknown 仅 login_status（对齐 select_grok_api）",
+            "app.test.tsx::5 路由分发单测（setting→SettingsView、tray→TrayMenu、agent→TokenStatsView、session→SessionShell、未知→PopupView）；lazy views mock 为 stub",
+            "cpa_label_map_dialog.test.tsx::save_target=provider 写 providerLabelMaps、=account 写 accountLabelMaps 两分支",
+            "account_dialog.test.tsx::mode=edit 渲染 SettingsForm、mode=add 无 instanceId 渲染 AddAccountDialog、Escape 触发 onClose"
+        ],
+        "AC-004": [
+            "SessionRail.test.tsx::t381 AC-001 断言补 expect(cls).toContain('_70%') 与 ('_8%')——改动混色比例（如 70%→80%）测试失败，原断言只验 color-mix 存在"
+        ],
+        "AC-005": [
+            "server.test.ts::t214 测试补 points_a[0].date toMatch(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}Z$/)（UTC ISO 保留时分）",
+            "断言 date === new Date(now).toISOString().slice(0,16)+'Z'——与插入的 observed_at 对应时刻一致（非日期截断 YYYY-MM-DD）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

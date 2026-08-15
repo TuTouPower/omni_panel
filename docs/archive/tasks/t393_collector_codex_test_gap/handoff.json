@@ -1,0 +1,35 @@
+{
+    "tid": "t393",
+    "attempt": 1,
+    "execution_id": "aa04110cf36047e0ae6a05ba867f6e87",
+    "status": "done",
+    "branch": "t393_collector_codex_test_gap",
+    "base_sha": "7d915b823977a0d22eb59e66f9b174bcd629df57",
+    "tests": "vitest 全量 unit + integration/connector：252 files 2902 passed（0 failed）；collector.test.ts 45 passed（含 AC-001 真实增量、AC-002 daily 截断、AC-003 边界 key 回收）；codex-connector.test.ts 6 passed（含 AC-004 obs.day 精确断言）；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: AC-004 测试 mock 改感知 scan-state（jsonl_states 有该源→返回 []，缺失→全量重产出 2 条），回滚→重扫→重发闭环对「回滚是否必需」敏感（未回滚则 mock 返回 [] 不重发断言必挂）。AC-002: daily 超 MAX_RECORDS*5 截断跨轮推进用例——首轮发 50000 游标 daily 含 d0..d49999，二轮发 d50000.. 且游标清除，三轮 state 推进返回 [] 无输出。AC-003: 生产改动——去重判定 should_emit_record 前移（过窗且会话不活跃 key 本轮即重发，不再延迟一轮；窗口内/活跃 key 跳过且保活），prune_emitted 移源循环后统一内存裁剪（活跃 key 因 touch 全就绪不被误删）；边界 key（过窗 1ms）本轮重发断言锁定。AC-004: connector observation 新增 day 派生字段（UTC YYYY-MM-DD，schema 加可选字段），跨年用例断言 obs.day == ['2026-12-31','2027-01-01']——月偏位/缺零填充（2027-1-1）均必挂",
+    "review": "single 级 general：Round 1 PASS（2 条 minor：f001 实现与 spec 字面措辞偏差、f002 session_key 派生重复；均非 blocking）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/collector.test.ts::re-emits records when postMessage fails (t345 AC-004 / t393 AC-001)——mock_scan_jsonls 感知 jsonl_states：state 存在返回 []、缺失重产出 2 条",
+            "断言首轮失败后 jsonl_states.has(claude_jsonl_local)===false（回滚）；第二轮 collect 重发 2 条 records（重扫→重发闭环）",
+            "若去掉回滚逻辑：首轮失败后 state 保留，第二轮 mock 返回 [] 不重发，断言必挂（对回滚是否必需敏感）"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/collector.test.ts::t393 AC-002: daily 截断游标跨轮推进——51000 条 daily 超 MAX_RECORDS*5=50000",
+            "首轮发 50000、游标 daily.size===50000 且 has('d0|2026-07-10|m')",
+            "二轮跳过已发 dkey 发 d50000..（1000 条）且游标清除；三轮 state 推进返回 [] 无输出"
+        ],
+        "AC-003": [
+            "src/main/core/token-stats/collector.ts::should_emit_record 去重判定——过窗且会话不活跃 key 视为未 emit 本轮重发（去重循环前不跳过），窗口内/活跃 key 跳过且活跃 key 保活刷新 ts",
+            "collector.ts::prune_emitted 移源循环后（所有 source 会话 touch 已刷新）做内存裁剪，活跃长会话 key 不被误删（t386 AC-001 45 测试通过）",
+            "collector.test.ts::t393 AC-003 边界到期 key（过窗 EMITTED_WINDOW_MS+1ms）本轮重发断言 update.records==['m1']——旧实现（去重后才 prune）本轮跳过延迟一轮，断言必挂"
+        ],
+        "AC-004": [
+            "connectors/codex/connector.ts::observation 新增 day 派生字段（key.split('|')[1]，UTC YYYY-MM-DD）",
+            "src/shared/types/observation.ts::ScriptObservation 加可选 readonly day?: string；src/shared/schemas/observation.ts::script_observation_schema 加 day 可选（zod strip 不再丢弃）",
+            "codex-connector.test.ts::跨年（2026-12-31/2027-01-01）用例断言 gpt5 观测 obs.day 排序 == ['2026-12-31','2027-01-01']——月偏一位（如 2027-02-01）或缺零填充（2027-1-01）均必挂；桶数量与 used 断言保留"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

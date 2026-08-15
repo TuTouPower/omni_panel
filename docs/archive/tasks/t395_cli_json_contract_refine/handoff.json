@@ -1,0 +1,31 @@
+{
+    "tid": "t395",
+    "attempt": 1,
+    "execution_id": "1907df546dcd4154ac4cbb48d08b638c",
+    "status": "done",
+    "branch": "t395_cli_json_contract_refine",
+    "base_sha": "c3676a63db55e089690aba2cebc3c89d096931a7",
+    "tests": "vitest 全量 unit + integration：264 files 3187 passed（0 failed）；cli_json_parse 11 passed（含 AC-003 url/pid/userData/startedAt/数组）；tsc --noEmit 通过；eslint 改动文件无告警",
+    "blackbox": "AC-001: CliInstanceInfo 定义仅存 scripts/cli_json_parse.d.mts 一处（scripts/ 侧单一权威），cli_json_parse.mjs/omni_panel.mjs 均用 import('./cli_json_parse.d.mts').CliInstanceInfo 引用，@typedef 手写重复全删。AC-002: omni_panel.mjs 删 typeof data_root_candidate/typeof candidate 收窄与 '' 兜底（grep 0 残留），resolve/join 恒 string 类型推断由 tseslint type-checked 保持。AC-003: 测试补 url number 类型错误、pid string 类型错误、userData/startedAt 缺省空串、数组根（typeof object 非 null → 走字段校验报缺 port，不抛 TypeError）",
+    "review": "single 级 general：Round 1 PASS（2 条 minor f001：新测试 prettier 未折叠 → 已 prettier --write；f002：handoff AC-001 措辞「grep 全仓仅此一处」失实——src/main/cli/cli-json.ts 另有 main 侧 interface，范围外；已改为 scripts/ 侧措辞）；check_review_status overall=PASS / review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "scripts/cli_json_parse.d.mts::export interface CliInstanceInfo 定义（scripts/ 侧唯一权威；src/main/cli/cli-json.ts 另有 main 侧同名 interface，范围外）",
+            "scripts/cli_json_parse.mjs::@typedef 删除，@returns 与 @type 用 import('./cli_json_parse.d.mts').CliInstanceInfo 引用",
+            "scripts/omni_panel.mjs::@typedef 删除，probe_running_instance @returns 用 import 类型引用；scripts/ 侧字段增减只需改 .d.mts 一处"
+        ],
+        "AC-002": [
+            "scripts/omni_panel.mjs::const data_root = data_root_candidate（resolve/join 恒 string，删 typeof 收窄 + '' 兜底）",
+            "scripts/omni_panel.mjs::删 if (typeof candidate !== 'string') return Promise.resolve(null)（join 恒 string 死代码）",
+            "grep typeof data_root_candidate / typeof candidate 0 残留；tseslint strictTypeChecked（projectService scripts/*.mjs）无告警"
+        ],
+        "AC-003": [
+            "cli_json_parse.test.ts::url 类型错误（number）断言 'string 字段 url'",
+            "cli_json_parse.test.ts::pid 类型错误（string）断言 'number 字段 pid'",
+            "cli_json_parse.test.ts::userData/startedAt 缺省时 info.userData=='' 且 info.startedAt==''",
+            "cli_json_parse.test.ts::数组根（[1,2,3]）返回 ok:false 且错误含 'port'（数组 typeof object 非 null → 字段校验报缺 port，非 TypeError 透传）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

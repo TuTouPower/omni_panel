@@ -127,4 +127,44 @@ describe("create_debounced_config_patcher (t195 AC4)", () => {
         expect(save).toHaveBeenCalledTimes(2);
         expect(save).toHaveBeenLastCalledWith({ ...base, expandedProviders: { claude: true } });
     });
+
+    it("t391 AC-001: 失败后同键新值不被失败旧值覆盖，重试保存用最新值", async () => {
+        const get = vi.fn().mockResolvedValue({ config: base });
+        const save = vi.fn();
+        const patcher = create_debounced_config_patcher({ get, save, delay_ms: 500 });
+        // 首次 save（含 K=old）失败；失败 catch 合并前，用户已 patch 同键新值。
+        save.mockImplementationOnce(() => {
+            patcher.patch({ providerOrder: ["new"] });
+            return Promise.reject(new Error("disk full"));
+        });
+
+        patcher.patch({ providerOrder: ["old"] });
+        await expect(patcher.flush()).rejects.toThrow("disk full");
+
+        // 重试：pending 中 providerOrder 已是 ["new"]（失败旧值不覆盖），保存用新值。
+        await expect(patcher.flush()).resolves.toBeUndefined();
+        expect(save).toHaveBeenLastCalledWith({ ...base, providerOrder: ["new"] });
+    });
+
+    it("t391 AC-002: 失败合并保留非冲突键（pending 无该键时仍合并回）", async () => {
+        const get = vi.fn().mockResolvedValue({ config: base });
+        const save = vi.fn();
+        const patcher = create_debounced_config_patcher({ get, save, delay_ms: 500 });
+        // 首次 save（含 A）失败；catch 合并前用户 patch 了 B（pending 无冲突键）。
+        save.mockImplementationOnce(() => {
+            patcher.patch({ expandedProviders: { claude: true } });
+            return Promise.reject(new Error("disk full"));
+        });
+
+        patcher.patch({ collapsedAccounts: { a: true } });
+        await expect(patcher.flush()).rejects.toThrow("disk full");
+
+        // 重试：A（失败 patch）+ B（在途新 patch）都保存——非冲突键不丢。
+        await expect(patcher.flush()).resolves.toBeUndefined();
+        expect(save).toHaveBeenLastCalledWith({
+            ...base,
+            collapsedAccounts: { a: true },
+            expandedProviders: { claude: true },
+        });
+    });
 });

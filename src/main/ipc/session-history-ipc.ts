@@ -69,6 +69,8 @@ function loc_of(source: string, env: string, session_id: string): SessionLoc {
 const CONTENT_SEARCH_PAGE_SIZE = 100;
 /** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
 const SEARCH_ENUM_CAP = 100_000;
+/** t389 AC-001: RECENT limit 上界——超限拒绝，防 SQLite LIMIT 巨大值全量拉取。 */
+const RECENT_LIMIT_MAX = 10_000;
 
 function key_of(row: SessionRow): string {
     return `${row.source}|${row.env}|${row.id}`;
@@ -89,7 +91,7 @@ function legacy_row_of(loc: { source: string; env: string; session_id: string })
 function query_all_sessions(
     deps: SessionHistoryIpcDeps,
     filters: SessionQueryFilters,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     const rows: SessionRow[] = [];
     let offset = 0;
     let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
@@ -99,15 +101,21 @@ function query_all_sessions(
         page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
         rows.push(...page);
     }
-    return rows;
+    // t388 AC-001: 达 SEARCH_ENUM_CAP 截断（仍可能有更多页）→ truncated=true。
+    // 边界：总数恰等于 CAP 且最后页满时误报 true（循环因 rows.length<CAP 失配
+    // 退出、cap 之后那页未 fetch 无法区分）——仅误报、无数据丢失、极罕见。
+    return {
+        rows,
+        truncated: rows.length >= SEARCH_ENUM_CAP && page.length === CONTENT_SEARCH_PAGE_SIZE,
+    };
 }
 
 function content_search_candidates(
     deps: SessionHistoryIpcDeps,
     request: SearchContentRequest,
-): SessionRow[] {
+): { rows: SessionRow[]; truncated: boolean } {
     if (is_legacy_search_request(request)) {
-        return request.locs.map(legacy_row_of);
+        return { rows: request.locs.map(legacy_row_of), truncated: false };
     }
 
     const filters: SessionQueryFilters = {
@@ -215,6 +223,18 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             limit: number,
         ): IpcResult<RecentSession[]> => {
             assert_valid_sender(event);
+            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
+            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
+            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
+            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
+            // 与 token-stats-ipc 的 valid_limit/TOKEN_STATS_LIMIT_MAX 同语义；
+            // 两处上界常量若调整需同步。
+            if (!Number.isInteger(limit) || limit <= 0 || limit > RECENT_LIMIT_MAX) {
+                return fail(
+                    "INVALID_LIMIT",
+                    `limit must be an integer in [1, ${String(RECENT_LIMIT_MAX)}]`,
+                );
+            }
             const recent = deps.service.recent_sessions(
                 source,
                 env as Env,
@@ -238,10 +258,11 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             content_search_controllers.set(event.sender.id, controller);
 
             try {
-                const candidate_rows = content_search_candidates(deps, request);
-                const metadata_rows =
+                const candidates = content_search_candidates(deps, request);
+                const candidate_rows = candidates.rows;
+                const metadata =
                     is_legacy_search_request(request) || !request.filters.search
-                        ? []
+                        ? { rows: [] as SessionRow[], truncated: false }
                         : query_all_sessions(deps, {
                               ...(request.filters.sources
                                   ? { sources: [...request.filters.sources] }
@@ -254,6 +275,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                                   ? { end_at: request.filters.end_at }
                                   : {}),
                           });
+                const metadata_rows = metadata.rows;
                 const resolved_locs: ResolvedSessionLoc[] = [];
                 for (const row of candidate_rows) {
                     if (controller.signal.aborted) break;
@@ -287,7 +309,8 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                           controller.signal,
                       )
                     : await deps.service.searchContent(resolved_locs, request.keyword);
-                if (controller.signal.aborted) return ok({ hits: [], sessions: [] });
+                if (controller.signal.aborted)
+                    return ok({ hits: [], sessions: [], truncated: false });
                 const hit_keys = new Set(hits);
                 // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原
                 // includes 对 metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），
@@ -306,6 +329,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 return ok({
                     hits: [...hit_keys],
                     sessions: response_sessions,
+                    truncated: candidates.truncated || metadata.truncated,
                 });
             } finally {
                 if (content_search_controllers.get(event.sender.id) === controller) {

@@ -1,0 +1,31 @@
+{
+    "tid": "t389",
+    "attempt": 1,
+    "execution_id": "8111d28aa75049b2925d5da29ae61a17",
+    "status": "done",
+    "branch": "t389_ipc_limit_upper_bound",
+    "base_sha": "ce0fcd6133a6e383b97b0b7e096d764b80a8c601",
+    "tests": "vitest IPC 全量 16 文件 226 passed；tsc --noEmit exit 0；eslint 改动文件 --max-warnings=0 通过；prettier 无剩余",
+    "blackbox": "AC-001: RECENT handler limit 校验（RECENT_LIMIT_MAX=10000 拒绝）。AC-002/003: TOKEN_STATS_SESSIONS/RECORDS filters.limit 校验（valid_limit helper）。AC-004: 0/负/非整数拒绝。缺省 limit 走 store 默认不变。mutation（valid_limit 恒 true）AC-002/003 2 failed 验证",
+    "review": "full 级：Round 1 code PASS（f001 minor）/ test PASS（f001 minor）→ Round 2 code PASS（f001 交叉引用注释）/ test PASS；check_review_status overall=PASS / review_scope=ok / round=2",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/ipc/session-history-ipc.ts::RECENT handler limit 校验 + RECENT_LIMIT_MAX",
+            "tests/unit/ipc/session-history-ipc.test.ts::t389 AC-001 超大 limit 被拒不触发 通过"
+        ],
+        "AC-002": [
+            "src/main/ipc/token-stats-ipc.ts::TOKEN_STATS_SESSIONS limit 校验（valid_limit）",
+            "tests/unit/ipc/token-stats-ipc.test.ts::t389 AC-002 正常小 limit 不变 + 超大拒绝 通过"
+        ],
+        "AC-003": [
+            "src/main/ipc/token-stats-ipc.ts::TOKEN_STATS_RECORDS limit 校验 + 缺省语义不变",
+            "tests/unit/ipc/token-stats-ipc.test.ts::t389 AC-003 正常/缺省 + 超大拒绝 通过"
+        ],
+        "AC-004": [
+            "tests/unit/ipc/session-history-ipc.test.ts::t389 AC-004 0/负/非整数拒绝 通过",
+            "tests/unit/ipc/token-stats-ipc.test.ts::t389 AC-004 非法 limit 拒绝 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

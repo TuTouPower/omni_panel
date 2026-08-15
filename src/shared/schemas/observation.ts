@@ -35,6 +35,7 @@ export const script_observation_schema = z.object({
      */
     name: z.string().optional(),
     window: observation_window_schema,
+    day: z.string().optional(),
     cycleDurationMs: finite_number.nonnegative().nullable().optional(),
     used: finite_number.nullable(),
     limit: finite_number.nullable(),

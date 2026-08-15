@@ -208,4 +208,31 @@ describe("appConfigurationSchema", () => {
             wslUser: "alice",
         });
     });
+
+    it("t398 AC-002: accepts cacheMaxMb=0（不限制）", () => {
+        // settings data_section「不限制」保存 cacheMaxMb: 0；min(1) 会拒绝致无法
+        // 持久化。schema 放行 0（不限制语义），retention 0 分支可达。
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            cacheMaxMb: 0,
+        });
+        expect(parsed.cacheMaxMb).toBe(0);
+    });
+
+    it("t398 AC-002: cacheMaxMb 边界——1 与 10000 通过、负值与 10001 拒绝", () => {
+        const base = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+        };
+        expect(appConfigurationSchema.parse({ ...base, cacheMaxMb: 1 }).cacheMaxMb).toBe(1);
+        expect(appConfigurationSchema.parse({ ...base, cacheMaxMb: 10000 }).cacheMaxMb).toBe(10000);
+        expect(() => appConfigurationSchema.parse({ ...base, cacheMaxMb: -1 })).toThrow();
+        expect(() => appConfigurationSchema.parse({ ...base, cacheMaxMb: 10001 })).toThrow();
+        expect(() => appConfigurationSchema.parse({ ...base, cacheMaxMb: 0.5 })).toThrow();
+    });
 });

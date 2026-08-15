@@ -513,7 +513,9 @@ export function create_device_code_oauth_manager(
         log.info("shutdown: all auto-refresh timers stopped");
     }
 
-    return {
+    // t394 AC-002: 测试探针——把闭包 retry 计数关联到 manager 实例，供断言
+    // logout/stop_auto_refresh/shutdown 的清理副作用（删除清理代码测试即失败）。
+    const api: DeviceCodeOAuthManager = {
         start_device_login,
         await_completion,
         cancel_device_login,
@@ -525,4 +527,18 @@ export function create_device_code_oauth_manager(
         reconcile_auto_refresh,
         shutdown,
     };
+    __testing_retry_maps.set(api, retry_failure_counts);
+
+    return api;
+}
+
+const __testing_retry_maps = new WeakMap<DeviceCodeOAuthManager, Map<string, number>>();
+
+/** 测试探针（t394 AC-002）：读取 manager 实例内部 retry 计数的实时引用
+ *  （ReadonlyMap 视图，非拷贝快照——测试只需可观察清理副作用）。
+ *  生产路径不使用；spec 已声明允许导出内部状态探针。 */
+export function __testing_retry_failure_counts(
+    manager: DeviceCodeOAuthManager,
+): ReadonlyMap<string, number> {
+    return __testing_retry_maps.get(manager) ?? new Map<string, number>();
 }

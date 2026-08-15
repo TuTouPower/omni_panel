@@ -1,0 +1,15 @@
+# t392: pnpm v10 起不再读 package.json 的 pnpm 字段（onlyBuiltDependencies 等），
+# 迁移到 pnpm-workspace.yaml（规范位置）。electron postinstall（写 path.txt）依赖
+# onlyBuiltDependencies 白名单，缺失会致全新 install 后 import electron 测试 ENOENT。
+# packages 声明 workspace 成员；本项目单包，根包 '.'。
+packages:
+    - "."
+onlyBuiltDependencies:
+    - better-sqlite3
+    - electron
+    - electron-winstaller
+overrides:
+    tar: ">=6.2.1"
+    tmp: ">=0.2.4"
+patchedDependencies:
+    better-sqlite3: patches/better-sqlite3.patch

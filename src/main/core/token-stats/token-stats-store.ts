@@ -356,6 +356,44 @@ function dashboard_alias_resolver(
     return (key) => lookup.get(key) ?? key;
 }
 
+/** t384 AC-001/AC-002: 模型筛选归并展开——返回所有 resolver 归并到同一目标组的原始 key。
+ *  `{selected, resolver(selected)} ∪ {k | resolver(k) === resolver(selected)}`。
+ *  复用同一 resolver 做展开（后写覆盖语义），不重写逆映射。 */
+function dashboard_model_filter_keys(
+    selected: string | undefined,
+    aliases: readonly DashboardAlias[] | undefined,
+): string[] {
+    if (!selected) return [];
+    const resolver = dashboard_alias_resolver(aliases);
+    const target = resolver(selected);
+    const keys = new Set<string>([selected, target]);
+    for (const item of aliases ?? []) {
+        for (const key of item.keys) {
+            if (resolver(key) === target) keys.add(key);
+        }
+    }
+    return [...keys];
+}
+
+/** t384 AC-002: 模型 where 子句——单值 `= @model`，多值 `IN (@model_0,…)` 绑定参数，禁拼接。
+ *  展开组大小受 model_aliases 配置约束（每 alias 的 keys 是有限声明列表），实测捆绑
+ *  SQLite 变量上限 32766，keys 数远超实际配置，无越界风险；无需大组回退保护。 */
+function dashboard_model_where(keys: string[]): {
+    clause: string;
+    params: Record<string, unknown>;
+} {
+    if (keys.length === 0) return { clause: "", params: {} };
+    if (keys.length === 1) return { clause: "model = @model", params: { model: keys[0] } };
+    const params: Record<string, unknown> = {};
+    keys.forEach((key, index) => {
+        params[`model_${String(index)}`] = key;
+    });
+    return {
+        clause: `model IN (${keys.map((_, index) => `@model_${String(index)}`).join(", ")})`,
+        params,
+    };
+}
+
 function dashboard_named_values(totals: Map<string, number>): TokenStatsDashboardNamedValue[] {
     const ranked = [...totals.entries()]
         .filter(([, value]) => value > 0)
@@ -465,7 +503,7 @@ function dashboard_chart_axis(
 }
 
 function build_dashboard_conditions(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model" | "model_aliases">,
     start: number,
     end: number,
 ): { conditions: string[]; params: Record<string, unknown> } {
@@ -479,9 +517,11 @@ function build_dashboard_conditions(
         conditions.push("env = @env");
         params["env"] = query.platform;
     }
-    if (query.model) {
-        conditions.push("model = @model");
-        params["model"] = query.model;
+    // t384 AC-002: 模型条件按 model_aliases 归并展开（单值 = 多值 IN）。
+    const mw = dashboard_model_where(dashboard_model_filter_keys(query.model, query.model_aliases));
+    if (mw.clause) {
+        conditions.push(mw.clause);
+        Object.assign(params, mw.params);
     }
     return { conditions, params };
 }
@@ -497,15 +537,17 @@ function build_dashboard_conditions(
  * hour×group count instead of per-message rows.
  */
 function dashboard_window_union_builder(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model" | "model_aliases">,
 ): (start: number, end: number) => { sql: string; params: Record<string, unknown> } {
     const agent_where = query.agent !== "all" ? " AND agent = @agent" : "";
     const env_where = query.platform !== "all" ? " AND env = @env" : "";
-    const model_where = query.model ? " AND model = @model" : "";
+    // t384 AC-002: 模型条件归并展开，rollup 与 records 两段共用同一 where 与参数。
+    const mw = dashboard_model_where(dashboard_model_filter_keys(query.model, query.model_aliases));
+    const model_where = mw.clause ? ` AND ${mw.clause}` : "";
     const filter_params: Record<string, unknown> = {};
     if (query.agent !== "all") filter_params["agent"] = query.agent;
     if (query.platform !== "all") filter_params["env"] = query.platform;
-    if (query.model) filter_params["model"] = query.model;
+    Object.assign(filter_params, mw.params);
     return (start, end) => {
         const hs = start - ((start + 28800000) % 3600000);
         const full_start = hs === start ? hs : hs + 3600000;
@@ -557,7 +599,7 @@ function dashboard_window_union_builder(
  * implementation, no records/rollup dual track).
  */
 function dashboard_records_source(
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model" | "model_aliases">,
     start: number,
     end: number,
 ): { sql: string; params: Record<string, unknown> } {
@@ -596,7 +638,7 @@ function materialize_window_rows(
  */
 function materialize_session_meta(
     prepare: (sql: string) => Database.Statement,
-    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model">,
+    query: Pick<TokenStatsDashboardQuery, "agent" | "platform" | "model" | "model_aliases">,
     start: number,
     end: number,
     // t351 AC-002: rollup ready 时聚合来自 window_rows（已物化，无 records 全窗口
@@ -631,9 +673,14 @@ function materialize_session_meta(
             extra_conditions.push(" AND agent = ?");
             extra_params.push(query.agent);
         }
-        if (query.model) {
+        // t384 AC-002: from_records=false 的位置参数路径同样归并展开模型筛选。
+        const model_keys = dashboard_model_filter_keys(query.model, query.model_aliases);
+        if (model_keys.length === 1) {
             extra_conditions.push(" AND model = ?");
-            extra_params.push(query.model);
+            extra_params.push(model_keys[0]);
+        } else if (model_keys.length > 1) {
+            extra_conditions.push(` AND model IN (${model_keys.map(() => "?").join(", ")})`);
+            extra_params.push(...model_keys);
         }
         const meta_stmt = prepare(
             `SELECT title, started_at, ended_at FROM (
@@ -703,8 +750,11 @@ function read_rollup_from_window_rows(
     join_title: boolean,
 ): DashboardRollupRow[] {
     const title_select = join_title ? "m.title AS title" : "NULL AS title";
+    // t387 AC-001: session_meta 同 session 跨多 directory 时每 directory 一行，
+    // LEFT JOIN 只按 session 会放大 SUM。归一去重取每 session 一行（title 是
+    // 窗口级最新，同 session 各行一致），window_rows 每行只匹配一行。
     const join_clause = join_title
-        ? "LEFT JOIN session_meta m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
+        ? "LEFT JOIN (SELECT source, env, session_id, title FROM session_meta GROUP BY source, env, session_id) m ON m.source = w.source AND m.env = w.env AND m.session_id = w.session_id"
         : "";
     const rows = prepare(
         `SELECT w.source, w.env, w.model, w.directory, w.session_id,
@@ -726,12 +776,25 @@ function dashboard_session_page_from_meta(
     offset: number,
     limit: number,
 ): { total: number; rows: Record<string, unknown>[] } {
-    const total = (prepare("SELECT COUNT(*) AS total FROM session_meta").get() as { total: number })
-        .total;
+    // t387 AC-003: 同 session 跨多 directory 时 session_meta 多行，会话列表
+    // 按 session 归一去重，calls/tokens 跨 directory SUM 聚合（非取任一行——
+    // 否则跨 directory 会话显示部分值，与 summary 矛盾）。
+    const total = (
+        prepare(
+            "SELECT COUNT(*) AS total FROM (SELECT source, env, session_id FROM session_meta GROUP BY source, env, session_id)",
+        ).get() as { total: number }
+    ).total;
     const rows = prepare(
-        `SELECT source, env, session_id, title, directory, started_at, ended_at,
-            calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+        `SELECT source, env, session_id,
+            MAX(title) AS title, MAX(directory) AS directory,
+            MIN(started_at) AS started_at, MAX(ended_at) AS ended_at,
+            SUM(calls) AS calls,
+            SUM(input_tokens) AS input_tokens,
+            SUM(output_tokens) AS output_tokens,
+            SUM(cache_read_tokens) AS cache_read_tokens,
+            SUM(cache_write_tokens) AS cache_write_tokens
          FROM session_meta
+         GROUP BY source, env, session_id
          ORDER BY ended_at DESC, session_id ASC LIMIT @limit OFFSET @offset`,
     ).all({ limit, offset }) as Record<string, unknown>[];
     return { total, rows };
