@@ -364,7 +364,6 @@ export function WorkspaceView({
                                         data-focused={focused_index === index}
                                     >
                                         <SessionPane
-                                            slot_index={index}
                                             slot_meta={slot}
                                             column={
                                                 columns[loc_key(slot.loc)] ?? {
