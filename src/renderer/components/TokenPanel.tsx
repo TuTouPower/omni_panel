@@ -1,4 +1,5 @@
 import { Icon } from "./Icon";
+import { Card } from "./ui/Card";
 
 interface TokenPanelProps {
     total_tokens?: number;
@@ -13,10 +14,7 @@ export function TokenPanel({ total_tokens, has_real_data }: TokenPanelProps) {
             : "暂无历史数据";
 
     return (
-        <div
-            className="rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] px-4 pb-3.5 pt-[15px] shadow-card"
-            data-testid="token-panel"
-        >
+        <Card className="px-4 pb-3.5 pt-[15px]" data-testid="token-panel">
             <div className="mb-3 flex items-center gap-[7px]">
                 <div className="-ml-1 -mr-0.5 text-[var(--color-on-surface-muted)]">
                     <Icon name="grip" size={14} />
@@ -38,6 +36,6 @@ export function TokenPanel({ total_tokens, has_real_data }: TokenPanelProps) {
                     {display_value}
                 </span>
             </div>
-        </div>
+        </Card>
     );
 }

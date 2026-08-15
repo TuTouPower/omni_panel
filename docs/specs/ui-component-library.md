@@ -15,6 +15,8 @@
     - **Alert**（t422）：error/warning/success 三语义 12% color-mix 浅底容器；业务告警条走本组件。
     - **CodeChip**（t422）：只读 code 值 chip（surface-raised + code-md）。
     - **Toast**（t422）：底部居中浮层唯一实现。
+    - **Card**（t423）：DESIGN 卡片完整形态——`rounded-lg`（14px）+ `border outline` + `surface-card` + `shadow-card` + `spacing-card-padding`；`raised` 切 `surface-raised`。业务卡片外壳（CollapsibleCard / SkeletonCard / TokenPanel / VendorCard / CpaCard 等）走本组件，禁止再手拼 `radius-lg|14px + outline + surface-card + shadow-card` 串。
+    - **StatusDot**（t423）：7px 圆点 + 同色 16% `ring` 光晕；tone：`success` / `warning` / `error` / `neutral` / `accent`。用量面板 / CPA / 即将重置 / 账号行状态点走本组件，禁止手拼 6/7/8px 点与 `style={{ background }}` inline 色。
 - 自定义字号类须用显式 `text-[length:var(--text-*)]`（d032 机制），避免 tailwind-merge 吞颜色类。
 - 字号档收敛九级（`@theme` 定义：display-num/title-lg/md/sm/body-md/sm/label-md/caps/code-md），不新增第九级以外字号档；未定义档（如 `text-label-sm`）属失效类，按语境归级到现有档（t303）。
 

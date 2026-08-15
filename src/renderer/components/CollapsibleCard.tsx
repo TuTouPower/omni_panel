@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
 import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
+import { cn } from "../lib/utils";
 
 interface CollapsibleCardProps {
     header: ReactNode;
@@ -33,13 +35,8 @@ export function CollapsibleCard({
     const aria_label = toggleLabel ?? (collapsed ? "展开" : "折叠");
 
     return (
-        <div
-            className={
-                "rounded-[var(--radius-lg)] border-[0.5px] border-[var(--color-outline)] " +
-                "bg-[var(--color-surface-card)] px-4 py-3.5 text-[var(--color-on-surface)] " +
-                "shadow-card" +
-                (className ? ` ${className}` : "")
-            }
+        <Card
+            className={cn("px-4 py-3.5", className)}
             data-testid="collapsible-card"
             data-collapsed={collapsed ? "true" : "false"}
             data-status={dataStatus}
@@ -76,6 +73,6 @@ export function CollapsibleCard({
                 )}
             </div>
             {has_details && !collapsed && children}
-        </div>
+        </Card>
     );
 }

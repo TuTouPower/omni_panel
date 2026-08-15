@@ -1,6 +1,7 @@
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { format_reset_time } from "../lib/utils";
 import { VendorMark } from "./Icon";
+import { StatusDot, type StatusTone } from "./ui/StatusDot";
 
 export interface UpcomingResetRowProps {
     item: UpcomingResetItem;
@@ -8,17 +9,11 @@ export interface UpcomingResetRowProps {
     desensitizeRemarks?: boolean | undefined;
 }
 
-const STATUS_DOT_CLASS: Record<UpcomingResetItem["status"], string> = {
-    critical:
-        "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-error)] " +
-        "ring-[3px] ring-[color-mix(in_srgb,var(--color-error)_18%,transparent)]",
-    warning:
-        "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-warning)] " +
-        "ring-[3px] ring-[color-mix(in_srgb,var(--color-warning)_18%,transparent)]",
-    normal:
-        "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-success)] " +
-        "ring-[3px] ring-[color-mix(in_srgb,var(--color-success)_18%,transparent)]",
-    unknown: "h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--color-on-surface-muted)]",
+const STATUS_DOT_TONE: Record<UpcomingResetItem["status"], StatusTone> = {
+    critical: "error",
+    warning: "warning",
+    normal: "success",
+    unknown: "neutral",
 };
 
 export function UpcomingResetRow({
@@ -57,8 +52,8 @@ export function UpcomingResetRow({
             <span className="shrink-0 text-[12.5px] font-[650] tabular-nums text-[var(--color-on-surface)]">
                 {item.percent}%
             </span>
-            <span
-                className={STATUS_DOT_CLASS[item.status]}
+            <StatusDot
+                tone={STATUS_DOT_TONE[item.status]}
                 aria-hidden="true"
                 data-status={item.status}
                 data-testid="status-dot"
