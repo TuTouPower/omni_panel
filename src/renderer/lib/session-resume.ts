@@ -2,7 +2,23 @@
  * t324 会话来源 → 续接命令；未知来源返回 null（点击 session id 无效果）。
  * t326 提取为工作台/会话库共享。
  * t401 可选第三参：source → 命令模板，`{session_id}` 全量替换；缺省/空串回退内置默认。
+ * t402 设置 UI 占位符与内置默认同源。
  */
+
+/** 内置默认续接模板（含 `{session_id}`）；设置页占位与回退共用。 */
+export const DEFAULT_RESUME_COMMAND_TEMPLATES = {
+    claude_code: "claude --resume {session_id}",
+    kimi_code: "kimi -r {session_id}",
+    grok: "grok --resume {session_id}",
+    opencode: "opencode -s {session_id}",
+} as const;
+
+export type ResumeCommandSource = keyof typeof DEFAULT_RESUME_COMMAND_TEMPLATES;
+
+export const RESUME_COMMAND_SOURCES = Object.keys(
+    DEFAULT_RESUME_COMMAND_TEMPLATES,
+) as ResumeCommandSource[];
+
 export function resume_command(
     source: string,
     session_id: string,
@@ -12,16 +28,8 @@ export function resume_command(
     if (typeof custom === "string" && custom.length > 0) {
         return custom.replaceAll("{session_id}", session_id);
     }
-    switch (source) {
-        case "claude_code":
-            return `claude --resume ${session_id}`;
-        case "kimi_code":
-            return `kimi -r ${session_id}`;
-        case "grok":
-            return `grok --resume ${session_id}`;
-        case "opencode":
-            return `opencode -s ${session_id}`;
-        default:
-            return null;
-    }
+    const builtin =
+        DEFAULT_RESUME_COMMAND_TEMPLATES[source as ResumeCommandSource] ?? null;
+    if (!builtin) return null;
+    return builtin.replaceAll("{session_id}", session_id);
 }

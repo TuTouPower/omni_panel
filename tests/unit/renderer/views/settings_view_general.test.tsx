@@ -295,6 +295,111 @@ describe("SettingsView", () => {
         expect(screen.getByPlaceholderText("留空表示直连")).toHaveValue("http://127.0.0.1:7897");
     });
 
+    describe("resume command templates (t402)", () => {
+        const placeholders = {
+            claude_code: "claude --resume {session_id}",
+            kimi_code: "kimi -r {session_id}",
+            grok: "grok --resume {session_id}",
+            opencode: "opencode -s {session_id}",
+        } as const;
+
+        it("AC-001: shows group and 4 source inputs with built-in placeholders", async () => {
+            render(<SettingsView />);
+            await waitFor(() => {
+                expect(screen.getByText("会话续接命令")).toBeInTheDocument();
+            });
+            for (const [source, ph] of Object.entries(placeholders)) {
+                const input = screen.getByLabelText(`续接命令 ${source}`);
+                expect(input).toHaveAttribute("placeholder", ph);
+                expect(input).toHaveDisplayValue("");
+            }
+            expect(
+                screen.getByText(/\{session_id\}/, { exact: false }),
+            ).toBeInTheDocument();
+        });
+
+        it("AC-002: saves kimi_code custom template to resumeCommandTemplates", async () => {
+            current_config = { ...base_config };
+            render(<SettingsView />);
+            const input = await screen.findByLabelText("续接命令 kimi_code");
+            fireEvent.change(input, {
+                target: { value: "kimi --yolo -r {session_id}" },
+            });
+            await waitFor(() => {
+                expect(save).toHaveBeenCalled();
+            });
+            const saved = (
+                save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+            )?.[0];
+            expect(saved?.resumeCommandTemplates?.["kimi_code"]).toBe(
+                "kimi --yolo -r {session_id}",
+            );
+        });
+
+        it("AC-003: clearing a source removes that key from resumeCommandTemplates", async () => {
+            current_config = {
+                ...base_config,
+                resumeCommandTemplates: {
+                    kimi_code: "kimi --yolo -r {session_id}",
+                    claude_code: "claude --resume {session_id}",
+                },
+            };
+            render(<SettingsView />);
+            const input = await screen.findByLabelText("续接命令 kimi_code");
+            expect(input).toHaveDisplayValue("kimi --yolo -r {session_id}");
+            fireEvent.change(input, { target: { value: "" } });
+            await waitFor(() => {
+                expect(save).toHaveBeenCalled();
+            });
+            const saved = (
+                save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+            )?.[0];
+            expect(saved?.resumeCommandTemplates).toEqual({
+                claude_code: "claude --resume {session_id}",
+            });
+            expect(saved?.resumeCommandTemplates).not.toHaveProperty("kimi_code");
+        });
+
+        it("AC-003b: clearing last source removes resumeCommandTemplates field", async () => {
+            current_config = {
+                ...base_config,
+                resumeCommandTemplates: {
+                    kimi_code: "kimi --yolo -r {session_id}",
+                },
+            };
+            render(<SettingsView />);
+            const input = await screen.findByLabelText("续接命令 kimi_code");
+            fireEvent.change(input, { target: { value: "" } });
+            await waitFor(() => {
+                expect(save).toHaveBeenCalled();
+            });
+            const saved = (
+                save.mock.calls[save.mock.calls.length - 1] as [AppConfiguration] | undefined
+            )?.[0];
+            expect(saved).not.toHaveProperty("resumeCommandTemplates");
+            expect(saved?.resumeCommandTemplates).toBeUndefined();
+        });
+
+        it("AC-004: echoes existing custom templates in inputs", async () => {
+            current_config = {
+                ...base_config,
+                resumeCommandTemplates: {
+                    kimi_code: "kimi --yolo -r {session_id}",
+                    grok: "grok custom {session_id}",
+                },
+            };
+            render(<SettingsView />);
+            expect(await screen.findByLabelText("续接命令 kimi_code")).toHaveDisplayValue(
+                "kimi --yolo -r {session_id}",
+            );
+            expect(screen.getByLabelText("续接命令 grok")).toHaveDisplayValue(
+                "grok custom {session_id}",
+            );
+            expect(screen.getByLabelText("续接命令 claude_code")).toHaveDisplayValue("");
+            expect(screen.getByLabelText("续接命令 opencode")).toHaveDisplayValue("");
+        });
+    });
+
     it("saves proxy config when proxy URL is entered", async () => {
         const user = userEvent.setup();
         current_config = { ...base_config };
