@@ -1,7 +1,7 @@
 ---
 tid: "t428"
 slug: "model_alias_map_semantics_unify"
-title: "统一 model alias 映射前后端语义"
+title: "统一 model alias 语义并补 union 路径测试"
 status: "backlog"
 branch: ""
 worktree: ""
@@ -9,7 +9,8 @@ review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+schedule_status: "pending_clarification"
+note: "merged from t429"
 ---
 
 # Task 过程总账

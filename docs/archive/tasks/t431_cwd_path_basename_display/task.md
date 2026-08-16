@@ -1,15 +1,15 @@
 ---
-tid: "t429"
-slug: "token_stats_union_test_extension"
-title: "token-stats union 路径测试扩展（agent+model 组合 + sessions 去重）"
-status: "backlog"
+tid: "t431"
+slug: "cwd_path_basename_display"
+title: "CwdPath 会话 cwd 展示改为 basename"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "dropped: merged into t430"
 ---
 
 # Task 过程总账

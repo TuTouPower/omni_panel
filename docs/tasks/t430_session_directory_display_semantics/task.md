@@ -1,7 +1,7 @@
 ---
 tid: "t430"
 slug: "session_directory_display_semantics"
-title: "会话列表跨 directory 的 directory 展示语义统一"
+title: "会话 directory 语义与 demo CwdPath basename 展示"
 status: "backlog"
 branch: ""
 worktree: ""
@@ -9,7 +9,8 @@ review_level: "full"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: ""
+schedule_status: "pending_clarification"
+note: "merged from t431"
 ---
 
 # Task 过程总账

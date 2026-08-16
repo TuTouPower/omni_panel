@@ -6362,6 +6362,21 @@
             "schedule_status": "scheduled",
             "note": "merged from t416,t417",
             "dir": "docs/archive/tasks/t424_type_space_token_unify"
+        },
+        {
+            "tid": "t429",
+            "slug": "token_stats_union_test_extension",
+            "title": "token-stats union 路径测试扩展（agent+model 组合 + sessions 去重）",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t428",
+            "dir": "docs/archive/tasks/t429_token_stats_union_test_extension"
         }
     ]
 }
