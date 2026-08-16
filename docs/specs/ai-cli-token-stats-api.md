@@ -49,6 +49,8 @@
 
 **session 表**：每 session 一行。关键字段：`id`、`model`（JSON，需 `json_extract(model, '$.id')`）、`tokens_input`、`tokens_output`、`tokens_reasoning`、`tokens_cache_read`、`tokens_cache_write`、`title`、`directory`、`time_created`（Unix epoch ms）、`time_updated`。
 
+跨多 directory 会话（t430）：dashboard 会话列表的 `directory` 展示统一取**最新记录目录**（records 路径 `rn=1 ORDER BY timestamp DESC, rowid DESC`；rollup ready 路径经逐会话窄查取同一行），与聚合策略 `max_by(.timestamp)` 方向一致。
+
 **part 表**：每步 API 调用。`data` 字段 JSON 中 `type: "step-finish"` 含逐次 token 用量（累积值，需算增量）。
 
 **Win/WSL 差异**：两份独立 SQLite，需分别读取。打开时使用 `mode: readonly`，避免锁竞争。

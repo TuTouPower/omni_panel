@@ -683,8 +683,8 @@ function materialize_session_meta(
             extra_params.push(...model_keys);
         }
         const meta_stmt = prepare(
-            `SELECT title, started_at, ended_at FROM (
-                SELECT title,
+            `SELECT title, directory, started_at, ended_at FROM (
+                SELECT title, directory,
                        MIN(timestamp) OVER () AS started_at,
                        MAX(timestamp) OVER () AS ended_at,
                        ROW_NUMBER() OVER (ORDER BY timestamp DESC, rowid DESC) AS rn
@@ -695,7 +695,7 @@ function materialize_session_meta(
         );
         const update_stmt = prepare(
             `UPDATE session_meta
-             SET title = ?, started_at = ?, ended_at = ?
+             SET title = ?, directory = ?, started_at = ?, ended_at = ?
              WHERE source = ? AND env = ? AND session_id = ?`,
         );
         for (const s of sessions) {
@@ -706,10 +706,13 @@ function materialize_session_meta(
                 start,
                 end,
                 ...extra_params,
-            ) as { title: string | null; started_at: number; ended_at: number } | undefined;
+            ) as { title: string | null; directory: string | null; started_at: number; ended_at: number } | undefined;
             if (row) {
+                // t430 AC-001: rollup ready 路径 directory 取最新记录目录（与
+                // records 路径一致）；同 session 各行统一为最新值，聚合 SUM 不变。
                 update_stmt.run(
                     row.title ?? null,
+                    row.directory ?? null,
                     row.started_at,
                     row.ended_at,
                     s.source,
@@ -728,7 +731,7 @@ function materialize_session_meta(
                 SELECT source, env, session_id, title, directory, timestamp,
                        MIN(timestamp) OVER (PARTITION BY source, env, session_id) AS started_at,
                        MAX(timestamp) OVER (PARTITION BY source, env, session_id) AS ended_at,
-                       ROW_NUMBER() OVER (PARTITION BY source, env, session_id ORDER BY timestamp DESC) AS rn,
+                       ROW_NUMBER() OVER (PARTITION BY source, env, session_id ORDER BY timestamp DESC, rowid DESC) AS rn,
                        COUNT(*) OVER (PARTITION BY source, env, session_id) AS calls,
                        SUM(input_tokens) OVER (PARTITION BY source, env, session_id) AS input_tokens,
                        SUM(output_tokens) OVER (PARTITION BY source, env, session_id) AS output_tokens,
