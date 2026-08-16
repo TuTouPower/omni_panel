@@ -113,10 +113,10 @@ export function kimi_index_path(input: TokenStatsPathInput, env: TokenStatsEnv):
 }
 
 /**
- * ~/.grok/sessions (or the win_home / UNC equivalent). The collector's source
- * list only enables grok under WSL (spec §3.2), but the path layer resolves
- * both envs — AC-001 lists ~/.grok/sessions among the local paths, and the
- * source-list shape is t309's scope.
+ * ~/.grok/sessions (or the win_home / UNC equivalent). Resolves both envs:
+ * `local` = this host's own `~/.grok` (t426：Linux/mac 宿主采集源，
+ * Windows 上本地无 grok CLI 数据时目录缺失按 missing 处理）；`wsl` =
+ * Windows 宿主经 UNC 读 WSL 内的 grok 数据（grok_wsl）。
  */
 export function grok_sessions_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
     return resolve(input, env, [".grok", "sessions"]);

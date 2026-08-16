@@ -241,8 +241,8 @@ const WSL_HOSTS: Host[] = ["windows"];
 
 // Declarative source list (t309): each entry declares the hosts it exists on;
 // the collector filters by the host it runs on (AC-001). Local installs exist
-// on every host; WSL data (including Grok CLI, which only ships under WSL) is
-// a Windows-only UNC share.
+// on every host; WSL data is a Windows-only UNC share. Grok has both: local
+// installs (Linux/macOS ~/.grok, t426) and WSL-only Windows UNC data.
 const sources: SourceDef[] = [
     {
         key: "claude_costs_local",
@@ -282,7 +282,12 @@ const sources: SourceDef[] = [
     },
     { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", hosts: WSL_HOSTS },
     { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", hosts: WSL_HOSTS },
-    // Grok CLI data exists only under WSL (~/.grok/sessions).
+    // t426: grok CLI 也随宿主安装在 linux/macos 本机（~/.grok/sessions）；
+    // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），local 源在 Windows
+    // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
+    { key: "grok_local", source: "grok", kind: "grok_jsonl", env: "local", hosts: LOCAL_HOSTS },
+    // Grok CLI data exists only under WSL (~/.grok/sessions); local 源见上方
+    // grok_local（Linux/mac 宿主本机采集，t426）。
     { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", hosts: WSL_HOSTS },
 ];
 
@@ -402,10 +407,11 @@ function kimi_index_path(
 
 function grok_sessions_path(
     cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
     host: Host = collector_host,
     homedir: string = os.homedir(),
 ): string | null {
-    return paths.grok_sessions_path(path_input(cfg, host, homedir), "wsl");
+    return paths.grok_sessions_path(path_input(cfg, host, homedir), env);
 }
 
 // --- Source readers ---
@@ -480,7 +486,7 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
             };
         }
         if (src.kind === "grok_jsonl") {
-            const grok_path = grok_sessions_path(cfg);
+            const grok_path = grok_sessions_path(cfg, src.env);
             if (grok_path === null) {
                 return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
             }

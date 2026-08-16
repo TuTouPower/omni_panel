@@ -68,7 +68,7 @@
 
 ### 2.4 Grok Build
 
-仅 WSL 采集（Windows 无 grok CLI 数据）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
+双源采集（t426）：Windows 经 WSL UNC（grok_wsl），Linux/mac 本机 `~/.grok`（grok_local）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
 
 | 数据            | 格式  | WSL 路径                                                                              |
 | --------------- | ----- | ------------------------------------------------------------------------------------- |
@@ -94,7 +94,7 @@ src/main/core/token-stats/
 ├── claude-reader.ts       # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
-├── grok-reader.ts         # Grok updates.jsonl 读取（仅 WSL）
+├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + local，t426）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
