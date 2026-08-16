@@ -4,7 +4,7 @@ import { SettingsPage } from "../pages/settings_page";
 
 /**
  * Web e2e：usage 面板趋势窗口按钮选中态对比度（t321；t421 收敛到 ui/Segmented）。
- * t421 后选中态 = surface-window 底 + on-surface 字 + shadow-card（Segmented 配方）；
+ * t435 后选中态 = surface-card 底 + primary 字 + shadow-card（Segmented 配方）；
  * 断言背景非透明、文字对比度 ≥3.0；light/dark 两主题均覆盖（走设置页真实切主题）。
  */
 
@@ -107,15 +107,15 @@ test.describe("趋势窗口按钮选中态对比度 (t321)", () => {
             );
             await expect(selected.first()).toBeVisible({ timeout: 10_000 });
 
-            // AC-001: 选中按钮背景非透明（Segmented 选中块 surface-window）
+            // AC-001: 选中按钮背景非透明（Segmented 选中块 surface-card）
             const bg = (
                 await selected.first().evaluate((el) => getComputedStyle(el).backgroundColor)
             ).trim();
             expect(bg, `选中按钮背景非透明，实际 ${bg}`).not.toBe("rgba(0, 0, 0, 0)");
             expect(bg).not.toBe("transparent");
-            const surface_window_rgb = await webPage.evaluate(() => {
+            const surface_card_rgb = await webPage.evaluate(() => {
                 const probe = document.createElement("div");
-                probe.style.backgroundColor = "var(--color-surface-window)";
+                probe.style.backgroundColor = "var(--color-surface-card)";
                 document.body.appendChild(probe);
                 const out = getComputedStyle(probe).backgroundColor;
                 probe.remove();
@@ -123,8 +123,8 @@ test.describe("趋势窗口按钮选中态对比度 (t321)", () => {
             });
             expect(
                 bg,
-                `选中按钮背景应等于 surface-window，实际 ${bg} vs ${surface_window_rgb}`,
-            ).toBe(surface_window_rgb);
+                `选中按钮背景应等于 surface-card，实际 ${bg} vs ${surface_card_rgb}`,
+            ).toBe(surface_card_rgb);
 
             // AC-002/003: 文字与最终背景对比度 ≥3.0，且文字与最终背景非同色
             const sample = await sample_contrast(selected.first());
