@@ -106,13 +106,15 @@ describe("ProviderCard - overview", () => {
         );
         const overview_tab = screen.getByTitle("概览");
         const detail_tab = screen.getByTitle("账号明细");
-        // t421: 收敛到 ui/Segmented——选中 surface-window + on-surface，未选中 variant 字色。
-        expect(overview_tab.className).toContain("bg-[var(--color-surface-window)]");
-        expect(overview_tab.className).toContain("text-[var(--color-on-surface)]");
+        // t435: 收敛到 ui/Segmented——选中 surface-card 底 + primary 字（DESIGN
+        // segmented-item-active），未选中 variant 字色。
+        expect(overview_tab.className).toContain("bg-[var(--color-surface-card)]");
+        expect(overview_tab.className).toContain("text-[var(--color-primary)]");
+        expect(overview_tab.className).not.toContain("text-[var(--color-on-surface)]");
         expect(overview_tab.getAttribute("aria-pressed")).toBe("true");
         expect(detail_tab.getAttribute("aria-pressed")).toBe("false");
         expect(detail_tab.className).toContain("text-[var(--color-on-surface-variant)]");
-        expect(detail_tab.className).not.toContain("bg-[var(--color-surface-window)]");
+        expect(detail_tab.className).not.toContain("bg-[var(--color-surface-card)]");
     });
 
     it("t305: l2Open=true 时仅「N账号」tab 高亮（互斥选中态）", () => {
@@ -129,13 +131,14 @@ describe("ProviderCard - overview", () => {
         );
         const overview_tab = screen.getByTitle("概览");
         const detail_tab = screen.getByTitle("账号明细");
-        // t421: ui/Segmented 选中态（与 t305 互斥高亮语义一致）。
-        expect(detail_tab.className).toContain("bg-[var(--color-surface-window)]");
-        expect(detail_tab.className).toContain("text-[var(--color-on-surface)]");
+        // t435: ui/Segmented 选中态 primary + surface-card（与 t305 互斥高亮语义一致）。
+        expect(detail_tab.className).toContain("bg-[var(--color-surface-card)]");
+        expect(detail_tab.className).toContain("text-[var(--color-primary)]");
+        expect(detail_tab.className).not.toContain("text-[var(--color-on-surface)]");
         expect(detail_tab.getAttribute("aria-pressed")).toBe("true");
         expect(overview_tab.getAttribute("aria-pressed")).toBe("false");
         expect(overview_tab.className).toContain("text-[var(--color-on-surface-variant)]");
-        expect(overview_tab.className).not.toContain("bg-[var(--color-surface-window)]");
+        expect(overview_tab.className).not.toContain("bg-[var(--color-surface-card)]");
     });
 
     it("renders short usage period labels", () => {

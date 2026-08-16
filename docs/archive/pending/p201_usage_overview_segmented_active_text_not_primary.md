@@ -14,4 +14,4 @@
     - 次要偏差（可同修）：DESIGN 选中底 `surface-card`，实现 `surface-window`（浅色同值，暗色不同）。
 - 测试缺口：既有单测/e2e **断言了错误字色**（on-surface），不是无测。补测须改断言为 primary（或 DESIGN 等价 token），并加 Segmented 单测绑定 `segmented-item-active` 字色；禁止再把「收敛到 Segmented」当成允许偏离 DESIGN 字色的理由。
 - 线索：`.scratch/task_bug_usage_overview_segmented_color/repro_notes.md`
-- 处理：未开
+- 处理：t435

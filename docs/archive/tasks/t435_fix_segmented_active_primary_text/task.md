@@ -2,11 +2,11 @@
 tid: "t435"
 slug: "fix_segmented_active_primary_text"
 title: "Segmented 选中态对齐 DESIGN primary 字色"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t435_fix_segmented_active_primary_text"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "2d4471ee9e8699aa9a02fffbfab4c7ddeb6ab31d"
 depends_on: ""
 conflicts_with: ""
 note: "p201: segmented-item-active 偏离 DESIGN，t421 回归"
@@ -22,7 +22,13 @@ note: "p201: segmented-item-active 偏离 DESIGN，t421 回归"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### 实施纪要（2026-08-17）
+
+- `Segmented.tsx` 选中配方 `surface-window`/`on-surface` → `surface-card`/`primary`（对齐 DESIGN `segmented-item-active`）。
+- 改断言 4 处：ui.test.tsx（选中 class + 切换后）、provider_card_overview.test.tsx（双向选中 + 互斥）、settings_view_general.test.tsx（细线型选中）、trend_window e2e（surface-window → surface-card 背景比对）。
+- 同步 `docs/specs/ui-component-library.md` Segmented 配方描述。
+- 审阅 1 轮 single clean PASS（0 finding）。
+- 顺手发现：无（其余 surface-window 属其它组件，非 Segmented 选中态）。
 
 ## Review 处置
 
@@ -60,7 +66,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -69,15 +75,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
 - 一句话；无额外说明可写「见上」
+- Segmented 选中态对齐 DESIGN（primary 字 + surface-card 底），4 处断言更新，1 轮审阅 clean PASS。

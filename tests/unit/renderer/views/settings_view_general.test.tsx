@@ -204,8 +204,12 @@ describe("SettingsView", () => {
 
         const style_field = screen.getByLabelText("用量条样式");
         // t271: set-seg 迁移到 ui/Segmented，选中态由 .on class 改为语义类。
+        // t435: 选中配方 surface-window/on-surface → surface-card/primary。
         expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
-            "bg-[var(--color-surface-window)]",
+            "bg-[var(--color-surface-card)]",
+        );
+        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
+            "text-[var(--color-primary)]",
         );
         await user.click(within(style_field).getByRole("button", { name: "粗胶囊型" }));
 

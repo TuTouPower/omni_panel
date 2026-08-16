@@ -1,0 +1,32 @@
+{
+  "tid": "t435",
+  "attempt": 1,
+  "execution_id": "38ec9e8cad5d41f19e9b3270cbd2efd1",
+  "status": "done",
+  "branch": "t435_fix_segmented_active_primary_text",
+  "base_sha": "2d4471ee9e8699aa9a02fffbfab4c7ddeb6ab31d",
+  "tests": "定向 vitest 5 文件：ui/provider_card_overview/token-stats Segmented/token_stats_header/settings_view_general = 107 passed",
+  "blackbox": "定向 vitest 107 passed + tsc --noEmit 0 error + eslint 改动文件 0 error（e2e 静态核验未放宽阈值）",
+  "review": "第 1 轮 PASS（single general，clean 0 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/renderer/components/ui/ui.test.tsx：Segmented 选中 class 含 text-[var(--color-primary)] 且不含 text-[var(--color-on-surface)]",
+      "src/renderer/components/ui/Segmented.tsx:57 配方与 DESIGN segmented-item-active 一致"
+    ],
+    "AC-002": [
+      "tests/unit/renderer/components/ui/ui.test.tsx：选中 class 含 bg-[var(--color-surface-card)]"
+    ],
+    "AC-003": [
+      "tests/unit/renderer/components/provider_card_overview.test.tsx：l2Open=false 概览选中 / l2Open=true 账号明细选中均 primary+surface-card，互斥不回归"
+    ],
+    "AC-004": [
+      "ui.test.tsx / provider_card_overview.test.tsx / settings_view_general.test.tsx / trend_window_button_contrast.spec.ts 四处旧 on-surface/surface-window 断言全改",
+      "review_general.md：全仓 grep 复核无残留「选中 = on-surface」锁定"
+    ],
+    "AC-005": [
+      "deploy 项：明暗主题目检 primary 蓝随 accent 联动；review 标 trust_prior（对比度静态核验 3.89/5.02 均 ≥3.0）"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}
