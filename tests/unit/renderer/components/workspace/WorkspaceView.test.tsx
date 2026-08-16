@@ -373,6 +373,8 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(screen.getByRole("dialog", { name: "选择会话" })).toBeTruthy();
         });
+        // t433: 列表由异步 getSessions 渲染——等列表行出现再交互（防静默 0 命中）。
+        await screen.findByText("会话 s1");
         fireEvent.click(screen.getByText("会话 s1"));
         await waitFor(() => {
             expect(document.querySelectorAll('[data-testid="session-slot-title"]')).toHaveLength(1);
@@ -506,7 +508,10 @@ describe("WorkspaceView (t224)", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: "槽位 2（空）" }));
         await waitFor(() => screen.getByRole("dialog", { name: "选择会话" }));
-        expect(screen.getByText("全部 3")).toBeTruthy();
+        // t433: 列表异步渲染——等 picker 行出现再断言计数（防静默空列表）。
+        await waitFor(() => {
+            expect(screen.getByText("全部 3")).toBeTruthy();
+        });
         expect(screen.getByText("Claude 1")).toBeTruthy();
         expect(screen.getByText("已打开")).toBeTruthy();
 
@@ -566,6 +571,10 @@ describe("WorkspaceView (t224)", () => {
         await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => screen.getByRole("dialog", { name: "最近会话" }));
+        // t433: 列表由异步 getSessions 渲染——等 9 行齐全再点击（防静默 0 命中）。
+        await waitFor(() => {
+            expect(document.querySelectorAll('[data-testid="session-recent-row"]')).toHaveLength(9);
+        });
         const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]')];
         for (const row of rows) {
             fireEvent.click(row);
