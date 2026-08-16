@@ -76,6 +76,7 @@
 |kimi_oauth_concurrency|API|t150|2026-07-26|
 |unify_account_auth_forms|Web|t157|2026-07-27|
 |session-history-window|Desktop|t211，t212，t213|2026-08-05|
+|kimi-session-history-extractor|Desktop|t425|2026-08-16|
 |session_content_search_cold_perf|Web+Desktop|t404|2026-08-16|
 |session-shell|Desktop|t223，t224，t245，t326，t327，t328，t334|2026-08-13|
 |workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407，t409，t410，t411|2026-08-16|
