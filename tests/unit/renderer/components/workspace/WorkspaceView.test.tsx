@@ -900,7 +900,10 @@ describe("WorkspaceView (t224)", () => {
         expect(document.querySelectorAll('[data-testid="session-cell"]').length).toBe(2);
     });
 
-    it("视图开关：显示时间戳/紧凑模式即时生效", async () => {
+    it("视图开关：紧凑模式即时生效；消息时间不再受显示时间戳开关控制 (t427)", async () => {
+        // t427 语义变更：消息时间仅随展开态，show_time 开关对消息时间无效
+        // （spec AC-007）。原 t224 断言「show_time 控制消息时间」被取代，改为
+        // 验证开关不再影响 + 紧凑模式保持；折叠态恒无时间节点。
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [{ id: "m1", role: "user", text: "你好", timestamp: 100 }],
@@ -913,10 +916,11 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => screen.getByText("你好"));
 
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
-        fireEvent.click(screen.getByLabelText("显示时间戳"));
-        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
         fireEvent.click(screen.getByLabelText("紧凑模式"));
         expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
+        // t427：消息时间仅随展开态，show_time 开关不再影响（折叠态无时间节点）。
+        fireEvent.click(screen.getByLabelText("显示时间戳"));
+        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeNull();
         fireEvent.click(screen.getByLabelText("显示时间戳"));
         expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeNull();
     });
@@ -1260,6 +1264,8 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
     });
 
     it("AC-003：重开后布局列数与视图开关保持", async () => {
+        // t427：conversation-message-time 折叠态恒不存在（时间随展开态），
+        // t329 该两处时间断言移除，保留布局列数 + compact 持久化断言。
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "你好", 100)],
@@ -1281,7 +1287,6 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
         expect(
             screen.getByRole("button", { name: "1 列 × 2 行" }).getAttribute("aria-pressed"),
         ).toBe("true");
-        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
         expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
         expect(JSON.parse(localStorage.getItem("workspace-layout") ?? "{}")).toMatchObject({
             layout: 1,
@@ -1296,7 +1301,6 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
             );
         });
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
             expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain(
                 "compact",
             );

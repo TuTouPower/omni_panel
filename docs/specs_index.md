@@ -88,7 +88,7 @@
 |session-first-open-main-unblock|Desktop|t256|2026-08-08|
 |usage-panel-selection-persist|Web+Desktop|t250|2026-08-08|
 |panel-window-bounds-persist|Desktop|t251, t262|2026-08-08|
-|session-pane-display-adjust|Web+Desktop|t257，t407，t408，t413|2026-08-16|
+|session-pane-display-adjust|Web+Desktop|t257，t407，t408，t413，t427|2026-08-16|
 |session_message_click_expand|Web+Desktop|t408|2026-08-16|
 |e2e_synthetic_fixture|Web|t281|2026-08-10|
 |web_cookie_login_anon_poll_parity|Web + Desktop|t282|2026-08-10|

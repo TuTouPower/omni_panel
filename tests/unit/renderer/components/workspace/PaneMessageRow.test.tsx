@@ -60,7 +60,7 @@ describe("PaneMessageRow memo (t237)", () => {
                             key={m.id}
                             message={m}
                             selected={isSelected(m.id)}
-                            show_time={false}
+                            show_role_label
                             compact={false}
                             on_toggle={toggle}
                             on_hover={hover}
@@ -90,7 +90,7 @@ describe("PaneMessageRow memo (t237)", () => {
 describe("PaneMessageRow 点击本体展开 (t408)", () => {
     const base = {
         selected: false,
-        show_time: true,
+        show_role_label: true,
         compact: false,
         on_toggle: () => undefined,
         on_hover: () => undefined,
@@ -166,10 +166,10 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
                 <PaneMessageRow {...base} message={msg("a1", "assistant", "hi")} />
             </div>,
         );
-        const user_row = document.querySelector('[data-message-id="u1"]');
-        const agent_row = document.querySelector('[data-message-id="a1"]');
-        expect(user_row?.className).toMatch(/bg-\[var\(--color-primary-container\)\]/);
-        expect(agent_row?.className).not.toMatch(/bg-\[var\(--color-primary-container\)\]/);
+        const user_body = document.querySelector('[data-message-id="u1"] [data-testid="conversation-message-body"]');
+        const agent_body = document.querySelector('[data-message-id="a1"] [data-testid="conversation-message-body"]');
+        expect(user_body?.className).toMatch(/bg-\[var\(--color-primary-container\)\]/);
+        expect(agent_body?.className).not.toMatch(/bg-\[var\(--color-primary-container\)\]/);
     });
 
     it("AC-004：点击 checkbox 只改选中态，不触发展开切换", () => {
@@ -244,5 +244,81 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
         fireEvent.click(content);
         expect(screen.getByLabelText(/选择消息/)).toBeChecked();
         expect(is_collapsed()).toBe(false);
+    });
+});
+
+describe("PaneMessageRow 角色标签去重与时间跟展开态 (t427)", () => {
+    const base = {
+        selected: false,
+        show_role_label: true,
+        compact: false,
+        on_toggle: () => undefined,
+        on_hover: () => undefined,
+    };
+
+    function mock_content_size(scroll: number, client: number): void {
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+            configurable: true,
+            get: () => scroll,
+        });
+        Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+            configurable: true,
+            get: () => client,
+        });
+    }
+
+    afterEach(() => {
+        delete (HTMLElement.prototype as { scrollHeight?: unknown }).scrollHeight;
+        delete (HTMLElement.prototype as { clientHeight?: unknown }).clientHeight;
+        vi.restoreAllMocks();
+    });
+
+    function time_nodes(root: ParentNode = document): Element[] {
+        return Array.from(root.querySelectorAll('[data-testid="conversation-message-time"]'));
+    }
+
+    it("AC-001/AC-002：show_role_label=true 渲染角色文案，false 不渲染", () => {
+        const { rerender } = render(
+            <PaneMessageRow {...base} message={msg("m1", "user", "hi")} show_role_label />,
+        );
+        expect(screen.getByText("用户")).toBeTruthy();
+        rerender(<PaneMessageRow {...base} message={msg("m1", "user", "hi")} show_role_label={false} />);
+        expect(screen.queryByText("用户")).toBeNull();
+        // assistant 同理
+        rerender(
+            <PaneMessageRow {...base} message={msg("m2", "assistant", "yo")} show_role_label />,
+        );
+        expect(screen.getByText("Agent")).toBeTruthy();
+        rerender(
+            <PaneMessageRow {...base} message={msg("m2", "assistant", "yo")} show_role_label={false} />,
+        );
+        expect(screen.queryByText("Agent")).toBeNull();
+    });
+
+    it("AC-006：折叠态不显示时间戳，展开态显示（timestamp 非空）", () => {
+        mock_content_size(80, 20);
+        render(<PaneMessageRow {...base} message={msg("m1", "user", "x".repeat(200))} />);
+        expect(time_nodes()).toHaveLength(0);
+        const content = document.querySelector('[data-testid="conversation-message-content"]');
+        if (!content) throw new Error("content missing");
+        fireEvent.click(content);
+        expect(is_collapsed()).toBe(false);
+        expect(time_nodes()).toHaveLength(1);
+    });
+
+    it("AC-007：时间显示与 show_time 无关（该 prop 已移除），timestamp null 不显示", () => {
+        mock_content_size(80, 20);
+        const null_ts = { ...msg("m1", "user", "x".repeat(200)), timestamp: null };
+        render(<PaneMessageRow {...base} message={null_ts} />);
+        const content = document.querySelector('[data-testid="conversation-message-content"]');
+        if (!content) throw new Error("content missing");
+        fireEvent.click(content);
+        expect(time_nodes()).toHaveLength(0); // timestamp null 不显示
+    });
+
+    it("AC-003：行本体带统一非零垂直间距类（py-1，不随组内/组间变化）", () => {
+        render(<PaneMessageRow {...base} message={msg("m1", "user", "hi")} />);
+        const row = document.querySelector('[data-testid="conversation-message-row"]');
+        expect(row?.className).toContain("py-1");
     });
 });
