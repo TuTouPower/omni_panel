@@ -71,6 +71,8 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 
 设置面板「其他」section 的 `AliasEditor` 增删改；`prepareBarData` 通过 `build_resolver` 应用。TokenStatsView 启动时 `config.get()` 拉取并透传给 BarChart。
 
+归并策略（t428）：同一 key 出现在多个 alias 组时按**后声明覆盖**（最后声明的组为准），前端 prefs 归一与后端筛选展开共用该语义。
+
 ## 8. 未做 / 后续
 
 - connector/session 写端点（账号增删、登录、刷新触发）：T7。

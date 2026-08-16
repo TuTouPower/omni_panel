@@ -2,11 +2,11 @@
 tid: "t428"
 slug: "model_alias_map_semantics_unify"
 title: "统一 model alias 语义并补 union 路径测试"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t428_model_alias_map_semantics_unify"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "b95e7a9d5a248914a1ba6ebae22528e1a5e4e0f8"
 depends_on: ""
 conflicts_with: ""
 schedule_status: "pending_clarification"
@@ -23,7 +23,14 @@ note: "merged from t429"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### 实施纪要（2026-08-17）
+
+- 实现：前端 `originalToAlias` 从「先写获胜」改为「后写覆盖」（去掉 `if (!map.has(m))` 守卫），与后端 `dashboard_alias_resolver`（lookup.set 覆盖）对齐（p182）。
+- 测试：前端新增 multi-alias 归一用例（shared-key → 后声明 AliasB，修复前归 AliasA 必红）；后端新增 AC-004（rollup ready 后 union agent+model 组合过滤）+ AC-005（跨 model 同 session 会话去重）用例（p183 缺口）。
+- 审阅 3 轮：R1 双路 PASS（各 1 minor：AC-004 数据全落整小时带，records 源未触达）；R2 双路 PASS（test 侧新 minor f002：负向行仅 2/4 切片）；R3 双路 PASS 零 finding。处置表曾误填 f002 行致脚本 abort，已修正。
+- CPU 节制：黑盒与审阅复验全程定向 vitest（2 文件 / store 单文件），未跑全量。
+- finalization：web-panel.md §7 补「后写覆盖」归并策略；p182/p183 已随立项归档，无需再迁。
+- 顺手发现：无（既有 3 文件行数超阈值非本 task 引入）。
 
 ## Review 处置
 
@@ -45,6 +52,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-17 09:10 UTC+8)
+
+双路审阅各 1 minor（同源：AC-004 用例数据全落整小时带，records 边缘带未触达）。
+
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t428_code_f001|minor|已修|AC-004 用例 am3/am4 移入 [07:30,08:00) 边缘带，union records 源过滤被验证|tests/unit/main/core/token-stats/token-stats-store.test.ts:2333-2363|
+|t428_test_f001|minor|已修|同 f001：匹配/非匹配记录各一条进边缘小时，双源均验证|同上|
+
+### Round 2 (2026-08-17 09:20 UTC+8)
+
+code 侧 PASS 零新 finding；test 侧 PASS 新增 1 minor（f002：负向行仅对角覆盖 2/4 切片）。
+
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t428_test_f002|minor|已修|AC-004 补负向行 am5（records×agent）/am6（rollup×model），4 切片全覆盖|tests/unit/main/core/token-stats/token-stats-store.test.ts:2333-2376|
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -61,8 +85,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 摘要：alias 归并统一为后写覆盖（前后端同策略），union 路径补 agent+model 组合过滤与跨 model 会话去重用例；6 条 AC 测试覆盖。
 
 ### Reviewer verdict
 
@@ -70,15 +95,20 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
+- Round 2 code：PASS
+- Round 2 test：PASS
+- Round 3 code：PASS
+- Round 3 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
 - 一句话；无额外说明可写「见上」
+- alias 归并前后端统一后写覆盖，union 双源过滤与跨 model 会话去重用例补齐；3 轮审阅全 PASS。
