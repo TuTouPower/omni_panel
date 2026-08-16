@@ -15,4 +15,4 @@
     - 对称不成立：会话打开路径 `session-locator` resolve_grok 按 env 可到 `~/.grok/sessions`（列表不全与「点开已知 id」可分开）。
 - 测试缺口：无断言「host=linux 时采集 `~/.grok/sessions` / 产出 grok+local 会话」；现有 t197/t309 固定「grok 仅 WSL」口径，未覆盖「应用跑在 WSL 本机 Linux」场景。补测：paths `local` 解析 `~/.grok/sessions`；collector source 清单 linux 含 grok_local；fixture 目录扫描 → store/query_sessions 含新 session_id。
 - 线索：`.scratch/bug_grok_sessions_20260816/evidence.txt`
-- 处理：已立项 t426_grok_local_collect_linux（backlog）
+- 处理：t426
