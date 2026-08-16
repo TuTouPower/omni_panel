@@ -1,8 +1,8 @@
 # p188 web e2e：popup 顶栏无 title="设置" 按钮
 
-- 现象：`tests/e2e/web/popup_demo_alignment.spec.ts` 断言 `locator('[title="设置"]')` 可见失败（element not found）。
-- 影响：web e2e 全量非绿；用量面板顶栏设置入口可达性/选择器可能已改。
-- 根因：t406 跑全量 e2e 时复现；与 surface token 类名无关。`PanelTitleBar`/`PopupView` 未见 `title="设置"`；疑似导航改名或改用 aria-label。
-- 测试缺口：e2e 选择器与生产 DOM 漂移；应改为 role/name 或 data-testid 并补单元覆盖。
-- 线索：t406 黑盒 `MOCK_FIXTURE=synthetic pnpm test:e2e:web`；artifacts `artifacts/e2e-artifacts/popup_demo_alignment-*`
-- 处理：未开
+- 现象：`tests/e2e/web/popup_demo_alignment.spec.ts` 用例「top bar has title, refresh, and settings buttons」断言 `[title="设置"]` 可见失败（element not found，10s 超时）。已复现：`MOCK_FIXTURE=synthetic pnpm exec playwright test tests/e2e/web/popup_demo_alignment.spec.ts --config=playwright.config.ts --project=web` → 1 failed / 2 passed。第 16 行 `[title="刷新全部"]` 通过，第 17 行 `[title="设置"]` 失败；其余两用例通过。
+- 影响：web e2e 全量非绿（仅此 1 处断言）；设置入口功能正常（快照中 link 存在、panel_navigation.spec 通过），非产品缺陷。
+- 根因：e2e 断言与生产 DOM 漂移——测试陈旧。生产 DOM（t380 统一 PanelTitleBar）设置入口 title/aria-label 为「Settings面板」：web 态 `<a title="Settings面板" href="#setting">`（t311）、桌面态 `<Button title="Settings面板">`；全仓 src/ 无 `title="设置"`。spec 断言源自 T011 迁移时代旧 TitleBar 的 `title="设置"`，t380（b9468211）迁移 e2e 契约 7 文件时漏迁本 spec；同逻辑页对象 `tests/e2e/pages/popup_page.ts:25` clickSettings() 已更新为 `getByTitle("Settings面板")`，spec 未复用。分类：测试假红/陈旧。同类位点扫描（检索轴：tests/ 全仓 `[title=` 定位器 vs src/ title 逐一对照）：`[title="刷新全部"]`（PanelTitleBar.tsx:185）、`[title="大纲"]`（SessionPane.tsx:237）、`button[title="编辑"]`（AccountRow.tsx:184）、`button[title="编辑数据标签映射"]`（CpaConnectorSettings.tsx:482）均与生产一致——已扫，仅本点 1 处漂移，无其他已确认同类位点。
+- 测试缺口：e2e 裸 CSS title 定位器硬编码旧文案、未复用已更新的页对象封装，t380 契约迁移漏网；补测：spec:17 改 `getByRole("link", { name: "Settings面板" })`（web 态 link 语义、与单测范式一致）或 `getByTitle("Settings面板")`，并尽量走页对象；单测层已覆盖（PanelTitleBar.test.tsx：link/button name "Settings面板" + href="#setting" + aria-label 序），无需补。
+- 线索：`.scratch/p188_e2e_popup_settings_title_missing.md`；error-context 快照 `artifacts/e2e-artifacts/popup_demo_alignment-popup-67984-efresh-and-settings-buttons-web/`；关键 commit b9468211（t380 漏迁）、b855f592（T011 引入旧断言）
+- 处理：已修复（2026-08-16 直接修复：`popup_demo_alignment.spec.ts:17` 断言改 `[title="Settings面板"]`，e2e 3 passed）
