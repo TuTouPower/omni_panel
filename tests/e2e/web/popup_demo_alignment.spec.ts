@@ -14,7 +14,7 @@ test.describe("popup demo alignment (web)", () => {
             "Omni Panel - Usage",
         );
         await expect(webPage.locator('[title="刷新全部"]').first()).toBeVisible();
-        await expect(webPage.locator('[title="设置"]').first()).toBeVisible();
+        await expect(webPage.locator('[title="Settings面板"]').first()).toBeVisible();
     });
 
     test("overview tab shows provider cards", async ({ webPage }) => {
