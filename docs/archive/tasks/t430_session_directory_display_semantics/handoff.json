@@ -1,0 +1,40 @@
+{
+  "tid": "t430",
+  "attempt": 1,
+  "execution_id": "ab2f0fb31db649eb9fd05ffc2cc1b888",
+  "status": "done",
+  "branch": "t430_session_directory_display_semantics",
+  "base_sha": "71017ee49c588b034cb03ad3a70931e244054ca5",
+  "tests": "定向 vitest：token-stats-store.test.ts = 105 passed（含新增 2 用例）",
+  "blackbox": "定向 vitest 105 passed + .scratch/test_cwdpath.mjs 7 边界全过（demo build 存量损坏 p202，非本 task）+ tsc --noEmit 0 error",
+  "review": "第 2 轮 PASS（code + test 双路；R1 test FAIL → R2 双路 PASS）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts：t430 AC-001 同 store backfill 前（records 路径）与 backfill 后（rollup 路径）directory 均为 /aaa 且一致"
+    ],
+    "AC-002": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts：t430 AC-002/AC-003 单 directory 会话展示不变（/proj/one）"
+    ],
+    "AC-003": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts：t430 AC-002/AC-003 分页 total=2 不受影响",
+      "既有 t192 分页形状用例通过"
+    ],
+    "AC-004": [
+      ".scratch/test_cwdpath.mjs：pathBasename('/home/…/repo_template')=repo_template 等 7 边界全 PASS",
+      "public/frontend_demo/app/src/components/CwdPath.tsx 只渲染 pathBasename"
+    ],
+    "AC-005": [
+      "public/frontend_demo/app/src/components/CwdPath.tsx title={cwd} 保留完整路径（代码走查）"
+    ],
+    "AC-006": [
+      "grep 确认 4 处使用点（SessionCard/SessionPane/RecentSessionsModal/SessionPickerModal）均去 max prop 渲染 basename",
+      "SessionCard filePath 行未改动（review_code.md Round 1 走查）"
+    ],
+    "AC-007": [
+      ".scratch/test_cwdpath.mjs：pathBasename('/')='/' 与 pathBasename('')='' 回退原值",
+      "root/空串用例 PASS"
+    ]
+  },
+  "pending": ["p202"],
+  "findings": []
+}

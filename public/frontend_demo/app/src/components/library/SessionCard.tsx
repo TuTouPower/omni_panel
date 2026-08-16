@@ -111,7 +111,7 @@ export default function SessionCard({
         {/* 底行 mono meta */}
         <p className="mt-auto font-mono text-[12px] text-text-muted">{metaLine(session)}</p>
         <div className="flex items-center gap-2.5">
-          <CwdPath cwd={session.cwd} max={22} className="text-[11px] text-text-muted/80" />
+          <CwdPath cwd={session.cwd} className="text-[11px] text-text-muted/80" />
           <p className="min-w-0 truncate font-mono text-[11px] text-text-muted/70">{session.filePath}</p>
         </div>
       </div>

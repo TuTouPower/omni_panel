@@ -89,7 +89,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- rollup 数据是否保留记录级时间戳以取「最新」：`UNVERIFIED-SPIKE`，实现侧核实；若 rollup 分组丢失时间维度，方案须说明如何取最新。
+- 无。SPIKE 验证（2026-08-17）：rollup 分组按 directory 聚合、无记录级时间维度；但 rollup 路径 `materialize_session_meta(from_records=false)` 的逐会话窄查（`meta_stmt`，`rn=1`）已从 records 取每会话最新记录，可顺带 SELECT 最新 `directory` 并 UPDATE 进 session_meta——`dashboard_session_page_from_meta` 的 `MAX(directory)` 即返回最新目录，无需改存储。
 
 ### 风险与回退
 

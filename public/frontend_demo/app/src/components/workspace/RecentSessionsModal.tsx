@@ -161,7 +161,7 @@ export default function RecentSessionsModal({ open, onClose, onOpen }: RecentSes
                       <div className="truncate text-[14px] font-medium text-text-primary">
                         {s.title}
                       </div>
-                      <CwdPath cwd={s.cwd} max={30} />
+                      <CwdPath cwd={s.cwd} />
                     </div>
                     <span className="shrink-0 font-mono text-[11px] text-text-muted">
                       {relativeDate(s.date)}
