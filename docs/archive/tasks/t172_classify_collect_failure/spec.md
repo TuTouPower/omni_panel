@@ -74,8 +74,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 裸 `UNVERIFIED` 属歧义格式，门禁失败。
 
-- `is_auth_error` 现有匹配规则已核实：`net-client` 对 HTTP 错误生成 `HTTP <status>: request failed (<bytes> bytes)`；renderer 判定当前不匹配裸 `HTTP 401/403`，连接超时文案（如 `ETIMEDOUT`、`socket hang up`）不匹配；refresh-service 判定已匹配 401/403。实现需统一认证错误语义并补真实文案回归测试。验证方式：读取 `net-client.ts`、Grok connector、两处判定函数与现有测试，结论记录于 `docs/spikes/s004_classify_collect_failure/report.md`。
-- refresh-service 与 grok/kimi OAuth manager 之间已核实无现成依赖注入入口；`main/index.ts` 在创建 refresh-service 前已创建两个 manager，且 manager 均暴露 `refresh_now(instance_id)`。实现通过 `RefreshServiceDeps` 注入按 connector/instance 调用的 OAuth refresh 回调；Grok/Kimi script auth 失败位于 `failed_accounts` 路径，需在该路径触发兜底。验证方式：读取 refresh-service、OAuth manager、manifest 与主进程接线，结论记录于 `docs/spikes/s004_classify_collect_failure/report.md`。
+- `is_auth_error` 现有匹配规则已核实：`net-client` 对 HTTP 错误生成 `HTTP <status>: request failed (<bytes> bytes)`；renderer 判定当前不匹配裸 `HTTP 401/403`，连接超时文案（如 `ETIMEDOUT`、`socket hang up`）不匹配；refresh-service 判定已匹配 401/403。实现需统一认证错误语义并补真实文案回归测试。验证方式：读取 `net-client.ts`、Grok connector、两处判定函数与现有测试，结论记录于 `docs/spikes/s031_classify_collect_failure/report.md`。
+- refresh-service 与 grok/kimi OAuth manager 之间已核实无现成依赖注入入口；`main/index.ts` 在创建 refresh-service 前已创建两个 manager，且 manager 均暴露 `refresh_now(instance_id)`。实现通过 `RefreshServiceDeps` 注入按 connector/instance 调用的 OAuth refresh 回调；Grok/Kimi script auth 失败位于 `failed_accounts` 路径，需在该路径触发兜底。验证方式：读取 refresh-service、OAuth manager、manifest 与主进程接线，结论记录于 `docs/spikes/s031_classify_collect_failure/report.md`。
 
 ### 风险与回退
 
