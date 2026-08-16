@@ -69,8 +69,8 @@ async function waitHealth(port: number, ms = 15000): Promise<void> {
 }
 
 /**
- * 起真实无头实例（--cli serve，含 --config 导入），返回 app + 面板 URL。
- * SPIKE 2 验证：playwright `_electron.launch` 传 argv 起 --cli serve，
+ * 起真实无头实例（serve --foreground，含 --config 导入），返回 app + 面板 URL。
+ * SPIKE 2 验证：playwright `_electron.launch` 传 argv 起 serve --foreground，
  * stdout 打印 URL，chromium 可访问。
  */
 async function launchCliWithConfig(): Promise<{
@@ -97,8 +97,8 @@ async function launchCliWithConfig(): Promise<{
     const app = await electron.launch({
         args: [
             MAIN_ENTRY,
-            "--cli",
             "serve",
+            "--foreground",
             "--port",
             String(port),
             "--config",

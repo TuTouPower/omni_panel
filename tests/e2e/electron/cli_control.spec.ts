@@ -196,27 +196,32 @@ async function waitCliJson(
 test.describe("CLI 控制子命令（t276）", () => {
     test("AC1/AC2/AC3/AC7：refresh-all/pause/resume/restart/quit 作用于运行中实例", async () => {
         const port = 18810;
-        const { app, userDataDir } = await launchServe(["--cli", "serve", "--port", String(port)]);
+        const { app, userDataDir } = await launchServe([
+            "serve",
+            "--foreground",
+            "--port",
+            String(port),
+        ]);
         try {
             await waitHealth(port);
 
             // refresh-all
-            let r = await runThinClient(["--cli", "refresh-all"], userDataDir);
+            let r = await runThinClient(["refresh-all"], userDataDir);
             expect(r.exitCode).toBe(0);
             expect(r.stdout).toContain("refresh-all 已发送");
 
             // pause（幂等：重复不报错）
-            r = await runThinClient(["--cli", "pause"], userDataDir);
+            r = await runThinClient(["pause"], userDataDir);
             expect(r.exitCode).toBe(0);
-            r = await runThinClient(["--cli", "pause"], userDataDir);
+            r = await runThinClient(["pause"], userDataDir);
             expect(r.exitCode).toBe(0);
 
             // resume
-            r = await runThinClient(["--cli", "resume"], userDataDir);
+            r = await runThinClient(["resume"], userDataDir);
             expect(r.exitCode).toBe(0);
 
             // quit 使实例干净退出
-            r = await runThinClient(["--cli", "quit"], userDataDir);
+            r = await runThinClient(["quit"], userDataDir);
             expect(r.exitCode).toBe(0);
             expect(r.stdout).toContain("quit 已发送");
 
@@ -234,12 +239,17 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC3：restart 后实例重新可访问且 cli.json 端口刷新", async () => {
         const port = 18811;
-        const { app, userDataDir } = await launchServe(["--cli", "serve", "--port", String(port)]);
+        const { app, userDataDir } = await launchServe([
+            "serve",
+            "--foreground",
+            "--port",
+            String(port),
+        ]);
         try {
             await waitHealth(port);
             const beforePid = (await waitCliJson(userDataDir)).pid;
 
-            const r = await runThinClient(["--cli", "restart"], userDataDir);
+            const r = await runThinClient(["restart"], userDataDir);
             expect(r.exitCode).toBe(0);
 
             // 等 cli.json 被新实例重写（pid 变化 = restart 生效，端口可能因旧进程
@@ -268,10 +278,15 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC4：open 输出面板 URL 且退出码正常", async () => {
         const port = 18812;
-        const { app, userDataDir } = await launchServe(["--cli", "serve", "--port", String(port)]);
+        const { app, userDataDir } = await launchServe([
+            "serve",
+            "--foreground",
+            "--port",
+            String(port),
+        ]);
         try {
             await waitHealth(port);
-            const r = await runThinClient(["--cli", "open"], userDataDir);
+            const r = await runThinClient(["open"], userDataDir);
             expect(r.exitCode).toBe(0);
             expect(r.stdout).toContain("面板地址");
             expect(r.stdout).toContain(`http://localhost:${String(port)}/`);
@@ -283,7 +298,7 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC5：autostart 在 Linux 返回 unsupported", async () => {
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-auto-"));
-        const r = await runThinClient(["--cli", "autostart"], userDataDir);
+        const r = await runThinClient(["autostart"], userDataDir);
         expect(r.exitCode).toBe(0);
         expect(r.stdout).toContain("autostart 在 Linux 上不受支持");
         rmSync(userDataDir, { recursive: true, force: true });
@@ -291,7 +306,7 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC6：实例未运行时控制命令给出可读错误与非零退出码", async () => {
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-norun-"));
-        const r = await runThinClient(["--cli", "pause"], userDataDir);
+        const r = await runThinClient(["pause"], userDataDir);
         expect(r.exitCode).not.toBe(0);
         expect(r.stderr).toContain("实例未运行");
         rmSync(userDataDir, { recursive: true, force: true });
@@ -299,15 +314,17 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC1：--port 覆盖实例发现", async () => {
         const port = 18813;
-        const { app, userDataDir } = await launchServe(["--cli", "serve", "--port", String(port)]);
+        const { app, userDataDir } = await launchServe([
+            "serve",
+            "--foreground",
+            "--port",
+            String(port),
+        ]);
         try {
             await waitHealth(port);
             // 用错误 userData（无 cli.json）但 --port 覆盖，仍可连到实例
             const otherData = mkdtempSync(join(tmpdir(), "omnipanel-cli-other-"));
-            const r = await runThinClient(
-                ["--cli", "refresh-all", "--port", String(port)],
-                otherData,
-            );
+            const r = await runThinClient(["refresh-all", "--port", String(port)], otherData);
             expect(r.exitCode).toBe(0);
             rmSync(otherData, { recursive: true, force: true });
         } finally {
@@ -318,13 +335,18 @@ test.describe("CLI 控制子命令（t276）", () => {
 
     test("AC1：refresh-all 触发实例侧刷新（SSE 推送通道收到状态事件）", async () => {
         const port = 18814;
-        const { app, userDataDir } = await launchServe(["--cli", "serve", "--port", String(port)]);
+        const { app, userDataDir } = await launchServe([
+            "serve",
+            "--foreground",
+            "--port",
+            String(port),
+        ]);
         try {
             await waitHealth(port);
             // 订阅 SSE 推送通道
             const sub = subscribeEvents(port);
             try {
-                const r = await runThinClient(["--cli", "refresh-all"], userDataDir);
+                const r = await runThinClient(["refresh-all"], userDataDir);
                 expect(r.exitCode).toBe(0);
                 // refresh-all 触发 connector 刷新 → runtimeStore 状态变化 → SSE 推送
                 const deadline = Date.now() + 8000;
@@ -345,7 +367,7 @@ test.describe("CLI 控制子命令（t276）", () => {
         const desktopPort = 18270;
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-desktop-"));
         const app = await electron.launch({
-            args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+            args: [MAIN_ENTRY, "not-a-command", `--user-data-dir=${userDataDir}`],
             executablePath: ELECTRON,
             cwd: ROOT,
             env: { ...process.env, E2E: "1", OMNI_PANEL_PORT: String(desktopPort) },
@@ -355,7 +377,7 @@ test.describe("CLI 控制子命令（t276）", () => {
             await waitHealth(desktopPort, 20000);
             // 桌面实例被 refresh-all 控制
             const r = await runThinClient(
-                ["--cli", "refresh-all", "--port", String(desktopPort)],
+                ["refresh-all", "--port", String(desktopPort)],
                 userDataDir,
             );
             expect(r.exitCode).toBe(0);

@@ -246,11 +246,11 @@ async function wait_for_health(port: number): Promise<void> {
 }
 
 test.describe("CLI 模式 serve（t275）", () => {
-    test("AC1/AC2：--cli serve 无窗口，local-api 响应，stdout 打印 URL，cli.json 端口一致", async () => {
+    test("AC1/AC2：serve --foreground 无窗口，local-api 响应，stdout 打印 URL，cli.json 端口一致", async () => {
         const port = 18701;
         const { app, userDataDir, stdout } = await launchCli([
-            "--cli",
             "serve",
+            "--foreground",
             "--port",
             String(port),
         ]);
@@ -316,8 +316,8 @@ test.describe("CLI 模式 serve（t275）", () => {
         writeFileSync(importFile, JSON.stringify(config));
 
         const { app, userDataDir } = await launchCli([
-            "--cli",
             "serve",
+            "--foreground",
             "--port",
             String(port),
             "--config",
@@ -395,8 +395,8 @@ test.describe("CLI 模式 serve（t275）", () => {
 
         try {
             const source = await launchCli([
-                "--cli",
                 "serve",
+                "--foreground",
                 "--port",
                 String(source_port),
                 "--config",
@@ -428,13 +428,13 @@ test.describe("CLI 模式 serve（t275）", () => {
             // AC4：真实瘦客户端必须走相同 LocalAPI，且两种输出与端点导出等价。
             client_user_data_dir = mkdtempSync(join(tmpdir(), "omnipanel-t277-export-client-"));
             const cli_redacted = await runThinClient(
-                ["--cli", "export", "--port", String(source_port)],
+                ["export", "--port", String(source_port)],
                 client_user_data_dir,
             );
             expect(cli_redacted.exitCode).toBe(0);
             expect(JSON.parse(cli_redacted.stdout.trim()) as unknown).toEqual(redacted_export.body);
             const cli_plaintext = await runThinClient(
-                ["--cli", "export", "--include-secrets", "--port", String(source_port)],
+                ["export", "--include-secrets", "--port", String(source_port)],
                 client_user_data_dir,
             );
             expect(cli_plaintext.exitCode).toBe(0);
@@ -450,8 +450,8 @@ test.describe("CLI 模式 serve（t275）", () => {
             expect(source_stdout).not.toContain(secret);
 
             const target = await launchCli([
-                "--cli",
                 "serve",
+                "--foreground",
                 "--port",
                 String(target_port),
                 "--config",
@@ -504,10 +504,10 @@ test.describe("CLI 模式 serve（t275）", () => {
 
     test("AC8：缺子命令非零退出码", async () => {
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-bad-"));
-        // 缺子命令的 `--cli` 在启动初期 process.exit(1)，launch 会因非零退出抛错。
+        // 未知命令在启动初期 process.exit(1)，launch 会因非零退出抛错。
         await expect(
             electron.launch({
-                args: [MAIN_ENTRY, "--cli", `--user-data-dir=${userDataDir}`],
+                args: [MAIN_ENTRY, "not-a-command", `--user-data-dir=${userDataDir}`],
                 executablePath: ELECTRON,
                 cwd: ROOT,
             }),
@@ -525,8 +525,8 @@ test.describe("CLI 模式 serve（t275）", () => {
         const app = await electron.launch({
             args: [
                 MAIN_ENTRY,
-                "--cli",
                 "serve",
+                "--foreground",
                 "--config",
                 missing,
                 `--user-data-dir=${userDataDir}`,
@@ -554,8 +554,8 @@ test.describe("CLI 模式 serve（t275）", () => {
         const app = await electron.launch({
             args: [
                 MAIN_ENTRY,
-                "--cli",
                 "serve",
+                "--foreground",
                 "--config",
                 badFile,
                 `--user-data-dir=${userDataDir}`,
@@ -578,9 +578,12 @@ test.describe("CLI 模式 serve（t275）", () => {
     test("AC6：--port 与 OMNI_PANEL_PORT 并存时 --port 优先", async () => {
         const port = 18703;
         const envPort = 18704;
-        const { app, userDataDir } = await launchCli(["--cli", "serve", "--port", String(port)], {
-            env: { OMNI_PANEL_PORT: String(envPort) },
-        });
+        const { app, userDataDir } = await launchCli(
+            ["serve", "--foreground", "--port", String(port)],
+            {
+                env: { OMNI_PANEL_PORT: String(envPort) },
+            },
+        );
         try {
             await wait_for_health(port);
             // --port 生效，非 OMNI_PANEL_PORT
@@ -623,7 +626,7 @@ test.describe("CLI 模式 serve（t275）", () => {
                 launchAtLogin: false,
             }),
         );
-        const { app } = await launchCli(["--cli", "serve", "--port", String(port)]);
+        const { app } = await launchCli(["serve", "--foreground", "--port", String(port)]);
         try {
             await wait_for_health(port);
             // 预置配置被沿用：config.json 未被覆盖改写

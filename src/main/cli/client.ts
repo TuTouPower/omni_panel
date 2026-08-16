@@ -51,7 +51,7 @@ export function resolve_instance(deps: ControlClientDeps, portOverride?: number)
     }
     const path = cli_json_path(dataRoot);
     if (!existsSync(path)) {
-        throw new Error("实例未运行（找不到 cli.json，先以 --cli serve 启动）");
+        throw new Error("实例未运行（找不到 cli.json，先以 omni_panel serve 启动）");
     }
     let info: CliInstanceInfo;
     try {

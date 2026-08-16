@@ -46,8 +46,8 @@
         "test:contract:live": "vitest run --config vitest.contract_live.config.mts",
         "test:full": "pnpm test && pnpm test:contract:live",
         "prepare": "husky",
-        "cli:serve": "node scripts/ensure_sqlite_abi.mjs electron && tsx scripts/gen-build-info.ts && electron-vite build && electron out/main/index.js --cli serve --port 17864 --user-data-dir=.scratch/dev-serve",
-        "cli:quit": "node scripts/ensure_sqlite_abi.mjs electron && electron out/main/index.js --cli quit --port 17864"
+        "cli:serve": "node scripts/ensure_sqlite_abi.mjs electron && tsx scripts/gen-build-info.ts && electron-vite build && electron out/main/index.js serve --foreground --port 17864 --user-data-dir=.scratch/dev-serve",
+        "cli:quit": "node scripts/ensure_sqlite_abi.mjs electron && electron out/main/index.js quit --port 17864"
     },
     "keywords": [],
     "homepage": "https://github.com/TuTouPower/omni_panel",
@@ -125,8 +125,5 @@
         "zod": "^4.4.3",
         "zod-to-json-schema": "^3.25.2"
     },
-    "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e",
-    "bin": {
-        "omni_panel": "./scripts/omni_panel.mjs"
-    }
+    "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e"
 }

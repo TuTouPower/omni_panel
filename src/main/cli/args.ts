@@ -1,23 +1,18 @@
 /**
- * CLI 模式 argv 解析（t275 serve + t276 控制子命令）。
+ * 二进制入口 argv 解析（唯一入口语义）。
  *
- * 语法：
- *   `--cli serve [--config <path>] [--port <n>]`   无窗口常驻服务（t275）
- *   `--cli open|refresh-all|pause|resume|restart|quit|autostart [--port <n>]`
- *                                                   瘦客户端，执行即退出（t276）
- * - `--cli` 是 CLI 模式总开关
- * - `--config` 仅 serve 支持：启动时导入配置文件（明文 secret 内嵌），覆盖写入规范 config.json
- * - `--port` 覆盖 local-api 端口（serve：监听端口；控制命令：实例发现覆盖）
- *
- * 解析器是纯函数，只处理 `--cli` 之后的 token；Electron/Chromium 自身 switch
- * （`--user-data-dir` 等）在 `--cli` 之前或之后出现均不影响本解析。
+ * - 终端无参 / help / --help / -h → 打印帮助
+ * - 桌面双击（无参且非 TTY）/ --gui → GUI
+ * - serve|quit|… → CLI 子命令（无额外开关前缀）
  */
 
 export interface CliServeOptions {
     configPath?: string;
     port?: number;
-    /** 覆盖 userData 目录（`--user-data-dir <path>`）；serve 时生效，影响 getDataRoot。 */
+    /** 覆盖 userData 目录（`--user-data-dir <path>`）。 */
     userDataDir?: string;
+    /** 前台运行 serve（默认后台：父进程拉起子进程后退出）。 */
+    foreground?: boolean;
 }
 
 export interface CliControlOptions {
@@ -43,7 +38,13 @@ export interface CliArgs {
     command?: CliCommand;
 }
 
-/** 控制子命令白名单。 */
+/** 入口决议（解析结果 + 是否由本进程做后台 serve 父进程）。 */
+export type EntryDecision =
+    | { kind: "help" }
+    | { kind: "gui" }
+    | { kind: "cli"; command: CliCommand; background_serve: boolean }
+    | { kind: "invalid"; message: string };
+
 export const CONTROL_COMMANDS = [
     "open",
     "refresh-all",
@@ -54,7 +55,10 @@ export const CONTROL_COMMANDS = [
     "autostart",
 ] as const;
 
-/** 用法错误：调用方转非零退出码 + 可读信息，不留半初始化状态（AC8）。 */
+const CLI_COMMANDS = new Set<string>(["serve", "export", "help", ...CONTROL_COMMANDS]);
+
+const VALUE_FLAGS = new Set(["--port", "--user-data-dir", "--config"]);
+
 export class CliUsageError extends Error {
     constructor(message: string) {
         super(message);
@@ -73,91 +77,76 @@ function parse_port(val: string | undefined, arg: string): number {
     return n;
 }
 
-export function parse_cli_args(argv: readonly string[]): CliArgs {
-    const idx = argv.indexOf("--cli");
-    if (idx === -1) return { cli: false };
-    const rest = argv.slice(idx + 1);
-
-    const sub = rest[0];
-    if (sub === undefined) {
-        throw new CliUsageError(
-            "--cli 需要子命令（serve / open / refresh-all / pause / resume / restart / quit / autostart）",
-        );
+/** 从 process.argv 抽出用户参数（去掉 electron/二进制与主脚本路径）。 */
+export function extract_user_argv(process_argv: readonly string[]): string[] {
+    const rest = process_argv.slice(1);
+    const first = rest[0];
+    if (first !== undefined && /\.(c|m)?js$/i.test(first)) {
+        return rest.slice(1);
     }
+    return [...rest];
+}
 
-    // help：打印 CLI 子命令清单（t335）。
-    if (sub === "help") {
-        return { cli: true, command: { type: "help" } };
-    }
-
-    // serve：常驻子命令，支持 --config 与 --port。
-    if (sub === "serve") {
-        const options: CliServeOptions = {};
-        let i = 1;
-        while (i < rest.length) {
-            const tok = rest[i];
-            if (tok === undefined) break;
-            if (tok === "--config") {
-                const val = rest[i + 1];
-                if (val === undefined || val.startsWith("--")) {
-                    throw new CliUsageError("--config 需要一个文件路径参数");
-                }
-                options.configPath = val;
-                i += 2;
-            } else if (tok === "--port") {
-                options.port = parse_port(rest[i + 1], "--port");
-                i += 2;
-            } else if (tok === "--user-data-dir") {
-                const val = rest[i + 1];
-                if (val === undefined || val.startsWith("--")) {
-                    throw new CliUsageError("--user-data-dir 需要一个目录路径参数");
-                }
-                options.userDataDir = val;
-                i += 2;
-            } else if (tok.startsWith("--")) {
-                // 未知 `--` 开关视为 Electron/Chromium 级参数，跳过。
-                i += 1;
-            } else {
-                throw new CliUsageError(`意外位置参数: ${tok}`);
-            }
+function find_command_index(args: readonly string[]): number {
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === undefined) break;
+        if (a.startsWith("-")) {
+            if (VALUE_FLAGS.has(a)) i++;
+            continue;
         }
-        return { cli: true, command: { type: "serve", options } };
+        return i;
     }
+    return -1;
+}
 
-    if (sub === "export") {
-        const options: CliExportOptions = {};
-        let i = 1;
-        while (i < rest.length) {
-            const tok = rest[i];
-            if (tok === undefined) break;
-            if (tok === "--include-secrets") {
-                options.includeSecrets = true;
-                i += 1;
-            } else if (tok === "--port") {
-                options.port = parse_port(rest[i + 1], "--port");
-                options.includeSecrets ??= false;
-                i += 2;
-            } else if (tok.startsWith("--")) {
-                i += 1;
-            } else {
-                throw new CliUsageError(`意外位置参数: ${tok}`);
-            }
-        }
-        return { cli: true, command: { type: "export", options } };
-    }
-
-    // 控制子命令：瘦客户端，支持 --port 覆盖实例发现。
-    const command = CONTROL_COMMANDS.find((c) => c === sub);
-    if (!command) {
-        throw new CliUsageError(`未知的 --cli 子命令: ${sub}`);
-    }
-    const options: CliControlOptions = {};
-    let i = 1;
-    while (i < rest.length) {
-        const tok = rest[i];
+function parse_serve_options(tokens: readonly string[]): CliServeOptions {
+    const options: CliServeOptions = {};
+    let i = 0;
+    while (i < tokens.length) {
+        const tok = tokens[i];
         if (tok === undefined) break;
-        if (tok === "--port") {
-            options.port = parse_port(rest[i + 1], "--port");
+        if (tok === "--config") {
+            const val = tokens[i + 1];
+            if (val === undefined || val.startsWith("--")) {
+                throw new CliUsageError("--config 需要一个文件路径参数");
+            }
+            options.configPath = val;
+            i += 2;
+        } else if (tok === "--port") {
+            options.port = parse_port(tokens[i + 1], "--port");
+            i += 2;
+        } else if (tok === "--user-data-dir") {
+            const val = tokens[i + 1];
+            if (val === undefined || val.startsWith("--")) {
+                throw new CliUsageError("--user-data-dir 需要一个目录路径参数");
+            }
+            options.userDataDir = val;
+            i += 2;
+        } else if (tok === "--foreground") {
+            options.foreground = true;
+            i += 1;
+        } else if (tok.startsWith("--")) {
+            i += 1;
+        } else {
+            throw new CliUsageError(`意外位置参数: ${tok}`);
+        }
+    }
+    return options;
+}
+
+function parse_export_options(tokens: readonly string[]): CliExportOptions {
+    const options: CliExportOptions = {};
+    let i = 0;
+    while (i < tokens.length) {
+        const tok = tokens[i];
+        if (tok === undefined) break;
+        if (tok === "--include-secrets") {
+            options.includeSecrets = true;
+            i += 1;
+        } else if (tok === "--port") {
+            options.port = parse_port(tokens[i + 1], "--port");
+            options.includeSecrets ??= false;
             i += 2;
         } else if (tok.startsWith("--")) {
             i += 1;
@@ -165,5 +154,111 @@ export function parse_cli_args(argv: readonly string[]): CliArgs {
             throw new CliUsageError(`意外位置参数: ${tok}`);
         }
     }
-    return { cli: true, command: { type: command, options } };
+    return options;
+}
+
+function parse_control_options(tokens: readonly string[]): CliControlOptions {
+    const options: CliControlOptions = {};
+    let i = 0;
+    while (i < tokens.length) {
+        const tok = tokens[i];
+        if (tok === undefined) break;
+        if (tok === "--port") {
+            options.port = parse_port(tokens[i + 1], "--port");
+            i += 2;
+        } else if (tok.startsWith("--")) {
+            i += 1;
+        } else {
+            throw new CliUsageError(`意外位置参数: ${tok}`);
+        }
+    }
+    return options;
+}
+
+/**
+ * 解析用户 argv → 入口决议。
+ * @param stdout_is_tty 终端无参时打印帮助；非 TTY（桌面图标）无参开 GUI
+ */
+export function resolve_entry(
+    user_args: readonly string[],
+    opts: { stdout_is_tty: boolean },
+): EntryDecision {
+    if (user_args.length === 0) {
+        return opts.stdout_is_tty ? { kind: "help" } : { kind: "gui" };
+    }
+
+    if (user_args[0] === "--gui") {
+        return { kind: "gui" };
+    }
+
+    if (user_args.includes("--help") || user_args.includes("-h")) {
+        return { kind: "help" };
+    }
+
+    const cmd_idx = find_command_index(user_args);
+    if (cmd_idx < 0) {
+        // 仅有 Chromium/Electron 开关、无子命令：与无参相同（终端 help / 桌面 GUI）
+        return opts.stdout_is_tty ? { kind: "help" } : { kind: "gui" };
+    }
+
+    const command = user_args[cmd_idx];
+    if (command === undefined) {
+        return opts.stdout_is_tty ? { kind: "help" } : { kind: "gui" };
+    }
+
+    if (command === "help") {
+        return { kind: "help" };
+    }
+
+    if (!CLI_COMMANDS.has(command)) {
+        return { kind: "invalid", message: `未知命令: ${command}` };
+    }
+
+    const tail = user_args.filter((_, i) => i !== cmd_idx);
+
+    try {
+        if (command === "serve") {
+            const options = parse_serve_options(tail);
+            const background_serve = options.foreground !== true;
+            return {
+                kind: "cli",
+                command: { type: "serve", options },
+                background_serve,
+            };
+        }
+        if (command === "export") {
+            return {
+                kind: "cli",
+                command: { type: "export", options: parse_export_options(tail) },
+                background_serve: false,
+            };
+        }
+        const control = CONTROL_COMMANDS.find((c) => c === command);
+        if (!control) {
+            return { kind: "invalid", message: `未知命令: ${command}` };
+        }
+        return {
+            kind: "cli",
+            command: { type: control, options: parse_control_options(tail) },
+            background_serve: false,
+        };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { kind: "invalid", message };
+    }
+}
+
+/** 供测试与内部：用户 argv → CliArgs（后台 serve 仍标 cli=true）。 */
+export function parse_cli_args(
+    process_argv: readonly string[],
+    opts?: { stdout_is_tty?: boolean },
+): CliArgs {
+    const user = extract_user_argv(process_argv);
+    const entry = resolve_entry(user, {
+        stdout_is_tty: opts?.stdout_is_tty ?? true,
+    });
+    if (entry.kind === "gui") return { cli: false };
+    if (entry.kind === "help") return { cli: true, command: { type: "help" } };
+    if (entry.kind === "invalid") throw new CliUsageError(entry.message);
+    return { cli: true, command: entry.command };
 }
