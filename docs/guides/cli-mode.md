@@ -56,8 +56,8 @@ omni-panel serve [--config <path>] [--port <n>]   # 默认后台运行
 omni-panel serve --foreground [--config <path>] [--port <n>]  # 前台阻塞
 ```
 
-- 命令行默认是 CLI 模式：`omni_panel serve` 等价于旧 `omni_panel --cli serve`（launcher 自动注入 `--cli`）。`--cli` 前缀仍兼容。
-- 帮助（t400）：`omni_panel`（无参）/ `--help` / `-h` / `help` 四入口输出**同一份**帮助（含 `--gui` 与全部子命令）；真相源 `scripts/cli_help.mjs`。`omni_panel --cli help` 与上述一致（主进程打印同一常量）。help 不启动任何进程。
+- 单一二进制入口：`omni_panel` / 打包产物本身解析全部参数（无 mjs / 无 `--cli` 开关）。
+- 帮助：终端无参 / `--help` / `-h` / `help` 输出同一份帮助；桌面双击（非 TTY 无参）开 GUI。
 - `--gui`：启动图形界面（双击桌面图标同效），非 CLI。
 - `serve`：唯一常驻子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `omni-panel quit --port <n>` 停止。
 - `--foreground`：可选。显式指定前台运行——打印面板地址后阻塞终端，`Ctrl+C` 停止（旧行为）。
@@ -112,7 +112,7 @@ omni-panel open             # 打印面板 URL，WSL 下尝试经 wslview 打开
 omni-panel autostart        # Linux 返回 unsupported；Windows 切换开机自启
 ```
 
-以上命令等价于旧 `omni-panel --cli <子命令>`（launcher 自动注入 `--cli`）。
+以上命令由二进制直接解析。
 
 - 实例发现：默认读 `<dataRoot>/cli.json` 取得端口；`--port <n>` 可覆盖（桌面/自建实例）。
 - 实例未运行时给出「实例未运行」可读错误 + 非零退出码。
@@ -127,24 +127,20 @@ pnpm cli:serve    # 开发/测试无窗口实例：沙盒 userData（.scratch/de
 pnpm cli:quit     # 停掉该实例（瘦客户端，--port 17864 对齐）
 ```
 
-`pnpm cli:serve` 内部：ensure ABI → gen build-info → `electron-vite build` → `electron out/main/index.js --cli serve --port 17864 --user-data-dir=.scratch/dev-serve`。沙盒 userData 保证**不触碰真实用户数据**（`~/.config/OmniPanel`）；开发构建只写 `out/`。
+`pnpm cli:serve` 内部：ensure ABI → gen build-info → `electron-vite build` → `electron out/main/index.js serve --foreground --port 17864 --user-data-dir=.scratch/dev-serve`。沙盒 userData 不触碰 `~/.config/OmniPanel`。
 
-### 全局命令 `omni_panel`（release 产物专用）
+### 发行 / 本机使用（单一二进制）
 
-全局 CLI 命令名 `omni_panel`（下划线），由 `scripts/omni_panel.mjs` launcher 提供，**永远指向 electron-builder 打包产物**（`artifacts/linux-unpacked/omni_panel`，`pnpm make:linux` 生成），**不回退 dev 产物（`out/`）**：
+产品入口即 electron-builder 产物（`pnpm make:linux` → `artifacts/linux-unpacked/omni_panel`）。链入 `PATH` 或安装 deb/AppImage 即可，**无 mjs 包装层**：
 
-- 全局用户：`omni_panel serve [--port <n>]`（**真实用户数据** `~/.config/OmniPanel`）——稳定版，不受开发构建影响。`--gui` 显式开图形界面。
-- release 产物缺失时 launcher 明确报错「先 `pnpm make:linux`」，不回退。
-- 全局命令始终使用真实用户数据（可用 `--user-data-dir` 显式指向其他目录）；**沙盒只属于开发命令** `pnpm cli:serve`（`.scratch/dev-serve`）。
-- 开发/测试不要用 `omni_panel`（它是给全局稳定版用户的），用 `pnpm cli:serve`。
+```bash
+ln -sf /path/to/omni_panel/artifacts/linux-unpacked/omni_panel ~/.local/bin/omni_panel
+omni_panel serve
+omni_panel --gui
+```
 
-### 产物与数据隔离矩阵
-
-| 用途          | 命令                   | 产物                    | userData                         | 窗口             |
-| ------------- | ---------------------- | ----------------------- | -------------------------------- | ---------------- |
-| GUI 开发      | `pnpm start`           | `out/`（dev）           | 真实                             | 开窗口（调试用） |
-| 开发/测试 CLI | `pnpm cli:serve`       | `out/`（build）         | `.scratch/dev-serve` 沙盒        | 无               |
-| 全局稳定版 CLI | `omni_panel serve ...` | `artifacts/`（release） | 真实（`--user-data-dir` 可覆盖） | 无               |
-| 全局 GUI      | `omni_panel --gui`     | `artifacts/`（release） | 真实                             | 开窗口           |
-
-开发（改 `out/`）与全局（用 `artifacts/`）产物隔离，互不影响；`pnpm make:linux` 打包新稳定版后全局自动用新版本。
+|用途|命令|产物|userData|
+|---|---|---|---|
+|GUI 开发|`pnpm start`|`out/`|真实|
+|开发 CLI|`pnpm cli:serve` / `cli:quit`|`out/`|`.scratch/dev-serve` 沙盒|
+|稳定版|PATH 中的 release 二进制|`artifacts/` 等|`~/.config/OmniPanel`|

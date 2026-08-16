@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { CLI_HELP_TEXT } from "../../scripts/cli_help.mjs";
+import { CLI_HELP_TEXT } from "./cli/help-text";
 import { open_connectors_dir } from "./core/open-connectors-dir";
 import { createConfigStore } from "./core/config/config-store";
 import { build_secret_param_keys } from "./core/config/secret_param_keys";
@@ -98,7 +98,8 @@ import { create_agent_window_controller } from "./core/main-panel/agent-window-c
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { cleanup_temp_files } from "./core/storage/write-json";
-import { parse_cli_args, type CliArgs } from "./cli/args";
+import { extract_user_argv, resolve_entry, type CliArgs } from "./cli/args";
+import { run_background_serve_parent } from "./cli/background_serve";
 import { import_config_file } from "./cli/import-config";
 import { write_cli_json } from "./cli/cli-json";
 import { is_e2e_headless } from "./e2e-headless";
@@ -118,15 +119,24 @@ process.on("unhandledRejection", (reason: unknown) => {
     );
 });
 
-// CLI 模式 argv 解析（t275）。非法用法在启动初期以非零退出码终止（AC8）。
-let cli_args: CliArgs = { cli: false };
-try {
-    cli_args = parse_cli_args(process.argv);
-} catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`OmniPanel: ${message}\n`);
+// 单一入口：用户 argv → help / gui / cli（含 serve 默认后台）。
+const entry = resolve_entry(extract_user_argv(process.argv), {
+    stdout_is_tty: process.stdout.isTTY,
+});
+if (entry.kind === "help") {
+    process.stdout.write(CLI_HELP_TEXT);
+    process.exit(0);
+}
+if (entry.kind === "invalid") {
+    process.stderr.write(`OmniPanel: ${entry.message}\n`);
+    process.stdout.write(CLI_HELP_TEXT);
     process.exit(1);
 }
+if (entry.kind === "cli" && entry.background_serve && entry.command.type === "serve") {
+    run_background_serve_parent(entry.command.options);
+}
+const cli_args: CliArgs =
+    entry.kind === "cli" ? { cli: true, command: entry.command } : { cli: false };
 const cliMode = cli_args.cli;
 
 // Prevent white screen on systems where GPU process crashes
@@ -189,7 +199,7 @@ let local_api: LocalAPIServer | null = null;
 
 void app.whenReady().then(async () => {
     try {
-        // t335/t400: --cli help 打印共享帮助文本，不启动服务。
+        // help 已在进程入口处理；此处兜底。
         if (cliMode && cli_args.command?.type === "help") {
             process.stdout.write(CLI_HELP_TEXT);
             app.exit(0);
@@ -663,7 +673,7 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
-            // t275 AC6：`--cli serve --port` 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
+            // serve --port 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
             ...(cliMode &&
             cli_args.command?.type === "serve" &&
             cli_args.command.options.port !== undefined
