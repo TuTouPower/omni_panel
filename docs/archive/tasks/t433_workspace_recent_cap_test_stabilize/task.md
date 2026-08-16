@@ -2,11 +2,11 @@
 tid: "t433"
 slug: "workspace_recent_cap_test_stabilize"
 title: "WorkspaceView 弹窗用例异步断言稳定化"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t433_workspace_recent_cap_test_stabilize"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "0eced8265842239a3c1a4738b9b1aaef4de3c811"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,12 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### 实施纪要（2026-08-17）
+
+- 三处弹窗用例加等列表元素：:574-577（recent 上限）点击前 `waitFor` 9 行齐全；:377（会话选择）`await screen.findByText("会话 s1")`；:511-514（picker）"全部 3" 断言包入 waitFor。断言强度不变（上限 8 计数、文本目标原样）。
+- vitest 3.2.4 无 `--repeat` CLI 选项（CACError），用 bash 循环连跑 5 次等价验证无 flake。
+- 审阅 1 轮 single clean PASS（0 finding）。
+- 顺手发现：无（spec AC 行号为预估，实际行号漂移已由 reviewer 确认行为一致）。
 
 ## Review 处置
 
@@ -60,7 +65,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -69,15 +74,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
 - 一句话；无额外说明可写「见上」
+- 3 处弹窗用例断言时机稳定化（等列表元素），连跑 5 次无 flake，1 轮审阅 clean PASS。
