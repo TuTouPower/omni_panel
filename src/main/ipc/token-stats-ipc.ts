@@ -212,4 +212,18 @@ export function registerTokenStatsIpc(
             }
         },
     );
+
+    // t434: 手动刷新——触发一轮 collector collect 并重置自动采集计时。
+    ipc.handle(
+        IPC_CHANNELS.TOKEN_STATS_FORCE_COLLECT,
+        (event: IpcMainInvokeEvent): IpcResult<null> => {
+            assert_valid_sender(event);
+            try {
+                deps.manager.force_collect();
+                return ok(null);
+            } catch {
+                return fail("COLLECT_FAILED", "Token stats collect failed to trigger");
+            }
+        },
+    );
 }

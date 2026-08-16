@@ -17,6 +17,8 @@ import { format_tokens, key_of } from "./session-library-utils";
 
 interface SessionLibraryProps {
     readonly on_switch_workspace: () => void;
+    /** t434: 顶栏刷新递增 token，触发按当前筛选/排序重拉列表。 */
+    readonly refresh_token?: number | undefined;
 }
 
 const PAGE_SIZE = 50;
@@ -27,7 +29,7 @@ const CONTENT_SCAN_BATCH_SIZE = 64;
 
 type SessionStatsStatus = "loading" | "ready" | "error";
 
-export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
+export function SessionLibrary({ on_switch_workspace, refresh_token }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
     const [search_content, set_search_content] = useState(false);
@@ -162,7 +164,8 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
         return () => {
             disposed = true;
         };
-    }, [backend_filters]);
+        // t434: refresh_token 递增（顶栏刷新）触发重拉；backend_filters 变化亦重拉。
+    }, [backend_filters, refresh_token]);
 
     const load_more = useCallback((): void => {
         const content_mode = Boolean(search && search_content);
