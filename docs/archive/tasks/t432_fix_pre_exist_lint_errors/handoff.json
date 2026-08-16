@@ -1,0 +1,26 @@
+{
+  "tid": "t432",
+  "attempt": 1,
+  "execution_id": "405a0d953ff5421eaa3d7305ab7063af",
+  "status": "done",
+  "branch": "t432_fix_pre_exist_lint_errors",
+  "base_sha": "886f6033e62cb29428e9a184179629d787bbfea3",
+  "tests": "定向 vitest：session_resume.test.ts + settings_view_general.test.tsx = 2 files / 44 tests passed",
+  "blackbox": "pnpm lint exit 0（0 error）+ tsc --noEmit 0 error + 定向 44 tests passed",
+  "review": "第 1 轮 PASS（code + test 双路 clean，0 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "pnpm lint 全绿（0 error 0 warning，max-warnings=0）——原 4 处 error 全消"
+    ],
+    "AC-002": [
+      "tests/unit/renderer/lib/session_resume.test.ts 6/6 通过（AC-004 unknown_cli→null、AC-003/003b 清空删键）",
+      "session-resume.ts Record<string,string|undefined> 索引保未知 source → null 语义"
+    ],
+    "AC-003": [
+      "tests/unit/renderer/views/settings_view_general.test.tsx 38/38 通过（含清空删键）且 lint 绿",
+      "import type * as theme_module 类型层重构，零断言变化"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}
