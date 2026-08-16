@@ -19,4 +19,4 @@
     - 无用例覆盖 `context.append_loop_event` / `content.part type=text` → assistant；也无「真实形态：user-only append_message + content.part text」断言。
     - 补测方向：新增/改写 fixture 含 loop_event text part；断言 `extract_kimi_code` 产出 user + assistant；保留旧 append_message assistant 兼容；过滤 `part.type=think` 与 tool.call；增量追加 content.part 行仍能抽出 assistant。
 - 线索：`.scratch/task_bug_kimi_agent_msgs/repro_notes.md`
-- 处理：未开
+- 处理：t425

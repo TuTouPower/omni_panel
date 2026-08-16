@@ -5,7 +5,9 @@
  * 每行一个事件 JSON。裁剪规则（决策 2）：仅留 user/assistant 文本，剔 toolCalls
  * 及其他非 text 段。
  *
- * 仅处理 `type === "context.append_message"` 事件（s015 SPIKE 实测，d017）。
+ * 双路径（t425）：`context.append_message`（user/assistant 文本，旧格式兼容）
+ * 与 `context.append_loop_event` → `event.type=content.part` → `part.type=text`
+ * （当前 kimi-code 主 agent 的 assistant 正文路径，s015/d017 时代未见）。
  * `turn.prompt` 与 append_message 重复，忽略以去重。
  *
  * 增量：JSONL 按字节 offset（见 ExtractCursor.byte_offset）。
@@ -14,6 +16,21 @@ import { readFileSync, statSync, openSync, readSync, closeSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
+
+/** kimi 无稳定 id，用消息行在文件中的字节起始位置（稳定、唯一，全量与
+ * 增量一致——base_offset 与 line 累计字节均以字节为单位计算）。 */
+function message_id(line_start_offset: number): string {
+    return `kimi:${String(line_start_offset)}`;
+}
+
+/** 顶层 time 为 ms epoch；缺失/非法时返回 null（与 claude/grok 口径一致）。 */
+function timestamp_from(rec: Record<string, unknown>): number | null {
+    const time_raw = rec["time"];
+    if (typeof time_raw === "number" && Number.isFinite(time_raw)) {
+        return time_raw;
+    }
+    return null;
+}
 
 function event_to_message(
     rec: Record<string, unknown>,
@@ -26,15 +43,37 @@ function event_to_message(
     if (role_raw !== "user" && role_raw !== "assistant") return null;
     const text = pick_text_from_content(m["content"]);
     if (text === null || text === "") return null;
-    const time_raw = rec["time"];
-    let timestamp: number | null = null;
-    if (typeof time_raw === "number" && Number.isFinite(time_raw)) {
-        timestamp = time_raw;
-    }
-    // kimi 无稳定 id，用 append_message 行在文件中的字节起始位置（稳定、唯一，
-    // 全量与增量一致——base_offset 与 line 累计字节均以字节为单位计算）。
-    const id = `kimi:${String(line_start_offset)}`;
-    return { id, role: role_raw, text, timestamp };
+    return { id: message_id(line_start_offset), role: role_raw, text, timestamp: timestamp_from(rec) };
+}
+
+/**
+ * t425: 当前 kimi-code 主 agent wire 中 assistant 正文写
+ * `context.append_loop_event` → `event.type=content.part` → `part.type=text`；
+ * `append_message` 几乎只写 user。这里从 content.part text 产出 role=assistant。
+ * 仅保留 `part.type === "text"` 且非空；think / tool.call / tool.result /
+ * step.begin / step.end 等 loop 事件在此分支外被过滤（决策 2 只留文本）。
+ */
+function loop_event_to_message(
+    rec: Record<string, unknown>,
+    line_start_offset: number,
+): HistoryMessage | null {
+    const event = rec["event"];
+    if (typeof event !== "object" || event === null) return null;
+    const ev = event as Record<string, unknown>;
+    if (ev["type"] !== "content.part") return null;
+    const part = ev["part"];
+    if (typeof part !== "object" || part === null) return null;
+    const p = part as Record<string, unknown>;
+    if (p["type"] !== "text") return null;
+    const text = p["text"];
+    if (typeof text !== "string" || text === "") return null;
+    // 与 append_message 共用行字节 offset id 约定，全量/增量 id 一致。
+    return {
+        id: message_id(line_start_offset),
+        role: "assistant",
+        text,
+        timestamp: timestamp_from(rec),
+    };
 }
 
 function scan_lines(content: string, base_offset: number): HistoryMessage[] {
@@ -67,6 +106,11 @@ function process_line(line: string, line_start_offset: number, out: HistoryMessa
         rec = JSON.parse(line) as Record<string, unknown>;
     } catch {
         return; // 非 JSON 行跳过
+    }
+    if (rec["type"] === "context.append_loop_event") {
+        const loop_msg = loop_event_to_message(rec, line_start_offset);
+        if (loop_msg) out.push(loop_msg);
+        return;
     }
     if (rec["type"] !== "context.append_message") return;
     const msg = event_to_message(rec, line_start_offset);
