@@ -432,7 +432,11 @@ export function WorkspaceView({
                 />
             )}
             {recent_open && (
-                <RecentSessionsModal on_confirm={confirm_recent} on_close={on_recent_close} />
+                <RecentSessionsModal
+                    on_confirm={confirm_recent}
+                    on_close={on_recent_close}
+                    refresh_token={refresh_token}
+                />
             )}
             {toast !== null && <Toast data-testid="session-toast">{toast}</Toast>}
         </div>

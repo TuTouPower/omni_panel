@@ -816,6 +816,7 @@ export {
     collect,
     configure,
     reset_config,
+    start_interval,
     costs_state,
     opencode_max_updated,
     jsonl_states,

@@ -48,6 +48,7 @@ import {
     collect,
     configure,
     reset_config,
+    start_interval,
     set_collector_host,
     costs_state,
     opencode_max_updated,
@@ -1376,6 +1377,37 @@ describe("collector", () => {
             });
             configure(cfg);
             expect(mock_scan_save).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("interval 重置 (t434 AC-005)", () => {
+        afterEach(() => {
+            vi.useRealTimers();
+            reset_config();
+        });
+
+        it("start_interval 以 poll_interval_ms arm；再次调用 clear 旧 interval 后 re-arm", () => {
+            vi.useFakeTimers();
+            const set_spy = vi.spyOn(globalThis, "setInterval");
+            const clear_spy = vi.spyOn(globalThis, "clearInterval");
+
+            // configure 后 start_interval：以 poll_interval_ms arm。
+            configure({ ...base_config, poll_interval_ms: 120_000, state_path: "" });
+            start_interval();
+            const interval_calls = set_spy.mock.calls.filter((c) => c[0] === collect);
+            expect(interval_calls.length).toBeGreaterThanOrEqual(1);
+            expect(interval_calls[0]?.[1]).toBe(120_000);
+
+            // 手动刷新（force_collect → config → configure + start_interval）：
+            // clear 旧 interval 再以新值 re-arm，下一轮自动采集从该时刻起算。
+            configure({ ...base_config, poll_interval_ms: 300_000, state_path: "" });
+            start_interval();
+            expect(clear_spy).toHaveBeenCalled();
+            const interval_calls2 = set_spy.mock.calls.filter((c) => c[0] === collect);
+            expect(interval_calls2[interval_calls2.length - 1]?.[1]).toBe(300_000);
+
+            set_spy.mockRestore();
+            clear_spy.mockRestore();
         });
     });
 });

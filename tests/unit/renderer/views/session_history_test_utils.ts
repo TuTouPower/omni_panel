@@ -56,6 +56,7 @@ export function install_history_usageboard(get_config?: () => AppConfiguration) 
         log: vi.fn(),
         tokenStats: {
             open: vi.fn(),
+            forceCollect: vi.fn().mockResolvedValue(null),
             getBuckets: vi.fn().mockResolvedValue([]),
             getSessions: vi.fn().mockResolvedValue([]),
             getSessionStats: vi.fn().mockResolvedValue({ sessions: 3, agents: 3, tokens: 1125 }),

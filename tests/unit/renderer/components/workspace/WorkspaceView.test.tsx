@@ -381,6 +381,34 @@ describe("WorkspaceView (t224)", () => {
         });
     });
 
+    it("t434 AC-003: 最近会话弹窗打开态下顶栏刷新按原 limit 重查（refresh_token 依赖）", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        ub.tokenStats.getSessions.mockResolvedValue([
+            ts_sess("s1", "claude_code", { ended_at: 3000 }),
+        ]);
+        await render_shell();
+        // 打开最近会话弹窗：getSessions({limit: RECENT_LIMIT=100}) 至少一次。
+        fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
+        await waitFor(() => {
+            expect(document.querySelectorAll('[data-testid="session-recent-row"]')).toHaveLength(1);
+        });
+        const recent_calls = () =>
+            ub.tokenStats.getSessions.mock.calls.filter(
+                (c) => (c[0] as { limit?: number } | undefined)?.limit === 100,
+            ).length;
+        const calls_before = recent_calls();
+        expect(calls_before).toBeGreaterThan(0);
+
+        // 弹窗保持打开态点顶栏刷新：refresh_token 递增 → 弹窗 effect 依赖变化 → 重查。
+        // 按 limit:100 参数区分弹窗调用（隐藏挂载的 SessionLibrary 重拉带 limit:50，
+        // 不污染本断言——t434_code_f004）。
+        fireEvent.click(screen.getByTitle("刷新当前面板"));
+        await waitFor(() => {
+            expect(recent_calls()).toBeGreaterThan(calls_before);
+        });
+    });
+
     it("rail 拖拽换位顺序同步网格", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
