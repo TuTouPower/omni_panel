@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
 import { count_stats, sort_sessions, type LibrarySort } from "../../lib/session-library/filter";
-import { cn } from "../../lib/utils";
 import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
+import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Input } from "../ui/Input";
+import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
+import { Toast } from "../ui/Toast";
 import { format_tokens, key_of } from "./session-library-utils";
 
 interface SessionLibraryProps {
@@ -20,6 +22,8 @@ interface SessionLibraryProps {
 const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
 const PREVIEW_MESSAGES = 5;
+/** t404: 内容搜索每批扫描候选数；首批结果可先展示，后续批次合并。 */
+const CONTENT_SCAN_BATCH_SIZE = 64;
 
 type SessionStatsStatus = "loading" | "ready" | "error";
 
@@ -40,6 +44,10 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
     const [content_searching, set_content_searching] = useState(false);
     const [content_search_error, set_content_search_error] = useState(false);
     const [content_truncated, set_content_truncated] = useState(false);
+    const [content_search_progress, set_content_search_progress] = useState<{
+        scanned: number;
+        total: number;
+    } | null>(null);
     const [content_sessions, set_content_sessions] = useState<TokenStatsSession[]>([]);
     const [toast, set_toast] = useState<string | null>(null);
     const [summaries, set_summaries] = useState<Record<string, string>>({});
@@ -225,54 +233,120 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             set_content_searching(false);
             set_content_search_error(false);
             set_content_truncated(false);
+            set_content_search_progress(null);
             return;
         }
         set_content_sessions([]);
         set_content_search_error(false);
         set_content_truncated(false);
+        set_content_search_progress(null);
         set_content_searching(true);
         content_debounce_ref.current = window.setTimeout(() => {
             content_debounce_ref.current = null;
             content_abort_ref.current?.abort();
             const controller = new AbortController();
             content_abort_ref.current = controller;
-            window.usageboard.sessionHistory
-                .searchContent(
-                    {
-                        filters: {
-                            ...(agents.length > 0 ? { sources: [...agents] } : {}),
-                            ...(search ? { search } : {}),
-                            ...(start_at !== undefined ? { start_at } : {}),
-                            ...(end_at !== undefined ? { end_at } : {}),
-                        },
-                        keyword: search,
-                    },
-                    // t263: 取消信号传入搜索调用，web shim 透传 fetch、服务端随断连中止。
-                    controller.signal,
-                )
-                .then((result) => {
-                    if (controller.signal.aborted) return;
-                    const response = Array.isArray(result)
-                        ? {
-                              hits: result as readonly string[],
-                              sessions: [],
-                              truncated: false,
-                          }
-                        : result;
-                    set_content_sessions([...response.sessions]);
+            // t404: 分块多次 searchContent，合并 sessions 并展示已扫描 N/M。
+            // ref 装箱：跨 await 的取消标志；裸 boolean 会被 no-unnecessary-condition 误判恒真。
+            const live_ref = { current: !controller.signal.aborted };
+            const on_abort = (): void => {
+                live_ref.current = false;
+            };
+            controller.signal.addEventListener("abort", on_abort, { once: true });
+            void (async () => {
+                let offset = 0;
+                const merged = new Map<string, TokenStatsSession>();
+                let truncated = false;
+                try {
+                    for (;;) {
+                        if (!live_ref.current) {
+                            return;
+                        }
+                        const result = await window.usageboard.sessionHistory.searchContent(
+                            {
+                                filters: {
+                                    ...(agents.length > 0 ? { sources: [...agents] } : {}),
+                                    ...(search ? { search } : {}),
+                                    ...(start_at !== undefined ? { start_at } : {}),
+                                    ...(end_at !== undefined ? { end_at } : {}),
+                                },
+                                keyword: search,
+                                offset,
+                                limit: CONTENT_SCAN_BATCH_SIZE,
+                            },
+                            // t263: 取消信号传入搜索调用，web shim 透传 fetch、服务端随断连中止。
+                            controller.signal,
+                        );
+                        // await 后必须再读 ref：取消可发生在请求途中；CF 分析看不到跨 await 的
+                        // 外部突变，故 no-unnecessary-condition 误报，抑制单行。
+                        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- abort during await
+                        if (!live_ref.current) {
+                            return;
+                        }
+                        // 兼容测试/旧契约可能返回 string[] hits。
+                        const raw: unknown = result;
+                        const response = Array.isArray(raw)
+                            ? {
+                                  hits: raw as readonly string[],
+                                  sessions: [] as readonly TokenStatsSession[],
+                                  truncated: false,
+                                  progress: undefined as
+                                      | {
+                                            scanned: number;
+                                            total: number;
+                                            done: boolean;
+                                            next_offset: number;
+                                        }
+                                      | undefined,
+                              }
+                            : (raw as {
+                                  hits: readonly string[];
+                                  sessions: readonly TokenStatsSession[];
+                                  truncated: boolean;
+                                  progress?: {
+                                      scanned: number;
+                                      total: number;
+                                      done: boolean;
+                                      next_offset: number;
+                                  };
+                              });
+                        truncated = truncated || response.truncated;
+                        for (const session of response.sessions) {
+                            merged.set(key_of(session), session);
+                        }
+                        // AC-002/004: 每批到达即展示累计命中，不等全量结束。
+                        set_content_sessions([...merged.values()]);
+                        const progress = response.progress;
+                        if (progress) {
+                            set_content_search_progress({
+                                scanned: progress.scanned,
+                                total: progress.total,
+                            });
+                        }
+                        // 无 progress（旧 mock/契约）或 done → 结束循环。
+                        if (!progress || progress.done) break;
+                        offset = progress.next_offset;
+                    }
+                    // 末批后、写终态前再确认未取消，避免覆盖新一轮搜索的 searching/结果。
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- abort after last batch
+                    if (!live_ref.current) return;
                     // t388 AC-003: 枚举超限截断时展示降级提示。
-                    set_content_truncated(response.truncated);
+                    set_content_truncated(truncated);
                     set_content_search_error(false);
                     set_content_searching(false);
-                })
-                .catch((err: unknown) => {
-                    if (controller.signal.aborted) return;
+                    set_content_search_progress(null);
+                } catch (err: unknown) {
+                    if (!live_ref.current) return;
                     if (err instanceof Error && err.name === "AbortError") return;
                     set_content_sessions([]);
                     set_content_truncated(false);
                     set_content_search_error(true);
                     set_content_searching(false);
-                });
+                    set_content_search_progress(null);
+                } finally {
+                    controller.signal.removeEventListener("abort", on_abort);
+                }
+            })();
         }, 300);
 
         return () => {
@@ -378,26 +452,29 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
               ? "统计加载中…"
               : "统计不可用";
     return (
-        <div className="library-view flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
-            <header className="library-header flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
-                <span className="library-title text-[length:var(--text-title-lg)] font-bold tracking-tight">
+        <div
+            className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]"
+            data-testid="library-view"
+        >
+            <header className="flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
+                <span className="text-[length:var(--text-title-lg)] font-bold tracking-tight">
                     会话库
                 </span>
-                <span className="library-stats font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                <span className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                     {stats_text}
                 </span>
             </header>
 
-            <div className="library-toolbar flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
                 <Input
-                    className="library-search min-w-[200px] flex-1"
+                    className="min-w-[200px] flex-1"
                     placeholder="搜索标题 / 路径 / 会话 ID"
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
                     }}
                 />
-                <label className="library-content-search inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                     <Checkbox
                         checked={search_content}
                         aria-label="包含消息内容"
@@ -407,7 +484,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     />
                     包含消息内容
                 </label>
-                <div className="library-date-range flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                     <Input
                         type="date"
                         className="w-auto min-w-[130px]"
@@ -429,7 +506,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     />
                 </div>
                 <Select
-                    className="library-sort w-auto min-w-[120px]"
+                    className="w-auto min-w-[120px]"
                     aria-label="排序方式"
                     value={sort}
                     onChange={(e) => {
@@ -441,38 +518,15 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     <option value="calls">轮次最多</option>
                     <option value="earliest">最早创建</option>
                 </Select>
-                <div className="library-view-switch inline-flex items-center gap-0.5 rounded-md bg-[var(--color-surface-raised)] p-0.5">
-                    <button
-                        type="button"
-                        className={cn(
-                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            view_mode === "grid" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
-                        )}
-                        aria-label="网格视图"
-                        aria-pressed={view_mode === "grid"}
-                        onClick={() => {
-                            set_view_mode("grid");
-                        }}
-                    >
-                        网格
-                    </button>
-                    <button
-                        type="button"
-                        className={cn(
-                            "rounded px-2.5 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                            view_mode === "list" &&
-                                "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-sm",
-                        )}
-                        aria-label="列表视图"
-                        aria-pressed={view_mode === "list"}
-                        onClick={() => {
-                            set_view_mode("list");
-                        }}
-                    >
-                        列表
-                    </button>
-                </div>
+                <Segmented
+                    value={view_mode}
+                    aria-label="视图模式"
+                    options={[
+                        { value: "grid", label: "网格", "aria-label": "网格视图" },
+                        { value: "list", label: "列表", "aria-label": "列表视图" },
+                    ]}
+                    onChange={set_view_mode}
+                />
             </div>
 
             <AgentFilterChips
@@ -484,33 +538,35 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
             />
 
             {content_searching && (
-                <div className="library-content-searching px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
-                    搜索消息内容中…
+                <div
+                    className="px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
+                    data-testid="content-search-progress"
+                >
+                    {content_search_progress
+                        ? `搜索消息内容中…（已扫描 ${String(content_search_progress.scanned)}/${String(content_search_progress.total)} 个会话）`
+                        : "搜索消息内容中…"}
                 </div>
             )}
             {content_search_error && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <Alert tone="error" className="mx-[18px] mb-2.5">
                     消息内容搜索失败
-                </div>
+                </Alert>
             )}
 
             {load_error && visible_sessions.length > 0 && (
-                <div className="library-load-interrupted mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-error)]">
+                <Alert tone="error" className="mx-[18px] mb-2.5">
                     会话列表加载中断，已显示部分数据
-                </div>
+                </Alert>
             )}
 
             {content_truncated && (
-                <div
-                    className="library-search-truncated mx-[18px] mb-2.5 rounded-md bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-warning)]"
-                    data-testid="search-truncated-hint"
-                >
+                <Alert tone="warning" className="mx-[18px] mb-2.5" data-testid="search-truncated-hint">
                     结果已截断，仅显示部分匹配项
-                </div>
+                </Alert>
             )}
 
             {visible_sessions.length === 0 ? (
-                <div className="library-empty flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                     <p>{empty_text}</p>
                     {show_clear && (
                         <Button
@@ -567,11 +623,7 @@ export function SessionLibrary({ on_switch_workspace }: SessionLibraryProps) {
                     on_switch_workspace();
                 }}
             />
-            {toast !== null && (
-                <div className="library-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-lg border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-2 text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
-                    {toast}
-                </div>
-            )}
+            {toast !== null && <Toast>{toast}</Toast>}
         </div>
     );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     compute_message_offsets,
     compute_visible_window,
+    format_compact_datetime,
     format_precise_datetime,
     is_near_bottom,
     last_dir_segment,
@@ -10,7 +11,7 @@ import {
     summarize,
 } from "../../../../../src/renderer/lib/workspace/pane";
 
-/** t237 pane 纯函数单测：时间分隔线、摘要、计数、虚拟窗口计算。t257 加目录末级与精确时间。 */
+/** t237 pane 纯函数单测：时间分隔线、摘要、计数、虚拟窗口计算。t257 加目录末级与精确时间。t407 加紧凑时间。 */
 
 describe("pane helpers (t225/t237)", () => {
     it("should_insert_divider：相邻消息跨度超 10 分钟才插", () => {
@@ -136,5 +137,27 @@ describe("format_precise_datetime (t257)", () => {
         // 2026-08-07 09:08:07 (UTC+8 由本地时区决定；用本地 Date 构造避免时区依赖)。
         const d = new Date(2026, 7, 7, 9, 8, 7);
         expect(format_precise_datetime(d.getTime())).toBe("2026-08-07 09:08:07");
+    });
+});
+
+describe("format_compact_datetime (t407)", () => {
+    // now 固定 2026-08-16，本地构造避免时区依赖。
+    const now = new Date(2026, 7, 16, 12, 0, 0).getTime();
+
+    it("当年会话：MMDD HH:mm，不含年份与秒", () => {
+        const d = new Date(2026, 7, 17, 23, 25, 59);
+        expect(format_compact_datetime(d.getTime(), now)).toBe("0817 23:25");
+    });
+
+    it("非当年会话：YYMMDD HH:mm", () => {
+        const d = new Date(2025, 7, 17, 23, 25, 0);
+        expect(format_compact_datetime(d.getTime(), now)).toBe("250817 23:25");
+    });
+
+    it("跨年边界：当年 01-01 省略年，上年 12-31 带 YY", () => {
+        const jan1 = new Date(2026, 0, 1, 0, 0, 0);
+        const dec31 = new Date(2025, 11, 31, 23, 59, 0);
+        expect(format_compact_datetime(jan1.getTime(), now)).toBe("0101 00:00");
+        expect(format_compact_datetime(dec31.getTime(), now)).toBe("251231 23:59");
     });
 });

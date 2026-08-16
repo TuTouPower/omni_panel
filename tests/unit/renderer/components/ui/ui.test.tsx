@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +22,9 @@ import {
     Skeleton,
     PanelTitleBar,
     ListRow,
+    Alert,
+    CodeChip,
+    Toast,
 } from "../../../../../src/renderer/components/ui";
 
 describe("ui 组件库（t269）", () => {
@@ -46,6 +49,105 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector("button")?.disabled).toBe(true);
     });
 
+    it("Button text/icon 尺寸档与 as-link（t420）", () => {
+        const { container, rerender } = render(<Button variant="text">重试</Button>);
+        const text_btn = container.querySelector("button");
+        expect(text_btn).not.toBeNull();
+        expect(text_btn?.className).toContain("text-[var(--color-accent)]");
+        expect(text_btn?.className).toContain("px-2.5");
+        expect(text_btn?.className).toContain("py-1");
+
+        for (const [size, token] of [
+            ["icon", "h-8"],
+            ["icon-md", "h-7"],
+            ["icon-sm", "h-[26px]"],
+            ["icon-xs", "h-[22px]"],
+        ] as const) {
+            rerender(
+                <Button variant="icon" size={size} aria-label={size}>
+                    ×
+                </Button>,
+            );
+            const icon_btn = container.querySelector("button");
+            expect(icon_btn?.className).toContain(token);
+            expect(icon_btn?.className).toContain("p-0");
+        }
+
+        rerender(
+            <Button as="a" href="#setting" variant="primary">
+                添加服务
+            </Button>,
+        );
+        const link = container.querySelector("a");
+        expect(link).not.toBeNull();
+        expect(link?.getAttribute("href")).toBe("#setting");
+        expect(link?.className).toContain("bg-[var(--color-primary)]");
+        expect(link?.className).toContain("no-underline");
+        expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("Button text 语义 button + onClick 通路（t420）", () => {
+        // jsdom 下 fireEvent.keyDown(Enter/Space) 不触发原生 button click，不在此冒充键盘。
+        // 键盘可达由原生 <button type="button"> 语义承担（AC-003：无 span onClick 伪按钮）。
+        let clicks = 0;
+        const { container } = render(
+            <Button
+                variant="text"
+                onClick={() => {
+                    clicks += 1;
+                }}
+            >
+                动作
+            </Button>,
+        );
+        const btn = container.querySelector("button");
+        if (!btn) throw new Error("button missing");
+        expect(btn.tagName).toBe("BUTTON");
+        expect(btn.getAttribute("type")).toBe("button");
+        fireEvent.click(btn);
+        expect(clicks).toBe(1);
+        fireEvent.click(btn);
+        expect(clicks).toBe(2);
+    });
+
+    it("业务代码无 t420 手拼按钮配方与 span onClick 伪按钮（AC-001/003）", () => {
+        // 审计清单：ACTION_CLS / EmptyState primary a 复制 / AliasEditor secondary 复制 / 26px icon 串
+        const recipe =
+            /ACTION_CLS|hover:bg-\[color-mix\(in_srgb,var\(--color-accent\)_10%|bg-\[var\(--color-field-bg\)\] px-2\.5 py-1\.5 text-\[12px\]|flex h-\[26px\] w-\[26px\] items-center justify-center rounded-md text-\[length:var\(--text-body-md\)\]/;
+        const span_onclick = /<span[\s\S]{0,200}onClick=/;
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const recipe_hits: string[] = [];
+        const span_hits: string[] = [];
+        for (const f of files) {
+            // ui/Button 自身定义允许含 token 字面量
+            if (f.replace(/\\/g, "/").endsWith("components/ui/Button.tsx")) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                if (recipe.test(line)) recipe_hits.push(`${f}: ${line.trim().slice(0, 120)}`);
+            }
+            if (span_onclick.test(content)) {
+                // 仅标记带 onClick 的 span（伪按钮）；允许纯展示 span
+                const re = /<span\b[^>]*\bonClick=/g;
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(content)) !== null) {
+                    span_hits.push(`${f}: ${m[0].slice(0, 80)}`);
+                }
+            }
+        }
+        expect(recipe_hits).toEqual([]);
+        expect(span_hits).toEqual([]);
+    });
+
     it("Card raised 切换背景 token 类", () => {
         const { container, rerender } = render(<Card>c</Card>);
         expect(container.querySelector("div")?.className).toContain(
@@ -55,6 +157,42 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector("div")?.className).toContain(
             "bg-[var(--color-surface-raised)]",
         );
+    });
+
+    it("Card 含 shadow-card（t423 AC-001 DESIGN 卡片）", () => {
+        const { container } = render(<Card>c</Card>);
+        expect(container.querySelector("div")?.className).toContain("shadow-card");
+        expect(container.querySelector("div")?.className).toContain("rounded-lg");
+        expect(container.querySelector("div")?.className).toContain(
+            "p-[var(--spacing-card-padding)]",
+        );
+    });
+
+    it("业务代码无 t423 手拼卡片容器（AC-001）", () => {
+        // 5 处：CollapsibleCard / SkeletonCard / TokenPanel / VendorCard / CpaCard
+        // 卡片外壳 = radius-lg|14px + outline 描边 + surface-card 底 + shadow-card
+        const recipe =
+            /rounded-\[(?:var\(--radius-lg\)|14px)\]\s+border-\[0\.5px\]\s+border-\[var\(--color-outline\)\][\s\S]{0,120}shadow-card/;
+        const allow = new Set(["src/renderer/components/ui/Card.tsx"]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            if (recipe.test(content)) hits.push(norm);
+        }
+        expect(hits).toEqual([]);
     });
 
     it("Input invalid 加 error 边框 token 类", () => {
@@ -104,6 +242,69 @@ describe("ui 组件库（t269）", () => {
         expect(cb?.getAttribute("type")).toBe("checkbox");
     });
 
+    it("t421: Checkbox select 形态 20px agent accent + ✓", () => {
+        const onClick = vi.fn();
+        const { container, rerender } = render(
+            <Checkbox
+                variant="select"
+                accent="agent"
+                checked={false}
+                aria-label="会话 x"
+                onClick={onClick}
+            />,
+        );
+        const btn = container.querySelector("button");
+        if (!btn) throw new Error("select checkbox button missing");
+        expect(btn.getAttribute("aria-pressed")).toBe("false");
+        expect(btn.className).toContain("h-5");
+        expect(btn.className).toContain("w-5");
+        expect(btn.textContent).toBe("");
+        fireEvent.click(btn);
+        expect(onClick).toHaveBeenCalledTimes(1);
+        rerender(
+            <Checkbox
+                variant="select"
+                accent="agent"
+                checked
+                aria-label="会话 x"
+                onClick={onClick}
+            />,
+        );
+        const on_btn = container.querySelector("button");
+        expect(on_btn?.getAttribute("aria-pressed")).toBe("true");
+        expect(on_btn?.textContent).toBe("✓");
+        expect(on_btn?.className).toContain("bg-[var(--agent-accent)]");
+    });
+
+    it("t421: Checkbox order 形态序号 + on class + primary", () => {
+        const { container, rerender } = render(
+            <Checkbox
+                variant="order"
+                accent="primary"
+                checked={false}
+                order={null}
+                data-testid="session-recent-check"
+            />,
+        );
+        const el = container.querySelector('[data-testid="session-recent-check"]');
+        expect(el?.tagName.toLowerCase()).toBe("span");
+        expect(el?.textContent).toBe("");
+        expect(el?.className.split(/\s+/).includes("on")).toBe(false);
+        rerender(
+            <Checkbox
+                variant="order"
+                accent="primary"
+                checked
+                order={3}
+                data-testid="session-recent-check"
+            />,
+        );
+        const on_el = container.querySelector('[data-testid="session-recent-check"]');
+        expect(on_el?.textContent).toBe("3");
+        expect(on_el?.className.split(/\s+/).includes("on")).toBe(true);
+        expect(on_el?.className).toContain("bg-[var(--color-primary)]");
+    });
+
     it("Switch 点击切换 checked 状态", () => {
         let checked = false;
         const { container, rerender } = render(
@@ -150,6 +351,32 @@ describe("ui 组件库（t269）", () => {
         rerender(<Segmented options={options} value={value} onChange={(v) => (value = v)} />);
         expect(second.getAttribute("aria-pressed")).toBe("true");
         expect(buttons[0]?.getAttribute("aria-pressed")).toBe("false");
+    });
+
+    it("t421: Segmented option 透传 title / aria-label / data-testid", () => {
+        render(
+            <Segmented
+                value="grid"
+                onChange={() => undefined}
+                options={[
+                    {
+                        value: "grid",
+                        label: "网格",
+                        "aria-label": "网格视图",
+                        title: "网格",
+                        "data-testid": "seg-grid",
+                    },
+                    {
+                        value: "list",
+                        label: "列表",
+                        "aria-label": "列表视图",
+                        "data-testid": "seg-list",
+                    },
+                ]}
+            />,
+        );
+        expect(screen.getByRole("button", { name: "网格视图" }).getAttribute("title")).toBe("网格");
+        expect(screen.getByTestId("seg-list").getAttribute("aria-pressed")).toBe("false");
     });
 
     it("Menu + MenuItem 渲染，danger 项加 error 类", () => {
@@ -238,9 +465,193 @@ describe("ui 组件库（t269）", () => {
         expect(container.querySelector(".rounded-full")).toBeNull();
     });
 
+    it("Badge accent/recommend 形态（t422）", () => {
+        const { container, rerender } = render(<Badge variant="accent">3 项</Badge>);
+        const accent = container.querySelector("span");
+        expect(accent?.className).toContain("rounded-xs");
+        expect(accent?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)]",
+        );
+        expect(accent?.className).toContain("text-[var(--color-accent)]");
+        rerender(<Badge variant="recommend">推荐</Badge>);
+        const rec = container.querySelector("span");
+        expect(rec?.className).toContain("bg-[var(--color-primary-container)]");
+        expect(rec?.className).toContain("text-[var(--color-accent)]");
+        expect(rec?.className).toContain("px-2");
+    });
+
+    it("Alert error/warning/success 12% 浅底容器（t422）", () => {
+        const { container, rerender } = render(<Alert tone="error">err</Alert>);
+        let el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-error)]");
+        expect(el?.className).toContain("rounded-md");
+        rerender(<Alert tone="warning">warn</Alert>);
+        el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-warning)]");
+        rerender(<Alert tone="success">ok</Alert>);
+        el = container.querySelector("div");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)]",
+        );
+        expect(el?.className).toContain("text-[var(--color-success)]");
+    });
+
+    it("CodeChip 只读 code 值配方（t422）", () => {
+        const { container } = render(<CodeChip>raw_key</CodeChip>);
+        const code = container.querySelector("code");
+        expect(code).not.toBeNull();
+        expect(code?.className).toContain("bg-[var(--color-surface-raised)]");
+        expect(code?.className).toContain("font-[var(--font-code-md)]");
+        expect(code?.className).toContain("rounded-md");
+        expect(code?.textContent).toBe("raw_key");
+    });
+
+    it("Toast 浮层唯一配方（t422）", () => {
+        const { container } = render(<Toast data-testid="t">已复制</Toast>);
+        const el = container.querySelector("[data-testid='t']");
+        expect(el?.className).toContain("fixed");
+        expect(el?.className).toContain("bottom-7");
+        expect(el?.className).toContain(
+            "bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)]",
+        );
+        expect(el?.className).toContain("shadow-menu");
+        expect(el?.textContent).toBe("已复制");
+    });
+
+    it("业务代码无 t422 告警条/code chip/徽章/toast 手拼配方（AC-001）", () => {
+        // 审计清单：spec 14 处复制点；实现侧唯一定义在 ui/*，业务侧禁同配方 class 串
+        // 精确匹配 spec 14 处告警条/code chip/徽章/toast 配方，不扫 icon 光晕/hover 态等其它 color-mix 用法。
+        const recipes: { name: string; re: RegExp }[] = [
+            {
+                name: "alert-error-bar",
+                re: /rounded-md bg-\[color-mix\(in_srgb,var\(--color-error\)_1[02]%,transparent\)\]/,
+            },
+            {
+                name: "alert-warning-bar",
+                re: /rounded-md bg-\[color-mix\(in_srgb,var\(--color-warning\)_12%,transparent\)\]/,
+            },
+            {
+                name: "alert-error-container-token",
+                re: /bg-\[var\(--color-error-container\)\]/,
+            },
+            {
+                name: "code-chip",
+                re: /rounded-md bg-\[var\(--color-surface-raised\)\] px-2(?:\.5)? py-1\.5 font-\[var\(--font-code-md\)\]/,
+            },
+            {
+                name: "badge-accent",
+                re: /rounded-\[7px\] bg-\[color-mix\(in_srgb,var\(--color-accent\)_12%,transparent\)\]/,
+            },
+            {
+                name: "badge-count-inline",
+                re: /rounded-full bg-\[var\(--color-primary-container\)\] px-1\.5 py-px text-\[length:var\(--text-label-caps\)\]/,
+            },
+            {
+                name: "badge-recommend",
+                re: /rounded bg-\[var\(--color-primary-container\)\] px-2 py-0\.5 text-\[length:var\(--text-label-md\)\] text-\[var\(--color-accent\)\]/,
+            },
+            {
+                name: "toast",
+                re: /fixed bottom-7 left-1\/2 z-\[var\(--z-context\)\] -translate-x-1\/2/,
+            },
+        ];
+        const allow = new Set([
+            "src/renderer/components/ui/Alert.tsx",
+            "src/renderer/components/ui/Badge.tsx",
+            "src/renderer/components/ui/CodeChip.tsx",
+            "src/renderer/components/ui/Toast.tsx",
+        ]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                for (const { name, re } of recipes) {
+                    if (re.test(line)) hits.push(`${name} @ ${norm}: ${line.trim().slice(0, 100)}`);
+                }
+            }
+        }
+        expect(hits).toEqual([]);
+    });
+
     it("StatusDot tone 类", () => {
         const { container } = render(<StatusDot tone="success" />);
         expect(container.querySelector("span")?.className).toContain("bg-[var(--color-success)]");
+    });
+
+    it("StatusDot 为 7px + 同色 16% 光晕（t423 AC-002 DESIGN 状态点）", () => {
+        const { container } = render(<StatusDot tone="success" />);
+        const cls = container.querySelector("span")?.className ?? "";
+        expect(cls).toContain("h-[7px]");
+        expect(cls).toContain("w-[7px]");
+        expect(cls).toContain("rounded-full");
+        expect(cls).toContain("ring-[color-mix(in_srgb,var(--color-success)_16%,transparent)]");
+        expect(cls).toContain("ring-[3px]");
+    });
+
+    it("业务代码无 t423 手拼状态点与 inline 色（AC-002）", () => {
+        // 6 处 5 文件：UpcomingResetRow / UsageRows / CpaConnectorSettings / CpaCard / AccountRow
+        // 尺寸分裂（6/7/8px）+ 光晕手拼 + style background 色值
+        const recipes: { name: string; re: RegExp }[] = [
+            {
+                name: "dot-7px-hand",
+                re: /h-\[7px\]\s+w-\[7px\]\s+shrink-0\s+rounded-full/,
+            },
+            {
+                name: "dot-6px-hand",
+                re: /h-1\.5\s+w-1\.5\s+shrink-0\s+rounded-full\s+bg-\[var\(--color-success\)\]/,
+            },
+            {
+                name: "dot-8px-hand",
+                re: /h-2\s+w-2\s+shrink-0\s+rounded-full/,
+            },
+            {
+                name: "dot-inline-bg",
+                re: /style=\{\{\s*background:\s*(?:cpa_status|account_status)\.color\s*\}\}/,
+            },
+        ];
+        const allow = new Set(["src/renderer/components/ui/StatusDot.tsx"]);
+        const roots = ["src/renderer/components", "src/renderer/views"];
+        const files: string[] = [];
+        const walk = (dir: string) => {
+            for (const e of readdirSync(dir)) {
+                const p = join(dir, e);
+                const st = statSync(p);
+                if (st.isDirectory()) walk(p);
+                else if (/\.(tsx|ts)$/.test(e)) files.push(p);
+            }
+        };
+        for (const r of roots) walk(r);
+        const hits: string[] = [];
+        for (const f of files) {
+            const norm = f.replace(/\\/g, "/");
+            if ([...allow].some((a) => norm.endsWith(a))) continue;
+            const content = readFileSync(f, "utf8");
+            for (const line of content.split("\n")) {
+                for (const { name, re } of recipes) {
+                    if (re.test(line)) hits.push(`${name} @ ${norm}: ${line.trim().slice(0, 100)}`);
+                }
+            }
+        }
+        expect(hits).toEqual([]);
     });
 
     it("Kpi 渲染数值与标签", () => {

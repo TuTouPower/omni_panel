@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { CLI_HELP_TEXT } from "../../scripts/cli_help.mjs";
 import { open_connectors_dir } from "./core/open-connectors-dir";
 import { createConfigStore } from "./core/config/config-store";
 import { build_secret_param_keys } from "./core/config/secret_param_keys";
@@ -188,20 +189,9 @@ let local_api: LocalAPIServer | null = null;
 
 void app.whenReady().then(async () => {
     try {
-        // t335: --cli help 打印子命令清单，不启动服务。
+        // t335/t400: --cli help 打印共享帮助文本，不启动服务。
         if (cliMode && cli_args.command?.type === "help") {
-            process.stdout.write(
-                "OmniPanel CLI 子命令：\n" +
-                    "  serve         无窗口常驻服务（默认后台；--foreground 前台，--port/--user-data-dir 可选）\n" +
-                    "  open          打开面板\n" +
-                    "  refresh-all   刷新全部数据源\n" +
-                    "  pause / resume 暂停 / 恢复采集\n" +
-                    "  restart       重启实例\n" +
-                    "  quit          停止实例（--port 指定，默认读 cli.json）\n" +
-                    "  autostart     开机自启开关\n" +
-                    "  export        导出配置\n" +
-                    "帮助：omni_panel --cli help\n",
-            );
+            process.stdout.write(CLI_HELP_TEXT);
             app.exit(0);
             return;
         }

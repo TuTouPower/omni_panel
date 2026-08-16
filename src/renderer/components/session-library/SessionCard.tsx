@@ -1,5 +1,6 @@
 import { memo, type CSSProperties } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
+import { use_config } from "../../hooks/use-config";
 import { resume_command } from "../../lib/session-resume";
 import { format_precise_datetime, last_dir_segment } from "../../lib/workspace/pane";
 import { agent_accent, vendor_id_for_source } from "../../lib/workspace/slots";
@@ -7,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Checkbox } from "../ui/Checkbox";
 import { format_tokens, session_tokens } from "./session-library-utils";
 
 interface CardProps {
@@ -35,7 +37,9 @@ export const SessionCard = memo(function SessionCard({
     onRender,
 }: CardProps) {
     onRender?.();
-    const session_command = resume_command(s.source, s.id);
+    const { config } = use_config();
+    // t403: 第三参接 config.resumeCommandTemplates；缺省/加载中回退内置默认。
+    const session_command = resume_command(s.source, s.id, config?.resumeCommandTemplates);
 
     function copy_session_command(): void {
         if (session_command === null) return;
@@ -53,25 +57,35 @@ export const SessionCard = memo(function SessionCard({
 
     return (
         <Card
-            raised
             className={cn(
-                "library-card group relative flex min-w-0 flex-col overflow-hidden p-0 transition-shadow hover:shadow-[var(--shadow-card)]",
+                "group relative flex min-w-0 flex-col overflow-hidden p-0 transition-shadow hover:shadow-card",
                 selected && "ring-1 ring-[var(--agent-accent)]",
             )}
+            data-testid="library-card"
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
         >
-            <div className="library-card-accent h-0.5 shrink-0 bg-[var(--agent-accent)]" />
-            <div className="library-card-body min-w-0 p-3">
-                <div className="library-card-head flex min-w-0 items-center gap-2">
-                    <span className="library-card-badge flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)]">
+            <div
+                className="h-0.5 shrink-0 bg-[var(--agent-accent)]"
+                data-testid="library-card-accent"
+            />
+            <div className="min-w-0 p-3">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--agent-accent)]"
+                        data-testid="library-card-badge"
+                    >
                         <VendorMark id={vendor_id_for_source(s.source)} size={20} />
                     </span>
-                    <div className="library-card-text flex min-w-0 flex-1 flex-col gap-0.5">
-                        <div className="library-card-top flex min-w-0 items-center gap-1 whitespace-nowrap text-[length:var(--text-label-md)]">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div
+                            className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[length:var(--text-label-md)]"
+                            data-testid="library-card-top"
+                        >
                             {s.directory ? (
                                 <>
                                     <span
-                                        className="library-card-cwd min-w-0 truncate text-[var(--color-on-surface-variant)]"
+                                        className="min-w-0 truncate text-[var(--color-on-surface-variant)]"
+                                        data-testid="library-card-cwd"
                                         title={s.directory}
                                     >
                                         {last_dir_segment(s.directory)}
@@ -81,32 +95,39 @@ export const SessionCard = memo(function SessionCard({
                                     </span>
                                 </>
                             ) : null}
-                            <span className="library-card-time shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]">
+                            <span className="shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]">
                                 {format_precise_datetime(s.ended_at)}
                             </span>
                         </div>
-                        <div className="library-card-meta flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
+                        <div
+                            className="flex min-w-0 items-center gap-1 truncate whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
+                            data-testid="library-card-meta"
+                        >
                             <span className="shrink-0">{String(s.calls)} 轮</span>
                             <span className="shrink-0">
                                 {` · ${format_tokens(session_tokens(s))} tokens`}
                             </span>
                             <span className="shrink-0"> · </span>
-                            <button
-                                type="button"
-                                className="library-card-session-id min-w-0 cursor-pointer truncate rounded border-0 bg-transparent p-0 text-left hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                            <Button
+                                variant="text"
+                                className="min-w-0 truncate p-0 text-left text-[length:var(--text-label-md)] font-[450] text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
+                                data-testid="library-card-session-id"
                                 title={session_command ?? undefined}
                                 onClick={copy_session_command}
                             >
                                 {s.id}
-                            </button>
+                            </Button>
                         </div>
-                        <div className="library-card-title min-w-0 truncate text-[11px] font-semibold text-[var(--color-on-surface)]">
+                        <div
+                            className="min-w-0 truncate text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface)]"
+                            data-testid="library-card-title"
+                        >
                             {s.title ?? s.id}
                         </div>
                     </div>
                 </div>
             </div>
-            <div className="library-card-actions flex gap-1.5 px-3 pb-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="flex gap-2 px-3 pb-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <Button
                     variant="secondary"
                     size="sm"
@@ -127,22 +148,17 @@ export const SessionCard = memo(function SessionCard({
                     预览
                 </Button>
             </div>
-            <button
-                type="button"
-                className={cn(
-                    "library-card-select absolute right-2 top-2 flex h-[22px] w-[22px] items-center justify-center rounded-md border text-[length:var(--text-label-md)] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                    selected
-                        ? "border-[var(--agent-accent)] bg-[var(--agent-accent)] text-[var(--color-on-primary)]"
-                        : "border-[var(--color-on-surface-variant)] bg-transparent text-transparent hover:border-[var(--agent-accent)]",
-                )}
+            <Checkbox
+                variant="select"
+                accent="agent"
+                boxSize="lg"
+                className="absolute right-2 top-2"
+                checked={selected}
                 aria-label={`会话 ${s.id}`}
-                aria-pressed={selected}
                 onClick={() => {
                     on_toggle(s);
                 }}
-            >
-                {selected ? "✓" : ""}
-            </button>
+            />
         </Card>
     );
 });

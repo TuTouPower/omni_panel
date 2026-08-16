@@ -1,6 +1,7 @@
 import type { UpcomingResetItem } from "../lib/provider-usage";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { DragGrip } from "./DragGrip";
+import { Badge } from "./ui/Badge";
 import { UpcomingResetRow } from "./UpcomingResetRow";
 
 export const UPCOMING_RESET_CARD_ID = "__upcoming_reset__";
@@ -33,14 +34,14 @@ export function UpcomingResetCard({
         <>
             {onDragStart && <DragGrip iconSize={18} />}
             <span
-                className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                 data-testid="card-name"
             >
                 即将重置
             </span>
-            <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold leading-normal text-[var(--color-accent)]">
+            <Badge variant="accent">
                 {items.length} 项
-            </span>
+            </Badge>
         </>
     );
     const drag_root_props = onDragStart
@@ -77,11 +78,11 @@ export function UpcomingResetCard({
             rootProps={drag_root_props}
         >
             {items.length === 0 ? (
-                <div className="px-2 pb-2.5 pt-4 text-center text-[12.5px] text-[var(--color-on-surface-muted)]">
+                <div className="px-2 pb-2.5 pt-4 text-center text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     当前无即将重置的用量项
                 </div>
             ) : (
-                <div className="flex flex-col gap-0.5 px-1 pb-1 pt-2">
+                <div className="flex flex-col gap-1 px-1 pb-1 pt-2">
                     {items.map((item) => {
                         const key = `${item.accountId}:${item.metricLabel}:${String(item.resetAt)}`;
                         return (

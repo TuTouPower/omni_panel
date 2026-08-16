@@ -1,0 +1,35 @@
+{
+  "tid": "t412",
+  "attempt": 1,
+  "execution_id": "a801b764934c42aca07b1d516cd19367",
+  "status": "done",
+  "branch": "t412_session_scrollbar_unify",
+  "base_sha": "5f7efdaaed5b4215ca29867d39df17029984ce62",
+  "tests": "pnpm test：276 files / 3306 passed / 2 skipped；pnpm typecheck 绿；pnpm designmd:check 绿",
+  "blackbox": "pnpm build 通过，产物含 .scrollbar-token::-webkit-scrollbar{width:6px;height:6px} 与 thumb/hover token；全仓 lint 存量 error 在未触文件 session-resume.ts/general_section.tsx，本 diff 路径干净",
+  "review": "第 3 轮 general PASS（Round1 minor f001 已修；Round2/3 零 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "globals.css @utility scrollbar-token：6px + transparent track + var(--color-scrollbar-thumb)",
+      "tests/unit/renderer/styles/session_scrollbar.test.ts 配方与五容器挂载断言通过",
+      "build 产物 .scrollbar-token::-webkit-scrollbar{width:6px;height:6px}"
+    ],
+    "AC-002": [
+      "scrollbar-token thumb:hover 引用 var(--color-scrollbar-thumb-hover)",
+      "DESIGN.md scrollbar-thumb-hover + -dark 导出；.dark 翻转",
+      "session_scrollbar.test.ts hover/dark 断言通过"
+    ],
+    "AC-003": [
+      "scrollbar-button display:none/width:0/height:0 折叠原生 ▲▼",
+      "SessionPane conversation-body relative + message-scroll + to-bottom absolute right 同侧结构断言"
+    ],
+    "AC-004": [
+      "[deploy] 暗色真实窗口人工目检：细条不抢眼，对齐 demo 6px 配方"
+    ],
+    "AC-005": [
+      "pnpm test 3306 passed / 2 skipped，无新增失败"
+    ]
+  },
+  "pending": [],
+  "findings": ["d041"]
+}

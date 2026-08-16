@@ -106,7 +106,7 @@ test.describe("popup view (web)", () => {
         await expect
             .poll(async () => webPage.evaluate(() => window.location.hash))
             .toBe("#session");
-        await expect(webPage.locator(".session-shell").first()).toBeVisible();
+        await expect(webPage.locator('[data-testid="session-shell"]').first()).toBeVisible();
         const received = await webPage.evaluate(
             () => (window as unknown as { __t311_focus: unknown[] }).__t311_focus,
         );

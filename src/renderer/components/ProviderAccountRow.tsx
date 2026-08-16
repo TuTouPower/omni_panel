@@ -5,12 +5,14 @@ import { createLogger } from "../../shared/lib/logger";
 import { is_auth_error } from "../../shared/lib/auth-error";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
-import { relative_time, cn } from "../lib/utils";
+import { relative_time } from "../lib/utils";
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { TrendSparkline } from "./TrendSparkline";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
+import { Button } from "./ui/Button";
+import { Segmented } from "./ui/Segmented";
 
 const log = createLogger("renderer:provider-account-row");
 
@@ -165,14 +167,14 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
             <div>
                 {display_label ? (
                     <div
-                        className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                         data-testid="card-name"
                     >
                         {display_label}
                     </div>
                 ) : null}
                 <div
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     {/* t174: stale 副本保留原数据时间后，相对时间取 per-账号
@@ -185,13 +187,13 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                           ? relative_time(account.updatedAt)
                           : ""}
                     {account.stale && (
-                        <span className="ml-1.5 font-[650] text-[var(--color-warning)]">
+                        <span className="ml-2 font-[650] text-[var(--color-warning)]">
                             已过期
                         </span>
                     )}
                     {_error && (
                         <span
-                            className="ml-1.5 font-[650] text-[var(--color-error)]"
+                            className="ml-2 font-[650] text-[var(--color-error)]"
                             title={_error}
                             data-testid="error-badge"
                         >
@@ -201,16 +203,16 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 </div>
             </div>
             {show_relogin_button && (
-                <button
-                    type="button"
-                    className="ml-auto cursor-pointer rounded-lg border-0 bg-transparent px-2.5 py-1 text-[12.5px] font-semibold text-[var(--color-accent)] hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)]"
+                <Button
+                    variant="text"
+                    className="ml-auto rounded-lg"
                     data-testid="row-relogin-btn"
                     onClick={() => {
                         _onReLogin(account.sourceInstanceId, account.accountId, provider);
                     }}
                 >
                     重新登录
-                </button>
+                </Button>
             )}
         </div>
     );
@@ -252,28 +254,20 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                 forcePercent={forcePercent}
             />
             {!collapsed && account.periods.length > 0 && (
-                <div className="mt-2.5 flex gap-1" role="group" aria-label="趋势窗口">
-                    {[1, 7, 30].map((d) => (
-                        <button
-                            key={d}
-                            type="button"
-                            className={cn(
-                                "cursor-pointer rounded-md border-[0.5px] bg-transparent px-2 py-0.5 text-[11px] text-[var(--color-on-surface-variant)] " +
-                                    "transition-feedback hover:bg-[var(--color-surface-raised)]",
-                                trend_days === d
-                                    ? " border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-primary)]"
-                                    : " border-[var(--color-outline)]",
-                            )}
-                            aria-pressed={trend_days === d}
-                            data-testid="trend-window-btn"
-                            onClick={() => {
-                                handle_window_change(d);
-                            }}
-                        >
-                            {d === 1 ? "1天" : d === 7 ? "7天" : "30天"}
-                        </button>
-                    ))}
-                </div>
+                <Segmented
+                    size="sm"
+                    className="mt-2.5"
+                    aria-label="趋势窗口"
+                    value={String(trend_days) as "1" | "7" | "30"}
+                    options={[
+                        { value: "1", label: "1天", "data-testid": "trend-window-btn" },
+                        { value: "7", label: "7天", "data-testid": "trend-window-btn" },
+                        { value: "30", label: "30天", "data-testid": "trend-window-btn" },
+                    ]}
+                    onChange={(next) => {
+                        handle_window_change(Number(next));
+                    }}
+                />
             )}
             {!collapsed &&
                 account.periods.map((period) => {

@@ -28,7 +28,7 @@ export function SessionSection({ secret_name, value, onChange, onLogin }: Sessio
     };
 
     return (
-        <div className="flex flex-col gap-1.5" data-testid={`session-section-${secret_name}`}>
+        <div className="flex flex-col gap-2" data-testid={`session-section-${secret_name}`}>
             <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 Cookie 字符串
             </label>

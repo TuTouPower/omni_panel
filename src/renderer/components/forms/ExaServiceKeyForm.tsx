@@ -63,7 +63,7 @@ export function ExaServiceKeyForm({
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     备注
                     <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
@@ -82,7 +82,7 @@ export function ExaServiceKeyForm({
                     placeholder="例如：工作账号"
                 />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     Service Key
                 </label>
@@ -99,7 +99,7 @@ export function ExaServiceKeyForm({
                     密钥仅加密保存在本地
                 </div>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     API Key ID
                 </label>
@@ -115,7 +115,7 @@ export function ExaServiceKeyForm({
                     placeholder="例如：my-key-id"
                 />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
                 <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                     限额
                     <span className="ml-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">

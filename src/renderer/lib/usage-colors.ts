@@ -6,21 +6,22 @@ export const DEFAULT_USAGE_BAR_COLOR_SCHEME: UsageBarColorScheme = "risk-current
 const log = createLogger("renderer:usage-colors");
 const should_log_raw = import.meta.env.DEV;
 
-const USAGE_COLORS = [
-    "#5B8CFF", // 1 主蓝
-    "#8B72F8", // 2 主紫
-    "#46C7C7", // 3 主青
-    "#7EA2FF", // 4 扩展蓝
-    "#A18CFF", // 5 扩展紫
-    "#72D4D1", // 6 扩展青
-    "#9CB8FF", // 7 浅蓝灰
-    "#B6A7FF", // 8 浅紫灰
-    "#A7D8D8", // 9 淡青灰
-];
+/** nine-cycle 九色：仅引用 token，hex 定义在 globals.css / DESIGN.md。 */
+export const USAGE_COLOR_TOKENS = [
+    "var(--color-usage-1)",
+    "var(--color-usage-2)",
+    "var(--color-usage-3)",
+    "var(--color-usage-4)",
+    "var(--color-usage-5)",
+    "var(--color-usage-6)",
+    "var(--color-usage-7)",
+    "var(--color-usage-8)",
+    "var(--color-usage-9)",
+] as const;
 
 export function usage_color(idx: number): string {
-    const n = USAGE_COLORS.length;
-    return USAGE_COLORS[((idx % n) + n) % n] ?? "#5B8CFF";
+    const n = USAGE_COLOR_TOKENS.length;
+    return USAGE_COLOR_TOKENS[((idx % n) + n) % n] ?? "var(--color-usage-1)";
 }
 
 function risk_current_level(pct: number): "green" | "yellow" | "orange" | "red" {

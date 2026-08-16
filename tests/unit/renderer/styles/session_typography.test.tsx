@@ -54,20 +54,15 @@ const META = {
 const VIEW = { show_time: true, compact: false };
 
 const PANE_PROPS = {
-    slot_index: 1,
     column: column(),
     slot_meta: META,
-    focused: false,
     outline_open: false,
     view: VIEW,
     is_selected: () => false,
     on_close: () => undefined,
     on_toggle: () => undefined,
     on_hover: () => undefined,
-    on_select_all: () => undefined,
-    on_clear_select: () => undefined,
     on_load_older: () => undefined,
-    on_focus: () => undefined,
     on_toggle_outline: () => undefined,
 };
 
@@ -89,16 +84,28 @@ function sess(id: string, source: string): TokenStatsSession {
     };
 }
 
-/** 从渲染元素的 className 解析字号（像素值）：text-[NNpx] 任意值或 rail 语义字号 token。 */
+/** 从渲染元素的 className 解析字号（像素值）：text-[length:var(--text-*)] 或历史裸 token。 */
 function font_px(class_name: string): number {
+    const length_var = /text-\[length:var\(--text-([a-z0-9-]+)\)\]/.exec(class_name);
+    const token_px: Record<string, number> = {
+        "display-num": 30,
+        "title-lg": 21,
+        "title-md": 17,
+        "title-sm": 15,
+        "body-md": 13.5,
+        "body-sm": 12.5,
+        "label-md": 11.5,
+        "label-caps": 10.5,
+        "code-md": 12.5,
+    };
+    if (length_var) {
+        const px = token_px[length_var[1] ?? ""];
+        if (px !== undefined) return px;
+    }
     const arbitrary = /text-\[(\d+(?:\.\d+)?)px\]/.exec(class_name);
     if (arbitrary) return Number(arbitrary[1]);
-    const semantic: Record<string, number> = {
-        "text-body-sm": 12.5,
-        "text-label-md": 11.5,
-    };
-    for (const [cls, px] of Object.entries(semantic)) {
-        if (class_name.includes(cls)) return px;
+    for (const [name, px] of Object.entries(token_px)) {
+        if (class_name.includes(`text-${name}`)) return px;
     }
     throw new Error(`未找到字号类: ${class_name}`);
 }
@@ -108,14 +115,14 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
         install_history_usageboard();
     });
 
-    it("会话面板标题字号小于元信息字号（title 11px < meta 13px，t257 互换）", () => {
+    it("会话面板标题字号小于元信息字号（title label-md < meta body-md，t424 归位）", () => {
         render(<SessionPane {...PANE_PROPS} />);
-        const title = require_el(".conversation-title");
-        const meta = require_el(".conversation-meta");
+        const title = require_el('[data-testid="conversation-title"]');
+        const meta = require_el('[data-testid="conversation-meta"]');
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
-        expect(title_px).toBe(11);
-        expect(meta_px).toBe(13);
+        expect(title_px).toBe(11.5);
+        expect(meta_px).toBe(13.5);
         expect(title_px).toBeLessThan(meta_px);
     });
 
@@ -126,13 +133,14 @@ describe("会话字号层级断言（渲染输出，t265/t273 改造）", () => 
             <SessionRail
                 slots={slots}
                 collapsed={false}
+                on_toggle_collapse={() => undefined}
                 on_pick={() => undefined}
                 on_close={() => undefined}
                 on_move={() => undefined}
             />,
         );
-        const title = require_el(".session-slot-title");
-        const meta = require_el(".session-slot-meta");
+        const title = require_el('[data-testid="session-slot-title"]');
+        const meta = require_el('[data-testid="session-slot-meta"]');
         const title_px = font_px(title.className);
         const meta_px = font_px(meta.className);
         expect(title_px).toBe(12.5);

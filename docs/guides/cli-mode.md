@@ -57,8 +57,9 @@ omni-panel serve --foreground [--config <path>] [--port <n>]  # 前台阻塞
 ```
 
 - 命令行默认是 CLI 模式：`omni_panel serve` 等价于旧 `omni_panel --cli serve`（launcher 自动注入 `--cli`）。`--cli` 前缀仍兼容。
+- 帮助（t400）：`omni_panel`（无参）/ `--help` / `-h` / `help` 四入口输出**同一份**帮助（含 `--gui` 与全部子命令）；真相源 `scripts/cli_help.mjs`。`omni_panel --cli help` 与上述一致（主进程打印同一常量）。help 不启动任何进程。
 - `--gui`：启动图形界面（双击桌面图标同效），非 CLI。
-- `serve`：唯一子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `omni-panel quit --port <n>` 停止。
+- `serve`：唯一常驻子命令，无窗口常驻运行。**默认后台运行**：命令打印面板地址后立即返回，服务在后台继续（stdout/stderr 落 `<dataRoot>/logs/serve-<时间戳>.log`），可用 `omni-panel quit --port <n>` 停止。
 - `--foreground`：可选。显式指定前台运行——打印面板地址后阻塞终端，`Ctrl+C` 停止（旧行为）。
 - `--config <path>`：可选。启动时把指定配置文件内容覆盖写入规范配置（`config.json`），并做 `.bak` 备份。配置文件是规范 config.json 形态，secret 参数（如 `API_KEY`）以明文内嵌于 `plugins[].parameterValues`；导入时明文 secret 转存加密 vault，落盘的规范配置只保留非 secret 参数与 `hasSecret` 标志。
 - `--port <n>`：可选。覆盖 local-api 监听端口，优先级高于 `OMNI_PANEL_PORT` 环境变量。

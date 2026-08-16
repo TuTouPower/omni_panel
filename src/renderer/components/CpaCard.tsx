@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
+import { StatusDot, type StatusTone } from "./ui/StatusDot";
 import { Switch } from "./ui/Switch";
 import { Icon, VendorMark, type VendorId } from "./Icon";
 import { AccountRow } from "./AccountRow";
@@ -35,23 +37,19 @@ interface CpaCardProps {
 }
 
 interface CpaStatus {
-    color: string;
+    tone: StatusTone;
     text: string;
     severity_class: string;
 }
 
 function get_cpa_status(status: CpaCardProps["status"], enabled: boolean): CpaStatus {
     if (!enabled || status === "disabled") {
-        return { color: "var(--color-on-surface-muted)", text: "已关闭", severity_class: "" };
+        return { tone: "neutral", text: "已关闭", severity_class: "" };
     }
     if (status === "partial" || status === "error") {
-        return {
-            color: "var(--color-risk-critical)",
-            text: "采集失败",
-            severity_class: " err",
-        };
+        return { tone: "error", text: "采集失败", severity_class: " err" };
     }
-    return { color: "var(--color-success)", text: "正常", severity_class: "" };
+    return { tone: "success", text: "正常", severity_class: "" };
 }
 
 export function CpaCard({
@@ -84,10 +82,9 @@ export function CpaCard({
     }, [rows]);
 
     return (
-        <div
+        <Card
             className={
-                "overflow-hidden rounded-[14px] border-[0.5px] border-[var(--color-outline)] " +
-                "bg-[var(--color-surface-card)] shadow-card transition-[opacity,box-shadow] duration-[0.16s]" +
+                "overflow-hidden p-0 transition-[opacity,box-shadow] duration-[0.16s]" +
                 (enabled ? "" : " opacity-[0.56]")
             }
             data-testid="account-card"
@@ -102,15 +99,15 @@ export function CpaCard({
                 data-mode="cpa-source"
             >
                 <VendorMark id="cpa" size={24} />
-                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span
-                        className="shrink-0 whitespace-nowrap text-[14px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                        className="shrink-0 whitespace-nowrap text-[length:var(--text-body-md)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                         data-testid="account-vendor"
                     >
                         CPA
                     </span>
                     {note && note !== "CPA" && (
-                        <span className="truncate text-[13.5px] font-[550] text-[var(--color-on-surface-muted)]">
+                        <span className="truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface-muted)]">
                             · {note}
                         </span>
                     )}
@@ -119,20 +116,17 @@ export function CpaCard({
                     className="flex w-[72px] shrink-0 items-center gap-2"
                     data-testid="account-status"
                 >
-                    <span
-                        className="h-[7px] w-[7px] shrink-0 rounded-full"
-                        style={{ background: cpa_status.color }}
-                    />
+                    <StatusDot tone={cpa_status.tone} />
                     <span
                         className={
-                            "whitespace-nowrap text-[11.5px] font-semibold text-[var(--color-on-surface-muted)]" +
+                            "whitespace-nowrap text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-muted)]" +
                             (cpa_status.severity_class ? " text-[var(--color-risk-critical)]" : "")
                         }
                     >
                         {cpa_status.text}
                     </span>
                 </span>
-                <div className="ml-auto flex shrink-0 items-center gap-[3px]">
+                <div className="ml-auto flex shrink-0 items-center gap-1">
                     <Switch
                         checked={enabled}
                         data-on={enabled ? "1" : "0"}
@@ -213,6 +207,6 @@ export function CpaCard({
                     }}
                 />
             ))}
-        </div>
+        </Card>
     );
 }

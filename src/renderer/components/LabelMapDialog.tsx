@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import { build_label_map_rows, type LabelMapRow } from "../lib/label-map-util";
+import { Alert } from "./ui/Alert";
 import { Button } from "./ui/Button";
+import { CodeChip } from "./ui/CodeChip";
 import { Dialog } from "./ui/Dialog";
 import { Input } from "./ui/Input";
 import { Icon } from "./Icon";
@@ -134,7 +136,7 @@ export function LabelMapDialog({
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
                             数据标签映射
                         </div>
-                        <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {vendor_id} · {account_name}
                         </div>
                     </div>
@@ -183,9 +185,9 @@ export function LabelMapDialog({
             }
         >
             {save_error && (
-                <div className="mb-3 rounded-md bg-[var(--color-error-container)] px-3 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-error-container)]">
+                <Alert tone="error" className="mb-3">
                     {save_error}
-                </div>
+                </Alert>
             )}
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-6 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
@@ -208,16 +210,16 @@ export function LabelMapDialog({
                 </div>
             ) : (
                 <>
-                    <div className="mb-3.5 flex items-center gap-1.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                    <div className="mb-3.5 flex items-center gap-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         <Icon name="info" size={13} />
                         以下标签来自接口最近一次返回
                         {synced ? ` · ${synced}` : ""}
                     </div>
-                    <div className="mb-2 flex items-center gap-3 px-0.5 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
+                    <div className="mb-2 flex items-center gap-3 px-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-wide text-[var(--color-on-surface-muted)]">
                         <span className="min-w-0 flex-1">原始标签（来自接口）</span>
                         <span className="w-[140px] shrink-0">显示名称</span>
                     </div>
-                    <div className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto">
+                    <div className="flex max-h-[280px] flex-col gap-2 overflow-y-auto">
                         {rows.map((r) => {
                             const v = effective(r);
                             const changed = v !== r.default;
@@ -229,12 +231,12 @@ export function LabelMapDialog({
                                 );
                             return (
                                 <div className="flex items-center gap-2" key={r.raw}>
-                                    <code
-                                        className="min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[var(--color-surface-raised)] px-2 py-1.5 font-[var(--font-code-md)] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                                    <CodeChip
+                                        className="min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
                                         title={r.raw}
                                     >
                                         {r.raw}
-                                    </code>
+                                    </CodeChip>
                                     <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                         <Icon name="chevron" size={14} />
                                     </span>

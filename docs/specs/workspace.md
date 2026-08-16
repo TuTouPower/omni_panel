@@ -13,23 +13,24 @@
 
 - 工具条保留左侧「最近会话」「清空」与「视图」下拉；视图下拉包含显示时间戳、紧凑模式和会话排布选择，不再显示独立的列数数字按钮条或工作台会话计数。
 - 「视图」下拉菜单按当前已装入会话数提供代表性列×行候选：6 个会话为 3×2 / 2×3，3 个会话为 3×1 / 2×2，8 个会话为 4×2 / 2×4；选择后沿用同一 `layout` 状态驱动网格列数，当前布局在菜单中有选中态。
+- **session-grid 间隙（t411）**：`.session-grid` 用透明 `gap-[var(--spacing-card-gap)]`（token 12px），去掉 `gap-px` + `bg-outline` + `p-px` 描线网格；间隙透出窗口底色，行列交汇处不再露星形洞。卡片保留自身描边与圆角；列数/行数与 `content-start` 策略不变。
 - 全空空态：无占用槽位时显示引导（去会话库 / 打开最近会话入口）。
 
 ## 会话面板（SessionPane，t225）
 
-- 头部：agent 识别色条 + provider logo 徽标（`claude_code`→`claude`、`kimi_code`→`kimi`、`grok`→`grok`、`opencode`→`opencode_go`；未知 source 使用 `overview` 兜底，复用 `VendorMark` 主题资源）+ 标题 + meta 行（source · model · cwd · 轮数 · tokens · 日期）；hover 浮现大纲/全选可见/清空选择/聚焦/关闭操作。
+- 头部：agent 识别色条 + provider logo 徽标（`claude_code`→`claude`、`kimi_code`→`kimi`、`grok`→`grok`、`opencode`→`opencode_go`；未知 source 使用 `overview` 兜底，复用 `VendorMark` 主题资源）+ 标题 + meta 行（source · model · cwd · 轮数 · tokens · 日期）；hover 浮现大纲/关闭操作（t409 移除全选可见/清空选择/聚焦面板）。
+- **面板拖拽换槽（t410）**：头部 `conversation-agent-badge` 为 HTML5 拖动手柄；拖到另一占用面板松开后调用 `move_slot_ui`（与侧栏 `SessionRail` 同语义交换两槽）；拖中源面板 `conversation-pane-dragging`（降透明度），悬停目标 `conversation-pane-drop-target`（primary ring）；无效区域松开或 dragEnd 不改槽；单击 icon 无副作用。侧栏既有拖拽行为不变；结果经既有 `workspace-slots` 持久化。
 - 消息区：Markdown 渲染（react-markdown@10 + remark-gfm@4，**无 rehype-raw**，会话 HTML 不当 HTML 执行）；相邻消息时间差超 10 分钟插分隔线；滚离底部超 120px 显示「回到底部」（点击回底，新消息在底部自动跟随）；加载骨架屏。
 - 大纲抽屉：pane 右侧滑出，每条消息一行（角色序号 U/A + 摘要 + 时间），点击滚动定位。
-- 聚焦模式：单面板铺满工作区（`.slot-grid.focused`），再次点击或 Esc 退出恢复原布局；关闭聚焦槽位/清空/替换时清聚焦索引。
-- 脚部：槽位号 + user/assistant 消息计数。
-- 快捷键：`1-8` 聚焦对应槽位、`[`/`]` 循环切换（无聚焦首入循环聚焦第一占用槽）、`Esc` 逐层退出（大纲 → 聚焦 → 普通态）。
+- 无面板 footer（t405）：不再渲染 `.conversation-foot` 槽位号/用户·Agent 消息计数条；`SessionPane` 不接收 `slot_index` prop。
+- 快捷键：`Esc` 关闭大纲；`Space` 选中/取消 hover 消息、`Ctrl+Shift+C` 复制托盘（markdown）。面板聚焦快捷键（`1-8`/`[`/`]`）已删除（t409）。
 
 ## 打开与超位
 
 - 入口重接：renderer 侧 `onFocus(loc)` 事件与 URL `loc` query 均走 `open_session` 装入槽位；已开则滚动聚焦该槽，槽满 toast「槽位已满（最多 8 个）」拒绝，不替换任何已有槽位。
 - 会话选择弹窗（picker）：点空槽位或「添加会话」打开；按标题/路径/ID 搜索、agent 筛选页签（带计数）、已打开会话标「已打开」；点行装入目标槽位。同 loc 已在槽内时 toast 拒绝（防双槽共享订阅导致关闭互毁）。
 - 最近会话弹窗：按 `ended_at` 倒序多选，上限 8（顺序角标），快捷「最近 2/4/6/8」；确认后清空全部槽位（先退订旧槽位防 watcher 泄漏）并替换。数据为最近 100 条（`RECENT_LIMIT` pragmat 截断）。
-- rail 满槽时「添加会话」disabled；rail 可折叠/展开。
+- rail 头部行内含槽位计数与折叠钮（t413，无独立 `session-rail-toggle-row`）；底部固定「添加会话」（展开文字/折叠态加号），满槽 disabled；rail 可折叠/展开。
 
 ## 摘选系统（SelectionTray，t226）
 
@@ -37,8 +38,7 @@
 - 消息行左侧 hover 浮现 checkbox（readOnly+onClick 取 shiftKey）；Shift 连选按会话独立锚点（非 Shift 点选才更新锚点）；选中态有视觉标识。
 - 底部托盘：按会话分组 chip（agent 缩写 + 角色序号 + 摘要 + token 估算 + 单条移除）；空态收成 40px 细条、有内容 ≥160（`effective_height`）；拖上沿调高（clamp 40-320，`clamp_tray_height`）；右侧片段数 + total tokens、格式下拉（Markdown/纯文本/按会话分组）、复制/清空。
 - 复制格式 `copy-format.ts` `format_entries`：三格式均含角色/agent/会话标题/时间戳；取代旧 `build_copy_markdown`（已删）。
-- 顶栏摘选计数徽标（与托盘同源，`useSyncExternalStore` count）；pane「全选可见」= 本 pane 当前已加载全部消息、「清空选择」= 清本会话。
-- 快捷键：`Space` 选中/取消 hover 消息、`Ctrl+Shift+C` 复制托盘（markdown）。
+- 顶栏摘选计数徽标（与托盘同源，`useSyncExternalStore` count）；消息逐条 checkbox 选择与托盘清空/复制；pane 头部全选/清空入口已删（t409）。
 - 选择视图一致性：WorkspaceView 订阅 store（`useSyncExternalStore`），set_session 在 count 不变时替换成员也触发面板勾选刷新。
 
 ## 订阅生命周期

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, DragEvent as ReactDragEvent } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import {
@@ -12,6 +12,7 @@ import type { PaneData } from "../../lib/workspace/pane";
 import { selection_store, type SelectedItem } from "../../lib/workspace/selection-store";
 import { format_entries } from "../../lib/workspace/copy-format";
 import { Button } from "../ui/Button";
+import { Toast } from "../ui/Toast";
 import { SessionRail } from "./SessionRail";
 import { SessionPickerModal } from "./SessionPickerModal";
 import { RecentSessionsModal } from "./RecentSessionsModal";
@@ -27,6 +28,8 @@ interface WorkspaceViewProps {
     view: PaneViewState;
     recent_open: boolean;
     rail_collapsed: boolean;
+    /** t413：折叠钮迁入 SessionRail 头部，状态仍由 SessionShell 持有。 */
+    on_rail_toggle: () => void;
     on_layout_change: (layout: LayoutCount) => void;
     on_recent: () => void;
     on_recent_close: () => void;
@@ -41,6 +44,7 @@ export function WorkspaceView({
     view,
     recent_open,
     rail_collapsed,
+    on_rail_toggle,
     on_layout_change,
     on_recent,
     on_recent_close,
@@ -63,8 +67,10 @@ export function WorkspaceView({
 
     const [container_width, set_container_width] = useState(() => window.innerWidth);
     const [picker_target, set_picker_target] = useState<number | null>(null);
-    const [focused_index, set_focused_index] = useState<number | null>(null);
     const [outline_index, set_outline_index] = useState<number | null>(null);
+    // t410：面板 agent icon 拖拽换槽（语义同侧栏 move_slot_ui）。
+    const [pane_drag_from, set_pane_drag_from] = useState<number | null>(null);
+    const [pane_drop_over, set_pane_drop_over] = useState<number | null>(null);
 
     const container_ref = useRef<HTMLDivElement | null>(null);
     const anchors_ref = useRef<Record<string, string>>({});
@@ -81,7 +87,6 @@ export function WorkspaceView({
     const close_slot = useCallback(
         (index: number): void => {
             hook_close_slot(index);
-            set_focused_index((prev) => (prev === index ? null : prev));
             set_outline_index((prev) => (prev === index ? null : prev));
         },
         [hook_close_slot],
@@ -89,7 +94,6 @@ export function WorkspaceView({
 
     const clear_all = useCallback((): void => {
         hook_clear_all();
-        set_focused_index(null);
         set_outline_index(null);
     }, [hook_clear_all]);
 
@@ -104,7 +108,6 @@ export function WorkspaceView({
             on_recent_close();
             if (sessions.length === 0) return;
             hook_clear_all();
-            set_focused_index(null);
             set_outline_index(null);
             for (const sess of sessions) {
                 open_session(
@@ -167,22 +170,6 @@ export function WorkspaceView({
         [columns, make_item, shift_select],
     );
 
-    const select_all_in_column = useCallback(
-        (loc: Loc): void => {
-            const col = columns[loc_key(loc)];
-            if (!col) return;
-            selection_store.set_session(
-                loc,
-                col.messages.map((m) => make_item(loc, m, col)),
-            );
-        },
-        [columns, make_item],
-    );
-
-    const clear_selection_in_column = useCallback((loc: Loc): void => {
-        selection_store.clear_session(loc);
-    }, []);
-
     const is_selected = useCallback(
         (loc: Loc, id: string): boolean => selection_store.has(loc, id),
         [],
@@ -238,43 +225,16 @@ export function WorkspaceView({
                 (target instanceof HTMLElement && target.isContentEditable);
             if (in_editable) return;
 
-            const occupied = slots_state
-                .map((s, i) => (s === null ? null : i))
-                .filter((i): i is number => i !== null);
-
-            if (e.key === "Escape") {
-                if (outline_index !== null) {
-                    set_outline_index(null);
-                } else if (focused_index !== null) {
-                    set_focused_index(null);
-                }
-                return;
-            }
-
-            if (/^[1-8]$/.test(e.key)) {
-                const idx = Number.parseInt(e.key, 10) - 1;
-                if (slots_state[idx] !== null) set_focused_index(idx);
-                return;
-            }
-
-            if (e.key === "[" || e.key === "]") {
-                if (occupied.length === 0) return;
-                if (focused_index === null || !occupied.includes(focused_index)) {
-                    set_focused_index(occupied[0] ?? null);
-                    return;
-                }
-                const pos = occupied.indexOf(focused_index);
-                const dir = e.key === "[" ? -1 : 1;
-                const next_pos = (pos + dir + occupied.length) % occupied.length;
-                const next = occupied[next_pos] ?? occupied[0] ?? null;
-                if (next !== null) set_focused_index(next);
+            // t409：聚焦面板已删；Esc 仅关闭大纲。
+            if (e.key === "Escape" && outline_index !== null) {
+                set_outline_index(null);
             }
         }
         window.addEventListener("keydown", on_keydown);
         return () => {
             window.removeEventListener("keydown", on_keydown);
         };
-    }, [slots_state, focused_index, outline_index]);
+    }, [outline_index]);
 
     const count = occupied_count(slots_state);
 
@@ -305,29 +265,67 @@ export function WorkspaceView({
         set_picker_target(index);
     }, []);
 
+    const clear_pane_drag = useCallback((): void => {
+        set_pane_drag_from(null);
+        set_pane_drop_over(null);
+    }, []);
+
+    const handle_pane_drag_start = useCallback((index: number): void => {
+        set_pane_drag_from(index);
+        set_pane_drop_over(null);
+    }, []);
+
+    const handle_pane_drag_over = useCallback(
+        (index: number, e: ReactDragEvent): void => {
+            if (pane_drag_from === null || pane_drag_from === index) return;
+            e.preventDefault();
+            set_pane_drop_over((prev) => (prev === index ? prev : index));
+        },
+        [pane_drag_from],
+    );
+
+    const handle_pane_drag_leave = useCallback((index: number, e: ReactDragEvent): void => {
+        // 仅在离开当前 pane 根节点时清高亮（子节点 enter/leave 冒泡忽略）。
+        const related = e.relatedTarget;
+        if (related instanceof Node && e.currentTarget.contains(related)) return;
+        set_pane_drop_over((prev) => (prev === index ? null : prev));
+    }, []);
+
+    const handle_pane_drop = useCallback(
+        (index: number, e: ReactDragEvent): void => {
+            e.preventDefault();
+            if (pane_drag_from !== null && pane_drag_from !== index) {
+                move_slot_ui(pane_drag_from, index);
+            }
+            clear_pane_drag();
+        },
+        [pane_drag_from, move_slot_ui, clear_pane_drag],
+    );
+
     return (
-        <div className="session-workspace flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]">
-            <div className="session-workspace-body flex min-h-0 flex-1">
+        <div
+            className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--color-surface-window)]"
+            data-testid="session-workspace"
+        >
+            <div className="flex min-h-0 flex-1" data-testid="session-workspace-body">
                 <SessionRail
                     slots={slots_state}
                     collapsed={rail_collapsed}
+                    on_toggle_collapse={on_rail_toggle}
                     on_pick={open_picker}
                     on_close={close_slot}
                     on_move={move_slot_ui}
                 />
-                <div
-                    className="session-workspace-main flex min-w-0 flex-1 overflow-auto"
-                    ref={container_ref}
-                >
+                <div className="flex min-w-0 flex-1 overflow-auto" ref={container_ref}>
                     {count === 0 ? (
-                        <div className="session-workspace-empty flex flex-1 flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
-                            <p className="session-workspace-empty-title text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
+                        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center">
+                            <p className="text-[length:var(--text-title-md)] font-semibold text-[var(--color-on-surface)]">
                                 工作台为空
                             </p>
-                            <p className="session-workspace-empty-sub text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                            <p className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                                 打开最近会话，或从会话库选择会话装入槽位
                             </p>
-                            <div className="session-workspace-empty-actions mt-3 flex gap-2.5">
+                            <div className="mt-3 flex gap-2.5">
                                 <Button variant="secondary" onClick={on_recent}>
                                     打开最近会话
                                 </Button>
@@ -343,28 +341,19 @@ export function WorkspaceView({
                         </div>
                     ) : (
                         <div
-                            className={
-                                "session-grid relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-px bg-[var(--color-outline)] p-px" +
-                                (focused_index !== null ? " focused" : "")
-                            }
+                            className="relative grid min-w-0 flex-1 grid-cols-[repeat(var(--cols),minmax(0,1fr))] auto-rows-[minmax(0,1fr)] content-start gap-[var(--spacing-card-gap)]"
+                            data-testid="session-grid"
                             style={{ "--cols": String(cols) } as CSSProperties}
                         >
                             {slots_state.map((slot, index) =>
                                 slot === null ? null : (
                                     <div
-                                        className={
-                                            "session-cell flex min-h-0 min-w-0 bg-[var(--color-surface-window)]" +
-                                            (focused_index !== null && focused_index !== index
-                                                ? " hidden"
-                                                : "") +
-                                            (focused_index === index ? " col-span-full" : "")
-                                        }
+                                        className="flex min-h-0 min-w-0 bg-[var(--color-surface-window)]"
+                                        data-testid="session-cell"
                                         key={loc_key(slot.loc)}
                                         data-loc-key={loc_key(slot.loc)}
-                                        data-focused={focused_index === index}
                                     >
                                         <SessionPane
-                                            slot_index={index}
                                             slot_meta={slot}
                                             column={
                                                 columns[loc_key(slot.loc)] ?? {
@@ -377,7 +366,6 @@ export function WorkspaceView({
                                                     status: "loading",
                                                 }
                                             }
-                                            focused={focused_index === index}
                                             outline_open={outline_index === index}
                                             view={view}
                                             is_selected={(id) => is_selected(slot.loc, id)}
@@ -390,19 +378,8 @@ export function WorkspaceView({
                                             on_hover={(id) => {
                                                 set_hovered(slot.loc, id);
                                             }}
-                                            on_select_all={() => {
-                                                select_all_in_column(slot.loc);
-                                            }}
-                                            on_clear_select={() => {
-                                                clear_selection_in_column(slot.loc);
-                                            }}
                                             on_load_older={() => {
                                                 load_older(slot.loc);
-                                            }}
-                                            on_focus={() => {
-                                                set_focused_index((prev) =>
-                                                    prev === index ? null : index,
-                                                );
                                             }}
                                             on_toggle_outline={() => {
                                                 set_outline_index((prev) =>
@@ -410,6 +387,25 @@ export function WorkspaceView({
                                                 );
                                             }}
                                             show_toast={show_toast}
+                                            dragging={pane_drag_from === index}
+                                            drop_active={
+                                                pane_drop_over === index &&
+                                                pane_drag_from !== null &&
+                                                pane_drag_from !== index
+                                            }
+                                            on_drag_start={() => {
+                                                handle_pane_drag_start(index);
+                                            }}
+                                            on_drag_end={clear_pane_drag}
+                                            on_drag_over={(e) => {
+                                                handle_pane_drag_over(index, e);
+                                            }}
+                                            on_drag_leave={(e) => {
+                                                handle_pane_drag_leave(index, e);
+                                            }}
+                                            on_drop={(e) => {
+                                                handle_pane_drop(index, e);
+                                            }}
                                         />
                                     </div>
                                 ),
@@ -438,11 +434,7 @@ export function WorkspaceView({
             {recent_open && (
                 <RecentSessionsModal on_confirm={confirm_recent} on_close={on_recent_close} />
             )}
-            {toast !== null && (
-                <div className="session-toast fixed bottom-7 left-1/2 z-[var(--z-context)] -translate-x-1/2 rounded-[10px] border border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_92%,transparent)] px-[18px] py-[9px] text-[length:var(--text-body-md)] font-medium text-[var(--color-on-surface)] shadow-[var(--shadow-menu)]">
-                    {toast}
-                </div>
-            )}
+            {toast !== null && <Toast data-testid="session-toast">{toast}</Toast>}
         </div>
     );
 }

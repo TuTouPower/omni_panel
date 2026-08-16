@@ -26,14 +26,25 @@ function apply_theme_mode(mode: ThemeMode | undefined): void {
  * t268: 五档预设 accent 的 light/dark 值（DESIGN.md Colors 节）。
  * 预设 hex → 对应 accent key；自定义 hex → base 色（派生 strong/container/ring 由
  * color-mix 在 CSS 完成）；非法/缺失 → blue。
+ * t418: 本表为 accent 预设 hex 的唯一代码侧来源；UI 须从此导出，不得另写副本。
  */
-const ACCENT_PRESETS: Record<string, string> = {
-    "#3d7afd": "blue",
-    "#6f5cf6": "purple",
-    "#0ea5a3": "teal",
-    "#f5772f": "orange",
-    "#e23744": "red",
-};
+const ACCENT_PRESET_LIST = [
+    { hex: "#3d7afd", key: "blue" },
+    { hex: "#6f5cf6", key: "purple" },
+    { hex: "#0ea5a3", key: "teal" },
+    { hex: "#f5772f", key: "orange" },
+    { hex: "#e23744", key: "red" },
+] as const;
+
+export const ACCENT_PRESETS: Readonly<Record<string, string>> = Object.fromEntries(
+    ACCENT_PRESET_LIST.map((p) => [p.hex, p.key]),
+);
+
+/** 五档预设 hex 有序列表（= UI swatch 顺序）。 */
+export const ACCENT_PRESET_COLORS: readonly string[] = ACCENT_PRESET_LIST.map((p) => p.hex);
+
+/** 默认强调色 = 映射表第一档（blue）。 */
+export const DEFAULT_ACCENT_COLOR: string = ACCENT_PRESET_LIST[0].hex;
 
 export function apply_accent(accent_color: string | undefined) {
     const root = document.documentElement;

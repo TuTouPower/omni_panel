@@ -1,5 +1,6 @@
 import { AccountRow } from "./AccountRow";
 import type { VendorId } from "./Icon";
+import { Card } from "./ui/Card";
 
 interface VendorCardRow {
     instance_id: string;
@@ -28,8 +29,8 @@ export function VendorCard({
     desensitizeRemarks = false,
 }: VendorCardProps) {
     return (
-        <div
-            className="overflow-hidden rounded-[14px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-card)] shadow-card transition-[opacity,box-shadow] duration-[0.16s]"
+        <Card
+            className="overflow-hidden p-0 transition-[opacity,box-shadow] duration-[0.16s]"
             data-testid="account-card"
         >
             {rows.map((row) => (
@@ -55,6 +56,6 @@ export function VendorCard({
                     }}
                 />
             ))}
-        </div>
+        </Card>
     );
 }

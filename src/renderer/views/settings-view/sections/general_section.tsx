@@ -10,6 +10,11 @@ import {
     refresh_seconds_to_label,
 } from "../../../lib/refresh-intervals";
 import {
+    DEFAULT_RESUME_COMMAND_TEMPLATES,
+    RESUME_COMMAND_SOURCES,
+    type ResumeCommandSource,
+} from "../../../lib/session-resume";
+import {
     FLOATING_HEIGHT_MODE_LABELS,
     LOG_LEVEL_OPTIONS,
     MAIN_PANEL_MODE_LABELS,
@@ -20,6 +25,38 @@ import {
     main_panel_mode_label_to_value,
     main_panel_mode_value_to_label,
 } from "../lib";
+
+const RESUME_SOURCE_TITLES: Record<ResumeCommandSource, string> = {
+    claude_code: "Claude Code",
+    kimi_code: "Kimi Code",
+    grok: "Grok",
+    opencode: "OpenCode",
+};
+
+function save_resume_template(
+    config: AppConfiguration,
+    save_config: (payload: AppConfiguration) => Promise<void>,
+    source: ResumeCommandSource,
+    raw: string,
+): void {
+    const next: Record<string, string> = {};
+    for (const [k, v] of Object.entries(config.resumeCommandTemplates ?? {})) {
+        if (typeof v === "string") next[k] = v;
+    }
+    const val = raw.trim();
+    if (val === "") {
+        delete next[source];
+    } else {
+        next[source] = val;
+    }
+    const base = Object.fromEntries(
+        Object.entries(config).filter(([k]) => k !== "resumeCommandTemplates"),
+    );
+    void save_config({
+        ...(base as typeof config),
+        ...(Object.keys(next).length > 0 ? { resumeCommandTemplates: next } : {}),
+    });
+}
 
 export function GeneralSection({
     config,
@@ -205,6 +242,27 @@ export function GeneralSection({
                     ))}
                 </Select>
             </SetRow>
+            <SetGroupLabel>会话续接命令</SetGroupLabel>
+            <SetRow
+                title="命令模板"
+                sub="点击 session ID 时复制的命令；用 {session_id} 占位。留空使用内置默认"
+            >
+                <span aria-hidden="true" />
+            </SetRow>
+            {RESUME_COMMAND_SOURCES.map((source) => (
+                <SetRow key={source} title={RESUME_SOURCE_TITLES[source]} sub={source}>
+                    <Input
+                        aria-label={`续接命令 ${source}`}
+                        className="min-w-[220px] font-[var(--font-code-md)]"
+                        value={config.resumeCommandTemplates?.[source] ?? ""}
+                        placeholder={DEFAULT_RESUME_COMMAND_TEMPLATES[source]}
+                        onChange={(e) => {
+                            save_resume_template(config, save_config, source, e.target.value);
+                        }}
+                    />
+                </SetRow>
+            ))}
+
             <SetGroupLabel>其他</SetGroupLabel>
             <SetRow title="界面脱敏" sub="隐藏所有账号备注名（用量面板与设置面板）">
                 <Switch

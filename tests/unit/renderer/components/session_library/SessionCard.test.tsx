@@ -60,7 +60,7 @@ function render_card(overrides: RenderCardOverrides = {}) {
 
 /** 第二行 session id 按钮（目录末级可能与 id 同文本，用类选择器定位）。 */
 function session_id_button(): HTMLButtonElement {
-    const el = document.querySelector<HTMLButtonElement>(".library-card-session-id");
+    const el = document.querySelector<HTMLButtonElement>('[data-testid="library-card-session-id"]');
     if (!el) throw new Error("library-card-session-id missing");
     return el;
 }
@@ -76,26 +76,26 @@ describe("SessionCard (t326)", () => {
         render_card({
             s: sess("sess_a", "claude_code", { ended_at: ts, directory: "/path/to/proj" }),
         });
-        const first = document.querySelector(".library-card-top");
+        const first = document.querySelector('[data-testid="library-card-top"]');
         if (!first) throw new Error("library-card-top missing");
         expect(first.textContent).toContain("proj");
         expect(first.textContent).toContain("2026-08-07 09:08:07");
         expect(first.textContent).not.toContain("/path/to/proj");
-        expect(document.querySelector(".library-card-cwd")?.textContent).toBe("proj");
+        expect(document.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe("proj");
     });
 
     it("AC1：directory 为空时第一行仅渲染时间", () => {
         const ts = new Date(2026, 0, 2, 3, 4, 5).getTime();
         render_card({ s: sess("sess_a", "claude_code", { directory: null, ended_at: ts }) });
-        const first = document.querySelector(".library-card-top");
+        const first = document.querySelector('[data-testid="library-card-top"]');
         if (!first) throw new Error("library-card-top missing");
         expect(first.textContent).toContain("2026-01-02 03:04:05");
-        expect(document.querySelector(".library-card-cwd")).toBeNull();
+        expect(document.querySelector('[data-testid="library-card-cwd"]')).toBeNull();
     });
 
     it("AC2：第二行渲染 轮次 / tokens / session id（内容与数据源一致）", () => {
         render_card({ s: sess("sess_a", "claude_code", { calls: 5 }) });
-        const second = document.querySelector(".library-card-meta");
+        const second = document.querySelector('[data-testid="library-card-meta"]');
         if (!second) throw new Error("library-card-meta missing");
         expect(second.textContent).toContain("5 轮");
         expect(second.textContent).toContain("375 tokens");
@@ -104,7 +104,7 @@ describe("SessionCard (t326)", () => {
 
     it("AC3：第三行渲染会话名（单行），摘要行不再渲染", () => {
         render_card({ s: sess("sess_a", "claude_code", { title: "会话标题" }) });
-        const third = document.querySelector(".library-card-title");
+        const third = document.querySelector('[data-testid="library-card-title"]');
         if (!third) throw new Error("library-card-title missing");
         expect(third.textContent).toContain("会话标题");
         expect(document.querySelector(".library-card-summary")).toBeNull();
@@ -112,7 +112,7 @@ describe("SessionCard (t326)", () => {
 
     it("AC4：徽标渲染 VendorMark logo，不再渲染 agent 字母缩写", () => {
         render_card({ s: sess("sess_a", "claude_code") });
-        const badge = document.querySelector(".library-card-badge");
+        const badge = document.querySelector('[data-testid="library-card-badge"]');
         if (!badge) throw new Error("library-card-badge missing");
         expect(badge.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
         expect(badge.textContent).toBe("");
@@ -167,5 +167,76 @@ describe("SessionCard (t326)", () => {
         expect(on_preview).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
         fireEvent.click(screen.getByRole("button", { name: "会话 sess_a" }));
         expect(on_toggle).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
+    });
+});
+
+describe("SessionCard 自定义续接命令模板 (t403)", () => {
+    const base_cfg = {
+        schemaVersion: 1 as const,
+        language: "zh-Hans" as const,
+        launchAtLogin: false,
+        plugins: [],
+    };
+
+    function mock_config(
+        resumeCommandTemplates?: Readonly<Partial<Record<string, string>>>,
+    ): void {
+        window.usageboard.config.get = vi.fn().mockResolvedValue({
+            config: {
+                ...base_cfg,
+                ...(resumeCommandTemplates
+                    ? { resumeCommandTemplates }
+                    : {}),
+            },
+            hasSecrets: {},
+        });
+    }
+
+    beforeEach(() => {
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("AC-002：配置 kimi 自定义模板后点击 session id 复制替换后命令", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render_card({ s: sess("sess_kimi", "kimi_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        fireEvent.click(session_id_button());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("kimi --yolo -r sess_kimi");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-003：未配置自定义模板的来源仍复制内置默认命令", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render_card({ s: sess("sess_a", "claude_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("claude --resume sess_a");
+        });
+        fireEvent.click(session_id_button());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("claude --resume sess_a");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-004：clipboard 缺失时静默跳过、无 toast", async () => {
+        mock_config({ kimi_code: "kimi --yolo -r {session_id}" });
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render_card({ s: sess("sess_kimi", "kimi_code"), show_toast: toast_spy });
+        await waitFor(() => {
+            expect(session_id_button().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        expect(() => fireEvent.click(session_id_button())).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
     });
 });

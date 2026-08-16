@@ -209,6 +209,29 @@ describe("appConfigurationSchema", () => {
         });
     });
 
+    it("t401 AC-005: preserves resumeCommandTemplates through parse (not stripped)", () => {
+        const templates = { kimi_code: "kimi --yolo -r {session_id}" };
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            resumeCommandTemplates: templates,
+        });
+        expect(parsed.resumeCommandTemplates).toEqual(templates);
+    });
+
+    it("t401 AC-006: absent resumeCommandTemplates stays undefined (legacy compatible)", () => {
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+        });
+        expect(parsed).not.toHaveProperty("resumeCommandTemplates");
+        expect(parsed.resumeCommandTemplates).toBeUndefined();
+    });
+
     it("t398 AC-002: accepts cacheMaxMb=0（不限制）", () => {
         // settings data_section「不限制」保存 cacheMaxMb: 0；min(1) 会拒绝致无法
         // 持久化。schema 放行 0（不限制语义），retention 0 分支可达。

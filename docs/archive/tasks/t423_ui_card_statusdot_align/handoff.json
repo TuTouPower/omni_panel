@@ -1,0 +1,31 @@
+{
+  "tid": "t423",
+  "attempt": 1,
+  "execution_id": "49a7d3bfee494d0c9c67f304db651291",
+  "status": "done",
+  "branch": "t423_ui_card_statusdot_align",
+  "base_sha": "f01a033eadc974c4bb33947976c921544fde7012",
+  "tests": "pnpm test：3342 passed, 9 skipped",
+  "blackbox": "pnpm test 全绿；typecheck 绿；触达文件 lint 绿（全仓存量 lint 见 p190）",
+  "review": "第 1 轮 general PASS（零 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "ui/Card.tsx 含 shadow-card + rounded-lg + spacing-card-padding",
+      "CollapsibleCard/SkeletonCard/TokenPanel/VendorCard/CpaCard 改走 Card",
+      "tests/unit/renderer/components/ui/ui.test.tsx Card shadow + 业务手拼卡片 grep 清零"
+    ],
+    "AC-002": [
+      "ui/StatusDot.tsx：h-[7px]/w-[7px] + tone 同色 16% ring 光晕",
+      "UpcomingResetRow/UsageRows/CpaConnectorSettings/CpaCard/AccountRow 改走 StatusDot",
+      "inline style background 清零；ui.test StatusDot 形态 + 手拼点 grep 清零"
+    ],
+    "AC-003": [
+      "[deploy] 需人工目检：卡片 shadow-card 明暗主题、状态点各处观感统一"
+    ],
+    "AC-004": [
+      "pnpm test：3342 passed / 9 skipped（全绿）"
+    ]
+  },
+  "pending": ["p191"],
+  "findings": ["d047"]
+}

@@ -195,9 +195,9 @@ export function TrayMenu() {
             data-testid="tray-window"
             ref={menu_ref}
         >
-            <div className="mb-0.5 flex items-center gap-2 border-b-[0.5px] border-b-[var(--color-hairline)] px-3.5 py-3 text-[13.5px] font-bold text-[var(--color-on-surface)]">
+            <div className="mb-1 flex items-center gap-2 border-b-[0.5px] border-b-[var(--color-hairline)] px-3.5 py-3 text-[length:var(--text-body-md)] font-bold text-[var(--color-on-surface)]">
                 <img
-                    className="block h-6 w-6 shrink-0 object-contain drop-shadow-[0_3px_7px_rgba(61,122,253,0.26)]"
+                    className="logo-drop-shadow block h-6 w-6 shrink-0 object-contain"
                     src={logo}
                     alt=""
                     width={24}
@@ -205,7 +205,7 @@ export function TrayMenu() {
                 />
                 <span>OmniPanel</span>
             </div>
-            <div className="p-[7px]" data-testid="tray-menu-body">
+            <div className="p-2" data-testid="tray-menu-body">
                 <Menu>
                     {items.map((item, i) => (
                         <div key={i}>
