@@ -2,19 +2,22 @@
 
 ## 背景
 
-前端 originalToAlias 先写获胜（`src/renderer/views/TokenStatsView.tsx:533-541`，`if (!map.has(m)) map.set(m, alias)` :537），后端 dashboard_alias_resolver 后写覆盖（`src/main/core/token-stats/token-stats-store.ts:349-357`，`lookup.set(key, item.alias)` :354，且被测试锁定 `token-stats-store.test.ts:2691`）。同一 key 出现在多个 alias 组时，prefs 残留 key 归一可能归到先声明 alias 而筛选按后声明展开，两侧不一致致筛选语义漂移。规范碰撞场景（每 key 单 alias）不受影响。
+前端 originalToAlias 先写获胜（`src/renderer/views/TokenStatsView.tsx`，`if (!map.has(m)) map.set(m, alias)`），后端 dashboard_alias_resolver 后写覆盖（`token-stats-store.ts` lookup.set，且被测试锁定）。同一 key 出现在多个 alias 组时，prefs 归一与筛选展开可能不一致。另：rollup ready 后 union 路径缺 agent+model 组合过滤与跨 model 同 session 的 sessions 去重断言（p183）。
 
 ## 契约区
 
 ### 范围
 
 - 统一前后端「key→alias 归并」策略，使 prefs 归一与筛选展开一致；同步两侧测试。
+- 在 `tests/unit/main/core/token-stats/token-stats-store.test.ts`（或同目录）补 rollup-ready union 路径用例：agent+model 组合过滤；跨 model 同 session 的 sessions 去重（COUNT(DISTINCT) / 列表无重复 session）；触达 dashboard_window_union_builder 双源路径。
 
 ### 非范围
 
 - 不改 model_aliases 配置格式。
 - 不引入传递闭包。
 - 不重做 t384 已落地的 IN 归并展开。
+- 不新增 store 层与 union 过滤无关的行为（union 用例只补测试，不借机改生产逻辑，除非 alias 统一所必需）。
+- 不改既有用例语义（除为对齐 alias 新语义而必须改的锁定测试）。
 
 ### 验收标准
 
@@ -39,6 +42,9 @@
 - [ ] AC-001：multi-alias 配置（同一原始 key 出现在 ≥2 个 alias 组）下，前端 originalToAlias 对 prefs 残留 key 的归一结果与后端 resolver 展开语义一致（同一策略；可观察：筛选该 key 命中的模型集合与按该策略预期一致）。
 - [ ] AC-002：单 alias（每 key 唯一组）配置下筛选与归一行为与 t384 后现状完全不变（回归）。
 - [ ] AC-003：两侧策略统一后，测试断言同步锁定新语义（可区分修复前后）。
+- [ ] AC-004：rollup ready（is_hour_rollup_ready()=true）下 agent+model 组合过滤用例：rollup union 与 records fallback 两条路径均只返回匹配行。
+- [ ] AC-005：跨 model 同 session 用例：sessions 维度去重（COUNT(DISTINCT session) / sessions 列表无重复 session）。
+- [ ] AC-006：既有 token-stats 相关用例不回归（全量相关测试绿）。
 
 ### 可测试性声明
 
@@ -52,7 +58,7 @@
 
 ## 上下文区
 
-- 来源：p182（t384 reviewer f002 登记；2026-08-16 核实仍待处理，描述与现状一致）
+- 来源：p182（alias 前后端不一致）；p183（union 路径测试缺口）；merge t428+t429。
 
 ### 有意不测
 
@@ -72,7 +78,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 按项目默认（token-stats-store.test.ts / token_stats_view.test.tsx 现有范式）。
+- alias：token-stats-store.test.ts / token_stats_view.test.tsx 现有范式。
+- union：沿用 :2300/:2644 范式与 record() fixture；必须显式断言 is_hour_rollup_ready，避免空跑。
 
 ### 未知契约清单
 
@@ -87,7 +94,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 ### 风险与回退
 
 - 风险：两侧语义哪个为准由实现自决，需保持与 t384「resolver 为准」方向一致。
-- 回退：还原单侧实现。
+- 风险：union 用例未触达 ready 路径即空跑——须断言 ready。
+- 回退：还原 alias 单侧实现；删除新增 union 用例。
 
 ### 依赖与约束
 

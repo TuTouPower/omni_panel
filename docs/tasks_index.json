@@ -51,7 +51,7 @@
         {
             "tid": "t428",
             "slug": "model_alias_map_semantics_unify",
-            "title": "统一 model alias 映射前后端语义",
+            "title": "统一 model alias 语义并补 union 路径测试",
             "status": "backlog",
             "branch": "",
             "worktree": "",
@@ -59,29 +59,14 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
+            "schedule_status": "pending_clarification",
+            "note": "merged from t429",
             "dir": "docs/tasks/t428_model_alias_map_semantics_unify"
-        },
-        {
-            "tid": "t429",
-            "slug": "token_stats_union_test_extension",
-            "title": "token-stats union 路径测试扩展（agent+model 组合 + sessions 去重）",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t429_token_stats_union_test_extension"
         },
         {
             "tid": "t430",
             "slug": "session_directory_display_semantics",
-            "title": "会话列表跨 directory 的 directory 展示语义统一",
+            "title": "会话 directory 语义与 demo CwdPath basename 展示",
             "status": "backlog",
             "branch": "",
             "worktree": "",
@@ -89,8 +74,8 @@
             "diff_anchor": "",
             "depends_on": "",
             "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
+            "schedule_status": "pending_clarification",
+            "note": "merged from t431",
             "dir": "docs/tasks/t430_session_directory_display_semantics"
         },
         {

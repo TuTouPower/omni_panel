@@ -2,19 +2,20 @@
 
 ## 背景
 
-rollup ready 路径 `dashboard_session_page_from_meta`（`src/main/core/token-stats/token-stats-store.ts:774-801`）按 session 聚合时 directory 取 `MAX(directory)`（:789，字典序大者）；records 路径 `materialize_session_meta` from_records=true（:723-740）取 ROW_NUMBER() 最新记录目录（:728-731）。跨多 directory 会话两条路径展示不一致。仅展示字段差异，无数字错误。spec 风险段已声明语义自决（`docs/archive/tasks/t387_token_stats_rollup_directory_join/spec.md:91`）。
+（1）rollup ready 路径 `dashboard_session_page_from_meta` 按 session 聚合时 directory 取 `MAX(directory)`（字典序）；records 路径 `materialize_session_meta` 取最新记录目录——跨多 directory 会话两条路径展示不一致。（2）frontend_demo 的 `CwdPath` 显示完整路径过长，用户要求只显示 basename（最后一段），title 保留完整路径；demo 内 4 处使用点随组件一并生效。
 
 ## 契约区
 
 ### 范围
 
-- 统一两条路径的 directory 展示语义为「最新记录目录」（与 records 路径一致）；同步 rollup 分支实现与测试。
+- **生产 token-stats**：统一 rollup 与 records 两条路径的 directory 展示语义为「最新记录目录」；同步 rollup 分支实现与测试。
+- **frontend_demo**：`public/frontend_demo/app/src/components/CwdPath.tsx` 渲染永远只显示 basename；title 悬浮完整路径；SessionCard 底行 filePath 不动；4 处使用点（SessionCard/SessionPane/RecentSessionsModal/SessionPickerModal）一致。
 
 ### 非范围
 
-- 不改会话/记录聚合数字。
-- 不改分页行为。
-- 不改 directory 存储。
+- 不改会话/记录聚合数字、分页行为、directory 存储。
+- 不改 SessionCard filePath 展示、不改数据模型。
+- 不把 demo CwdPath 强行迁入 `src/renderer`（本 task 改 demo 组件本身）。
 
 ### 验收标准
 
@@ -39,6 +40,10 @@ rollup ready 路径 `dashboard_session_page_from_meta`（`src/main/core/token-st
 - [ ] AC-001：rollup ready 路径下跨多 directory 会话的 directory 展示与 records 路径一致（取最新记录目录）。
 - [ ] AC-002：单 directory 会话展示不变（回归）。
 - [ ] AC-003：dashboard_session_page_from_meta 分页与会话计数不受影响（与改动前一致）。
+- [ ] AC-004：CwdPath 对完整路径只渲染最后一段目录名（如 `/home/…/repo_template` → `repo_template`）。
+- [ ] AC-005：CwdPath 的 title 属性保留完整路径（悬浮可查）。
+- [ ] AC-006：demo 内 4 处使用点渲染一致（组件级改动）；SessionCard 的 filePath 行展示不变。
+- [ ] AC-007：根路径（如 `/`）与空 cwd 不崩溃（实现定义兜底，如显示原值）。
 
 ### 可测试性声明
 
@@ -48,11 +53,12 @@ rollup ready 路径 `dashboard_session_page_from_meta`（`src/main/core/token-st
 
 <!-- /规范 -->
 
-- 全部 AC 可自动测试（store 层 fixture 构造跨 directory 会话）。
+- AC-001~003：可自动测试（store 层 fixture）。
+- AC-004~007：`public/frontend_demo/app` 无 vitest/组件测基建；替代验证：`pnpm build`（demo 包）通过 + dev server 手动验证 4 处与 title/根路径/空 cwd。
 
 ## 上下文区
 
-- 来源：p184（t387 reviewer f002 登记；2026-08-16 核实仍待处理，描述与现状一致；spec 风险段已声明语义自决 `docs/archive/tasks/t387_token_stats_rollup_directory_join/spec.md:91`）
+- 来源：p184（directory 语义）；p194（CwdPath basename）；merge t430+t431。
 
 ### 有意不测
 
@@ -62,7 +68,7 @@ rollup ready 路径 `dashboard_session_page_from_meta`（`src/main/core/token-st
 
 <!-- /规范 -->
 
-- 无
+- demo CwdPath 自动组件测：无测试基建（见可测试性声明）。
 
 ### 测试策略
 
@@ -72,7 +78,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 按 token-stats-store.test.ts 现有 fixture 范式，构造同 session 多 directory 记录（records 路径）与 meta 路径对照。
+- store：token-stats-store.test.ts 构造同 session 多 directory 记录与 meta 路径对照。
+- demo：`pnpm build` + 手动 4 处与边界 cwd。
 
 ### 未知契约清单
 
@@ -82,12 +89,13 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- rollup 数据是否保留记录级时间戳以取「最新」：UNVERIFIED-SPIKE，实现侧核实；若 rollup 分组丢失时间维度，方案须说明如何取最新。
+- rollup 数据是否保留记录级时间戳以取「最新」：`UNVERIFIED-SPIKE`，实现侧核实；若 rollup 分组丢失时间维度，方案须说明如何取最新。
 
 ### 风险与回退
 
 - 风险：rollup 路径无时间戳时取最新目录的实现复杂度。
-- 回退：保留 MAX 语义。
+- 风险：basename 对同目录名会话有歧义（用户已接受）。
+- 回退：rollup 保留 MAX(directory)；CwdPath 还原。
 
 ### 依赖与约束
 
