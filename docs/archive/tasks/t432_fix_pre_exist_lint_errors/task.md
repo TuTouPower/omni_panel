@@ -2,11 +2,11 @@
 tid: "t432"
 slug: "fix_pre_exist_lint_errors"
 title: "修复存量 lint 报错（t402/t418 引入）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t432_fix_pre_exist_lint_errors"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "886f6033e62cb29428e9a184179629d787bbfea3"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,13 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### 实施纪要（2026-08-17）
+
+- `session-resume.ts`：`source as ResumeCommandSource` 断言把类型收窄到恒非空，使 `?? null` 与 `!builtin` 触发 no-unnecessary-condition。改为 `Record<string, string | undefined>` 索引保留运行时 undefined（未知 source → null），语义与 t324 等价。
+- `general_section.tsx`：`delete next[source]` 触发 no-dynamic-delete。改为重建对象排除该键（普通字符串键对象，行为等价含键序）。
+- `settings_view_general.test.tsx`：`typeof import(...)` 类型注解违规，改顶部 `import type * as theme_module`。
+- 审阅 1 轮双路 clean PASS（0 finding）。
+- 顺手发现：无（WIP 2 处与 suppress 9 处按 spec 非范围未动）。
 
 ## Review 处置
 
@@ -60,7 +66,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -69,15 +75,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
 - 一句话；无额外说明可写「见上」
+- 4 处存量 lint error 全修（语义保持，测试 44 全绿），1 轮审阅双路 clean PASS。

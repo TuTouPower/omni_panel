@@ -28,8 +28,10 @@ export function resume_command(
     if (typeof custom === "string" && custom.length > 0) {
         return custom.replaceAll("{session_id}", session_id);
     }
-    const builtin =
-        DEFAULT_RESUME_COMMAND_TEMPLATES[source as ResumeCommandSource] ?? null;
+    // t432: source 运行时可能不在默认表（t324 未知来源返回 null）；用 Record
+    // 索引保留 string|undefined，避免 `as ResumeCommandSource` 断言把类型收窄
+    // 到恒非空而触发 no-unnecessary-condition（t402 引入）。
+    const builtin = (DEFAULT_RESUME_COMMAND_TEMPLATES as Record<string, string | undefined>)[source];
     if (!builtin) return null;
     return builtin.replaceAll("{session_id}", session_id);
 }

@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
+// t432: consistent-type-imports——`typeof import(...)` 类型注解违规，
+// 改顶部 type import（vi.mock 内引用模块类型）。
+import type * as theme_module from "../../../../src/renderer/lib/theme";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
 import {
     save,
@@ -29,7 +32,7 @@ vi.mock("../../../../src/renderer/hooks/use-config", () => ({
 }));
 
 vi.mock("../../../../src/renderer/lib/theme", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../../src/renderer/lib/theme")>();
+    const actual = await importOriginal<typeof theme_module>();
     return {
         ...actual,
         useTheme: () => undefined,
