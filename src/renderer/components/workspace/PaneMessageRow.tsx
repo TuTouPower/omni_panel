@@ -8,7 +8,8 @@ import { MarkdownMessage } from "./MarkdownMessage";
 export interface PaneMessageRowProps {
     readonly message: HistoryMessageLike;
     readonly selected: boolean;
-    readonly show_time: boolean;
+    /** t427: 是否显示本行角色标签（组首 true；同 role 连续组内 false）。 */
+    readonly show_role_label: boolean;
     readonly compact: boolean;
     readonly on_toggle: (id: string, shift: boolean) => void;
     readonly on_hover: (id: string | null) => void;
@@ -45,7 +46,7 @@ function is_interactive_target(target: EventTarget | null): boolean {
 export const PaneMessageRow = memo(function PaneMessageRow({
     message,
     selected,
-    show_time,
+    show_role_label,
     compact,
     on_toggle,
     on_hover,
@@ -72,8 +73,9 @@ export const PaneMessageRow = memo(function PaneMessageRow({
     return (
         <div
             className={cn(
+                // t427: py-1 是行内 padding，保留作块间透明间隔——user 背景在
+                // 内容容器上，padding 区无背景，相邻底色块间可见统一间距。
                 "group flex gap-2 py-1",
-                message.role === "user" && "rounded-md bg-[var(--color-primary-container)]",
                 selected && "selected",
                 compact && "compact",
                 expanded && "expanded",
@@ -98,15 +100,24 @@ export const PaneMessageRow = memo(function PaneMessageRow({
                     on_toggle(message.id, e.shiftKey);
                 }}
             />
-            <div className="min-w-0 flex-1" onClick={on_body_click}>
+            <div
+                className={cn(
+                    "min-w-0 flex-1",
+                    message.role === "user" && "rounded-md bg-[var(--color-primary-container)]",
+                )}
+                data-testid="conversation-message-body"
+                onClick={on_body_click}
+            >
                 <div
                     className={cn("items-center gap-2", compact ? "inline-flex" : "mb-1 flex")}
                     data-testid="conversation-message-meta"
                 >
-                    <span className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
-                        {message.role === "user" ? "用户" : "Agent"}
-                    </span>
-                    {show_time && message.timestamp !== null && (
+                    {show_role_label && (
+                        <span className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+                            {message.role === "user" ? "用户" : "Agent"}
+                        </span>
+                    )}
+                    {expanded && message.timestamp !== null && (
                         <span
                             className="font-code-md text-[length:var(--text-label-caps)] tabular-nums text-[var(--color-on-surface-muted)]"
                             data-testid="conversation-message-time"

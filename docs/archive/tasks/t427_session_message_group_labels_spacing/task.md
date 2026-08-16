@@ -1,12 +1,12 @@
 ---
-tid: t427
-slug: session_message_group_labels_spacing
+tid: "t427"
+slug: "session_message_group_labels_spacing"
 title: "会话消息同角色标签去重与行间距"
-status: backlog
-branch: ""
+status: "done"
+branch: "t427_session_message_group_labels_spacing"
 worktree: ""
-review_level: single
-diff_anchor: ""
+review_level: "single"
+diff_anchor: "787660015b18a1b264733e8446b7565ebb50504b"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,14 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+### 实施纪要（2026-08-16）
+
+- 实现：`PaneMessageRow` 新增 `show_role_label` prop（组首 true）；时间渲染条件从 `show_time && timestamp!==null` 改为 `expanded && timestamp!==null`（移除 show_time 依赖）；`SessionPane` renderItem 用相邻 role 比较 `prev?.role !== m.role` 判组首（divider 不拆组）。
+- R1 f001（important）：user 底色块行间无间隔（py-1 被背景覆盖）。修复：背景从行 div 移到内容容器 `conversation-message-body`，py-1 留作透明块间间距——padding 方案不引入 margin，虚拟列表行高不变无滚动补偿风险。
+- 测试：新增 PaneMessageRow 4 用例（show_role_label/时间跟展开态/null 时间/间距类）+ SessionPane 4 用例（组首标签/背景不连通/assistant 无底色/divider 不拆组）。既有测试适配：PaneMessageRow base 补 show_role_label；WorkspaceView t224/t329 消息时间断言移除（AC-007 取代，补注释）。
+- 审阅 2 轮：R1 FAIL（f001 背景连通 + f002 改测无注释）→ R2 PASS 零新 finding。
+- finalization：session-pane-display-adjust.md 补 t427 段 + index 登记。
+- 顺手发现：SessionPane 测试 act 警告属 t433 队列内（弹窗异步断言稳定化），不重复登记；`view.show_time` 开关保留无消费方是 spec 允许取舍，不登记。
 
 ## Review 处置
 
@@ -44,6 +51,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
+### Round 1 (2026-08-16 23:15 UTC+8)
+
+single 审阅：1 important + 1 minor。
+
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t427_gen_f001|important|已修|user 底色块无行间间隔（py-1 被背景覆盖）：背景移到内容容器 `conversation-message-body`，py-1 留作透明块间间距|src/renderer/components/workspace/PaneMessageRow.tsx:72-101|
+|t427_gen_f002|minor|已修|WorkspaceView t224/t329 改断言补 t427 语义变更理由注释|tests/unit/renderer/components/workspace/WorkspaceView.test.tsx:903,1263|
+
 ### Round N (YYYY-MM-DD HH:MM UTC+8)
 
 有 finding 时用本表；每条 finding 一行。
@@ -60,8 +76,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 摘要：组首角色标签/统一间距/独立底色/时间跟展开态全部落地，9 条 AC 测试覆盖。
 
 ### Reviewer verdict
 
@@ -69,15 +86,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：N/A
+- Round 1 test：N/A
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：FAIL
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
 - 一句话；无额外说明可写「见上」
+- 会话消息同角色并组标签去重、统一间距、独立 user 底色、时间随展开态；2 轮审阅最终 PASS。

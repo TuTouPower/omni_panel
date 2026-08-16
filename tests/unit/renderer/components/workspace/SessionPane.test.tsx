@@ -691,3 +691,102 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
         expect(toast_spy).not.toHaveBeenCalled();
     });
 });
+
+describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
+    it("AC-001/AC-002：同 role 连续时仅组首显示角色文案；异 role 切换处显示新角色", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    messages: [
+                        msg("m1", "user", "第一条", 1),
+                        msg("m2", "user", "第二条", 2),
+                        msg("m3", "assistant", "回复", 3),
+                        msg("m4", "assistant", "补充", 4),
+                    ],
+                })}
+            />,
+        );
+        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        expect(rows.length).toBe(4);
+        const labels = rows.map((r) =>
+            Array.from(r.querySelectorAll("span"))
+                .map((s) => s.textContent)
+                .find((t) => t === "用户" || t === "Agent") ?? null,
+        );
+        // 组首显示，组内不重复
+        expect(labels).toEqual(["用户", null, "Agent", null]);
+    });
+
+    it("AC-003/AC-004：相邻 user 行各自带 primary-container 背景且保留统一间距（不连通）", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    messages: [
+                        msg("u1", "user", "甲", 1),
+                        msg("u2", "user", "乙", 2),
+                        msg("a1", "assistant", "丙", 3),
+                    ],
+                })}
+            />,
+        );
+        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        const user_rows = rows.filter((r) =>
+            r.querySelector('[data-testid="conversation-message-body"]')?.className.includes(
+                "var(--color-primary-container)",
+            ),
+        );
+        expect(user_rows.length).toBe(2); // 两条 user 各自有底色
+        // 相邻 user 行各自是独立行元素（虚拟列表不合并），间距类统一
+        expect(rows.every((r) => r.className.includes("py-1"))).toBe(true);
+        const user0 = user_rows[0];
+        const user1 = user_rows[1];
+        expect(user0).toBeDefined();
+        expect(user1).toBeDefined();
+        expect(user0?.getAttribute("data-message-id")).not.toBe(user1?.getAttribute("data-message-id"));
+    });
+
+    it("AC-005：assistant 行无 primary-container 背景", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    messages: [msg("a1", "assistant", "回复", 1)],
+                })}
+            />,
+        );
+        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        expect(rows.length).toBe(1);
+        expect(
+            rows[0]?.querySelector('[data-testid="conversation-message-body"]')?.className.includes(
+                "var(--color-primary-container)",
+            ),
+        ).toBe(false);
+    });
+
+    it("AC-008：时间分割线插入不拆组——divider 两侧同 role 仍只组首显示标签", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                column={column({
+                    messages: [
+                        msg("m1", "user", "早", 0),
+                        msg("m2", "user", "晚", 12 * 60 * 1000),
+                    ],
+                })}
+            />,
+        );
+        // 两条 user 间时间差超阈值 → 有 divider
+        expect(document.querySelector('[data-testid="conversation-divider"]')).toBeTruthy();
+        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        expect(rows.length).toBe(2);
+        const labels = rows.map((r) =>
+            Array.from(r.querySelectorAll("span"))
+                .map((s) => s.textContent)
+                .find((t) => t === "用户" || t === "Agent") ?? null,
+        );
+        // 同 role 不因 divider 拆组：第二条无标签
+        expect(labels).toEqual(["用户", null]);
+    });
+});
