@@ -43,8 +43,14 @@ export function SessionShell() {
     const navigate = use_panel_navigation();
 
     return (
-        <div className="session-shell flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]">
-            <header className="session-topbar relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]">
+        <div
+            className="flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]"
+            data-testid="session-shell"
+        >
+            <header
+                className="relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]"
+                data-testid="session-topbar"
+            >
                 <PanelTitleBar
                     panel="Session"
                     className="min-w-0 flex-1"
@@ -72,7 +78,7 @@ export function SessionShell() {
                             <button
                                 type="button"
                                 className={cn(
-                                    "session-tab border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                    "border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                     tab === "workspace" &&
                                         "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                                 )}
@@ -87,7 +93,7 @@ export function SessionShell() {
                             <button
                                 type="button"
                                 className={cn(
-                                    "session-tab border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
+                                    "border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                                     tab === "library" &&
                                         "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
                                 )}
@@ -103,26 +109,9 @@ export function SessionShell() {
                     }
                 />
             </header>
-            {/* t380 AC-004: rail-toggle 下移为标题栏下方独立行，不再占用标题栏左侧 220px */}
-            <div className="session-rail-toggle-row flex shrink-0 items-stretch border-b border-[var(--color-hairline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)]">
-                <button
-                    type="button"
-                    className={cn(
-                        "session-rail-toggle h-8 w-[220px] shrink-0 border-r border-[var(--color-outline)] bg-[color-mix(in_srgb,var(--color-surface-window)_70%,var(--color-surface)_8%)] text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)] transition-[width] duration-200 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface-variant)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                        rail_collapsed && "w-11",
-                    )}
-                    title={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    aria-label={rail_collapsed ? "展开槽位栏" : "折叠槽位栏"}
-                    onClick={() => {
-                        set_rail_collapsed((v) => !v);
-                    }}
-                >
-                    {rail_collapsed ? "»" : "«"}
-                </button>
-            </div>
-            <main className="session-body flex min-h-0 flex-1">
+            <main className="flex min-h-0 flex-1" data-testid="session-body">
                 <section
-                    className={cn("session-panel min-w-0 flex-1", tab !== "workspace" && "hidden")}
+                    className={cn("min-w-0 flex-1", tab !== "workspace" && "hidden")}
                     data-pane="workspace"
                     data-active={tab === "workspace"}
                     aria-hidden={tab !== "workspace"}
@@ -133,6 +122,9 @@ export function SessionShell() {
                         view={view}
                         recent_open={recent_open}
                         rail_collapsed={rail_collapsed}
+                        on_rail_toggle={() => {
+                            set_rail_collapsed((v) => !v);
+                        }}
                         on_layout_change={set_layout}
                         on_recent={() => {
                             set_recent_open(true);
@@ -145,7 +137,7 @@ export function SessionShell() {
                     />
                 </section>
                 <section
-                    className={cn("session-panel min-w-0 flex-1", tab !== "library" && "hidden")}
+                    className={cn("min-w-0 flex-1", tab !== "library" && "hidden")}
                     data-pane="library"
                     data-active={tab === "library"}
                     aria-hidden={tab !== "library"}

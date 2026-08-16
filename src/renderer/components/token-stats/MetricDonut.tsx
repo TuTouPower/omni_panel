@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
-import { use_chart_palette } from "../../lib/echarts_token_resolver";
+import { TEXT_SCALE_PX, use_chart_palette } from "../../lib/echarts_token_resolver";
 import { escapeHtml } from "../../lib/token-stats/chart-data";
 import type { DonutSegment } from "../../lib/token-stats/chart-data";
 
@@ -37,7 +37,11 @@ export function MetricDonut({ centerValue, segments, format, theme }: MetricDonu
             tooltip: {
                 backgroundColor: pal.tipBg,
                 borderColor: pal.tipBorder,
-                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
+                textStyle: {
+                    color: pal.tipText,
+                    fontSize: TEXT_SCALE_PX["body-sm"],
+                    fontFamily: pal.font_body,
+                },
                 extraCssText: pal.tipShadow,
                 formatter: (params: unknown) => build_donut_tooltip_html(params, format),
             },
@@ -53,14 +57,14 @@ export function MetricDonut({ centerValue, segments, format, theme }: MetricDonu
                         rich: {
                             v: {
                                 color: pal.centerV,
-                                fontSize: 21,
+                                fontSize: TEXT_SCALE_PX["title-lg"],
                                 fontWeight: 700,
                                 fontFamily: pal.font_code,
                                 lineHeight: 27,
                             },
                             l: {
                                 color: pal.centerL,
-                                fontSize: 11,
+                                fontSize: TEXT_SCALE_PX["label-md"],
                                 fontFamily: pal.font_body,
                             },
                         },

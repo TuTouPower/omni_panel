@@ -1,0 +1,27 @@
+{
+  "tid": "t422",
+  "attempt": 1,
+  "execution_id": "2640822ae29a4d47a5d0033df46c918f",
+  "status": "done",
+  "branch": "t422_semantic_pattern_utilities",
+  "base_sha": "66086b918debdbbafb5737a8c92850ae51ac588c",
+  "tests": "pnpm test：3338 passed / 9 skipped（277 files + 1 skipped）；pnpm typecheck 绿；t422 触及文件 eslint 绿",
+  "blackbox": "pnpm test 主黑盒通过；组件渲染 + 业务侧 8 组配方 grep 清零；AC-002 观感 [deploy] 目检未跑",
+  "review": "第 1 轮 general PASS（零 finding）；第 2 轮 general PASS（收尾文档指纹刷新，零 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "ui/Alert、CodeChip、Toast 新增；Badge 增 accent/recommend；14 处调用点替换完毕",
+      "tests/unit/renderer/components/ui/ui.test.tsx「业务代码无 t422 … 手拼配方」expect(hits).toEqual([])"
+    ],
+    "AC-002": [
+      "ui.test.tsx Alert/CodeChip/Toast/Badge accent|recommend 渲染 token 类断言通过",
+      "替换点文案与业务逻辑未改；[deploy] 目检未跑（trust_prior）"
+    ],
+    "AC-003": [
+      "pnpm test：3338 passed / 9 skipped",
+      "pnpm typecheck 绿"
+    ]
+  },
+  "pending": [],
+  "findings": ["d046"]
+}

@@ -101,7 +101,7 @@ export function AccountDialog({
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
                             {isEdit ? "编辑账号" : "添加账号"}
                         </div>
-                        <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
                         </div>
                     </div>

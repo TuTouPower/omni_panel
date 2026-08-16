@@ -52,7 +52,7 @@ export function ConfirmDelete({
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
                             {title}
                         </div>
-                        <div className="mt-0.5 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <div className="mt-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             此操作无法撤销
                         </div>
                     </div>

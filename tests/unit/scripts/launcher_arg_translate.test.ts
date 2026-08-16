@@ -26,8 +26,9 @@ describe("translate_launcher_args", () => {
         });
     });
 
-    it("每个 CLI 子命令免 --cli 前缀 → 注入 --cli", () => {
+    it("每个 CLI 子命令免 --cli 前缀 → 注入 --cli（help 除外，t400 改 launcher 直打帮助）", () => {
         // 硬编码期望列表（字母序），防被测模块 Set 缩水导致循环假绿（review f002）。
+        // help 仍属合法 token，但不注入 --cli（见下条 + cli_help 四入口测）。
         const expectedCommands = [
             "autostart",
             "export",
@@ -42,10 +43,19 @@ describe("translate_launcher_args", () => {
         ];
         expect([...CLI_COMMANDS].sort()).toEqual(expectedCommands);
         for (const cmd of expectedCommands) {
+            if (cmd === "help") continue;
             const result = translate_launcher_args([cmd, "--port", "17864"]);
             expect(result.mode).toBe("cli");
             expect(result.forwardArgs).toEqual(["--cli", cmd, "--port", "17864"]);
         }
+    });
+
+    it("t400: help 子命令 → help 模式（不转发主进程）", () => {
+        expect(translate_launcher_args(["help"])).toEqual({ mode: "help", forwardArgs: [] });
+        expect(translate_launcher_args(["help", "--port", "1"])).toEqual({
+            mode: "help",
+            forwardArgs: [],
+        });
     });
 
     it("serve 带选项 → 注入 --cli 且原样保留选项", () => {

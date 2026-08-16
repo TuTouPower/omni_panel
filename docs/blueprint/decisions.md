@@ -183,3 +183,27 @@
 - 结论：`cacheMaxMb: 0` 合法且语义为「不限制」。schema `min(0)`（不放开负数）；retention `retention_params` 对 `cache_max_mb<=0` 返回无行数预算（仅日期阈值），与 `undefined` 等同。
 - 落地：t398（config types schema 放宽 + retention 0 分支测试）；retention 空窗口推进见 AC-003（p159）。
 - 替代：无
+
+## 019 CLI 帮助单一真相源在 scripts/cli_help.mjs（2026-08-16）
+
+- 背景：launcher（`scripts/omni_panel.mjs`）与主进程（`src/main`）各内联一份 CLI 帮助，四入口（无参/`--help`/`help`/`--cli help`）输出不一致（漏 `--gui` 等）。
+- 选项：A) 源放 `scripts/cli_help.mjs`，主进程 import 靠 electron-vite 构建期内联；B) 源放 `src/`，launcher 构建期复制/软链；C) 两处内联 + 单测锁一致性。
+- 结论：选 A（s029/d038 验证：主进程 import 外部 `.mjs` 会被 rollup/esbuild 内联进 `out/main`，打包 `files` 仅 `out/**` 时运行时不依赖 `scripts/`）。launcher 运行时 import 同文件。`help` 子命令由 launcher 直打帮助，不再注入 `--cli`；`--cli help` 兼容路径仍进主进程但打印同一常量。
+- 落地：t400。
+- 替代：无
+
+## 020 会话库内容搜索冷缓存：renderer 分块多次 searchContent（2026-08-16）
+
+- 背景：内容搜索冷缓存对全部候选 `extract_full`，4000 会话首次 45s+，UI 仅「搜索中…」无进度；用户中断看到中间态误判结果不全（p186）。
+- 选项：A) renderer 分页多次 `searchContent`（`offset`/`limit` + `progress`）；B) 主进程进度事件 + web SSE/NDJSON。
+- 结论：选 A（s030/d039）。可选字段省略时行为与旧全量一次调用兼容；本批只 resolve/extract 候选 slice；renderer 默认 limit=64 循环合并 sessions 并展示「已扫描 N/M」。不引入新 IPC channel/SSE。keyword 匹配语义不变；extract_cache 磁盘持久化另议。
+- 落地：t404。
+- 替代：无
+
+## 021 面板背景两级（window/card），raised 仅交互态（2026-08-16）
+
+- 背景：会话窗口实测卡片用 `surface-raised`（#262b34）比窗口亮两档；侧栏用无 token 依据的 `color-mix(window 70%, surface 8%)`，与 DESIGN Colors 节两级体系偏离，多窗口层次混乱。
+- 选项：A) 继续三档（window / 混色侧栏 / raised 卡片）；B) 回归 DESIGN：window/card 两级，raised 只做 hover/选中块/徽章。
+- 结论：选 B。窗口/侧栏/主区 = `surface-window`；内容卡片 = `surface-card`；禁止面板级无依据 color-mix 底色；`surface-raised` 保留交互态。token 数值不改。
+- 落地：t406；权威规则见 `docs/specs/surface_token_unify.md` 与 DESIGN.md Colors。
+- 替代：无

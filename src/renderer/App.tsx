@@ -47,7 +47,7 @@ function RouteLoading() {
                 height: "100%",
             }}
         >
-            <span style={{ color: "var(--color-on-surface-muted)", fontSize: "13px" }}>
+            <span className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
                 加载中…
             </span>
         </div>

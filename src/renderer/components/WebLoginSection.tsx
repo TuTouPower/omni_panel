@@ -83,7 +83,7 @@ export function WebLoginSection({
     }, [instance_id, provider, login_url, secret_name, cookie_names, onSecrets, onSaved]);
 
     return (
-        <div className="flex flex-col gap-1.5" data-testid={`web-login-section-${provider}`}>
+        <div className="flex flex-col gap-2" data-testid={`web-login-section-${provider}`}>
             <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                 网页登录授权
             </label>

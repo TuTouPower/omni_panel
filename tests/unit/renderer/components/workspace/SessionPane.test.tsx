@@ -1,15 +1,21 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useCallback, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionPane } from "../../../../../src/renderer/components/workspace/SessionPane";
 import type { PaneData } from "../../../../../src/renderer/lib/workspace/pane";
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
  * t225 会话面板（pane）测试。
- * 覆盖：头部（agent 色条/徽标/标题/cwd/meta）、脚部计数、Markdown 消息渲染、
- * 时间分隔线、回到底部按钮状态、大纲抽屉、骨架屏。
+ * 覆盖：头部（agent 色条/徽标/标题/cwd/meta）、Markdown 消息渲染、
+ * 时间分隔线、回到底部按钮状态、大纲抽屉、骨架屏；t405 无 footer。
  */
+
+/** t407：固定「当前年=2026」，使组件侧 format_compact_datetime 当年分支断言与真实时钟解耦。 */
+function pin_system_year_2026(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 16, 12, 0, 0));
+}
 
 function msg(id: string, role: "user" | "assistant", text: string, timestamp: number | null) {
     return { id, role, text, timestamp };
@@ -42,20 +48,15 @@ const META = {
 const VIEW = { show_time: true, compact: false };
 
 const PROPS = {
-    slot_index: 1,
     column: column(),
     slot_meta: META,
-    focused: false,
     outline_open: false,
     view: VIEW,
     is_selected: () => false,
     on_close: () => undefined,
     on_toggle: () => undefined,
     on_hover: () => undefined,
-    on_select_all: () => undefined,
-    on_clear_select: () => undefined,
     on_load_older: () => undefined,
-    on_focus: () => undefined,
     on_toggle_outline: () => undefined,
 };
 
@@ -63,8 +64,12 @@ beforeEach(() => {
     install_history_usageboard();
 });
 
+afterEach(() => {
+    vi.useRealTimers();
+});
+
 describe("SessionPane (t225)", () => {
-    it("头部显示 agent 徽标（含 model）、标题、末级目录与 轮数·tokens·日期 meta（t257）", () => {
+    it("头部显示 agent 徽标（含 model）、标题、完整 cwd 与 轮数·tokens·日期 meta（t407）", () => {
         render(
             <SessionPane
                 {...PROPS}
@@ -76,17 +81,18 @@ describe("SessionPane (t225)", () => {
         expect(screen.getByText("会话标题")).toBeTruthy();
         expect(screen.getByText(/5 轮/)).toBeTruthy();
         expect(screen.getByText(/1,200 tokens/)).toBeTruthy();
-        // t257 AC2：目录只显示末级。
-        expect(screen.getByText(/proj/)).toBeTruthy();
-        expect(screen.queryByText(/\/path\/to\/proj/)).toBeNull();
+        // t407 AC-001：cwd 完整路径可见，不截末级。
+        const cwd_el = document.querySelector('[data-testid="conversation-title-cwd"]');
+        expect(cwd_el?.textContent).toBe("/path/to/proj");
         expect(screen.getByText(/claude-sonnet-4/)).toBeTruthy();
-        expect(document.querySelector(".conversation-agent-badge")?.getAttribute("title")).toBe(
+        expect(document.querySelector('[data-testid="conversation-agent-badge"]')?.getAttribute("title")).toBe(
             "claude-sonnet-4",
         );
-        expect(document.querySelector(".conversation-accent")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-accent"]')).toBeTruthy();
     });
 
-    it("AC1/AC4：元信息不显示 source 文字，日期为最后一条消息精确时间", () => {
+    it("AC1：元信息不显示 source 文字；日期为最后一条消息紧凑时间（t407）", () => {
+        pin_system_year_2026();
         const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
         render(
             <SessionPane
@@ -98,11 +104,13 @@ describe("SessionPane (t225)", () => {
         );
         // AC1：无完整软件名文字。
         expect(screen.queryByText(/claude_code/)).toBeNull();
-        // AC4：日期为最后消息精确时间（含时分秒）。
-        expect(screen.getByText(/2026-08-07 09:08:07/)).toBeTruthy();
+        // t407 AC-002：当年紧凑时间 MMDD HH:mm（时钟钉在 2026）。
+        expect(screen.getByText(/0807 09:08/)).toBeTruthy();
+        expect(screen.queryByText(/2026-08-07 09:08:07/)).toBeNull();
     });
 
-    it("AC4：无消息时日期回退到打开时间", () => {
+    it("无消息时日期回退到打开时间（紧凑格式）", () => {
+        pin_system_year_2026();
         render(
             <SessionPane
                 {...PROPS}
@@ -112,7 +120,7 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(screen.getByText(/2026-01-02 03:04:05/)).toBeTruthy();
+        expect(screen.getByText(/0102 03:04/)).toBeTruthy();
     });
 
     it("按 source 渲染对应 provider logo，未知 source 使用 overview 兜底", () => {
@@ -134,7 +142,7 @@ describe("SessionPane (t225)", () => {
                     })}
                 />,
             );
-            const badge = document.querySelector(".conversation-agent-badge");
+            const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
             expect(badge?.querySelector('[data-testid="vendor-mark"]')).toBeTruthy();
             if (assets.length === 0) {
                 expect(badge?.querySelector("svg")).toBeTruthy();
@@ -175,10 +183,10 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(document.querySelectorAll(".conversation-divider").length).toBe(1);
+        expect(document.querySelectorAll('[data-testid="conversation-divider"]').length).toBe(1);
     });
 
-    it("脚部显示槽位号与 user/assistant 消息计数", () => {
+    it("t405 AC-001/002：DOM 无 .conversation-foot，无槽位/用户/Agent footer 文案", () => {
         render(
             <SessionPane
                 {...PROPS}
@@ -191,20 +199,19 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(screen.getByText("槽位 2")).toBeTruthy();
-        expect(screen.getByText(/用户 2/)).toBeTruthy();
-        expect(screen.getByText(/Agent 1/)).toBeTruthy();
+        expect(document.querySelector(".conversation-foot")).toBeNull();
+        expect(screen.queryByText(/槽位|用户 \d|Agent \d/)).toBeNull();
     });
 
     it("加载中无消息时显示骨架屏", () => {
         render(<SessionPane {...PROPS} column={column({ status: "loading", messages: [] })} />);
-        expect(document.querySelector(".conversation-skeleton")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-skeleton"]')).toBeTruthy();
     });
 
     it("源文件缺失显示空态（不渲染骨架屏）", () => {
         render(<SessionPane {...PROPS} column={column({ status: "missing", messages: [] })} />);
         expect(screen.getByText("该会话的原始记录文件不存在或已删除")).toBeTruthy();
-        expect(document.querySelector(".conversation-skeleton")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-skeleton"]')).toBeNull();
     });
 
     it("大纲抽屉列消息（角色序号+摘要+时间），点击滚动定位", () => {
@@ -220,12 +227,12 @@ describe("SessionPane (t225)", () => {
                 })}
             />,
         );
-        expect(document.querySelector(".conversation-outline")).toBeTruthy();
-        const rows = document.querySelectorAll(".conversation-outline-row");
+        expect(document.querySelector('[data-testid="conversation-outline"]')).toBeTruthy();
+        const rows = document.querySelectorAll('[data-testid="conversation-outline-row"]');
         expect(rows.length).toBe(2);
         const first = rows[0];
         if (!first) throw new Error("outline row missing");
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
         fireEvent.click(first);
@@ -233,10 +240,12 @@ describe("SessionPane (t225)", () => {
         expect((container as HTMLElement).scrollTop).toBe(0);
     });
 
-    it("t315 AC2：卡片背景为第二色 surface-raised（与根 surface-window 两色可辨）", () => {
+    it("t406 AC-001：卡片背景为 surface-card（非 surface-raised 整面）", () => {
         render(<SessionPane {...PROPS} />);
-        const pane = document.querySelector(".conversation-pane");
-        expect(pane?.className).toContain("bg-[var(--color-surface-raised)]");
+        const pane = document.querySelector('[data-testid="conversation-pane"]');
+        expect(pane?.className).toContain("bg-[var(--color-surface-card)]");
+        // 排除 hover:bg-...raised 误匹配：整面底色不得是 raised。
+        expect(pane?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
         expect(pane?.className).not.toContain("bg-[var(--color-surface-window)]");
     });
 });
@@ -263,11 +272,11 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         const { rerender } = render(
             <SessionPane {...PROPS} outline_open column={column({ messages })} />,
         );
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
 
-        const rows = document.querySelectorAll(".conversation-outline-row");
+        const rows = document.querySelectorAll('[data-testid="conversation-outline-row"]');
         const third = rows[2];
         if (!third) throw new Error("third outline row missing");
         fireEvent.click(third);
@@ -282,21 +291,21 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
             msg(`m${String(i)}`, "user", `消息 ${String(i)}`, i * 100),
         );
         const { rerender } = render(<SessionPane {...PROPS} column={column({ messages })} />);
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 0, writable: true });
 
         // 初始 at_bottom=true → 无回底按钮。
-        expect(document.querySelector(".conversation-to-bottom")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeNull();
         // 滚到中部（非底部）。
         container.scrollTop = 400;
         fireEvent.scroll(container);
-        expect(document.querySelector(".conversation-to-bottom")).toBeTruthy();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeTruthy();
         // 回到底部按钮点击 → scrollTop = scrollHeight（mock 2000）+ at_bottom。
         fireEvent.click(screen.getByText(/回到底部/));
         expect(container.scrollTop).toBe(2000);
         rerender(<SessionPane {...PROPS} column={column({ messages })} />);
-        expect(document.querySelector(".conversation-to-bottom")).toBeNull();
+        expect(document.querySelector('[data-testid="conversation-to-bottom"]')).toBeNull();
     });
 
     it("AC2：长列表虚拟滚动下选中态保持且 DOM 行数受控", () => {
@@ -330,29 +339,29 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         render(<Parent />);
         // jsdom 下 VirtualMessageList clientHeight=400（mock）、estimateHeight=80 →
         // 可见窗口 + overscan 渲染部分消息，DOM 行数远小于 100（虚拟化生效）。
-        const rendered_rows = document.querySelectorAll(".conversation-message-row");
+        const rendered_rows = document.querySelectorAll('[data-testid="conversation-message-row"]');
         expect(rendered_rows.length).toBeGreaterThan(0);
         expect(rendered_rows.length).toBeLessThan(100);
         // 勾选一条远端消息（m94，初始不可见）→ 滚动到含 m94 的窗口。
-        const container = document.querySelector(".conversation-message-scroll");
+        const container = document.querySelector('[data-testid="conversation-message-scroll"]');
         if (!container) throw new Error("conversation-message-scroll missing");
         Object.defineProperty(container, "scrollTop", { value: 94 * 80, writable: true });
         fireEvent.scroll(container);
         const m94_check = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest(".conversation-message-row")?.textContent.includes("消息 94"));
+            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
         if (!m94_check) throw new Error("m94 checkbox missing");
         fireEvent.click(m94_check);
         expect(m94_check).toBeChecked();
         // 滚动到中间 → 新窗口渲染（m94 虚拟化卸载）。
         container.scrollTop = 2000;
         fireEvent.scroll(container);
-        expect(document.querySelectorAll(".conversation-message-row").length).toBeLessThan(100);
+        expect(document.querySelectorAll('[data-testid="conversation-message-row"]').length).toBeLessThan(100);
         expect(
             screen
                 .queryAllByRole("checkbox")
                 .some((c) =>
-                    c.closest(".conversation-message-row")?.textContent.includes("消息 94"),
+                    c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"),
                 ),
         ).toBe(false);
         // 滚回 m94 窗口 → 重挂后仍选中（AC2 选中态保持回归）。
@@ -360,7 +369,7 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         fireEvent.scroll(container);
         const m94_again = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest(".conversation-message-row")?.textContent.includes("消息 94"));
+            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
         if (!m94_again) throw new Error("m94 checkbox missing after re-scroll");
         expect(m94_again).toBeChecked();
     });
@@ -371,7 +380,8 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         install_history_usageboard();
     });
 
-    it("AC1：第一行渲染 cwd 末段·最后消息时间·session id；第二行渲染模型·轮次·tokens·会话名字", () => {
+    it("AC1：第一行渲染完整 cwd·紧凑时间·session id；第二行渲染模型·轮次·tokens·会话名字（t407）", () => {
+        pin_system_year_2026();
         const last_ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
         render(
             <SessionPane
@@ -382,17 +392,17 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
                 })}
             />,
         );
-        const first = document.querySelector(".conversation-title");
-        const second = document.querySelector(".conversation-meta");
+        const first = document.querySelector('[data-testid="conversation-title"]');
+        const second = document.querySelector('[data-testid="conversation-meta"]');
         if (!first || !second) throw new Error("header rows missing");
-        const first_text = first.textContent;
-        const second_text = second.textContent;
-        // 第一行：cwd 末段 → 时间 → session id（内容与数据源一致）。
-        expect(first_text).toContain("proj");
-        expect(first_text).toContain("2026-08-07 09:08:07");
+        const first_text = first.textContent || "";
+        const second_text = second.textContent || "";
+        // 第一行：完整 cwd → 紧凑时间 → session id。
+        expect(first_text).toContain("/path/to/proj");
+        expect(first_text).toContain("0807 09:08");
         expect(first_text).toContain("sess_a");
-        expect(first_text.indexOf("proj")).toBeLessThan(first_text.indexOf("2026-08-07"));
-        expect(first_text.indexOf("2026-08-07")).toBeLessThan(first_text.indexOf("sess_a"));
+        expect(first_text.indexOf("/path/to/proj")).toBeLessThan(first_text.indexOf("0807 09:08"));
+        expect(first_text.indexOf("0807 09:08")).toBeLessThan(first_text.indexOf("sess_a"));
         expect(first_text).not.toContain("会话标题");
         // 第二行：模型 → 轮次 → tokens → 会话名字。
         expect(second_text).toContain("claude-sonnet-4");
@@ -403,6 +413,41 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         expect(second_text.indexOf("5 轮")).toBeLessThan(second_text.indexOf("1,200 tokens"));
         expect(second_text.indexOf("1,200 tokens")).toBeLessThan(second_text.indexOf("会话标题"));
         expect(second_text).not.toContain("sess_a");
+    });
+
+    it("t407 AC-001/004：cwd 完整无 truncate；session id/标题可截断，cwd/时间 shrink-0", () => {
+        pin_system_year_2026();
+        const long_cwd = "/home/testuser/very/long/project/path/for/session/panel";
+        const long_id = "sess_" + "x".repeat(64);
+        render(
+            <SessionPane
+                {...PROPS}
+                slot_meta={{ ...META, cwd: long_cwd }}
+                column={column({
+                    loc: { source: "claude_code", env: "win", session_id: long_id },
+                    title: "very-long-session-title-that-may-truncate",
+                    messages: [msg("m1", "user", "hi", new Date(2026, 7, 17, 23, 25, 0).getTime())],
+                })}
+            />,
+        );
+        const cwd_el = document.querySelector('[data-testid="conversation-title-cwd"]');
+        const time_el = document.querySelector('[data-testid="conversation-title-time"]');
+        const id_el = document.querySelector('[data-testid="conversation-session-id"]');
+        const title_el = document.querySelector('[data-testid="conversation-meta-title"]');
+        if (!cwd_el || !time_el || !id_el || !title_el) throw new Error("header meta nodes missing");
+        // cwd 完整文本，无尾部省略类。
+        expect(cwd_el.textContent).toBe(long_cwd);
+        expect(cwd_el.className).not.toMatch(/\btruncate\b/);
+        expect(cwd_el.className).toMatch(/\bshrink-0\b/);
+        // 时间完整且不截断。
+        expect(time_el.textContent).toBe("0817 23:25");
+        expect(time_el.className).toMatch(/\bshrink-0\b/);
+        expect(time_el.className).not.toMatch(/\btruncate\b/);
+        // session id / 标题允许截断。
+        expect(id_el.className).toMatch(/\btruncate\b/);
+        expect(id_el.className).toMatch(/\bmin-w-0\b/);
+        expect(title_el.className).toMatch(/\btruncate\b/);
+        expect(title_el.className).toMatch(/\bmin-w-0\b/);
     });
 
     it.each([
@@ -465,11 +510,184 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         delete (navigator as { clipboard?: unknown }).clipboard;
     });
 
-    it("AC5：会话标题在第二行可见，五个头部动作按钮不变", () => {
+    it("会话标题在第二行可见，头部保留大纲/关闭（t324 标题可见 + t409 动作保留）", () => {
         render(<SessionPane {...PROPS} show_toast={() => undefined} />);
         expect(screen.getByText("会话标题")).toBeTruthy();
-        for (const label of ["大纲", "全选可见", "清空选择", "聚焦此面板", "关闭面板"]) {
+        for (const label of ["大纲", "关闭面板"]) {
             expect(screen.getByRole("button", { name: label })).toBeTruthy();
         }
+    });
+
+    it("AC-001：头部不再渲染全选可见/清空选择/聚焦此面板", () => {
+        render(<SessionPane {...PROPS} show_toast={() => undefined} />);
+        for (const label of ["全选可见", "清空选择", "聚焦此面板"]) {
+            expect(screen.queryByRole("button", { name: label })).toBeNull();
+        }
+    });
+});
+
+describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
+    it("AC-004：agent badge 可拖，单击不调用 on_drag_start 以外的布局回调", () => {
+        const on_drag_start = vi.fn();
+        const on_drag_end = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                on_drag_start={on_drag_start}
+                on_drag_end={on_drag_end}
+            />,
+        );
+        const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
+        if (!badge) throw new Error("badge missing");
+        expect(badge.getAttribute("draggable")).toBe("true");
+        fireEvent.click(badge);
+        // 单击不触发 HTML5 drag 生命周期
+        expect(on_drag_start).not.toHaveBeenCalled();
+        expect(on_drag_end).not.toHaveBeenCalled();
+    });
+
+    it("AC-001/002：dragStart 转发；dragging 时面板带标识类", () => {
+        const on_drag_start = vi.fn();
+        const { rerender } = render(
+            <SessionPane {...PROPS} on_drag_start={on_drag_start} on_drag_end={() => undefined} />,
+        );
+        const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
+        if (!badge) throw new Error("badge missing");
+        fireEvent.dragStart(badge);
+        expect(on_drag_start).toHaveBeenCalledTimes(1);
+        rerender(
+            <SessionPane
+                {...PROPS}
+                dragging
+                on_drag_start={on_drag_start}
+                on_drag_end={() => undefined}
+            />,
+        );
+        expect(document.querySelector('[data-testid="conversation-pane"][data-dragging="true"]')).toBeTruthy();
+    });
+
+    it("AC-002：drop_active 时面板带落点高亮类", () => {
+        render(
+            <SessionPane
+                {...PROPS}
+                drop_active
+                on_drag_start={() => undefined}
+                on_drag_end={() => undefined}
+            />,
+        );
+        expect(
+            document.querySelector('[data-testid="conversation-pane"][data-drop-target="true"]'),
+        ).toBeTruthy();
+    });
+});
+
+describe("SessionPane 自定义续接命令模板 (t403)", () => {
+    const base_cfg = {
+        schemaVersion: 1 as const,
+        language: "zh-Hans" as const,
+        launchAtLogin: false,
+        plugins: [],
+    };
+
+    beforeEach(() => {
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("AC-001：配置 kimi 自定义模板后点击 session id 复制替换后命令", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "kimi_code", env: "win", session_id: "sess_kimi" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        fireEvent.click(btn());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("kimi --yolo -r sess_kimi");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-003：未配置自定义模板的来源仍复制内置默认命令", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        const toast_spy = vi.fn();
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "claude_code", env: "win", session_id: "sess_a" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("claude --resume sess_a");
+        });
+        fireEvent.click(btn());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("claude --resume sess_a");
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已复制");
+    });
+
+    it("AC-004：clipboard 缺失时静默跳过、无 toast", async () => {
+        install_history_usageboard(() => ({
+            ...base_cfg,
+            resumeCommandTemplates: {
+                kimi_code: "kimi --yolo -r {session_id}",
+            },
+        }));
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "kimi_code", env: "win", session_id: "sess_kimi" },
+                })}
+            />,
+        );
+        const btn = () => {
+            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            if (!el) throw new Error("conversation-session-id missing");
+            return el;
+        };
+        await waitFor(() => {
+            expect(btn().title).toBe("kimi --yolo -r sess_kimi");
+        });
+        expect(() => fireEvent.click(btn())).not.toThrow();
+        expect(toast_spy).not.toHaveBeenCalled();
     });
 });

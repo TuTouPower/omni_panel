@@ -273,7 +273,7 @@ export function AddAccountDialog({
                             {title}
                         </div>
                         {sub && (
-                            <div className="mt-0.5 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                            <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                                 {sub}
                             </div>
                         )}

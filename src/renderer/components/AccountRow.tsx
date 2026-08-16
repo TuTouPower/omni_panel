@@ -1,4 +1,5 @@
 import { Button } from "./ui/Button";
+import { StatusDot, type StatusTone } from "./ui/StatusDot";
 import { Switch } from "./ui/Switch";
 import { Icon, VendorMark, type VendorId } from "./Icon";
 import { PROVIDER_LABELS } from "../lib/provider-usage";
@@ -23,25 +24,25 @@ interface AccountRowProps {
 }
 
 interface AccountStatus {
-    color: string;
+    tone: StatusTone;
     text: string;
     severity_class: string;
 }
 
 function get_account_status(status: AccountRowProps["status"], enabled: boolean): AccountStatus {
     if (!enabled || status === "disabled") {
-        return { color: "var(--color-on-surface-muted)", text: "已关闭", severity_class: "" };
+        return { tone: "neutral", text: "已关闭", severity_class: "" };
     }
     if (status === "error") {
-        return { color: "var(--color-risk-critical)", text: "采集失败", severity_class: " err" };
+        return { tone: "error", text: "采集失败", severity_class: " err" };
     }
     if (status === "auth") {
-        return { color: "var(--color-risk-critical)", text: "凭证失效", severity_class: " err" };
+        return { tone: "error", text: "凭证失效", severity_class: " err" };
     }
     if (status === "unknown") {
-        return { color: "var(--color-on-surface-muted)", text: "未连接", severity_class: "" };
+        return { tone: "neutral", text: "未连接", severity_class: "" };
     }
-    return { color: "var(--color-success)", text: "正常", severity_class: "" };
+    return { tone: "success", text: "正常", severity_class: "" };
 }
 
 function get_vendor_name(provider: VendorId): string {
@@ -86,20 +87,20 @@ export function AccountRow({
     return (
         <div className={row_class} data-testid="account-row" data-mode={mode}>
             <VendorMark id={provider} size={24} />
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className="flex min-w-0 flex-1 items-center gap-2">
                 <span
-                    className="shrink-0 whitespace-nowrap text-[14px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-md)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                     data-testid="account-vendor"
                 >
                     {get_vendor_name(provider)}
                 </span>
                 {note_label && (
-                    <span className="truncate text-[13.5px] font-[550] text-[var(--color-on-surface-muted)]">
+                    <span className="truncate text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface-muted)]">
                         · {note_label}
                     </span>
                 )}
                 {is_cpa_child && is_removed && (
-                    <span className="whitespace-nowrap text-[11.5px] font-semibold text-[var(--color-risk-high)]">
+                    <span className="whitespace-nowrap text-[length:var(--text-label-md)] font-semibold text-[var(--color-risk-high)]">
                         来源已移除
                     </span>
                 )}
@@ -109,13 +110,10 @@ export function AccountRow({
                     className="flex w-[72px] shrink-0 items-center gap-2"
                     data-testid="account-status"
                 >
-                    <span
-                        className="h-[7px] w-[7px] shrink-0 rounded-full"
-                        style={{ background: account_status.color }}
-                    />
+                    <StatusDot tone={account_status.tone} />
                     <span
                         className={
-                            "whitespace-nowrap text-[11.5px] font-semibold text-[var(--color-on-surface-muted)]" +
+                            "whitespace-nowrap text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-muted)]" +
                             (account_status.severity_class
                                 ? " text-[var(--color-risk-critical)]"
                                 : "")
@@ -125,7 +123,7 @@ export function AccountRow({
                     </span>
                 </span>
             )}
-            <div className="ml-auto flex shrink-0 items-center gap-[3px]">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
                 {is_cpa_child ? (
                     is_removed ? (
                         <Button

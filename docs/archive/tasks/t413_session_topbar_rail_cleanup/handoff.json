@@ -1,0 +1,43 @@
+{
+  "tid": "t413",
+  "attempt": 1,
+  "execution_id": "14b8142d06044a81acc40c87c63846d4",
+  "status": "done",
+  "branch": "t413_session_topbar_rail_cleanup",
+  "base_sha": "43cde52108cd8c5170a1ff26b7e5d05b09cf551e",
+  "tests": "pnpm test：275 files, 3304 passed, 9 skipped；typecheck 绿；本 diff 触及文件 eslint 清零（仓内 3 处 lint 为既有）",
+  "blackbox": "pnpm test 全量通过；e2e session_panel 布局断言已同步（无 toggle-row、grid 贴 topbar、对齐 rail 外框）；AC 均可自动测",
+  "review": "第 2 轮 PASS（single general；R1/R2 零 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "SessionShell.tsx 删除 session-rail-toggle-row；SessionShell.test 断言 row null 且 topbar.next=session-body",
+      "session_panel.spec.ts e2e：.session-rail-toggle-row count=0 且 grid.top≈topbar.bottom"
+    ],
+    "AC-002": [
+      "SessionRail.tsx session-rail-header 内 session-rail-toggle",
+      "SessionShell.test + WorkspaceView 折叠/展开 collapsed class 行为；SessionRail.test on_toggle_collapse 点击"
+    ],
+    "AC-003": [
+      "session-rail-footer border-t + shrink-0，session-slot-add 不在 scroll 内，展开文案 + 添加会话",
+      "SessionRail.test AC-003 用例通过"
+    ],
+    "AC-004": [
+      "折叠态 session-slot-add 文案为 +，不含「添加会话」",
+      "SessionRail.test AC-004 通过"
+    ],
+    "AC-005": [
+      "展开/折叠点击 on_pick(first_empty)；满槽 disabled 不回调",
+      "SessionRail.test AC-005 + 满槽用例通过"
+    ],
+    "AC-006": [
+      "docs/specs/session-pane-display-adjust.md AC7/范围/实现要点已改为底部固定+折叠加号",
+      "docs/specs_index.md session-pane-display-adjust 列入 t413"
+    ],
+    "AC-007": [
+      "SessionRail/SessionShell/WorkspaceView/typography 单测更新并通过",
+      "pnpm test 3304 passed；e2e 布局断言同步"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

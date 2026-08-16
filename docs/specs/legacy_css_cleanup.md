@@ -7,6 +7,7 @@ Renderer 窗口统一使用设计 token、共享 ui 组件与 Tailwind utility�
 - 全局样式入口只保留 token、基础规则、必要动画和可复用 `@utility`；组件级业务选择器不在全局样式中定义。
 - 共享组件只消费语义 token 与 utility，不通过组件级手写类或 `dark:` 分支表达主题差异。
 - 明暗主题和 accent 由同一套语义 token 提供，Web 与 Desktop 使用一致的视觉入口。
+- 会话窗口历史 BEM 风死类名（`conversation-*` / `session-*` / `library-*` / `selection-*` / `preview-*` 前缀且无 CSS 定义）已清零（t419）；测试挂钩迁 `data-testid`，拖拽态用 `data-dragging` / `data-drop-target`。无定义裸 class 状态钩（如 `collapsed` / `expanded` / `selected` / `on`）不在清零范围。
 
 ## 图标与资产
 

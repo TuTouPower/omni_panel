@@ -1,0 +1,37 @@
+{
+  "tid": "t409",
+  "attempt": 1,
+  "execution_id": "32ed971cc3cd416f8cb80c9de224b086",
+  "status": "done",
+  "branch": "t409_session_pane_actions_trim",
+  "base_sha": "e9b953f2563378b97cd90781a953c121c23b9746",
+  "tests": "pnpm test：274 files, 3282 passed, 9 skipped；pnpm typecheck 通过",
+  "blackbox": "默认黑盒 pnpm test 通过；grep focused_index/select_all_in_column/clear_selection_in_column 于 src 无残留",
+  "review": "第 2 轮 PASS（Round 1 FAIL：f001 补关闭点击用例、f002 改标题；Round 2 复核已消除）",
+  "ac_evidence": {
+    "AC-001": [
+      "SessionPane.test.tsx「AC-001：头部不再渲染全选可见/清空选择/聚焦此面板」queryByRole 三按钮均为 null",
+      "WorkspaceView.test.tsx「AC-001：头部无全选可见/清空选择/聚焦此面板按钮」通过"
+    ],
+    "AC-002": [
+      "src 中 focused_index/focused prop/data-focused/col-span-full/select_all_in_column/clear_selection_in_column 已移除",
+      "pnpm typecheck（tsc --noEmit）通过"
+    ],
+    "AC-003": [
+      "SessionPane/WorkspaceView 测试断言大纲与关闭面板按钮仍渲染",
+      "WorkspaceView.test.tsx「AC-003：点击关闭面板移除槽位回到空态」fireEvent.click 关闭面板→工作台为空+unsubscribe",
+      "WorkspaceView.test.tsx「快捷键 Esc 关闭大纲」覆盖大纲点击与 Esc"
+    ],
+    "AC-004": [
+      "WorkspaceView.test.tsx「消息选择与复制生成 Markdown」改走 checkbox+托盘复制通过",
+      "WorkspaceView.test.tsx「跨槽位 checkbox 选中计数合计与取消勾选」通过",
+      "WorkspaceView.test.tsx「Shift 连选」既有用例保留通过"
+    ],
+    "AC-005": [
+      "pnpm test 全量 3282 passed / 9 skipped（既有）exit 0",
+      "聚焦相关旧用例已删或改写；无新增 .skip/.only"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

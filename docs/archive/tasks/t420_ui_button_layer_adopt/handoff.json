@@ -1,0 +1,35 @@
+{
+  "tid": "t420",
+  "attempt": 1,
+  "execution_id": "7562f1d7972e4b4894b80152328a3a92",
+  "status": "done",
+  "branch": "t420_ui_button_layer_adopt",
+  "base_sha": "7c71df8aa891467a3c61987309f8094a2f66a6e8",
+  "tests": "pnpm test：3329 passed / 9 skipped；pnpm typecheck 绿；变更文件 eslint 绿",
+  "blackbox": "pnpm test 全量绿（主黑盒）；typecheck 绿；AC-001/003 grep 配方与 span onClick 零命中；as-link 组件测通过",
+  "review": "第 3 轮 PASS（Round 1 FAIL 已修；Round 2/3 code+test PASS，review_scope=ok）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/renderer/components/ui/ui.test.tsx::业务代码无 t420 手拼按钮配方 通过",
+      "provider_card_states/ProviderAccountRow/SessionCard/SessionPane/SessionPreview/SessionRail/SelectionDock/SelectionTray/EmptyState/about_section/AliasEditor 改走 ui/Button"
+    ],
+    "AC-002": [
+      "ui.test.tsx::Button text/icon 尺寸档与 as-link 断言 as=a 渲染 a + href + no-underline",
+      "EmptyState.tsx web 路径 Button as=a href=#setting；about_section web 外链 Button as=a"
+    ],
+    "AC-003": [
+      "ui.test.tsx grep 无 span onClick；NetBanner/provider_card_states 改语义 button",
+      "ui.test.tsx::Button text 语义 button + onClick 通路 type=button"
+    ],
+    "AC-004": [
+      "Round 1 f001/f002 已修：session-id 字号与 16px 移除钮 rounded 对齐原外观",
+      "既有 SessionPane/SessionCard/settings about-card 测试通过；[deploy] 目检保留"
+    ],
+    "AC-005": [
+      "pnpm test 3329 passed / 9 skipped",
+      "pnpm typecheck 绿"
+    ]
+  },
+  "pending": [],
+  "findings": ["d045"]
+}

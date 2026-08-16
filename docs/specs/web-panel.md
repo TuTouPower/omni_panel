@@ -54,7 +54,7 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 
 ## 5. 数据新鲜度
 
-- connector/用量面板：`usageboard-web` 经 `GET /v1/events`（SSE）订阅 runtimeStore 状态变更，`onStateChange` 回调转发给 `use_plugins`，与桌面端 IPC `EVENT_STATE_CHANGE` 语义一致（同事件源 `runtimeStore.subscribe`）。连接关闭自动 unsub；EventSource 浏览器原生断线重连。
+- connector/用量面板与会话推送（t414）：`usageboard-web` **每页只开 1 条** `EventSource('/v1/events?connectionId=…')`，同时承载 runtimeStore 状态（默认 `message`）、命名事件 `config` / `theme`、以及已订阅会话的 `messagesUpdated`。`onStateChange` 转发给 `use_plugins`，与桌面端 IPC `EVENT_STATE_CHANGE` 同源。会话 `sessionHistory.subscribe` 不再每会话新建 EventSource；在共享连接 `open`/重连后 POST 登记，`unsubscribe` 只卸该会话、不关共享流。连接关闭自动 unsub 该页全部会话订阅；EventSource 浏览器原生断线重连。避免 Chrome HTTP/1.1 同 origin 6 长连接上限饿死同源 fetch（p187）。
 - tokenStats/代理面板：无 IPC/SSE 推送，`tokenStats.onUpdated` 由 `usageboard-web` 内部 10s 轮询触发。
 
 ## 6. 面板间导航

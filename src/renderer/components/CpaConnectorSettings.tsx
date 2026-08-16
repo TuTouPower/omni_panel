@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
+import { StatusDot } from "./ui/StatusDot";
 import { Switch } from "./ui/Switch";
 import { Icon, VendorMark } from "./Icon";
 import { ConfirmDelete } from "./ConfirmDelete";
@@ -266,13 +267,13 @@ export function CpaConnectorSettings({
             onSubmit={handle_submit}
         >
             {/* left column: config */}
-            <div className="w-1/2 shrink-0 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] pb-4 pr-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
+            <div className="w-1/2 shrink-0 overflow-y-auto border-r-[0.5px] border-[var(--color-hairline)] pb-4 pr-6 [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar-thumb)_transparent]">
                 <div
                     className="flex items-center gap-3 border-b-[0.5px] border-[var(--color-hairline)] py-[10px] last:border-b-0"
                     data-testid="cfg-row"
                 >
                     <div className="min-w-0">
-                        <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                        <div className="text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]">
                             启用
                         </div>
                     </div>
@@ -287,11 +288,11 @@ export function CpaConnectorSettings({
                         />
                     </div>
                 </div>
-                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                <div className="mb-3 mt-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-6">
                     连接配置
                 </div>
-                <div className="mb-[13px] last:mb-0">
-                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                <div className="mb-3 last:mb-0">
+                    <div className="mb-2 block text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                         备注
                     </div>
                     <Input
@@ -306,8 +307,8 @@ export function CpaConnectorSettings({
                         value={alias}
                     />
                 </div>
-                <div className="mb-[13px] last:mb-0">
-                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                <div className="mb-3 last:mb-0">
+                    <div className="mb-2 block text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                         CPA-Manager URL
                     </div>
                     <Input
@@ -323,8 +324,8 @@ export function CpaConnectorSettings({
                         value={endpoint}
                     />
                 </div>
-                <div className="mb-[13px] last:mb-0">
-                    <div className="mb-1.5 block text-[12px] font-semibold text-[var(--color-on-surface-variant)]">
+                <div className="mb-3 last:mb-0">
+                    <div className="mb-2 block text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">
                         API 密钥
                     </div>
                     <SecretInput
@@ -337,21 +338,14 @@ export function CpaConnectorSettings({
                     />
                 </div>
 
-                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                <div className="mb-3 mt-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-6">
                     连接状态
                 </div>
-                <div className="flex items-center gap-2 rounded-[10px] bg-[var(--color-field-bg)] px-3 py-[10px]">
+                <div className="flex items-center gap-2 rounded-md bg-[var(--color-field-bg)] px-3 py-[10px]">
+                    <StatusDot tone={isConnected ? "success" : "neutral"} />
                     <span
                         className={
-                            "h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-success)_16%,transparent)] " +
-                            (isConnected
-                                ? "bg-[var(--color-success)]"
-                                : "bg-[var(--color-on-surface-muted)] shadow-none")
-                        }
-                    />
-                    <span
-                        className={
-                            "text-[13px] font-semibold " +
+                            "text-[length:var(--text-body-md)] font-semibold " +
                             (isConnected
                                 ? "text-[var(--color-success)]"
                                 : "text-[var(--color-error)]")
@@ -359,12 +353,12 @@ export function CpaConnectorSettings({
                     >
                         {status}
                     </span>
-                    <span className="ml-auto text-[12px] text-[var(--color-on-surface-muted)]">
+                    <span className="ml-auto text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                         上次同步：{lastSync}
                     </span>
                 </div>
 
-                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-[22px]">
+                <div className="mb-3 mt-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] [&:not(:first-child)]:mt-6">
                     刷新
                 </div>
                 <div
@@ -372,7 +366,7 @@ export function CpaConnectorSettings({
                     data-testid="cfg-row"
                 >
                     <div className="min-w-0">
-                        <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                        <div className="text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]">
                             跟随全局自动刷新间隔
                         </div>
                     </div>
@@ -404,7 +398,7 @@ export function CpaConnectorSettings({
                         data-testid="cfg-row"
                     >
                         <div className="min-w-0">
-                            <div className="text-[13.5px] font-[550] text-[var(--color-on-surface)]">
+                            <div className="text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]">
                                 该数据源刷新频率
                             </div>
                         </div>
@@ -436,7 +430,7 @@ export function CpaConnectorSettings({
                     </div>
                 )}
 
-                <div className="mt-[22px] flex items-center gap-[10px]">
+                <div className="mt-6 flex items-center gap-[10px]">
                     <Button
                         variant="primary"
                         data-testid="cpa-settings-save-btn"
@@ -459,11 +453,11 @@ export function CpaConnectorSettings({
             </div>
 
             {/* right column: sync scope */}
-            <div className="min-w-0 flex-1 overflow-y-auto pb-4 pl-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(120,130,150,0.3)_transparent]">
-                <div className="mb-[11px] mt-0.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] first:mt-0 [&:not(:first-child)]:mt-[22px]">
+            <div className="min-w-0 flex-1 overflow-y-auto pb-4 pl-6 [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar-thumb)_transparent]">
+                <div className="mb-3 mt-1 text-[length:var(--text-label-md)] font-semibold uppercase tracking-[0.05em] text-[var(--color-on-surface-muted)] first:mt-0 [&:not(:first-child)]:mt-6">
                     同步范围
                 </div>
-                <div className="mb-[14px] text-[12.5px] leading-[1.5] text-[var(--color-on-surface-muted)]">
+                <div className="mb-[14px] text-[length:var(--text-body-sm)] leading-[1.5] text-[var(--color-on-surface-muted)]">
                     选择要同步的服务商，开启后将自动采集对应账号用量。
                 </div>
                 {MONITORS.map((monitor) => (
@@ -473,7 +467,7 @@ export function CpaConnectorSettings({
                         key={monitor.name}
                     >
                         <span
-                            className="flex items-center gap-[9px] text-[13.5px] font-[550] text-[var(--color-on-surface)]"
+                            className="flex items-center gap-[9px] text-[length:var(--text-body-md)] font-[550] text-[var(--color-on-surface)]"
                             data-testid="cfg-vendor"
                         >
                             <VendorMark id={monitor.provider} size={20} />

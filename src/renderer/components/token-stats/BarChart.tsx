@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { EChartsOption } from "echarts";
 import { useECharts } from "../../hooks/use-echarts";
-import { use_chart_palette } from "../../lib/echarts_token_resolver";
+import { TEXT_SCALE_PX, use_chart_palette } from "../../lib/echarts_token_resolver";
 import { fmtInt, fmtTok } from "../../lib/token-stats/format";
 import { UTC8_OFFSET_MS, utc8_hour } from "../../lib/token-stats/utc8";
 import {
@@ -191,7 +191,11 @@ export function BarChart({
             tooltip: {
                 backgroundColor: pal.tipBg,
                 borderColor: pal.tipBorder,
-                textStyle: { color: pal.tipText, fontSize: 12, fontFamily: pal.font_body },
+                textStyle: {
+                    color: pal.tipText,
+                    fontSize: TEXT_SCALE_PX["body-sm"],
+                    fontFamily: pal.font_body,
+                },
                 extraCssText: pal.tipShadow,
                 trigger: "axis",
                 axisPointer: { type: "shadow" },
@@ -212,7 +216,7 @@ export function BarChart({
                 axisLabel: {
                     color: pal.axis,
                     fontFamily: pal.font_code,
-                    fontSize: 10.5,
+                    fontSize: TEXT_SCALE_PX["label-caps"],
                     rotate,
                     interval: hourMode
                         ? (index: number) => {
@@ -251,7 +255,7 @@ export function BarChart({
                 axisLabel: {
                     color: pal.axis,
                     fontFamily: pal.font_code,
-                    fontSize: 10.5,
+                    fontSize: TEXT_SCALE_PX["label-caps"],
                     formatter: (v: number) => (metric === "tokens" ? fmtTok(v) : String(v)),
                 },
                 splitLine: { lineStyle: { color: pal.split } },
@@ -272,7 +276,7 @@ export function BarChart({
                               moveHandleStyle: { color: pal.dzSelLine },
                               textStyle: {
                                   color: pal.dzText,
-                                  fontSize: 10,
+                                  fontSize: TEXT_SCALE_PX["label-caps"],
                                   fontFamily: pal.font_code,
                               },
                               dataBackground: {

@@ -702,7 +702,7 @@ export function PopupView() {
                     title_extra={
                         footerTime && (
                             <span
-                                className="ml-2 whitespace-nowrap text-[12px] text-[var(--color-on-surface-muted)]"
+                                className="ml-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
                                 title="上次更新时间"
                                 data-testid="popup-time"
                             >
@@ -875,8 +875,8 @@ export function PopupView() {
                             plugins.length > 0 &&
                             activeTab !== "overview" &&
                             !activeGroup && (
-                                <div className="flex flex-col items-center justify-center gap-[5px] px-8 py-[70px] text-center">
-                                    <div className="text-[15px] font-semibold text-[var(--color-on-surface)]">
+                                <div className="flex flex-col items-center justify-center gap-1 px-8 py-18 text-center">
+                                    <div className="text-[length:var(--text-title-sm)] font-semibold text-[var(--color-on-surface)]">
                                         该服务暂无账号。请到设置添加数据来源。
                                     </div>
                                 </div>
@@ -886,7 +886,7 @@ export function PopupView() {
                         {token_panel_enabled && !loading && plugins.length > 0 && (
                             <CollapsibleCard
                                 header={
-                                    <span className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]">
+                                    <span className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]">
                                         Total Tokens
                                     </span>
                                 }
@@ -917,7 +917,7 @@ export function PopupView() {
     return (
         <>
             <div
-                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
+                className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
                 data-popup="live"
             >
                 {render_body(true, false)}
@@ -933,7 +933,7 @@ export function PopupView() {
                         Mirrors must not bind live refs or interactive handlers. */}
                     <div
                         ref={content_mirror_ref}
-                        className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-[18px] border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window dark:shadow-window-dark"
+                        className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                         aria-hidden="true"
                         inert
                         data-popup="mirror"

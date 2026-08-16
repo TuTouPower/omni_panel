@@ -41,6 +41,7 @@ import type {
     SessionHistorySummariesRequest,
     SessionHistorySummariesResponse,
 } from "../../shared/types/ipc";
+import { clamp_search_content_range } from "../core/session-history/search_content_range";
 
 export interface SessionHistoryIpcDeps {
     readonly service: SessionHistorySubscriptionService;
@@ -60,6 +61,14 @@ function is_legacy_search_request(
     request: SearchContentRequest,
 ): request is SessionHistorySearchContentLegacyRequest {
     return "locs" in request;
+}
+
+function search_request_offset(request: SearchContentRequest): number | undefined {
+    return typeof request.offset === "number" ? request.offset : undefined;
+}
+
+function search_request_limit(request: SearchContentRequest): number | undefined {
+    return typeof request.limit === "number" ? request.limit : undefined;
 }
 
 function loc_of(source: string, env: string, session_id: string): SessionLoc {
@@ -260,8 +269,17 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             try {
                 const candidates = content_search_candidates(deps, request);
                 const candidate_rows = candidates.rows;
+                // t404: 仅 resolve/extract 本批候选 slice；省略 limit 时 end=total（全量兼容）。
+                const range = clamp_search_content_range(
+                    candidate_rows.length,
+                    search_request_offset(request),
+                    search_request_limit(request),
+                );
+                const batch_rows = candidate_rows.slice(range.offset, range.end);
                 const metadata =
-                    is_legacy_search_request(request) || !request.filters.search
+                    range.offset > 0 ||
+                    is_legacy_search_request(request) ||
+                    !request.filters.search
                         ? { rows: [] as SessionRow[], truncated: false }
                         : query_all_sessions(deps, {
                               ...(request.filters.sources
@@ -277,7 +295,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                           });
                 const metadata_rows = metadata.rows;
                 const resolved_locs: ResolvedSessionLoc[] = [];
-                for (const row of candidate_rows) {
+                for (const row of batch_rows) {
                     if (controller.signal.aborted) break;
                     const resolved = resolve_session_file(
                         row.source as HistorySource,
@@ -310,15 +328,26 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                       )
                     : await deps.service.searchContent(resolved_locs, request.keyword);
                 if (controller.signal.aborted)
-                    return ok({ hits: [], sessions: [], truncated: false });
+                    return ok({
+                        hits: [],
+                        sessions: [],
+                        truncated: false,
+                        progress: {
+                            scanned: range.scanned,
+                            total: range.total,
+                            done: range.done,
+                            next_offset: range.next_offset,
+                        },
+                    });
                 const hit_keys = new Set(hits);
                 // t354 AC-001: metadata 行预构建 key Set 替代 includes 线性扫描（原
                 // includes 对 metadata 数组元素引用恒真、对 candidate 行 O(n·m) 查询），
                 // 语义等价（同引用必有同 key）。
+                // t404: 本批 sessions = 首批 metadata 命中 ∪ 本 slice 内容命中。
                 const metadata_keys = new Set(metadata_rows.map(key_of));
                 const response_sessions: TokenStatsSession[] = [];
                 const response_keys = new Set<string>();
-                for (const row of [...metadata_rows, ...candidate_rows]) {
+                for (const row of [...metadata_rows, ...batch_rows]) {
                     const key = key_of(row);
                     if (response_keys.has(key)) continue;
                     if (metadata_keys.has(key) || (row.session && hit_keys.has(key))) {
@@ -330,6 +359,12 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                     hits: [...hit_keys],
                     sessions: response_sessions,
                     truncated: candidates.truncated || metadata.truncated,
+                    progress: {
+                        scanned: range.scanned,
+                        total: range.total,
+                        done: range.done,
+                        next_offset: range.next_offset,
+                    },
                 });
             } finally {
                 if (content_search_controllers.get(event.sender.id) === controller) {

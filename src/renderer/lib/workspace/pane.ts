@@ -11,11 +11,24 @@ export function last_dir_segment(cwd: string): string {
     return last.length > 0 ? last : cwd;
 }
 
-/** t257：ms epoch → YYYY-MM-DD HH:MM:SS（最后一条消息精确时间）。 */
+/** t257：ms epoch → YYYY-MM-DD HH:MM:SS（最后一条消息精确时间）。会话库卡片等仍用此格式。 */
 export function format_precise_datetime(ts: number): string {
     const d = new Date(ts);
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** t407：ms epoch → 紧凑时间。当年 MMDD HH:mm；非当年 YYMMDD HH:mm。now 可注入便于单测。 */
+export function format_compact_datetime(ts: number, now: number = Date.now()): string {
+    const d = new Date(ts);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const mmdd = `${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (d.getFullYear() === new Date(now).getFullYear()) {
+        return `${mmdd} ${hm}`;
+    }
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${yy}${mmdd} ${hm}`;
 }
 
 /** pane 会话数据（t224 前 HistoryColumnData 迁此）。 */

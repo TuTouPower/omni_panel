@@ -1879,15 +1879,78 @@ describe("local-api session history endpoints (t259)", () => {
         const data = (await res.json()) as {
             hits: string[];
             sessions: { id: string; source: string }[];
+            progress?: { scanned: number; total: number; done: boolean };
         };
         expect(data.hits).toEqual(["claude_code|local|sess-1"]);
         expect(data.sessions).toHaveLength(1);
         expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
+        expect(data.progress).toEqual({
+            scanned: 1,
+            total: 1,
+            done: true,
+            next_offset: 1,
+        });
         expect(service.searchContentWithAbort).toHaveBeenCalledWith(
             [expect.objectContaining({ session_id: "sess-1" })],
             "hello",
             expect.any(AbortSignal),
         );
+    });
+
+    it("t404: POST searchContent offset/limit 分块返回 progress", async () => {
+        const service = base_session_service();
+        // 夹具仅有 sess-1 文件；候选 3 行，limit=2 时 progress 仍按候选下标计。
+        const rows = [
+            make_session_row({ id: "sess-a" }),
+            make_session_row({ id: "sess-1" }),
+            make_session_row({ id: "sess-c" }),
+        ];
+        service.searchContentWithAbort.mockImplementation((locs: unknown[]) =>
+            Promise.resolve(
+                new Set(
+                    locs.map((loc) => {
+                        const session_id = (loc as { session_id: string }).session_id;
+                        return `claude_code|local|${session_id}`;
+                    }),
+                ),
+            ),
+        );
+        setup_session_api(
+            service,
+            vi.fn(() => rows),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { sources: ["claude_code"] },
+                    keyword: "hello",
+                    offset: 0,
+                    limit: 2,
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            hits: string[];
+            progress: { scanned: number; total: number; done: boolean; next_offset: number };
+        };
+        expect(data.progress).toEqual({
+            scanned: 2,
+            total: 3,
+            done: false,
+            next_offset: 2,
+        });
+        // 本批 2 候选中仅 sess-1 可 resolve，search 只收到可解析 locs。
+        expect(service.searchContentWithAbort).toHaveBeenCalledWith(
+            [expect.objectContaining({ session_id: "sess-1" })],
+            "hello",
+            expect.any(AbortSignal),
+        );
+        expect(data.hits).toEqual(["claude_code|local|sess-1"]);
     });
 
     it("t388 AC-002: web 搜索未超限 truncated=false", async () => {
@@ -2443,6 +2506,431 @@ describe("local-api session history endpoints (t259)", () => {
             });
             // 新连接关闭才再次注销（重挂后独立生命周期）。
             expect(service.unsubscribe).toHaveBeenCalledTimes(2);
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("一条 connectionId SSE 挂多会话，messagesUpdated 按 loc 隔离 (t414 AC-003)", async () => {
+        const service = base_session_service();
+        // 第二会话文件，resolve_session_file 可找到。
+        await writeFile(
+            join(session_home, ".claude", "projects", "sess-2.jsonl"),
+            '{"sessionId":"sess-2"}\n',
+        );
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?connectionId=page-1`);
+            expect(sse_res.status).toBe(200);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+
+            for (const [session_id, subscriber_id] of [
+                ["sess-1", "web-a"],
+                ["sess-2", "web-b"],
+            ] as const) {
+                const sub_res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "local",
+                        session_id,
+                        subscriber_id,
+                        connection_id: "page-1",
+                    }),
+                });
+                expect(sub_res.status).toBe(200);
+            }
+            expect(service.subscribe).toHaveBeenCalledTimes(2);
+
+            const on_update_a = (
+                service.subscribe.mock.calls.find(
+                    (c) => (c[0] as { session_id: string }).session_id === "sess-1",
+                )?.[0] as { on_update: (m: unknown[]) => void }
+            ).on_update;
+            const on_update_b = (
+                service.subscribe.mock.calls.find(
+                    (c) => (c[0] as { session_id: string }).session_id === "sess-2",
+                )?.[0] as { on_update: (m: unknown[]) => void }
+            ).on_update;
+            on_update_a([{ id: "ma", role: "user", text: "from-a", timestamp: 1 }]);
+            on_update_b([{ id: "mb", role: "user", text: "from-b", timestamp: 2 }]);
+
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await reader.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("from-a") && raw.includes("from-b")) break;
+            }
+            expect(raw).toContain("event: messagesUpdated");
+            // 按 SSE 帧解析：每帧 loc 与 messages 自洽，不串会话。
+            const frames = [...raw.matchAll(/event: messagesUpdated\ndata: (.+)\n\n/g)].map(
+                (m) => JSON.parse(m[1] ?? "{}") as { session_id: string; messages: { text: string }[] },
+            );
+            expect(frames).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        session_id: "sess-1",
+                        messages: [expect.objectContaining({ text: "from-a" })],
+                    }),
+                    expect.objectContaining({
+                        session_id: "sess-2",
+                        messages: [expect.objectContaining({ text: "from-b" })],
+                    }),
+                ]),
+            );
+            expect(frames.find((f) => f.session_id === "sess-1")?.messages[0]?.text).toBe("from-a");
+            expect(frames.find((f) => f.session_id === "sess-2")?.messages[0]?.text).toBe("from-b");
+            await reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("connectionId 连接 unsubscribe 只卸目标会话，其它仍推送 (t414 AC-004)", async () => {
+        const service = base_session_service();
+        await writeFile(
+            join(session_home, ".claude", "projects", "sess-2.jsonl"),
+            '{"sessionId":"sess-2"}\n',
+        );
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_res = await fetch(`${base}/v1/events?connectionId=page-unsub`);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+            for (const [session_id, subscriber_id] of [
+                ["sess-1", "web-a"],
+                ["sess-2", "web-b"],
+            ] as const) {
+                const res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "local",
+                        session_id,
+                        subscriber_id,
+                        connection_id: "page-unsub",
+                    }),
+                });
+                expect(res.status).toBe(200);
+            }
+            const unsub = await fetch(`${base}/v1/sessionHistory/unsubscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subscriber_id: "web-a" }),
+            });
+            expect(unsub.status).toBe(200);
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "local",
+                "sess-1",
+                "web-a",
+            );
+
+            const on_update_b = (
+                service.subscribe.mock.calls.find(
+                    (c) => (c[0] as { subscriber_id: string }).subscriber_id === "web-b",
+                )?.[0] as { on_update: (m: unknown[]) => void }
+            ).on_update;
+            on_update_b([{ id: "mb", role: "user", text: "still-b", timestamp: 2 }]);
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await reader.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("still-b")) break;
+            }
+            expect(raw).toContain('"session_id":"sess-2"');
+            expect(raw).toContain("still-b");
+            await reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("两条 connectionId SSE 互不影响，关一页只清本连接订阅 (t414 AC-006)", async () => {
+        const service = base_session_service();
+        await writeFile(
+            join(session_home, ".claude", "projects", "sess-2.jsonl"),
+            '{"sessionId":"sess-2"}\n',
+        );
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const sse_1 = await fetch(`${base}/v1/events?connectionId=page-1`);
+            const reader_1 = sse_1.body?.getReader();
+            if (!reader_1) throw new Error("no sse1");
+            const sse_2 = await fetch(`${base}/v1/events?connectionId=page-2`);
+            const reader_2 = sse_2.body?.getReader();
+            if (!reader_2) throw new Error("no sse2");
+
+            const sub1 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "local",
+                    session_id: "sess-1",
+                    subscriber_id: "web-p1",
+                    connection_id: "page-1",
+                }),
+            });
+            expect(sub1.status).toBe(200);
+            const sub2 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "local",
+                    session_id: "sess-2",
+                    subscriber_id: "web-p2",
+                    connection_id: "page-2",
+                }),
+            });
+            expect(sub2.status).toBe(200);
+
+            // 关页面 1：只注销 page-1 上的订阅。
+            await reader_1.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "local",
+                "sess-1",
+                "web-p1",
+            );
+
+            // 页面 2 仍能收到其会话推送。
+            const on_update_2 = (
+                service.subscribe.mock.calls.find(
+                    (c) => (c[0] as { subscriber_id: string }).subscriber_id === "web-p2",
+                )?.[0] as { on_update: (m: unknown[]) => void }
+            ).on_update;
+            on_update_2([{ id: "m2", role: "user", text: "page2-alive", timestamp: 3 }]);
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await reader_2.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("page2-alive")) break;
+            }
+            expect(raw).toContain("page2-alive");
+            expect(raw).toContain('"session_id":"sess-2"');
+            await reader_2.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("connectionId 重连 open 后重挂，仍能推 messagesUpdated (t414 AC-005)", async () => {
+        const service = base_session_service();
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            const old_sse = await fetch(`${base}/v1/events?connectionId=page-reconn`);
+            const old_reader = old_sse.body?.getReader();
+            if (!old_reader) throw new Error("no sse body");
+            const sub1 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "local",
+                    session_id: "sess-1",
+                    subscriber_id: "web-reconn",
+                    connection_id: "page-reconn",
+                }),
+            });
+            expect(sub1.status).toBe(200);
+
+            await old_reader.cancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 120);
+            });
+            expect(service.unsubscribe).toHaveBeenCalledWith(
+                "claude_code",
+                "local",
+                "sess-1",
+                "web-reconn",
+            );
+
+            // 客户端 open 后重 POST（无需用户再 subscribe）。
+            const new_sse = await fetch(`${base}/v1/events?connectionId=page-reconn`);
+            const new_reader = new_sse.body?.getReader();
+            if (!new_reader) throw new Error("no sse body");
+            const sub2 = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    source: "claude_code",
+                    env: "local",
+                    session_id: "sess-1",
+                    subscriber_id: "web-reconn",
+                    connection_id: "page-reconn",
+                }),
+            });
+            expect(sub2.status).toBe(200);
+
+            const on_update = (
+                service.subscribe.mock.calls[service.subscribe.mock.calls.length - 1]?.[0] as {
+                    on_update: (m: unknown[]) => void;
+                }
+            ).on_update;
+            on_update([{ id: "m-re", role: "assistant", text: "after-reconn", timestamp: 9 }]);
+            let raw = "";
+            const deadline = Date.now() + 5000;
+            while (Date.now() < deadline) {
+                const { value, done } = await new_reader.read();
+                if (value) raw += new TextDecoder().decode(value);
+                if (done) break;
+                if (raw.includes("after-reconn")) break;
+            }
+            expect(raw).toContain("after-reconn");
+            await new_reader.cancel();
+        } finally {
+            await sub_api.stop();
+        }
+    });
+
+    it("8 会话挂在同一 connectionId 后 GET /v1/sessions 5s 内 200 (t414 AC-002)", async () => {
+        const service = base_session_service();
+        for (let i = 1; i <= 8; i++) {
+            await writeFile(
+                join(session_home, ".claude", "projects", `sess-${String(i)}.jsonl`),
+                `{"sessionId":"sess-${String(i)}"}\n`,
+            );
+        }
+        const sub_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            connector_deps,
+            session_history_deps: {
+                service: service as unknown as SessionHistorySubscriptionService,
+                sessions_provider: vi.fn(() => []),
+                locator_paths: {
+                    host: "linux",
+                    homedir: session_home,
+                    win_home: session_home,
+                    wsl_distro: "Ubuntu-22.04",
+                    wsl_user: "",
+                },
+            },
+        });
+        await sub_api.start();
+        try {
+            const base = `http://127.0.0.1:${String(sub_api.get_port())}`;
+            // 仅 1 条 SSE（对照旧模型 8+1 条占满池）。
+            const sse_res = await fetch(`${base}/v1/events?connectionId=page-8`);
+            expect(sse_res.status).toBe(200);
+            const reader = sse_res.body?.getReader();
+            if (!reader) throw new Error("no sse body");
+
+            for (let i = 1; i <= 8; i++) {
+                const res = await fetch(`${base}/v1/sessionHistory/subscribe`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        source: "claude_code",
+                        env: "local",
+                        session_id: `sess-${String(i)}`,
+                        subscriber_id: `web-${String(i)}`,
+                        connection_id: "page-8",
+                    }),
+                });
+                expect(res.status).toBe(200);
+            }
+            expect(service.subscribe).toHaveBeenCalledTimes(8);
+
+            const controller = new AbortController();
+            const timer = setTimeout(() => {
+                controller.abort();
+            }, 5000);
+            try {
+                const sessions_res = await fetch(`${base}/v1/sessions`, {
+                    signal: controller.signal,
+                });
+                expect(sessions_res.status).toBe(200);
+                const body: unknown = await sessions_res.json();
+                expect(Array.isArray(body)).toBe(true);
+            } finally {
+                clearTimeout(timer);
+            }
+            await reader.cancel();
         } finally {
             await sub_api.stop();
         }

@@ -10,7 +10,9 @@ import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/conf
 import { DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
 import type { ProviderError } from "./ProviderOverview";
 import { Icon, VendorMark } from "./Icon";
+import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
+import { Segmented } from "./ui/Segmented";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { UsageBarList } from "./UsageBarList";
 import { DragGrip } from "./DragGrip";
@@ -147,56 +149,36 @@ export const ProviderCard = memo(function ProviderCard({
             {onDragStart && <DragGrip iconSize={18} />}
             <VendorMark id={provider} size={26} />
             <span
-                className="truncate text-[15.5px] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
+                className="truncate text-[length:var(--text-title-sm)] font-[650] tracking-[-0.01em] text-[var(--color-on-surface)]"
                 data-testid="card-name"
             >
                 {label}
             </span>
             {accountCount > 1 && expanded === false && (
-                <span className="shrink-0 rounded-[7px] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] px-2 py-[1px] text-[length:var(--text-label-md)] font-semibold leading-normal text-[var(--color-accent)]">
-                    {String(accountCount)}账号
-                </span>
+                <Badge variant="accent">{String(accountCount)}账号</Badge>
             )}
             {accountCount > 1 && expanded !== false && (
-                <span
-                    className="ml-px inline-flex shrink-0 items-center gap-0.5 rounded-[9px] bg-[var(--color-surface-raised)] p-0.5"
-                    role="tablist"
-                >
-                    <button
-                        className={
-                            "rounded-[7px] border-0 px-[9px] py-[3px] text-[length:var(--text-label-md)] font-semibold leading-normal whitespace-nowrap " +
-                            (!l2Open
-                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-[0_1px_2px_rgba(20,24,38,0.07)]"
-                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
-                        }
-                        title="概览"
-                        type="button"
-                        onClick={() => {
-                            if (l2Open) onToggleL2Open?.(provider);
-                        }}
-                    >
-                        概览
-                    </button>
-                    <button
-                        className={
-                            "rounded-[7px] border-0 px-[9px] py-[3px] text-[length:var(--text-label-md)] font-semibold leading-normal whitespace-nowrap " +
-                            (l2Open
-                                ? "bg-[var(--color-surface-window)] text-[var(--color-accent)] shadow-[0_1px_2px_rgba(20,24,38,0.07)]"
-                                : "bg-transparent text-[var(--color-on-surface-variant)] transition-feedback hover:text-[var(--color-on-surface)]")
-                        }
-                        title="账号明细"
-                        type="button"
-                        onClick={() => {
-                            if (!l2Open) onToggleL2Open?.(provider);
-                        }}
-                    >
-                        {String(accountCount)}账号
-                    </button>
-                </span>
+                <Segmented
+                    size="sm"
+                    className="ml-px shrink-0"
+                    value={l2Open ? "detail" : "overview"}
+                    options={[
+                        { value: "overview", label: "概览", title: "概览" },
+                        {
+                            value: "detail",
+                            label: `${String(accountCount)}账号`,
+                            title: "账号明细",
+                        },
+                    ]}
+                    onChange={(next) => {
+                        if (next === "overview" && l2Open) onToggleL2Open?.(provider);
+                        if (next === "detail" && !l2Open) onToggleL2Open?.(provider);
+                    }}
+                />
             )}
             {is_refreshing && (
                 <span
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     刷新中…
@@ -204,16 +186,16 @@ export const ProviderCard = memo(function ProviderCard({
             )}
             {!is_refreshing && hasUsage && (
                 <span
-                    className="shrink-0 whitespace-nowrap text-[12.5px] font-[450] text-[var(--color-on-surface-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[length:var(--text-body-sm)] font-[450] text-[var(--color-on-surface-muted)]"
                     data-testid="rel-time"
                 >
                     {updated_text}
                 </span>
             )}
             {!is_refreshing && hasUsage && group && group.stale && (
-                <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-[var(--color-on-surface-muted)]">
+                <span className="inline-flex items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     <span
-                        className="ml-1.5 font-[650] text-[var(--color-warning)]"
+                        className="ml-2 font-[650] text-[var(--color-warning)]"
                         data-testid="stale-badge"
                     >
                         已过期

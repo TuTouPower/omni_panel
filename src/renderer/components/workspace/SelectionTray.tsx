@@ -81,34 +81,32 @@ export function SelectionTray() {
     return (
         <div
             className={cn(
-                "selection-tray relative flex min-h-10 shrink-0 flex-col overflow-hidden border-t border-[var(--color-outline)] bg-[var(--color-surface-window)]",
+                "relative flex min-h-10 shrink-0 flex-col overflow-hidden border-t border-[var(--color-outline)] bg-[var(--color-surface-window)]",
                 expanded && "expanded",
             )}
+            data-testid="selection-tray"
             style={{ height: effective_height }}
         >
             <div
-                className="selection-tray-handle h-1.5 shrink-0 cursor-ns-resize bg-transparent hover:bg-[var(--color-primary-container)]"
+                className="h-1.5 shrink-0 cursor-ns-resize bg-transparent hover:bg-[var(--color-primary-container)]"
                 onMouseDown={start_drag}
             />
             {!expanded ? (
-                <div className="selection-tray-collapsed px-3.5 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                <div className="px-3.5 py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                     摘选托盘（空）
                 </div>
             ) : (
                 <>
-                    <div className="selection-tray-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
+                    <div className="scrollbar-token flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-2">
                         {[...groups.values()].map((g) => (
-                            <div
-                                className="selection-tray-group"
-                                key={`${g.loc.source}|${g.loc.env}|${g.loc.session_id}`}
-                            >
-                                <div className="selection-tray-group-head mb-1 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
+                            <div key={`${g.loc.source}|${g.loc.env}|${g.loc.session_id}`}>
+                                <div className="mb-1 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                                     {g.title || g.loc.session_id}
                                 </div>
-                                <div className="selection-tray-group-chips flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-2">
                                     {g.items.map((item) => (
                                         <div
-                                            className="selection-chip inline-flex max-w-[320px] items-center gap-1.5 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                                            className="inline-flex max-w-[320px] items-center gap-2 rounded-full border border-[var(--color-outline)] bg-[var(--color-surface-raised)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
                                             key={item.key}
                                             title={item.message.text}
                                             style={
@@ -117,41 +115,45 @@ export function SelectionTray() {
                                                 } as CSSProperties
                                             }
                                         >
-                                            <span className="selection-chip-agent flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--agent-accent)] text-[9px] font-bold text-[var(--color-on-primary)]">
+                                            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--agent-accent)] text-[length:var(--text-label-caps)] font-bold text-[var(--color-on-primary)]">
                                                 {agent_abbrev(item.loc.source)}
                                             </span>
-                                            <span className="selection-chip-label shrink-0 font-bold tabular-nums text-[var(--color-on-surface-muted)]">
+                                            <span className="shrink-0 font-bold tabular-nums text-[var(--color-on-surface-muted)]">
                                                 {item.message.role === "user" ? "U" : "A"}
                                                 {String(item.role_index)}
                                             </span>
-                                            <span className="selection-chip-summary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--color-on-surface)]">
+                                            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--color-on-surface)]">
                                                 {item.message.text.slice(0, 40) || "(空)"}
                                             </span>
-                                            <span className="selection-chip-tokens shrink-0 tabular-nums text-[var(--color-on-surface-muted)]">
+                                            <span className="shrink-0 tabular-nums text-[var(--color-on-surface-muted)]">
                                                 {String(estimate_tokens(item.message.text))}
                                             </span>
-                                            <button
-                                                type="button"
-                                                className="selection-chip-remove flex h-4 w-4 shrink-0 items-center justify-center rounded text-[length:var(--text-body-sm)] leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]"
+                                            <Button
+                                                variant="icon"
+                                                size="icon-xs"
+                                                className="h-4 w-4 shrink-0 rounded text-[length:var(--text-body-sm)] leading-none text-[var(--color-on-surface-muted)] hover:bg-[color-mix(in_srgb,var(--color-error)_14%,transparent)] hover:text-[var(--color-error)] focus-visible:ring-[var(--color-accent-ring)]"
                                                 aria-label={`移除片段 ${item.key}`}
                                                 onClick={() => {
                                                     selection_store.toggle(item);
                                                 }}
                                             >
                                                 ×
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <div className="selection-tray-footer flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-1.5">
-                        <span className="selection-tray-count text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-variant)]">
+                    <div className="flex shrink-0 items-center gap-2.5 border-t border-[var(--color-outline)] px-3 py-2">
+                        <span
+                            className="text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-variant)]"
+                            data-testid="selection-tray-count"
+                        >
                             {String(items.length)} 片段 · {String(total_tokens)} tokens
                         </span>
                         <Select
-                            className="selection-tray-format w-auto min-w-[130px]"
+                            className="w-auto min-w-[130px]"
                             aria-label="复制格式"
                             value={format}
                             onChange={(e) => {
@@ -165,7 +167,7 @@ export function SelectionTray() {
                         <Button
                             variant="secondary"
                             size="sm"
-                            className="selection-tray-button"
+                            data-testid="selection-tray-button"
                             onClick={copy}
                             disabled={items.length === 0}
                         >
@@ -174,7 +176,7 @@ export function SelectionTray() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="selection-tray-button selection-tray-clear"
+                            data-testid="selection-tray-clear"
                             aria-label="清空摘选"
                             onClick={() => {
                                 selection_store.clear_all();

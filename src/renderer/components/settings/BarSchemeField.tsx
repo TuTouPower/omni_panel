@@ -1,5 +1,6 @@
 import type { UsageBarColorScheme } from "../../../shared/types/config";
 import { BAR_COLOR_SCHEMES } from "../../views/settings-view/lib";
+import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 
 export function BarSchemeField({
@@ -47,12 +48,10 @@ export function BarSchemeField({
                                     {scheme.title}
                                 </span>
                                 {scheme.badge && (
-                                    <span className="rounded bg-[var(--color-primary-container)] px-2 py-0.5 text-[length:var(--text-label-md)] text-[var(--color-accent)]">
-                                        {scheme.badge}
-                                    </span>
+                                    <Badge variant="recommend">{scheme.badge}</Badge>
                                 )}
                             </span>
-                            <span className="mt-0.5 block text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                            <span className="mt-1 block text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                                 {scheme.sub}
                             </span>
                         </span>

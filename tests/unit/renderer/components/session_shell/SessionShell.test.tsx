@@ -71,8 +71,8 @@ describe("SessionShell (t223)", () => {
             await Promise.resolve();
         });
         fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        // t227 会话库为真实视图（.library-view），非空态占位。
-        expect(document.querySelector(".library-view")).toBeTruthy();
+        // t227 会话库为真实视图（[data-testid="library-view"]），非空态占位。
+        expect(document.querySelector('[data-testid="library-view"]')).toBeTruthy();
         expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
             "false",
         );
@@ -197,10 +197,10 @@ describe("SessionShell (t223)", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        const root = document.querySelector(".session-shell");
+        const root = document.querySelector('[data-testid="session-shell"]');
         expect(root?.className).toContain("bg-[var(--color-surface-window)]");
         expect(root?.className).not.toContain("bg-[var(--color-surface)]");
-        const topbar = document.querySelector(".session-topbar");
+        const topbar = document.querySelector('[data-testid="session-topbar"]');
         expect(topbar?.className).toContain("bg-[var(--color-surface-window)]");
         expect(topbar?.className).not.toContain("bg-[var(--color-surface)]");
     });
@@ -232,28 +232,33 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(before(view, refresh)).toBe(true);
     });
 
-    it("t380 AC-004：rail-toggle 下移为标题栏下方独立行，折叠/展开行为不变", async () => {
+    it("t413 AC-001/002：无 session-rail-toggle-row；折叠按钮在侧栏头部，折叠/展开不变", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
+        // AC-001：不再渲染独立空带行；页签栏之下直接内容区。
+        expect(document.querySelector(".session-rail-toggle-row")).toBeNull();
+        const topbar = document.querySelector('[data-testid="session-topbar"]');
+        const body = document.querySelector('[data-testid="session-body"]');
+        expect(topbar).toBeTruthy();
+        expect(body).toBeTruthy();
+        // 顶栏下一节点即 session-body（中间无 toggle-row）。
+        expect(topbar?.nextElementSibling).toBe(body);
+
         const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
-        // t380: toggle 在标题栏下方独立行（.session-rail-toggle-row），不在 header。
-        expect(toggle.closest(".session-rail-toggle-row")).not.toBeNull();
-        expect(toggle.closest(".session-topbar")).toBeNull();
-        expect(document.querySelector(".session-workspace")?.contains(toggle)).toBe(false);
-        // t381 AC-003: rail-toggle 及其容器行均用混色背景，不含桌面衬底色 surface。
+        // AC-002：toggle 在侧栏头部行内，不在顶栏。
+        expect(toggle.closest('[data-testid="session-rail-header"]')).not.toBeNull();
+        expect(toggle.closest('[data-testid="session-rail"]')).not.toBeNull();
+        expect(toggle.closest('[data-testid="session-topbar"]')).toBeNull();
         const toggle_cls = toggle.className;
-        expect(toggle_cls).toContain("color-mix");
-        expect(toggle_cls).not.toContain("bg-[var(--color-surface)]");
-        const row_cls = toggle.closest(".session-rail-toggle-row")?.className ?? "";
-        expect(row_cls).toContain("color-mix");
-        expect(row_cls).not.toContain("bg-[var(--color-surface)]");
-        // 折叠行为不变。
-        expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
+        expect(toggle.getAttribute("data-testid")).toBe("session-rail-toggle");
+        expect(toggle_cls).not.toContain("color-mix");
+
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
         fireEvent.click(toggle);
-        expect(document.querySelector(".session-rail")?.className).toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain("collapsed");
         fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
-        expect(document.querySelector(".session-rail")?.className).not.toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
     });
 });

@@ -91,6 +91,11 @@ colors:
     agent-grok-dark: "#5b8cff"
     agent-opencode-dark: "#3ecf8e"
     agent-kimi-dark: "#7f9cff"
+    # 滚动条 thumb（t412 细规范：亮色冷灰半透明、暗色对齐 demo §7）
+    scrollbar-thumb: "rgba(120, 130, 150, 0.35)"
+    scrollbar-thumb-hover: "rgba(120, 130, 150, 0.55)"
+    scrollbar-thumb-dark: "#2c3746"
+    scrollbar-thumb-hover-dark: "#3d4b5e"
 typography:
     display-num:
         fontFamily: '"Inter Variable", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif'
