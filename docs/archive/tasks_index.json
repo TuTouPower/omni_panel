@@ -6377,6 +6377,21 @@
             "schedule_status": "",
             "note": "dropped: merged into t428",
             "dir": "docs/archive/tasks/t429_token_stats_union_test_extension"
+        },
+        {
+            "tid": "t431",
+            "slug": "cwd_path_basename_display",
+            "title": "CwdPath 会话 cwd 展示改为 basename",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: merged into t430",
+            "dir": "docs/archive/tasks/t431_cwd_path_basename_display"
         }
     ]
 }

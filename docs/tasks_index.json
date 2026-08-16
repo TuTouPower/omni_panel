@@ -79,21 +79,6 @@
             "dir": "docs/tasks/t430_session_directory_display_semantics"
         },
         {
-            "tid": "t431",
-            "slug": "cwd_path_basename_display",
-            "title": "CwdPath 会话 cwd 展示改为 basename",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t431_cwd_path_basename_display"
-        },
-        {
             "tid": "t432",
             "slug": "fix_pre_exist_lint_errors",
             "title": "修复存量 lint 报错（t402/t418 引入）",
@@ -137,6 +122,21 @@
             "schedule_status": "",
             "note": "工作台+会话库顶栏刷新：collect 一轮后按原路径重拉 UI；手动刷新重置 poll interval",
             "dir": "docs/tasks/t434_session_refresh_collect_reset"
+        },
+        {
+            "tid": "t435",
+            "slug": "fix_segmented_active_primary_text",
+            "title": "Segmented 选中态对齐 DESIGN primary 字色",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "p201: segmented-item-active 偏离 DESIGN，t421 回归",
+            "dir": "docs/tasks/t435_fix_segmented_active_primary_text"
         }
     ]
 }
