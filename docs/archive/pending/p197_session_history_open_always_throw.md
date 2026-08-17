@@ -6,4 +6,4 @@
 - 测试缺口：review 建议在 `is_ipc_result` 上留测试覆盖；当前无覆盖该通道响应信封形状的用例。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 13 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：1ebfb619

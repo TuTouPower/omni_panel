@@ -6,4 +6,4 @@
 - 测试缺口：review 未点名具体测试位置；无跨 provider 行为一致性用例（如 logout 清 retry 计数、stop_auto_refresh 语义应在两个 manager 上一致）。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 11 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：698fe185

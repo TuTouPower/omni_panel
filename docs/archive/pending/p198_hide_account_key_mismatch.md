@@ -6,4 +6,4 @@
 - 测试缺口：两侧单测各锁各的语义（tests/unit/renderer/account-overrides.test.ts:21-33 写入裸 id；tests/unit/renderer/provider-usage.test.ts:796-801 用复合 key 过滤），无端到端用例覆盖真实隐藏流程；应补「hide_account → apply_account_overrides → 主面板过滤」链路用例。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 14 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：26c2a611

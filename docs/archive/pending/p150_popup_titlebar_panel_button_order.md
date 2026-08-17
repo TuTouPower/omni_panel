@@ -60,4 +60,4 @@
 - 同类位点：以上三处（同一机制「已 delegate 到 ui/ 的旧 API 壳」）；已扫无其它（`settings/Toggle` 全仓仅此一处旧包装，其余设置项已直用 `ui/Switch`）。
 - 测试缺口：现有测试（`ui.test.tsx` 等）只测 `ui/` 本体与部分旧壳，无「旧壳行为与 ui/ 本体一致」的契约测试；迁移后补/删对应旧壳单测。
 - 修复方向：调用方迁移到 `ui/SecretInput`/`ui/Select`/`ui/Switch` 后删除三个旧壳文件及对应旧 API 测试；保留 `settings/Select` 的 `options: string[]` 便捷性可在调用点内联，不做新抽象。
-- 处理：已开（t380 / t381 / t382）
+- 处理：t382
