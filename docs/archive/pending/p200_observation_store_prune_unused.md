@@ -6,4 +6,4 @@
 - 测试缺口：review 未点名遗漏测试；cacheMaxMb 设置项无消费方用例，无留存策略/定期 prune 调度测试。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 16 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：decd35da

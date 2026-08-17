@@ -6,4 +6,4 @@
 - 测试缺口：`tests/unit/preload/` 无 summaries 形状测试，故未被拦截；应补 preload summaries 解包形状用例（断言对 `{summaries: {...}}` 包装按 key 取值）。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 12 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：1ebfb619

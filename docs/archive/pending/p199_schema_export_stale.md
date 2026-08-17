@@ -6,4 +6,4 @@
 - 测试缺口：无「导出物与源一致」检查（对比 `zodToJsonSchema` 输出）；`package.json` 仅 `schema:export` 脚本，CI（ci.yml/nightly.yml/release.yml）与 `pnpm check` 均不执行，漂移会持续累积。
 - 线索：docs/reviews/review_20260813_114911/review_intensive.md 第 15、17 行
 - 来源：review_20260813_114911/review_intensive
-- 处理：未开
+- 处理：ed51a5e8
