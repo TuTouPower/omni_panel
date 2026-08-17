@@ -48,6 +48,7 @@ import {
     collect,
     configure,
     reset_config,
+    start_interval,
     set_collector_host,
     costs_state,
     opencode_max_updated,
@@ -249,10 +250,19 @@ describe("collector", () => {
         });
 
         it("builds WSL grok sessions path (t197); null on non-Windows hosts", () => {
-            expect(grok_sessions_path(wsl_config, "windows")).toBe(
+            expect(grok_sessions_path(wsl_config, "wsl", "windows")).toBe(
                 "\\\\wsl.localhost\\Ubuntu-22.04\\home\\karon\\.grok\\sessions",
             );
-            expect(grok_sessions_path(wsl_config, "linux")).toBeNull();
+            expect(grok_sessions_path(wsl_config, "wsl", "linux")).toBeNull();
+        });
+
+        it("t426: resolves local grok sessions path on non-Windows hosts (AC-002)", () => {
+            expect(grok_sessions_path(base_config, "local", "linux", "/home/u")).toBe(
+                "/home/u/.grok/sessions",
+            );
+            expect(grok_sessions_path(base_config, "local", "macos", "/Users/u")).toBe(
+                "/Users/u/.grok/sessions",
+            );
         });
     });
 
@@ -582,8 +592,11 @@ describe("collector", () => {
             expect(mock_scan_jsonls).toHaveBeenCalledTimes(1);
             expect(mock_read_opencode_sessions).toHaveBeenCalledTimes(1);
             expect(mock_scan_kimi).toHaveBeenCalledTimes(1);
-            // grok is WSL-only: never read when wsl_enabled=false (t197)
-            expect(mock_scan_grok).not.toHaveBeenCalled();
+            // t426: grok 现在有 local 源（随宿主安装），wsl_enabled=false 只跳过
+            // grok_wsl；grok_local 在 windows 宿主读 win_home\.grok（t197 断言更新）。
+            expect(mock_scan_grok).toHaveBeenCalledTimes(1);
+            expect(String(mock_scan_grok.mock.calls[0]![0])).toContain("Users");
+            expect(mock_scan_grok.mock.calls[0]![1]).toBe("local");
             expect(mock_read_costs).toHaveBeenCalledWith(
                 expect.stringContaining("Users"),
                 "local",
@@ -610,59 +623,123 @@ describe("collector", () => {
             }
         });
 
-        it("reads the grok source only under WSL and posts its rows (t197)", () => {
+        it("t426: host=linux source list includes local grok and collects it (AC-001)", () => {
+            set_collector_host("linux");
             mock_scan_grok.mockReturnValue({
                 sessions: [
                     {
-                        id: "grok-s1",
+                        id: "grok-local-s1",
                         source: "grok",
-                        env: "wsl",
+                        env: "local",
                         model: "grok-4.5-build",
-                        title: "github_repo",
+                        title: "local_grok_repo",
                         directory: "/home/karon/github_repo",
-                        input_tokens: 100,
-                        output_tokens: 52,
-                        cache_read_tokens: 20,
+                        input_tokens: 10,
+                        output_tokens: 5,
+                        cache_read_tokens: 0,
                         cache_write_tokens: 0,
                         calls: 1,
                         started_at: 1,
                         ended_at: 2,
                     },
                 ],
-                daily: [
-                    {
-                        id: "grok-s1",
-                        source: "grok",
-                        env: "wsl",
-                        model: "grok-4.5-build",
-                        date: "2026-07-27",
-                        input_tokens: 100,
-                        output_tokens: 52,
-                        cache_read_tokens: 20,
-                        cache_write_tokens: 0,
-                        calls: 1,
-                    },
-                ],
+                daily: [],
                 records: [
-                    record({
-                        message_id: "grok-r1",
-                        source: "grok",
-                        env: "wsl",
-                        agent: "grok",
-                    }),
+                    record({ message_id: "grok-local-r1", source: "grok", env: "local", agent: "grok" }),
                 ],
                 new_state: { mtimes: new Map([["g", 1]]), files: new Map() },
             });
 
-            configure(wsl_config);
+            configure(base_config);
 
+            // grok_local 参与采集：reader 被调用，路径为 local 解析（非 UNC）。
             expect(mock_scan_grok).toHaveBeenCalledTimes(1);
             const call = mock_scan_grok.mock.calls[0]!;
-            expect(String(call[0])).toContain("wsl.localhost");
-            expect(String(call[0])).toContain(".grok\\sessions");
-            expect(call[1]).toBe("wsl");
+            // 相对 os.homedir() 的 local 路径（不硬编码具体 home，CI 机器无关）。
+            const p = String(call[0]);
+            expect(p.endsWith("/.grok/sessions")).toBe(true);
+            expect(p).not.toContain("wsl.localhost");
+            expect(call[1]).toBe("local");
 
-            const update = mock_post_message.mock.calls[0]![0] as {
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as {
+                sessions: { id: string; env: string; source: string }[];
+                records: AgentSessionUsage[];
+            };
+            expect(
+                update.sessions.some(
+                    (s) => s.id === "grok-local-s1" && s.env === "local" && s.source === "grok",
+                ),
+            ).toBe(true);
+            expect(update.records.some((r) => r.message_id === "grok-local-r1")).toBe(true);
+        });
+
+        it("reads the grok wsl source under WSL and posts its rows (t197)", () => {
+            // t426: grok 双源——windows 宿主上 grok_local 读 win_home（通常缺失），
+            // grok_wsl 走 UNC。按 path 区分 mock：local 返回空、wsl 返回数据。
+            mock_scan_grok.mockImplementation((_p: string, env: string) => {
+                if (env === "local") {
+                    return { sessions: [], daily: [], records: [], new_state: { mtimes: new Map(), files: new Map() } };
+                }
+                return {
+                    sessions: [
+                        {
+                            id: "grok-s1",
+                            source: "grok",
+                            env: "wsl",
+                            model: "grok-4.5-build",
+                            title: "github_repo",
+                            directory: "/home/karon/github_repo",
+                            input_tokens: 100,
+                            output_tokens: 52,
+                            cache_read_tokens: 20,
+                            cache_write_tokens: 0,
+                            calls: 1,
+                            started_at: 1,
+                            ended_at: 2,
+                        },
+                    ],
+                    daily: [
+                        {
+                            id: "grok-s1",
+                            source: "grok",
+                            env: "wsl",
+                            model: "grok-4.5-build",
+                            date: "2026-07-27",
+                            input_tokens: 100,
+                            output_tokens: 52,
+                            cache_read_tokens: 20,
+                            cache_write_tokens: 0,
+                            calls: 1,
+                        },
+                    ],
+                    records: [
+                        record({
+                            message_id: "grok-r1",
+                            source: "grok",
+                            env: "wsl",
+                            agent: "grok",
+                        }),
+                    ],
+                    new_state: { mtimes: new Map([["g", 1]]), files: new Map() },
+                };
+            });
+
+            configure(wsl_config);
+
+            // 两个 grok 源都参与：grok_local（win_home）+ grok_wsl（UNC）。
+            expect(mock_scan_grok).toHaveBeenCalledTimes(2);
+            const wsl_call = mock_scan_grok.mock.calls.find((c: unknown[]) =>
+                String(c[0]).includes("wsl.localhost"),
+            );
+            expect(wsl_call).toBeDefined();
+            expect(String(wsl_call![0])).toContain(".grok\\sessions");
+            expect(wsl_call![1]).toBe("wsl");
+
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as {
                 sessions: unknown[];
                 daily: unknown[];
                 records: AgentSessionUsage[];
@@ -676,6 +753,8 @@ describe("collector", () => {
         });
 
         it("warns once when the grok sessions dir is missing and still collects others (t197 AC5)", () => {
+            // t426: grok 双源——wsl_config + windows host 下 grok_local（win_home）
+            // 与 grok_wsl（UNC）都 missing，各 warn 一次。
             mock_scan_grok.mockReturnValue({
                 sessions: [],
                 daily: [],
@@ -692,13 +771,19 @@ describe("collector", () => {
 
             configure(wsl_config);
 
-            // token_stats_update + one collector_log warn (grok missing).
-            expect(mock_post_message).toHaveBeenCalledTimes(2);
-            const log_msg = mock_post_message.mock.calls.find(
-                (c) => (c[0] as { type?: string }).type === "collector_log",
-            )?.[0] as { type: string; level: string; module: string; message: string } | undefined;
-            expect(log_msg?.level).toBe("warn");
-            expect(log_msg?.message).toContain("grok_wsl sessions dir missing");
+            // token_stats_update + two collector_log warns (grok_local + grok_wsl missing).
+            expect(mock_post_message).toHaveBeenCalledTimes(3);
+            const log_msgs = mock_post_message.mock.calls
+                .filter((c) => (c[0] as { type?: string }).type === "collector_log")
+                .map((c) => c[0] as { type: string; level: string; module: string; message: string });
+            expect(log_msgs).toHaveLength(2);
+            expect(log_msgs.every((l) => l.level === "warn")).toBe(true);
+            expect(log_msgs.some((l) => l.message.includes("grok_wsl sessions dir missing"))).toBe(
+                true,
+            );
+            expect(log_msgs.some((l) => l.message.includes("grok_local sessions dir missing"))).toBe(
+                true,
+            );
             // Other sources still collected.
             const update = mock_post_message.mock.calls.find(
                 (c) => (c[0] as { type?: string }).type === "token_stats_update",
@@ -1052,7 +1137,8 @@ describe("collector", () => {
             }
             // Local sources stay healthy.
             const local_statuses = update.sources_status.filter((s) => s.env === "local");
-            expect(local_statuses).toHaveLength(4);
+            // t426: grok_local 加入 local 源清单（5 个 local 源）。
+            expect(local_statuses).toHaveLength(5);
             expect(local_statuses.every((s) => s.status === "ok")).toBe(true);
 
             // AC-003: one warn per unavailable source, keyed with source/env + reason.
@@ -1131,7 +1217,8 @@ describe("collector", () => {
 
             expect(posted_logs()).toHaveLength(0);
             const update = posted_updates()[0]!;
-            expect(update.sources_status).toHaveLength(4);
+            // t426: 5 个 local 源（claude_costs/claude_jsonl/opencode/kimi/grok）。
+            expect(update.sources_status).toHaveLength(5);
             expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
         });
     });
@@ -1290,6 +1377,37 @@ describe("collector", () => {
             });
             configure(cfg);
             expect(mock_scan_save).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("interval 重置 (t434 AC-005)", () => {
+        afterEach(() => {
+            vi.useRealTimers();
+            reset_config();
+        });
+
+        it("start_interval 以 poll_interval_ms arm；再次调用 clear 旧 interval 后 re-arm", () => {
+            vi.useFakeTimers();
+            const set_spy = vi.spyOn(globalThis, "setInterval");
+            const clear_spy = vi.spyOn(globalThis, "clearInterval");
+
+            // configure 后 start_interval：以 poll_interval_ms arm。
+            configure({ ...base_config, poll_interval_ms: 120_000, state_path: "" });
+            start_interval();
+            const interval_calls = set_spy.mock.calls.filter((c) => c[0] === collect);
+            expect(interval_calls.length).toBeGreaterThanOrEqual(1);
+            expect(interval_calls[0]?.[1]).toBe(120_000);
+
+            // 手动刷新（force_collect → config → configure + start_interval）：
+            // clear 旧 interval 再以新值 re-arm，下一轮自动采集从该时刻起算。
+            configure({ ...base_config, poll_interval_ms: 300_000, state_path: "" });
+            start_interval();
+            expect(clear_spy).toHaveBeenCalled();
+            const interval_calls2 = set_spy.mock.calls.filter((c) => c[0] === collect);
+            expect(interval_calls2[interval_calls2.length - 1]?.[1]).toBe(300_000);
+
+            set_spy.mockRestore();
+            clear_spy.mockRestore();
         });
     });
 });

@@ -14,6 +14,8 @@ const log = createLogger("token-stats-manager");
 export interface TokenStatsManager {
     start(config: TokenStatsConfig): void;
     update_config(config: TokenStatsConfig): void;
+    /** t434: 立即触发一轮 collect 并以 poll_interval_ms 重置自动采集计时。 */
+    force_collect(): void;
     is_running(): boolean;
     /** 是否处于熔断跳闸态（t396 AC-002）：连续快速崩溃后已停止自动重启，
      * 与显式 stop() 区分——跳闸可经 update_config 恢复，stop 后需显式 start。 */
@@ -277,6 +279,19 @@ export function create_token_stats_manager(deps: {
         return tripped;
     }
 
+    /**
+     * t434: 手动刷新触发一轮与周期相同的采集并重置自动采集计时。
+     * 复用 config 消息：collector 收到后 configure() 立即 collect()，再经
+     * start_interval() 以 poll_interval_ms 重新起算 interval（collector.ts
+     * 的 start_interval 先 clearInterval 再 arm）。不经 update_config——
+     * 其 same_config 去抖会跳过字节相同配置。
+     */
+    function force_collect(): void {
+        if (!child || !current_config) return;
+        child.postMessage({ type: "config", config: current_config });
+        log.info("Manual token-stats collect triggered");
+    }
+
     function stop(): void {
         current_config = null;
         tripped = false;
@@ -292,7 +307,7 @@ export function create_token_stats_manager(deps: {
         }
     }
 
-    return { start, update_config, is_running, is_tripped, stop };
+    return { start, update_config, force_collect, is_running, is_tripped, stop };
 }
 
 export type { TokenStatsUpdate };

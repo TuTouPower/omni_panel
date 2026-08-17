@@ -219,6 +219,7 @@ export function install_popup_usageboard() {
         },
         tokenStats: {
             open: token_stats_open,
+            forceCollect: vi.fn().mockResolvedValue(null),
             getBuckets: vi.fn().mockResolvedValue([]),
             getSessions: vi.fn().mockResolvedValue([]),
             getSessionStats: vi.fn().mockResolvedValue({ sessions: 0, agents: 0, tokens: 0 }),

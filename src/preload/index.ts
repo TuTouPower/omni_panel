@@ -100,6 +100,11 @@ const connector_methods = {
 
 const token_stats_methods = {
     open: () => void ipcRenderer.invoke(IPC_CHANNELS.TOKEN_STATS_OPEN),
+    // t434: 手动刷新触发一轮采集并重置自动采集计时。
+    forceCollect: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["tokenStats"]["forceCollect"]>>>(
+            IPC_CHANNELS.TOKEN_STATS_FORCE_COLLECT,
+        ),
     getBuckets: (filters?: {
         source?: string;
         env?: string;

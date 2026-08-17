@@ -1,0 +1,26 @@
+{
+  "tid": "t433",
+  "attempt": 1,
+  "execution_id": "2a51a2ce2c47467482e11c5862c74454",
+  "status": "done",
+  "branch": "t433_workspace_recent_cap_test_stabilize",
+  "base_sha": "0eced8265842239a3c1a4738b9b1aaef4de3c811",
+  "tests": "定向 vitest：WorkspaceView.test.tsx = 47 passed",
+  "blackbox": "定向 vitest 47 passed + bash 循环连跑 5 次全绿（无 flake）+ tsc --noEmit 0 error",
+  "review": "第 1 轮 PASS（single general，clean 0 finding）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx:574-583：点击前 waitFor 9 行齐全，上限 8 计数断言原样保留"
+    ],
+    "AC-002": [
+      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx:377：await screen.findByText(\"会话 s1\") 后交互",
+      "同文件:511-514：\"全部 3\" 断言包入 waitFor，断言目标不变"
+    ],
+    "AC-003": [
+      "定向 vitest 47/47 通过",
+      "bash 循环连跑 5 次全绿（vitest 3.2.4 无 --repeat 选项，等价覆盖 spec \"如 --repeat 5\" 语义）"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

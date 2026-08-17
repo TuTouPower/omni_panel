@@ -58,9 +58,9 @@ token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailab
 
 ## 3.2 TokenStats 数据源 grok（t197）
 
-token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），仅 WSL（Windows 无 grok CLI 数据），与连接器 `connectors/grok`（billing 百分比）互不相干。
+token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），双源采集（t426）：Windows 宿主经 WSL UNC 读 `grok_wsl`；Linux/mac 宿主读本机 `~/.grok` 的 `grok_local`（t197 起「仅 WSL」表述已被 t426 取代）。与连接器 `connectors/grok`（billing 百分比）互不相干。
 
-- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。grok 数据仅存在于 WSL（`env='wsl'`，t308 起路径经平台感知层 `paths.ts` 解析，Windows 宿主 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...`，非 Windows 宿主 `~/.grok/sessions/...` 走 `local` 源）。
+- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。grok 数据两处存在：WSL（`env='wsl'`，t308 起路径经平台感知层 `paths.ts` 解析，Windows 宿主 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...`）与 Linux/mac 本机（`env='local'`，`~/.grok/sessions/...`）。两 env 并存时 store 主键 `(source, env, id)` 隔离，不互相覆盖。
 - **事件口径**：`turn_completed` 事件的 `usage` 是【该 user prompt 一轮的独立总量】，跨 inference loop 累加、下一轮从零起算，**勿用相邻事件差分**（会把每轮总量误当累计快照造成巨量漏记）。`reasoningTokens ⊂ outputTokens` 不计费，output 直接映射、reasoning 不单独记账。`costUsdTicks` 不入账。
 - **records agent 值约定**：kebab-case，`agent="grok"`，与 `source="grok"` 一致。
 - **展示层映射**（t198）：label `"Grok"`、color `#b687f0`（紫），records 侧 `AGENT_*` 与 buckets/rollup 侧 `BUCKET_AGENT_*`/`ROLLUP_AGENT_*` 三组映射同构扩展；`AgentFilter` 含 `"grok"`；SessionTable chip class `gk`。展示层权威映射在 `src/renderer/lib/token-stats/chart-data.ts` 与 `src/renderer/views/TokenStatsView.tsx` 的 `AGENT_OPTIONS`。
@@ -112,7 +112,7 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 
 - claude_code：`~/.claude/projects/<proj>/<sess>.jsonl`，每行 `{type:"user|assistant|...",message:{content},uuid,timestamp}`；只取 user/assistant 的 content 中 `type==="text"` 段，剔 thinking/tool_use/tool_result/system/summary。决策 13：只读主 transcript，不读 agent-\*.jsonl。
 - opencode：`~/.local/share/opencode/opencode.db` SQLite，`message.data.role` 关联 `part.data{type:"text",text}`，过滤 tool/reasoning/step-\*/patch/compaction；时间 `part.time_created`。
-- kimi_code：`~/.kimi-code/.../wire.jsonl` 的 `context.append_message.message.{role,content[type=text]}` + 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。
+- kimi_code：`~/.kimi-code/.../wire.jsonl` 的 `context.append_message.message.{role,content[type=text]}`（旧/子 agent 路径）+ `context.append_loop_event → event.type=content.part → part.type=text`（当前主 agent 的 assistant 正文路径，t425）+ 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。
 - grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），非 `updates.jsonl`**（后者只 turn_completed usage 元数据）。每行 `{type:"user|assistant|system|reasoning|tool_result",content}`，**无顶层 timestamp**（按行序）。增量 id 与全量共享全局序号命名空间（p050，避免历史窗口按 id 去重丢新消息）；增量游标落半行时回退行边界重读、未完成尾行驻留行首（不丢记录）。
 
 统一模型 `HistoryMessage{id,role,text,timestamp|null}`；增量游标 byte_offset（JSONL 端）或 sqlite_rowid（opencode）。硬约束：对会话源文件全程只读；提取器对新行型一律跳过（宁可漏不可错），窗口层空态兜底。

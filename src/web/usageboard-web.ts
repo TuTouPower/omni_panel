@@ -515,6 +515,8 @@ export function create_web_usageboard(): UsageboardApi {
             open: () => {
                 window.location.hash = "agent";
             },
+            // t434: web 无 collector，forceCollect 为 no-op（返回 null 契约）。
+            forceCollect: () => Promise.resolve(null),
             getBuckets: () => get_json("/v1/buckets"),
             getSessions: (filters?: TokenStatsSessionFilters) => {
                 const params = new URLSearchParams();

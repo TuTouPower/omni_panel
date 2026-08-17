@@ -49,6 +49,8 @@
 
 **session 表**：每 session 一行。关键字段：`id`、`model`（JSON，需 `json_extract(model, '$.id')`）、`tokens_input`、`tokens_output`、`tokens_reasoning`、`tokens_cache_read`、`tokens_cache_write`、`title`、`directory`、`time_created`（Unix epoch ms）、`time_updated`。
 
+跨多 directory 会话（t430）：dashboard 会话列表的 `directory` 展示统一取**最新记录目录**（records 路径 `rn=1 ORDER BY timestamp DESC, rowid DESC`；rollup ready 路径经逐会话窄查取同一行），与聚合策略 `max_by(.timestamp)` 方向一致。
+
 **part 表**：每步 API 调用。`data` 字段 JSON 中 `type: "step-finish"` 含逐次 token 用量（累积值，需算增量）。
 
 **Win/WSL 差异**：两份独立 SQLite，需分别读取。打开时使用 `mode: readonly`，避免锁竞争。
@@ -68,7 +70,7 @@
 
 ### 2.4 Grok Build
 
-仅 WSL 采集（Windows 无 grok CLI 数据）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
+双源采集（t426）：Windows 经 WSL UNC（grok_wsl），Linux/mac 本机 `~/.grok`（grok_local）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
 
 | 数据            | 格式  | WSL 路径                                                                              |
 | --------------- | ----- | ------------------------------------------------------------------------------------- |
@@ -94,7 +96,7 @@ src/main/core/token-stats/
 ├── claude-reader.ts       # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
-├── grok-reader.ts         # Grok updates.jsonl 读取（仅 WSL）
+├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + local，t426）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```

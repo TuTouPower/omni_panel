@@ -333,6 +333,31 @@ describe("token-stats manager", () => {
         manager.stop();
     });
 
+    it("t434 AC-001/AC-005: force_collect posts config to the running child (collect + interval reset)", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+
+        manager.start(base_config);
+        // 与周期采集同入口：config 消息使 collector configure() 触发 collect()
+        // 并经 start_interval() 以 poll_interval_ms 重置计时。
+        manager.force_collect();
+
+        expect(last_child!.postMessage).toHaveBeenLastCalledWith({
+            type: "config",
+            config: base_config,
+        });
+        manager.stop();
+    });
+
+    it("t434: force_collect is a no-op when collector is not running", () => {
+        const store = create_mock_store();
+        const manager = create_token_stats_manager({ store });
+        // 未 start：无 child，force_collect 不抛且无副作用。
+        expect(() => {
+            manager.force_collect();
+        }).not.toThrow();
+    });
+
     it("update_config skips postMessage when config is unchanged (D debounce)", () => {
         const store = create_mock_store();
         const manager = create_token_stats_manager({ store });

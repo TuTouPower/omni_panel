@@ -134,6 +134,8 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_STATUS: "tokenStats:status",
     TOKEN_STATS_UPDATED: "tokenStats:updated",
     TOKEN_STATS_OPEN: "tokenStats:open",
+    /** t434: 立即触发一轮 token-stats 采集并重置自动采集计时。 */
+    TOKEN_STATS_FORCE_COLLECT: "tokenStats:forceCollect",
 
     /** t210: 会话历史 IPC 通道组（决策 15）。 */
     SESSION_HISTORY_OPEN: "sessionHistory:open",
@@ -648,6 +650,8 @@ export interface UsageboardApi {
     log(payload: RendererLogPayload): void;
     tokenStats: {
         open(): void;
+        /** t434: 手动刷新触发一轮 token-stats 采集并重置自动采集计时。 */
+        forceCollect(): Promise<null>;
         getBuckets(filters?: {
             source?: string;
             env?: string;

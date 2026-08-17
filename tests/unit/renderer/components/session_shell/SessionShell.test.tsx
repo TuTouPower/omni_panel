@@ -23,7 +23,7 @@ interface MockBoard {
         onMessagesUpdated: MockFn;
         onFocus: MockFn;
     };
-    tokenStats: { open: MockFn; getSessions: MockFn };
+    tokenStats: { open: MockFn; forceCollect: MockFn; getSessions: MockFn };
     tray: { open_panel: MockFn };
 }
 
@@ -230,6 +230,46 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(before(recent, clear)).toBe(true);
         expect(before(clear, view)).toBe(true);
         expect(before(view, refresh)).toBe(true);
+    });
+
+    it("t434 AC-001/AC-002/AC-003: 顶栏刷新触发 forceCollect、槽位消息重拉与会话库重拉", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        ub.tokenStats.getSessions.mockResolvedValue([
+            { id: "s1", source: "claude_code", env: "local", title: "会话一", ended_at: 1 },
+        ] as never);
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        // 打开一个槽位：query 至少一次。
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "s1" });
+        });
+        await waitFor(() => screen.getByText("你好"));
+        const query_after_focus = ub.sessionHistory.query.mock.calls.length;
+        expect(query_after_focus).toBeGreaterThan(0);
+
+        // 切到会话库页签，列表加载一次。
+        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
+        await waitFor(() => screen.getByTestId("library-card"));
+        const sessions_after_first = ub.tokenStats.getSessions.mock.calls.length;
+        expect(sessions_after_first).toBeGreaterThan(0);
+
+        // 点顶栏刷新：forceCollect 被调用 + 槽位消息 query 再调 + getSessions 再调。
+        fireEvent.click(screen.getByTitle("刷新当前面板"));
+        await waitFor(() => {
+            expect(ub.tokenStats.forceCollect).toHaveBeenCalled();
+        });
+        await waitFor(() => {
+            expect(ub.sessionHistory.query.mock.calls.length).toBeGreaterThan(query_after_focus);
+        });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions.mock.calls.length).toBeGreaterThan(sessions_after_first);
+        });
     });
 
     it("t413 AC-001/002：无 session-rail-toggle-row；折叠按钮在侧栏头部，折叠/展开不变", async () => {

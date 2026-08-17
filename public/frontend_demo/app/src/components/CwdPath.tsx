@@ -1,27 +1,26 @@
 import { FolderGit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/** 路径中间截断：~/proj…end/app */
-export function truncateMiddle(path: string, max = 26): string {
-  if (path.length <= max) return path;
-  const keep = max - 1; // 省略号占 1 位
-  const head = Math.ceil(keep / 2);
-  const tail = Math.floor(keep / 2);
-  return `${path.slice(0, head)}…${path.slice(path.length - tail)}`;
+/** 取路径最后一段（basename）；根路径/空串回退原值（t430 AC-007）。 */
+export function pathBasename(path: string): string {
+  if (!path) return path;
+  const cleaned = path.replace(/[\\/]+$/, '');
+  if (!cleaned) return path;
+  const parts = cleaned.split(/[\\/]/);
+  const last = parts[parts.length - 1];
+  return last ?? path;
 }
 
 interface CwdPathProps {
   cwd: string;
-  /** 中间截断阈值（字符数） */
-  max?: number;
   className?: string;
 }
 
 /**
  * CwdPath — 会话工作目录展示（mono + muted + FolderGit2 图标，
- * 超长中间截断，title 悬浮完整路径）
+ * t430：只显示 basename（最后一段），title 悬浮完整路径）
  */
-export default function CwdPath({ cwd, max, className }: CwdPathProps) {
+export default function CwdPath({ cwd, className }: CwdPathProps) {
   return (
     <span
       className={cn(
@@ -31,7 +30,7 @@ export default function CwdPath({ cwd, max, className }: CwdPathProps) {
       title={cwd}
     >
       <FolderGit2 className="h-3 w-3 shrink-0" />
-      <span className="truncate">{truncateMiddle(cwd, max)}</span>
+      <span className="truncate">{pathBasename(cwd)}</span>
     </span>
   );
 }

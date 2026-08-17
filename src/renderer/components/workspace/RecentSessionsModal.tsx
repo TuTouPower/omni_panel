@@ -9,13 +9,19 @@ import { Dialog } from "../ui/Dialog";
 interface RecentSessionsModalProps {
     readonly on_confirm: (sessions: TokenStatsSession[]) => void;
     readonly on_close: () => void;
+    /** t434: 顶栏刷新递增 token，触发按原 limit/排序重查。 */
+    readonly refresh_token?: number | undefined;
 }
 
 const RECENT_LIMIT = 100;
 const MAX_PICK = 8;
 
 /** t224 最近会话弹窗：按日期倒序多选（上限 8，选择顺序角标），快捷「最近 2/4/6/8」。 */
-export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModalProps) {
+export function RecentSessionsModal({
+    on_confirm,
+    on_close,
+    refresh_token,
+}: RecentSessionsModalProps) {
     const [sessions, set_sessions] = useState<TokenStatsSession[]>([]);
     const [picked, set_picked] = useState<TokenStatsSession[]>([]);
 
@@ -35,7 +41,8 @@ export function RecentSessionsModal({ on_confirm, on_close }: RecentSessionsModa
         return () => {
             cancelled = true;
         };
-    }, []);
+        // t434: 顶栏刷新递增 refresh_token 时按原 limit/排序重查。
+    }, [refresh_token]);
 
     function toggle(sess: TokenStatsSession): void {
         set_picked((prev) => {

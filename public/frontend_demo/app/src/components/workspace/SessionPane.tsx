@@ -165,7 +165,7 @@ export default function SessionPane({
             )}
           </div>
           <div className="flex items-center gap-2 truncate font-mono text-[11px] leading-tight text-text-muted">
-            <CwdPath cwd={session.cwd} max={22} />
+            <CwdPath cwd={session.cwd} />
             <span className="shrink-0">
               {session.turnCount} 轮 · {formatTokens(session.tokenCount)} tokens · {session.date}
             </span>

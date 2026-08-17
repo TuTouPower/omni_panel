@@ -484,6 +484,38 @@ describe("TokenStatsView dashboard query", () => {
         expect(select.value).toBe("deepseek-v4-flash");
     });
 
+    it("t428 AC-001/AC-003: multi-alias 同 key 前后端同策略（后写覆盖）——归一到后声明 alias", async () => {
+        // shared-key 先属 AliasA 后属 AliasB：与后端 resolver 后写覆盖一致，
+        // prefs 残留 shared-key 归一为 AliasB（修复前先写获胜会归到 AliasA）。
+        localStorage.setItem(
+            "token-stats-prefs",
+            JSON.stringify({ model: "shared-key", agent: "all", platform: "all" }),
+        );
+        get_config.mockResolvedValue({
+            config: {
+                modelAliases: [
+                    { alias: "AliasA", models: ["shared-key"] },
+                    { alias: "AliasB", models: ["shared-key"] },
+                ],
+            },
+            hasSecrets: {},
+        });
+        const multi = dashboard("multi");
+        multi.models = ["AliasA", "AliasB"];
+        get_dashboard.mockResolvedValue(multi);
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        await waitFor(() => {
+            const prefs = JSON.parse(localStorage.getItem("token-stats-prefs") ?? "{}") as {
+                model?: string;
+            };
+            expect(prefs.model).toBe("AliasB");
+        });
+        const select = screen.getByLabelText<HTMLSelectElement>("模型筛选");
+        expect(select.value).toBe("AliasB");
+    });
+
     it("model filter is part of the dashboard query cache key (t204)", async () => {
         const multi = dashboard("multi");
         multi.models = ["opus", "sonnet"];

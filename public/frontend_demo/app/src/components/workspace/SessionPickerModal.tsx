@@ -174,7 +174,7 @@ export default function SessionPickerModal({
                         </div>
                         <div>{s.date}</div>
                         <div className="flex justify-end">
-                          <CwdPath cwd={s.cwd} max={20} />
+                          <CwdPath cwd={s.cwd} />
                         </div>
                       </div>
                     </motion.button>

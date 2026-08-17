@@ -342,7 +342,10 @@ describe("ui 组件库（t269）", () => {
         const buttons = container.querySelectorAll("button");
         expect(buttons[0]?.getAttribute("aria-pressed")).toBe("true");
         expect(buttons[1]?.getAttribute("aria-pressed")).toBe("false");
-        expect(buttons[0]?.className).toContain("bg-[var(--color-surface-window)]");
+        // t435: 选中态对齐 DESIGN segmented-item-active——primary 字 + surface-card 底。
+        expect(buttons[0]?.className).toContain("bg-[var(--color-surface-card)]");
+        expect(buttons[0]?.className).toContain("text-[var(--color-primary)]");
+        expect(buttons[0]?.className).not.toContain("text-[var(--color-on-surface)]");
         const second = buttons[1];
         if (!second) throw new Error("second segment missing");
         fireEvent.click(second);
@@ -351,6 +354,10 @@ describe("ui 组件库（t269）", () => {
         rerender(<Segmented options={options} value={value} onChange={(v) => (value = v)} />);
         expect(second.getAttribute("aria-pressed")).toBe("true");
         expect(buttons[0]?.getAttribute("aria-pressed")).toBe("false");
+        // t435: 切换后新选中项同样 primary + surface-card。
+        expect(second.className).toContain("bg-[var(--color-surface-card)]");
+        expect(second.className).toContain("text-[var(--color-primary)]");
+        expect(buttons[0]?.className).not.toContain("bg-[var(--color-surface-card)]");
     });
 
     it("t421: Segmented option 透传 title / aria-label / data-testid", () => {

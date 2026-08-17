@@ -2297,6 +2297,78 @@ describe("token-stats-store", () => {
             });
         });
 
+        it("t430 AC-001: rollup ready 路径跨多 directory 会话 directory 取最新记录目录（与 records 路径一致）", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                // 同 session 跨两 directory：/aaa（字典序前）的记录时间更晚（最新）。
+                // 修复前 rollup 路径 MAX(directory) 字典序 → /zzz（错）；修复后取最新
+                // 记录目录 → /aaa，与 records 路径一致。
+                store.upsert_records([
+                    record({
+                        message_id: "x1",
+                        session_id: "s10",
+                        directory: "/zzz",
+                        timestamp: t("2026-07-10T08:30:00"),
+                    }),
+                    record({
+                        message_id: "x2",
+                        session_id: "s10",
+                        directory: "/aaa",
+                        timestamp: t("2026-07-10T09:30:00"),
+                    }),
+                ]);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                // records 路径（backfill 前）：取最新记录目录 /aaa。
+                // t430_test_f001 修复：hour_rollup_ready 持久化于 meta 表，重开连接
+                // 仍走 rollup 路径——须同 store 内 backfill 前先查，才构成真对照。
+                const before = store.query_dashboard(query, status);
+                const session_before = before.sessions.items.find((s) => s.session_id === "s10");
+                expect(session_before?.directory).toBe("/aaa");
+
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const dto = store.query_dashboard(query, status);
+                const session = dto.sessions.items.find((s) => s.session_id === "s10");
+                expect(session?.directory).toBe("/aaa");
+                // 两路径 directory 展示一致
+                expect(session?.directory).toBe(session_before?.directory);
+                store.close();
+            });
+        });
+
+        it("t430 AC-002/AC-003: 单 directory 会话展示不变；分页计数不受影响", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                store.upsert_records([
+                    record({ message_id: "p1", session_id: "s-a", directory: "/proj/one", timestamp: S }),
+                    record({ message_id: "p2", session_id: "s-b", directory: "/proj/two", timestamp: S + 1000 }),
+                ]);
+                store.backfill_hour_rollup();
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const dto = store.query_dashboard(query, status);
+                const sa = dto.sessions.items.find((s) => s.session_id === "s-a");
+                expect(sa?.directory).toBe("/proj/one");
+                expect(dto.sessions.total).toBe(2);
+                store.close();
+            });
+        });
+
         it("union dual-source path filters every region by model after backfill (t204)", () => {
             with_temp_store((db_path) => {
                 const store = create_token_stats_store(db_path);
@@ -2323,6 +2395,131 @@ describe("token-stats-store", () => {
                     true,
                 );
                 expect(result.chart_data.rollup.every((r) => r.model === "sonnet-4")).toBe(true);
+                store.close();
+            });
+        });
+
+        it("t428 AC-004: rollup ready 后 union 路径 agent+model 组合过滤（双源均只返回匹配行）", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                // 5 条记录：正向/负向行覆盖 union 4 切片——
+                // rollup×model（am6 非匹配）/ rollup×agent（am2 非匹配）/
+                // records×model（am3 非匹配）/ records×agent（am5 非匹配）；
+                // am4 落边缘带验证 records 源正向命中（t428_test_f002 修复）。
+                store.upsert_records([
+                    record({
+                        message_id: "am1",
+                        timestamp: t("2026-07-10T08:30:00"),
+                        model: "sonnet-4",
+                        agent: "claude-code",
+                        session_id: "s-claude",
+                    }),
+                    record({
+                        message_id: "am2",
+                        timestamp: t("2026-07-10T09:30:00"),
+                        model: "sonnet-4",
+                        agent: "opencode",
+                        session_id: "s-opencode",
+                    }),
+                    record({
+                        message_id: "am3",
+                        timestamp: t("2026-07-10T07:45:00"),
+                        model: "grok-4.5",
+                        agent: "claude-code",
+                        session_id: "s-claude-2",
+                    }),
+                    record({
+                        message_id: "am4",
+                        timestamp: t("2026-07-10T07:50:00"),
+                        model: "sonnet-4",
+                        agent: "claude-code",
+                        session_id: "s-claude-3",
+                    }),
+                    record({
+                        message_id: "am5",
+                        timestamp: t("2026-07-10T07:55:00"),
+                        model: "sonnet-4",
+                        agent: "opencode",
+                        session_id: "s-opencode-2",
+                    }),
+                    record({
+                        message_id: "am6",
+                        timestamp: t("2026-07-10T09:00:00"),
+                        model: "grok-4.5",
+                        agent: "claude-code",
+                        session_id: "s-claude-4",
+                    }),
+                ]);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "claude-code",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                    model: "sonnet-4",
+                };
+                const result = store.query_dashboard(query, status);
+                // 只命中 claude-code + sonnet-4 两条（am1/am4）；opencode 的 sonnet-4
+                // 与 claude-code 的 grok-4.5 都被过滤。
+                expect(result.current.calls).toBe(2);
+                expect(result.sessions.items.map((s) => s.session_id).sort()).toEqual([
+                    "s-claude",
+                    "s-claude-3",
+                ]);
+                expect(result.chart_data.metric_buckets.every((b) => b.model === "sonnet-4")).toBe(
+                    true,
+                );
+                expect(result.chart_data.rollup.every((r) => r.model === "sonnet-4")).toBe(true);
+                store.close();
+            });
+        });
+
+        it("t428 AC-005: rollup ready 后 union 路径跨 model 同 session 会话去重", () => {
+            with_temp_store((db_path) => {
+                const store = create_token_stats_store(db_path);
+                // 同一 session s-multi 跨两个 model 各 1 条记录。
+                store.upsert_records([
+                    record({
+                        message_id: "sm1",
+                        timestamp: t("2026-07-10T08:30:00"),
+                        model: "sonnet-4",
+                        session_id: "s-multi",
+                    }),
+                    record({
+                        message_id: "sm2",
+                        timestamp: t("2026-07-10T09:30:00"),
+                        model: "grok-4.5",
+                        session_id: "s-multi",
+                    }),
+                    record({
+                        message_id: "sm3",
+                        timestamp: t("2026-07-10T10:30:00"),
+                        model: "sonnet-4",
+                        session_id: "s-other",
+                    }),
+                ]);
+                store.backfill_hour_rollup();
+                expect(store.is_hour_rollup_ready()).toBe(true);
+                const query: TokenStatsDashboardQuery = {
+                    agent: "all",
+                    platform: "all",
+                    start: S,
+                    end: E,
+                    metric: "tokens",
+                    xaxis: "time",
+                    gran: "hour",
+                };
+                const result = store.query_dashboard(query, status);
+                // sessions 列表无重复 session：s-multi 只出现一次（跨 model 合并）。
+                const session_ids = result.sessions.items.map((s) => s.session_id);
+                expect(new Set(session_ids).size).toBe(session_ids.length);
+                expect(session_ids.sort()).toEqual(["s-multi", "s-other"]);
+                // KPI 按记录数计：3 条全命中。
+                expect(result.current.calls).toBe(3);
                 store.close();
             });
         });
