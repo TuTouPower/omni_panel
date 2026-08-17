@@ -286,6 +286,8 @@ export function SessionPane({
                                     prev?.timestamp ?? null,
                                     m.timestamp,
                                 );
+                                // t427: 组边界只看相邻 role（divider 不拆组）。
+                                const show_role_label = prev?.role !== m.role;
                                 return (
                                     <>
                                         {divider && (
@@ -303,7 +305,7 @@ export function SessionPane({
                                         <PaneMessageRow
                                             message={m}
                                             selected={is_selected(m.id)}
-                                            show_time={view.show_time}
+                                            show_role_label={show_role_label}
                                             compact={view.compact}
                                             on_toggle={on_toggle}
                                             on_hover={on_hover}

@@ -1,0 +1,37 @@
+{
+  "tid": "t428",
+  "attempt": 1,
+  "execution_id": "74b5a7049f61426c86d9c6ee2cfb7feb",
+  "status": "done",
+  "branch": "t428_model_alias_map_semantics_unify",
+  "base_sha": "b95e7a9d5a248914a1ba6ebae22528e1a5e4e0f8",
+  "tests": "定向 vitest：token-stats-store.test.ts + token_stats_view.test.tsx = 2 files / 138 tests passed",
+  "blackbox": "定向 vitest 2 文件全绿（138 passed，exit 0）+ tsc --noEmit 0 error（CPU 节制：未跑全量）",
+  "review": "第 3 轮 PASS（code + test 双路；R1/R2/R3 均 PASS）",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/renderer/views/token_stats_view.test.tsx：t428 AC-001/AC-003 multi-alias 归一（shared-key → 后声明 AliasB，修复前归 AliasA 必红）",
+      "src/renderer/views/TokenStatsView.tsx originalToAlias 后写覆盖与后端 dashboard_alias_resolver 对齐"
+    ],
+    "AC-002": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts 既有 t230/t384 单 alias 用例原样通过",
+      "token_stats_view.test.tsx t384 AC-006 单 alias 归一用例通过"
+    ],
+    "AC-003": [
+      "tests/unit/renderer/views/token_stats_view.test.tsx：t428 AC-001/AC-003 用例断言 AliasB 区分修复前后",
+      "review_code.md Round 1-3 静态核查两侧策略一致"
+    ],
+    "AC-004": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts：t428 AC-004 rollup ready 后 union agent+model 组合过滤（4 切片负向行，calls=2、sessions 精确列表、buckets/rollup 全 sonnet-4）"
+    ],
+    "AC-005": [
+      "tests/unit/main/core/token-stats/token-stats-store.test.ts：t428 AC-005 跨 model 同 session 会话去重（Set.size==length，sessions=[s-multi,s-other]）"
+    ],
+    "AC-006": [
+      "定向 vitest 2 文件 138 passed（含既有 token-stats 全部用例）",
+      "review_code.md / review_test.md Round 1-3 均复验相关套件绿"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

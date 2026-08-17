@@ -530,11 +530,13 @@ export function TokenStatsView() {
     // value=label=展示名（dashboard.models 已是 resolver 后值），不再经
     // aliasToOriginal 反翻译——展示名==真实 model 名==alias 名时反翻译会错
     // 成 alias 的原始 key（碰撞 bug）。
+    // t428: 与后端 dashboard_alias_resolver 同策略（后写覆盖）——同一 key 在
+    // 多个 alias 组时按最后声明归一，prefs 归一与筛选展开一致（p182）。
     const originalToAlias = useMemo(() => {
         const map = new Map<string, string>();
         for (const { alias, models } of modelAliases) {
             for (const m of models) {
-                if (!map.has(m)) map.set(m, alias);
+                map.set(m, alias);
             }
         }
         return map;

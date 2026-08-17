@@ -373,9 +373,39 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(screen.getByRole("dialog", { name: "选择会话" })).toBeTruthy();
         });
+        // t433: 列表由异步 getSessions 渲染——等列表行出现再交互（防静默 0 命中）。
+        await screen.findByText("会话 s1");
         fireEvent.click(screen.getByText("会话 s1"));
         await waitFor(() => {
             expect(document.querySelectorAll('[data-testid="session-slot-title"]')).toHaveLength(1);
+        });
+    });
+
+    it("t434 AC-003: 最近会话弹窗打开态下顶栏刷新按原 limit 重查（refresh_token 依赖）", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        ub.tokenStats.getSessions.mockResolvedValue([
+            ts_sess("s1", "claude_code", { ended_at: 3000 }),
+        ]);
+        await render_shell();
+        // 打开最近会话弹窗：getSessions({limit: RECENT_LIMIT=100}) 至少一次。
+        fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
+        await waitFor(() => {
+            expect(document.querySelectorAll('[data-testid="session-recent-row"]')).toHaveLength(1);
+        });
+        const recent_calls = () =>
+            ub.tokenStats.getSessions.mock.calls.filter(
+                (c) => (c[0] as { limit?: number } | undefined)?.limit === 100,
+            ).length;
+        const calls_before = recent_calls();
+        expect(calls_before).toBeGreaterThan(0);
+
+        // 弹窗保持打开态点顶栏刷新：refresh_token 递增 → 弹窗 effect 依赖变化 → 重查。
+        // 按 limit:100 参数区分弹窗调用（隐藏挂载的 SessionLibrary 重拉带 limit:50，
+        // 不污染本断言——t434_code_f004）。
+        fireEvent.click(screen.getByTitle("刷新当前面板"));
+        await waitFor(() => {
+            expect(recent_calls()).toBeGreaterThan(calls_before);
         });
     });
 
@@ -506,7 +536,10 @@ describe("WorkspaceView (t224)", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: "槽位 2（空）" }));
         await waitFor(() => screen.getByRole("dialog", { name: "选择会话" }));
-        expect(screen.getByText("全部 3")).toBeTruthy();
+        // t433: 列表异步渲染——等 picker 行出现再断言计数（防静默空列表）。
+        await waitFor(() => {
+            expect(screen.getByText("全部 3")).toBeTruthy();
+        });
         expect(screen.getByText("Claude 1")).toBeTruthy();
         expect(screen.getByText("已打开")).toBeTruthy();
 
@@ -566,6 +599,10 @@ describe("WorkspaceView (t224)", () => {
         await render_shell();
         fireEvent.click(screen.getByRole("button", { name: "最近会话" }));
         await waitFor(() => screen.getByRole("dialog", { name: "最近会话" }));
+        // t433: 列表由异步 getSessions 渲染——等 9 行齐全再点击（防静默 0 命中）。
+        await waitFor(() => {
+            expect(document.querySelectorAll('[data-testid="session-recent-row"]')).toHaveLength(9);
+        });
         const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]')];
         for (const row of rows) {
             fireEvent.click(row);
@@ -900,7 +937,10 @@ describe("WorkspaceView (t224)", () => {
         expect(document.querySelectorAll('[data-testid="session-cell"]').length).toBe(2);
     });
 
-    it("视图开关：显示时间戳/紧凑模式即时生效", async () => {
+    it("视图开关：紧凑模式即时生效；消息时间不再受显示时间戳开关控制 (t427)", async () => {
+        // t427 语义变更：消息时间仅随展开态，show_time 开关对消息时间无效
+        // （spec AC-007）。原 t224 断言「show_time 控制消息时间」被取代，改为
+        // 验证开关不再影响 + 紧凑模式保持；折叠态恒无时间节点。
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [{ id: "m1", role: "user", text: "你好", timestamp: 100 }],
@@ -913,10 +953,11 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => screen.getByText("你好"));
 
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
-        fireEvent.click(screen.getByLabelText("显示时间戳"));
-        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
         fireEvent.click(screen.getByLabelText("紧凑模式"));
         expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
+        // t427：消息时间仅随展开态，show_time 开关不再影响（折叠态无时间节点）。
+        fireEvent.click(screen.getByLabelText("显示时间戳"));
+        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeNull();
         fireEvent.click(screen.getByLabelText("显示时间戳"));
         expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeNull();
     });
@@ -1260,6 +1301,8 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
     });
 
     it("AC-003：重开后布局列数与视图开关保持", async () => {
+        // t427：conversation-message-time 折叠态恒不存在（时间随展开态），
+        // t329 该两处时间断言移除，保留布局列数 + compact 持久化断言。
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "你好", 100)],
@@ -1281,7 +1324,6 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
         expect(
             screen.getByRole("button", { name: "1 列 × 2 行" }).getAttribute("aria-pressed"),
         ).toBe("true");
-        expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
         expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
         expect(JSON.parse(localStorage.getItem("workspace-layout") ?? "{}")).toMatchObject({
             layout: 1,
@@ -1296,7 +1338,6 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
             );
         });
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeTruthy();
             expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain(
                 "compact",
             );

@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
+// t432: consistent-type-imports——`typeof import(...)` 类型注解违规，
+// 改顶部 type import（vi.mock 内引用模块类型）。
+import type * as theme_module from "../../../../src/renderer/lib/theme";
 import { SettingsView } from "../../../../src/renderer/views/SettingsView";
 import {
     save,
@@ -29,7 +32,7 @@ vi.mock("../../../../src/renderer/hooks/use-config", () => ({
 }));
 
 vi.mock("../../../../src/renderer/lib/theme", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../../src/renderer/lib/theme")>();
+    const actual = await importOriginal<typeof theme_module>();
     return {
         ...actual,
         useTheme: () => undefined,
@@ -201,8 +204,12 @@ describe("SettingsView", () => {
 
         const style_field = screen.getByLabelText("用量条样式");
         // t271: set-seg 迁移到 ui/Segmented，选中态由 .on class 改为语义类。
+        // t435: 选中配方 surface-window/on-surface → surface-card/primary。
         expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
-            "bg-[var(--color-surface-window)]",
+            "bg-[var(--color-surface-card)]",
+        );
+        expect(within(style_field).getByRole("button", { name: "细线型" })).toHaveClass(
+            "text-[var(--color-primary)]",
         );
         await user.click(within(style_field).getByRole("button", { name: "粗胶囊型" }));
 

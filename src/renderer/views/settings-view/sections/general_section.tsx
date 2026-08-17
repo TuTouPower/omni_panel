@@ -39,13 +39,18 @@ function save_resume_template(
     source: ResumeCommandSource,
     raw: string,
 ): void {
-    const next: Record<string, string> = {};
+    let next: Record<string, string> = {};
     for (const [k, v] of Object.entries(config.resumeCommandTemplates ?? {})) {
         if (typeof v === "string") next[k] = v;
     }
     const val = raw.trim();
     if (val === "") {
-        delete next[source];
+        // t432: no-dynamic-delete——重建对象排除该键，保持「清空删键」语义。
+        const rest: Record<string, string> = {};
+        for (const [k, v] of Object.entries(next)) {
+            if (k !== source) rest[k] = v;
+        }
+        next = rest;
     } else {
         next[source] = val;
     }

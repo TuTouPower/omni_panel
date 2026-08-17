@@ -56,6 +56,11 @@ export function SessionShell() {
                     className="min-w-0 flex-1"
                     onNavigate={navigate}
                     onRefresh={() => {
+                        // t434: 刷新 = 触发一轮 token-stats 采集（重置自动采集
+                        // 计时）+ 递增 token 触发工作台槽位消息重拉（既有行为）。
+                        void window.usageboard.tokenStats
+                            .forceCollect()
+                            .catch(() => undefined);
                         set_refresh_token((k) => k + 1);
                     }}
                     before_actions={
@@ -146,6 +151,7 @@ export function SessionShell() {
                         on_switch_workspace={() => {
                             set_tab("workspace");
                         }}
+                        refresh_token={refresh_token}
                     />
                 </section>
             </main>

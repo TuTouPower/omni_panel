@@ -10,6 +10,7 @@ import {
 
 const fixture_dir = join(__dirname, "../../../../fixtures/session-history/kimi");
 const fixture = join(fixture_dir, "wire.jsonl");
+const loop_fixture = join(fixture_dir, "wire-loop.jsonl");
 const empty = join(fixture_dir, "empty.jsonl");
 
 describe("kimi_code extractor (t209)", () => {
@@ -265,5 +266,76 @@ describe("kimi_code extractor (t209)", () => {
     it("first_user：文件缺失时返回空串", () => {
         const missing = join(tmpdir(), `kimi-first-missing-${String(Date.now())}.jsonl`);
         expect(extract_kimi_code_first_user(missing)).toBe("");
+    });
+});
+
+describe("kimi_code extractor content.part (t425)", () => {
+    it("AC-001：新形态 wire 产出 user 与 assistant，assistant 文本等于各 content.part text（行序）", () => {
+        const { messages } = extract_kimi_code(loop_fixture);
+        // wire-loop.jsonl：2 条 append_message user + 2 条 content.part text；
+        // 1 条空 text content.part 被过滤（test_f002 分支触达）。
+        expect(messages.map((m) => m.role)).toEqual(["user", "assistant", "assistant", "user"]);
+        expect(messages.map((m) => m.text)).toEqual([
+            "hello kimi",
+            "assistant 第一段",
+            "assistant 第二段",
+            "thanks",
+        ]);
+    });
+
+    it("AC-001：content.part assistant 的 timestamp 取顶层 time（ms epoch）", () => {
+        const { messages } = extract_kimi_code(loop_fixture);
+        const assistants = messages.filter((m) => m.role === "assistant");
+        expect(assistants.map((m) => m.timestamp)).toEqual([1700000000020, 1700000000022]);
+    });
+
+    it("AC-003：think / tool.call / tool.result / step.begin / step.end / turn.prompt / 非 JSON 行不产生消息", () => {
+        const { messages } = extract_kimi_code(loop_fixture);
+        // wire-loop.jsonl 干扰行：loop 事件 step.begin/step.end/tool.call/tool.result
+        // 各 1 + think 1 + 空 text content.part 1 + turn.prompt 1 + 非 JSON 1 + metadata 1
+        // = 9 行不产出消息；实际只产出 4 条（2 append_message user + 2 content.part text）。
+        expect(messages).toHaveLength(4);
+        expect(messages.map((m) => m.role)).not.toContain("think");
+        expect(messages.map((m) => m.text).join("\n")).not.toContain("思考内容");
+        expect(messages.map((m) => m.text).join("\n")).not.toContain("foo.txt");
+        expect(messages.map((m) => m.text).join("\n")).not.toContain("file content");
+    });
+
+    it("AC-004：全量与增量对同一 content.part 物理行产出相同 id；追加 text 行后增量 == 全量尾部且不重发", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-loop-inc-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            copyFileSync(loop_fixture, tmp_file);
+            const full = extract_kimi_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected non-null cursor");
+
+            const appended =
+                '{"type":"context.append_loop_event","time":1700000000070,"event":{"type":"content.part","part":{"type":"text","text":"追加的 assistant"}}}\n';
+            appendFileSync(tmp_file, appended);
+
+            const inc = extract_kimi_code_incremental(tmp_file, full.cursor);
+            expect(inc.messages).toHaveLength(1);
+            expect(inc.messages[0]?.role).toBe("assistant");
+            expect(inc.messages[0]?.text).toBe("追加的 assistant");
+            // id 与全量重提取对同一物理行一致（字节 offset）
+            const re_full = extract_kimi_code(tmp_file);
+            const tail = re_full.messages.slice(-1)[0];
+            expect(inc.messages[0]?.id).toBe(tail?.id);
+            expect(inc.messages[0]?.timestamp).toBe(1700000000070);
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("AC-004：全量提取同一 content.part 行 id 稳定唯一", () => {
+        const { messages } = extract_kimi_code(loop_fixture);
+        const ids = messages.map((m) => m.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        const again = extract_kimi_code(loop_fixture).messages.map((m) => m.id);
+        expect(again).toEqual(ids);
+    });
+
+    it("AC-005：first_user 在新形态 wire 上返回首条 user，不把 content.part 当 user", () => {
+        expect(extract_kimi_code_first_user(loop_fixture)).toBe("hello kimi");
     });
 });

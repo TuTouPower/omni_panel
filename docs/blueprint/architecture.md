@@ -41,7 +41,7 @@ src/
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
-│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 仅 WSL t197）；env 枚举 `local|wsl`（t308，原 `win` 语义并入 `local`），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 local 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 双源：Windows WSL UNC + Linux/mac local，t426）；env 枚举 `local|wsl`（t308，原 `win` 语义并入 `local`），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 local 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records；手动刷新（t434）经 `manager.force_collect()` 重发 config 消息触发一轮 collect 并以 `poll_interval_ms` 重置自动采集计时
 │   │   ├── config/                # config-store（内存缓存 + save 唯一写入口，t195）/ secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
@@ -148,7 +148,7 @@ collector utilityProcess（逐批 token_stats_update）
 ```
 
 - **真相源**：`token_stats_records`（per-message 事实表，不删除不压缩）。
-- **source 枚举**：`claude_code` / `opencode` / `kimi_code` / `grok`（权威定义在 `src/shared/types/token-stats.ts`）；`grok` 仅 WSL 采集（t197，数据位置与事件口径见 `domain.md` §3.2）。
+- **source 枚举**：`claude_code` / `opencode` / `kimi_code` / `grok`（权威定义在 `src/shared/types/token-stats.ts`）；`grok` 双源采集（t426：Windows 经 WSL UNC 的 `grok_wsl`，Linux/mac 本机 `~/.grok` 的 `grok_local`；t197 起仅 WSL 的表述已被 t426 取代，数据位置与事件口径见 `domain.md` §3.2）。
 - **派生层**：`token_stats_hour_rollup`（per source/env/session_id/本地整点小时/model/directory/agent 聚合）。会话级增量：upsert 批次内对每个被触碰 session DELETE + 从 records 全量重建；`directory` 可空（NULL 唯一键在 SQLite 互异，行级 UPSERT 会叠重复行，故不用）。
 - **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
 - **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。

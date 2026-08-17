@@ -54,7 +54,7 @@ export function Segmented<T extends string>({
                             ? "px-2 py-1 text-[length:var(--text-body-sm)]"
                             : "px-3 py-1 text-[length:var(--text-label-md)]",
                         value === opt.value
-                            ? "bg-[var(--color-surface-window)] text-[var(--color-on-surface)] shadow-card"
+                            ? "bg-[var(--color-surface-card)] text-[var(--color-primary)] shadow-card"
                             : "text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]",
                     )}
                     onClick={() => {
