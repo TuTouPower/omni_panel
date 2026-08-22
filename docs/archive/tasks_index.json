@@ -6527,6 +6527,21 @@
             "schedule_status": "",
             "note": "p201: segmented-item-active 偏离 DESIGN，t421 回归",
             "dir": "docs/archive/tasks/t435_fix_segmented_active_primary_text"
+        },
+        {
+            "tid": "t436",
+            "slug": "filter_session_user_envelopes",
+            "title": "过滤会话 user 文本中的注入信封",
+            "status": "done",
+            "branch": "t436_filter_session_user_envelopes",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "6f5843180e701266a9accfe363b7a6730932eb7e",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p203：四端提取器把框架信封当作用户气泡；Claude/Kimi 用量标题走同一归一",
+            "dir": "docs/archive/tasks/t436_filter_session_user_envelopes"
         }
     ]
 }
