@@ -14,6 +14,7 @@ import {
     tokenStatsDashboardQuerySchema,
     tokenStatsDashboardSessionsDtoSchema,
     tokenStatsDashboardSessionsQuerySchema,
+    type TokenStatsEnv,
     type TokenStatsSessionFilters,
 } from "../../../shared/types/token-stats";
 import { is_test_build, get_logs_dir } from "../paths";
@@ -1339,7 +1340,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "local" | "wsl" } : {}),
+                        ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(rec_start !== null ? { start: rec_start } : {}),
                         ...(rec_end !== null ? { end: rec_end } : {}),
                     }),
@@ -1356,7 +1357,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "local" | "wsl" } : {}),
+                        ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
                         ...(hm_start !== null ? { start: hm_start } : {}),
                         ...(hm_end !== null ? { end: hm_end } : {}),
@@ -1374,7 +1375,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "local" | "wsl" } : {}),
+                        ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
                         ...(hb_start !== null ? { start: hb_start } : {}),
                         ...(hb_end !== null ? { end: hb_end } : {}),
@@ -1392,7 +1393,7 @@ export function create_local_api_server(
                         ...(agent
                             ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" }
                             : {}),
-                        ...(env ? { env: env as "local" | "wsl" } : {}),
+                        ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
                         ...(rl_start !== null ? { start: rl_start } : {}),
                         ...(rl_end !== null ? { end: rl_end } : {}),
@@ -1709,12 +1710,7 @@ export function create_local_api_server(
             for (const [sid, mapped] of [...sse_client_sub_ids.entries()]) {
                 if (mapped !== res) continue;
                 if (
-                    !sse_cleanup_should_unsubscribe(
-                        sid,
-                        res,
-                        web_session_subs,
-                        sse_client_sub_ids,
-                    )
+                    !sse_cleanup_should_unsubscribe(sid, res, web_session_subs, sse_client_sub_ids)
                 ) {
                     continue;
                 }

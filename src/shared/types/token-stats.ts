@@ -3,7 +3,11 @@ import { z } from "zod/v3";
 // --- Enums ---
 
 export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code", "grok"]);
-export const tokenStatsEnvSchema = z.enum(["local", "wsl"]);
+/**
+ * t437: 会话数据所在平台标签（替代 t308 的 `local`）。`win` = Windows 用户目录
+ * 数据，`wsl` = 经 UNC 读到的 WSL home 数据，`linux`/`mac` = 原生 POSIX home 数据。
+ */
+export const tokenStatsEnvSchema = z.enum(["win", "wsl", "linux", "mac"]);
 
 // --- Stored row schemas (query results) ---
 
@@ -289,7 +293,7 @@ export const tokenStatsDashboardAgentSchema = z.enum([
     "kimi-code",
     "grok",
 ]);
-export const tokenStatsDashboardPlatformSchema = z.enum(["all", "local", "wsl"]);
+export const tokenStatsDashboardPlatformSchema = z.enum(["all", "win", "wsl", "linux", "mac"]);
 export const tokenStatsDashboardMetricSchema = z.enum(["tokens", "sessions", "calls"]);
 export const tokenStatsDashboardXAxisSchema = z.enum(["time", "project", "session"]);
 export const tokenStatsDashboardGranularitySchema = z.enum(["hour", "day"]);

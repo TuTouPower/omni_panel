@@ -236,42 +236,44 @@ export async function load_state(state_path: string): Promise<void> {
     );
 }
 
-const LOCAL_HOSTS: Host[] = ["windows", "linux", "macos"];
 const WSL_HOSTS: Host[] = ["windows"];
 
-// Declarative source list (t309): each entry declares the hosts it exists on;
-// the collector filters by the host it runs on (AC-001). Local installs exist
-// on every host; WSL data is a Windows-only UNC share. Grok has both: local
-// installs (Linux/macOS ~/.grok, t426) and WSL-only Windows UNC data.
-const sources: SourceDef[] = [
-    {
-        key: "claude_costs_local",
-        source: "claude_code",
-        kind: "costs",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "claude_jsonl_local",
-        source: "claude_code",
-        kind: "session_jsonl",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "opencode_local",
-        source: "opencode",
-        kind: "opencode_db",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "kimi_local",
-        source: "kimi_code",
-        kind: "kimi_jsonl",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
+/** t437: 宿主 → 本机平台源 env 标签（替代 pre-t437 的 `local`）。 */
+const PLATFORM_ENV_BY_HOST: Record<Host, "win" | "linux" | "mac"> = {
+    windows: "win",
+    linux: "linux",
+    macos: "mac",
+};
+
+/**
+ * t437: 平台源定义按当前宿主生成——每宿主只存在一个平台变体，key 与平台
+ * 标签一致（windows 宿主 `claude_costs_win`，linux `claude_costs_linux`，
+ * macos `claude_costs_mac`），env=对应平台值。替代 pre-t437 的 `*_local`
+ * 静态五源（`local` 语义 = 「进程所在 OS」已废止）。
+ */
+function platform_source_defs(host: Host): SourceDef[] {
+    const env = PLATFORM_ENV_BY_HOST[host];
+    return [
+        { key: `claude_costs_${env}`, source: "claude_code", kind: "costs", env, hosts: [host] },
+        {
+            key: `claude_jsonl_${env}`,
+            source: "claude_code",
+            kind: "session_jsonl",
+            env,
+            hosts: [host],
+        },
+        { key: `opencode_${env}`, source: "opencode", kind: "opencode_db", env, hosts: [host] },
+        { key: `kimi_${env}`, source: "kimi_code", kind: "kimi_jsonl", env, hosts: [host] },
+        // t426: grok CLI 也随宿主安装在 linux/mac 本机（~/.grok/sessions）；
+        // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），平台源在 Windows
+        // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
+        { key: `grok_${env}`, source: "grok", kind: "grok_jsonl", env, hosts: [host] },
+    ];
+}
+
+// WSL 数据是 Windows-only UNC share；非 Windows 宿主按 hosts 过滤报 unavailable
+// （既有行为，t437 不变）。
+const WSL_SOURCES: SourceDef[] = [
     { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", hosts: WSL_HOSTS },
     {
         key: "claude_jsonl_wsl",
@@ -282,12 +284,8 @@ const sources: SourceDef[] = [
     },
     { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", hosts: WSL_HOSTS },
     { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", hosts: WSL_HOSTS },
-    // t426: grok CLI 也随宿主安装在 linux/macos 本机（~/.grok/sessions）；
-    // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），local 源在 Windows
-    // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
-    { key: "grok_local", source: "grok", kind: "grok_jsonl", env: "local", hosts: LOCAL_HOSTS },
-    // Grok CLI data exists only under WSL (~/.grok/sessions); local 源见上方
-    // grok_local（Linux/mac 宿主本机采集，t426）。
+    // Grok CLI data exists only under WSL (~/.grok/sessions); 平台源见上方
+    // grok_<platform>（Linux/mac 宿主本机采集，t426）。
     { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", hosts: WSL_HOSTS },
 ];
 
@@ -338,12 +336,20 @@ function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_l
 let collector_host: Host = paths.host_from_platform(process.platform);
 
 /**
+ * t437: 采集源清单 = 当前宿主的平台五源 + 静态 WSL 五源。平台源按宿主派生，
+ * 保证任何宿主上只有一个平台变体参与采集（sources_status 不新增噪音）。
+ */
+let sources: SourceDef[] = [...platform_source_defs(collector_host), ...WSL_SOURCES];
+
+/**
  * Test-only injection: the path layer is a pure function of (host, env, cfg),
  * so tests simulate any host by overriding this. Production never calls it —
- * the host is fixed at module load from process.platform.
+ * the host is fixed at module load from process.platform. t437: 平台源定义
+ * 随宿主重建（key/env 与平台标签一致）。
  */
 export function set_collector_host(host: Host): void {
     collector_host = host;
+    sources = [...platform_source_defs(host), ...WSL_SOURCES];
 }
 
 function path_input(

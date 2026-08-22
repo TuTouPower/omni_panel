@@ -48,12 +48,22 @@ function install_watch(fake: FakeWatcher): void {
     });
 }
 
-describe("pick_strategy (t210)", () => {
+describe("pick_strategy (t210, t437)", () => {
     it.each([
-        ["local", "claude_code", "watch"],
-        ["local", "opencode", "poll"],
-        ["local", "kimi", "poll"],
-        ["local", "grok", "poll"],
+        // t437: win/linux/mac 都是宿主本地数据，claude_code 可 fs.watch。
+        ["win", "claude_code", "watch"],
+        ["linux", "claude_code", "watch"],
+        ["mac", "claude_code", "watch"],
+        ["win", "opencode", "poll"],
+        ["linux", "opencode", "poll"],
+        ["mac", "opencode", "poll"],
+        ["win", "kimi", "poll"],
+        ["linux", "kimi", "poll"],
+        ["mac", "kimi", "poll"],
+        ["win", "grok", "poll"],
+        ["linux", "grok", "poll"],
+        ["mac", "grok", "poll"],
+        // wsl（UNC 9P）恒 poll。
         ["wsl", "claude_code", "poll"],
         ["wsl", "opencode", "poll"],
         ["wsl", "kimi", "poll"],

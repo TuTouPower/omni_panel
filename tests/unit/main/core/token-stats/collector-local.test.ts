@@ -4,10 +4,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-// t308 AC-001 integration: on a non-Windows host the `local` sources must
-// resolve under os.homedir() and actually read the user's install data. The
-// homedir is redirected to a temp dir (no real ~/.claude touched) and the
-// real claude-reader parses a fixture jsonl — no reader mocks.
+// t308 AC-001 integration (t437 语义延续): on a non-Windows host the
+// `linux` platform sources must resolve under os.homedir() and actually read
+// the user's install data. The homedir is redirected to a temp dir (no real
+// ~/.claude touched) and the real claude-reader parses a fixture jsonl — no
+// reader mocks.
 const homedir_mock = vi.hoisted(() => ({ dir: "" }));
 vi.mock(import("node:os"), async (importOriginal) => {
     const actual = await importOriginal();
@@ -66,7 +67,7 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
     // asserted total silence for the missing costs.jsonl (1 postMessage). AC-003
     // replaces that ENOENT silence with a per-source warn + failed status, so
     // the silence expectation is superseded — the session-posting core is kept
-    // below with the new source-status semantics.
+    // below with the new source-status semantics. t437: linux host → env=linux.
     it("t309: posts local claude jsonl sessions and reports the missing costs source failed", () => {
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
@@ -97,21 +98,21 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
             expect(update.sessions).toHaveLength(1);
             expect(update.sessions[0]).toMatchObject({
                 id: "s1",
-                env: "local",
+                env: "linux",
                 directory: "/proj",
                 // non-candidate model: cache-read normalization keeps raw input
                 input_tokens: 100,
             });
             expect(update.records).toHaveLength(1);
             expect(update.records[0]).toMatchObject({
-                env: "local",
+                env: "linux",
                 session_id: "s1",
                 agent: "claude-code",
             });
             // costs.jsonl is absent on this fresh home → the real reader throws
             // ENOENT → the source is reported failed with the error (AC-002/003).
             const costs = update.sources_status.find(
-                (s) => s.source === "claude_code" && s.env === "local",
+                (s) => s.source === "claude_code" && s.env === "linux",
             );
             expect(costs?.status).toBe("failed");
             expect(costs?.lastError).toContain("ENOENT");
@@ -122,7 +123,7 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
                 warns.some(
                     (c) =>
                         (c[0] as { level: string; message: string }).level === "warn" &&
-                        (c[0] as { message: string }).message.includes("claude_costs_local") &&
+                        (c[0] as { message: string }).message.includes("claude_costs_linux") &&
                         (c[0] as { message: string }).message.includes("ENOENT"),
                 ),
             ).toBe(true);
@@ -206,7 +207,7 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
             expect(update.sessions).toEqual([]);
             expect(update.records).toEqual([]);
             const costs = update.sources_status.find(
-                (s) => s.source === "claude_code" && s.env === "local",
+                (s) => s.source === "claude_code" && s.env === "linux",
             );
             expect(costs?.status).toBe("failed");
             expect(costs?.lastError).toContain("ENOENT");

@@ -58,12 +58,16 @@ token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailab
 
 ## 3.2 TokenStats 数据源 grok（t197）
 
-token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），双源采集（t426）：Windows 宿主经 WSL UNC 读 `grok_wsl`；Linux/mac 宿主读本机 `~/.grok` 的 `grok_local`（t197 起「仅 WSL」表述已被 t426 取代）。与连接器 `connectors/grok`（billing 百分比）互不相干。
+token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` / `opencode` / `kimi_code` / `grok`），双源采集（t426）：Windows 宿主经 WSL UNC 读 `grok_wsl`；Linux/mac 宿主读本机 `~/.grok` 的 `grok_linux`/`grok_mac`（t197 起「仅 WSL」表述已被 t426 取代，t437 起平台源 key 按 env 命名）。与连接器 `connectors/grok`（billing 百分比）互不相干。
 
-- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。grok 数据两处存在：WSL（`env='wsl'`，t308 起路径经平台感知层 `paths.ts` 解析，Windows 宿主 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...`）与 Linux/mac 本机（`env='local'`，`~/.grok/sessions/...`）。两 env 并存时 store 主键 `(source, env, id)` 隔离，不互相覆盖。
+- **数据位置**：`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（`{enc_cwd}` 为 URL-encoded cwd；每个会话一个文件）。grok 数据两处存在：WSL（`env='wsl'`，t308 起路径经平台感知层 `paths.ts` 解析，Windows 宿主 `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\...`）与 Linux/mac 本机（`env='linux'/'mac'`，`~/.grok/sessions/...`；t437 前为 `local`）。两 env 并存时 store 主键 `(source, env, id)` 隔离，不互相覆盖。
 - **事件口径**：`turn_completed` 事件的 `usage` 是【该 user prompt 一轮的独立总量】，跨 inference loop 累加、下一轮从零起算，**勿用相邻事件差分**（会把每轮总量误当累计快照造成巨量漏记）。`reasoningTokens ⊂ outputTokens` 不计费，output 直接映射、reasoning 不单独记账。`costUsdTicks` 不入账。
 - **records agent 值约定**：kebab-case，`agent="grok"`，与 `source="grok"` 一致。
 - **展示层映射**（t198）：label `"Grok"`、color `#b687f0`（紫），records 侧 `AGENT_*` 与 buckets/rollup 侧 `BUCKET_AGENT_*`/`ROLLUP_AGENT_*` 三组映射同构扩展；`AgentFilter` 含 `"grok"`；SessionTable chip class `gk`。展示层权威映射在 `src/renderer/lib/token-stats/chart-data.ts` 与 `src/renderer/views/TokenStatsView.tsx` 的 `AGENT_OPTIONS`。
+
+## 3.4 token-stats env 平台标签（t437）
+
+`TokenStatsEnv` = `win | wsl | linux | mac`，按 **agent 数据所在平台** 标注（非「进程在哪」）：Windows 用户目录数据 → `win`；经 UNC 读到的 WSL home 数据 → `wsl`（Windows 宿主）；原生 Linux home → `linux`；macOS home → `mac`。t308 的 `local`（= 进程所在 OS）已废止；存量经迁移 v8 按 directory 形态分类改写（d048）。连接器 observation 的 `source: "local"` 是另一概念，不受此约束。
 
 ## 4. 跨功能业务不变量
 

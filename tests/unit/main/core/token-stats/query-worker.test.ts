@@ -31,7 +31,7 @@ function record(
         cache_write_tokens: 5,
         agent: "claude-code",
         source: "claude_code",
-        env: "local",
+        env: "linux",
         ...overrides,
     } as const;
 }

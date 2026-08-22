@@ -778,7 +778,7 @@ describe("session-history-ipc (t210)", () => {
         const full_page: SessionRow[] = Array.from({ length: 100 }, (_, i) => ({
             id: `sess-${String(i)}`,
             source: "claude_code",
-            env: "win" as SessionRow["env"],
+            env: "win",
             title: null,
             model: null,
             started_at: i,

@@ -51,12 +51,12 @@
 
 ## 3. KPI 卡片
 
-| 卡片       | 计算                                              |
-| ---------- | ------------------------------------------------- |
-| 总 Token   | `SUM(input_tokens + output_tokens)` 跨所有 bucket |
-| Session 数 | `COUNT(*)` from token_stats_sessions              |
-| 主用模型   | 按 `input_tokens + output_tokens` 降序第一        |
-| 日均 Token | 总 Token / 天数                                   |
+|卡片|计算|
+|---|---|
+|总 Token|`SUM(input_tokens + output_tokens)` 跨所有 bucket|
+|Session 数|`COUNT(*)` from token_stats_sessions|
+|主用模型|按 `input_tokens + output_tokens` 降序第一|
+|日均 Token|总 Token / 天数|
 
 无费用卡片。
 
@@ -72,15 +72,15 @@
 
 ## 5. Session 列表
 
-| 列             | 默认 | 说明                                                   |
-| -------------- | ---- | ------------------------------------------------------ |
-| 标题 / ID      | ✓    | OpenCode 有 title；Claude Code 显示 session_id 前 8 位 |
-| 来源           | ✓    | Claude Code / OpenCode 徽章                            |
-| 环境           | ✓    | Win / WSL                                              |
-| 模型           | ✓    |                                                        |
-| 目录           | 可选 | 路径截断，悬停全文                                     |
-| Input / Output | ✓    |                                                        |
-| 时间           | ✓    | 创建时间（本地时区）                                   |
+|列|默认|说明|
+|---|---|---|
+|标题 / ID|✓|OpenCode 有 title；Claude Code 显示 session_id 前 8 位|
+|来源|✓|Claude Code / OpenCode 徽章|
+|环境|✓|Windows / WSL / Linux / macOS（t437）|
+|模型|✓||
+|目录|可选|路径截断，悬停全文|
+|Input / Output|✓||
+|时间|✓|创建时间（本地时区）|
 
 排序：默认按时间降序。可切按 tokens。
 搜索：按标题 / ID / 目录关键词。
@@ -88,11 +88,11 @@
 
 ## 6. 筛选
 
-| 筛选     | 交互                                                                                                                                                                                       |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 时间范围 | 近 7 天 / 近 30 天 / 本月 / 全部                                                                                                                                                           |
-| 环境     | Win / WSL / 全部（默认全部合并）                                                                                                                                                           |
-| 模型     | 单选下拉（全部模型 / 具体某模型），选项为当前筛选窗口内出现的 distinct 模型；选项文本应用 `modelAliases` 映射（与图表/会话表一致），但查询参数仍使用原始模型名；选定后整块面板只统计该模型 |
+|筛选|交互|
+|---|---|
+|时间范围|近 7 天 / 近 30 天 / 本月 / 全部|
+|环境|Windows / WSL / Linux / macOS / 全部（默认全部合并；t437 起平台标签四值，prefs 残留旧值回退「全部」）|
+|模型|单选下拉（全部模型 / 具体某模型），选项为当前筛选窗口内出现的 distinct 模型；选项文本应用 `modelAliases` 映射（与图表/会话表一致），但查询参数仍使用原始模型名；选定后整块面板只统计该模型|
 
 筛选变更 → KPI + 趋势图 + session 列表同步更新。
 
@@ -104,12 +104,12 @@
 
 ## 8. 设置项（SettingsView 新增「代理面板」section）
 
-| 设置       | 默认值       | 说明                                            |
-| ---------- | ------------ | ----------------------------------------------- |
-| 采集间隔   | 10 分钟      | 下拉：5 / 10 / 30 / 60 分钟。改动后下次采集生效 |
-| WSL 启用   | false        | 开关。开启后显示 distro / user 输入框           |
-| WSL 发行版 | Ubuntu-22.04 | 文本输入                                        |
-| WSL 用户名 | —            | 文本输入（启用 WSL 时必填）                     |
+|设置|默认值|说明|
+|---|---|---|
+|采集间隔|10 分钟|下拉：5 / 10 / 30 / 60 分钟。改动后下次采集生效|
+|WSL 启用|false|开关。开启后显示 distro / user 输入框|
+|WSL 发行版|Ubuntu-22.04|文本输入|
+|WSL 用户名|—|文本输入（启用 WSL 时必填）|
 
 代理面板窗口自身的视图偏好（时间范围、环境筛选、模型筛选、图表类型等）独立持久化，不写入 `AppConfiguration`，也不随设置的导入导出迁移。
 
@@ -121,10 +121,10 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 ## 10. 涉及文件清单（前端层）
 
-| 文件                                       | 改动                      | Task    |
-| ------------------------------------------ | ------------------------- | ------- |
-| `src/renderer/views/TokenStatsView.tsx`    | 新建：独立窗口主视图      | 5.3     |
-| `src/renderer/components/TokenStatsPanel/` | 新建：KPI + 图 + 列表组件 | 5.3–5.5 |
+|文件|改动|Task|
+|---|---|---|
+|`src/renderer/views/TokenStatsView.tsx`|新建：独立窗口主视图|5.3|
+|`src/renderer/components/TokenStatsPanel/`|新建：KPI + 图 + 列表组件|5.3–5.5|
 
 ## 11. 明确不做（本版，UI 层）
 
@@ -142,15 +142,15 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 
 代理面板各可视化区域的数据源已分层（避免渲染端对数十万 records 做 reduce）：
 
-| 区域                                                              | 数据源                            | 说明                                                                                                                                            |
-| ----------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| KPI（总 Token / 会话 / 调用 / 缓存命中率）                        | `token_stats_buckets`             | `kpiFromBuckets` / `compositionSegmentsFromBuckets`，按时间窗 2 倍宽切 current/prev                                                             |
-| Donut（model / project / agent / composition）                    | `buckets` + `sessions`            | model/composition/agent 走 buckets；project（按 directory 分组 session 数）走 sessions                                                          |
-| SessionTable                                                      | `token_stats_sessions`            | `sessionRowsFromSessions` 派生行，前端分页                                                                                                      |
-| BarChart（时间 / 项目 / 会话轴）                                  | `token_stats_records`（带 limit） | 小时级精度需 per-message；受 `DEFAULT_RECORDS_LIMIT` 保护                                                                                       |
-| BarChart（时间轴 · 小时粒度，≥7d / 24h preset / ≤25h 自定义范围） | `query_hour_buckets`（SQL 聚合）  | 宽窗口 hour×model 聚合（t173）与 24h preset（t183）、≤25h 自定义范围（t187）共用，避免 records LIMIT 截断早期小时                               |
-| 24h preset 的 KPI / donut / 项目 / 会话轴                         | `query_range_rollup`（SQL 聚合）  | (source, model, directory, session_id) 分组，无 LIMIT；24h preset 的 KPI/donut delta 与项目/会话柱走 rollup 而非受 LIMIT 截断的 records（t184） |
-| Heatmap（7×24）                                                   | `query_heatmap`（SQL 聚合）       | 后端 `GROUP BY strftime('%w'/'%H', +8 hours)` 返回 ≤168 格，renderer 不再拉 records（t170）                                                     |
+|区域|数据源|说明|
+|---|---|---|
+|KPI（总 Token / 会话 / 调用 / 缓存命中率）|`token_stats_buckets`|`kpiFromBuckets` / `compositionSegmentsFromBuckets`，按时间窗 2 倍宽切 current/prev|
+|Donut（model / project / agent / composition）|`buckets` + `sessions`|model/composition/agent 走 buckets；project（按 directory 分组 session 数）走 sessions|
+|SessionTable|`token_stats_sessions`|`sessionRowsFromSessions` 派生行，前端分页|
+|BarChart（时间 / 项目 / 会话轴）|`token_stats_records`（带 limit）|小时级精度需 per-message；受 `DEFAULT_RECORDS_LIMIT` 保护|
+|BarChart（时间轴 · 小时粒度，≥7d / 24h preset / ≤25h 自定义范围）|`query_hour_buckets`（SQL 聚合）|宽窗口 hour×model 聚合（t173）与 24h preset（t183）、≤25h 自定义范围（t187）共用，避免 records LIMIT 截断早期小时|
+|24h preset 的 KPI / donut / 项目 / 会话轴|`query_range_rollup`（SQL 聚合）|(source, model, directory, session_id) 分组，无 LIMIT；24h preset 的 KPI/donut delta 与项目/会话柱走 rollup 而非受 LIMIT 截断的 records（t184）|
+|Heatmap（7×24）|`query_heatmap`（SQL 聚合）|后端 `GROUP BY strftime('%w'/'%H', +8 hours)` 返回 ≤168 格，renderer 不再拉 records（t170）|
 
 `TokenStatsView.loadData` 一次拉 dashboard bounded DTO（t200）：`getDashboard` 返回 `{ summary, chart_data, heatmap, sessions 首页, status, freshness, data_version }`；`chart_data` 携带 metric/xaxis 无关的聚合源（`axis + metric_buckets + session_buckets + rollup`），renderer 按当前 metric/xaxis 本地派生图表。会话翻页走独立 `get_dashboard_sessions`（返回 `{ items, total, has_more }`），翻页不重算 summary/chart/heatmap，也不重拉 dashboard。t200 前 BarChart 曾按区域分别拉 records/hour_buckets/rollup（见下段遗留说明），t200 后统一由 dashboard `chart_data` 派生。
 
@@ -164,18 +164,18 @@ collector 更新会使已有条目标记 stale，当前可见结果继续展示�
 
 ## 12. 成功标准（Web 验证）
 
-| #   | 标准                                      | 验证方式 |
-| --- | ----------------------------------------- | -------- |
-| 5   | 趋势图按天展示 token 分布，系列按模型拆分 | 截图验证 |
-| 6   | Session 列表可排序、可搜索                | 手工验证 |
+|#|标准|验证方式|
+|---|---|---|
+|5|趋势图按天展示 token 分布，系列按模型拆分|截图验证|
+|6|Session 列表可排序、可搜索|手工验证|
 
 ## 13. 实施顺序（前端层）
 
-| Task | Commit 前缀                                 | 内容                                                               | 前置 |
-| ---- | ------------------------------------------- | ------------------------------------------------------------------ | ---- |
-| 5.3  | `feat(token-stats): add KPI and chart view` | `TokenStatsView.tsx` — KPI 卡片条 + 趋势图（折线/柱状切换）        | 5.2  |
-| 5.4  | `feat(token-stats): add session list`       | 扩展 `TokenStatsView.tsx` — session 表格（虚拟滚动、排序、搜索）   | 5.3  |
-| 5.5  | `feat(token-stats): add filters`            | 扩展 `TokenStatsView.tsx` — 时间范围 / 环境 / 模型筛选栏，筛选联动 | 5.4  |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|5.3|`feat(token-stats): add KPI and chart view`|`TokenStatsView.tsx` — KPI 卡片条 + 趋势图（折线/柱状切换）|5.2|
+|5.4|`feat(token-stats): add session list`|扩展 `TokenStatsView.tsx` — session 表格（虚拟滚动、排序、搜索）|5.3|
+|5.5|`feat(token-stats): add filters`|扩展 `TokenStatsView.tsx` — 时间范围 / 环境 / 模型筛选栏，筛选联动|5.4|
 
 前置 5.1 / 5.2 见 `-desktop`。
 
