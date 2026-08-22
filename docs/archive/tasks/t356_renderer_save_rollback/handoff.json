@@ -29,6 +29,9 @@
             "SettingsForm perform_save 失败文案按 account_saved 阶段区分"
         ]
     },
-    "pending": ["p174_config_save_double_fail_rollback_mid", "p175_config_debounce_failed_patch_overwrite"],
+    "pending": [
+        "p174_config_save_double_fail_rollback_mid",
+        "p175_config_debounce_failed_patch_overwrite"
+    ],
     "findings": []
 }

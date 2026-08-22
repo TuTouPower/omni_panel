@@ -193,7 +193,9 @@ export function AccountsSection({
                     暂无已添加连接
                 </div>
             ) : plugin_infos.length === 0 ? (
-                <div className="py-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">加载中...</div>
+                <div className="py-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                    加载中...
+                </div>
             ) : (
                 <AccountsList
                     config={config}

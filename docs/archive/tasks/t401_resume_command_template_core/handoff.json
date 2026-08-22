@@ -1,34 +1,30 @@
 {
-  "tid": "t401",
-  "attempt": 1,
-  "execution_id": "5679fb7283904b648e15c1c6e64df089",
-  "status": "done",
-  "branch": "t401_resume_command_template_core",
-  "base_sha": "c31333a38d514bbdd12e381734d7f2d3480b77ba",
-  "tests": "pnpm test：3252 passed, 9 skipped；pnpm typecheck 通过；相关 session_resume + config-schema 24 passed",
-  "blackbox": "纯函数/schema 层：全量 vitest 绿 + typecheck；无 Electron/e2e 范围",
-  "review": "第 2 轮 code PASS + test PASS（两轮均零 finding；R2 因收尾文档刷新 fingerprint）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/lib/session_resume.test.ts::AC-001: custom template replaces {session_id} → kimi --yolo -r abc"
-    ],
-    "AC-002": [
-      "session_resume.test.ts::AC-002 omit/missing entry 回退内置默认",
-      "session_resume.test.ts::AC-002 empty-string template treated as not customized"
-    ],
-    "AC-003": [
-      "session_resume.test.ts::AC-003: all {session_id} placeholders replaced"
-    ],
-    "AC-004": [
-      "session_resume.test.ts::AC-004: unknown source without template returns null"
-    ],
-    "AC-005": [
-      "tests/unit/config/config-schema.test.ts::t401 AC-005: preserves resumeCommandTemplates through parse (not stripped)"
-    ],
-    "AC-006": [
-      "tests/unit/config/config-schema.test.ts::t401 AC-006: absent resumeCommandTemplates stays undefined (legacy compatible)"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t401",
+    "attempt": 1,
+    "execution_id": "5679fb7283904b648e15c1c6e64df089",
+    "status": "done",
+    "branch": "t401_resume_command_template_core",
+    "base_sha": "c31333a38d514bbdd12e381734d7f2d3480b77ba",
+    "tests": "pnpm test：3252 passed, 9 skipped；pnpm typecheck 通过；相关 session_resume + config-schema 24 passed",
+    "blackbox": "纯函数/schema 层：全量 vitest 绿 + typecheck；无 Electron/e2e 范围",
+    "review": "第 2 轮 code PASS + test PASS（两轮均零 finding；R2 因收尾文档刷新 fingerprint）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/lib/session_resume.test.ts::AC-001: custom template replaces {session_id} → kimi --yolo -r abc"
+        ],
+        "AC-002": [
+            "session_resume.test.ts::AC-002 omit/missing entry 回退内置默认",
+            "session_resume.test.ts::AC-002 empty-string template treated as not customized"
+        ],
+        "AC-003": ["session_resume.test.ts::AC-003: all {session_id} placeholders replaced"],
+        "AC-004": ["session_resume.test.ts::AC-004: unknown source without template returns null"],
+        "AC-005": [
+            "tests/unit/config/config-schema.test.ts::t401 AC-005: preserves resumeCommandTemplates through parse (not stripped)"
+        ],
+        "AC-006": [
+            "tests/unit/config/config-schema.test.ts::t401 AC-006: absent resumeCommandTemplates stays undefined (legacy compatible)"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

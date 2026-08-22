@@ -1,28 +1,28 @@
 {
-  "tid": "t402",
-  "attempt": 1,
-  "execution_id": "b92ba323b1824fe983c64744a57295d0",
-  "status": "done",
-  "branch": "t402_resume_command_template_settings_ui",
-  "base_sha": "bd1799347c5068691e41d14062038b912487cdd5",
-  "tests": "pnpm exec vitest run tests/unit/renderer/views/settings_view_general.test.tsx tests/unit/renderer/lib/session_resume.test.ts：43 passed；pnpm typecheck 通过",
-  "blackbox": "组件级 AC 黑盒：settings_view_general resume templates 组 + session_resume 回归 + typecheck 通过（本 task 范围无需 e2e/package）",
-  "review": "Round 1 code PASS + test PASS；check_review_status overall=PASS review_scope=ok",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/views/settings_view_general.test.tsx::AC-001: shows group and 4 source inputs with built-in placeholders 通过（分组「会话续接命令」、四源 placeholder）"
-    ],
-    "AC-002": [
-      "tests/unit/renderer/views/settings_view_general.test.tsx::AC-002: saves kimi_code custom template to resumeCommandTemplates 通过（save 载荷 kimi_code=kimi --yolo -r {session_id}）"
-    ],
-    "AC-003": [
-      "tests/unit/renderer/views/settings_view_general.test.tsx::AC-003: clearing a source removes that key from resumeCommandTemplates 通过",
-      "tests/unit/renderer/views/settings_view_general.test.tsx::AC-003b: clearing last source removes resumeCommandTemplates field 通过"
-    ],
-    "AC-004": [
-      "tests/unit/renderer/views/settings_view_general.test.tsx::AC-004: echoes existing custom templates in inputs 通过"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t402",
+    "attempt": 1,
+    "execution_id": "b92ba323b1824fe983c64744a57295d0",
+    "status": "done",
+    "branch": "t402_resume_command_template_settings_ui",
+    "base_sha": "bd1799347c5068691e41d14062038b912487cdd5",
+    "tests": "pnpm exec vitest run tests/unit/renderer/views/settings_view_general.test.tsx tests/unit/renderer/lib/session_resume.test.ts：43 passed；pnpm typecheck 通过",
+    "blackbox": "组件级 AC 黑盒：settings_view_general resume templates 组 + session_resume 回归 + typecheck 通过（本 task 范围无需 e2e/package）",
+    "review": "Round 1 code PASS + test PASS；check_review_status overall=PASS review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/settings_view_general.test.tsx::AC-001: shows group and 4 source inputs with built-in placeholders 通过（分组「会话续接命令」、四源 placeholder）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/settings_view_general.test.tsx::AC-002: saves kimi_code custom template to resumeCommandTemplates 通过（save 载荷 kimi_code=kimi --yolo -r {session_id}）"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/views/settings_view_general.test.tsx::AC-003: clearing a source removes that key from resumeCommandTemplates 通过",
+            "tests/unit/renderer/views/settings_view_general.test.tsx::AC-003b: clearing last source removes resumeCommandTemplates field 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/views/settings_view_general.test.tsx::AC-004: echoes existing custom templates in inputs 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

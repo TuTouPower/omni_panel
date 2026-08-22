@@ -1,36 +1,32 @@
 {
-  "tid": "t404",
-  "attempt": 1,
-  "execution_id": "85dccb6564f04935b98923a28477b77d",
-  "status": "done",
-  "branch": "t404_session_search_cold_perf",
-  "base_sha": "d51983074bda02abab9f3dba2cd01fdb192639e6",
-  "tests": "pnpm test：3272 passed | 9 skipped (274 files)；pnpm typecheck PASS",
-  "blackbox": "pnpm test 全绿；AC-001/002/004/005 由 SessionLibrary + IPC 单测覆盖时序与进度；AC-003 分块并集完整（大会话库 Playwright ≥65 属环境相关未本机跑 4000 夹具）",
-  "review": "第 3 轮 code+test PASS（R1 零 finding；R2/R3 文档与归档重锚 scope）",
-  "ac_evidence": {
-    "AC-001": [
-      "SessionLibrary.tsx 进度文案 已扫描 N/M + data-testid=content-search-progress",
-      "SessionLibrary.test.tsx t404 AC-001/002 断言 /已扫描 64\\/128/"
-    ],
-    "AC-002": [
-      "分块循环每批 set_content_sessions 合并",
-      "SessionLibrary.test.tsx 第二批挂起时已见会话 first"
-    ],
-    "AC-003": [
-      "session-history-ipc.test.ts 三批 hits 并集覆盖 5 候选",
-      "searchContent keyword includes 语义未改"
-    ],
-    "AC-004": [
-      "首批 progress.done=false 时已渲染命中与进度（第二批 pending）"
-    ],
-    "AC-005": [
-      "live_ref + abort 监听；末批后短路不覆盖新搜索",
-      "SessionLibrary.test.tsx t404 AC-005 旧词仅 offset=0"
-    ]
-  },
-  "pending": [],
-  "findings": [
-    "d039"
-  ]
+    "tid": "t404",
+    "attempt": 1,
+    "execution_id": "85dccb6564f04935b98923a28477b77d",
+    "status": "done",
+    "branch": "t404_session_search_cold_perf",
+    "base_sha": "d51983074bda02abab9f3dba2cd01fdb192639e6",
+    "tests": "pnpm test：3272 passed | 9 skipped (274 files)；pnpm typecheck PASS",
+    "blackbox": "pnpm test 全绿；AC-001/002/004/005 由 SessionLibrary + IPC 单测覆盖时序与进度；AC-003 分块并集完整（大会话库 Playwright ≥65 属环境相关未本机跑 4000 夹具）",
+    "review": "第 3 轮 code+test PASS（R1 零 finding；R2/R3 文档与归档重锚 scope）",
+    "ac_evidence": {
+        "AC-001": [
+            "SessionLibrary.tsx 进度文案 已扫描 N/M + data-testid=content-search-progress",
+            "SessionLibrary.test.tsx t404 AC-001/002 断言 /已扫描 64\\/128/"
+        ],
+        "AC-002": [
+            "分块循环每批 set_content_sessions 合并",
+            "SessionLibrary.test.tsx 第二批挂起时已见会话 first"
+        ],
+        "AC-003": [
+            "session-history-ipc.test.ts 三批 hits 并集覆盖 5 候选",
+            "searchContent keyword includes 语义未改"
+        ],
+        "AC-004": ["首批 progress.done=false 时已渲染命中与进度（第二批 pending）"],
+        "AC-005": [
+            "live_ref + abort 监听；末批后短路不覆盖新搜索",
+            "SessionLibrary.test.tsx t404 AC-005 旧词仅 offset=0"
+        ]
+    },
+    "pending": [],
+    "findings": ["d039"]
 }

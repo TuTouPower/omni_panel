@@ -23,9 +23,7 @@ describe("t418 accent preset single source (AC-002)", () => {
     });
 
     it("appearance_section.tsx holds no accent hex copy", () => {
-        const src = read_source(
-            "src/renderer/views/settings-view/sections/appearance_section.tsx",
-        );
+        const src = read_source("src/renderer/views/settings-view/sections/appearance_section.tsx");
         // 旧 ACCENTS 字面量与兜底 hex 不得再现。
         for (const hex of ACCENT_PRESET_COLORS) {
             expect(src).not.toContain(`"${hex}"`);

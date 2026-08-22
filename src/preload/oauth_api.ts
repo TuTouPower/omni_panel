@@ -107,9 +107,7 @@ export interface KimiOAuthReturnTypes extends OAuthApiReturnTypes {
     refresh: KimiRefreshResult;
 }
 
-export function create_grok_oauth_apis(
-    deps: OAuthApiFactoryDeps,
-): OAuthApis<GrokOAuthReturnTypes> {
+export function create_grok_oauth_apis(deps: OAuthApiFactoryDeps): OAuthApis<GrokOAuthReturnTypes> {
     return create_oauth_apis<GrokOAuthReturnTypes>(deps, {
         login_start: IPC_CHANNELS.GROK_LOGIN_START,
         login_poll: IPC_CHANNELS.GROK_LOGIN_POLL,
@@ -120,9 +118,7 @@ export function create_grok_oauth_apis(
     });
 }
 
-export function create_kimi_oauth_apis(
-    deps: OAuthApiFactoryDeps,
-): OAuthApis<KimiOAuthReturnTypes> {
+export function create_kimi_oauth_apis(deps: OAuthApiFactoryDeps): OAuthApis<KimiOAuthReturnTypes> {
     return create_oauth_apis<KimiOAuthReturnTypes>(deps, {
         login_start: IPC_CHANNELS.KIMI_LOGIN_START,
         login_poll: IPC_CHANNELS.KIMI_LOGIN_POLL,

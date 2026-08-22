@@ -86,7 +86,9 @@ test.describe("session library grid card height (web, t327)", () => {
             if (count >= 350) break;
             await scroll_grid_to_bottom(page);
             await expect
-                .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
+                .poll(async () => page.locator('[data-testid="library-card"]').count(), {
+                    timeout: 5000,
+                })
                 .toBeGreaterThan(count);
         }
         const total = await page.locator('[data-testid="library-card"]').count();

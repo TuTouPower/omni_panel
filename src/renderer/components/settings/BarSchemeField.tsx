@@ -47,9 +47,7 @@ export function BarSchemeField({
                                 <span className="text-[length:var(--text-body-md)] font-semibold">
                                     {scheme.title}
                                 </span>
-                                {scheme.badge && (
-                                    <Badge variant="recommend">{scheme.badge}</Badge>
-                                )}
+                                {scheme.badge && <Badge variant="recommend">{scheme.badge}</Badge>}
                             </span>
                             <span className="mt-1 block text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                                 {scheme.sub}

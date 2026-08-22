@@ -1,27 +1,27 @@
 {
-  "tid": "t349",
-  "attempt": 1,
-  "execution_id": "93d01cba76674582b730df83124010fa",
-  "status": "done",
-  "branch": "t349_chart_data_dedupe",
-  "base_sha": "3c7021cb37fc9c6b6a32cfaca7043e2848367478",
-  "tests": "chart-data.test.ts 65 例全绿（含 kpiFromRollup 跨 env 去重用例）；token-stats 136 例全绿。typecheck/lint/prettier 干净。全量 unit 2440 passed；10 文件因 p153 electron 环境失败与 task 无关。",
-  "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002/003 由 chart-data 单测覆盖（三源 segment 等价、KPI 去重键、oracle 改前等价）。",
-  "review": "review_level=single；Round 1 general PASS（f001 minor 已修、f002 minor 遗留→p169）。报告 t349_review_general.md。",
-  "ac_evidence": {
-    "AC-001": [
-      "chart-data.ts 3 生成器（top_segments/composition_segments/agent_segments），11 个 donut 入口收敛为生成器调用，无镜像复制残留",
-      "chart-data.test.ts agentSegments/FromBuckets/FromRollup + modelSegments 系列 + composition 系列等价用例"
-    ],
-    "AC-002": [
-      "kpiFromRollup 改用 rollup_session_key（source|env|session_id）去重，与 donut/会话轴一致",
-      "chart-data.test.ts::counts same session_id across env as distinct（跨 env 各计 1）"
-    ],
-    "AC-003": [
-      "prepareBarData session/project 轴 idxOf 改预构建 Map（原 findIndex/indexOf 线性扫描）；删 colorOf 死分支",
-      "chart-data.test.ts 65 例全过（含 oracle 改前服务器 chart 等价）"
-    ]
-  },
-  "pending": ["p169"],
-  "findings": []
+    "tid": "t349",
+    "attempt": 1,
+    "execution_id": "93d01cba76674582b730df83124010fa",
+    "status": "done",
+    "branch": "t349_chart_data_dedupe",
+    "base_sha": "3c7021cb37fc9c6b6a32cfaca7043e2848367478",
+    "tests": "chart-data.test.ts 65 例全绿（含 kpiFromRollup 跨 env 去重用例）；token-stats 136 例全绿。typecheck/lint/prettier 干净。全量 unit 2440 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002/003 由 chart-data 单测覆盖（三源 segment 等价、KPI 去重键、oracle 改前等价）。",
+    "review": "review_level=single；Round 1 general PASS（f001 minor 已修、f002 minor 遗留→p169）。报告 t349_review_general.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "chart-data.ts 3 生成器（top_segments/composition_segments/agent_segments），11 个 donut 入口收敛为生成器调用，无镜像复制残留",
+            "chart-data.test.ts agentSegments/FromBuckets/FromRollup + modelSegments 系列 + composition 系列等价用例"
+        ],
+        "AC-002": [
+            "kpiFromRollup 改用 rollup_session_key（source|env|session_id）去重，与 donut/会话轴一致",
+            "chart-data.test.ts::counts same session_id across env as distinct（跨 env 各计 1）"
+        ],
+        "AC-003": [
+            "prepareBarData session/project 轴 idxOf 改预构建 Map（原 findIndex/indexOf 线性扫描）；删 colorOf 死分支",
+            "chart-data.test.ts 65 例全过（含 oracle 改前服务器 chart 等价）"
+        ]
+    },
+    "pending": ["p169"],
+    "findings": []
 }

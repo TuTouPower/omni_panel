@@ -1,30 +1,28 @@
 {
-  "tid": "t419",
-  "attempt": 1,
-  "execution_id": "bd0532fed51e421a8d31c21ebc4a1394",
-  "status": "done",
-  "branch": "t419_dead_bem_class_cleanup",
-  "base_sha": "78f9c4c3c84a012423617049d4f8be7b288f427c",
-  "tests": "pnpm test：3333 passed, 2 skipped；pnpm typecheck 绿；相关 web e2e 30 passed（session_panel / session_library_* / panel_navigation / popup_view）",
-  "blackbox": "pnpm test 全量通过；pnpm build 后 MOCK_FIXTURE=synthetic playwright web 会话相关 30 例通过；src className 五前缀死类 grep 清零",
-  "review": "第 2 轮 general PASS（Round 1 零 finding；Round 2 因 specs 收尾刷新 scope 仍 PASS）",
-  "ac_evidence": {
-    "AC-001": [
-      "python 扫描 src/**/*.tsx className：conversation-/session-/library-/selection-/preview- 死 token 计数 0",
-      "globals.css 与 index.html 无对应选择器定义（实施笔记：有定义除外清单为空）"
-    ],
-    "AC-002": [
-      "tests unit/e2e 选择器迁 data-testid；SessionPane/SessionRail/WorkspaceView/SessionLibrary/SessionCard 等测试通过",
-      "拖拽态断言改 data-dragging/data-drop-target（SessionPane.test / WorkspaceView.test）"
-    ],
-    "AC-003": [
-      "pnpm test：3333 passed / 2 skipped",
-      "playwright --project=web 会话相关 30 passed"
-    ],
-    "AC-004": [
-      "[deploy] 死类名本无样式定义，删除预期零视觉差异；agent 未做人工部署抽查"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t419",
+    "attempt": 1,
+    "execution_id": "bd0532fed51e421a8d31c21ebc4a1394",
+    "status": "done",
+    "branch": "t419_dead_bem_class_cleanup",
+    "base_sha": "78f9c4c3c84a012423617049d4f8be7b288f427c",
+    "tests": "pnpm test：3333 passed, 2 skipped；pnpm typecheck 绿；相关 web e2e 30 passed（session_panel / session_library_* / panel_navigation / popup_view）",
+    "blackbox": "pnpm test 全量通过；pnpm build 后 MOCK_FIXTURE=synthetic playwright web 会话相关 30 例通过；src className 五前缀死类 grep 清零",
+    "review": "第 2 轮 general PASS（Round 1 零 finding；Round 2 因 specs 收尾刷新 scope 仍 PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "python 扫描 src/**/*.tsx className：conversation-/session-/library-/selection-/preview- 死 token 计数 0",
+            "globals.css 与 index.html 无对应选择器定义（实施笔记：有定义除外清单为空）"
+        ],
+        "AC-002": [
+            "tests unit/e2e 选择器迁 data-testid；SessionPane/SessionRail/WorkspaceView/SessionLibrary/SessionCard 等测试通过",
+            "拖拽态断言改 data-dragging/data-drop-target（SessionPane.test / WorkspaceView.test）"
+        ],
+        "AC-003": [
+            "pnpm test：3333 passed / 2 skipped",
+            "playwright --project=web 会话相关 30 passed"
+        ],
+        "AC-004": ["[deploy] 死类名本无样式定义，删除预期零视觉差异；agent 未做人工部署抽查"]
+    },
+    "pending": [],
+    "findings": []
 }

@@ -1,37 +1,35 @@
 {
-  "tid": "t418",
-  "attempt": 1,
-  "execution_id": "dd760e4d5eb14c3da34a64284ae391e1",
-  "status": "done",
-  "branch": "t418_usage_color_single_source",
-  "base_sha": "22d51152b6a411c104c7568c5727e1460305c7dd",
-  "tests": "pnpm test：277 passed | 1 skipped；3326 tests passed | 9 skipped",
-  "blackbox": "pnpm test 全量通过；typecheck 通过；touched files lint 通过（base 预存 session-resume/general_section lint 红未引入）",
-  "review": "Round 3 general PASS（R1 2 minor 已修；R2 复核；R3 收尾 docs/specs 入指纹）",
-  "ac_evidence": {
-    "AC-001": [
-      "usage-colors.ts 仅 USAGE_COLOR_TOKENS=var(--color-usage-1..9)，无 hex 数组",
-      "settings-view/lib.ts nine-cycle swatch 复用 USAGE_COLOR_TOKENS.slice(0,5)",
-      "tests/unit/renderer/lib/usage-colors.test.ts：token 返回值 + 源码无 #[0-9a-fA-F]{6}"
-    ],
-    "AC-002": [
-      "theme.ts 导出 ACCENT_PRESET_LIST/ACCENT_PRESETS/ACCENT_PRESET_COLORS/DEFAULT_ACCENT_COLOR",
-      "appearance_section.tsx 引用导出，源码无 accent hex 字面量",
-      "tests/unit/renderer/lib/t418_color_single_source.test.ts AC-002 断言通过"
-    ],
-    "AC-003": [
-      "about_section.tsx 8 处 tint 改为 var(--color-accent-*)，#fff→var(--color-on-primary)",
-      "t418_color_single_source.test.ts AC-003 源码无裸 hex 断言通过"
-    ],
-    "AC-004": [
-      "provider_card_colors.test.tsx nine-cycle bar-fill 断言 var(--color-usage-N)",
-      "usage-colors / BAR_COLOR_SCHEMES swatch 联动单测通过",
-      "[deploy] 目检：设置配色预览与用量条九色（合并后人工）"
-    ],
-    "AC-005": [
-      "pnpm test：3326 passed / 9 skipped，0 failed"
-    ]
-  },
-  "pending": [],
-  "findings": ["d044"]
+    "tid": "t418",
+    "attempt": 1,
+    "execution_id": "dd760e4d5eb14c3da34a64284ae391e1",
+    "status": "done",
+    "branch": "t418_usage_color_single_source",
+    "base_sha": "22d51152b6a411c104c7568c5727e1460305c7dd",
+    "tests": "pnpm test：277 passed | 1 skipped；3326 tests passed | 9 skipped",
+    "blackbox": "pnpm test 全量通过；typecheck 通过；touched files lint 通过（base 预存 session-resume/general_section lint 红未引入）",
+    "review": "Round 3 general PASS（R1 2 minor 已修；R2 复核；R3 收尾 docs/specs 入指纹）",
+    "ac_evidence": {
+        "AC-001": [
+            "usage-colors.ts 仅 USAGE_COLOR_TOKENS=var(--color-usage-1..9)，无 hex 数组",
+            "settings-view/lib.ts nine-cycle swatch 复用 USAGE_COLOR_TOKENS.slice(0,5)",
+            "tests/unit/renderer/lib/usage-colors.test.ts：token 返回值 + 源码无 #[0-9a-fA-F]{6}"
+        ],
+        "AC-002": [
+            "theme.ts 导出 ACCENT_PRESET_LIST/ACCENT_PRESETS/ACCENT_PRESET_COLORS/DEFAULT_ACCENT_COLOR",
+            "appearance_section.tsx 引用导出，源码无 accent hex 字面量",
+            "tests/unit/renderer/lib/t418_color_single_source.test.ts AC-002 断言通过"
+        ],
+        "AC-003": [
+            "about_section.tsx 8 处 tint 改为 var(--color-accent-*)，#fff→var(--color-on-primary)",
+            "t418_color_single_source.test.ts AC-003 源码无裸 hex 断言通过"
+        ],
+        "AC-004": [
+            "provider_card_colors.test.tsx nine-cycle bar-fill 断言 var(--color-usage-N)",
+            "usage-colors / BAR_COLOR_SCHEMES swatch 联动单测通过",
+            "[deploy] 目检：设置配色预览与用量条九色（合并后人工）"
+        ],
+        "AC-005": ["pnpm test：3326 passed / 9 skipped，0 failed"]
+    },
+    "pending": [],
+    "findings": ["d044"]
 }

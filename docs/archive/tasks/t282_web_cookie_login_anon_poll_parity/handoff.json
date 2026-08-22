@@ -24,9 +24,7 @@
         "AC-004": [
             "poll_cookie_login 与 WebLoginSection/SettingsForm fakeTimers 120s 断言「网页登录超时，请重试」"
         ],
-        "AC-005": [
-            "web_login_section.test.tsx desktop path 仍 session.login、不调 cookieLogin"
-        ]
+        "AC-005": ["web_login_section.test.tsx desktop path 仍 session.login、不调 cookieLogin"]
     },
     "pending": [],
     "findings": []

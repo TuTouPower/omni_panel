@@ -3,6 +3,9 @@ pnpm-lock.yaml
 CLAUDE.md
 public/
 
+# md 由 scripts/repo_template/md_format.py 管（lint-staged 分工），不经 prettier
+*.md
+
 # repo-template-sync 共享文稿：保持模板紧凑格式（不经 prettier 重排）
 AGENTS.md
 docs/blueprint/conventions.md

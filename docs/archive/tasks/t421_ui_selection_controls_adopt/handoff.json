@@ -1,32 +1,32 @@
 {
-  "tid": "t421",
-  "attempt": 1,
-  "execution_id": "45f8512db26645d795d22b582ce6f1ff",
-  "status": "done",
-  "branch": "t421_ui_selection_controls_adopt",
-  "base_sha": "92f616fc5c1816a05f7cfe602c817c33e662af04",
-  "tests": "pnpm test：3333 passed | 9 skipped；pnpm typecheck 绿；本 task 无新增 lint（基线 4 条与本 task 无关）",
-  "blackbox": "默认黑盒 pnpm test 通过；typecheck 通过；grep 确认 3 处自绘选择框与 3 处分段手拼已替换为 ui 组件",
-  "review": "第 2 轮 code PASS + test PASS（0 finding；Round 1 亦 PASS）",
-  "ac_evidence": {
-    "AC-001": [
-      "SessionRow/SessionCard 使用 Checkbox variant=select；RecentSessionsModal 使用 variant=order",
-      "ui.test.tsx select/order 形态断言通过；SessionCard AC6 与 WorkspaceView recent 序号/on 用例通过"
-    ],
-    "AC-002": [
-      "SessionLibrary/ProviderCard/ProviderAccountRow 使用 ui/Segmented；分段档外 rounded-[7px]/[9px] 与 role=tablist 手拼已移除",
-      "provider_card_overview 互斥选中、provider_account_row 趋势窗口、SessionLibrary 列表视图切换用例通过"
-    ],
-    "AC-003": [
-      "WorkspaceToolbar 使用 ui/Menu + MenuItem；WorkspaceToolbar.test.tsx 断言 glass-menu 与 hover primary/on-primary"
-    ],
-    "AC-004": [
-      "[deploy] 人工目检：select/order 选择框、Segmented 三段、Menu 蓝底白字 hover 无肉眼退化"
-    ],
-    "AC-005": [
-      "pnpm test 3333 passed；pnpm typecheck 绿；相关单测与 trend_window e2e 断言已随 Segmented 收敛更新"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t421",
+    "attempt": 1,
+    "execution_id": "45f8512db26645d795d22b582ce6f1ff",
+    "status": "done",
+    "branch": "t421_ui_selection_controls_adopt",
+    "base_sha": "92f616fc5c1816a05f7cfe602c817c33e662af04",
+    "tests": "pnpm test：3333 passed | 9 skipped；pnpm typecheck 绿；本 task 无新增 lint（基线 4 条与本 task 无关）",
+    "blackbox": "默认黑盒 pnpm test 通过；typecheck 通过；grep 确认 3 处自绘选择框与 3 处分段手拼已替换为 ui 组件",
+    "review": "第 2 轮 code PASS + test PASS（0 finding；Round 1 亦 PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "SessionRow/SessionCard 使用 Checkbox variant=select；RecentSessionsModal 使用 variant=order",
+            "ui.test.tsx select/order 形态断言通过；SessionCard AC6 与 WorkspaceView recent 序号/on 用例通过"
+        ],
+        "AC-002": [
+            "SessionLibrary/ProviderCard/ProviderAccountRow 使用 ui/Segmented；分段档外 rounded-[7px]/[9px] 与 role=tablist 手拼已移除",
+            "provider_card_overview 互斥选中、provider_account_row 趋势窗口、SessionLibrary 列表视图切换用例通过"
+        ],
+        "AC-003": [
+            "WorkspaceToolbar 使用 ui/Menu + MenuItem；WorkspaceToolbar.test.tsx 断言 glass-menu 与 hover primary/on-primary"
+        ],
+        "AC-004": [
+            "[deploy] 人工目检：select/order 选择框、Segmented 三段、Menu 蓝底白字 hover 无肉眼退化"
+        ],
+        "AC-005": [
+            "pnpm test 3333 passed；pnpm typecheck 绿；相关单测与 trend_window e2e 断言已随 Segmented 收敛更新"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

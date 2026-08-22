@@ -1,39 +1,35 @@
 {
-  "tid": "t410",
-  "attempt": 1,
-  "execution_id": "75bd40b7680d4dcba0c26b5ca574117a",
-  "status": "done",
-  "branch": "t410_session_pane_drag_reorder",
-  "base_sha": "e33ed3a3616559238e039a124252ca0a2f6e72da",
-  "tests": "pnpm test：3290 passed | 9 skipped；pnpm typecheck 通过；相关文件 eslint 0 error",
-  "blackbox": "pnpm test 全量通过（含 t410 SessionPane/WorkspaceView 拖拽用例 8 passed）；typecheck 绿",
-  "review": "第 1 轮 code PASS + test PASS，overall=PASS，review_scope=ok",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::AC-001：从 agent icon 拖到另一面板后槽位互换，侧栏顺序同步 — titles 与 data-loc-key 均 sess_b,sess_a",
-      "生产路径：WorkspaceView handle_pane_drop → move_slot_ui → move_slot"
-    ],
-    "AC-002": [
-      "WorkspaceView.test.tsx::AC-002：悬停目标槽位出现 drop-target 高亮，离开后清除",
-      "SessionPane.test.tsx：dragging → conversation-pane-dragging；drop_active → conversation-pane-drop-target"
-    ],
-    "AC-003": [
-      "WorkspaceView.test.tsx::AC-003：拖到无效区域松开后布局不变 — dragStart+dragEnd 无 drop，titles 不变"
-    ],
-    "AC-004": [
-      "WorkspaceView.test.tsx::AC-004：单击 agent icon 不改布局",
-      "SessionPane.test.tsx::AC-004：单击 badge 不触发 on_drag_start/on_drag_end"
-    ],
-    "AC-005": [
-      "WorkspaceView.test.tsx::AC-005：面板拖拽换序后持久化，重挂载恢复交换后顺序 — localStorage workspace-slots + remount titles"
-    ],
-    "AC-006": [
-      "[deploy] 真实窗口拖起影像与目标高亮需人工确认；自动化覆盖类名级反馈（AC-002）"
-    ],
-    "AC-007": [
-      "pnpm test：3290 passed | 9 skipped；t410 相关 8 用例全绿；typecheck 通过"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t410",
+    "attempt": 1,
+    "execution_id": "75bd40b7680d4dcba0c26b5ca574117a",
+    "status": "done",
+    "branch": "t410_session_pane_drag_reorder",
+    "base_sha": "e33ed3a3616559238e039a124252ca0a2f6e72da",
+    "tests": "pnpm test：3290 passed | 9 skipped；pnpm typecheck 通过；相关文件 eslint 0 error",
+    "blackbox": "pnpm test 全量通过（含 t410 SessionPane/WorkspaceView 拖拽用例 8 passed）；typecheck 绿",
+    "review": "第 1 轮 code PASS + test PASS，overall=PASS，review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx::AC-001：从 agent icon 拖到另一面板后槽位互换，侧栏顺序同步 — titles 与 data-loc-key 均 sess_b,sess_a",
+            "生产路径：WorkspaceView handle_pane_drop → move_slot_ui → move_slot"
+        ],
+        "AC-002": [
+            "WorkspaceView.test.tsx::AC-002：悬停目标槽位出现 drop-target 高亮，离开后清除",
+            "SessionPane.test.tsx：dragging → conversation-pane-dragging；drop_active → conversation-pane-drop-target"
+        ],
+        "AC-003": [
+            "WorkspaceView.test.tsx::AC-003：拖到无效区域松开后布局不变 — dragStart+dragEnd 无 drop，titles 不变"
+        ],
+        "AC-004": [
+            "WorkspaceView.test.tsx::AC-004：单击 agent icon 不改布局",
+            "SessionPane.test.tsx::AC-004：单击 badge 不触发 on_drag_start/on_drag_end"
+        ],
+        "AC-005": [
+            "WorkspaceView.test.tsx::AC-005：面板拖拽换序后持久化，重挂载恢复交换后顺序 — localStorage workspace-slots + remount titles"
+        ],
+        "AC-006": ["[deploy] 真实窗口拖起影像与目标高亮需人工确认；自动化覆盖类名级反馈（AC-002）"],
+        "AC-007": ["pnpm test：3290 passed | 9 skipped；t410 相关 8 用例全绿；typecheck 通过"]
+    },
+    "pending": [],
+    "findings": []
 }

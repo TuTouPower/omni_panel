@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
-import {
-    compute_message_offsets,
-    compute_visible_window,
-} from "../../lib/workspace/pane";
+import { compute_message_offsets, compute_visible_window } from "../../lib/workspace/pane";
 
 interface VirtualMessageListProps {
     readonly messages: readonly HistoryMessageLike[];

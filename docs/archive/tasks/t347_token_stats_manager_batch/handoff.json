@@ -1,32 +1,32 @@
 {
-  "tid": "t347",
-  "attempt": 1,
-  "execution_id": "2b32514d5473465ebaf63d943e324af0",
-  "status": "done",
-  "branch": "t347_token_stats_manager_batch",
-  "base_sha": "4d73052c2bc07165a3393d872324c4f269e59cd8",
-  "tests": "store + manager 113 例全绿：AC-001 rebuild_buckets 分批/空数据+true 重建、AC-002 单批失败继续+on_update、AC-003 熔断 5 次崩溃恢复+非熔断窗口清 timer、AC-004 序无关去重。token-stats 281 例全绿。typecheck/lint/prettier 干净。全量 unit 2429 passed；10 文件因 p153 electron 环境失败与 task 无关。",
-  "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；4 条 AC 均由单测覆盖（mock store/utilityProcess）。",
-  "review": "review_level=full；Round 1 code FAIL（f001/f002 important 已修、f003 minor 已修）、test PASS（f001/f002/f003 minor 遗留→p168）；Round 2 code PASS。报告 t347_review_code.md / t347_review_test.md。",
-  "ac_evidence": {
-    "AC-001": [
-      "token-stats-store.ts upsert_sessions 加 rebuild_buckets 参数（默认 true），false 跳过重建；早退条件含 !rebuild_buckets（空数据+true 仍重建）",
-      "manager.ts apply_batches 每批传 is_last（仅末批重建）",
-      "token-stats-store.test.ts::rebuild_buckets false 不重建/true 重建 + 空数据 true 仍重建"
-    ],
-    "AC-002": [
-      "manager.ts apply_batches catch 后统一推进 offset，不 return 中断，最后仍 on_update",
-      "manager.test.ts::continues remaining batches when one batch fails（mockImplementationOnce 抛错 + 剩余批次 + on_update）"
-    ],
-    "AC-003": [
-      "manager.ts update_config child null 时重新 start（清 restart_timer 防旧 config 回退），熔断后配置更新即恢复",
-      "manager.test.ts::restarts the collector on config update after circuit breaker trips + clears pending restart timer"
-    ],
-    "AC-004": [
-      "manager.ts same_config 改 sort_keys 递归按 key 排序后比较（序无关）",
-      "manager.test.ts::same_config is order-independent（键序交换去重）"
-    ]
-  },
-  "pending": ["p168"],
-  "findings": []
+    "tid": "t347",
+    "attempt": 1,
+    "execution_id": "2b32514d5473465ebaf63d943e324af0",
+    "status": "done",
+    "branch": "t347_token_stats_manager_batch",
+    "base_sha": "4d73052c2bc07165a3393d872324c4f269e59cd8",
+    "tests": "store + manager 113 例全绿：AC-001 rebuild_buckets 分批/空数据+true 重建、AC-002 单批失败继续+on_update、AC-003 熔断 5 次崩溃恢复+非熔断窗口清 timer、AC-004 序无关去重。token-stats 281 例全绿。typecheck/lint/prettier 干净。全量 unit 2429 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；4 条 AC 均由单测覆盖（mock store/utilityProcess）。",
+    "review": "review_level=full；Round 1 code FAIL（f001/f002 important 已修、f003 minor 已修）、test PASS（f001/f002/f003 minor 遗留→p168）；Round 2 code PASS。报告 t347_review_code.md / t347_review_test.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "token-stats-store.ts upsert_sessions 加 rebuild_buckets 参数（默认 true），false 跳过重建；早退条件含 !rebuild_buckets（空数据+true 仍重建）",
+            "manager.ts apply_batches 每批传 is_last（仅末批重建）",
+            "token-stats-store.test.ts::rebuild_buckets false 不重建/true 重建 + 空数据 true 仍重建"
+        ],
+        "AC-002": [
+            "manager.ts apply_batches catch 后统一推进 offset，不 return 中断，最后仍 on_update",
+            "manager.test.ts::continues remaining batches when one batch fails（mockImplementationOnce 抛错 + 剩余批次 + on_update）"
+        ],
+        "AC-003": [
+            "manager.ts update_config child null 时重新 start（清 restart_timer 防旧 config 回退），熔断后配置更新即恢复",
+            "manager.test.ts::restarts the collector on config update after circuit breaker trips + clears pending restart timer"
+        ],
+        "AC-004": [
+            "manager.ts same_config 改 sort_keys 递归按 key 排序后比较（序无关）",
+            "manager.test.ts::same_config is order-independent（键序交换去重）"
+        ]
+    },
+    "pending": ["p168"],
+    "findings": []
 }

@@ -1,41 +1,41 @@
 {
-  "tid": "t414",
-  "attempt": 1,
-  "execution_id": "01725c6c661944e485f257e4717237c8",
-  "status": "done",
-  "branch": "t414_web_sse_one_per_page",
-  "base_sha": "aa683cba50381d2737012dc116deffabdc795ce4",
-  "tests": "pnpm test：3312 passed | 9 skipped；pnpm typecheck 通过；改动文件 eslint 0 error",
-  "blackbox": "pnpm test 全绿 + typecheck；桥层 FakeEventSource 与 local-api 真实 createServer 集成覆盖 AC-001～007",
-  "review": "第 1 轮 code PASS + test PASS（overall=PASS，review_scope=ok）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/web/usageboard-web.test.ts::subscribe 8 会话 + state/config/theme 后仅 1 条 EventSource (t414 AC-001) 通过"
-    ],
-    "AC-002": [
-      "tests/integration/local-api/server.test.ts::8 会话挂在同一 connectionId 后 GET /v1/sessions 5s 内 200 (t414 AC-002) 通过",
-      "tests/unit/web/usageboard-web.test.ts::8 会话已订阅后 getSessions 经同源 fetch 返回 (t414 AC-002) 通过"
-    ],
-    "AC-003": [
-      "tests/unit/web/usageboard-web.test.ts::messagesUpdated 按 loc 分发且不串会话 (t414 AC-003) 通过",
-      "tests/integration/local-api/server.test.ts::一条 connectionId SSE 挂多会话，messagesUpdated 按 loc 隔离 (t414 AC-003) 通过"
-    ],
-    "AC-004": [
-      "tests/unit/web/usageboard-web.test.ts::unsubscribe A 后 A 不再投递、B 仍可达且 EventSource 仍为 1 (t414 AC-004) 通过",
-      "tests/integration/local-api/server.test.ts::connectionId 连接 unsubscribe 只卸目标会话，其它仍推送 (t414 AC-004) 通过"
-    ],
-    "AC-005": [
-      "tests/unit/web/usageboard-web.test.ts::共享 EventSource 断线重连 open 后无需再 subscribe 即可重挂 (t414 AC-005) 通过",
-      "tests/integration/local-api/server.test.ts::connectionId 重连 open 后重挂，仍能推 messagesUpdated (t414 AC-005) 通过"
-    ],
-    "AC-006": [
-      "tests/integration/local-api/server.test.ts::两条 connectionId SSE 互不影响，关一页只清本连接订阅 (t414 AC-006) 通过",
-      "tests/unit/web/usageboard-web.test.ts::两页（两个 bridge 实例）connectionId 互不相同 (t414 AC-006) 通过"
-    ],
-    "AC-007": [
-      "tests/unit/web/usageboard-web.test.ts::state/config/theme 与会话订阅共享同一 EventSource (t414 AC-007) 通过"
-    ]
-  },
-  "pending": [],
-  "findings": ["d042"]
+    "tid": "t414",
+    "attempt": 1,
+    "execution_id": "01725c6c661944e485f257e4717237c8",
+    "status": "done",
+    "branch": "t414_web_sse_one_per_page",
+    "base_sha": "aa683cba50381d2737012dc116deffabdc795ce4",
+    "tests": "pnpm test：3312 passed | 9 skipped；pnpm typecheck 通过；改动文件 eslint 0 error",
+    "blackbox": "pnpm test 全绿 + typecheck；桥层 FakeEventSource 与 local-api 真实 createServer 集成覆盖 AC-001～007",
+    "review": "第 1 轮 code PASS + test PASS（overall=PASS，review_scope=ok）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/web/usageboard-web.test.ts::subscribe 8 会话 + state/config/theme 后仅 1 条 EventSource (t414 AC-001) 通过"
+        ],
+        "AC-002": [
+            "tests/integration/local-api/server.test.ts::8 会话挂在同一 connectionId 后 GET /v1/sessions 5s 内 200 (t414 AC-002) 通过",
+            "tests/unit/web/usageboard-web.test.ts::8 会话已订阅后 getSessions 经同源 fetch 返回 (t414 AC-002) 通过"
+        ],
+        "AC-003": [
+            "tests/unit/web/usageboard-web.test.ts::messagesUpdated 按 loc 分发且不串会话 (t414 AC-003) 通过",
+            "tests/integration/local-api/server.test.ts::一条 connectionId SSE 挂多会话，messagesUpdated 按 loc 隔离 (t414 AC-003) 通过"
+        ],
+        "AC-004": [
+            "tests/unit/web/usageboard-web.test.ts::unsubscribe A 后 A 不再投递、B 仍可达且 EventSource 仍为 1 (t414 AC-004) 通过",
+            "tests/integration/local-api/server.test.ts::connectionId 连接 unsubscribe 只卸目标会话，其它仍推送 (t414 AC-004) 通过"
+        ],
+        "AC-005": [
+            "tests/unit/web/usageboard-web.test.ts::共享 EventSource 断线重连 open 后无需再 subscribe 即可重挂 (t414 AC-005) 通过",
+            "tests/integration/local-api/server.test.ts::connectionId 重连 open 后重挂，仍能推 messagesUpdated (t414 AC-005) 通过"
+        ],
+        "AC-006": [
+            "tests/integration/local-api/server.test.ts::两条 connectionId SSE 互不影响，关一页只清本连接订阅 (t414 AC-006) 通过",
+            "tests/unit/web/usageboard-web.test.ts::两页（两个 bridge 实例）connectionId 互不相同 (t414 AC-006) 通过"
+        ],
+        "AC-007": [
+            "tests/unit/web/usageboard-web.test.ts::state/config/theme 与会话订阅共享同一 EventSource (t414 AC-007) 通过"
+        ]
+    },
+    "pending": [],
+    "findings": ["d042"]
 }

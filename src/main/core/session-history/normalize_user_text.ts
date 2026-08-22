@@ -3,7 +3,9 @@
  * 供会话历史四端提取器与 Claude/Kimi token-stats 标题共用。
  */
 
-export type NormalizeUserResult = { readonly keep: true; readonly text: string } | { readonly keep: false };
+export type NormalizeUserResult =
+    | { readonly keep: true; readonly text: string }
+    | { readonly keep: false };
 
 /** p203 抽样登记的信封标签（不含 user_query / command-*，那两类有专用展开）。 */
 const STRIP_ENVELOPE_TAGS = [

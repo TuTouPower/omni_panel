@@ -141,9 +141,7 @@ export function AboutSection({ build_info }: { build_info: BuildInfo }) {
                                     name={c.icon}
                                     size={23}
                                     strokeWidth={1.7}
-                                    color={
-                                        c.id === "update" ? "var(--color-on-primary)" : c.tint
-                                    }
+                                    color={c.id === "update" ? "var(--color-on-primary)" : c.tint}
                                 />
                             </span>
                             <span className="text-[length:var(--text-title-sm)] font-semibold">

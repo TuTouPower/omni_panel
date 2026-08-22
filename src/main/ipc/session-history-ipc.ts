@@ -277,9 +277,7 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 );
                 const batch_rows = candidate_rows.slice(range.offset, range.end);
                 const metadata =
-                    range.offset > 0 ||
-                    is_legacy_search_request(request) ||
-                    !request.filters.search
+                    range.offset > 0 || is_legacy_search_request(request) || !request.filters.search
                         ? { rows: [] as SessionRow[], truncated: false }
                         : query_all_sessions(deps, {
                               ...(request.filters.sources

@@ -17,9 +17,9 @@ describe("resume_command templates (t401)", () => {
     it("AC-002: omit templates or missing entry falls back to built-in default", () => {
         expect(resume_command("kimi_code", "abc")).toBe("kimi -r abc");
         expect(resume_command("kimi_code", "abc", {})).toBe("kimi -r abc");
-        expect(resume_command("kimi_code", "abc", { claude_code: "claude --resume {session_id}" })).toBe(
-            "kimi -r abc",
-        );
+        expect(
+            resume_command("kimi_code", "abc", { claude_code: "claude --resume {session_id}" }),
+        ).toBe("kimi -r abc");
         expect(resume_command("claude_code", "sid1")).toBe("claude --resume sid1");
         expect(resume_command("grok", "g1")).toBe("grok --resume g1");
         expect(resume_command("opencode", "o1")).toBe("opencode -s o1");
@@ -40,7 +40,9 @@ describe("resume_command templates (t401)", () => {
     it("AC-004: unknown source without template returns null", () => {
         expect(resume_command("unknown_cli", "abc")).toBeNull();
         expect(resume_command("unknown_cli", "abc", {})).toBeNull();
-        expect(resume_command("unknown_cli", "abc", { kimi_code: "kimi -r {session_id}" })).toBeNull();
+        expect(
+            resume_command("unknown_cli", "abc", { kimi_code: "kimi -r {session_id}" }),
+        ).toBeNull();
     });
 
     it("custom template for unknown source still applies", () => {

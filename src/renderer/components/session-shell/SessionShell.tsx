@@ -58,9 +58,7 @@ export function SessionShell() {
                     onRefresh={() => {
                         // t434: 刷新 = 触发一轮 token-stats 采集（重置自动采集
                         // 计时）+ 递增 token 触发工作台槽位消息重拉（既有行为）。
-                        void window.usageboard.tokenStats
-                            .forceCollect()
-                            .catch(() => undefined);
+                        void window.usageboard.tokenStats.forceCollect().catch(() => undefined);
                         set_refresh_token((k) => k + 1);
                     }}
                     before_actions={

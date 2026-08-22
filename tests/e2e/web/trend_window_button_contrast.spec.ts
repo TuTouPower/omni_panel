@@ -121,10 +121,9 @@ test.describe("趋势窗口按钮选中态对比度 (t321)", () => {
                 probe.remove();
                 return out.trim();
             });
-            expect(
-                bg,
-                `选中按钮背景应等于 surface-card，实际 ${bg} vs ${surface_card_rgb}`,
-            ).toBe(surface_card_rgb);
+            expect(bg, `选中按钮背景应等于 surface-card，实际 ${bg} vs ${surface_card_rgb}`).toBe(
+                surface_card_rgb,
+            );
 
             // AC-002/003: 文字与最终背景对比度 ≥3.0，且文字与最终背景非同色
             const sample = await sample_contrast(selected.first());

@@ -1,26 +1,26 @@
 {
-  "tid": "t348",
-  "attempt": 1,
-  "execution_id": "592947e5f76f486f97a8cc833ecaee37",
-  "status": "done",
-  "branch": "t348_token_stats_timezone",
-  "base_sha": "9f2c97399ef1e1b1e5ee633ff334837ae8eb4724",
-  "tests": "token-stats 全量 418 例全绿（utc8 7 + aggregate 18 + chart-data 64 + store/reader/manager 等）；vitest env TZ=Asia/Shanghai 固定，实测 TZ=America/New_York 下 token-stats 仍全过（AC-002 任何整点时区一致）。typecheck/lint/prettier 干净。全量 unit 2439 passed；10 文件因 p153 electron 环境失败与 task 无关。",
-  "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002/003 由单测覆盖（utc8 helper Date.UTC 参考 + bucketize UTC+8 边界 + TZ 双环境验证）。",
-  "review": "review_level=single；Round 1 general FAIL（f001/f002 important 已修、f003/f004 minor 已修）；Round 2 general FAIL（f005 important、f006/f007 minor 已修）；Round 3 general PASS。报告 t348_review_general.md。",
-  "ac_evidence": {
-    "AC-001": [
-      "utc8.ts helper（day/hour start、date_str、hour、weekday）；bucketize 边界与标签、BarChart 小时标签、chart-data 热力图与 prepareBarDataFromBuckets 日轴、reader-utils calendar_date_of 全部改 UTC+8",
-      "aggregate.test.ts::bucket boundaries follow UTC+8 regardless of system timezone（Date.UTC 参考）"
-    ],
-    "AC-002": [
-      "vitest.config.mts test.env TZ=Asia/Shanghai 固定（跨 OS，非 POSIX 前缀）；实测 TZ=America/New_York 下 token-stats 全过",
-      "utc8.test.ts 7 例 + chart-data UTC+8 日界窗口（Date.UTC 明确参考点）"
-    ],
-    "AC-003": [
-      "token-stats.ts date 注释改「UTC+8 日期」，reader-utils calendar_date_of 按 UTC+8 归日（与 schema 一致）"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t348",
+    "attempt": 1,
+    "execution_id": "592947e5f76f486f97a8cc833ecaee37",
+    "status": "done",
+    "branch": "t348_token_stats_timezone",
+    "base_sha": "9f2c97399ef1e1b1e5ee633ff334837ae8eb4724",
+    "tests": "token-stats 全量 418 例全绿（utc8 7 + aggregate 18 + chart-data 64 + store/reader/manager 等）；vitest env TZ=Asia/Shanghai 固定，实测 TZ=America/New_York 下 token-stats 仍全过（AC-002 任何整点时区一致）。typecheck/lint/prettier 干净。全量 unit 2439 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002/003 由单测覆盖（utc8 helper Date.UTC 参考 + bucketize UTC+8 边界 + TZ 双环境验证）。",
+    "review": "review_level=single；Round 1 general FAIL（f001/f002 important 已修、f003/f004 minor 已修）；Round 2 general FAIL（f005 important、f006/f007 minor 已修）；Round 3 general PASS。报告 t348_review_general.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "utc8.ts helper（day/hour start、date_str、hour、weekday）；bucketize 边界与标签、BarChart 小时标签、chart-data 热力图与 prepareBarDataFromBuckets 日轴、reader-utils calendar_date_of 全部改 UTC+8",
+            "aggregate.test.ts::bucket boundaries follow UTC+8 regardless of system timezone（Date.UTC 参考）"
+        ],
+        "AC-002": [
+            "vitest.config.mts test.env TZ=Asia/Shanghai 固定（跨 OS，非 POSIX 前缀）；实测 TZ=America/New_York 下 token-stats 全过",
+            "utc8.test.ts 7 例 + chart-data UTC+8 日界窗口（Date.UTC 明确参考点）"
+        ],
+        "AC-003": [
+            "token-stats.ts date 注释改「UTC+8 日期」，reader-utils calendar_date_of 按 UTC+8 归日（与 schema 一致）"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

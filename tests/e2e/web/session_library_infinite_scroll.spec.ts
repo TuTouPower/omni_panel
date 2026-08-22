@@ -87,13 +87,17 @@ test.describe("session library infinite scroll (web, t328)", () => {
         // AC-002：滚到底自动加载第二页 → 100。
         await scroll_container_to_bottom(page, '[data-testid="library-grid"]');
         await expect
-            .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-card"]').count(), {
+                timeout: 5000,
+            })
             .toBe(100);
 
         // 再次触底 → 第三页 30 条 → 130（末页 < 50 → has_more=false）。
         await scroll_container_to_bottom(page, '[data-testid="library-grid"]');
         await expect
-            .poll(async () => page.locator('[data-testid="library-card"]').count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-card"]').count(), {
+                timeout: 5000,
+            })
             .toBe(130);
 
         // AC-003：has_more=false 后触底不再发起新请求。
@@ -126,7 +130,9 @@ test.describe("session library infinite scroll (web, t328)", () => {
         // AC-006：列表滚动触底自动加载 → 100。
         await scroll_container_to_bottom(page, '[data-testid="library-list"]');
         await expect
-            .poll(async () => page.locator('[data-testid="library-row"]').count(), { timeout: 5000 })
+            .poll(async () => page.locator('[data-testid="library-row"]').count(), {
+                timeout: 5000,
+            })
             .toBe(100);
     });
 });

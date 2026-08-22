@@ -387,7 +387,6 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
     });
 });
 
-
 describe("opencode extractor envelopes (t436)", () => {
     let tmp_dir: string;
 
@@ -497,14 +496,7 @@ CREATE TABLE part (
         ).run("msg_u2", session_id, 5, 5, JSON.stringify({ role: "user" }));
         db2.prepare(
             "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
-        ).run(
-            "prt_u2",
-            "msg_u2",
-            session_id,
-            5,
-            5,
-            JSON.stringify({ type: "text", text: "next" }),
-        );
+        ).run("prt_u2", "msg_u2", session_id, 5, 5, JSON.stringify({ type: "text", text: "next" }));
         db2.close();
         const inc2 = extract_opencode_incremental(db_path, session_id, inc1.cursor);
         expect(inc2.messages).toHaveLength(1);

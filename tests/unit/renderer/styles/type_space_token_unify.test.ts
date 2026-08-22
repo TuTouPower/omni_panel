@@ -124,7 +124,10 @@ describe("t424 type/space/radius token unify audit", () => {
             expect(text, rel_path).toMatch(/TEXT_SCALE_PX/);
             expect(text, rel_path).not.toMatch(/fontSize\s*[:=]\s*(?:\{\s*)?["']?\d/);
         }
-        const heat = readFileSync(join(ROOT, "src/renderer/components/token-stats/Heatmap.tsx"), "utf8");
+        const heat = readFileSync(
+            join(ROOT, "src/renderer/components/token-stats/Heatmap.tsx"),
+            "utf8",
+        );
         expect(heat).toMatch(/RADIUS_SCALE_PX/);
         expect(heat).not.toMatch(/borderRadius:\s*\d+/);
     });
