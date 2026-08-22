@@ -16,6 +16,7 @@ import { readFileSync, statSync, openSync, readSync, closeSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
+import { normalize_user_display_text } from "./normalize_user_text";
 
 /** kimi 无稳定 id，用消息行在文件中的字节起始位置（稳定、唯一，全量与
  * 增量一致——base_offset 与 line 累计字节均以字节为单位计算）。 */
@@ -43,7 +44,18 @@ function event_to_message(
     if (role_raw !== "user" && role_raw !== "assistant") return null;
     const text = pick_text_from_content(m["content"]);
     if (text === null || text === "") return null;
-    return { id: message_id(line_start_offset), role: role_raw, text, timestamp: timestamp_from(rec) };
+    let display_text = text;
+    if (role_raw === "user") {
+        const norm = normalize_user_display_text(text);
+        if (!norm.keep) return null;
+        display_text = norm.text;
+    }
+    return {
+        id: message_id(line_start_offset),
+        role: role_raw,
+        text: display_text,
+        timestamp: timestamp_from(rec),
+    };
 }
 
 /**

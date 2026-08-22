@@ -339,3 +339,59 @@ describe("kimi_code extractor content.part (t425)", () => {
         expect(extract_kimi_code_first_user(loop_fixture)).toBe("hello kimi");
     });
 });
+
+
+describe("kimi_code extractor envelopes (t436)", () => {
+    const env_fixture = join(fixture_dir, "wire-envelopes.jsonl");
+
+    it("AC-003: drops reminder-only; keeps plain users and content.part assistant", () => {
+        const { messages } = extract_kimi_code(env_fixture);
+        expect(messages.map((m) => m.role)).toEqual(["user", "user", "assistant"]);
+        expect(messages.map((m) => m.text)).toEqual(["first real", "second real", "assistant body"]);
+        expect(extract_kimi_code_first_user(env_fixture)).toBe("first real");
+    });
+
+    it("AC-003 incremental: reminder empty; plain append matches full tail", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "kimi-env-"));
+        const tmp_file = join(tmp, "wire.jsonl");
+        try {
+            copyFileSync(env_fixture, tmp_file);
+            const full = extract_kimi_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "context.append_message",
+                    message: {
+                        role: "user",
+                        content: [
+                            {
+                                type: "text",
+                                text: "<system-reminder>TodoList not updated</system-reminder>",
+                            },
+                        ],
+                    },
+                    time: 1700000005000,
+                }) + "\n",
+            );
+            const inc1 = extract_kimi_code_incremental(tmp_file, full.cursor);
+            expect(inc1.messages).toEqual([]);
+            if (inc1.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "context.append_message",
+                    message: { role: "user", content: [{ type: "text", text: "third real" }] },
+                    time: 1700000006000,
+                }) + "\n",
+            );
+            const inc2 = extract_kimi_code_incremental(tmp_file, inc1.cursor);
+            expect(inc2.messages).toHaveLength(1);
+            expect(inc2.messages[0]?.text).toBe("third real");
+            const re_full = extract_kimi_code(tmp_file);
+            expect(inc2.messages).toEqual(re_full.messages.slice(-1));
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+});

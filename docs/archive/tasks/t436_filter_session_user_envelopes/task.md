@@ -2,11 +2,11 @@
 tid: "t436"
 slug: "filter_session_user_envelopes"
 title: "过滤会话 user 文本中的注入信封"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t436_filter_session_user_envelopes"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "6f5843180e701266a9accfe363b7a6730932eb7e"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p203：四端提取器把框架信封当作用户气泡；Claude/Kimi 用量标题走同一归一"
@@ -22,7 +22,11 @@ note: "来源 p203：四端提取器把框架信封当作用户气泡；Claude/K
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 开干：doctor 无；preflight PASS / --require-verified PASS；worktree `../omni_panel_t436` 软链主仓 `node_modules`；identity attempt=1 execution_id=6ac87fa0f1cd41fc9b7f1c8db28ec155。
+- 实现：共享 `normalize_user_display_text`；四端 extractor user 路径与 Claude/Kimi reader 标题接入；opencode first_user SQL 改 LIMIT 50 以跳过信封行。
+- R1 code finding f001：空 user_query fallthrough 泄漏标签 → 分路径 keep:false；补单测。
+- 黑盒：`pnpm typecheck` + `pnpm test` 3381 passed。
+- 收尾：domain / session-history-window / kimi-session-history-extractor / d017 / specs_index；p203 归档。
 
 ## Review 处置
 
@@ -44,14 +48,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-08-23 01:57 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t436_code_f001|important|已修|空 user_query 与「无标签」分路径；有标签且 inner 全空 → keep:false，禁止 fallthrough 泄漏标签|normalize_user_text.ts + normalize_user_text.test.ts|
 
 ## 收尾报告
 
@@ -60,24 +61,18 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001～007 均在 `handoff.json` `ac_evidence`；四端 envelopes fixture + title 单测 + 空 user_query 回归
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 code：FAIL（t436_code_f001）
+- Round 1 test：PASS
+- Round 2 code：PASS
+- Round 2 test：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 共享归一过滤四端 user 信封；Claude/Kimi 用量标题同源；p203 已归档。
