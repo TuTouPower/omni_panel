@@ -83,7 +83,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
 
         expect(result.sessions).toHaveLength(2);
 
@@ -96,7 +96,7 @@ describe("read_costs_jsonl", () => {
         expect(s1.started_at).toBe(E1);
         expect(s1.ended_at).toBe(E1);
         expect(s1.source).toBe("claude_code");
-        expect(s1.env).toBe("local");
+        expect(s1.env).toBe("linux");
         expect(s1.title).toBeNull();
         expect(s1.directory).toBeNull();
 
@@ -115,7 +115,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(1);
         expect(result.sessions[0]!.id).toBe("real");
     });
@@ -128,7 +128,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(1);
         expect(result.sessions[0]!.id).toBe("s2");
     });
@@ -142,7 +142,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(2);
         expect(result.sessions.map((s) => s.id).sort()).toEqual(["s2", "s3"]);
     });
@@ -156,7 +156,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(1);
 
         const s = result.sessions[0]!;
@@ -177,14 +177,14 @@ describe("read_costs_jsonl", () => {
                 line("s2", "claude-sonnet-4-20250514", 200, 80, T2),
             ].join("\n"),
         );
-        const first = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const first = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(first.sessions).toHaveLength(2);
         const saved_offset = first.new_offset;
 
         // Rewrite with smaller content (file "recreated")
         write(line("s3", "claude-sonnet-4-20250514", 50, 20, T3) + "\n");
 
-        const second = read_costs_jsonl(jsonl_path, "local", saved_offset, saved_offset);
+        const second = read_costs_jsonl(jsonl_path, "linux", saved_offset, saved_offset);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.id).toBe("s3");
     });
@@ -192,10 +192,10 @@ describe("read_costs_jsonl", () => {
     it("returns empty when file unchanged (same size)", () => {
         write(line("s1", "claude-sonnet-4-20250514", 100, 50, T1) + "\n");
 
-        const first = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const first = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         const size = first.new_size;
 
-        const second = read_costs_jsonl(jsonl_path, "local", size, size);
+        const second = read_costs_jsonl(jsonl_path, "linux", size, size);
         expect(second.sessions).toHaveLength(0);
         expect(second.new_offset).toBe(size);
     });
@@ -210,7 +210,7 @@ describe("read_costs_jsonl", () => {
         ].join("\n");
         write(content);
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(2);
     });
 
@@ -229,7 +229,7 @@ describe("read_costs_jsonl", () => {
             ].join("\n"),
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions).toHaveLength(1);
         const s1 = result.sessions[0];
         if (!s1) throw new Error("s1 not found");
@@ -244,7 +244,7 @@ describe("read_costs_jsonl", () => {
         const line1 = line("s1", "claude-sonnet-4-20250514", 100, 50, T1);
         write(line1 + "\n");
 
-        const first = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const first = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(first.sessions).toHaveLength(1);
         const saved = first.new_offset;
 
@@ -252,7 +252,7 @@ describe("read_costs_jsonl", () => {
         const line2 = line("s2", "claude-sonnet-4-20250514", 200, 80, T2);
         fs.appendFileSync(jsonl_path, line2 + "\n", "utf-8");
 
-        const second = read_costs_jsonl(jsonl_path, "local", saved, saved);
+        const second = read_costs_jsonl(jsonl_path, "linux", saved, saved);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.id).toBe("s2");
     });
@@ -260,7 +260,7 @@ describe("read_costs_jsonl", () => {
     it("defaults missing cache tokens to 0", () => {
         write(line("s1", "claude-sonnet-4-20250514", 100, 50, T1) + "\n");
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions[0]!.cache_read_tokens).toBe(0);
         expect(result.sessions[0]!.cache_write_tokens).toBe(0);
     });
@@ -273,7 +273,7 @@ describe("read_costs_jsonl", () => {
             }) + "\n",
         );
 
-        const result = read_costs_jsonl(jsonl_path, "local", 0, 0);
+        const result = read_costs_jsonl(jsonl_path, "linux", 0, 0);
         expect(result.sessions[0]!.cache_read_tokens).toBe(500);
         expect(result.sessions[0]!.cache_write_tokens).toBe(300);
     });
@@ -325,7 +325,7 @@ describe("scan_session_jsonls", () => {
             assistant_line(T3, "claude-sonnet-4-20250514"),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.sessions).toHaveLength(1);
         const s = result.sessions[0]!;
@@ -369,7 +369,7 @@ describe("scan_session_jsonls", () => {
             }),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records).toHaveLength(2);
         const r0 = result.records[0]!;
@@ -399,7 +399,7 @@ describe("scan_session_jsonls", () => {
             assistant_line("2026-07-11T02:00:00.000Z", "opus"),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.daily).toHaveLength(2);
         const d1 = result.daily.find((d) => d.model === "sonnet")!;
@@ -426,7 +426,7 @@ describe("scan_session_jsonls", () => {
             same_usage_different_request, // distinct call with same ts+usage — counted
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.calls).toBe(3);
         expect(result.sessions[0]!.input_tokens).toBe(30);
         expect(result.daily[0]!.calls).toBe(3);
@@ -440,7 +440,7 @@ describe("scan_session_jsonls", () => {
             }),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.id).toBe("real-session-id");
         expect(result.daily[0]!.id).toBe("real-session-id");
     });
@@ -452,7 +452,7 @@ describe("scan_session_jsonls", () => {
             assistant_line(T3, "m"),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.title).toBe("Real title");
     });
 
@@ -464,10 +464,9 @@ describe("scan_session_jsonls", () => {
             assistant_line(T2, "m"),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.title).toBe("array content title");
     });
-
 
     it("t436 title: skips isMeta/interrupted then uses next keepable user", () => {
         write_session("proj-a/sess-title-env.jsonl", [
@@ -483,7 +482,7 @@ describe("scan_session_jsonls", () => {
             }),
             assistant_line(T3, "m"),
         ]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.title).toBe("hello title");
     });
 
@@ -501,7 +500,7 @@ describe("scan_session_jsonls", () => {
             }),
             assistant_line(T2, "m"),
         ]);
-        const r1 = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const r1 = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(r1.sessions[0]!.title).toBe("/task-create 自定义");
 
         write_session("proj-a/sess-title-summary.jsonl", [
@@ -510,20 +509,22 @@ describe("scan_session_jsonls", () => {
                 isMeta: true,
                 message: { content: [{ type: "text", text: "skill dump" }] },
             }),
-            session_line("user", T3, { message: { content: [{ type: "text", text: "user text" }] } }),
+            session_line("user", T3, {
+                message: { content: [{ type: "text", text: "user text" }] },
+            }),
             assistant_line(T3, "m"),
         ]);
-        const r2 = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const r2 = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(r2.sessions.some((s) => s.title === "Real title")).toBe(true);
     });
 
     it("skips unchanged files by mtime on rescan", () => {
         write_session("proj-a/sess-4.jsonl", [assistant_line(T1, "m")]);
 
-        const first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const first = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(first.sessions).toHaveLength(1);
 
-        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        const second = scan_session_jsonls(projects_dir, "linux", first.new_state);
         expect(second.sessions).toHaveLength(0);
         expect(second.new_state.mtimes.size).toBe(1);
     });
@@ -531,7 +532,7 @@ describe("scan_session_jsonls", () => {
     it("recounts in full when a file changes (store REPLACEs)", () => {
         write_session("proj-a/sess-5.jsonl", [assistant_line(T1, "m")]);
 
-        const first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const first = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(first.sessions[0]!.calls).toBe(1);
 
         // Append another call — mtime changes
@@ -541,7 +542,7 @@ describe("scan_session_jsonls", () => {
         const future = new Date(Date.now() + 5000);
         fs.utimesSync(file, future, future);
 
-        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        const second = scan_session_jsonls(projects_dir, "linux", first.new_state);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.calls).toBe(2);
     });
@@ -551,7 +552,7 @@ describe("scan_session_jsonls", () => {
         write_session("proj-b/deep/sess-7.jsonl", [assistant_line(T1, "m")]);
         write_session("proj-a/notes.txt", [assistant_line(T1, "m")]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions.map((s) => s.id).sort()).toEqual(["sess-6", "sess-7"]);
     });
 
@@ -562,7 +563,7 @@ describe("scan_session_jsonls", () => {
             assistant_line(T3, "claude-sonnet-4-20250514"),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions[0]!.calls).toBe(1);
         expect(result.sessions[0]!.model).toBe("claude-sonnet-4-20250514");
     });
@@ -571,7 +572,7 @@ describe("scan_session_jsonls", () => {
         write_session("proj-a/empty.jsonl", ["not json", ""]);
         write_session("proj-a/ok.jsonl", ["bad json {{{", assistant_line(T1, "m")]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(result.sessions).toHaveLength(1);
         expect(result.sessions[0]!.id).toBe("ok");
     });
@@ -579,7 +580,7 @@ describe("scan_session_jsonls", () => {
     it("returns empty when the directory does not exist", () => {
         const result = scan_session_jsonls(
             path.join(projects_dir, "does-not-exist"),
-            "local",
+            "linux",
             create_session_scan_state(),
         );
         expect(result.sessions).toEqual([]);
@@ -607,7 +608,7 @@ describe("scan_session_jsonls", () => {
             }),
         ]);
 
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.sessions).toHaveLength(1);
         const s = result.sessions[0]!;
@@ -634,7 +635,7 @@ describe("scan_session_jsonls", () => {
             }),
         ]);
 
-        const first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const first = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(first.sessions[0]!.input_tokens).toBe(110);
 
         // Append to the agent file only: the re-emitted row must still carry
@@ -651,7 +652,7 @@ describe("scan_session_jsonls", () => {
         const future = new Date(Date.now() + 5000);
         fs.utimesSync(full, future, future);
 
-        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        const second = scan_session_jsonls(projects_dir, "linux", first.new_state);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.input_tokens).toBe(115); // 10 + 100 + 5
         expect(second.daily[0]!.input_tokens).toBe(115);
@@ -667,12 +668,12 @@ describe("scan_session_jsonls", () => {
             }),
         ]);
 
-        const first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const first = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
         expect(first.sessions[0]!.input_tokens).toBe(110);
 
         fs.rmSync(path.join(projects_dir, agent));
 
-        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        const second = scan_session_jsonls(projects_dir, "linux", first.new_state);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.input_tokens).toBe(10); // main transcript only
         expect(second.daily[0]!.input_tokens).toBe(10);
@@ -723,7 +724,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
 
     it("deepseek-v4-pro 命中时归一化 input（扣除 cache_read）", () => {
         write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         const rec = result.records[0]!;
         expect(rec.input_tokens).toBe(67); // 38083 - 38016
@@ -734,14 +735,14 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
 
     it("LongCat-2.0 模型名大小写不敏感，归一化生效", () => {
         write_session("p/s.jsonl", [openai_semantic_line(T2, "LongCat-2.0", 5000, 3000)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records[0]!.input_tokens).toBe(2000); // 5000 - 3000
     });
 
     it("deepseek 未命中（read=0）不归一化", () => {
         write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 38083, 0)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         // read=0 时原始 input 就是未缓存输入，两种语义一致，不动
         expect(result.records[0]!.input_tokens).toBe(38083);
@@ -749,7 +750,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
 
     it("deepseek input < cache_read 时跳过归一化（防御负数）", () => {
         write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 100, 200)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records[0]!.input_tokens).toBe(100); // 保留原值
     });
@@ -757,7 +758,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
     it("claude-opus-4-8（Anthropic 原生语义）不受归一化影响", () => {
         // mimo/glm/opus 等原生语义模型 read >> input，必须保持原值
         write_session("p/s.jsonl", [openai_semantic_line(T2, "claude-opus-4-8", 61, 43840)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records[0]!.input_tokens).toBe(61);
         expect(result.records[0]!.cache_read_tokens).toBe(43840);
@@ -768,7 +769,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
             openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016),
             openai_semantic_line(T3, "deepseek-v4-pro", 20000, 15000),
         ]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         const total_input = result.daily.reduce((s, d) => s + d.input_tokens, 0);
         const total_read = result.daily.reduce((s, d) => s + d.cache_read_tokens, 0);
@@ -802,7 +803,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
         // Anthropic 上游互斥语义：input=461 纯新输入，cache_read=244224 命中。
         // 若误按 OpenAI 语义减会砍成负数，守卫 inp>=cache_read 拦下。
         write_session("p/s.jsonl", [exclusive_semantic_line(T2, "deepseek-v4-flash", 461, 244224)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records[0]!.input_tokens).toBe(461); // 未减
         expect(result.records[0]!.cache_read_tokens).toBe(244224);
@@ -811,7 +812,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
 
     it("数值边界 inp == cache_read 时减至 0", () => {
         write_session("p/s.jsonl", [openai_semantic_line(T2, "deepseek-v4-pro", 5000, 5000)]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         expect(result.records[0]!.input_tokens).toBe(0); // 5000 - 5000
         expect(result.records[0]!.cache_read_tokens).toBe(5000);
@@ -826,7 +827,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
             openai_semantic_line(T2, "deepseek-v4-pro", 38083, 38016),
             exclusive_semantic_line(T3, "deepseek-v4-flash", 461, 244224),
         ]);
-        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        const result = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
 
         const expected_input = 67 + 461; // OpenAI 行已减 + 互斥行未减
         // records 逐行
@@ -853,7 +854,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
         let first: ReturnType<typeof scan_session_jsonls>;
         try {
             // 首轮读失败：mtime 未提交。
-            first = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+            first = scan_session_jsonls(projects_dir, "linux", create_session_scan_state());
             expect(first.sessions).toHaveLength(0);
             expect(first.new_state.mtimes.has(target)).toBe(false);
         } finally {
@@ -861,7 +862,7 @@ describe("scan_session_jsonls - OpenAI semantic input normalization", () => {
         }
 
         // 第二轮（读恢复，用 first.new_state 走增量重试路径）：文件被重读并收集。
-        const second = scan_session_jsonls(projects_dir, "local", first.new_state);
+        const second = scan_session_jsonls(projects_dir, "linux", first.new_state);
         expect(second.sessions).toHaveLength(1);
         expect(second.sessions[0]!.id).toBe("sess-retry");
     });

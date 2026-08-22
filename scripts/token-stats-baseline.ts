@@ -27,7 +27,8 @@ const BATCH_SIZE = 10_000;
 
 const SOURCES = ["claude_code", "opencode", "kimi_code"] as const;
 const AGENTS = ["claude-code", "opencode", "kimi-code"] as const;
-const ENVS = ["local", "wsl"] as const;
+// t437: 平台标签（替代 pre-t437 的 `local`），synthetic 数据与场景枚举同步。
+const ENVS = ["win", "wsl", "linux", "mac"] as const;
 const MODELS = ["model-0", "model-1", "model-2", "model-3", "model-4", "model-5"];
 
 export interface BaselineQueryReport {
@@ -75,7 +76,7 @@ function record_for(index: number): AgentSessionUsageRecord {
     const source_index = (index + SEED) % SOURCES.length;
     const source = SOURCES[source_index] ?? "claude_code";
     const agent = AGENTS[source_index] ?? "claude-code";
-    const env = ENVS[(index + Math.floor(index / 17)) % ENVS.length] ?? "local";
+    const env = ENVS[(index + Math.floor(index / 17)) % ENVS.length] ?? "linux";
     const timestamp = WINDOW_START + ((index * TIMESTAMP_STEP_MS + SEED) % (30 * DAY_MS));
     const session_number = index % 10_000;
     const model = MODELS[(index + Math.floor(index / 31)) % MODELS.length] ?? "model-0";

@@ -23,9 +23,13 @@ describe("token stats dashboard query schema", () => {
         expect(
             tokenStatsDashboardQuerySchema.safeParse({ ...query, end: query.start }).success,
         ).toBe(false);
+        // t437: `local` 已从 platform 枚举移除，解析失败；四平台值合法。
+        expect(
+            tokenStatsDashboardQuerySchema.safeParse({ ...query, platform: "local" }).success,
+        ).toBe(false);
         expect(
             tokenStatsDashboardQuerySchema.safeParse({ ...query, platform: "linux" }).success,
-        ).toBe(false);
+        ).toBe(true);
         expect(tokenStatsDashboardQuerySchema.safeParse({ ...query, metric: "cost" }).success).toBe(
             false,
         );
@@ -136,7 +140,7 @@ describe("token stats dashboard DTO schema", () => {
                     {
                         session_id: "s1",
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         title: "title",
                         directory: "/p",
                         models: ["sonnet"],
@@ -176,7 +180,7 @@ describe("token stats dashboard DTO schema", () => {
         const session_item = {
             session_id: "s1",
             source: "claude_code",
-            env: "local",
+            env: "linux",
             title: "title",
             directory: "/p",
             models: ["sonnet"],
@@ -244,7 +248,8 @@ describe("token stats dashboard DTO schema", () => {
                 ...base,
                 sessions: {
                     ...base.sessions,
-                    items: [{ ...session_item, env: "linux" }],
+                    // t437: `local` 已移出 env 枚举，仍是畸形值。
+                    items: [{ ...session_item, env: "local" }],
                 },
             }).success,
         ).toBe(false);

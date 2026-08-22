@@ -4,19 +4,19 @@
 
 ## 1. 技术栈
 
-| 领域           | 选型                                                                   | 说明                                                                             |
-| -------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 运行时         | **Electron 42**                                                        | `session` 能力（受控登录窗、webRequest 捕获、持久化分区）要求可编程浏览器引擎    |
-| 语言           | **TypeScript 5.9**                                                     | 严格模式；主/预加载/渲染/共享四区共用                                            |
-| 构建           | **electron-vite 5** + **Vite 5**                                       | dev/build；`out/main` `out/preload` `out/renderer`                               |
-| 打包           | **electron-builder 26**                                                | Windows/macOS/Linux；连接器目录随 `extraResource` 进 `resources/connectors`      |
-| UI             | **React 19** + **Tailwind CSS 4** + lucide-react + clsx/tailwind-merge | 渲染进程                                                                         |
-| 校验           | **Zod 4**（v3 兼容 API）                                               | manifest / observation / config / plugin-output 四处运行时 schema                |
-| 观测存储       | **better-sqlite3 12**                                                  | 同步 API，WAL 模式，单文件 `usage.db`                                            |
-| HTTP           | **undici 8**                                                           | 宿主统一出口 NetClient，ProxyAgent 支持代理                                      |
-| 连接器脚本编译 | **TypeScript `transpileModule`**                                       | 非 esbuild（package.json 中 esbuild 为 electron-vite 传递依赖）；无 SHA-256 缓存 |
-| 测试           | Vitest 3 + Playwright + jsdom + Testing Library                        | 见 `test.md`                                                                     |
-| 质量门         | eslint 9 / prettier / knip（deadcode）/ dependency-cruiser（arch）     | `pnpm check` 聚合                                                                |
+|领域|选型|说明|
+|---|---|---|
+|运行时|**Electron 42**|`session` 能力（受控登录窗、webRequest 捕获、持久化分区）要求可编程浏览器引擎|
+|语言|**TypeScript 5.9**|严格模式；主/预加载/渲染/共享四区共用|
+|构建|**electron-vite 5** + **Vite 5**|dev/build；`out/main` `out/preload` `out/renderer`|
+|打包|**electron-builder 26**|Windows/macOS/Linux；连接器目录随 `extraResource` 进 `resources/connectors`|
+|UI|**React 19** + **Tailwind CSS 4** + lucide-react + clsx/tailwind-merge|渲染进程|
+|校验|**Zod 4**（v3 兼容 API）|manifest / observation / config / plugin-output 四处运行时 schema|
+|观测存储|**better-sqlite3 12**|同步 API，WAL 模式，单文件 `usage.db`|
+|HTTP|**undici 8**|宿主统一出口 NetClient，ProxyAgent 支持代理|
+|连接器脚本编译|**TypeScript `transpileModule`**|非 esbuild（package.json 中 esbuild 为 electron-vite 传递依赖）；无 SHA-256 缓存|
+|测试|Vitest 3 + Playwright + jsdom + Testing Library|见 `test.md`|
+|质量门|eslint 9 / prettier / knip（deadcode）/ dependency-cruiser（arch）|`pnpm check` 聚合|
 
 ## 2. 目录结构
 
@@ -41,7 +41,7 @@ src/
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
 │   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
-│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 双源：Windows WSL UNC + Linux/mac local，t426）；env 枚举 `local|wsl`（t308，原 `win` 语义并入 `local`），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 local 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records；手动刷新（t434）经 `manager.force_collect()` 重发 config 消息触发一轮 collect 并以 `poll_interval_ms` 重置自动采集计时
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 双源：Windows WSL UNC + Linux/mac 本机平台源，t426/t437）；env 枚举 `win|wsl|linux|mac`（t437 废除 t308 的 `local`，按数据所在平台标注），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 linux/mac 源、win_home 只服务 win 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records；手动刷新（t434）经 `manager.force_collect()` 重发 config 消息触发一轮 collect 并以 `poll_interval_ms` 重置自动采集计时；linux 宿主经 `win-home-discovery.ts` 自动发现 `/mnt/c/Users/<u>` 作 `win_home_wsl` 采 Windows 侧五源为 env=win（t438，与 Windows 宿主采 wsl 对称；发现失败 win 源 unavailable，失败结果按轮负缓存重探自愈）
 │   │   ├── config/                # config-store（内存缓存 + save 唯一写入口，t195）/ secrets-store / auto-seed / types
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
@@ -85,14 +85,14 @@ CLI 模式（`--cli serve`，t275）是同一 Electron 进程的启动分支：�
 
 CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli open|refresh-all|pause|resume|restart|quit|autostart`）：跳过单实例锁（否则与 serve 同 userData 时自锁无法连接），whenReady 早期读 `<dataRoot>/cli.json`（或 `--port` 覆盖）经 local-api 控制端点作用于运行中实例后 `app.exit`。控制端点组 `/v1/control/*`（POST，免认证）复用 main 侧 refreshService/orchestrator/app 能力，与 tray 纯 main 动作同一状态面；`restart` 用 `app.relaunch()` 保持原 argv（含 `--cli serve --port --user-data-dir`）重启。
 
-| 边界           | 规则                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Renderer       | `contextIsolation:true` `sandbox:true` `nodeIntegration:false` `webSecurity:true`；只调 preload 白名单；日常 `hasSecret`；设置窗可 `getSecrets` 回填明文                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Connector 沙箱 | `node:vm` realm，无 `require/process/fs/fetch/timer`；只有注入的 `ctx`；禁 `import/export`；15s 超时。**注意：node:vm 非真隔离**（见 §6）。t371：超时冷却（超时结算后 2x timeout 冷却期内拒绝同 manifest 新执行——vm timeout 只断同步，异步残留 promise 生命周期不可知，靠冷却防残留与重试叠加打上游；正常完成不设冷却，多实例并发不受影响）；HTTP 超时 abort reason 含 timeout 字样（`is_timeout_error` 可分类）；observation schema 校验失败计入 `failed_accounts` 不静默丢条（account_id 取观测自身字段）。signal 取消未实现（预留 `ctx.signal`），进程级隔离（worker/child_process）留 spike |
-| 主进程         | 唯一持有密钥明文、文件系统、网络、浏览器会话                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| IPC sender     | `assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| LocalAPI       | 绑 `0.0.0.0`；仅 `/v1/ingest` 需 Bearer；其余 web 路由在可信 LAN 下免认证（见 `specs/web-panel.md`）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| SSRF           | NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+|边界|规则|
+|---|---|
+|Renderer|`contextIsolation:true` `sandbox:true` `nodeIntegration:false` `webSecurity:true`；只调 preload 白名单；日常 `hasSecret`；设置窗可 `getSecrets` 回填明文|
+|Connector 沙箱|`node:vm` realm，无 `require/process/fs/fetch/timer`；只有注入的 `ctx`；禁 `import/export`；15s 超时。**注意：node:vm 非真隔离**（见 §6）。t371：超时冷却（超时结算后 2x timeout 冷却期内拒绝同 manifest 新执行——vm timeout 只断同步，异步残留 promise 生命周期不可知，靠冷却防残留与重试叠加打上游；正常完成不设冷却，多实例并发不受影响）；HTTP 超时 abort reason 含 timeout 字样（`is_timeout_error` 可分类）；observation schema 校验失败计入 `failed_accounts` 不静默丢条（account_id 取观测自身字段）。signal 取消未实现（预留 `ctx.signal`），进程级隔离（worker/child_process）留 spike|
+|主进程|唯一持有密钥明文、文件系统、网络、浏览器会话|
+|IPC sender|`assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**|
+|LocalAPI|绑 `0.0.0.0`；仅 `/v1/ingest` 需 Bearer；其余 web 路由在可信 LAN 下免认证（见 `specs/web-panel.md`）|
+|SSRF|NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）|
 
 ## 4. 数据流（单向：采集 → 观测 → 消费）
 
@@ -148,7 +148,7 @@ collector utilityProcess（逐批 token_stats_update）
 ```
 
 - **真相源**：`token_stats_records`（per-message 事实表，不删除不压缩）。
-- **source 枚举**：`claude_code` / `opencode` / `kimi_code` / `grok`（权威定义在 `src/shared/types/token-stats.ts`）；`grok` 双源采集（t426：Windows 经 WSL UNC 的 `grok_wsl`，Linux/mac 本机 `~/.grok` 的 `grok_local`；t197 起仅 WSL 的表述已被 t426 取代，数据位置与事件口径见 `domain.md` §3.2）。
+- **source 枚举**：`claude_code` / `opencode` / `kimi_code` / `grok`（权威定义在 `src/shared/types/token-stats.ts`）；`grok` 双源采集（t426：Windows 经 WSL UNC 的 `grok_wsl`，Linux/mac 本机 `~/.grok` 的 `grok_linux`/`grok_mac`；t197 起仅 WSL 的表述已被 t426 取代，数据位置与事件口径见 `domain.md` §3.2）。
 - **派生层**：`token_stats_hour_rollup`（per source/env/session_id/本地整点小时/model/directory/agent 聚合）。会话级增量：upsert 批次内对每个被触碰 session DELETE + 从 records 全量重建；`directory` 可空（NULL 唯一键在 SQLite 互异，行级 UPSERT 会叠重复行，故不用）。
 - **回填**：manager.start 后 `setImmediate` 后台全量回填并置 `hour_rollup_ready`；就绪前 dashboard 走 records 路径，就绪后切聚合路径（窗口拆「完整小时段聚合表 + 边界部分小时 records」UNION ALL，外层精确重组）。中断可重跑，幂等收敛。
 - **data version**：单行单调计数，仅 records 批次事务内推进；dashboard DTO 与更新事件携带同一版本，renderer 据此判断缓存过期，不依赖本地时钟。
@@ -184,28 +184,36 @@ open_or_focus（重开）   → show_panel()
 - 主动查询 `SESSION_HISTORY_QUERY` 全量提取 + 内存切片分页（决策 17 后端部分）：分页游标编码「已返回页最早消息在追加型数组中的绝对下标」（append-only 前缀跨追加稳定，空/重复消息 id 不跳段）。
 - **提取缓存（t235）**：`SessionHistorySubscriptionService` 以 `(source, env, session_id)` 为 key 缓存全量提取结果，失效信号为源文件 `mtime_ms + size`；`subscribe` 初始提取、`query`、分页均优先命中缓存，避免同一文件被反复全量解析。`handle_change` 增量推送后把新消息合并入缓存。缓存随订阅生命周期存在，不跨会话串数据。
 - **定位缓存（t235）**：`session-locator` 以 `(source, env, session_id)` 缓存 `resolve_session_file` 结果，同样按源文件 `mtime_ms + size` 失效；重复定位不重复目录扫描，文件删除后失效并返回 not found。
-- **持久定位索引（t254，t310）**：`session-locator` 的解析结果持久化到 `<dataRoot>/session-path-index.json`（`session-path-index.ts`），跨重启命中免整目录递归扫描；命中校验 `mtime_ms + size` + `paths_key` 签名（t310 起含 host/homedir/win_home/wsl_distro/wsl_user 五段，防跨配置命中旧路径；`SESSION_INDEX_VERSION=2`，t310 env win→local 重构时整体丢弃重建）。失效回退扫描并修正索引；写盘失败仅记日志跳过（回退扫描）。WSL 用户名探测结果进程内缓存 + 随索引跨重启缓存，探测失败（空串）不写负缓存下次重探测自愈。
+- **持久定位索引（t254，t310）**：`session-locator` 的解析结果持久化到 `<dataRoot>/session-path-index.json`（`session-path-index.ts`），跨重启命中免整目录递归扫描；命中校验 `mtime_ms + size` + `paths_key` 签名（t310 起含 host/homedir/win_home/wsl_distro/wsl_user 五段，t438 起含 effective win_home_wsl——发现结果变化旧条目即失效，防跨配置命中旧路径；`SESSION_INDEX_VERSION=2`，t310 env win→local 重构时整体丢弃重建）。失效回退扫描并修正索引；写盘失败仅记日志跳过（回退扫描）。WSL 用户名探测结果进程内缓存 + 随索引跨重启缓存，探测失败（空串）不写负缓存下次重探测自愈。
 - **批量内容搜索与轻量摘要（t239）**：`SessionHistorySubscriptionService` 提供 `searchContent`（候选 loc 集合 + 关键词 → 命中 loc key 集合）与 `summaries`（候选 loc 集合 → loc key → 首条 user 消息前 80 字符）；`searchContent` 复用提取缓存、限制并发解析数（默认 3）并支持 `AbortSignal` 协作中断，`summaries` 未缓存时调用各端 `extract_*_first_user` 轻量扫描（JSONL 从头按行、opencode 按 rowid 取 text part）避免全量提取。对应 IPC 通道 `SESSION_HISTORY_SEARCH_CONTENT` / `SESSION_HISTORY_SUMMARIES` 由 IPC 层 resolve 后批量调用，未 resolve 的 loc 被跳过；renderer `SessionLibrary` 以 300ms 防抖 + `AbortController` 取消旧查询，摘要按可见会话批量获取并合批更新。
 - **会话首屏主进程非阻塞（t256）**：`summaries` 每个任务读前 `await setImmediate` 让出事件循环，首屏批量摘要的同步 fs 不再阻塞主进程（缓存读写仍同步原子，Node 单线程无竞态）；collector 回填（`manager.ts` `apply_batches`）按批 ≤2000 条处理、批次间 `setImmediate` 让出供面板查询响应，循环边界取 sessions/daily/records 三数组最大长度防丢数据，全部完成后触发 `on_update`。
 - 工作台兜底轮询降级（t235）：renderer `WorkspaceView` 兜底全量 `query` 间隔从 5s 拉长至 30s，保留作为订阅推送丢失时的拉齐手段；活跃会话新消息仍由 watcher 2s 轮询 / `fs.watch` 推送在秒级上屏。
 - 全程只读（硬约束）：服务层与提取器不开写句柄；注销 / 窗口关闭按订阅方释放 watcher / 轮询句柄。
 - 历史窗口 singleton `HistoryWindowController`（对齐 `create_agent_window_controller`）：`SESSION_HISTORY_OPEN` 幂等——已开则 show+focus+定位，未开则创建并经 URL `route_query` 携带初始定位参数（renderer 启动读），`did-finish-load` 补发兜底创建窗口期丢失的定位。
-- 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；路径解析共用 token-stats 平台感知层 `paths.ts`（t310，env 对齐 `local|wsl`，host 由调用方注入 `host_from_platform(process.platform)` + homedir）；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）。
+- 会话源文件定位 `session-locator`：`(source, env, session_id)` → 源文件 / db 路径；路径解析共用 token-stats 平台感知层 `paths.ts`（t310，env 对齐 `win|wsl|linux|mac`（t437），host 由调用方注入 `host_from_platform(process.platform)` + homedir）；WSL 用户名优先取 `tokenStats.wslUser` 显式配置，空串自动探测 `\\wsl.localhost\<distro>\home` 第一目录（对齐 collector）；linux 宿主 win 源经 `win_home_wsl` resolve 时惰性发现（t438，"" 显式禁用，失败负缓存 60s 节流防批量 resolve 反复 spawn powershell.exe）。
 
 ### 4.5 会话历史窗口（t211；t224 起为槽位模型）
 
 route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceView`，见 `specs/workspace.md`），下述 t211 决策为被取代前 6 栏平铺的能力来源：消息渲染/推送/分页/选择/复制语义仍生效，宿主迁至 `WorkspaceView` 的 `HistoryColumn`。
 
 - **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。t224 起定位装入工作台槽位（`open_session`：已开聚焦、槽满 toast 拒绝）。
+
 - **打开入口与面板间导航（t212）**：会话历史窗口可从明细表单击行 / 勾选批量「打开历史」、popup TitleBar「会话历史」、代理面板 header「到会话历史」打开；窗口内「用量面板」/「代理面板」返回跳转。纯跳转入口（无具体会话）调 `sessionHistory.open("", "", "")`，主进程 `open_or_focus(undefined)` 只开/聚焦空窗；明细表批量打开传 `identity_key`（`source|env|session_id`）。**批量冷启动补发**：创建窗口期连续 OPEN 的定位由 controller 的 `pending_locs` 缓冲（`webContents.send` 在 loadURL 途中被丢弃），`did-finish-load` 后按序统一补发并按 key 去重。
+
 - **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
+
 - **消息选择（决策 8，t226 起为摘选系统）**：选择 store 跨页签共享（`specs/workspace.md`「摘选系统」），Shift 连选/Space 选中 hover 消息、底部托盘三格式复制、顶栏计数徽标；旧 `build_copy_markdown` 单一 Markdown 复制已删。
+
 - **消息渲染（决策 11）**：纯文本 + `<pre>` 保留换行缩进，零新依赖；时间戳显示到分钟、悬停完整时间。
+
 - **空态（决策 12）**：源文件缺失栏显示「该会话的原始记录文件不存在或已删除」，不阻断其他栏。
+
 - **分页（决策 17）**：初始最近 200 条，向上滚动加载更早（游标分页 + 并发锁 + 前置 scrollTop 锚定），新增消息追加尾部不打断滚动位置。
+
 - **实时刷新（决策 5/6）**：栏打开 subscribe、栏关/清空/窗口卸载 unsubscribe；`SESSION_HISTORY_MESSAGES_UPDATED` 推送按 loc 合并去重追加；5s 兜底 interval 对 ready 栏 query 尾部合并（函数式 setState，避免与推送交错竞态）。
 
 - **降级与恢复**：renderer `useNowTick` 监听 `document.visibilityState`，隐藏期间前台计时器暂停推进，`visibilitychange` 回可见时立即刷新；不破坏后台仍需的订阅。隐藏窗口占用的渲染进程保留（Windows 实测 work set 内存保留、无 CPU 增量，见 s010）。
+
 - **边界**：`apply_config_change` 模式切换仍 `close_for_mode_switch` → 重建；配置变更、电源恢复、托盘打开等既有路径行为不变。
 
 ### 4.6 会话窗口外壳与工作台（t223/t224）
@@ -232,7 +240,7 @@ route `history` 渲染根组件为 `SessionShell`（单壳双页签，见 `specs
 - **manifest catalog（t121）**：`connector:catalog` IPC 从已发现 manifest 出目录，**不读 `config.plugins` / `removedConnectorIds` / 密钥**；添加账号对话框优先按 catalog 解析 auth（`find_vendor` 两阶段：先 `manifest_id` 精确，再 `supported_providers`），保证墓碑内或无实例的 vendor 仍能渲染正确表单。详见 `specs/add-account-catalog.md`。
 - **添加账号落盘（t121）**：`config:createInstance` IPC 按 `manifest_id` 直接建实例（形状同 `auto_seed_connectors`：follow-global refresh、`manualDefault` → `manualRefreshOnly`、非 secret 默认参数），同时从 `removedConnectorIds` 仅清目标 id；`savePluginSettings` 合并而非替换 `parameterValues`，保留 manifest 默认参数。
 - **厂商子表单实现**：grok 与 kimi 的添加账号表单由 `OAuthDeviceForm` 实现 device-code 登录流程，表单按 `vendor` prop（"grok" | "kimi"）选用对应 `useGrokDeviceLogin` / `useKimiDeviceLogin` hook；opencode_go 的添加账号表单由 `WebLoginForm` 实现网页登录流程（t109/t112）。device-code 登录在 temp instance id 下完成；real instance 的 OAuth 三键持久化成功后才清理 temp namespace，清理异常必须传回调用方而不能标记添加成功。完整密钥白名单与流程见 `specs/connector-auth.md`（t159）。
-- **web 认证链路（t278/t282）**：local-api 提供 grok/kimi OAuth 六端点（login_start / login_poll / status / logout / refresh）与 cookie 登录触发/状态组（`/v1/auth/cookieLogin`、`/v1/auth/cookieLogin/status`）；web bridge（`src/web/usageboard-web.ts`）与 preload 同步暴露，设置页 device-code 在页面内展示 URL+码并轮询。cookie 登录（**有 instance_id 的编辑路径**）为立即触发 + `cookieLoginStatus` 轮询，共享实现 `src/renderer/lib/cookie_login_poll.ts`（250ms 间隔 / 120s 超时 / 中文冲突与超时文案），由 `SettingsForm` 与 `WebLoginSection` 共用。cookie 捕获复用 session-manager 隔离 partition 的可见 BrowserWindow（CLI/桌面同代码路径），捕获成功后密钥落 vault、web 编辑路径重读 secrets 并刷新 connector；无 display 时在创建窗口前返回可读错误，设置页提供手动粘贴 Cookie 回退（与自动捕获共用 secrets 保存链路）。**t337 捕获后有效性探测**：session-manager 调宿主注入 `verify_cookie(cookie, login_url)`（fetch login_url，3xx 且 `Location` 为 `/workspace/<id>` 判定有效，10s 超时，对齐 opencode_go connector /auth 判定），失败返回 `saved:false, reason:"invalid_cookie"` 不落库，UI 显示「登录态无效」；web 编辑路径经 `startCookieLogin` 按 reason 区分文案。**web 添加账号（无 instance_id）**不能走 vault 状态端点（尚无配置实例）：仍用阻塞式 `session.login` 匿名捕获，UI 展示「登录期间请勿刷新；中断后手动粘贴 Cookie」降级指引 + 手动粘贴恢复；冲突/超时错误经 `format_cookie_login_error` 统一为中文。桌面版 cookie 登录仍走 `session.login`（含匿名返回 cookie、实例写 vault）。认证全流程日志脱敏（cookie/token 不落日志，开发期同样生效）。已知降级：web/headless 下无静默 cookie 续期，过期需重新登录或重新粘贴。
+- **web 认证链路（t278/t282）**：local-api 提供 grok/kimi OAuth 六端点（login_start / login_poll / status / logout / refresh）与 cookie 登录触发/状态组（`/v1/auth/cookieLogin`、`/v1/auth/cookieLogin/status`）；web bridge（`src/web/usageboard-web.ts`）与 preload 同步暴露，设置页 device-code 在页面内展示 URL+码并轮询。cookie 登录（**有 instance_id 的编辑路径**）为立即触发 + `cookieLoginStatus` 轮询，共享实现 `src/renderer/lib/cookie_login_poll.ts`（250ms 间隔 / 120s 超时 / 中文冲突与超时文案），由 `SettingsForm` 与 `WebLoginSection` 共用。cookie 捕获复用 session-manager 隔离 partition 的可见 BrowserWindow（CLI/桌面同代码路径），捕获成功后密钥落 vault、web 编辑路径重读 secrets 并刷新 connector；无 display 时在创建窗口前返回可读错误，设置页提供手动粘贴 Cookie 回退（与自动捕获共用 secrets 保存链路）。**t337 捕获后有效性探测**：session-manager 调宿主注入 `verify_cookie(cookie, login_url)`（fetch login_url，3xx 且 `Location` 为 `/workspace/<id>` 判定有效，10s 超时，对齐 opencode_go connector /auth 判定），失败返回 `saved:false, reason:"invalid_cookie"` 不落库，UI 显示「登录态无效」；web 编辑路径经 `startCookieLogin` 按 reason 区分文案。\*\*web 添加账号（无 instance_id）\*\*不能走 vault 状态端点（尚无配置实例）：仍用阻塞式 `session.login` 匿名捕获，UI 展示「登录期间请勿刷新；中断后手动粘贴 Cookie」降级指引 + 手动粘贴恢复；冲突/超时错误经 `format_cookie_login_error` 统一为中文。桌面版 cookie 登录仍走 `session.login`（含匿名返回 cookie、实例写 vault）。认证全流程日志脱敏（cookie/token 不落日志，开发期同样生效）。已知降级：web/headless 下无静默 cookie 续期，过期需重新登录或重新粘贴。
 - **web 实时推送（t279/t414）**：SSE 通道（`GET /v1/events`）承载 runtimeStore state、`config`、`theme` 与会话历史 `messagesUpdated`。**t414：每 web 页一条 EventSource**（`?connectionId=`，UUID），多会话经同一连接登记；不再每会话开专属流（旧 `?subscriberId=` 仍兼容）。bridge 在连接 `open`/重连后对仍打开的会话 POST `/v1/sessionHistory/subscribe`（body 含 `connection_id` + `subscriber_id`，同 id 幂等只换 on_update），服务端把 watcher 增量只推给持有该订阅的连接；`unsubscribe` 不关共享流；连接关闭时 cleanup 清该连接上全部会话订阅（映射/client 双身份校验，防重连竞态误删）。注册/重挂失败由 renderer 5s 轮询兜底。日志导出：`GET /v1/logs/export` 流式输出当前活跃日志段（`<userData>/logs/app-<date>.log`，chunked 无 Content-Length），`Content-Disposition` 触发浏览器下载，web bridge `logs.export` 与桌面保存对话框语义对齐。
 - **config-store 损坏处理（t111）**：主文件 schema 失败、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不 fallback 到 `DEFAULT_CONFIGURATION`；ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed，目录存在但 `config.json` 缺失视为异常抛错。`writeFileAtomic` 采用 tmp → `fsync` → `close` → `rename` 顺序，避免进程强杀后产生 null padding。
 - **IPC 边界**：renderer 只能调 `window.usageboard.*` 白名单，按 route（usage/setting/tray/agent）分权。

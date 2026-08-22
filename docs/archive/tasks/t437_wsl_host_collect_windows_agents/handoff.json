@@ -1,0 +1,33 @@
+{
+    "tid": "t437",
+    "attempt": 1,
+    "execution_id": "4e78990ec59c4fcb9f00a82a3b291073",
+    "status": "done",
+    "branch": "t437_wsl_host_collect_windows_agents",
+    "base_sha": "80398ac99707accadaa30d343374f813873da901",
+    "tests": "pnpm test：278 files，3411 passed | 2 skipped；pnpm typecheck / lint 零错误零告警；pnpm build 通过",
+    "blackbox": "真实库副本（sessions 4463 / records 97.9 万行）跑 v8 迁移：五表 local 清零、行数与 token 合计逐表守恒、user_version=8、rollup 置 unready；web e2e 因宿主 5174 端口被占（环境阻断）未执行",
+    "review": "第 3 轮 PASS（code+test overall=PASS，review_scope=ok）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/shared/token-stats.test.ts：tokenStatsEnvSchema 拒绝 local 接受四值；dashboardPlatformSchema 同"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts migration v8 用例；真实库副本黑盒 .scratch/t437/blackbox_migrate.ts：local 清零、行数与 token 合计守恒"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/collector.test.ts 三宿主注入用例（win/linux/mac 源 key 与 env）；paths.test.ts 四 env resolve；UNC wsl 源不变"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/views/token_stats_view.test.tsx：平台选项四值无 local、prefs 残留 local 回退 all"
+        ],
+        "AC-005": [
+            "tests/unit/main/core/session-history/session-locator.test.ts env local 字面量守卫；全仓 grep 生产代码 local 清零（仅 v7 历史迁移 SQL 输入）"
+        ],
+        "AC-006": [
+            "token-stats-store.ts v7 注释改写为历史说明；review_code.md Round 2 复核不再声称 Windows 原生源叫 local"
+        ]
+    },
+    "pending": ["p205"],
+    "findings": ["d048"]
+}

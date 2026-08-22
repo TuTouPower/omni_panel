@@ -6,12 +6,14 @@ import {
     tokenStatsDailyUpsertSchema,
     tokenStatsUpdateSchema,
     tokenStatsConfigSchema,
+    tokenStatsEnvSchema,
+    tokenStatsDashboardPlatformSchema,
 } from "../../../src/shared/types/token-stats";
 
 const validDaily = {
     id: "sess-abc123",
     source: "claude_code",
-    env: "local",
+    env: "linux",
     model: "claude-sonnet-4-20250514",
     date: "2026-07-17",
     input_tokens: 500,
@@ -23,7 +25,7 @@ const validDaily = {
 
 const validBucket = {
     source: "claude_code",
-    env: "local",
+    env: "linux",
     bucket_date: "2026-07-17",
     model: "claude-sonnet-4-20250514",
     input_tokens: 1500,
@@ -86,7 +88,7 @@ describe("tokenStatsBucketSchema", () => {
     it("rejects missing required fields", () => {
         const result = tokenStatsBucketSchema.safeParse({
             source: "claude_code",
-            env: "local",
+            env: "linux",
         });
         expect(result.success).toBe(false);
     });
@@ -140,7 +142,7 @@ describe("tokenStatsSessionUpsertSchema", () => {
         const result = tokenStatsSessionUpsertSchema.safeParse({
             id: "sess-abc123",
             source: "claude_code",
-            env: "local",
+            env: "linux",
             model: null,
             title: null,
             directory: null,
@@ -211,8 +213,8 @@ describe("tokenStatsUpdateSchema", () => {
                     status: "unavailable",
                     lastError: "sessions dir missing",
                 },
-                { source: "opencode", env: "local", status: "failed", lastError: "db locked" },
-                { source: "claude_code", env: "local", status: "ok" },
+                { source: "opencode", env: "linux", status: "failed", lastError: "db locked" },
+                { source: "claude_code", env: "linux", status: "ok" },
             ],
         });
         expect(result.success).toBe(true);
@@ -225,7 +227,7 @@ describe("tokenStatsUpdateSchema", () => {
             });
             expect(result.data.sources_status[2]).toEqual({
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 status: "ok",
             });
         }
@@ -307,5 +309,35 @@ describe("tokenStatsConfigSchema", () => {
             wsl_user: "karon",
         });
         expect(result.success).toBe(false);
+    });
+});
+
+// t437 AC-001: env 枚举只允许 win/wsl/linux/mac；`local` 解析失败。
+describe("tokenStatsEnvSchema (t437)", () => {
+    it("accepts the four platform labels", () => {
+        for (const env of ["win", "wsl", "linux", "mac"]) {
+            expect(tokenStatsEnvSchema.safeParse(env).success).toBe(true);
+        }
+    });
+
+    it("rejects the removed `local` label", () => {
+        expect(tokenStatsEnvSchema.safeParse("local").success).toBe(false);
+    });
+
+    it("rejects unknown labels", () => {
+        expect(tokenStatsEnvSchema.safeParse("win32").success).toBe(false);
+        expect(tokenStatsEnvSchema.safeParse("darwin").success).toBe(false);
+    });
+});
+
+describe("tokenStatsDashboardPlatformSchema (t437)", () => {
+    it("accepts all plus the four platform labels", () => {
+        for (const platform of ["all", "win", "wsl", "linux", "mac"]) {
+            expect(tokenStatsDashboardPlatformSchema.safeParse(platform).success).toBe(true);
+        }
+    });
+
+    it("rejects the removed `local` label", () => {
+        expect(tokenStatsDashboardPlatformSchema.safeParse("local").success).toBe(false);
     });
 });

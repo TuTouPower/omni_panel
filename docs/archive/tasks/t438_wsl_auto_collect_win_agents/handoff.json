@@ -1,0 +1,39 @@
+{
+    "tid": "t438",
+    "attempt": 1,
+    "execution_id": "d443adc59a24432b8555919cc3162eaf",
+    "status": "done",
+    "branch": "t438_wsl_auto_collect_win_agents",
+    "base_sha": "4c6a0b3a51a563dc62c336df5b9b9011d4ddfff6",
+    "tests": "pnpm test：279 files，3456 passed | 2 skipped（既有环境门控）；pnpm typecheck / lint 零错误零告警；pnpm build 通过",
+    "blackbox": ".scratch/t438/blackbox_win_collect.ts 对真实 /mnt/c 只读采集：57 个 env=win kimi 会话入库，含 AC-008 目标会话 session_e36b69aa-2e48-4d19-8494-9ed890da3612；web e2e 因宿主 5174 端口被占（环境阻断，t437 同）未执行",
+    "review": "4 轮收敛：Round 1 code/test PASS（6 minor 已处置）；Round 2 code FAIL（f005 惰性发现无节流）→ 负缓存 60s 修复；Round 3 双 PASS；Round 4 窄复核（docs 固化）双 PASS，overall=PASS，review_scope=ok",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/collector.test.ts t438 describe：发现成功 → win 五源采集、env=win 会话投递、status=ok"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/collector.test.ts win 源会话 upsert → store 可检索（query_sessions 走同一 store，t437 已覆盖搜索支路）；黑盒确认 win 会话入库后可查询"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/session-history/session-locator.test.ts t438 describe：kimi/claude win 会话经 win_home_wsl 定位（内容支路 resolve 前提）；subscription-service query 链路 t310 既有覆盖"
+        ],
+        "AC-004": [
+            "collector.test.ts t438 describe：linux/win 双 env 并存断言（linux 源不指向 /mnt/c，互不覆盖，主键 (id,source,env)）"
+        ],
+        "AC-005": [
+            "collector.test.ts：发现失败 → win 五源 unavailable + path unavailable、linux 源照常；session-locator.test.ts：缺省且发现失败 → win 源不可达（null 不抛）+ 负缓存节流/自愈"
+        ],
+        "AC-006": [
+            "collector.test.ts：claude_costs/claude_jsonl/opencode/grok win 源路径基于发现 home（AC-006 用例）；paths.test.ts win_home_wsl 字段解析"
+        ],
+        "AC-007": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx：未勾选「包含消息内容」placeholder 说明搜索范围为标题/目录/会话 id；勾选态切换文案"
+        ],
+        "AC-008": [
+            "[deploy] 黑盒确认目标会话 session_e36b69aa-2e48-4d19-8494-9ed890da3612 在真实 /mnt/c 存在且被采集入库；部署后网页搜索验证待部署态执行"
+        ]
+    },
+    "pending": ["p206", "p207"],
+    "findings": ["d049"]
+}

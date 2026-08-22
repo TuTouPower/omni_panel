@@ -207,3 +207,19 @@
 - 结论：选 B。窗口/侧栏/主区 = `surface-window`；内容卡片 = `surface-card`；禁止面板级无依据 color-mix 底色；`surface-raised` 保留交互态。token 数值不改。
 - 落地：t406；权威规则见 `docs/specs/surface_token_unify.md` 与 DESIGN.md Colors。
 - 替代：无
+
+## 022 废除 env local：平台标签 win|wsl|linux|mac（2026-08-23）
+
+- 背景：ADR 016（t308）把 `win` 并入 `local`（= 进程所在 OS 的数据），结果 WSL 宿主上 `local` 只有 Linux home，与用户「win / wsl 两地盘」心智冲突，且 WSL 网页版搜不到 Windows 侧 Kimi（p204）。
+- 选项：A) 保留 `local` + 文档澄清；B) 废除 `local`，env 改为平台标签 `win|wsl|linux|mac`（按 agent 数据所在平台标注），存量一次性迁移。
+- 结论：选 B。`TokenStatsEnv` 四值化；collector 平台源按宿主派生（key 与平台一致：`*_win`/`*_linux`/`*_mac`，任一宿主只一个平台变体参与采集）；迁移 v8 按 directory 形态分类存量行（盘符形→win、`/Users/`→mac、其余 POSIX→linux、NULL/孤儿→宿主 platform 默认，d048/s032 实测本机库验证），buckets 由 daily 整体重建、hour_rollup 清空走异步回填；ADR 016 的「local = 进程所在 OS」语义废止，016 的路径层纯函数结构保留。破坏性升级不留 local 兼容读写（一次性迁移除外）。连接器 observation `source: "local"` 是另一概念不受影响。
+- 落地：t437；为 t438（WSL 宿主采集 Windows agent 为 env=win）铺路。
+- 替代：无
+
+## 023 WSL/Linux 宿主零配置自动发现 Windows home 采 win 源（2026-08-23）
+
+- 背景：ADR 022 把 env 改成平台标签后，WSL 宿主上 Windows 侧 agent 数据（p204 场景）需要标 `win` 采集；若要求用户手填 `/mnt/c/Users/<u>` 路径则与「Windows 宿主自动采 wsl」不对称，且用户名不可假设。
+- 选项：A) 配置项手填 Windows home；B) 零配置自动发现（`/mnt/c/Users` 枚举 + agent 标记目录识别，回退 `powershell.exe $env:USERPROFILE`）；C) 两端都要显式开关。
+- 结论：选 B（s033/d049 本机实测验证发现规则）。显式 `win_home_wsl` 字符串优先，`""` = 禁用哨兵（对齐 `wsl_user` 空串语义）；缺省惰性发现。发现失败不抛——win 源 `unavailable`；失败结果短窗负缓存（collector 按轮、locator 60s）重探自愈，成功结果进程内缓存。多候选取舍与回退经 `on_decision` 留痕。不默认提供 UI 关闭开关（遗留 p206 决策）。
+- 落地：t438；路径纯逻辑在 `token-stats/win-home-discovery.ts`（注入式 deps，测试全桩），collector 与 session-locator 各自缓存调用。
+- 替代：无

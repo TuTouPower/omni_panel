@@ -18,9 +18,9 @@
 |---|---|---|---|
 |add-account-auto-refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
-|ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309|2026-08-11|
+|ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|
-|ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321|2026-08-12|
+|ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321，t437|2026-08-23|
 |tokenstats-performance-baseline|API|t189|2026-08-02|
 |config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401|2026-08-16|
 |resume_command_template|API / Web|t401, t402, t403|2026-08-16|
@@ -83,7 +83,7 @@
 |draggable_provider_tabs|Web|t242|2026-08-07|
 |provider-tab-active-state|Web|t305|2026-08-11|
 |renderer-bundle-code-split|Web+Desktop|t249|2026-08-07|
-|session-path-index|Desktop|t254，t264，t310|2026-08-11|
+|session-path-index|Desktop|t254，t264，t310，t438|2026-08-23|
 |session-summary-head-read|Desktop|t255|2026-08-07|
 |session-first-open-main-unblock|Desktop|t256|2026-08-08|
 |usage-panel-selection-persist|Web+Desktop|t250|2026-08-08|

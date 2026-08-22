@@ -25,20 +25,20 @@ describe("token-stats-baseline", () => {
         const report = run_baseline(12_000);
         expect(report.schema_version).toBe(1);
         expect(report.synthetic_record_count).toBe(12_000);
-        expect(report.scenarios).toHaveLength(36);
+        expect(report.scenarios).toHaveLength(60);
         const scenario_keys = report.scenarios.map(
             (scenario) => `${scenario.range}|${scenario.agent}|${scenario.platform}`,
         );
         const expected_scenario_keys = [
             ...(["24h", "7d", "30d"] as const).flatMap((range) =>
                 (["all", ...["claude-code", "opencode", "kimi-code"]] as const).flatMap((agent) =>
-                    (["all", "local", "wsl"] as const).map(
+                    (["all", "win", "wsl", "linux", "mac"] as const).map(
                         (platform) => `${range}|${agent}|${platform}`,
                     ),
                 ),
             ),
         ];
-        expect(new Set(scenario_keys).size).toBe(36);
+        expect(new Set(scenario_keys).size).toBe(60);
         expect(new Set(scenario_keys)).toEqual(new Set(expected_scenario_keys));
         expect(new Set(report.scenarios.map((scenario) => scenario.range))).toEqual(
             new Set(["24h", "7d", "30d"]),
@@ -47,7 +47,7 @@ describe("token-stats-baseline", () => {
             new Set(["all", "claude-code", "opencode", "kimi-code"]),
         );
         expect(new Set(report.scenarios.map((scenario) => scenario.platform))).toEqual(
-            new Set(["all", "local", "wsl"]),
+            new Set(["all", "win", "wsl", "linux", "mac"]),
         );
 
         for (const scenario of report.scenarios) {

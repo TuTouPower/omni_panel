@@ -93,7 +93,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- WSL 下 Windows 用户 home 自动发现顺序：`UNVERIFIED-SPIKE`（Step 1 本机实测；可复用/延伸 t437 探测结论）。
+- WSL 下 Windows 用户 home 自动发现顺序：已验证（s033 spike，结论 d049）——`/mnt/c/Users/*` 枚举剔除系统项后按 agent 标记目录过滤，唯一候选即用、多候选取标记最多者、零候选回退 `powershell.exe $env:USERPROFILE` 转换，全失败 win 源 unavailable。
 
 ### 风险与回退
 

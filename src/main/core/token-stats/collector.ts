@@ -11,6 +11,8 @@ import type {
 } from "../../../shared/types/token-stats";
 import * as paths from "./paths";
 import type { Host } from "./paths";
+import { default_win_home_deps, discover_win_home } from "./win-home-discovery";
+import type { WinHomeDiscoveryDeps } from "./win-home-discovery";
 import { read_costs_jsonl, scan_session_jsonls, create_session_scan_state } from "./claude-reader";
 import type { SessionScanState } from "./claude-reader";
 import { read_opencode_sessions } from "./opencode-reader";
@@ -236,42 +238,44 @@ export async function load_state(state_path: string): Promise<void> {
     );
 }
 
-const LOCAL_HOSTS: Host[] = ["windows", "linux", "macos"];
 const WSL_HOSTS: Host[] = ["windows"];
 
-// Declarative source list (t309): each entry declares the hosts it exists on;
-// the collector filters by the host it runs on (AC-001). Local installs exist
-// on every host; WSL data is a Windows-only UNC share. Grok has both: local
-// installs (Linux/macOS ~/.grok, t426) and WSL-only Windows UNC data.
-const sources: SourceDef[] = [
-    {
-        key: "claude_costs_local",
-        source: "claude_code",
-        kind: "costs",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "claude_jsonl_local",
-        source: "claude_code",
-        kind: "session_jsonl",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "opencode_local",
-        source: "opencode",
-        kind: "opencode_db",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
-    {
-        key: "kimi_local",
-        source: "kimi_code",
-        kind: "kimi_jsonl",
-        env: "local",
-        hosts: LOCAL_HOSTS,
-    },
+/** t437: 宿主 → 本机平台源 env 标签（替代 pre-t437 的 `local`）。 */
+const PLATFORM_ENV_BY_HOST: Record<Host, "win" | "linux" | "mac"> = {
+    windows: "win",
+    linux: "linux",
+    macos: "mac",
+};
+
+/**
+ * t437: 平台源定义按当前宿主生成——每宿主只存在一个平台变体，key 与平台
+ * 标签一致（windows 宿主 `claude_costs_win`，linux `claude_costs_linux`，
+ * macos `claude_costs_mac`），env=对应平台值。替代 pre-t437 的 `*_local`
+ * 静态五源（`local` 语义 = 「进程所在 OS」已废止）。
+ */
+function platform_source_defs(host: Host): SourceDef[] {
+    const env = PLATFORM_ENV_BY_HOST[host];
+    return [
+        { key: `claude_costs_${env}`, source: "claude_code", kind: "costs", env, hosts: [host] },
+        {
+            key: `claude_jsonl_${env}`,
+            source: "claude_code",
+            kind: "session_jsonl",
+            env,
+            hosts: [host],
+        },
+        { key: `opencode_${env}`, source: "opencode", kind: "opencode_db", env, hosts: [host] },
+        { key: `kimi_${env}`, source: "kimi_code", kind: "kimi_jsonl", env, hosts: [host] },
+        // t426: grok CLI 也随宿主安装在 linux/mac 本机（~/.grok/sessions）；
+        // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），平台源在 Windows
+        // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
+        { key: `grok_${env}`, source: "grok", kind: "grok_jsonl", env, hosts: [host] },
+    ];
+}
+
+// WSL 数据是 Windows-only UNC share；非 Windows 宿主按 hosts 过滤报 unavailable
+// （既有行为，t437 不变）。
+const WSL_SOURCES: SourceDef[] = [
     { key: "claude_costs_wsl", source: "claude_code", kind: "costs", env: "wsl", hosts: WSL_HOSTS },
     {
         key: "claude_jsonl_wsl",
@@ -282,13 +286,30 @@ const sources: SourceDef[] = [
     },
     { key: "opencode_wsl", source: "opencode", kind: "opencode_db", env: "wsl", hosts: WSL_HOSTS },
     { key: "kimi_wsl", source: "kimi_code", kind: "kimi_jsonl", env: "wsl", hosts: WSL_HOSTS },
-    // t426: grok CLI 也随宿主安装在 linux/macos 本机（~/.grok/sessions）；
-    // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），local 源在 Windows
-    // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
-    { key: "grok_local", source: "grok", kind: "grok_jsonl", env: "local", hosts: LOCAL_HOSTS },
-    // Grok CLI data exists only under WSL (~/.grok/sessions); local 源见上方
-    // grok_local（Linux/mac 宿主本机采集，t426）。
+    // Grok CLI data exists only under WSL (~/.grok/sessions); 平台源见上方
+    // grok_<platform>（Linux/mac 宿主本机采集，t426）。
     { key: "grok_wsl", source: "grok", kind: "grok_jsonl", env: "wsl", hosts: WSL_HOSTS },
+];
+
+/**
+ * t438: WSL/Linux 宿主上的 Windows 侧数据源（env=win，hosts=["linux"]）——
+ * 经 /mnt/c/Users 自动发现 Windows 用户 home 后采集，与 Windows 宿主的平台
+ * win 源（hosts=["windows"]）同名同义不同宿主，hosts 过滤保证同一宿主上
+ * 只有一方参与（key 不冲突）。发现失败时 win_home_wsl=null → 路径解析 null
+ * → 源报 unavailable（AC-005），linux/mac local 侧照常。
+ */
+const WIN_SOURCES_LINUX: SourceDef[] = [
+    { key: "claude_costs_win", source: "claude_code", kind: "costs", env: "win", hosts: ["linux"] },
+    {
+        key: "claude_jsonl_win",
+        source: "claude_code",
+        kind: "session_jsonl",
+        env: "win",
+        hosts: ["linux"],
+    },
+    { key: "opencode_win", source: "opencode", kind: "opencode_db", env: "win", hosts: ["linux"] },
+    { key: "kimi_win", source: "kimi_code", kind: "kimi_jsonl", env: "win", hosts: ["linux"] },
+    { key: "grok_win", source: "grok", kind: "grok_jsonl", env: "win", hosts: ["linux"] },
 ];
 
 // --- Path builders ---
@@ -338,12 +359,79 @@ function effective_wsl_user(cfg: TokenStatsConfig, lister: DirLister = default_l
 let collector_host: Host = paths.host_from_platform(process.platform);
 
 /**
+ * t437: 采集源清单 = 当前宿主的平台五源 + 静态 WSL 五源。平台源按宿主派生，
+ * 保证任何宿主上只有一个平台变体参与采集（sources_status 不新增噪音）。
+ * t438: linux 宿主额外挂 Windows 侧五源（env=win，hosts=["linux"]）——
+ * 经 /mnt/c/Users 自动发现 Windows home 采集，与 Windows 宿主平台 win 源
+ * 不共存（hosts 过滤）。
+ */
+let sources: SourceDef[] = [
+    ...platform_source_defs(collector_host),
+    ...(collector_host === "linux" ? WIN_SOURCES_LINUX : []),
+    ...WSL_SOURCES,
+];
+
+/**
  * Test-only injection: the path layer is a pure function of (host, env, cfg),
  * so tests simulate any host by overriding this. Production never calls it —
- * the host is fixed at module load from process.platform.
+ * the host is fixed at module load from process.platform. t437: 平台源定义
+ * 随宿主重建（key/env 与平台标签一致）。t438: linux 宿主同时挂 win 五源。
  */
 export function set_collector_host(host: Host): void {
     collector_host = host;
+    sources = [
+        ...platform_source_defs(host),
+        ...(host === "linux" ? WIN_SOURCES_LINUX : []),
+        ...WSL_SOURCES,
+    ];
+}
+
+// --- Windows home discovery (t438) ---
+
+let win_home_wsl_cache: string | null = null;
+/** 本轮 collect 是否已探测：null 结果也缓存到本轮结束（避免一轮内每源重探、
+ *  零候选时反复 spawn powershell）；下一轮开头复位重探，挂载恢复自愈
+ *  （review test_f001：对齐 effective_wsl_user「失败不长期缓存」语义，粒度=轮）。 */
+let win_home_wsl_probed_this_round = false;
+/** Test-only probe override: replaces discover_win_home(default deps). */
+let win_home_wsl_probe: ((deps: WinHomeDiscoveryDeps) => string | null) | null = null;
+
+/**
+ * Test-only injection: probe 覆盖发现逻辑（tests 注入桩避免真实 /mnt/c 与
+ * powershell.exe）。Production never calls it — the default probes the real
+ * /mnt/c/Users. 替换 probe 时同时清缓存（发现结果进程内缓存对齐
+ * effective_wsl_user 模式；配置重载经 reset_config 清缓存）。
+ */
+function set_win_home_wsl_probe(
+    probe: ((deps: WinHomeDiscoveryDeps) => string | null) | null,
+): void {
+    win_home_wsl_probe = probe;
+    win_home_wsl_cache = null;
+    win_home_wsl_probed_this_round = false;
+}
+
+/**
+ * Effective Windows home on a linux host: auto-discovered once and cached;
+ * null result is cached only for the current collect round so a transient
+ * failure self-heals next round (aligns effective_wsl_user, t345 AC-006 语义).
+ * Non-linux hosts → null.
+ */
+function effective_win_home_wsl(host: Host): string | null {
+    if (host !== "linux") {
+        return null;
+    }
+    if (!win_home_wsl_probed_this_round) {
+        win_home_wsl_probed_this_round = true;
+        const discovery_deps: WinHomeDiscoveryDeps = {
+            ...default_win_home_deps,
+            // t438 review f003：多候选取舍 / shell 回退等关键分支留痕。
+            on_decision: (message) => {
+                forward_log("warn", "collector", message);
+            },
+        };
+        win_home_wsl_cache = (win_home_wsl_probe ?? discover_win_home)(discovery_deps);
+    }
+    return win_home_wsl_cache;
 }
 
 function path_input(
@@ -355,6 +443,7 @@ function path_input(
         host,
         homedir,
         win_home: cfg.win_home,
+        win_home_wsl: effective_win_home_wsl(host),
         wsl_distro: cfg.wsl_distro,
         wsl_user: effective_wsl_user(cfg),
     };
@@ -558,6 +647,12 @@ function warn_source(src: SourceDef, message: string): void {
 
 function collect(): void {
     if (!config) return;
+
+    // t438 review test_f001：上轮发现失败（null）本轮重探自愈；已发现结果
+    // 进程内继续缓存（probe 替换 / reset_config 才清）。
+    if (win_home_wsl_cache === null) {
+        win_home_wsl_probed_this_round = false;
+    }
 
     const all_sessions: TokenStatsSessionUpsert[] = [];
     const all_daily: TokenStatsDailyUpsert[] = [];
@@ -780,6 +875,8 @@ function reset_config(): void {
     session_touch_ts.clear();
     wsl_user_cache = null;
     wsl_user_cache_distro = null;
+    win_home_wsl_cache = null;
+    win_home_wsl_probed_this_round = false;
     if (interval_id) {
         clearInterval(interval_id);
         interval_id = null;
@@ -833,4 +930,5 @@ export {
     kimi_index_path,
     grok_sessions_path,
     effective_wsl_user,
+    set_win_home_wsl_probe,
 };

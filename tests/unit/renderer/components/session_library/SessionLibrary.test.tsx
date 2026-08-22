@@ -76,7 +76,7 @@ function sess(
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "local",
+        env: "linux",
         model: "model",
         title: `会话 ${id}`,
         directory: `/proj/${id}`,
@@ -324,6 +324,18 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
+    it("t438 AC-007：未勾选「包含消息内容」时文案说明搜索范围（标题/目录/会话 ID）", async () => {
+        await renderLibrary();
+        const input = screen.getByPlaceholderText(/搜索/);
+        // 未勾选：范围 = 标题 / 目录 / 会话 ID。
+        expect(input.getAttribute("placeholder")).toBe("搜索标题 / 目录 / 会话 ID");
+        // 勾选「包含消息内容」：文案切换为说明包含消息内容。
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        expect(screen.getByPlaceholderText(/搜索/).getAttribute("placeholder")).toBe(
+            "搜索消息内容（含标题 / 目录 / 会话 ID）",
+        );
+    });
+
     it("t248 AC6：摘要只请求当前可见页，不请求未加载会话", async () => {
         const ub = usageboard();
         const first_page = Array.from({ length: 50 }, (_, i) =>
@@ -386,25 +398,37 @@ describe("SessionLibrary (t227)", () => {
                 ?.querySelector('[data-testid="library-card-badge"]')
                 ?.querySelector('[data-testid="vendor-mark"]'),
         ).toBeTruthy();
-        expect(card?.querySelector('[data-testid="library-card-badge"]')?.textContent ?? "").toBe("");
+        expect(card?.querySelector('[data-testid="library-card-badge"]')?.textContent ?? "").toBe(
+            "",
+        );
         // t326：第三行渲染会话名。
-        expect(card?.querySelector('[data-testid="library-card-title"]')?.textContent).toContain("会话 b");
+        expect(card?.querySelector('[data-testid="library-card-title"]')?.textContent).toContain(
+            "会话 b",
+        );
         // t326：摘要行（line-clamp-2）已移除。
         expect(card?.querySelector(".library-card-summary")).toBeNull();
         // t326：第二行渲染轮次/tokens/session id。
-        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain("2 轮");
-        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain("375 tokens");
-        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain("b");
+        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
+            "2 轮",
+        );
+        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
+            "375 tokens",
+        );
+        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
+            "b",
+        );
         // t326：第一行只显示目录末级，不再渲染完整路径。
         expect(card?.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe("b");
-        expect(card?.querySelector('[data-testid="library-card-top"]')?.textContent).not.toContain("/proj/b");
+        expect(card?.querySelector('[data-testid="library-card-top"]')?.textContent).not.toContain(
+            "/proj/b",
+        );
     });
 
     it("行摘要取首条用户消息内容（f008）；卡片摘要行已移除（t326 AC-003）", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
         ub.sessionHistory.summaries.mockResolvedValue({
-            "claude_code|local|a": "真正要显示的用户消息",
+            "claude_code|linux|a": "真正要显示的用户消息",
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
@@ -412,7 +436,9 @@ describe("SessionLibrary (t227)", () => {
         expect(document.querySelector(".library-card-summary")).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
-            const row_summary = document.querySelector('[data-testid="library-row-summary"]')?.textContent;
+            const row_summary = document.querySelector(
+                '[data-testid="library-row-summary"]',
+            )?.textContent;
             expect(row_summary).toContain("真正要显示的用户消息");
         });
     });
@@ -454,10 +480,16 @@ describe("SessionLibrary (t227)", () => {
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         expect(document.querySelector('[data-testid="library-list"]')).toBeTruthy();
         const row = document.querySelector('[data-testid="library-row"]');
-        expect(row?.querySelector('[data-testid="library-row-title"]')?.textContent).toContain("会话 c");
+        expect(row?.querySelector('[data-testid="library-row-title"]')?.textContent).toContain(
+            "会话 c",
+        );
         expect(row?.querySelector('[data-testid="library-row-badge"]')?.textContent).toBe("G");
-        expect(row?.querySelector('[data-testid="library-row-meta"]')?.textContent).toContain("9 轮");
-        expect(row?.querySelector('[data-testid="library-row-dir"]')?.textContent).toContain("/proj/c");
+        expect(row?.querySelector('[data-testid="library-row-meta"]')?.textContent).toContain(
+            "9 轮",
+        );
+        expect(row?.querySelector('[data-testid="library-row-dir"]')?.textContent).toContain(
+            "/proj/c",
+        );
     });
 
     it("普通分页切换 tokens/calls 时传递排序参数并展示后端顺序", async () => {
@@ -597,7 +629,9 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => {
             expect(document.querySelectorAll('[data-testid="preview-message"]').length).toBe(5);
         });
-        expect(document.querySelectorAll('[data-testid="preview-message"]')[4]?.textContent).toContain("消息五");
+        expect(
+            document.querySelectorAll('[data-testid="preview-message"]')[4]?.textContent,
+        ).toContain("消息五");
         fireEvent.keyDown(window, { key: "Escape" });
         expect(document.querySelector('[data-testid="preview-panel"]')).toBeNull();
     });
@@ -1208,9 +1242,9 @@ describe("SessionLibrary (t227)", () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         ub.sessionHistory.summaries.mockResolvedValue({
-            "claude_code|local|a": "摘要 a",
-            "opencode|local|b": "摘要 b",
-            "grok|local|c": "摘要 c",
+            "claude_code|linux|a": "摘要 a",
+            "opencode|linux|b": "摘要 b",
+            "grok|linux|c": "摘要 c",
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
@@ -1220,16 +1254,18 @@ describe("SessionLibrary (t227)", () => {
         });
         expect(ub.sessionHistory.summaries).toHaveBeenCalledWith(
             expect.arrayContaining([
-                expect.objectContaining({ source: "claude_code", env: "local", session_id: "a" }),
-                expect.objectContaining({ source: "opencode", env: "local", session_id: "b" }),
-                expect.objectContaining({ source: "grok", env: "local", session_id: "c" }),
+                expect.objectContaining({ source: "claude_code", env: "linux", session_id: "a" }),
+                expect.objectContaining({ source: "opencode", env: "linux", session_id: "b" }),
+                expect.objectContaining({ source: "grok", env: "linux", session_id: "c" }),
             ]),
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();
         // t326：卡片摘要行已移除，摘要改由列表行呈现（AC-003）。
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="library-row-summary"]')?.textContent).toContain("摘要 a");
+            expect(
+                document.querySelector('[data-testid="library-row-summary"]')?.textContent,
+            ).toContain("摘要 a");
         });
     });
 

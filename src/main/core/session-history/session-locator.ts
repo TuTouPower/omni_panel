@@ -9,10 +9,12 @@
  * utility 进程里运行，主进程无法直接复用，故在此独立实现最小的 session_id 匹配扫描。
  *
  * t310：路径构建改走 t308 平台感知路径层（src/main/core/token-stats/paths.ts）——
- * (host, homedir, win_home, wsl_distro, wsl_user) → path|null 纯函数，消除
- * `win_home: homedir()` 在非 Windows 宿主拼 `\`/UNC 失效的同源 bug（p132/d035）。
- * env 语义与 t308 对齐：`local|wsl`（旧 `win` 并入 `local`）；host 由调用方注入
+ * (host, homedir, win_home, win_home_wsl, wsl_distro, wsl_user) → path|null 纯函数，
+ * 消除 `win_home: homedir()` 在非 Windows 宿主拼 `\`/UNC 失效的同源 bug（p132/d035）。
+ * env 语义与 t437 对齐：`win|wsl|linux|mac`（win→win_home、linux/mac→homedir、
+ * wsl→UNC，替代 pre-t437 的 `local`）；host 由调用方注入
  * （index.ts 从 process.platform 推导），测试注入任意宿主。
+ * t438：linux 宿主上 win 源经 win_home_wsl（/mnt/c/Users 自动发现）解析。
  *
  * t254：解析结果持久化到 `<index_dir>/session-path-index.json`，跨重启命中免整目录
  * 递归扫描；索引失效（文件移动/删除/内容变化）时回退扫描并更新索引。
@@ -24,6 +26,11 @@ import { createLogger } from "../../../shared/lib/logger";
 import type { Env, ExtractorKind } from "./subscription-service";
 import { getDataRoot } from "../paths";
 import * as path_layer from "../token-stats/paths";
+import {
+    discover_win_home,
+    default_win_home_deps,
+    type WinHomeDiscoveryDeps,
+} from "../token-stats/win-home-discovery";
 import {
     load_session_index,
     load_wsl_user_cache,
@@ -47,6 +54,15 @@ let session_index: Map<string, SessionIndexEntry> | null = null;
 let session_index_loaded_dir: string | null = null;
 /** wsl 用户名探测缓存（distro → user），跨重启由持久索引恢复。 */
 let wsl_user_cache: Record<string, string> | null = null;
+/** t438: Windows home 惰性发现进程内缓存；null = 未缓存（发现失败走负缓存节流）。 */
+let win_home_wsl_cache: string | null = null;
+/** t438 review f005：发现失败（null）的负缓存截止时间戳（ms）。窗内重探直接
+ *  返回 null——否则 AC-005 画像（零候选 → 回退 powershell.exe）下每次 resolve
+ *  都同步 spawn 0.5-5s，内容搜索批量 resolve 会分钟级卡顿；窗后重探自愈。 */
+let win_home_wsl_null_until = 0;
+const WIN_HOME_REPROBE_INTERVAL_MS = 60_000;
+/** Test-only probe override: replaces discover_win_home(default deps). */
+let win_home_wsl_probe: ((deps: WinHomeDiscoveryDeps) => string | null) | null = null;
 
 // t264: 落盘批间合并——dirty 标记 + debounce flush。仅索引内容实际变化时置 dirty
 // 并 schedule 一次 flush；delete 不存在的 key（内容未变）不置 dirty，零写盘。
@@ -58,9 +74,11 @@ let index_dirty_map: Map<string, SessionIndexEntry> | null = null;
 let index_flush_timer: ReturnType<typeof setTimeout> | null = null;
 
 function locator_paths_key(paths: LocatorPaths): string {
-    // 签名覆盖路径层全部输入：host/homedir/win_home/wsl_distro/wsl_user。
-    // 任一变化（含 host 切换）→ 旧签名不命中 → 索引条目失效重建（AC-004）。
-    return `${paths.host}|${paths.homedir}|${paths.win_home}|${paths.wsl_distro}|${paths.wsl_user}`;
+    // 签名覆盖路径层全部输入：host/homedir/win_home/win_home_wsl/wsl_distro/wsl_user。
+    // 任一变化（含 host 切换、Windows home 发现结果变化）→ 旧签名不命中 →
+    // 索引条目失效重建（AC-004）。win_home_wsl 取 effective 值（t438 review f001：
+    // 惰性发现结果变化也须失效旧条目，不能只看调用方传入的原始字段）。
+    return `${paths.host}|${paths.homedir}|${paths.win_home}|${effective_win_home_wsl(paths) ?? ""}|${paths.wsl_distro}|${paths.wsl_user}`;
 }
 
 function safe_file_stat(file_path: string): { mtime_ms: number; size: number } | null {
@@ -78,6 +96,8 @@ export function clear_resolution_cache(): void {
     session_index = null;
     session_index_loaded_dir = null;
     wsl_user_cache = null;
+    win_home_wsl_cache = null;
+    win_home_wsl_null_until = 0;
     index_dirty_dir = null;
     index_dirty_map = null;
     if (index_flush_timer !== null) {
@@ -98,10 +118,17 @@ export interface ResolvedSession {
 export interface LocatorPaths {
     /** 运行宿主（t308 路径层 host；index.ts 从 process.platform 推导，测试注入任意值）。 */
     readonly host: path_layer.Host;
-    /** os.homedir()；非 Windows 宿主 local 源基路径。 */
+    /** os.homedir()；linux/mac 源基路径。 */
     readonly homedir: string;
-    /** Windows 宿主 user home（win_home；非 Windows 宿主 local 源不用）。 */
+    /** Windows 宿主 user home（win_home；仅 win 源使用）。 */
     readonly win_home: string;
+    /**
+     * t438: WSL/Linux 宿主自动发现的 Windows user home（/mnt/c/Users/<u>，
+     * POSIX）——linux 宿主上 win 源经它解析（与 collector 同源发现）。
+     * 显式字符串 = 直接使用；"" = 禁用哨兵（win 源不可达，对齐 wsl_user 空串
+     * 语义）；null/undefined = linux 宿主 resolve 时惰性自动发现（f001）。
+     */
+    readonly win_home_wsl?: string | null;
     /** wsl distro 名（如 "Ubuntu-22.04"）。 */
     readonly wsl_distro: string;
     /** wsl 用户名（空串=未配置，由调用方自行决定探测策略）。 */
@@ -114,6 +141,7 @@ export const DEFAULT_LOCATOR_PATHS: Readonly<LocatorPaths> = Object.freeze({
     host: path_layer.host_from_platform(process.platform),
     homedir: homedir(),
     win_home: homedir(),
+    win_home_wsl: null,
     wsl_distro: "Ubuntu-22.04",
     wsl_user: "",
 });
@@ -195,16 +223,67 @@ function session_id_of_claude_file(file_path: string): string | null {
 }
 
 /**
- * 路径层输入（t310）：host/homedir/win_home/wsl_* 透传；wsl 源才解析有效用户名。
+ * Test-only injection（对齐 collector set_win_home_wsl_probe）：probe 覆盖发现逻辑，
+ * 避免测试在 WSL 开发机上真实探测 /mnt/c 与 powershell.exe。Production never calls it。
+ * 替换 probe 时同时清缓存。
+ */
+export function set_win_home_wsl_probe(
+    probe: ((deps: WinHomeDiscoveryDeps) => string | null) | null,
+): void {
+    win_home_wsl_probe = probe;
+    win_home_wsl_cache = null;
+    win_home_wsl_null_until = 0;
+}
+
+/**
+ * t438 review f001：resolve 时惰性发现 Windows home（替代 index.ts 一次性注入——
+ * 直接调 resolve_session_file 的路径绕不开启动注入）。
+ * 显式字符串优先（"" = 禁用哨兵，对齐 wsl_user 空串语义，测试用它保 hermetic）；
+ * null/undefined 且 linux 宿主才惰性发现。成功结果进程内缓存；失败（null）负缓存
+ * 一个时间窗（f005 节流，对齐 collector 轮级节流语义），窗后重探自愈。
+ */
+function effective_win_home_wsl(paths: LocatorPaths): string | null {
+    if (typeof paths.win_home_wsl === "string") {
+        const trimmed = paths.win_home_wsl.trim();
+        return trimmed === "" ? null : trimmed;
+    }
+    if (paths.host !== "linux") {
+        return null;
+    }
+    if (win_home_wsl_cache !== null) {
+        return win_home_wsl_cache;
+    }
+    if (Date.now() < win_home_wsl_null_until) {
+        return null;
+    }
+    const detected = (win_home_wsl_probe ?? discover_win_home)({
+        ...default_win_home_deps,
+        on_decision: (message) => {
+            log.warn(message);
+        },
+    });
+    if (detected !== null) {
+        win_home_wsl_cache = detected;
+    } else {
+        win_home_wsl_null_until = Date.now() + WIN_HOME_REPROBE_INTERVAL_MS;
+    }
+    return win_home_wsl_cache;
+}
+
+/**
+ * 路径层输入（t310/t438）：host/homedir/win_home/win_home_wsl/wsl_* 透传；
+ * wsl 源才解析有效用户名。
  */
 function locator_path_input(paths: LocatorPaths, env: Env): path_layer.TokenStatsPathInput {
     return {
         host: paths.host,
         homedir: paths.homedir,
         win_home: paths.win_home,
+        // win 源取 effective 值（显式配置优先，缺省惰性发现）；其余 env 透传显式配置。
+        win_home_wsl: env === "win" ? effective_win_home_wsl(paths) : (paths.win_home_wsl ?? null),
         wsl_distro: paths.wsl_distro,
-        // wsl 源才需要有效用户名：探测只在 wsl resolve 时触发，local 源不探测
-        // （避免无 WSL 宿主上 local 解析引入不必要的 UNC 探测）。
+        // wsl 源才需要有效用户名：探测只在 wsl resolve 时触发，win/linux/mac 源不探测
+        // （避免无 WSL 宿主上平台源解析引入不必要的 UNC 探测）。
         wsl_user: env === "wsl" ? effective_wsl_user(paths) : paths.wsl_user,
     };
 }
@@ -331,7 +410,7 @@ function resolve_kimi_code(
 
 function resolve_grok(paths: LocatorPaths, env: Env, session_id: string): ResolvedSession | null {
     // grok 数据侧仅 WSL（d017），但路径解析跟随 env（t310 对齐路径层：非 Windows
-    // 宿主 local env 亦可解析到 ~/.grok/sessions，AC-001）。
+    // 宿主 linux/mac env 亦可解析到 ~/.grok/sessions，AC-001）。
     const root = locator_source_path("grok", env, paths);
     if (root === null) return null;
     const files: string[] = [];

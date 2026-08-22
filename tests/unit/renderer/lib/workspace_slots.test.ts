@@ -23,9 +23,9 @@ import {
  * 会话元数据派生（标题 fallback、tokens 四维和、agent 名）、布局档位降档。
  */
 
-const LOC_A = { source: "claude_code", env: "local", session_id: "a" } as const;
-const LOC_B = { source: "opencode", env: "local", session_id: "b" } as const;
-const LOC_C = { source: "grok", env: "local", session_id: "c" } as const;
+const LOC_A = { source: "claude_code", env: "linux", session_id: "a" } as const;
+const LOC_B = { source: "opencode", env: "linux", session_id: "b" } as const;
+const LOC_C = { source: "grok", env: "linux", session_id: "c" } as const;
 
 function sess(
     id: string,
@@ -35,7 +35,7 @@ function sess(
     return {
         id,
         source,
-        env: "local",
+        env: "linux",
         model: "model",
         title: `会话 ${id}`,
         directory: null,
