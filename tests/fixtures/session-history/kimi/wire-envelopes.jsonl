@@ -1,0 +1,4 @@
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"first real"}]},"time":1700000001000}
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"<system-reminder>The previous turn was interrupted by the user before completion.</system-reminder>"}]},"time":1700000002000}
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"second real"}]},"time":1700000003000}
+{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"text","text":"assistant body"}},"time":1700000004000}

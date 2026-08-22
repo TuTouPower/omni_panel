@@ -1,0 +1,7 @@
+{"type":"system","content":"You are Grok."}
+{"type":"user","content":"<user_info>OS linux</user_info><git_status>clean</git_status><rules>workspace</rules><user_rules>style</user_rules>"}
+{"type":"user","content":"<system-reminder>skills list</system-reminder>"}
+{"type":"user","content":"<user_query>\nreal question one\n</user_query><skill_information>meta</skill_information>"}
+{"type":"reasoning","content":"think"}
+{"type":"assistant","content":[{"type":"text","text":"answer one"}]}
+{"type":"user","content":"<user_query>real question two</user_query>"}

@@ -386,3 +386,130 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
         expect(extract_opencode_first_user(missing, fixture.session_id)).toBe("");
     });
 });
+
+
+describe("opencode extractor envelopes (t436)", () => {
+    let tmp_dir: string;
+
+    beforeEach(() => {
+        tmp_dir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-env-"));
+    });
+
+    afterEach(() => {
+        fs.rmSync(tmp_dir, { recursive: true, force: true });
+    });
+
+    function build_envelope_db(): { db_path: string; session_id: string } {
+        const db_path = path.join(tmp_dir, "opencode.db");
+        const db = new_db(db_path);
+        db.exec(`
+CREATE TABLE message (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    time_created INTEGER NOT NULL,
+    time_updated INTEGER,
+    data TEXT NOT NULL
+);
+CREATE TABLE part (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    time_created INTEGER NOT NULL,
+    time_updated INTEGER,
+    data TEXT NOT NULL
+);
+`);
+        const session_id = "sess_env";
+        const insert_msg = db.prepare(
+            "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?)",
+        );
+        const insert_part = db.prepare(
+            "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+        );
+        insert_msg.run("msg_rem", session_id, 1, 1, JSON.stringify({ role: "user" }));
+        insert_msg.run("msg_hi", session_id, 2, 2, JSON.stringify({ role: "user" }));
+        insert_msg.run("msg_a", session_id, 3, 3, JSON.stringify({ role: "assistant" }));
+        insert_part.run(
+            "prt_rem",
+            "msg_rem",
+            session_id,
+            1,
+            1,
+            JSON.stringify({
+                type: "text",
+                text: '<system-reminder>Note: The user opened the file "/x". This may or may not be relevant to the current task.</system-reminder>',
+            }),
+        );
+        insert_part.run(
+            "prt_hi",
+            "msg_hi",
+            session_id,
+            2,
+            2,
+            JSON.stringify({ type: "text", text: "hi" }),
+        );
+        insert_part.run(
+            "prt_a",
+            "msg_a",
+            session_id,
+            3,
+            3,
+            JSON.stringify({ type: "text", text: "hello" }),
+        );
+        db.close();
+        return { db_path, session_id };
+    }
+
+    it("AC-004: drops reminder text part; first_user is hi", () => {
+        const { db_path, session_id } = build_envelope_db();
+        const { messages } = extract_opencode(db_path, session_id);
+        expect(messages.map((m) => m.id)).toEqual(["prt_hi", "prt_a"]);
+        expect(messages.map((m) => m.text)).toEqual(["hi", "hello"]);
+        expect(extract_opencode_first_user(db_path, session_id)).toBe("hi");
+    });
+
+    it("AC-004 incremental: reminder empty; new user matches full tail", () => {
+        const { db_path, session_id } = build_envelope_db();
+        const full = extract_opencode(db_path, session_id);
+        const db = new_db(db_path);
+        db.prepare(
+            "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?)",
+        ).run("msg_rem2", session_id, 4, 4, JSON.stringify({ role: "user" }));
+        db.prepare(
+            "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+        ).run(
+            "prt_rem2",
+            "msg_rem2",
+            session_id,
+            4,
+            4,
+            JSON.stringify({
+                type: "text",
+                text: '<system-reminder>Note: The user selected #1 from "/y".</system-reminder>',
+            }),
+        );
+        db.close();
+        const inc1 = extract_opencode_incremental(db_path, session_id, full.cursor);
+        expect(inc1.messages).toEqual([]);
+        const db2 = new_db(db_path);
+        db2.prepare(
+            "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?)",
+        ).run("msg_u2", session_id, 5, 5, JSON.stringify({ role: "user" }));
+        db2.prepare(
+            "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?,?,?,?,?,?)",
+        ).run(
+            "prt_u2",
+            "msg_u2",
+            session_id,
+            5,
+            5,
+            JSON.stringify({ type: "text", text: "next" }),
+        );
+        db2.close();
+        const inc2 = extract_opencode_incremental(db_path, session_id, inc1.cursor);
+        expect(inc2.messages).toHaveLength(1);
+        expect(inc2.messages[0]?.text).toBe("next");
+        const re_full = extract_opencode(db_path, session_id);
+        expect(inc2.messages).toEqual(re_full.messages.slice(-1));
+    });
+});

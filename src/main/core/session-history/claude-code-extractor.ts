@@ -11,6 +11,7 @@ import { readFileSync, statSync, openSync, readSync, closeSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
+import { normalize_user_display_text } from "./normalize_user_text";
 
 function record_to_message(rec: Record<string, unknown>): HistoryMessage | null {
     const type = rec["type"];
@@ -22,6 +23,12 @@ function record_to_message(rec: Record<string, unknown>): HistoryMessage | null 
     const role = type;
     const text = pick_text_from_content(m["content"]);
     if (text === null || text === "") return null;
+    let display_text = text;
+    if (role === "user") {
+        const norm = normalize_user_display_text(text, { is_meta: rec["isMeta"] === true });
+        if (!norm.keep) return null;
+        display_text = norm.text;
+    }
     const id = typeof rec["uuid"] === "string" ? rec["uuid"] : "";
     const ts_raw = rec["timestamp"];
     let timestamp: number | null = null;
@@ -29,7 +36,7 @@ function record_to_message(rec: Record<string, unknown>): HistoryMessage | null 
         const parsed = new Date(ts_raw).getTime();
         if (!Number.isNaN(parsed)) timestamp = parsed;
     }
-    return { id, role, text, timestamp };
+    return { id, role, text: display_text, timestamp };
 }
 
 /**

@@ -468,6 +468,55 @@ describe("scan_session_jsonls", () => {
         expect(result.sessions[0]!.title).toBe("array content title");
     });
 
+
+    it("t436 title: skips isMeta/interrupted then uses next keepable user", () => {
+        write_session("proj-a/sess-title-env.jsonl", [
+            session_line("user", T1, {
+                isMeta: true,
+                message: { content: [{ type: "text", text: "Base directory skill dump" }] },
+            }),
+            session_line("user", T2, {
+                message: { content: [{ type: "text", text: "[Request interrupted by user]" }] },
+            }),
+            session_line("user", T3, {
+                message: { content: [{ type: "text", text: "hello title" }] },
+            }),
+            assistant_line(T3, "m"),
+        ]);
+        const result = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        expect(result.sessions[0]!.title).toBe("hello title");
+    });
+
+    it("t436 title: slash unwrap when first keepable; summary still wins", () => {
+        write_session("proj-a/sess-title-slash.jsonl", [
+            session_line("user", T1, {
+                message: {
+                    content: [
+                        {
+                            type: "text",
+                            text: "<command-name>/task-create</command-name><command-args>自定义</command-args>",
+                        },
+                    ],
+                },
+            }),
+            assistant_line(T2, "m"),
+        ]);
+        const r1 = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        expect(r1.sessions[0]!.title).toBe("/task-create 自定义");
+
+        write_session("proj-a/sess-title-summary.jsonl", [
+            session_line("summary", T1, { summary: "Real title" }),
+            session_line("user", T2, {
+                isMeta: true,
+                message: { content: [{ type: "text", text: "skill dump" }] },
+            }),
+            session_line("user", T3, { message: { content: [{ type: "text", text: "user text" }] } }),
+            assistant_line(T3, "m"),
+        ]);
+        const r2 = scan_session_jsonls(projects_dir, "local", create_session_scan_state());
+        expect(r2.sessions.some((s) => s.title === "Real title")).toBe(true);
+    });
+
     it("skips unchanged files by mtime on rescan", () => {
         write_session("proj-a/sess-4.jsonl", [assistant_line(T1, "m")]);
 
