@@ -6542,6 +6542,36 @@
             "schedule_status": "",
             "note": "来源 p203：四端提取器把框架信封当作用户气泡；Claude/Kimi 用量标题走同一归一",
             "dir": "docs/archive/tasks/t436_filter_session_user_envelopes"
+        },
+        {
+            "tid": "t437",
+            "slug": "wsl_host_collect_windows_agents",
+            "title": "废除 local：env 改为 win/wsl/linux/mac",
+            "status": "done",
+            "branch": "t437_wsl_host_collect_windows_agents",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "80398ac99707accadaa30d343374f813873da901",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p204；逆转 t308 win→local；删死代码；为 t438 铺路",
+            "dir": "docs/archive/tasks/t437_wsl_host_collect_windows_agents"
+        },
+        {
+            "tid": "t438",
+            "slug": "wsl_auto_collect_win_agents",
+            "title": "WSL 宿主自动采集 Windows agent 为 env=win",
+            "status": "done",
+            "branch": "t438_wsl_auto_collect_win_agents",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "4c6a0b3a51a563dc62c336df5b9b9011d4ddfff6",
+            "depends_on": "t437",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p204；依赖 t437",
+            "dir": "docs/archive/tasks/t438_wsl_auto_collect_win_agents"
         }
     ]
 }
