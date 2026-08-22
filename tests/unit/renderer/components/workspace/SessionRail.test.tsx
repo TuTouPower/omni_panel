@@ -14,7 +14,7 @@ function sess(id: string, source: string): TokenStatsSession {
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "local",
+        env: "linux",
         model: "model",
         title: `会话 ${id}`,
         directory: null,
@@ -117,7 +117,9 @@ describe("SessionRail t257 展示调整", () => {
         const { container } = render(
             <SessionRail {...base} slots={empty_slots()} collapsed={true} />,
         );
-        const empty_btns = Array.from(container.querySelectorAll('[data-testid="session-slot-empty"]'));
+        const empty_btns = Array.from(
+            container.querySelectorAll('[data-testid="session-slot-empty"]'),
+        );
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+");
@@ -128,7 +130,9 @@ describe("SessionRail t257 展示调整", () => {
         const { container } = render(
             <SessionRail {...base} slots={empty_slots()} collapsed={false} />,
         );
-        const empty_btns = Array.from(container.querySelectorAll('[data-testid="session-slot-empty"]'));
+        const empty_btns = Array.from(
+            container.querySelectorAll('[data-testid="session-slot-empty"]'),
+        );
         expect(empty_btns.length).toBeGreaterThan(0);
         for (const b of empty_btns) {
             expect(b.textContent.trim()).toBe("+ 添加会话");
@@ -147,7 +151,9 @@ describe("SessionRail t257 展示调整", () => {
 
     it("t381 AC-002：非空槽位卡片用 surface-card，不含 surface-window", () => {
         const { container } = render(<SessionRail {...base} />);
-        const slot = container.querySelector('[data-testid="session-slot"]:not([data-testid="session-slot-empty"])');
+        const slot = container.querySelector(
+            '[data-testid="session-slot"]:not([data-testid="session-slot-empty"])',
+        );
         const cls = slot?.className ?? "";
         expect(cls).toContain("var(--color-surface-card)");
         expect(cls).not.toContain("bg-[var(--color-surface-window)]");

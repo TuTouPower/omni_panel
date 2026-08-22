@@ -22,4 +22,4 @@
     - 无「未索引会话不会进 content search 候选」的产品级说明/空态断言（易被当成搜索坏了）。
     - 补测方向：paths/collector 在 linux 宿主配置 Windows home 后能列出 `session_e36b69aa…`；入库后 `query_sessions({search:'黑沙皇'})` 与 `searchContent(keyword:'黑沙皇')` 均命中；回归：未配置时仍只扫 `~/.kimi-code`。UI：未勾选内容时 placeholder/hint 写明搜标题/目录/id。
 - 线索：`.scratch/task_bug_session_search_heisha/repro_notes.md`、`evidence.json`
-- 处理：t437 → t438
+- 处理：t438

@@ -98,7 +98,7 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 存量 `env=local` 行如何判定迁到 win vs linux vs mac（目录形态、path 前缀、缺失元数据默认）：`UNVERIFIED-SPIKE`，Step 1 抽样本机 `observations.sqlite` 定规则并写入 decisions。
+- 存量 `env=local` 行判定规则：已验证（s032 spike，结论 d048）——directory 盘符形 → win；`/Users/` 前缀 → mac；其余 POSIX 非空 → linux；NULL directory 与 daily 孤儿行 → 迁移时宿主 platform 默认（win32→win / darwin→mac / 其他→linux）。buckets 整体重建、hour_rollup 清空置 unready 走现成异步回填。
 
 ### 风险与回退
 

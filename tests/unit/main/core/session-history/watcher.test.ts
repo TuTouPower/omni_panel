@@ -48,18 +48,49 @@ function install_watch(fake: FakeWatcher): void {
     });
 }
 
-describe("pick_strategy (t210)", () => {
+describe("pick_strategy (t210, t437)", () => {
     it.each([
-        ["local", "claude_code", "watch"],
-        ["local", "opencode", "poll"],
-        ["local", "kimi", "poll"],
-        ["local", "grok", "poll"],
+        // t437: win/linux/mac 都是宿主本地数据，claude_code 可 fs.watch。
+        ["win", "claude_code", "watch"],
+        ["linux", "claude_code", "watch"],
+        ["mac", "claude_code", "watch"],
+        ["win", "opencode", "poll"],
+        ["linux", "opencode", "poll"],
+        ["mac", "opencode", "poll"],
+        ["win", "kimi", "poll"],
+        ["linux", "kimi", "poll"],
+        ["mac", "kimi", "poll"],
+        ["win", "grok", "poll"],
+        ["linux", "grok", "poll"],
+        ["mac", "grok", "poll"],
+        // wsl（UNC 9P）恒 poll。
         ["wsl", "claude_code", "poll"],
         ["wsl", "opencode", "poll"],
         ["wsl", "kimi", "poll"],
         ["wsl", "grok", "poll"],
     ] as const)("env=%s extractor=%s -> %s", (env, kind, expected) => {
         expect(pick_strategy(env, kind)).toBe(expected);
+    });
+
+    it.each([
+        // t438: env=win 在非 Windows 宿主上经 /mnt/c（drvfs）读取，Windows 侧
+        // 变更不触发 fs.watch 事件 → 一律 poll；Windows 宿主本机 win 源仍 watch。
+        ["win", "claude_code", "windows", "watch"],
+        ["win", "claude_code", "linux", "poll"],
+        ["win", "claude_code", "macos", "poll"],
+        // 非 win 平台源不受 host 影响：linux/mac 本机 claude_code 恒 watch。
+        ["linux", "claude_code", "linux", "watch"],
+        ["linux", "claude_code", "windows", "watch"],
+        ["mac", "claude_code", "macos", "watch"],
+        ["mac", "claude_code", "linux", "watch"],
+        // win 非 claude_code 恒 poll（opencode/kimi/grok），host 无关。
+        ["win", "kimi", "linux", "poll"],
+        ["win", "opencode", "windows", "poll"],
+        ["win", "grok", "linux", "poll"],
+        // wsl 恒 poll。
+        ["wsl", "claude_code", "linux", "poll"],
+    ] as const)("env=%s extractor=%s host=%s -> %s", (env, kind, host, expected) => {
+        expect(pick_strategy(env, kind, host)).toBe(expected);
     });
 });
 

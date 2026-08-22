@@ -64,7 +64,7 @@ function dashboard(session_id: string): TokenStatsDashboardDto {
                 {
                     session_id,
                     source: "claude_code",
-                    env: "local",
+                    env: "win",
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],

@@ -70,7 +70,7 @@ vi.mock("../../../../src/renderer/components/token-stats/SessionTable", () => ({
                 type="button"
                 data-testid="open-session-row"
                 onClick={() => {
-                    onOpenSession?.("claude_code|local|initial");
+                    onOpenSession?.("claude_code|win|initial");
                 }}
             >
                 open-session
@@ -128,7 +128,7 @@ function dashboard(
             rollup: [
                 {
                     source: "claude_code",
-                    env: "local",
+                    env: "win",
                     model: "sonnet",
                     directory: "/project",
                     session_id,
@@ -148,7 +148,7 @@ function dashboard(
                 {
                     session_id,
                     source: "claude_code",
-                    env: "local",
+                    env: "win",
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -257,16 +257,40 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "win");
         await waitFor(() => {
             expect(get_dashboard).toHaveBeenCalledTimes(2);
         });
 
         const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
-        expect(request.platform).toBe("local");
+        expect(request.platform).toBe("win");
         expect(get_records).not.toHaveBeenCalled();
         expect(get_sessions).not.toHaveBeenCalled();
         expect(get_heatmap).not.toHaveBeenCalled();
+    });
+
+    it("t437: 平台筛选提供 win/wsl/linux/mac 选项且不含 local", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const select = screen.getByLabelText<HTMLSelectElement>("平台筛选");
+        const values = [...select.options].map((o) => o.value);
+        expect(values).toEqual(["all", "win", "wsl", "linux", "mac"]);
+        expect(values).not.toContain("local");
+    });
+
+    it("t437: prefs 残留旧平台值 local 时回退 all（防御）", async () => {
+        localStorage.setItem(
+            "token-stats-prefs",
+            JSON.stringify({ platform: "local", agent: "all", preset: "30d" }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const select = screen.getByLabelText<HTMLSelectElement>("平台筛选");
+        expect(select.value).toBe("all");
+        const request = get_dashboard.mock.calls[0]?.[0] as TokenStatsDashboardQuery;
+        expect(request.platform).toBe("all");
     });
 
     it("t200 AC1: switching metric does not refetch the dashboard (display dims are renderer-derived)", async () => {
@@ -408,7 +432,7 @@ describe("TokenStatsView dashboard query", () => {
         const user = userEvent.setup();
         await screen.findByTestId("session-records");
 
-        await user.selectOptions(screen.getByLabelText("平台筛选"), "local");
+        await user.selectOptions(screen.getByLabelText("平台筛选"), "win");
         await waitFor(() => {
             expect(screen.getByTestId("session-records")).toHaveTextContent("local");
         });
@@ -667,7 +691,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "local" as const,
+                    env: "win" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -709,7 +733,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "local" as const,
+                    env: "win" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -758,7 +782,7 @@ describe("TokenStatsView dashboard query", () => {
                 {
                     session_id: "page-2",
                     source: "claude_code" as const,
-                    env: "local" as const,
+                    env: "win" as const,
                     title: "Session",
                     directory: "/project",
                     models: ["sonnet"],
@@ -893,7 +917,7 @@ describe("TokenStatsView dashboard query", () => {
 
         fireEvent.click(screen.getByTestId("open-session-row"));
 
-        expect(open_history).toHaveBeenCalledWith("claude_code", "local", "initial");
+        expect(open_history).toHaveBeenCalledWith("claude_code", "win", "initial");
     });
 
     it("AC4: renders reason markers for unavailable and failed sources", async () => {
@@ -911,11 +935,11 @@ describe("TokenStatsView dashboard query", () => {
                         },
                         {
                             source: "opencode",
-                            env: "local",
+                            env: "win",
                             status: "failed",
                             lastError: "db locked",
                         },
-                        { source: "claude_code", env: "local", status: "ok" },
+                        { source: "claude_code", env: "win", status: "ok" },
                     ],
                 },
             }),
@@ -940,7 +964,7 @@ describe("TokenStatsView dashboard query", () => {
                 status: {
                     running: true,
                     last_updated: 123,
-                    sources_status: [{ source: "claude_code", env: "local", status: "ok" }],
+                    sources_status: [{ source: "claude_code", env: "win", status: "ok" }],
                 },
             }),
         );

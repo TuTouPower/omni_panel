@@ -26,7 +26,7 @@ function record(overrides: Partial<AgentSessionUsageRecord> = {}): AgentSessionU
         cache_write_tokens: 1,
         agent: "claude-code",
         source: "claude_code",
-        env: "local",
+        env: "linux",
         ...overrides,
     };
 }
@@ -85,6 +85,43 @@ describe("token stats dashboard query", () => {
         expect(dashboard.sessions.items).toHaveLength(1);
         expect(dashboard.status.running).toBe(true);
         expect(dashboard.freshness.stale).toBe(false);
+    });
+
+    it("filters summary, rollup and sessions by platform (t437: platform → env)", () => {
+        store.upsert_records([
+            record({ message_id: "linux-1", env: "linux" }),
+            record({
+                message_id: "wsl-1",
+                env: "wsl",
+                session_id: "s2",
+                input_tokens: 100,
+            }),
+            record({
+                message_id: "win-1",
+                env: "win",
+                session_id: "s3",
+                input_tokens: 1000,
+            }),
+        ]);
+
+        const dashboard = store.query_dashboard(
+            {
+                agent: "all",
+                platform: "linux",
+                start: START,
+                end: END,
+                metric: "tokens",
+                xaxis: "time",
+                gran: "hour",
+            },
+            { running: true, last_updated: null },
+        );
+
+        expect(dashboard.current).toMatchObject({ tokens: 18, sessions: 1, calls: 1 });
+        expect(dashboard.chart_data.rollup.length).toBeGreaterThan(0);
+        expect(dashboard.chart_data.rollup.every((row) => row.env === "linux")).toBe(true);
+        expect(dashboard.sessions.items).toHaveLength(1);
+        expect(dashboard.sessions.items[0]?.env).toBe("linux");
     });
 
     it("uses half-open current and previous windows at exact boundaries", () => {
@@ -374,7 +411,7 @@ describe("token stats dashboard query", () => {
     });
     it("counts sessions by source and platform identity in time chart and heatmap", () => {
         store.upsert_records([
-            record({ message_id: "same-win", source: "claude_code", env: "local" }),
+            record({ message_id: "same-win", source: "claude_code", env: "linux" }),
             record({ message_id: "same-wsl", source: "opencode", env: "wsl", agent: "opencode" }),
         ]);
 
@@ -404,7 +441,7 @@ describe("token stats dashboard query", () => {
                 message_id: "local",
                 agent: "claude-code",
                 source: "claude_code",
-                env: "local",
+                env: "linux",
             }),
             record({
                 message_id: "wsl",

@@ -1049,7 +1049,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "dashboard-session",
                 title: "Dashboard",
                 directory: "/project",
@@ -1303,7 +1303,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "alias-session",
                 title: "Dashboard",
                 directory: "/project",
@@ -1368,7 +1368,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1400,7 +1400,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1420,7 +1420,7 @@ describe("local-api web read endpoints", () => {
         ]);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/heatmap?env=local&start=${String(
+            `http://127.0.0.1:${String(api.get_port())}/v1/heatmap?env=linux&start=${String(
                 ts - 1,
             )}&end=${String(ts + 1)}`,
         );
@@ -1441,7 +1441,7 @@ describe("local-api web read endpoints", () => {
         token_stats_store.upsert_records([
             {
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "s1",
                 title: null,
                 directory: null,
@@ -1461,7 +1461,7 @@ describe("local-api web read endpoints", () => {
         ]);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/hourBuckets?env=local&start=${String(
+            `http://127.0.0.1:${String(api.get_port())}/v1/hourBuckets?env=linux&start=${String(
                 ts - 1,
             )}&end=${String(ts + 1)}`,
         );
@@ -1664,7 +1664,7 @@ describe("local-api session history endpoints (t259)", () => {
         return {
             id: "sess-1",
             source: "claude_code",
-            env: "local",
+            env: "linux",
             title: "Test Session",
             model: null,
             started_at: 0,
@@ -1672,7 +1672,7 @@ describe("local-api session history endpoints (t259)", () => {
             session: {
                 id: "sess-1",
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 model: "sonnet",
                 title: "Test Session",
                 directory: "/proj",
@@ -1696,11 +1696,11 @@ describe("local-api session history endpoints (t259)", () => {
                     next_cursor: null,
                 }),
             ),
-            searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|local|sess-1"]))),
+            searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|linux|sess-1"]))),
             searchContentWithAbort: vi.fn<
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
-            >(() => Promise.resolve(new Set(["claude_code|local|sess-1"]))),
-            summaries: vi.fn(() => Promise.resolve({ "claude_code|local|sess-1": "hello world" })),
+            >(() => Promise.resolve(new Set(["claude_code|linux|sess-1"]))),
+            summaries: vi.fn(() => Promise.resolve({ "claude_code|linux|sess-1": "hello world" })),
             // t279: web 订阅。测试捕获 on_update 以便触发增量推送。
             subscribe: vi.fn(
                 (params: {
@@ -1713,7 +1713,7 @@ describe("local-api session history endpoints (t259)", () => {
                     on_update: (messages: unknown[]) => void;
                 }) => {
                     void params;
-                    return "claude_code|local|sess-1";
+                    return "claude_code|linux|sess-1";
                 },
             ),
             unsubscribe: vi.fn(),
@@ -1767,7 +1767,7 @@ describe("local-api session history endpoints (t259)", () => {
         setup_session_api(service, provider);
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=10`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=linux&limit=10`,
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { messages: unknown[]; next_cursor: unknown };
@@ -1775,7 +1775,7 @@ describe("local-api session history endpoints (t259)", () => {
         expect(data.messages[0]).toMatchObject({ id: "m1", role: "user", text: "hello" });
         expect(data.next_cursor).toBeNull();
         expect(service.query).toHaveBeenCalledWith(
-            expect.objectContaining({ source: "claude_code", env: "local", session_id: "sess-1" }),
+            expect.objectContaining({ source: "claude_code", env: "linux", session_id: "sess-1" }),
             expect.objectContaining({ limit: 10 }),
         );
     });
@@ -1806,7 +1806,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=10&before_cursor=20`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=linux&limit=10&before_cursor=20`,
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { next_cursor: unknown };
@@ -1840,7 +1840,7 @@ describe("local-api session history endpoints (t259)", () => {
         await api.start();
         for (const limit of ["0", "-1", "abc"]) {
             const res = await fetch(
-                `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=local&limit=${limit}`,
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=sess-1&source=claude_code&env=linux&limit=${limit}`,
             );
             expect(res.status).toBe(400);
         }
@@ -1855,7 +1855,7 @@ describe("local-api session history endpoints (t259)", () => {
         );
         await api.start();
         const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing&source=claude_code&env=local`,
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory?id=missing&source=claude_code&env=linux`,
         );
         expect(res.status).toBe(404);
     });
@@ -1881,7 +1881,7 @@ describe("local-api session history endpoints (t259)", () => {
             sessions: { id: string; source: string }[];
             progress?: { scanned: number; total: number; done: boolean };
         };
-        expect(data.hits).toEqual(["claude_code|local|sess-1"]);
+        expect(data.hits).toEqual(["claude_code|linux|sess-1"]);
         expect(data.sessions).toHaveLength(1);
         expect(data.sessions[0]).toMatchObject({ id: "sess-1", source: "claude_code" });
         expect(data.progress).toEqual({
@@ -1910,7 +1910,7 @@ describe("local-api session history endpoints (t259)", () => {
                 new Set(
                     locs.map((loc) => {
                         const session_id = (loc as { session_id: string }).session_id;
-                        return `claude_code|local|${session_id}`;
+                        return `claude_code|linux|${session_id}`;
                     }),
                 ),
             ),
@@ -1950,7 +1950,7 @@ describe("local-api session history endpoints (t259)", () => {
             "hello",
             expect.any(AbortSignal),
         );
-        expect(data.hits).toEqual(["claude_code|local|sess-1"]);
+        expect(data.hits).toEqual(["claude_code|linux|sess-1"]);
     });
 
     it("t388 AC-002: web 搜索未超限 truncated=false", async () => {
@@ -1989,7 +1989,7 @@ describe("local-api session history endpoints (t259)", () => {
             service,
             vi.fn(() => full_page),
         );
-        service.searchContentWithAbort.mockResolvedValue(new Set(["claude_code|local|sess-0"]));
+        service.searchContentWithAbort.mockResolvedValue(new Set(["claude_code|linux|sess-0"]));
         await api.start();
         const res = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
@@ -2103,7 +2103,7 @@ describe("local-api session history endpoints (t259)", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    locs: [null, { source: "claude_code", env: "local", session_id: "sess-1" }],
+                    locs: [null, { source: "claude_code", env: "linux", session_id: "sess-1" }],
                 }),
             },
         );
@@ -2124,7 +2124,7 @@ describe("local-api session history endpoints (t259)", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    locs: [{ source: "claude_code", env: "local", session_id: "sess-1" }],
+                    locs: [{ source: "claude_code", env: "linux", session_id: "sess-1" }],
                     keyword: "hello",
                 }),
             },
@@ -2147,15 +2147,15 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     locs: [
-                        { source: "claude_code", env: "local", session_id: "sess-1" },
-                        { source: "claude_code", env: "local", session_id: "missing" },
+                        { source: "claude_code", env: "linux", session_id: "sess-1" },
+                        { source: "claude_code", env: "linux", session_id: "missing" },
                     ],
                 }),
             },
         );
         expect(res.status).toBe(200);
         const data = (await res.json()) as { summaries: Record<string, string> };
-        expect(data.summaries).toEqual({ "claude_code|local|sess-1": "hello world" });
+        expect(data.summaries).toEqual({ "claude_code|linux|sess-1": "hello world" });
         expect(service.summaries).toHaveBeenCalledWith([
             expect.objectContaining({ session_id: "sess-1" }),
         ]);
@@ -2175,7 +2175,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-unconnected",
                 }),
@@ -2217,7 +2217,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-sse-1",
                 }),
@@ -2228,7 +2228,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.subscribe).toHaveBeenCalledWith(
                 expect.objectContaining({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-sse-1",
                 }),
@@ -2289,7 +2289,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         session_id,
                         subscriber_id: "web-sse-dup",
                     }),
@@ -2303,7 +2303,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.unsubscribe).toHaveBeenCalledTimes(1);
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-sse-dup",
             );
@@ -2348,7 +2348,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         session_id: "sess-1",
                         subscriber_id,
                     }),
@@ -2366,7 +2366,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.unsubscribe).toHaveBeenCalledTimes(1);
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-sub-b",
             );
@@ -2406,7 +2406,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-leak-1",
                 }),
@@ -2421,7 +2421,7 @@ describe("local-api session history endpoints (t259)", () => {
             // close 触发 cleanup → 注销该订阅（不依赖显式 unsubscribe）。
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-leak-1",
             );
@@ -2460,7 +2460,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-race-1",
                 }),
@@ -2474,7 +2474,7 @@ describe("local-api session history endpoints (t259)", () => {
             });
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-race-1",
             );
@@ -2488,7 +2488,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-race-1",
                 }),
@@ -2551,7 +2551,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         session_id,
                         subscriber_id,
                         connection_id: "page-1",
@@ -2585,7 +2585,11 @@ describe("local-api session history endpoints (t259)", () => {
             expect(raw).toContain("event: messagesUpdated");
             // 按 SSE 帧解析：每帧 loc 与 messages 自洽，不串会话。
             const frames = [...raw.matchAll(/event: messagesUpdated\ndata: (.+)\n\n/g)].map(
-                (m) => JSON.parse(m[1] ?? "{}") as { session_id: string; messages: { text: string }[] },
+                (m) =>
+                    JSON.parse(m[1] ?? "{}") as {
+                        session_id: string;
+                        messages: { text: string }[];
+                    },
             );
             expect(frames).toEqual(
                 expect.arrayContaining([
@@ -2644,7 +2648,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         session_id,
                         subscriber_id,
                         connection_id: "page-unsub",
@@ -2661,7 +2665,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.unsubscribe).toHaveBeenCalledTimes(1);
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-a",
             );
@@ -2725,7 +2729,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-p1",
                     connection_id: "page-1",
@@ -2737,7 +2741,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-2",
                     subscriber_id: "web-p2",
                     connection_id: "page-2",
@@ -2753,7 +2757,7 @@ describe("local-api session history endpoints (t259)", () => {
             expect(service.unsubscribe).toHaveBeenCalledTimes(1);
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-p1",
             );
@@ -2810,7 +2814,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-reconn",
                     connection_id: "page-reconn",
@@ -2824,7 +2828,7 @@ describe("local-api session history endpoints (t259)", () => {
             });
             expect(service.unsubscribe).toHaveBeenCalledWith(
                 "claude_code",
-                "local",
+                "linux",
                 "sess-1",
                 "web-reconn",
             );
@@ -2838,7 +2842,7 @@ describe("local-api session history endpoints (t259)", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     source: "claude_code",
-                    env: "local",
+                    env: "linux",
                     session_id: "sess-1",
                     subscriber_id: "web-reconn",
                     connection_id: "page-reconn",
@@ -2906,7 +2910,7 @@ describe("local-api session history endpoints (t259)", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         source: "claude_code",
-                        env: "local",
+                        env: "linux",
                         session_id: `sess-${String(i)}`,
                         subscriber_id: `web-${String(i)}`,
                         connection_id: "page-8",

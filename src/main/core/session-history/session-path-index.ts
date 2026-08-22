@@ -16,8 +16,10 @@ export const SESSION_INDEX_VERSION = 2;
 
 export interface SessionIndexEntry {
     /**
-     * paths 签名（host|homedir|win_home|wsl_distro|wsl_user，t310），
+     * paths 签名（host|homedir|win_home|win_home_wsl|wsl_distro|wsl_user，t310/t438），
      * 命中时校验防跨配置命中旧路径（任一输入变化 → 旧签名失效重建）。
+     * t438 签名追加 win_home_wsl：旧五段条目不匹配新签名 → 回退扫描重建，无需
+     * bump SESSION_INDEX_VERSION。
      */
     readonly paths_key: string;
     readonly file_path: string;

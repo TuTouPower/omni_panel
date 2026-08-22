@@ -596,7 +596,7 @@ describe("chart-data", () => {
     function bucket(overrides: Partial<TokenStatsBucket> = {}): TokenStatsBucket {
         return {
             source: "claude_code",
-            env: "local",
+            env: "win",
             bucket_date: "2026-07-10",
             model: "claude-sonnet-4",
             input_tokens: 0,
@@ -649,7 +649,7 @@ describe("chart-data", () => {
 
         it("sums tokens across envs for the same model+date", () => {
             const buckets = [
-                bucket({ model: "a", env: "local", input_tokens: 100 }),
+                bucket({ model: "a", env: "win", input_tokens: 100 }),
                 bucket({ model: "a", env: "wsl", input_tokens: 50 }),
             ];
             const segs = modelSegmentsFromBuckets(buckets, "dark");
@@ -720,7 +720,7 @@ describe("chart-data", () => {
         return {
             id: "s1",
             source: "claude_code",
-            env: "local",
+            env: "win",
             model: "claude-sonnet-4",
             title: null,
             directory: "/p/x",
@@ -766,7 +766,7 @@ describe("chart-data", () => {
         function rollup_row(overrides: Partial<TokenStatsRollupRow> = {}): TokenStatsRollupRow {
             return {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "claude-sonnet-4",
                 directory: "/proj",
                 session_id: "s1",
@@ -807,7 +807,7 @@ describe("chart-data", () => {
             it("counts same session_id across env as distinct (t349 AC-002)", () => {
                 // 跨 env 同 session_id 不合并（rollup_session_key 含 env）。
                 const rows = [
-                    rollup_row({ session_id: "s1", env: "local", calls: 1, input_tokens: 10 }),
+                    rollup_row({ session_id: "s1", env: "win", calls: 1, input_tokens: 10 }),
                     rollup_row({ session_id: "s1", env: "wsl", calls: 1, input_tokens: 20 }),
                 ];
                 const kpi = kpiFromRollup(rows);
@@ -938,7 +938,7 @@ describe("chart-data", () => {
                 // 不再按裸 session_id 合并（t217 dashboard 已修，此处补 legacy 路径）。
                 const rows = [
                     rollup_row({
-                        env: "local",
+                        env: "win",
                         session_id: "s1",
                         title: "win-s",
                         input_tokens: 10,
@@ -958,7 +958,7 @@ describe("chart-data", () => {
 
             it("sessions metric 按含 env 的 session key 去重：跨 env 同 session_id 各计 1（p052）", () => {
                 const rows = [
-                    rollup_row({ env: "local", session_id: "s1", directory: "/p1" }),
+                    rollup_row({ env: "win", session_id: "s1", directory: "/p1" }),
                     rollup_row({ env: "wsl", session_id: "s1", directory: "/p1" }),
                 ];
                 const data = prepareBarDataFromRollup(rows, "sessions", "project", "dark");
@@ -987,7 +987,7 @@ describe("chart-data", () => {
             rollup: [
                 {
                     source: "claude_code",
-                    env: "local",
+                    env: "win",
                     model: "sonnet",
                     directory: "/alpha",
                     session_id: "s1",
@@ -1072,7 +1072,7 @@ describe("chart-data", () => {
                 rollup: [
                     {
                         source: "claude_code",
-                        env: "local",
+                        env: "win",
                         model: "sonnet",
                         directory: "/alpha",
                         session_id: "s1",
@@ -1111,7 +1111,7 @@ describe("chart-data", () => {
                 rollup: [
                     {
                         source: "claude_code",
-                        env: "local",
+                        env: "win",
                         model: "sonnet",
                         directory: "/alpha",
                         session_id: "s1",
@@ -1346,7 +1346,7 @@ describe("chart-data", () => {
         const oracle_rows: OracleRow[] = [
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m1",
                 directory: "/alpha",
                 session_id: "s1",
@@ -1359,7 +1359,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m2",
                 directory: "/alpha",
                 session_id: "s1",
@@ -1372,7 +1372,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m1",
                 directory: "/beta",
                 session_id: "s2",
@@ -1385,7 +1385,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m3",
                 directory: "/gamma",
                 session_id: "s3",
@@ -1398,7 +1398,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m4",
                 directory: "/delta",
                 session_id: "s4",
@@ -1411,7 +1411,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m5",
                 directory: "/epsilon",
                 session_id: "s5",
@@ -1424,7 +1424,7 @@ describe("chart-data", () => {
             },
             {
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model: "m6",
                 directory: "/zeta",
                 session_id: "s6",
@@ -1501,7 +1501,7 @@ describe("chart-data", () => {
                 input_tokens: number,
             ): OracleRow => ({
                 source: "claude_code",
-                env: "local",
+                env: "win",
                 model,
                 directory,
                 session_id,

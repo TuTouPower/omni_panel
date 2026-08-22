@@ -4,8 +4,9 @@
  * 职责：
  * - 维护订阅表 (source, env, session_id) → 单个订阅，每订阅一个源文件监听器。
  * - 监听策略（决策 5）：
- *   - local + claude_code（本机 JSONL）→ fs.watch；
+ *   - win/linux/mac + claude_code（本机 JSONL）→ fs.watch；
  *   - opencode（SQLite）+ kimi/grok（WSL 9P）→ 2s mtime 轮询。
+ *   - t438: env=win 在非 Windows 宿主（/mnt/c drvfs）上恒 poll（事件不转发）。
  * - 变化时调对应 t209 提取器做增量提取，推 messages 给订阅方 on_update。
  * - query：全量提取 + 内存切片分页（决策 17 后端部分）。
  * - recent_sessions：经注入的 sessions_provider 回调取数，按 ended_at 降序、limit 截断，
@@ -33,6 +34,8 @@ import {
 } from "./opencode-extractor";
 import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
+import type { Host } from "../token-stats/paths";
+import { host_from_platform } from "../token-stats/paths";
 import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("session-history-subscription");
@@ -40,8 +43,8 @@ const log = createLogger("session-history-subscription");
 /** 端类型，与 t209 四端提取器一一对应。 */
 export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok";
 
-/** 运行环境，与 t308 的 TokenStatsEnv 对齐（旧 `win` 并入 `local`）。 */
-export type Env = "local" | "wsl";
+/** 运行环境，与 t437 的 TokenStatsEnv 对齐（win/wsl/linux/mac 四值，无 `local`）。 */
+export type Env = "win" | "wsl" | "linux" | "mac";
 
 /** 订阅键组成部分：source 与 extractor_kind 同形，但保留独立字段以便后续多实例分离。 */
 export interface SessionLoc {
@@ -173,11 +176,21 @@ function loc_key(loc: SessionLoc): string {
 
 /**
  * 选择监听策略。决策 5：
- * - local + claude_code → fs.watch；
- * - 其余（wsl 任意 / opencode sqlite / kimi / grok 9P）→ 2s 轮询 mtime。
+ * - win/linux/mac + claude_code（本机 JSONL）→ fs.watch；
+ * - 其余（wsl UNC 9P 任意 / opencode sqlite / kimi / grok）→ 2s 轮询 mtime。
+ * t438: env=win 在非 Windows 宿主（WSL 读 /mnt/c，drvfs）上 fs.watch 收不到
+ * Windows 侧变更事件（d049）——一律 poll；Windows 宿主本机 win 源仍 watch。
+ * host 缺省 "windows"：既有调用方（本机 win/linux/mac 源）语义不变。
  */
-export function pick_strategy(env: Env, extractor_kind: ExtractorKind): "watch" | "poll" {
-    if (env === "local" && extractor_kind === "claude_code") return "watch";
+export function pick_strategy(
+    env: Env,
+    extractor_kind: ExtractorKind,
+    host: Host = "windows",
+): "watch" | "poll" {
+    if (env !== "wsl" && extractor_kind === "claude_code") {
+        if (env === "win" && host !== "windows") return "poll";
+        return "watch";
+    }
     return "poll";
 }
 
@@ -352,9 +365,12 @@ export class SessionHistorySubscriptionService {
     private readonly subscriptions = new Map<string, Subscription>();
     private readonly extract_cache = new Map<string, ExtractCacheEntry>();
     private readonly poll_interval_ms: number;
+    /** 运行宿主（t438: env=win 在非 Windows 宿主上降级 poll——drvfs 不转发事件）。 */
+    private readonly host: Host;
 
-    constructor(options: { poll_interval_ms?: number } = {}) {
+    constructor(options: { poll_interval_ms?: number; host?: Host } = {}) {
         this.poll_interval_ms = options.poll_interval_ms ?? 2000;
+        this.host = options.host ?? host_from_platform(process.platform);
     }
 
     /** 调对应提取器做全量提取。 */
@@ -506,7 +522,7 @@ export class SessionHistorySubscriptionService {
 
     /** 启动 watcher 并绑定变化回调。返回 watcher 实例。 */
     private start_watcher(sub: Subscription): Watcher {
-        const strategy = pick_strategy(sub.loc.env, sub.extractor_kind);
+        const strategy = pick_strategy(sub.loc.env, sub.extractor_kind, this.host);
         const watcher = create_watcher(
             sub.file_path,
             strategy,

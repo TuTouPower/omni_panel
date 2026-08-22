@@ -2,20 +2,24 @@ import * as path from "node:path";
 import type { TokenStatsEnv } from "../../../shared/types/token-stats";
 
 /**
- * Platform-aware path layer for token-stats collectors (t308).
+ * Platform-aware path layer for token-stats collectors (t308, t437, t438).
  *
  * Path resolution is a pure function of `(host, env, cfg)` — no hidden
  * process.platform or os.homedir reads, no filesystem access — so every host
  * combination is testable on any machine. `host` is derived from
- * process.platform by the caller (see `host_from_platform`); `homedir` only
- * feeds `local` sources on non-Windows hosts, `win_home` only on Windows, and
- * `wsl_user` is the *effective* WSL user (config override or auto-detected by
- * the collector): empty means undetectable, so every `wsl` path resolves to
- * null instead of a username-less UNC (finding d033).
+ * process.platform by the caller (see `host_from_platform`); `homedir` feeds
+ * `linux`/`mac` sources, `win_home` feeds `win` on the Windows host, and
+ * `win_home_wsl` feeds `win` on a WSL/Linux host (t438: Windows home auto-
+ * discovered via /mnt/c/Users — see win-home-discovery.ts); `wsl_user` is the
+ * *effective* WSL user (config override or auto-detected by the collector):
+ * empty means undetectable, so every `wsl` path resolves to null instead of a
+ * username-less UNC (finding d033).
  *
- * env semantics: `local` = this machine's own install (POSIX home on
- * linux/macos, win_home on windows); `wsl` = the WSL distro reachable via the
- * \\wsl.localhost UNC share — Windows host only.
+ * env semantics (t437, replaces the pre-t437 `local`): `win` = Windows user
+ * directory data; `linux`/`mac` = the POSIX home on the respective host;
+ * `wsl` = the WSL distro reachable via the \\wsl.localhost UNC share — Windows
+ * host only. `win` on a WSL/Linux host resolves under the discovered Windows
+ * home (POSIX separators); on macOS the win sources are unreachable (null).
  */
 
 /** Host the collector runs on. */
@@ -36,18 +40,21 @@ export function host_from_platform(platform: string): Host {
 /** All inputs the path layer needs; injected so tests cover all hosts. */
 export interface TokenStatsPathInput {
     host: Host;
-    /** os.homedir(); base for `local` sources on non-Windows hosts. */
+    /** os.homedir(); base for `linux`/`mac` sources. */
     homedir: string;
-    /** TokenStatsConfig.win_home; base for `local` sources on Windows. */
+    /** TokenStatsConfig.win_home; base for `win` sources on the Windows host. */
     win_home: string;
+    /**
+     * t438: auto-discovered Windows user home on a WSL/Linux host
+     * (`/mnt/c/Users/<u>`, POSIX). Base for `win` sources on `linux` hosts;
+     * null/undefined = not discoverable → win sources return null there.
+     * Ignored on `windows`/`macos` hosts.
+     */
+    win_home_wsl?: string | null;
     /** TokenStatsConfig.wsl_distro; distro segment of the UNC path. */
     wsl_distro: string;
     /** Effective WSL user; "" = undetectable → wsl sources return null. */
     wsl_user: string;
-}
-
-function local_root(input: TokenStatsPathInput): string {
-    return input.host === "windows" ? input.win_home : input.homedir;
 }
 
 /** UNC root \\wsl.localhost\<distro>\home\<user>, or null when unreachable. */
@@ -62,19 +69,34 @@ function wsl_root(input: TokenStatsPathInput): string | null {
 }
 
 /**
- * Resolve one source path. `local` resolves under the local root with the
- * host's own separator (win32 on windows hosts so UNC/win_home paths keep
- * backslashes even when constructed on another OS); `wsl` resolves under the
- * UNC root with win32 separators and returns null when the root is unreachable.
+ * Resolve one source path.
+ * - `win` on a `windows` host resolves under win_home with win32 separators
+ *   (so UNC/win_home paths keep backslashes even when constructed on another
+ *   OS); on a `linux` host it resolves under the discovered win_home_wsl with
+ *   POSIX separators and returns null when the home is undiscoverable (t438);
+ *   on a `macos` host it is always null.
+ * - `linux`/`mac` resolve under homedir with POSIX separators;
+ * - `wsl` resolves under the UNC root with win32 separators and returns null
+ *   when the root is unreachable.
  */
 function resolve(
     input: TokenStatsPathInput,
     env: TokenStatsEnv,
     segments: string[],
 ): string | null {
-    if (env === "local") {
-        const joiner = input.host === "windows" ? path.win32 : path;
-        return joiner.join(local_root(input), ...segments);
+    if (env === "win") {
+        if (input.host === "windows") {
+            return path.win32.join(input.win_home, ...segments);
+        }
+        if (input.host === "linux") {
+            return input.win_home_wsl === null || input.win_home_wsl === undefined
+                ? null
+                : path.posix.join(input.win_home_wsl, ...segments);
+        }
+        return null;
+    }
+    if (env === "linux" || env === "mac") {
+        return path.posix.join(input.homedir, ...segments);
     }
     const root = wsl_root(input);
     return root === null ? null : path.win32.join(root, ...segments);
@@ -113,9 +135,9 @@ export function kimi_index_path(input: TokenStatsPathInput, env: TokenStatsEnv):
 }
 
 /**
- * ~/.grok/sessions (or the win_home / UNC equivalent). Resolves both envs:
- * `local` = this host's own `~/.grok` (t426：Linux/mac 宿主采集源，
- * Windows 上本地无 grok CLI 数据时目录缺失按 missing 处理）；`wsl` =
+ * ~/.grok/sessions (or the win_home / UNC equivalent). Resolves both families
+ * of envs: `linux`/`mac` = this host's own `~/.grok` (t426：Linux/mac 宿主采集
+ * 源，Windows 上本地无 grok CLI 数据时目录缺失按 missing 处理）；`wsl` =
  * Windows 宿主经 UNC 读 WSL 内的 grok 数据（grok_wsl）。
  */
 export function grok_sessions_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {

@@ -10,13 +10,13 @@
 
 与现有连接器的区别：
 
-|          | 现有连接器          | 本功能                     |
-| -------- | ------------------- | -------------------------- |
-| 数据源   | 远程 API / 网页登录 | 本地文件（JSONL / SQLite） |
-| 数据语义 | 实时额度/余额       | 历史 token 累计用量        |
-| 采集方式 | 主进程连接器沙箱    | 独立子进程（标准 Node.js） |
-| 更新频率 | 定时轮询（5s+）     | 10 分钟定时增量读取        |
-| 展示     | PopupView 用量条    | 独立窗口（见 `-ui`）       |
+||现有连接器|本功能|
+|---|---|---|
+|数据源|远程 API / 网页登录|本地文件（JSONL / SQLite）|
+|数据语义|实时额度/余额|历史 token 累计用量|
+|采集方式|主进程连接器沙箱|独立子进程（标准 Node.js）|
+|更新频率|定时轮询（5s+）|10 分钟定时增量读取|
+|展示|PopupView 用量条|独立窗口（见 `-ui`）|
 
 ## 2. 数据源（只读约束）
 
@@ -24,10 +24,10 @@
 
 ### 2.1 Claude Code
 
-| 数据               | 格式          | Win 路径                                          | WSL 路径                                   |
-| ------------------ | ------------- | ------------------------------------------------- | ------------------------------------------ |
-| Session 级累积快照 | JSONL         | `~/.claude/metrics/costs.jsonl`                   | `/home/{USER}/.claude/metrics/costs.jsonl` |
-| 每次 API 调用明细  | Session JSONL | `~/.claude/projects/{project}/{session_id}.jsonl` | 同                                         |
+|数据|格式|Win 路径|WSL 路径|
+|---|---|---|---|
+|Session 级累积快照|JSONL|`~/.claude/metrics/costs.jsonl`|`/home/{USER}/.claude/metrics/costs.jsonl`|
+|每次 API 调用明细|Session JSONL|`~/.claude/projects/{project}/{session_id}.jsonl`|同|
 
 **costs.jsonl**：每行一次 API 调用后的累积快照。关键字段：`Timestamp`、`session_id`、`model`、`input_tokens`、`output_tokens`、`cache_write_tokens`、`cache_read_tokens`。
 
@@ -43,9 +43,9 @@
 
 ### 2.2 OpenCode
 
-| 数据   | 格式   | Win 路径                                          | WSL 路径                              |
-| ------ | ------ | ------------------------------------------------- | ------------------------------------- |
-| 数据库 | SQLite | `%USERPROFILE%\.local\share\opencode\opencode.db` | `~/.local/share/opencode/opencode.db` |
+|数据|格式|Win 路径|WSL 路径|
+|---|---|---|---|
+|数据库|SQLite|`%USERPROFILE%\.local\share\opencode\opencode.db`|`~/.local/share/opencode/opencode.db`|
 
 **session 表**：每 session 一行。关键字段：`id`、`model`（JSON，需 `json_extract(model, '$.id')`）、`tokens_input`、`tokens_output`、`tokens_reasoning`、`tokens_cache_read`、`tokens_cache_write`、`title`、`directory`、`time_created`（Unix epoch ms）、`time_updated`。
 
@@ -57,10 +57,10 @@
 
 ### 2.3 Kimi Code
 
-| 数据              | 格式       | Win 路径                                                                  | WSL 路径                                                      |
-| ----------------- | ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 每次 API 调用明细 | wire JSONL | `%USERPROFILE%\.kimi-code\sessions\{ws}\{session}\agents\main\wire.jsonl` | `~/.kimi-code/sessions/{ws}/{session}/agents/main/wire.jsonl` |
-| session→目录映射  | JSONL      | `%USERPROFILE%\.kimi-code\session_index.jsonl`                            | `~/.kimi-code/session_index.jsonl`                            |
+|数据|格式|Win 路径|WSL 路径|
+|---|---|---|---|
+|每次 API 调用明细|wire JSONL|`%USERPROFILE%\.kimi-code\sessions\{ws}\{session}\agents\main\wire.jsonl`|`~/.kimi-code/sessions/{ws}/{session}/agents/main/wire.jsonl`|
+|session→目录映射|JSONL|`%USERPROFILE%\.kimi-code\session_index.jsonl`|`~/.kimi-code/session_index.jsonl`|
 
 **wire.jsonl**：`type: "usage.record"` 且 `usageScope: "turn"` 的行含逐回合 token——`usage.inputOther`→input、`usage.output`→output、`usage.inputCacheRead`→cache_read、`usage.inputCacheCreation`→cache_write，附 `model` 与 `time`（epoch ms）。`usageScope: "session"` 是 session 结束聚合，忽略以免双算。
 
@@ -70,11 +70,11 @@
 
 ### 2.4 Grok Build
 
-双源采集（t426）：Windows 经 WSL UNC（grok_wsl），Linux/mac 本机 `~/.grok`（grok_local）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
+双源采集（t426）：Windows 经 WSL UNC（grok_wsl），Linux/mac 本机 `~/.grok`（grok_linux/grok_mac，t437 起平台源 key 按 env 命名）。数据位于 `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`，`{enc_cwd}` 为 URL-encoded cwd，每个会话一个文件。
 
-| 数据            | 格式  | WSL 路径                                                                              |
-| --------------- | ----- | ------------------------------------------------------------------------------------- |
-| 每轮 token 用量 | JSONL | `~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`） |
+|数据|格式|WSL 路径|
+|---|---|---|
+|每轮 token 用量|JSONL|`~/.grok/sessions/{enc_cwd}/{session_id}/updates.jsonl`（UNC：`\\wsl.localhost\...`）|
 
 **事件口径**（t197，参考 cc-switch `session_usage_grokbuild.rs` 注释 + 实测确证）：`turn_completed` 事件（`params.update.sessionUpdate === "turn_completed"`）的 `usage` 是【该 user prompt 一轮的独立总量】，轮内跨 inference loop 累加（`modelCalls`/`numTurns` = 本轮 loop 数），下一轮从零起算。**不是进程或会话累计，勿用相邻事件差分**。字段映射：`inputTokens`→input、`outputTokens`→output、`cachedReadTokens`→cache_read、`reasoningTokens` ⊂ `outputTokens` 不计费（output 直接映射，reasoning 不单独记账）、`costUsdTicks` 不入账。`message_id` 用 `prompt_id`（实测每事件必有、稳定）；`timestamp` 为秒，×1000 换算。model 取 `usage.modelUsage` 键（单 key 直接用，多 key 排序 join `+`），token 分量用顶层 usage。`directory`/`title` 从 `{enc_cwd}` 解码派生（title=解码后 basename）。
 
@@ -96,7 +96,8 @@ src/main/core/token-stats/
 ├── claude-reader.ts       # costs.jsonl + session JSONL 读取
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
-├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + local，t426）
+├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + 本机平台源，t426/t437）
+├── win-home-discovery.ts  # WSL/Linux 宿主 Windows 用户目录自动发现（t438，注入式纯逻辑）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
@@ -130,6 +131,9 @@ interface TokenStatsConfig {
 - Win Claude Code：`{win_home}\.claude\metrics\costs.jsonl`
 - WSL Claude Code：`\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.claude\metrics\costs.jsonl`
 - OpenCode 同理。
+- env 标签（t437，替代 t308 的 `local|wsl`）：`win` = Windows 用户目录数据（win_home）；`wsl` = 经 UNC 读到的 WSL home 数据（Windows 宿主）；`linux` / `mac` = 对应宿主的 POSIX home 数据。
+
+**WSL/Linux 宿主采集 Windows 侧数据（t438，与 Windows 宿主采 `wsl` 对称）**：linux 宿主上自动发现 Windows 用户目录（`win-home-discovery.ts`：枚举 `/mnt/c/Users` 剔除系统项，取含 agent 标记目录（`.claude`/`.kimi-code`/`.grok`/`.local/share/opencode`）的用户；多候选取标记最多者（并列字典序首），零候选回退 `powershell.exe $env:USERPROFILE`（5s 超时）转换校验；s033/d049），发现结果作 `win_home_wsl`（POSIX 拼接），win 五源（claude_costs/claude_jsonl/opencode/kimi/grok）以 `env=win` 参与采集。零配置；显式 `win_home_wsl` 字符串优先，`""` = 禁用哨兵。发现失败 → win 源 `unavailable` + `path unavailable`，不抛、不影响平台源。发现结果进程内缓存；失败（null）按轮负缓存（collector：下轮重探自愈；locator：60s 时间窗节流后重探）。多候选取舍/回退等关键分支经 `on_decision` 留痕（warn 日志）。
 
 **UNC 超时**：每个文件操作（`readFile`、`access`、`stat`）单独 `Promise.race` + 5 秒超时。超时则跳过该数据源，warn 日志记录，不影响其他源采集。WSL 未运行/挂起时 UNC 会长时间阻塞（实测 30-60 秒），必须防护。
 
@@ -146,7 +150,7 @@ interface TokenStatsConfig {
 CREATE TABLE IF NOT EXISTS token_stats_buckets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
-    env TEXT NOT NULL,              -- 'win' | 'wsl'
+    env TEXT NOT NULL,              -- 'win' | 'wsl' | 'linux' | 'mac'（t437）
     bucket_date TEXT NOT NULL,      -- '2026-07-17'（按天，UTC）
     model TEXT NOT NULL,
     input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -163,7 +167,7 @@ CREATE TABLE IF NOT EXISTS token_stats_buckets (
 CREATE TABLE IF NOT EXISTS token_stats_sessions (
     id TEXT NOT NULL,               -- session_id
     source TEXT NOT NULL,           -- 'claude_code' | 'opencode' | 'kimi_code' | 'grok'
-    env TEXT NOT NULL,              -- 'win' | 'wsl'
+    env TEXT NOT NULL,              -- 'win' | 'wsl' | 'linux' | 'mac'（t437）
     model TEXT NOT NULL,
     title TEXT,
     directory TEXT,
@@ -279,6 +283,8 @@ wipe-rebuild 驱动（派生表都是从采集数据重建）：
 - v4：为 `token_stats_records` 补 `idx_records_env_ts (env, timestamp DESC)` 复合索引，消除 `query_records` 的 env+timestamp 窗口查询全表扫描。`CREATE INDEX IF NOT EXISTS`，`PRAGMA user_version = 4`。fresh DB 由 INIT_SQL 直接建索引，此迁移仅 backfill 已存在库。
 - v5：补 `idx_records_ts (timestamp)` 与 `idx_records_session_ts (source, env, session_id, timestamp DESC)`，支撑 dashboard 窗口聚合与窗口内最新 title/directory 子查询。
 - v6：建 t192 三张表（`token_stats_hour_rollup` / `token_stats_data_version` / `token_stats_meta`），DDL 与 INIT_SQL 共用同一 `ROLLUP_INIT_SQL` 常量防漂移。聚合表保持空 + 未就绪；store 打开后由 manager 后台回填，回填前 dashboard 走 records 路径。
+- v7（t308，历史）：`env='win'` 行改写为 `env='local'`；该命名已被 v8 逆转废止。
+- v8（t437）：env 枚举废除 `local`，统一 `win|wsl|linux|mac`。`env IN ('local','win')` 行按 directory 分类（盘符形→win、`/Users/`→mac、其余 POSIX→linux、NULL/daily 孤儿→宿主 platform 默认），同主键碰撞 merge（token MAX、started_at MIN、ended_at MAX）；buckets 由迁移后 daily 整体重建；hour_rollup 清空置 `hour_rollup_ready=0` 走异步回填。`PRAGMA user_version = 8`。
 
 collector 启动时会做 full rescan，wipe 后自然重建。
 
@@ -345,12 +351,12 @@ interface TokenStatsUpdate {
 
 只读查询端点，均 GET，返回 JSON。
 
-| 端点               | 查询参数                                                        | 返回                                                                                   | 数据源表               |
-| ------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------- |
-| `GET /v1/buckets`  | `source?`, `env?`, `model?`, `from?`, `to?`                     | `{ buckets: TokenStatsBucket[] }`（按天聚合，用于趋势图）                              | `token_stats_buckets`  |
-| `GET /v1/sessions` | `source?`, `env?`, `model?`, `q?`, `sort?`, `limit?`, `offset?` | `{ sessions: TokenStatsSession[], total: number }`（用于 Session 列表）                | `token_stats_sessions` |
-| `GET /v1/records`  | `session_id`, `source?`, `env?`, `start?`, `end?`, `limit?`     | `{ records: AgentSessionUsageRecord[] }`（单 session 逐次调用时间线）                  | `token_stats_records`  |
-| `GET /v1/status`   | —                                                               | `{ last_updated: number, envs: string[], sources: string[], counts: {...} }`（新鲜度） | 聚合多表               |
+|端点|查询参数|返回|数据源表|
+|---|---|---|---|
+|`GET /v1/buckets`|`source?`, `env?`, `model?`, `from?`, `to?`|`{ buckets: TokenStatsBucket[] }`（按天聚合，用于趋势图）|`token_stats_buckets`|
+|`GET /v1/sessions`|`source?`, `env?`, `model?`, `q?`, `sort?`, `limit?`, `offset?`|`{ sessions: TokenStatsSession[], total: number }`（用于 Session 列表）|`token_stats_sessions`|
+|`GET /v1/records`|`session_id`, `source?`, `env?`, `start?`, `end?`, `limit?`|`{ records: AgentSessionUsageRecord[] }`（单 session 逐次调用时间线）|`token_stats_records`|
+|`GET /v1/status`|—|`{ last_updated: number, envs: string[], sources: string[], counts: {...} }`（新鲜度）|聚合多表|
 
 约束：
 
@@ -364,15 +370,15 @@ interface TokenStatsUpdate {
 
 ## 8. 涉及文件清单（数据采集层）
 
-| 文件                                             | 改动                                                                                    | Task     |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------- | -------- |
-| `scripts/token-stats-spike.ts`                   | 新建：Phase 0 验证脚本（一次性）                                                        | 0        |
-| `src/shared/types/token-stats.ts`                | 新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`）         | 1.1      |
-| `src/main/core/token-stats/token-stats-store.ts` | 新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移         | 1.2      |
-| `src/main/core/token-stats/claude-reader.ts`     | 新建：costs.jsonl + session JSONL 解析                                                  | 2.1, 2.2 |
-| `src/main/core/token-stats/opencode-reader.ts`   | 新建：opencode.db 只读查询                                                              | 3.1      |
-| `src/main/core/token-stats/kimi-reader.ts`       | 新建：Kimi Code wire.jsonl + session_index 解析                                         | 3.2      |
-| `src/main/core/token-stats/collector.ts`         | 新建：utilityProcess 子进程入口，定时采集循环，内联按模型/天聚合；4.2 扩展 WSL 路径合并 | 4.1, 4.2 |
+|文件|改动|Task|
+|---|---|---|
+|`scripts/token-stats-spike.ts`|新建：Phase 0 验证脚本（一次性）|0|
+|`src/shared/types/token-stats.ts`|新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`）|1.1|
+|`src/main/core/token-stats/token-stats-store.ts`|新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移|1.2|
+|`src/main/core/token-stats/claude-reader.ts`|新建：costs.jsonl + session JSONL 解析|2.1, 2.2|
+|`src/main/core/token-stats/opencode-reader.ts`|新建：opencode.db 只读查询|3.1|
+|`src/main/core/token-stats/kimi-reader.ts`|新建：Kimi Code wire.jsonl + session_index 解析|3.2|
+|`src/main/core/token-stats/collector.ts`|新建：utilityProcess 子进程入口，定时采集循环，内联按模型/天聚合；4.2 扩展 WSL 路径合并|4.1, 4.2|
 
 `manager.ts` / `index.ts` / IPC / preload / window / 视图等见 `-desktop` 与 `-ui`。
 
@@ -387,13 +393,13 @@ UI 层、桌面层的「不做」分别见 `-ui` 与 `-desktop`。
 
 ## 10. 成功标准（API 验证）
 
-| #   | 标准                                                                             | 验证方式              |
-| --- | -------------------------------------------------------------------------------- | --------------------- |
-| 1   | Claude Code Win 端 costs.jsonl 正确解析，session 数与 `jq` 手动统计一致          | 自动化测试 + 手工对比 |
-| 2   | OpenCode Win 端 session 表正确读取，按模型聚合 token 数与 `sqlite3` 手动查询一致 | 自动化测试            |
-| 3   | WSL 数据通过 UNC 路径正确读取                                                    | 手工验证              |
-| 7   | 增量更新不重复计数（重启后从零重建，INSERT OR REPLACE 去重）                     | 自动化测试            |
-| 8   | **源数据零修改**——采集前后 diff 源文件，内容不变                                 | 自动化测试            |
+|#|标准|验证方式|
+|---|---|---|
+|1|Claude Code Win 端 costs.jsonl 正确解析，session 数与 `jq` 手动统计一致|自动化测试 + 手工对比|
+|2|OpenCode Win 端 session 表正确读取，按模型聚合 token 数与 `sqlite3` 手动查询一致|自动化测试|
+|3|WSL 数据通过 UNC 路径正确读取|手工验证|
+|7|增量更新不重复计数（重启后从零重建，INSERT OR REPLACE 去重）|自动化测试|
+|8|**源数据零修改**——采集前后 diff 源文件，内容不变|自动化测试|
 
 桌面进程 (#4 #9 #10)、UI (#5 #6) 的成功标准分别见 `-desktop` / `-ui`。
 
@@ -405,16 +411,16 @@ UI 层、桌面层的「不做」分别见 `-ui` 与 `-desktop`。
 
 **验证项**：
 
-| #   | 验证                                 | 通过标准                                                                                               | 不可行时的报告内容                      |
-| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------- |
-| 0.1 | Win costs.jsonl 可读、JSONL 解析成功 | 至少 1 行含 `session_id` + `model` + `input_tokens` + `output_tokens`                                  | 文件不存在 / 格式不符 / 字段缺失        |
-| 0.2 | Win costs.jsonl session 聚合         | 按 `session_id` 分组后，取最后一条，至少 1 个非 default session 含非零 token                           | 全部为 default/unknown 零值记录         |
-| 0.3 | Win session JSONL 可读               | 至少 1 个 `*.jsonl` 文件含 `type: "assistant"` + `message.usage` 记录                                  | 目录为空 / 格式不符 / 无 usage 字段     |
-| 0.4 | Win opencode.db 只读打开             | `new Database(path, { readonly: true })` 成功，`SELECT COUNT(*) FROM session` 返回 > 0                 | 文件不存在 / 版本不兼容 / 表结构不符    |
-| 0.5 | Win opencode.db session 字段         | 查询 `id, json_extract(model,'$.id'), tokens_input, tokens_output, title, time_created`，至少 1 行有效 | model JSON 结构不符预期 / tokens 全为 0 |
-| 0.6 | WSL UNC 路径可达                     | `\\wsl.localhost\Ubuntu-22.04\home\testuser\.claude\metrics\costs.jsonl` 可 `fs.access`                   | WSL 未运行 / UNC 路径不可达 / 权限不足  |
-| 0.7 | WSL opencode.db 只读查询             | 同 0.4/0.5，路径为 UNC                                                                                 | 同上                                    |
-| 0.8 | Claude Code session JSONL 去重       | 按 `(timestamp, input_tokens, output_tokens)` 去重后，数据量合理（非爆炸式重复）                       | 去重率 < 10%（说明字段组合不唯一）      |
+|#|验证|通过标准|不可行时的报告内容|
+|---|---|---|---|
+|0.1|Win costs.jsonl 可读、JSONL 解析成功|至少 1 行含 `session_id` + `model` + `input_tokens` + `output_tokens`|文件不存在 / 格式不符 / 字段缺失|
+|0.2|Win costs.jsonl session 聚合|按 `session_id` 分组后，取最后一条，至少 1 个非 default session 含非零 token|全部为 default/unknown 零值记录|
+|0.3|Win session JSONL 可读|至少 1 个 `*.jsonl` 文件含 `type: "assistant"` + `message.usage` 记录|目录为空 / 格式不符 / 无 usage 字段|
+|0.4|Win opencode.db 只读打开|`new Database(path, { readonly: true })` 成功，`SELECT COUNT(*) FROM session` 返回 > 0|文件不存在 / 版本不兼容 / 表结构不符|
+|0.5|Win opencode.db session 字段|查询 `id, json_extract(model,'$.id'), tokens_input, tokens_output, title, time_created`，至少 1 行有效|model JSON 结构不符预期 / tokens 全为 0|
+|0.6|WSL UNC 路径可达|`\\wsl.localhost\Ubuntu-22.04\home\testuser\.claude\metrics\costs.jsonl` 可 `fs.access`|WSL 未运行 / UNC 路径不可达 / 权限不足|
+|0.7|WSL opencode.db 只读查询|同 0.4/0.5，路径为 UNC|同上|
+|0.8|Claude Code session JSONL 去重|按 `(timestamp, input_tokens, output_tokens)` 去重后，数据量合理（非爆炸式重复）|去重率 < 10%（说明字段组合不唯一）|
 
 **执行方式**：写一个独立 spike 脚本 `scripts/token-stats-spike.ts`（`npx tsx` 运行），不做 UI、不做子进程、不做表。只读源文件、打印关键字段、输出统计摘要。输出示例：
 
@@ -445,31 +451,31 @@ opencode.db: ...行
 
 ### Phase 1: 数据层
 
-| Task | Commit 前缀                                | 内容                                                                                                                                                                                 | 前置 |
-| ---- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- |
-| 1.1  | `feat(token-stats): add shared types`      | `src/shared/types/token-stats.ts` — `TokenStatsBucket`、`TokenStatsSession`、`TokenStatsUpdate`、`IncrementalState`、`TokenStatsConfig` 接口 + Zod schema                            | —    |
-| 1.2  | `feat(token-stats): add token stats store` | `src/main/core/token-stats/token-stats-store.ts` — 独立模块，复用 `usage.db` 路径，`CREATE TABLE IF NOT EXISTS` 建表 + `INSERT OR REPLACE` / 查询方法。不侵入 `observation-store.ts` | 1.1  |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|1.1|`feat(token-stats): add shared types`|`src/shared/types/token-stats.ts` — `TokenStatsBucket`、`TokenStatsSession`、`TokenStatsUpdate`、`IncrementalState`、`TokenStatsConfig` 接口 + Zod schema|—|
+|1.2|`feat(token-stats): add token stats store`|`src/main/core/token-stats/token-stats-store.ts` — 独立模块，复用 `usage.db` 路径，`CREATE TABLE IF NOT EXISTS` 建表 + `INSERT OR REPLACE` / 查询方法。不侵入 `observation-store.ts`|1.1|
 
 ### Phase 2: Claude Code reader
 
-| Task | Commit 前缀                                          | 内容                                                                                                                                            | 前置 |
-| ---- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 2.1  | `feat(token-stats): add claude costs.jsonl reader`   | `src/main/core/token-stats/claude-reader.ts` — `read_costs_jsonl(path, offset)` 解析 + session 聚合 + 增量 offset 返回。单元测试：fixture JSONL | 1.1  |
-| 2.2  | `feat(token-stats): add claude session jsonl reader` | `claude-reader.ts` 扩展 — `read_session_jsonls(dir, mtime_filter)` 遍历 + 解析 + 去重。单元测试                                                 | 2.1  |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|2.1|`feat(token-stats): add claude costs.jsonl reader`|`src/main/core/token-stats/claude-reader.ts` — `read_costs_jsonl(path, offset)` 解析 + session 聚合 + 增量 offset 返回。单元测试：fixture JSONL|1.1|
+|2.2|`feat(token-stats): add claude session jsonl reader`|`claude-reader.ts` 扩展 — `read_session_jsonls(dir, mtime_filter)` 遍历 + 解析 + 去重。单元测试|2.1|
 
 ### Phase 3: OpenCode reader / Kimi reader
 
-| Task | Commit 前缀                                     | 内容                                                                                                                                      | 前置 |
-| ---- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 3.1  | `feat(token-stats): add opencode sqlite reader` | `src/main/core/token-stats/opencode-reader.ts` — `read_sessions(db_path, max_updated)` 只读查询 + 模型提取。单元测试：内存 SQLite fixture | 1.1  |
-| 3.2  | `feat(token-stats): add kimi readers`           | `src/main/core/token-stats/kimi-reader.ts` — wire.jsonl 解析 + session_index 映射。单元测试                                               | 1.1  |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|3.1|`feat(token-stats): add opencode sqlite reader`|`src/main/core/token-stats/opencode-reader.ts` — `read_sessions(db_path, max_updated)` 只读查询 + 模型提取。单元测试：内存 SQLite fixture|1.1|
+|3.2|`feat(token-stats): add kimi readers`|`src/main/core/token-stats/kimi-reader.ts` — wire.jsonl 解析 + session_index 映射。单元测试|1.1|
 
 ### Phase 4（采集管道，部分）
 
-| Task | Commit 前缀                                  | 内容                                                                                                                                                                                                                               | 前置     |
-| ---- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 4.1  | `feat(token-stats): add collector`           | `src/main/core/token-stats/collector.ts` — `child_process.fork` 入口，`setInterval` 按配置间隔（默认 10 分钟）循环，调用 readers 后**内联**按 `(source, env, bucket_date, model)` 聚合，`process.send()` 结果。单元测试 + 集成测试 | 2.1, 3.1 |
-| 4.2  | `feat(token-stats): add wsl path resolution` | `collector.ts` 扩展 — 从 config 读 `wsl_distro` + `wsl_user`，拼接 UNC 路径，合并 Win + WSL。配置 schema 新增字段。集成测试                                                                                                        | 4.1      |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|4.1|`feat(token-stats): add collector`|`src/main/core/token-stats/collector.ts` — `child_process.fork` 入口，`setInterval` 按配置间隔（默认 10 分钟）循环，调用 readers 后**内联**按 `(source, env, bucket_date, model)` 聚合，`process.send()` 结果。单元测试 + 集成测试|2.1, 3.1|
+|4.2|`feat(token-stats): add wsl path resolution`|`collector.ts` 扩展 — 从 config 读 `wsl_distro` + `wsl_user`，拼接 UNC 路径，合并 Win + WSL。配置 schema 新增字段。集成测试|4.1|
 
 Task 4.3（manager）见 `-desktop`。
 
