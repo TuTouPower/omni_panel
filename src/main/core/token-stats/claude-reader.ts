@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { normalize_user_display_text } from "../session-history/normalize_user_text";
 import { calendar_date_of, num } from "./reader-utils";
 import type {
     AgentSessionUsageRecord,
@@ -333,7 +334,13 @@ function parse_session_file(content: string, env: TokenStatsEnv): SessionFileFac
         } else if (type === "user" && first_user_text === null) {
             const text = extract_user_text(rec["message"]);
             if (text) {
-                first_user_text = truncate_title(text);
+                // t436: 跳过信封 / isMeta / interrupted，与会话历史 user 归一一致。
+                const norm = normalize_user_display_text(text, {
+                    is_meta: rec["isMeta"] === true,
+                });
+                if (norm.keep) {
+                    first_user_text = truncate_title(norm.text);
+                }
             }
         } else if (type === "assistant") {
             const msg = rec["message"] as Record<string, unknown> | undefined;

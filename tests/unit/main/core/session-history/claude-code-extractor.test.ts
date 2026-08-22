@@ -226,3 +226,71 @@ describe("claude_code extractor (t209)", () => {
         expect(extract_claude_code_first_user(missing)).toBe("");
     });
 });
+
+
+describe("claude_code extractor envelopes (t436)", () => {
+    const env_fixture = join(
+        __dirname,
+        "../../../../fixtures/session-history/claude_code/envelopes.jsonl",
+    );
+
+    it("AC-002: drops isMeta/stdout/interrupted; unwraps slash; keeps plain", () => {
+        const { messages } = extract_claude_code(env_fixture);
+        expect(messages.map((m) => m.id)).toEqual(["slash1", "plain1", "a1"]);
+        expect(messages.map((m) => m.role)).toEqual(["user", "user", "assistant"]);
+        expect(messages[0]?.text).toBe("/task-create 自定义命令");
+        expect(messages[1]?.text).toBe("后续真人输入");
+        expect(messages[2]?.text).toBe("助手回复");
+        expect(extract_claude_code_first_user(env_fixture)).toBe("/task-create 自定义命令");
+    });
+
+    it("AC-002 incremental: isMeta/interrupted empty; plain append matches full tail", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-env-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            copyFileSync(env_fixture, tmp_file);
+            const full = extract_claude_code(tmp_file);
+            if (full.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "user",
+                    uuid: "meta2",
+                    isMeta: true,
+                    message: { role: "user", content: "skill dump" },
+                }) + "\n",
+            );
+            const inc1 = extract_claude_code_incremental(tmp_file, full.cursor);
+            expect(inc1.messages).toEqual([]);
+            if (inc1.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "user",
+                    uuid: "intr2",
+                    message: { role: "user", content: "[Request interrupted by user]" },
+                }) + "\n",
+            );
+            const inc2 = extract_claude_code_incremental(tmp_file, inc1.cursor);
+            expect(inc2.messages).toEqual([]);
+            if (inc2.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "user",
+                    uuid: "plain2",
+                    message: { role: "user", content: "又一问" },
+                    timestamp: "2026-08-05T11:00:00.000Z",
+                }) + "\n",
+            );
+            const inc3 = extract_claude_code_incremental(tmp_file, inc2.cursor);
+            expect(inc3.messages).toHaveLength(1);
+            expect(inc3.messages[0]?.id).toBe("plain2");
+            expect(inc3.messages[0]?.text).toBe("又一问");
+            const re_full = extract_claude_code(tmp_file);
+            expect(inc3.messages).toEqual(re_full.messages.slice(-1));
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+});

@@ -12,6 +12,7 @@ import Database from "better-sqlite3";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
+import { normalize_user_display_text } from "./normalize_user_text";
 
 /** better-sqlite3 原生 binding 路径，兼容打包与源码运行两种布局。 */
 function native_binding_path(): string | undefined {
@@ -84,8 +85,12 @@ WHERE p.session_id = ?
 ORDER BY p.rowid ASC
 `;
 
+/** t436: 信封-only user 可能占前几行，取一批再经 row_to_message 归一化筛首条可保留。 */
 const FIRST_USER_PARTS_QUERY = `
-SELECT p.data AS data,
+SELECT p.rowid AS rowid,
+       p.id AS id,
+       p.time_created AS time_created,
+       p.data AS data,
        m.data AS message_data
 FROM part p
 JOIN message m ON m.id = p.message_id
@@ -93,7 +98,7 @@ WHERE p.session_id = ?
   AND json_extract(p.data, '$.type') = 'text'
   AND json_extract(m.data, '$.role') = 'user'
 ORDER BY p.rowid ASC
-LIMIT 1
+LIMIT 50
 `;
 
 function row_to_message(row: PartRow): HistoryMessage | null {
@@ -109,10 +114,16 @@ function row_to_message(row: PartRow): HistoryMessage | null {
     if (role !== "user" && role !== "assistant") return null;
     const text = part_data["text"];
     if (typeof text !== "string" || text === "") return null;
+    let display_text = text;
+    if (role === "user") {
+        const norm = normalize_user_display_text(text);
+        if (!norm.keep) return null;
+        display_text = norm.text;
+    }
     return {
         id: row.id,
         role,
-        text,
+        text: display_text,
         timestamp: typeof row.time_created === "number" ? row.time_created : null,
     };
 }
@@ -142,13 +153,9 @@ export function extract_opencode_first_user(db_path: string, session_id: string)
     let db: Database.Database | undefined;
     try {
         db = open_db(db_path);
-        interface FirstUserRow {
-            data: string;
-            message_data: string;
-        }
-        const rows = db.prepare(FIRST_USER_PARTS_QUERY).all(session_id) as FirstUserRow[];
+        const rows = db.prepare(FIRST_USER_PARTS_QUERY).all(session_id) as PartRow[];
         for (const row of rows) {
-            const msg = row_to_message(row as PartRow);
+            const msg = row_to_message(row);
             if (msg?.role === "user") {
                 return msg.text;
             }

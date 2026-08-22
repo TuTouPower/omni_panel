@@ -246,3 +246,45 @@ describe("grok extractor (t209)", () => {
         expect(extract_grok_first_user(missing)).toBe("");
     });
 });
+
+
+describe("grok extractor envelopes (t436)", () => {
+    const env_fixture = join(__dirname, "../../../../fixtures/session-history/grok/envelopes.jsonl");
+
+    it("AC-001: drops envelopes, keeps user_query inners, first_user is first query", () => {
+        const { messages } = extract_grok(env_fixture);
+        expect(messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
+        expect(messages.map((m) => m.text)).toEqual([
+            "real question one",
+            "answer one",
+            "real question two",
+        ]);
+        expect(messages.map((m) => m.id)).toEqual(["grok:0", "grok:1", "grok:2"]);
+        expect(extract_grok_first_user(env_fixture)).toBe("real question one");
+    });
+
+    it("AC-001 incremental: reminder append empty; query append matches full tail", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "grok-env-"));
+        const tmp_file = join(tmp, "chat_history.jsonl");
+        try {
+            copyFileSync(env_fixture, tmp_file);
+            const full = extract_grok(tmp_file);
+            if (full.cursor === null) throw new Error("expected cursor");
+            appendFileSync(
+                tmp_file,
+                '{"type":"user","content":"<system-reminder>more skills</system-reminder>"}\n',
+            );
+            const inc_empty = extract_grok_incremental(tmp_file, full.cursor);
+            expect(inc_empty.messages).toEqual([]);
+            if (inc_empty.cursor === null) throw new Error("expected cursor");
+            appendFileSync(tmp_file, '{"type":"user","content":"<user_query>third</user_query>"}\n');
+            const inc = extract_grok_incremental(tmp_file, inc_empty.cursor);
+            expect(inc.messages).toHaveLength(1);
+            expect(inc.messages[0]?.text).toBe("third");
+            const re_full = extract_grok(tmp_file);
+            expect(inc.messages).toEqual(re_full.messages.slice(-1));
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+});

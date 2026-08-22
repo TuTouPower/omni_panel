@@ -1,11 +1,11 @@
-# d017 四端会话 transcript 正文消息来源与字段路径（2026-08-05）
+# d017 四端会话 transcript 正文消息来源与字段路径（2026-08-05；t436 信封补丁 2026-08-23）
 
-- 来源：s015（t209 SPIKE）
+- 来源：s015（t209 SPIKE）；user 信封形态 p203 / t436
 - 结论：四端（claude_code/opencode/kimi_code/grok）会话正文消息的字段路径（实测本机/WSL 真实数据）：
-    - claude_code：`~/.claude/projects/<proj>/<sess>.jsonl`，复用现有 reader + 决策 2 过滤（留 user/assistant 文本，剔 tool_use/tool_result/system/thinking）。
-    - opencode：`~/.local/share/opencode/opencode.db` SQLite，`message.data.role` + `part.data{type:"text",text}`（过滤 tool/reasoning/step-start/step-finish/patch/compaction）；时间 `part.time_created`。
-    - kimi_code：`~/.kimi-code/sessions/<wd>/<sess>/agents/main/wire.jsonl`，`context.append_message.message.{role,content[type=text].text}`（旧/子 agent 路径）+ `context.append_loop_event → event.type=content.part → part.type=text`（当前主 agent 的 assistant 正文路径，t425）+ 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。t425 实测：主 agent 的 append_message 现以 user 为主，assistant 兼容保留（抽样 40 wire：38 主路径 content.part text，2 子 agent 仍 append_message assistant）。
-    - grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），不是 `updates.jsonl`**（后者只有 turn_completed usage 元数据，现有 token-stats reader 用它）。每行 `{type:"user|assistant|system|reasoning|tool_result", content}`（字符串或 `[{type:"text",text}]`），**无顶层 timestamp**（按行序）。
-- 证据：s015 真实数据采样脚本（`.scratch/`，gitignore），opencode part.type 分布、kimi wire.jsonl 事件类型、grok chat_history.jsonl 45 行 9 parse_error 边界。
-- 影响：t209 提取器按上述路径实现；grok 时间戳为 null（chat_history.jsonl 无时间字段），窗口按行序展示；grok 提取器须读 chat_history.jsonl 而非 updates.jsonl，与现有 token-stats reader（读 updates.jsonl）是两个独立文件。
+    - claude_code：`~/.claude/projects/<proj>/<sess>.jsonl`，复用现有 reader + 决策 2 过滤（留 user/assistant 文本，剔 tool_use/tool_result/system/thinking）。user 展示另剔 `isMeta`、local-command、`[Request interrupted by user]`；slash `<command-name>`/`<command-args>` 展开为 `/name args`（近 80 主 transcript 无 `<user_query>`）。
+    - opencode：`~/.local/share/opencode/opencode.db` SQLite，`message.data.role` + `part.data{type:"text",text}`（过滤 tool/reasoning/step-start/step-finish/patch/compaction）；时间 `part.time_created`。user text 可含编辑器注入纯 `<system-reminder>`（opened file / selected #N），展示层丢弃。
+    - kimi_code：`~/.kimi-code/sessions/<wd>/<sess>/agents/main/wire.jsonl`，`context.append_message.message.{role,content[type=text].text}`（旧/子 agent 路径）+ `context.append_loop_event → event.type=content.part → part.type=text`（当前主 agent 的 assistant 正文路径，t425）+ 顶层 `time`；`turn.prompt` 与 append_message 重复 user 输入，取 append_message 去重。t425 实测：主 agent 的 append_message 现以 user 为主，assistant 兼容保留（抽样 40 wire：38 主路径 content.part text，2 子 agent 仍 append_message assistant）。user 另有大量单独 reminder-only（interrupted / TodoList），展示丢弃（t436；25 main wire 约 45%）。
+    - grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），不是 `updates.jsonl`**（后者只有 turn_completed usage 元数据，现有 token-stats reader 用它）。每行 `{type:"user|assistant|system|reasoning|tool_result", content}`（字符串或 `[{type:"text",text}]`），**无顶层 timestamp**（按行序）。user 几乎全是信封：`<user_info>`/`<git_status>`/`<rules>`/`<user_rules>`、纯 `<system-reminder>`、真实提问在 `<user_query>`（可与 skill_information 同条）；展示只留 query inner（t436）。
+- 证据：s015 真实数据采样脚本（`.scratch/`，gitignore），opencode part.type 分布、kimi wire.jsonl 事件类型、grok chat_history.jsonl 45 行 9 parse_error 边界；p203 `.scratch/task_bug_session_msg_roles/sample_extract.py` 四端信封抽样。
+- 影响：t209 提取器按上述路径实现；t436 共享 `normalize_user_display_text` 归一 user 后再入 `HistoryMessage` / Claude·Kimi 标题；grok 时间戳为 null（chat_history.jsonl 无时间字段），窗口按行序展示；grok 提取器须读 chat_history.jsonl 而非 updates.jsonl，与现有 token-stats reader（读 updates.jsonl）是两个独立文件。
 - 现状：有效

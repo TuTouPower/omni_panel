@@ -17,6 +17,7 @@ import { readFileSync, statSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
 import { read_head } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
+import { normalize_user_display_text } from "./normalize_user_text";
 
 function record_to_message(
     rec: Record<string, unknown>,
@@ -26,10 +27,16 @@ function record_to_message(
     if (type !== "user" && type !== "assistant") return null;
     const text = pick_text_from_content(rec["content"]);
     if (text === null || text === "") return null;
+    let display_text = text;
+    if (type === "user") {
+        const norm = normalize_user_display_text(text);
+        if (!norm.keep) return null;
+        display_text = norm.text;
+    }
     return {
         id: `grok:${String(line_index)}`,
         role: type,
-        text,
+        text: display_text,
         timestamp: null,
     };
 }

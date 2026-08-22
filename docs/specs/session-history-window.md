@@ -25,7 +25,7 @@
 
 ## 消息渲染与选择（决策 8/11/13）
 
-- 仅显示主 transcript 的 user/assistant 文本；tool/system/thinking 不显示。
+- 仅显示主 transcript 的 user/assistant 文本；tool/system/thinking 不显示。决策 2 的「user 文本」指经信封归一后的用户话（t436）：`<user_query>` 取 inner、丢纯 `<system-reminder>` / `isMeta` / local-command / 上下文信封；Claude slash XML 展开为 `/cmd args`。assistant 不套用户信封规则。
 - 纯文本 + `<pre>` 保留换行缩进，零新依赖。时间戳显示到分钟、悬停显示完整时间；grok 无时间不渲染。
 - hover checkbox 点选，跨栏选择；选中集按 `loc_key|message_id` 存 renderer，跨刷新保留。
 - 栏头「已选 N 条 / 全选本栏 / 清除本栏」；复制按钮在顶部工具栏（全局，显示总选中数）。
