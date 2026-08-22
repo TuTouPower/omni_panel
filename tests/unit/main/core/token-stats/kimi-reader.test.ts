@@ -269,6 +269,30 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(rc.sessions.find((s) => s.id === "session_c")!.title).toBeNull();
     });
 
+
+    it("t436 title: skips reminder-only then uses next user; all-reminder falls back basename", () => {
+        const idx = write_index(tmp, [{ sessionId: "session_rem", workDir: "D:/Kar/Code/dream_skin" }]);
+        const file = write_wire(sessions_dir, "wd_rem", "session_rem", [
+            user_msg("<system-reminder>interrupted</system-reminder>"),
+            user_msg("fix the login bug"),
+            usage_record({ time: T0 }),
+        ]);
+        touch(file, T0);
+        const r = scan_kimi_wire_jsonls(sessions_dir, ENV, idx, create_kimi_scan_state());
+        expect(r.sessions.find((s) => s.id === "session_rem")!.title).toBe("fix the login bug");
+
+        const idx2 = write_index(tmp, [
+            { sessionId: "session_rem_only", workDir: "D:/Kar/Code/dream_skin" },
+        ]);
+        const file2 = write_wire(sessions_dir, "wd_rem_only", "session_rem_only", [
+            user_msg("<system-reminder>only reminder</system-reminder>"),
+            usage_record({ time: T0 }),
+        ]);
+        touch(file2, T0);
+        const r2 = scan_kimi_wire_jsonls(sessions_dir, ENV, idx2, create_kimi_scan_state());
+        expect(r2.sessions.find((s) => s.id === "session_rem_only")!.title).toBe("dream_skin");
+    });
+
     it("skips unchanged files via mtime and re-merges on change", () => {
         const index = write_index(tmp, [{ sessionId: "session_m", workDir: "D:/p" }]);
         const file = write_wire(sessions_dir, "wd_x", "session_m", [

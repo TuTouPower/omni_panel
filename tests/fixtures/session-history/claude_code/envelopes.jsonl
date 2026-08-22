@@ -1,0 +1,6 @@
+{"type":"user","uuid":"meta1","isMeta":true,"message":{"role":"user","content":[{"type":"text","text":"Base directory for this skill: /x\n# task-create\nbody"}]},"timestamp":"2026-08-05T10:00:00.000Z"}
+{"type":"user","uuid":"stdout1","message":{"role":"user","content":[{"type":"text","text":"<local-command-stdout>Set model to default</local-command-stdout>"}]},"timestamp":"2026-08-05T10:00:01.000Z"}
+{"type":"user","uuid":"intr1","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"timestamp":"2026-08-05T10:00:02.000Z"}
+{"type":"user","uuid":"slash1","message":{"role":"user","content":[{"type":"text","text":"<command-message>task-create</command-message>\n<command-name>/task-create</command-name>\n<command-args>自定义命令</command-args>"}]},"timestamp":"2026-08-05T10:00:03.000Z"}
+{"type":"user","uuid":"plain1","message":{"role":"user","content":[{"type":"text","text":"后续真人输入"}]},"timestamp":"2026-08-05T10:00:04.000Z"}
+{"type":"assistant","uuid":"a1","message":{"role":"assistant","content":[{"type":"text","text":"助手回复"}]},"timestamp":"2026-08-05T10:00:05.000Z"}

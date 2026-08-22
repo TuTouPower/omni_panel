@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { normalize_user_display_text } from "../session-history/normalize_user_text";
 import { calendar_date_of, num } from "./reader-utils";
 import type {
     AgentSessionUsageRecord,
@@ -190,7 +191,11 @@ function parse_wire_file(
             if (role === "user") {
                 const text = extract_user_text(message);
                 if (text) {
-                    title = truncate_title(text);
+                    // t436: 跳过 reminder-only 等信封，与会话历史 user 归一一致。
+                    const norm = normalize_user_display_text(text);
+                    if (norm.keep) {
+                        title = truncate_title(norm.text);
+                    }
                 }
             }
         }

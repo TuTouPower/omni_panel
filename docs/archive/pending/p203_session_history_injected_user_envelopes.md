@@ -38,4 +38,4 @@
         - OpenCode fixture：file-open reminder text part 在 `hi` 之前；断言 first_user=`hi`，reminder 不进列表。
         - 增量路径与全量同一归一化（追加 reminder 行不出现新用户气泡；追加 user_query 行 id 稳定）。
 - 线索：`.scratch/task_bug_session_msg_roles/repro_notes.md`；`python3 .scratch/task_bug_session_msg_roles/sample_extract.py`
-- 处理：未开
+- 处理：t436
