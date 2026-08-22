@@ -340,6 +340,150 @@ function safe_int(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
 }
 
+// --- Migration v8 helpers (t437: env `local`/`win` → platform labels) ---
+
+/** t437: legacy `local`/`win` 行的目标 env（纯函数，可单测）。
+ *  directory：盘符形（`D:\…`/`D:/…`）→ win；`/Users/` 前缀 → mac；其他非
+ *  NULL → linux；NULL → 宿主默认。 */
+export function legacy_env_from_directory(
+    directory: string | null,
+    host_default: "win" | "mac" | "linux",
+): "win" | "mac" | "linux" {
+    if (directory === null) return host_default;
+    if (/^[A-Za-z]:[\\/]/.test(directory)) return "win";
+    if (directory.startsWith("/Users/")) return "mac";
+    return "linux";
+}
+
+/** 宿主默认 env（迁移中 directory 不可判定的行用）。 */
+function host_default_env(): "win" | "mac" | "linux" {
+    if (process.platform === "win32") return "win";
+    if (process.platform === "darwin") return "mac";
+    return "linux";
+}
+
+type LegacyRow = Record<string, unknown>;
+
+/**
+ * t437: 逐表迁移 env IN ('local','win') 的行。按 classify 算目标 env 后分组
+ * （主键含新 env），同组多行（理论：pre-t308 `win` 行与 `local` 行判到同一
+ * 目标）merge——token 计数/calls 取 MAX、started_at 取 MIN、ended_at 取 MAX、
+ * 其余字段首个非 NULL 优先、updated_at 取 MAX——然后整体 DELETE 源行再 INSERT，
+ * 天然规避逐行 UPDATE 的 PK 冲突。
+ */
+function migrate_legacy_table(
+    db: Database.Database,
+    table: string,
+    options: {
+        pk: readonly string[];
+        classify: (row: LegacyRow) => "win" | "mac" | "linux";
+        token_cols: readonly string[];
+        started_at_col?: string;
+        ended_at_col?: string;
+    },
+): void {
+    const rows = db
+        .prepare(`SELECT * FROM ${table} WHERE env IN ('local','win')`)
+        .all() as LegacyRow[];
+    if (rows.length === 0) return;
+
+    const merged = new Map<string, LegacyRow>();
+    for (const row of rows) {
+        const target_env = options.classify(row);
+        const key = options.pk
+            .map((col) =>
+                col === "env" ? target_env : typeof row[col] === "string" ? row[col] : "",
+            )
+            .join("\u0000");
+        const existing = merged.get(key);
+        if (existing === undefined) {
+            merged.set(key, { ...row, env: target_env });
+            continue;
+        }
+        for (const col of options.token_cols) {
+            existing[col] = Math.max(Number(existing[col] ?? 0), Number(row[col] ?? 0));
+        }
+        if (options.started_at_col) {
+            existing[options.started_at_col] = Math.min(
+                Number(existing[options.started_at_col] ?? Number.MAX_SAFE_INTEGER),
+                Number(row[options.started_at_col] ?? Number.MAX_SAFE_INTEGER),
+            );
+        }
+        if (options.ended_at_col) {
+            existing[options.ended_at_col] = Math.max(
+                Number(existing[options.ended_at_col] ?? 0),
+                Number(row[options.ended_at_col] ?? 0),
+            );
+        }
+        for (const [col, value] of Object.entries(row)) {
+            existing[col] ??= value;
+        }
+        existing["updated_at"] = Math.max(
+            Number(existing["updated_at"] ?? 0),
+            Number(row["updated_at"] ?? 0),
+        );
+    }
+
+    const columns = Object.keys(merged.values().next().value ?? {});
+    if (columns.length === 0) return;
+    const insert = db.prepare(
+        `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+    );
+    db.prepare(`DELETE FROM ${table} WHERE env IN ('local','win')`).run();
+    for (const row of merged.values()) {
+        insert.run(columns.map((col) => row[col]));
+    }
+}
+
+/** t437: v8 迁移主体。daily 先于 sessions 迁移（daily 无 directory，按 (id,
+ *  source) join 迁移前 sessions 取 directory；join 不到 → 宿主默认）。 */
+function migrate_legacy_envs(db: Database.Database, host_default: "win" | "mac" | "linux"): void {
+    const classify_dir = (directory: string | null): "win" | "mac" | "linux" =>
+        legacy_env_from_directory(directory, host_default);
+
+    // 迁移前 sessions 的 (id, source) → directory 映射（daily 用）。
+    const session_dirs = new Map<string, string | null>();
+    for (const row of db
+        .prepare(
+            "SELECT id, source, directory FROM token_stats_sessions WHERE env IN ('local','win')",
+        )
+        .all() as { id: string; source: string; directory: string | null }[]) {
+        const key = `${row.id}|${row.source}`;
+        if (!session_dirs.has(key)) session_dirs.set(key, row.directory);
+    }
+
+    migrate_legacy_table(db, "token_stats_daily", {
+        pk: ["id", "source", "env", "date", "model"],
+        classify: (row) =>
+            classify_dir(session_dirs.get(`${String(row["id"])}|${String(row["source"])}`) ?? null),
+        token_cols: [
+            "input_tokens",
+            "output_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
+            "calls",
+        ],
+    });
+    migrate_legacy_table(db, "token_stats_sessions", {
+        pk: ["id", "source", "env"],
+        classify: (row) => classify_dir(row["directory"] as string | null),
+        token_cols: [
+            "input_tokens",
+            "output_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
+            "calls",
+        ],
+        started_at_col: "started_at",
+        ended_at_col: "ended_at",
+    });
+    migrate_legacy_table(db, "token_stats_records", {
+        pk: ["message_id", "source", "env"],
+        classify: (row) => classify_dir(row["directory"] as string | null),
+        token_cols: ["input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"],
+    });
+}
+
 type DashboardRollupRow = TokenStatsRollupRow & { env: TokenStatsEnv };
 interface DashboardAlias {
     alias: string;
@@ -706,7 +850,14 @@ function materialize_session_meta(
                 start,
                 end,
                 ...extra_params,
-            ) as { title: string | null; directory: string | null; started_at: number; ended_at: number } | undefined;
+            ) as
+                | {
+                      title: string | null;
+                      directory: string | null;
+                      started_at: number;
+                      ended_at: number;
+                  }
+                | undefined;
             if (row) {
                 // t430 AC-001: rollup ready 路径 directory 取最新记录目录（与
                 // records 路径一致）；同 session 各行统一为最新值，聚合 SUM 不变。
@@ -915,10 +1066,10 @@ export function create_token_stats_store(
         db.exec(ROLLUP_INIT_SQL);
         db.pragma("user_version = 6");
     }
-    // Migration v7 (t308): the env enum dropped `win` in favor of `local`
-    // (collector now resolves paths per host, so the Windows-native source is
-    // "local", not "win"). Rewrite historical rows so env='local' queries see
-    // them; idempotent (WHERE env='win'), row counts and aggregates unchanged.
+    // Migration v7 (t308, 历史): env 枚举曾以 `win` 表示 Windows 原生源，t308 将
+    // 其改写为 `local`（当时的命名哲学：local = 进程所在 OS 的数据）。该命名
+    // 已被 t437 (v8) 逆转废止——此处仅保留迁移链兼容，不再表述「Windows 原生源
+    // 叫 local」。幂等（WHERE env='win'），行数与聚合不变。
     if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 7) {
         db.exec(
             "UPDATE token_stats_records SET env='local' WHERE env='win';" +
@@ -928,6 +1079,23 @@ export function create_token_stats_store(
                 "UPDATE token_stats_hour_rollup SET env='local' WHERE env='win';",
         );
         db.pragma("user_version = 7");
+    }
+    // Migration v8 (t437): env 枚举废除 `local`，统一为平台标签 `win|wsl|linux|mac`
+    // （按 agent 数据所在平台，非「进程在哪」）。历史 `local` 行（及任何残留
+    // `win` 行）按 directory 分类：盘符形（D:\…）→ win；/Users/ 前缀 → mac；
+    // 其他非 NULL → linux；NULL 与 daily 孤儿行 → 宿主默认（win32→win、
+    // darwin→mac、其他→linux）。同主键的 local+win 行判到同一目标 env 时
+    // merge（token 计数取 MAX、started_at 取 MIN、ended_at 取 MAX）后删源行；
+    // buckets 整体重建、hour_rollup 清空置 unready 走现成异步回填。
+    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 8) {
+        db.transaction(() => {
+            migrate_legacy_envs(db, host_default_env());
+            db.prepare(DELETE_BUCKETS_SQL).run();
+            db.prepare(INSERT_BUCKETS_SQL).run({ now: Date.now() });
+            db.prepare("DELETE FROM token_stats_hour_rollup").run();
+            db.prepare("UPDATE token_stats_meta SET hour_rollup_ready = 0 WHERE id = 1").run();
+            db.pragma("user_version = 8");
+        })();
     }
     if (readonly) {
         log.debug(`Token stats read-only store initialized: ${db_path}`);

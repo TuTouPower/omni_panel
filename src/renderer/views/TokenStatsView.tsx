@@ -38,8 +38,10 @@ const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
 
 const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [
     { value: "all", label: "全平台" },
-    { value: "local", label: "Local" },
+    { value: "win", label: "Windows" },
     { value: "wsl", label: "WSL" },
+    { value: "linux", label: "Linux" },
+    { value: "mac", label: "macOS" },
 ];
 
 const RANGE_OPTIONS: { value: RangePreset; label: string }[] = [
@@ -182,7 +184,15 @@ export function TokenStatsView() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [agent, setAgent] = useState<AgentFilter>(saved.agent ?? "all");
-    const [platform, setPlatform] = useState<PlatformFilter>(saved.platform ?? "all");
+    // t437: prefs 可能残留旧枚举值 "local"（pre-t437 平台筛选）——非四值回退 "all"。
+    const [platform, setPlatform] = useState<PlatformFilter>(
+        saved.platform === "win" ||
+            saved.platform === "wsl" ||
+            saved.platform === "linux" ||
+            saved.platform === "mac"
+            ? saved.platform
+            : "all",
+    );
     const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
     const [custom, setCustom] = useState<{ start: number; end: number } | null>(null);
     // t312: 时间范围下拉「自定义」触发 RangePicker 面板（受控开关）。

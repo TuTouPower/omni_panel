@@ -11,7 +11,8 @@
  * t310：路径构建改走 t308 平台感知路径层（src/main/core/token-stats/paths.ts）——
  * (host, homedir, win_home, wsl_distro, wsl_user) → path|null 纯函数，消除
  * `win_home: homedir()` 在非 Windows 宿主拼 `\`/UNC 失效的同源 bug（p132/d035）。
- * env 语义与 t308 对齐：`local|wsl`（旧 `win` 并入 `local`）；host 由调用方注入
+ * env 语义与 t437 对齐：`win|wsl|linux|mac`（win→win_home、linux/mac→homedir、
+ * wsl→UNC，替代 pre-t437 的 `local`）；host 由调用方注入
  * （index.ts 从 process.platform 推导），测试注入任意宿主。
  *
  * t254：解析结果持久化到 `<index_dir>/session-path-index.json`，跨重启命中免整目录
@@ -98,9 +99,9 @@ export interface ResolvedSession {
 export interface LocatorPaths {
     /** 运行宿主（t308 路径层 host；index.ts 从 process.platform 推导，测试注入任意值）。 */
     readonly host: path_layer.Host;
-    /** os.homedir()；非 Windows 宿主 local 源基路径。 */
+    /** os.homedir()；linux/mac 源基路径。 */
     readonly homedir: string;
-    /** Windows 宿主 user home（win_home；非 Windows 宿主 local 源不用）。 */
+    /** Windows 宿主 user home（win_home；仅 win 源使用）。 */
     readonly win_home: string;
     /** wsl distro 名（如 "Ubuntu-22.04"）。 */
     readonly wsl_distro: string;
@@ -203,8 +204,8 @@ function locator_path_input(paths: LocatorPaths, env: Env): path_layer.TokenStat
         homedir: paths.homedir,
         win_home: paths.win_home,
         wsl_distro: paths.wsl_distro,
-        // wsl 源才需要有效用户名：探测只在 wsl resolve 时触发，local 源不探测
-        // （避免无 WSL 宿主上 local 解析引入不必要的 UNC 探测）。
+        // wsl 源才需要有效用户名：探测只在 wsl resolve 时触发，win/linux/mac 源不探测
+        // （避免无 WSL 宿主上平台源解析引入不必要的 UNC 探测）。
         wsl_user: env === "wsl" ? effective_wsl_user(paths) : paths.wsl_user,
     };
 }
@@ -331,7 +332,7 @@ function resolve_kimi_code(
 
 function resolve_grok(paths: LocatorPaths, env: Env, session_id: string): ResolvedSession | null {
     // grok 数据侧仅 WSL（d017），但路径解析跟随 env（t310 对齐路径层：非 Windows
-    // 宿主 local env 亦可解析到 ~/.grok/sessions，AC-001）。
+    // 宿主 linux/mac env 亦可解析到 ~/.grok/sessions，AC-001）。
     const root = locator_source_path("grok", env, paths);
     if (root === null) return null;
     const files: string[] = [];

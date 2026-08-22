@@ -128,7 +128,7 @@ describe("collector scan-state persistence", () => {
     });
 
     it("serialize_state drops records and flattens daily", () => {
-        jsonl_states.set("claude_jsonl_local", {
+        jsonl_states.set("claude_jsonl_win", {
             mtimes: new Map([["proj/f1.jsonl", 1785000286795.3518]]),
             files: new Map([
                 ["proj/f1.jsonl", { session_id: "s1", facts: make_facts([{ id: "r1" }]) }],
@@ -136,7 +136,7 @@ describe("collector scan-state persistence", () => {
         } as any);
 
         const serialized = serialize_state();
-        const entry = (serialized as any).jsonl_states["claude_jsonl_local"].files["proj/f1.jsonl"];
+        const entry = (serialized as any).jsonl_states["claude_jsonl_win"].files["proj/f1.jsonl"];
         expect(entry.facts.records).toBeUndefined();
         expect(entry.facts.daily).toEqual({
             "2026-07-10|claude-x": { date: "2026-07-10", model: "claude-x", calls: 1 },
@@ -147,25 +147,23 @@ describe("collector scan-state persistence", () => {
 
     it("serialize_state keeps float mtime for strict equality round-trip", () => {
         const float_mtime = 1785000286795.3518;
-        jsonl_states.set("claude_jsonl_local", {
+        jsonl_states.set("claude_jsonl_win", {
             mtimes: new Map([["proj/f1.jsonl", float_mtime]]),
             files: new Map([["proj/f1.jsonl", { session_id: "s1", facts: make_facts([]) }]]),
         } as any);
         const serialized = serialize_state();
-        const mtimes = (serialized as any).jsonl_states["claude_jsonl_local"].mtimes[
-            "proj/f1.jsonl"
-        ];
+        const mtimes = (serialized as any).jsonl_states["claude_jsonl_win"].mtimes["proj/f1.jsonl"];
         expect(mtimes).toBe(float_mtime);
     });
 
     it("save then load round-trips full scan state", async () => {
-        jsonl_states.set("claude_jsonl_local", {
+        jsonl_states.set("claude_jsonl_win", {
             mtimes: new Map([["proj/f1.jsonl", 1785000286795.3518]]),
             files: new Map([
                 ["proj/f1.jsonl", { session_id: "s1", facts: make_facts([{ id: "r1" }]) }],
             ]),
         } as any);
-        kimi_states.set("kimi_local", {
+        kimi_states.set("kimi_win", {
             mtimes: new Map([["k.jsonl", 1700000000000]]),
             files: new Map([["k.jsonl", { session_id: "ks1", facts: make_facts([]) }]]),
         } as any);
@@ -175,8 +173,8 @@ describe("collector scan-state persistence", () => {
                 ["enc/sid/updates.jsonl", { session_id: "sid", facts: make_facts([]) }],
             ]),
         } as any);
-        costs_state.set("claude_costs_local", { offset: 42, size: 100 });
-        opencode_max_updated.set("opencode_local", 1700000000000);
+        costs_state.set("claude_costs_win", { offset: 42, size: 100 });
+        opencode_max_updated.set("opencode_win", 1700000000000);
 
         await save_state(tmp_file);
         expect(fs.existsSync(tmp_file)).toBe(true);
@@ -190,7 +188,7 @@ describe("collector scan-state persistence", () => {
 
         await load_state(tmp_file);
 
-        const claude_state = jsonl_states.get("claude_jsonl_local");
+        const claude_state = jsonl_states.get("claude_jsonl_win");
         expect(claude_state?.mtimes.get("proj/f1.jsonl")).toBe(1785000286795.3518);
         const claude_file = claude_state?.files.get("proj/f1.jsonl");
         expect(claude_file?.session_id).toBe("s1");
@@ -202,17 +200,17 @@ describe("collector scan-state persistence", () => {
             calls: 1,
         });
 
-        expect(kimi_states.get("kimi_local")?.files.get("k.jsonl")?.session_id).toBe("ks1");
+        expect(kimi_states.get("kimi_win")?.files.get("k.jsonl")?.session_id).toBe("ks1");
         // grok scan state round-trips with its float mtime intact (t197 AC4)
         const grok_state = grok_states.get("grok_wsl");
         expect(grok_state?.mtimes.get("enc/sid/updates.jsonl")).toBe(1785000286795.25);
         expect(grok_state?.files.get("enc/sid/updates.jsonl")?.session_id).toBe("sid");
-        expect(costs_state.get("claude_costs_local")).toEqual({ offset: 42, size: 100 });
-        expect(opencode_max_updated.get("opencode_local")).toBe(1700000000000);
+        expect(costs_state.get("claude_costs_win")).toEqual({ offset: 42, size: 100 });
+        expect(opencode_max_updated.get("opencode_win")).toBe(1700000000000);
     });
 
     it("t385 AC-001: source_cursors 跨 save/load round-trip（身份键集合）", async () => {
-        source_cursors.set("claude_costs_local", {
+        source_cursors.set("claude_costs_win", {
             sessions: new Set(["s0", "s1", "s9999"]),
             daily: new Set(["s0|2026-07-10|claude-x"]),
         });
@@ -220,7 +218,7 @@ describe("collector scan-state persistence", () => {
         reset_config();
         expect(source_cursors.size).toBe(0);
         await load_state(tmp_file);
-        const restored = source_cursors.get("claude_costs_local");
+        const restored = source_cursors.get("claude_costs_win");
         expect(restored?.sessions.has("s0")).toBe(true);
         expect(restored?.sessions.has("s9999")).toBe(true);
         expect(restored?.daily.has("s0|2026-07-10|claude-x")).toBe(true);
@@ -231,7 +229,7 @@ describe("collector scan-state persistence", () => {
         fs.writeFileSync(
             tmp_file,
             JSON.stringify({
-                costs_state: { claude_costs_local: { offset: 42, size: 100 } },
+                costs_state: { claude_costs_win: { offset: 42, size: 100 } },
                 opencode_max_updated: {},
                 jsonl_states: {},
                 kimi_states: {},
@@ -240,14 +238,14 @@ describe("collector scan-state persistence", () => {
             "utf8",
         );
         await load_state(tmp_file);
-        expect(costs_state.get("claude_costs_local")).toEqual({ offset: 42, size: 100 });
+        expect(costs_state.get("claude_costs_win")).toEqual({ offset: 42, size: 100 });
         expect(source_cursors.size).toBe(0);
     });
 
     it("load_state tolerates a corrupt file and leaves all state empty", async () => {
         // Pre-populate to prove load_state clears on corrupt input.
-        costs_state.set("claude_costs_local", { offset: 1, size: 1 });
-        jsonl_states.set("claude_jsonl_local", { mtimes: new Map(), files: new Map() } as any);
+        costs_state.set("claude_costs_win", { offset: 1, size: 1 });
+        jsonl_states.set("claude_jsonl_win", { mtimes: new Map(), files: new Map() } as any);
         grok_states.set("grok_wsl", { mtimes: new Map(), files: new Map() } as any);
         fs.writeFileSync(tmp_file, "{ this is not valid json");
         await load_state(tmp_file);
@@ -289,9 +287,7 @@ describe("collector scan-state persistence", () => {
         });
         configure(make_config("")); // no persistence path
         collect();
-        expect(jsonl_states.get("claude_jsonl_local")?.mtimes.get("proj/f1.jsonl")).toBe(
-            float_mtime,
-        );
+        expect(jsonl_states.get("claude_jsonl_win")?.mtimes.get("proj/f1.jsonl")).toBe(float_mtime);
 
         // Persist, wipe, reload — simulating a restart.
         await save_state(tmp_file);

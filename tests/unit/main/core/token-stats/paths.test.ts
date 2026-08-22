@@ -36,20 +36,20 @@ describe("host_from_platform", () => {
     });
 });
 
-describe("local sources on non-Windows hosts (AC-001)", () => {
-    it("builds POSIX paths from homedir on linux", () => {
+describe("platform sources: linux/mac resolve under homedir (t437)", () => {
+    it("builds POSIX paths from homedir for env=linux", () => {
         const ctx = input({ host: "linux", homedir: "/home/test" });
-        expect(claude_costs_path(ctx, "local")).toBe("/home/test/.claude/metrics/costs.jsonl");
-        expect(claude_projects_path(ctx, "local")).toBe("/home/test/.claude/projects");
-        expect(opencode_path(ctx, "local")).toBe("/home/test/.local/share/opencode/opencode.db");
-        expect(kimi_sessions_path(ctx, "local")).toBe("/home/test/.kimi-code/sessions");
-        expect(kimi_index_path(ctx, "local")).toBe("/home/test/.kimi-code/session_index.jsonl");
+        expect(claude_costs_path(ctx, "linux")).toBe("/home/test/.claude/metrics/costs.jsonl");
+        expect(claude_projects_path(ctx, "linux")).toBe("/home/test/.claude/projects");
+        expect(opencode_path(ctx, "linux")).toBe("/home/test/.local/share/opencode/opencode.db");
+        expect(kimi_sessions_path(ctx, "linux")).toBe("/home/test/.kimi-code/sessions");
+        expect(kimi_index_path(ctx, "linux")).toBe("/home/test/.kimi-code/session_index.jsonl");
     });
 
-    it("builds POSIX paths from homedir on macos", () => {
+    it("builds POSIX paths from homedir for env=mac", () => {
         const ctx = input({ host: "macos", homedir: "/Users/test" });
-        expect(claude_costs_path(ctx, "local")).toBe("/Users/test/.claude/metrics/costs.jsonl");
-        expect(opencode_path(ctx, "local")).toBe("/Users/test/.local/share/opencode/opencode.db");
+        expect(claude_costs_path(ctx, "mac")).toBe("/Users/test/.claude/metrics/costs.jsonl");
+        expect(opencode_path(ctx, "mac")).toBe("/Users/test/.local/share/opencode/opencode.db");
     });
 
     it("returns null for wsl sources on non-Windows hosts", () => {
@@ -66,17 +66,17 @@ describe("local sources on non-Windows hosts (AC-001)", () => {
 });
 
 describe("windows host (AC-002)", () => {
-    it("builds local paths from win_home", () => {
+    it("builds env=win paths from win_home", () => {
         const ctx = input({ host: "windows" });
-        expect(claude_costs_path(ctx, "local")).toBe(
+        expect(claude_costs_path(ctx, "win")).toBe(
             "C:\\Users\\Test\\.claude\\metrics\\costs.jsonl",
         );
-        expect(claude_projects_path(ctx, "local")).toBe("C:\\Users\\Test\\.claude\\projects");
-        expect(opencode_path(ctx, "local")).toBe(
+        expect(claude_projects_path(ctx, "win")).toBe("C:\\Users\\Test\\.claude\\projects");
+        expect(opencode_path(ctx, "win")).toBe(
             "C:\\Users\\Test\\.local\\share\\opencode\\opencode.db",
         );
-        expect(kimi_sessions_path(ctx, "local")).toBe("C:\\Users\\Test\\.kimi-code\\sessions");
-        expect(kimi_index_path(ctx, "local")).toBe(
+        expect(kimi_sessions_path(ctx, "win")).toBe("C:\\Users\\Test\\.kimi-code\\sessions");
+        expect(kimi_index_path(ctx, "win")).toBe(
             "C:\\Users\\Test\\.kimi-code\\session_index.jsonl",
         );
     });
@@ -117,33 +117,40 @@ describe("undetectable wsl_user on windows host (AC-003)", () => {
 });
 
 describe("grok", () => {
-    it("resolves local env to the home .grok/sessions path (AC-001 example)", () => {
-        expect(grok_sessions_path(input({ host: "linux", homedir: "/home/test" }), "local")).toBe(
+    it("resolves platform envs to the home .grok/sessions path (t426)", () => {
+        expect(grok_sessions_path(input({ host: "linux", homedir: "/home/test" }), "linux")).toBe(
             "/home/test/.grok/sessions",
         );
-        expect(grok_sessions_path(input({ host: "windows" }), "local")).toBe(
+        expect(grok_sessions_path(input({ host: "windows" }), "win")).toBe(
             "C:\\Users\\Test\\.grok\\sessions",
         );
     });
 });
 
-describe("TokenStatsEnv / dashboard platform schemas (AC-004)", () => {
-    it("accepts only local|wsl", () => {
-        expect(tokenStatsEnvSchema.options).toEqual(["local", "wsl"]);
-        expect(tokenStatsEnvSchema.safeParse("win").success).toBe(false);
-        expect(tokenStatsEnvSchema.safeParse("local").success).toBe(true);
-        expect(tokenStatsEnvSchema.safeParse("wsl").success).toBe(true);
+describe("TokenStatsEnv / dashboard platform schemas (AC-004/t437)", () => {
+    it("accepts only win|wsl|linux|mac", () => {
+        expect(tokenStatsEnvSchema.options).toEqual(["win", "wsl", "linux", "mac"]);
+        for (const env of ["win", "wsl", "linux", "mac"]) {
+            expect(tokenStatsEnvSchema.safeParse(env).success).toBe(true);
+        }
+        expect(tokenStatsEnvSchema.safeParse("local").success).toBe(false);
     });
 
-    it("dashboard platform schema keeps all|local|wsl in sync", () => {
-        expect(tokenStatsDashboardPlatformSchema.options).toEqual(["all", "local", "wsl"]);
-        expect(tokenStatsDashboardPlatformSchema.safeParse("win").success).toBe(false);
-        expect(tokenStatsDashboardPlatformSchema.safeParse("local").success).toBe(true);
+    it("dashboard platform schema keeps all|win|wsl|linux|mac in sync", () => {
+        expect(tokenStatsDashboardPlatformSchema.options).toEqual([
+            "all",
+            "win",
+            "wsl",
+            "linux",
+            "mac",
+        ]);
+        expect(tokenStatsDashboardPlatformSchema.safeParse("local").success).toBe(false);
+        expect(tokenStatsDashboardPlatformSchema.safeParse("win").success).toBe(true);
     });
 });
 
-describe("no win env literal remains in collector/ipc/readers (AC-004)", () => {
-    it("scans src for win env literal", async () => {
+describe("no local env literal remains in collector/ipc/readers (t437 AC-005)", () => {
+    it("scans src for the removed local env literal", async () => {
         const path = await import("node:path");
         const fs = await import("node:fs");
         const files = [
@@ -161,11 +168,11 @@ describe("no win env literal remains in collector/ipc/readers (AC-004)", () => {
             "src/main/ipc/token-stats-ipc.ts",
         ];
         const root = path.resolve(import.meta.dirname, "../../../../../");
-        // 覆盖 env: "win" / env = "win" / env === "win" / env !== "win" 等写法。
-        const literal = /env\s*(?::|={1,3}|!==|!=)\s*["']win["']/;
+        // 覆盖 env: "local" / env = "local" / env === "local" / env !== "local" 等写法。
+        const literal = /env\s*(?::|={1,3}|!==|!=)\s*["']local["']/;
         for (const f of files) {
             const content = fs.readFileSync(path.join(root, f), "utf8");
-            expect(content, `${f} contains env win literal`).not.toMatch(literal);
+            expect(content, `${f} contains env local literal`).not.toMatch(literal);
         }
     });
 });

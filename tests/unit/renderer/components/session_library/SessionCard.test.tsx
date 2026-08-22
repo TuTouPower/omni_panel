@@ -22,7 +22,7 @@ function sess(
     return {
         id,
         source: source as TokenStatsSession["source"],
-        env: "local",
+        env: "linux",
         model: "model",
         title: opts.title ?? `会话 ${id}`,
         directory: opts.directory === undefined ? `/proj/${id}` : opts.directory,
@@ -81,7 +81,9 @@ describe("SessionCard (t326)", () => {
         expect(first.textContent).toContain("proj");
         expect(first.textContent).toContain("2026-08-07 09:08:07");
         expect(first.textContent).not.toContain("/path/to/proj");
-        expect(document.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe("proj");
+        expect(document.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe(
+            "proj",
+        );
     });
 
     it("AC1：directory 为空时第一行仅渲染时间", () => {
@@ -178,15 +180,11 @@ describe("SessionCard 自定义续接命令模板 (t403)", () => {
         plugins: [],
     };
 
-    function mock_config(
-        resumeCommandTemplates?: Readonly<Partial<Record<string, string>>>,
-    ): void {
+    function mock_config(resumeCommandTemplates?: Readonly<Partial<Record<string, string>>>): void {
         window.usageboard.config.get = vi.fn().mockResolvedValue({
             config: {
                 ...base_cfg,
-                ...(resumeCommandTemplates
-                    ? { resumeCommandTemplates }
-                    : {}),
+                ...(resumeCommandTemplates ? { resumeCommandTemplates } : {}),
             },
             hasSecrets: {},
         });

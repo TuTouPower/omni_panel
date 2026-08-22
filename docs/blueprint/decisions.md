@@ -207,3 +207,10 @@
 - 结论：选 B。窗口/侧栏/主区 = `surface-window`；内容卡片 = `surface-card`；禁止面板级无依据 color-mix 底色；`surface-raised` 保留交互态。token 数值不改。
 - 落地：t406；权威规则见 `docs/specs/surface_token_unify.md` 与 DESIGN.md Colors。
 - 替代：无
+
+## 022 废除 env local：平台标签 win|wsl|linux|mac（2026-08-23）
+
+- 背景：ADR 016（t308）把 `win` 并入 `local`（= 进程所在 OS 的数据），结果 WSL 宿主上 `local` 只有 Linux home，与用户「win / wsl 两地盘」心智冲突，且 WSL 网页版搜不到 Windows 侧 Kimi（p204）。
+- 选项：A) 保留 `local` + 文档澄清；B) 废除 `local`，env 改为平台标签 `win|wsl|linux|mac`（按 agent 数据所在平台标注），存量一次性迁移。
+- 结论：选 B。`TokenStatsEnv` 四值化；collector 平台源按宿主派生（key 与平台一致：`*_win`/`*_linux`/`*_mac`，任一宿主只一个平台变体参与采集）；迁移 v8 按 directory 形态分类存量行（盘符形→win、`/Users/`→mac、其余 POSIX→linux、NULL/孤儿→宿主 platform 默认，d048/s032 实测本机库验证），buckets 由 daily 整体重建、hour_rollup 清空走异步回填；ADR 016 的「local = 进程所在 OS」语义废止，016 的路径层纯函数结构保留。破坏性升级不留 local 兼容读写（一次性迁移除外）。连接器 observation `source: "local"` 是另一概念不受影响。
+- 落地：t437；为 t438（WSL 宿主采集 Windows agent 为 env=win）铺路。

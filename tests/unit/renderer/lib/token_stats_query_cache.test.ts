@@ -63,7 +63,7 @@ describe("token stats query cache", () => {
     it("keeps every query key dimension isolated", async () => {
         const dimensions: Partial<TokenStatsQueryKey>[] = [
             { agent: "claude-code" },
-            { platform: "local" },
+            { platform: "win" },
             { model: "sonnet" },
             { range_start: 3 },
             { range_end: 4 },

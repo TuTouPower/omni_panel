@@ -16,7 +16,7 @@ import type { SessionLoc } from "../../../../../src/main/core/session-history/su
 
 const TEST_LOC: SessionLoc = {
     source: "claude_code",
-    env: "local",
+    env: "linux",
     session_id: "s1",
 };
 
@@ -175,8 +175,8 @@ describe("history-window-controller (t210)", () => {
             create_window: () => w,
         });
 
-        const loc_b: SessionLoc = { source: "opencode", env: "local", session_id: "s2" };
-        const loc_c: SessionLoc = { source: "kimi_code", env: "local", session_id: "s3" };
+        const loc_b: SessionLoc = { source: "opencode", env: "linux", session_id: "s2" };
+        const loc_c: SessionLoc = { source: "kimi_code", env: "linux", session_id: "s3" };
         controller.open_or_focus(TEST_LOC);
         // loadURL 途中（did-finish-load 未触发）继续 OPEN：不得丢弃，须缓冲。
         controller.open_or_focus(loc_b);
@@ -273,7 +273,7 @@ describe("history-window-controller (t210)", () => {
         expect(() => {
             controller.send_focus({
                 source: "claude_code",
-                env: "local",
+                env: "linux",
                 session_id: "s1",
             });
         }).not.toThrow();
@@ -298,12 +298,12 @@ describe("history-window-controller (t210)", () => {
 
         controller.send_focus({
             source: "claude_code",
-            env: "local",
+            env: "linux",
             session_id: "s9",
         });
         expect(send_spy).toHaveBeenCalledWith(IPC_CHANNELS.SESSION_HISTORY_FOCUS, {
             source: "claude_code",
-            env: "local",
+            env: "linux",
             session_id: "s9",
         });
     });

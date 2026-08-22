@@ -90,7 +90,7 @@ function user_msg(text: string, time = 1784217963000): string {
     });
 }
 
-const ENV: TokenStatsEnv = "local";
+const ENV: TokenStatsEnv = "linux";
 const T0 = 1784217963778;
 const T1 = 1784304000000;
 
@@ -123,7 +123,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.records).toHaveLength(1);
         expect(result.records[0]).toMatchObject({
             source: "kimi_code",
-            env: "local",
+            env: "linux",
             agent: "kimi-code",
             session_id: "session_abc",
             model: "kimi-code/k3",
@@ -139,7 +139,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.sessions[0]).toMatchObject({
             id: "session_abc",
             source: "kimi_code",
-            env: "local",
+            env: "linux",
             model: "kimi-code/k3",
             calls: 1,
             input_tokens: 3464,
@@ -155,7 +155,7 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(result.daily[0]).toMatchObject({
             id: "session_abc",
             source: "kimi_code",
-            env: "local",
+            env: "linux",
             model: "kimi-code/k3",
             calls: 1,
             input_tokens: 3464,
@@ -269,9 +269,10 @@ describe("scan_kimi_wire_jsonls", () => {
         expect(rc.sessions.find((s) => s.id === "session_c")!.title).toBeNull();
     });
 
-
     it("t436 title: skips reminder-only then uses next user; all-reminder falls back basename", () => {
-        const idx = write_index(tmp, [{ sessionId: "session_rem", workDir: "D:/Dev/Code/dream_skin" }]);
+        const idx = write_index(tmp, [
+            { sessionId: "session_rem", workDir: "D:/Dev/Code/dream_skin" },
+        ]);
         const file = write_wire(sessions_dir, "wd_rem", "session_rem", [
             user_msg("<system-reminder>interrupted</system-reminder>"),
             user_msg("fix the login bug"),

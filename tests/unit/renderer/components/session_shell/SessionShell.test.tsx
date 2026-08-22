@@ -239,7 +239,7 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
             next_cursor: null,
         });
         ub.tokenStats.getSessions.mockResolvedValue([
-            { id: "s1", source: "claude_code", env: "local", title: "会话一", ended_at: 1 },
+            { id: "s1", source: "claude_code", env: "win", title: "会话一", ended_at: 1 },
         ] as never);
         render(<SessionShell />);
         await act(async () => {
@@ -268,7 +268,9 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
             expect(ub.sessionHistory.query.mock.calls.length).toBeGreaterThan(query_after_focus);
         });
         await waitFor(() => {
-            expect(ub.tokenStats.getSessions.mock.calls.length).toBeGreaterThan(sessions_after_first);
+            expect(ub.tokenStats.getSessions.mock.calls.length).toBeGreaterThan(
+                sessions_after_first,
+            );
         });
     });
 
@@ -295,10 +297,16 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         expect(toggle.getAttribute("data-testid")).toBe("session-rail-toggle");
         expect(toggle_cls).not.toContain("color-mix");
 
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
+            "collapsed",
+        );
         fireEvent.click(toggle);
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain(
+            "collapsed",
+        );
         fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
+            "collapsed",
+        );
     });
 });
