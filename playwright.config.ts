@@ -11,6 +11,11 @@ delete process.env["HTTPS_PROXY"];
 delete process.env["all_proxy"];
 delete process.env["ALL_PROXY"];
 
+// web e2e 端口：默认 5274。WSL2 下 Windows Hyper-V 动态保留段（netsh excludedportrange，
+// 实测 5174–5273 被整段保留，无任何监听者但 bind EADDRINUSE）会随机覆盖固定端口——
+// 撞段时用 E2E_WEB_PORT 换端口，不改配置。
+const E2E_WEB_PORT = process.env["E2E_WEB_PORT"] ?? "5274";
+
 const config: PlaywrightTestConfig = {
     timeout: 30_000,
     expect: { timeout: 10_000 },
@@ -27,7 +32,7 @@ const config: PlaywrightTestConfig = {
             name: "web",
             testDir: "./tests/e2e/web",
             use: {
-                baseURL: "http://127.0.0.1:5174",
+                baseURL: `http://127.0.0.1:${E2E_WEB_PORT}`,
             },
         },
         {
@@ -58,9 +63,8 @@ const config: PlaywrightTestConfig = {
         ? {}
         : {
               webServer: {
-                  command:
-                      "pnpm build:web && pnpm exec vite preview --config vite.web.config.ts --port 5174 --strictPort --host 127.0.0.1",
-                  url: "http://127.0.0.1:5174",
+                  command: `pnpm build:web && pnpm exec vite preview --config vite.web.config.ts --port ${E2E_WEB_PORT} --strictPort --host 127.0.0.1`,
+                  url: `http://127.0.0.1:${E2E_WEB_PORT}`,
                   reuseExistingServer: true,
                   timeout: 120_000,
               },
