@@ -50,6 +50,7 @@ import {
     reset_config,
     start_interval,
     set_collector_host,
+    set_win_home_wsl_probe,
     costs_state,
     opencode_max_updated,
     jsonl_states,
@@ -154,6 +155,9 @@ describe("collector", () => {
         // non-Windows host behaviour is covered by paths.test.ts and
         // collector-local.test.ts.
         set_collector_host("windows");
+        // t438: 默认禁用真实 Windows home 发现（避免 host=linux 测试触发
+        // powershell.exe/真实 /mnt/c）；需要 win 源的测试自行注入 probe。
+        set_win_home_wsl_probe(() => null);
 
         mock_read_costs.mockReturnValue({ sessions: [], records: [], new_offset: 0, new_size: 0 });
         mock_scan_jsonls.mockReturnValue({
@@ -1178,12 +1182,17 @@ describe("collector", () => {
             expect(platform_statuses.every((s) => s.status === "ok")).toBe(true);
 
             // AC-003: one warn per unavailable source, keyed with source/env + reason.
+            // t438: linux 宿主额外 5 个 win 源（发现失败 → path unavailable）也各
+            // warn 一次——共 10 条（5 wsl 宿主过滤 + 5 win 不可达）。
             const warns = posted_logs();
-            expect(warns).toHaveLength(5);
+            expect(warns).toHaveLength(10);
             for (const w of warns) {
                 expect(w.level).toBe("warn");
-                expect(w.message).toMatch(/unavailable: wsl data requires a windows host/);
             }
+            expect(
+                warns.filter((w) => w.message.includes("wsl data requires a windows host")),
+            ).toHaveLength(5);
+            expect(warns.filter((w) => w.message.includes("path unavailable"))).toHaveLength(5);
         });
 
         it("AC-002/AC-003: a throwing reader is marked failed with the error and warns once", () => {
@@ -1439,6 +1448,141 @@ describe("collector", () => {
 
             set_spy.mockRestore();
             clear_spy.mockRestore();
+        });
+    });
+
+    describe("t438: linux 宿主 Windows 侧源（env=win，hosts=[linux]）", () => {
+        it("发现成功 → win 五源参与采集，路径基于发现 home（POSIX），status=ok", () => {
+            set_collector_host("linux");
+            set_win_home_wsl_probe(() => "/mnt/c/Users/TestUser");
+            mock_scan_kimi.mockReturnValue({
+                sessions: [upsert({ id: "k-win-1", source: "kimi_code", env: "win" })],
+                daily: [],
+                records: [record({ message_id: "k-win-r1", source: "kimi_code", env: "win" })],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+
+            configure(base_config);
+
+            // kimi win 源以发现 home 为根（POSIX 拼接），env=win。
+            const kimi_call = mock_scan_kimi.mock.calls.find((c: unknown[]) => c[1] === "win");
+            expect(kimi_call).toBeDefined();
+            expect(String(kimi_call![0])).toBe("/mnt/c/Users/TestUser/.kimi-code/sessions");
+            // linux 平台源照常以 os.homedir() 为根（不硬编码具体 home，CI 机器无关）。
+            const kimi_linux_call = mock_scan_kimi.mock.calls.find(
+                (c: unknown[]) => c[1] === "linux",
+            );
+            expect(String(kimi_linux_call![0]).endsWith("/.kimi-code/sessions")).toBe(true);
+            expect(String(kimi_linux_call![0])).not.toContain("/mnt/c/Users");
+
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as {
+                sessions: { id: string; env: string; source: string }[];
+                records: AgentSessionUsage[];
+                sources_status: { source: string; env: string; status: string }[];
+            };
+            // 采集产出 env=win 会话（AC-001 前提）。
+            expect(
+                update.sessions.some(
+                    (s) => s.id === "k-win-1" && s.env === "win" && s.source === "kimi_code",
+                ),
+            ).toBe(true);
+            // win 源 status=ok；linux 平台源也 ok。
+            expect(update.sources_status).toContainEqual({
+                source: "kimi_code",
+                env: "win",
+                status: "ok",
+            });
+            expect(update.sources_status).toContainEqual({
+                source: "kimi_code",
+                env: "linux",
+                status: "ok",
+            });
+        });
+
+        it("发现成功 → claude_costs/claude_jsonl/opencode/grok win 源也读取（AC-006）", () => {
+            set_collector_host("linux");
+            set_win_home_wsl_probe(() => "/mnt/c/Users/TestUser");
+
+            configure(base_config);
+
+            const costs_call = mock_read_costs.mock.calls.find((c: unknown[]) => c[1] === "win");
+            expect(String(costs_call![0])).toBe("/mnt/c/Users/TestUser/.claude/metrics/costs.jsonl");
+            const jsonl_call = mock_scan_jsonls.mock.calls.find((c: unknown[]) => c[1] === "win");
+            expect(String(jsonl_call![0])).toBe("/mnt/c/Users/TestUser/.claude/projects");
+            const oc_call = mock_read_opencode_sessions.mock.calls.find(
+                (c: unknown[]) => c[1] === "win",
+            );
+            expect(String(oc_call![0])).toBe(
+                "/mnt/c/Users/TestUser/.local/share/opencode/opencode.db",
+            );
+            const grok_call = mock_scan_grok.mock.calls.find((c: unknown[]) => c[1] === "win");
+            expect(String(grok_call![0])).toBe("/mnt/c/Users/TestUser/.grok/sessions");
+        });
+
+        it("发现失败 → win 源 unavailable（path unavailable），linux 平台源照常（AC-005）", () => {
+            set_collector_host("linux");
+            // 默认 beforeEach 的 probe 返回 null（未发现）。
+            mock_scan_kimi.mockReturnValue({
+                sessions: [upsert({ id: "k-linux-1", source: "kimi_code", env: "linux" })],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+
+            configure(base_config);
+
+            const update = mock_post_message.mock.calls.find(
+                (c) => (c[0] as { type?: string }).type === "token_stats_update",
+            )?.[0] as {
+                sessions: { id: string; env: string }[];
+                sources_status: {
+                    source: string;
+                    env: string;
+                    status: string;
+                    lastError?: string;
+                }[];
+            };
+            // 五个 win 源全部 unavailable，原因 path unavailable；不读盘（reader 不被 win 调）。
+            const win_statuses = update.sources_status.filter((s) => s.env === "win");
+            expect(win_statuses).toHaveLength(5);
+            expect(win_statuses.every((s) => s.status === "unavailable")).toBe(true);
+            expect(win_statuses.every((s) => s.lastError === "path unavailable")).toBe(true);
+            expect(mock_scan_kimi.mock.calls.some((c: unknown[]) => c[1] === "win")).toBe(false);
+            // linux 平台源照常采集（env=linux 会话投递）。
+            expect(update.sessions.some((s) => s.id === "k-linux-1" && s.env === "linux")).toBe(
+                true,
+            );
+            expect(update.sources_status).toContainEqual({
+                source: "kimi_code",
+                env: "linux",
+                status: "ok",
+            });
+        });
+
+        it("发现结果进程内缓存：一轮内只探测一次（对齐 effective_wsl_user 模式）", () => {
+            set_collector_host("linux");
+            const probe = vi.fn(() => "/mnt/c/Users/TestUser");
+            set_win_home_wsl_probe(probe);
+
+            configure(base_config);
+            collect();
+
+            expect(probe).toHaveBeenCalledTimes(1);
+        });
+
+        it("发现失败（null）不长期缓存：下一轮重新探测自愈（review test_f001）", () => {
+            set_collector_host("linux");
+            const probe = vi.fn((): string | null => null);
+            set_win_home_wsl_probe(probe);
+
+            configure(base_config); // round 1：探测一次，null 仅缓存到本轮结束
+            collect(); // round 2：上轮 null 不保留 → 重探测
+
+            // 一轮内多次取 effective 值只探测一次；跨轮 null 不缓存（重探自愈），
+            // 且成功结果仍进程内缓存（由上一用例覆盖）。
+            expect(probe).toHaveBeenCalledTimes(2);
         });
     });
 });

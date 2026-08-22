@@ -69,6 +69,8 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 
 `TokenStatsEnv` = `win | wsl | linux | mac`，按 **agent 数据所在平台** 标注（非「进程在哪」）：Windows 用户目录数据 → `win`；经 UNC 读到的 WSL home 数据 → `wsl`（Windows 宿主）；原生 Linux home → `linux`；macOS home → `mac`。t308 的 `local`（= 进程所在 OS）已废止；存量经迁移 v8 按 directory 形态分类改写（d048）。连接器 observation 的 `source: "local"` 是另一概念，不受此约束。
 
+采集对称性（t438）：Windows 宿主经 UNC 采 WSL home（`wsl`）；WSL/Linux 宿主经 `/mnt/c/Users` 自动发现（`win-home-discovery.ts`，s033/d049）采 Windows home（`win`）。双向均零配置、发现/探测失败仅该 env 源 `unavailable`，不阻塞其它源。
+
 ## 4. 跨功能业务不变量
 
 01. **最新观测即真值**：同一 `(provider, accountId, metricId, sourceInstanceId)` 允许多来源多观测，`observedAt` 最新者胜出。去重、"实时上报"与"兜底探测"在数据层自然融合。

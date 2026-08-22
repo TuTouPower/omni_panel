@@ -471,7 +471,13 @@ export function SessionLibrary({ on_switch_workspace, refresh_token }: SessionLi
             <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
                 <Input
                     className="min-w-[200px] flex-1"
-                    placeholder="搜索标题 / 路径 / 会话 ID"
+                    placeholder={
+                        // AC-007: 未勾选「包含消息内容」时明确搜索范围（标题/目录/会话 ID）；
+                        // 勾选态说明包含消息内容。
+                        search_content
+                            ? "搜索消息内容（含标题 / 目录 / 会话 ID）"
+                            : "搜索标题 / 目录 / 会话 ID"
+                    }
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
@@ -563,7 +569,11 @@ export function SessionLibrary({ on_switch_workspace, refresh_token }: SessionLi
             )}
 
             {content_truncated && (
-                <Alert tone="warning" className="mx-[18px] mb-2.5" data-testid="search-truncated-hint">
+                <Alert
+                    tone="warning"
+                    className="mx-[18px] mb-2.5"
+                    data-testid="search-truncated-hint"
+                >
                     结果已截断，仅显示部分匹配项
                 </Alert>
             )}

@@ -16,6 +16,7 @@ import {
     flush_session_index,
     locator_source_path,
     resolve_session_file,
+    set_win_home_wsl_probe,
     type LocatorPaths,
 } from "../../../../../src/main/core/session-history/session-locator";
 import {
@@ -28,6 +29,16 @@ import {
  * WSL 用户名探测缓存。
  * readdirSync 计数断言「不发生目录树遍历」。
  */
+
+// t438 review：locator 缺省 win_home_wsl 时惰性发现（真实 /mnt/c）——装 null
+// probe 保 hermetic，且避免发现 readdir 污染下方计数断言。
+beforeEach(() => {
+    set_win_home_wsl_probe(() => null);
+});
+
+afterEach(() => {
+    set_win_home_wsl_probe(null);
+});
 
 const fs_counter = vi.hoisted(() => ({ readdir_dirs: [] as string[] }));
 
