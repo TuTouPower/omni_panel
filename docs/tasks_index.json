@@ -2,5 +2,36 @@
     "generated_by": "scripts/repo_template/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t437",
+            "slug": "wsl_host_collect_windows_agents",
+            "title": "废除 local：env 改为 win/wsl/linux/mac",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p204；逆转 t308 win→local；删死代码；为 t438 铺路",
+            "dir": "docs/tasks/t437_wsl_host_collect_windows_agents"
+        },
+        {
+            "tid": "t438",
+            "slug": "wsl_auto_collect_win_agents",
+            "title": "WSL 宿主自动采集 Windows agent 为 env=win",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "t437",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p204；依赖 t437",
+            "dir": "docs/tasks/t438_wsl_auto_collect_win_agents"
+        }
+    ]
 }
