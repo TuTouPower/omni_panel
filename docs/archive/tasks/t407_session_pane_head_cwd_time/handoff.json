@@ -1,39 +1,39 @@
 {
-  "tid": "t407",
-  "attempt": 1,
-  "execution_id": "2702d5abcee8441e9fe2cdbe3b57fac3",
-  "status": "done",
-  "branch": "t407_session_pane_head_cwd_time",
-  "base_sha": "ede5702d78abe1f578334eeffebea12dd4125f4e",
-  "tests": "pnpm test：274 files / 3277 passed；typecheck 通过；SessionPane+pane 44 用例含紧凑时间与截断优先级",
-  "blackbox": "pnpm test 全量绿（黑盒默认层）；typecheck 绿",
-  "review": "第 2 轮 general PASS（Round 1 FAIL 已处置 f001/f002）",
-  "ac_evidence": {
-    "AC-001": [
-      "SessionPane.tsx conversation-title-cwd 直渲 slot_meta.cwd 且 shrink-0 无 truncate",
-      "SessionPane.test.tsx：cwd textContent 全路径 + 无 truncate 类名断言通过"
-    ],
-    "AC-002": [
-      "format_compact_datetime 当年分支输出 MMDD HH:mm（pane.test.ts 注入 now）",
-      "SessionPane.test.tsx pin_system_year_2026 后断言 0807 09:08 / 0817 23:25"
-    ],
-    "AC-003": [
-      "format_compact_datetime 非当年 YYMMDD HH:mm（pane.test.ts 250817 23:25）",
-      "跨年边界 0101 00:00 与 251231 23:59 断言通过"
-    ],
-    "AC-004": [
-      "session id / conversation-meta-title 保留 min-w-0 truncate；cwd/time shrink-0",
-      "SessionPane.test.tsx 截断优先级类名断言通过"
-    ],
-    "AC-005": [
-      "docs/specs/session-pane-display-adjust.md AC2/AC4 已改写为完整 cwd 与紧凑时间/两行布局",
-      "docs/specs_index.md session-pane-display-adjust 与 workspace 记入 t407"
-    ],
-    "AC-006": [
-      "pnpm test 3277 passed",
-      "pane.test.ts format_compact_datetime + SessionPane.test.tsx 更新用例通过"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t407",
+    "attempt": 1,
+    "execution_id": "2702d5abcee8441e9fe2cdbe3b57fac3",
+    "status": "done",
+    "branch": "t407_session_pane_head_cwd_time",
+    "base_sha": "ede5702d78abe1f578334eeffebea12dd4125f4e",
+    "tests": "pnpm test：274 files / 3277 passed；typecheck 通过；SessionPane+pane 44 用例含紧凑时间与截断优先级",
+    "blackbox": "pnpm test 全量绿（黑盒默认层）；typecheck 绿",
+    "review": "第 2 轮 general PASS（Round 1 FAIL 已处置 f001/f002）",
+    "ac_evidence": {
+        "AC-001": [
+            "SessionPane.tsx conversation-title-cwd 直渲 slot_meta.cwd 且 shrink-0 无 truncate",
+            "SessionPane.test.tsx：cwd textContent 全路径 + 无 truncate 类名断言通过"
+        ],
+        "AC-002": [
+            "format_compact_datetime 当年分支输出 MMDD HH:mm（pane.test.ts 注入 now）",
+            "SessionPane.test.tsx pin_system_year_2026 后断言 0807 09:08 / 0817 23:25"
+        ],
+        "AC-003": [
+            "format_compact_datetime 非当年 YYMMDD HH:mm（pane.test.ts 250817 23:25）",
+            "跨年边界 0101 00:00 与 251231 23:59 断言通过"
+        ],
+        "AC-004": [
+            "session id / conversation-meta-title 保留 min-w-0 truncate；cwd/time shrink-0",
+            "SessionPane.test.tsx 截断优先级类名断言通过"
+        ],
+        "AC-005": [
+            "docs/specs/session-pane-display-adjust.md AC2/AC4 已改写为完整 cwd 与紧凑时间/两行布局",
+            "docs/specs_index.md session-pane-display-adjust 与 workspace 记入 t407"
+        ],
+        "AC-006": [
+            "pnpm test 3277 passed",
+            "pane.test.ts format_compact_datetime + SessionPane.test.tsx 更新用例通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

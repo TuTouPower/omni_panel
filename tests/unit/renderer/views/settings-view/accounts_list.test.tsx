@@ -25,14 +25,22 @@ vi.mock("../../../../../src/renderer/components/CpaCard", () => ({
                     <span>{row.account_label}</span>
                     <button
                         onClick={() => {
-                            on_unhide({ provider: "claude", account_id: "acc-1", account_key: row.account_key });
+                            on_unhide({
+                                provider: "claude",
+                                account_id: "acc-1",
+                                account_key: row.account_key,
+                            });
                         }}
                     >
                         恢复
                     </button>
                     <button
                         onClick={() => {
-                            on_clear({ provider: "claude", account_id: "acc-1", account_key: row.account_key });
+                            on_clear({
+                                provider: "claude",
+                                account_id: "acc-1",
+                                account_key: row.account_key,
+                            });
                         }}
                     >
                         清除

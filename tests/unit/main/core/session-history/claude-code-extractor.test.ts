@@ -227,7 +227,6 @@ describe("claude_code extractor (t209)", () => {
     });
 });
 
-
 describe("claude_code extractor envelopes (t436)", () => {
     const env_fixture = join(
         __dirname,

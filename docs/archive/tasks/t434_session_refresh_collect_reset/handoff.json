@@ -1,37 +1,35 @@
 {
-  "tid": "t434",
-  "attempt": 1,
-  "execution_id": "f32e7299356a4e47b474e1b29e20fe98",
-  "status": "done",
-  "branch": "t434_session_refresh_collect_reset",
-  "base_sha": "0a3849a7b61c85f443ec66739ea936220e75e562",
-  "tests": "定向 vitest 4 文件：manager/collector/SessionShell/WorkspaceView = 131 passed",
-  "blackbox": "定向 vitest 131 passed + tsc --noEmit 0 error + eslint 改动文件 0 error",
-  "review": "第 4 轮 PASS（code + test 双路；R1/R2/R3 各 FAIL 一次后收敛）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/main/core/token-stats/manager.test.ts：t434 force_collect posts config to the running child（与周期采集同入口）",
-      "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：刷新触发 forceCollect"
-    ],
-    "AC-002": [
-      "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：t434 AC-001/AC-002/AC-003 刷新后 sessionHistory.query 调用数增加（槽位消息重拉）"
-    ],
-    "AC-003": [
-      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx：t434 AC-003 弹窗打开态刷新按 limit:100 重查（RECENT_LIMIT，与 SessionLibrary limit:50 隔离）"
-    ],
-    "AC-004": [
-      "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：刷新后 getSessions 调用数增加（会话库列表重拉，library-card 出现）"
-    ],
-    "AC-005": [
-      "tests/unit/main/core/token-stats/collector.test.ts：start_interval 假时钟——clear 旧 interval 后按 poll_interval_ms re-arm（120000→300000）"
-    ],
-    "AC-006": [
-      "定向 vitest 4 文件 131 passed（含既有 manager/collector/SessionShell/WorkspaceView 全部用例）"
-    ],
-    "AC-007": [
-      "deploy 项：真实实例点刷新后列表反映磁盘会话变化；review 标 trust_prior"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t434",
+    "attempt": 1,
+    "execution_id": "f32e7299356a4e47b474e1b29e20fe98",
+    "status": "done",
+    "branch": "t434_session_refresh_collect_reset",
+    "base_sha": "0a3849a7b61c85f443ec66739ea936220e75e562",
+    "tests": "定向 vitest 4 文件：manager/collector/SessionShell/WorkspaceView = 131 passed",
+    "blackbox": "定向 vitest 131 passed + tsc --noEmit 0 error + eslint 改动文件 0 error",
+    "review": "第 4 轮 PASS（code + test 双路；R1/R2/R3 各 FAIL 一次后收敛）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/manager.test.ts：t434 force_collect posts config to the running child（与周期采集同入口）",
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：刷新触发 forceCollect"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：t434 AC-001/AC-002/AC-003 刷新后 sessionHistory.query 调用数增加（槽位消息重拉）"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx：t434 AC-003 弹窗打开态刷新按 limit:100 重查（RECENT_LIMIT，与 SessionLibrary limit:50 隔离）"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx：刷新后 getSessions 调用数增加（会话库列表重拉，library-card 出现）"
+        ],
+        "AC-005": [
+            "tests/unit/main/core/token-stats/collector.test.ts：start_interval 假时钟——clear 旧 interval 后按 poll_interval_ms re-arm（120000→300000）"
+        ],
+        "AC-006": [
+            "定向 vitest 4 文件 131 passed（含既有 manager/collector/SessionShell/WorkspaceView 全部用例）"
+        ],
+        "AC-007": ["deploy 项：真实实例点刷新后列表反映磁盘会话变化；review 标 trust_prior"]
+    },
+    "pending": [],
+    "findings": []
 }

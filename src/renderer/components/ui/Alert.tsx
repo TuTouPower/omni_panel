@@ -10,8 +10,7 @@ interface AlertProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const tones: Record<AlertTone, string> = {
-    error:
-        "bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] text-[var(--color-error)]",
+    error: "bg-[color-mix(in_srgb,var(--color-error)_12%,transparent)] text-[var(--color-error)]",
     warning:
         "bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)] text-[var(--color-warning)]",
     success:

@@ -3,11 +3,7 @@ import { BarSchemeField } from "../../../components/settings/BarSchemeField";
 import { SetGroupLabel, SetRow } from "../../../components/settings/SetRow";
 import { Segmented } from "../../../components/ui/Segmented";
 import { BAR_STYLE_LABELS, bar_style_label_to_value } from "../lib";
-import {
-    ACCENT_PRESET_COLORS,
-    DEFAULT_ACCENT_COLOR,
-    apply_accent,
-} from "../../../lib/theme";
+import { ACCENT_PRESET_COLORS, DEFAULT_ACCENT_COLOR, apply_accent } from "../../../lib/theme";
 
 export function AppearanceSection({
     config,

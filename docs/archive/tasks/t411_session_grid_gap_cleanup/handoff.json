@@ -1,29 +1,27 @@
 {
-  "tid": "t411",
-  "attempt": 1,
-  "execution_id": "093a0e01d21d48bdb2d1d54e0a8a5b8b",
-  "status": "done",
-  "branch": "t411_session_grid_gap_cleanup",
-  "base_sha": "d997fc032b5ee480ae82f7a3f0034bd199d28161",
-  "tests": "pnpm test：3291 passed | 9 skipped；WorkspaceView.test.tsx 47 passed；pnpm typecheck 绿",
-  "blackbox": "pnpm test 全绿；AC-003 [deploy] 人工目检未在 agent 侧执行",
-  "review": "第 1 轮 general PASS（零 finding）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx t411 AC-001/002：className 不含 gap-px / bg-[var(--color-outline)] / p-px",
-      "WorkspaceView.tsx session-grid 仅 gap-[var(--spacing-card-gap)]，无描线网格背景"
-    ],
-    "AC-002": [
-      "WorkspaceView.test.tsx 断言 className 含 gap-[var(--spacing-card-gap)]",
-      "globals.css --spacing-card-gap: 12px（DESIGN spacing.card-gap）"
-    ],
-    "AC-003": [
-      "[deploy] 行列交汇星形洞与 accent 端头目检：代码侧透明 card-gap 已就绪，需人工渲染确认"
-    ],
-    "AC-004": [
-      "pnpm test 3291 passed；WorkspaceView 既有布局/滚动/槽位用例未回归"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t411",
+    "attempt": 1,
+    "execution_id": "093a0e01d21d48bdb2d1d54e0a8a5b8b",
+    "status": "done",
+    "branch": "t411_session_grid_gap_cleanup",
+    "base_sha": "d997fc032b5ee480ae82f7a3f0034bd199d28161",
+    "tests": "pnpm test：3291 passed | 9 skipped；WorkspaceView.test.tsx 47 passed；pnpm typecheck 绿",
+    "blackbox": "pnpm test 全绿；AC-003 [deploy] 人工目检未在 agent 侧执行",
+    "review": "第 1 轮 general PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx t411 AC-001/002：className 不含 gap-px / bg-[var(--color-outline)] / p-px",
+            "WorkspaceView.tsx session-grid 仅 gap-[var(--spacing-card-gap)]，无描线网格背景"
+        ],
+        "AC-002": [
+            "WorkspaceView.test.tsx 断言 className 含 gap-[var(--spacing-card-gap)]",
+            "globals.css --spacing-card-gap: 12px（DESIGN spacing.card-gap）"
+        ],
+        "AC-003": [
+            "[deploy] 行列交汇星形洞与 accent 端头目检：代码侧透明 card-gap 已就绪，需人工渲染确认"
+        ],
+        "AC-004": ["pnpm test 3291 passed；WorkspaceView 既有布局/滚动/槽位用例未回归"]
+    },
+    "pending": [],
+    "findings": []
 }

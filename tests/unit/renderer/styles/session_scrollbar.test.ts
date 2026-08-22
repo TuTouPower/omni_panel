@@ -8,10 +8,7 @@ import { describe, expect, it } from "vitest";
  * jsdom 不断言真实渲染，观感由 AC-004 [deploy] 人工确认。
  */
 
-const globals_css = readFileSync(
-    join(process.cwd(), "src/renderer/styles/globals.css"),
-    "utf8",
-);
+const globals_css = readFileSync(join(process.cwd(), "src/renderer/styles/globals.css"), "utf8");
 const design_md = readFileSync(join(process.cwd(), "DESIGN.md"), "utf8");
 
 describe("session scrollbar 细规范样式（t412）", () => {

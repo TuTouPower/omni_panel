@@ -1,27 +1,27 @@
 {
-  "tid": "t403",
-  "attempt": 1,
-  "execution_id": "948abcf0da214aff8ae77e4771b62725",
-  "status": "done",
-  "branch": "t403_resume_command_template_callers",
-  "base_sha": "8d65e9b8c22d7e5f5744a4f48bb1fe69c14b15a3",
-  "tests": "pnpm test：3263 passed | 9 skipped；pnpm typecheck：通过",
-  "blackbox": "pnpm test 全绿（组件测覆盖 AC-001~004）+ pnpm typecheck 通过",
-  "review": "Round 2 general PASS（single）；Round 1 亦 PASS",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：t403 AC-001 自定义 kimi 模板后 writeText 为 kimi --yolo -r <session_id>"
-    ],
-    "AC-002": [
-      "tests/unit/renderer/components/session_library/SessionCard.test.tsx：t403 AC-002 同上配置下会话库卡片 writeText 为替换后命令"
-    ],
-    "AC-003": [
-      "SessionPane.test.tsx / SessionCard.test.tsx：t403 AC-003 未配置来源仍复制内置默认（claude --resume …）"
-    ],
-    "AC-004": [
-      "SessionPane.test.tsx / SessionCard.test.tsx：t403 AC-004 clipboard 缺失静默无 toast；既有成功路径 toast「已复制」保留"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t403",
+    "attempt": 1,
+    "execution_id": "948abcf0da214aff8ae77e4771b62725",
+    "status": "done",
+    "branch": "t403_resume_command_template_callers",
+    "base_sha": "8d65e9b8c22d7e5f5744a4f48bb1fe69c14b15a3",
+    "tests": "pnpm test：3263 passed | 9 skipped；pnpm typecheck：通过",
+    "blackbox": "pnpm test 全绿（组件测覆盖 AC-001~004）+ pnpm typecheck 通过",
+    "review": "Round 2 general PASS（single）；Round 1 亦 PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：t403 AC-001 自定义 kimi 模板后 writeText 为 kimi --yolo -r <session_id>"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx：t403 AC-002 同上配置下会话库卡片 writeText 为替换后命令"
+        ],
+        "AC-003": [
+            "SessionPane.test.tsx / SessionCard.test.tsx：t403 AC-003 未配置来源仍复制内置默认（claude --resume …）"
+        ],
+        "AC-004": [
+            "SessionPane.test.tsx / SessionCard.test.tsx：t403 AC-004 clipboard 缺失静默无 toast；既有成功路径 toast「已复制」保留"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

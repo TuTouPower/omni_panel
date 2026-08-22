@@ -325,9 +325,7 @@ describe("SettingsView", () => {
                 expect(input).toHaveAttribute("placeholder", ph);
                 expect(input).toHaveDisplayValue("");
             }
-            expect(
-                screen.getByText(/\{session_id\}/, { exact: false }),
-            ).toBeInTheDocument();
+            expect(screen.getByText(/\{session_id\}/, { exact: false })).toBeInTheDocument();
         });
 
         it("AC-002: saves kimi_code custom template to resumeCommandTemplates", async () => {

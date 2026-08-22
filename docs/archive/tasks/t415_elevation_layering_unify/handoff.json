@@ -1,39 +1,37 @@
 {
-  "tid": "t415",
-  "attempt": 1,
-  "execution_id": "a69cead277b94779ab8ce3247974306f",
-  "status": "done",
-  "branch": "t415_elevation_layering_unify",
-  "base_sha": "105c26aa2c26c0e7b23187005c13ec7512398519",
-  "tests": "pnpm test：3319 passed | 9 skipped；elevation_layering 6/6；typecheck 通过；designmd:check 通过；本 diff 路径 eslint 干净",
-  "blackbox": "pnpm test 全绿 + designmd:check + typecheck；源码扫描 AC-001~004 模式清零（见 elevation_layering.test.ts）",
-  "review": "第 2 轮 general PASS（overall=PASS，review_scope=ok；Round 1/2 零 finding）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-001 组件无 dark:shadow- 通过",
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-001 暗色主题变量层翻转 --shadow-window/--shadow-card 通过",
-      "globals.css .dark 块：--shadow-window: var(--shadow-window-dark); --shadow-card: var(--shadow-card-dark)"
-    ],
-    "AC-002": [
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-002 无裸 z-10/z-20 通过",
-      "RangePicker z-menu；SelectionDock/SessionPane 回底 z-sticky；大纲 z-context；Dialog 去裸 z-10"
-    ],
-    "AC-003": [
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-003 无 shadow-[]/sm/lg 通过",
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-003 logo-drop-shadow @utility 通过",
-      "TrayMenu/PanelTitleBar 消费 logo-drop-shadow"
-    ],
-    "AC-004": [
-      "tests/unit/renderer/styles/elevation_layering.test.ts::AC-004 SelectionDock 无 blur、仅菜单/对话框 通过",
-      "SelectionDock 实底 surface-window；TrayMenu/Dialog 保留 backdrop-blur"
-    ],
-    "AC-005": [
-      "[deploy] 暗色主题目检：窗口/卡片投影、弹层遮挡、SelectionDock 实底观感——需人工环境"
-    ],
-    "AC-006": [
-      "pnpm test：3319 passed | 9 skipped"
-    ]
-  },
-  "pending": ["p190"],
-  "findings": ["d043"]
+    "tid": "t415",
+    "attempt": 1,
+    "execution_id": "a69cead277b94779ab8ce3247974306f",
+    "status": "done",
+    "branch": "t415_elevation_layering_unify",
+    "base_sha": "105c26aa2c26c0e7b23187005c13ec7512398519",
+    "tests": "pnpm test：3319 passed | 9 skipped；elevation_layering 6/6；typecheck 通过；designmd:check 通过；本 diff 路径 eslint 干净",
+    "blackbox": "pnpm test 全绿 + designmd:check + typecheck；源码扫描 AC-001~004 模式清零（见 elevation_layering.test.ts）",
+    "review": "第 2 轮 general PASS（overall=PASS，review_scope=ok；Round 1/2 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-001 组件无 dark:shadow- 通过",
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-001 暗色主题变量层翻转 --shadow-window/--shadow-card 通过",
+            "globals.css .dark 块：--shadow-window: var(--shadow-window-dark); --shadow-card: var(--shadow-card-dark)"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-002 无裸 z-10/z-20 通过",
+            "RangePicker z-menu；SelectionDock/SessionPane 回底 z-sticky；大纲 z-context；Dialog 去裸 z-10"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-003 无 shadow-[]/sm/lg 通过",
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-003 logo-drop-shadow @utility 通过",
+            "TrayMenu/PanelTitleBar 消费 logo-drop-shadow"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/styles/elevation_layering.test.ts::AC-004 SelectionDock 无 blur、仅菜单/对话框 通过",
+            "SelectionDock 实底 surface-window；TrayMenu/Dialog 保留 backdrop-blur"
+        ],
+        "AC-005": [
+            "[deploy] 暗色主题目检：窗口/卡片投影、弹层遮挡、SelectionDock 实底观感——需人工环境"
+        ],
+        "AC-006": ["pnpm test：3319 passed | 9 skipped"]
+    },
+    "pending": ["p190"],
+    "findings": ["d043"]
 }

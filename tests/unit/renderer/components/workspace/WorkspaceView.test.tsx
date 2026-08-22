@@ -279,7 +279,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(screen.getByRole("checkbox"));
         // 选中后托盘展开，点托盘「复制」写剪贴板（t226 取代旧工具栏复制）。
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="selection-tray"]')?.className).toContain("expanded");
+            expect(document.querySelector('[data-testid="selection-tray"]')?.className).toContain(
+                "expanded",
+            );
         });
         fireEvent.click(screen.getByRole("button", { name: "复制" }));
         await waitFor(() => {
@@ -356,10 +358,14 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(screen.getByRole("button", { name: "最近 6 个" }));
 
         expect(
-            [...document.querySelectorAll('[data-testid="session-recent-check"]')].map((el) => el.textContent),
+            [...document.querySelectorAll('[data-testid="session-recent-check"]')].map(
+                (el) => el.textContent,
+            ),
         ).toEqual(["1", "2", "3", "4", "5", "6", ""]);
         expect(
-            [...document.querySelectorAll('[data-testid="session-recent-title"]')].map((el) => el.textContent),
+            [...document.querySelectorAll('[data-testid="session-recent-title"]')].map(
+                (el) => el.textContent,
+            ),
         ).toEqual(["会话 s1", "会话 s2", "会话 s3", "会话 s4", "会话 s5", "会话 s6", "会话 s7"]);
         expect(screen.getByText("最近会话（选 6/8）")).toBeTruthy();
     });
@@ -422,17 +428,19 @@ describe("WorkspaceView (t224)", () => {
             expect(document.querySelectorAll('[data-testid="session-slot-title"]')).toHaveLength(2);
         });
         await waitFor(() => {
-            expect([...document.querySelectorAll('[data-testid="session-slot-title"]')].length).toBe(2);
+            expect(
+                [...document.querySelectorAll('[data-testid="session-slot-title"]')].length,
+            ).toBe(2);
         });
-        const titles_before = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
-        const a_slot = [...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]')].find((el) =>
-            el.textContent.includes("sess_a"),
-        );
-        const b_slot = [...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]')].find((el) =>
-            el.textContent.includes("sess_b"),
-        );
+        const titles_before = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
+        const a_slot = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]'),
+        ].find((el) => el.textContent.includes("sess_a"));
+        const b_slot = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]'),
+        ].find((el) => el.textContent.includes("sess_b"));
         if (!a_slot || !b_slot) throw new Error("rail slots not found");
         fireEvent.dragStart(a_slot);
         fireEvent.drop(b_slot);
@@ -442,9 +450,9 @@ describe("WorkspaceView (t224)", () => {
             );
             expect(titles).not.toEqual(titles_before);
         });
-        const titles_after = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_after = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         expect(titles_after[0]).toBe("sess_b");
         expect(titles_after[1]).toBe("sess_a");
     });
@@ -544,7 +552,9 @@ describe("WorkspaceView (t224)", () => {
         expect(screen.getByText("已打开")).toBeTruthy();
 
         const picker_titles = () =>
-            [...document.querySelectorAll('[data-testid="session-picker-row-title"]')].map((el) => el.textContent);
+            [...document.querySelectorAll('[data-testid="session-picker-row-title"]')].map(
+                (el) => el.textContent,
+            );
         expect(picker_titles()).toEqual(["会话一已打开", "会话二", "会话三"]);
 
         fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "会话二" } });
@@ -568,16 +578,18 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => screen.getByRole("dialog", { name: "最近会话" }));
         // 等会话列表拉回后再读标题（全量并行时 mock resolve 可能晚于 dialog 挂载）。
         await waitFor(() => {
-            const titles = [...document.querySelectorAll('[data-testid="session-recent-title"]')].map(
-                (el) => el.textContent,
-            );
+            const titles = [
+                ...document.querySelectorAll('[data-testid="session-recent-title"]'),
+            ].map((el) => el.textContent);
             expect(titles).toEqual(["会话 new", "会话 mid", "会话 old"]);
         });
 
         const confirm_btn = screen.getByRole("button", { name: "清空并替换全部槽位" });
         expect((confirm_btn as HTMLButtonElement).disabled).toBe(true);
 
-        const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]')];
+        const rows = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]'),
+        ];
         const first = rows[0];
         const second = rows[1];
         if (!first || !second) throw new Error("recent rows missing");
@@ -585,7 +597,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(second);
         expect(screen.getByText(/选 2\/8/)).toBeTruthy();
         expect(
-            [...document.querySelectorAll('[data-testid="session-recent-check"]')].map((el) => el.textContent),
+            [...document.querySelectorAll('[data-testid="session-recent-check"]')].map(
+                (el) => el.textContent,
+            ),
         ).toEqual(["1", "2", ""]);
     });
 
@@ -603,7 +617,9 @@ describe("WorkspaceView (t224)", () => {
         await waitFor(() => {
             expect(document.querySelectorAll('[data-testid="session-recent-row"]')).toHaveLength(9);
         });
-        const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]')];
+        const rows = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-recent-row"]'),
+        ];
         for (const row of rows) {
             fireEvent.click(row);
         }
@@ -644,11 +660,17 @@ describe("WorkspaceView (t224)", () => {
 
     it("rail 可折叠/展开（t323 上移顶栏后行为不变）", async () => {
         await render_shell();
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
+            "collapsed",
+        );
         fireEvent.click(screen.getByRole("button", { name: "折叠槽位栏" }));
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain(
+            "collapsed",
+        );
         fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain("collapsed");
+        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
+            "collapsed",
+        );
     });
 
     it("Shift 连选：锚点到当前消息范围选中", async () => {
@@ -674,9 +696,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(box0); // 锚点 m1
         fireEvent.click(box2, { shiftKey: true }); // Shift → m1-m3 全选
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="selection-tray-count"]')?.textContent).toContain(
-                "3 片段",
-            );
+            expect(
+                document.querySelector('[data-testid="selection-tray-count"]')?.textContent,
+            ).toContain("3 片段");
         });
         // f001 回归：set_session 替换后（count 不变时）面板勾选态同步刷新。
         // 锚点仍 m1，再 Shift 点 m2 → 范围收窄为 m1-m2，m3 被替换出。
@@ -684,9 +706,9 @@ describe("WorkspaceView (t224)", () => {
         if (!box1) throw new Error("checkbox missing");
         fireEvent.click(box1, { shiftKey: true });
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="selection-tray-count"]')?.textContent).toContain(
-                "2 片段",
-            );
+            expect(
+                document.querySelector('[data-testid="selection-tray-count"]')?.textContent,
+            ).toContain("2 片段");
         });
         expect((screen.getAllByRole("checkbox")[2] as HTMLInputElement).checked).toBe(false);
     });
@@ -716,9 +738,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.click(b0);
         fireEvent.click(b2);
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="selection-tray-count"]')?.textContent).toContain(
-                "2 片段",
-            );
+            expect(
+                document.querySelector('[data-testid="selection-tray-count"]')?.textContent,
+            ).toContain("2 片段");
         });
         // 直接驱动 store 模拟 Shift 替换（count 不变：2 → 2）。
         act(() => {
@@ -814,9 +836,9 @@ describe("WorkspaceView (t224)", () => {
 
         fireEvent.click(two_by_three);
         expect(two_by_three.getAttribute("aria-pressed")).toBe("true");
-        expect(document.querySelector('[data-testid="session-grid"]')?.getAttribute("style")).toContain(
-            "--cols: 2",
-        );
+        expect(
+            document.querySelector('[data-testid="session-grid"]')?.getAttribute("style"),
+        ).toContain("--cols: 2");
     });
 
     it("8 个会话时视图菜单选中当前有效排布", async () => {
@@ -852,13 +874,13 @@ describe("WorkspaceView (t224)", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
         fireEvent.click(screen.getByRole("button", { name: "1 列 × 2 行" }));
-        expect(document.querySelector('[data-testid="session-grid"]')?.getAttribute("style")).toContain(
-            "--cols: 1",
-        );
+        expect(
+            document.querySelector('[data-testid="session-grid"]')?.getAttribute("style"),
+        ).toContain("--cols: 1");
         fireEvent.click(screen.getByRole("button", { name: "2 列 × 1 行" }));
-        expect(document.querySelector('[data-testid="session-grid"]')?.getAttribute("style")).toContain(
-            "--cols: 2",
-        );
+        expect(
+            document.querySelector('[data-testid="session-grid"]')?.getAttribute("style"),
+        ).toContain("--cols: 2");
     });
 
     it("AC-001：头部无全选可见/清空选择/聚焦此面板按钮", async () => {
@@ -912,7 +934,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.keyDown(window, { key: "Escape" });
         expect(document.querySelector('[data-testid="conversation-outline"]')).toBeNull();
         // AC-002：网格无 focused 类与 data-focused
-        expect(document.querySelector('[data-testid="session-grid"]')?.className).not.toContain("focused");
+        expect(document.querySelector('[data-testid="session-grid"]')?.className).not.toContain(
+            "focused",
+        );
         expect(document.querySelector("[data-focused]")).toBeNull();
     });
 
@@ -930,7 +954,9 @@ describe("WorkspaceView (t224)", () => {
         fireEvent.keyDown(window, { key: "2" });
         fireEvent.keyDown(window, { key: "]" });
         fireEvent.keyDown(window, { key: "[" });
-        expect(document.querySelector('[data-testid="session-grid"]')?.className).not.toContain("focused");
+        expect(document.querySelector('[data-testid="session-grid"]')?.className).not.toContain(
+            "focused",
+        );
         expect(document.querySelector('[data-testid="session-cell"].col-span-full')).toBeNull();
         expect(document.querySelector('[data-testid="session-cell"].hidden')).toBeNull();
         // 两槽均仍可见
@@ -954,7 +980,9 @@ describe("WorkspaceView (t224)", () => {
 
         fireEvent.click(screen.getByRole("button", { name: /视图/ }));
         fireEvent.click(screen.getByLabelText("紧凑模式"));
-        expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
+        expect(
+            document.querySelector('[data-testid="conversation-message-row"]')?.className,
+        ).toContain("compact");
         // t427：消息时间仅随展开态，show_time 开关不再影响（折叠态无时间节点）。
         fireEvent.click(screen.getByLabelText("显示时间戳"));
         expect(document.querySelector('[data-testid="conversation-message-time"]')).toBeNull();
@@ -1071,18 +1099,18 @@ describe("WorkspaceView (t323 顶栏按钮上移后布局)", () => {
 
 describe("WorkspaceView 面板 agent icon 拖拽换槽 (t410)", () => {
     function pane_badge_for(session_id: string): HTMLElement {
-        const cell = [...document.querySelectorAll<HTMLElement>('[data-testid="session-cell"]')].find((el) =>
-            (el.getAttribute("data-loc-key") ?? "").includes(session_id),
-        );
+        const cell = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-cell"]'),
+        ].find((el) => (el.getAttribute("data-loc-key") ?? "").includes(session_id));
         const badge = cell?.querySelector<HTMLElement>('[data-testid="conversation-agent-badge"]');
         if (!badge) throw new Error(`badge for ${session_id} not found`);
         return badge;
     }
 
     function pane_root_for(session_id: string): HTMLElement {
-        const pane = [...document.querySelectorAll<HTMLElement>('[data-testid="conversation-pane"]')].find((el) =>
-            (el.getAttribute("data-loc-key") ?? "").includes(session_id),
-        );
+        const pane = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="conversation-pane"]'),
+        ].find((el) => (el.getAttribute("data-loc-key") ?? "").includes(session_id));
         if (!pane) throw new Error(`pane for ${session_id} not found`);
         return pane;
     }
@@ -1104,9 +1132,9 @@ describe("WorkspaceView 面板 agent icon 拖拽换槽 (t410)", () => {
 
     it("AC-001：从 agent icon 拖到另一面板后槽位互换，侧栏顺序同步", async () => {
         await open_two_sessions();
-        const titles_before = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_before = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         expect(titles_before).toEqual(["sess_a", "sess_b"]);
         const a_badge = pane_badge_for("sess_a");
         const b_pane = pane_root_for("sess_b");
@@ -1143,28 +1171,28 @@ describe("WorkspaceView 面板 agent icon 拖拽换槽 (t410)", () => {
 
     it("AC-003：拖到无效区域松开后布局不变", async () => {
         await open_two_sessions();
-        const titles_before = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_before = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         const a_badge = pane_badge_for("sess_a");
         fireEvent.dragStart(a_badge);
         // 无 drop 目标：直接 dragEnd
         fireEvent.dragEnd(a_badge);
-        const titles_after = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_after = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         expect(titles_after).toEqual(titles_before);
     });
 
     it("AC-004：单击 agent icon 不改布局", async () => {
         await open_two_sessions();
-        const titles_before = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_before = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         fireEvent.click(pane_badge_for("sess_a"));
-        const titles_after = [...document.querySelectorAll('[data-testid="session-slot-title"]')].map(
-            (el) => el.textContent,
-        );
+        const titles_after = [
+            ...document.querySelectorAll('[data-testid="session-slot-title"]'),
+        ].map((el) => el.textContent);
         expect(titles_after).toEqual(titles_before);
     });
 
@@ -1276,12 +1304,12 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
         await waitFor(() => {
             expect(document.querySelectorAll('[data-testid="session-slot-title"]')).toHaveLength(2);
         });
-        const a_slot = [...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]')].find((el) =>
-            el.textContent.includes("sess_a"),
-        );
-        const b_slot = [...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]')].find((el) =>
-            el.textContent.includes("sess_b"),
-        );
+        const a_slot = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]'),
+        ].find((el) => el.textContent.includes("sess_a"));
+        const b_slot = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="session-slot"]'),
+        ].find((el) => el.textContent.includes("sess_b"));
         if (!a_slot || !b_slot) throw new Error("rail slots not found");
         fireEvent.dragStart(a_slot);
         fireEvent.drop(b_slot);
@@ -1324,7 +1352,9 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
         expect(
             screen.getByRole("button", { name: "1 列 × 2 行" }).getAttribute("aria-pressed"),
         ).toBe("true");
-        expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain("compact");
+        expect(
+            document.querySelector('[data-testid="conversation-message-row"]')?.className,
+        ).toContain("compact");
         expect(JSON.parse(localStorage.getItem("workspace-layout") ?? "{}")).toMatchObject({
             layout: 1,
             view: { show_time: true, compact: true },
@@ -1333,14 +1363,14 @@ describe("WorkspaceView (t329 槽位/布局/视图持久化)", () => {
         first.unmount();
         await mount_shell();
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="session-grid"]')?.getAttribute("style")).toContain(
-                "--cols: 1",
-            );
+            expect(
+                document.querySelector('[data-testid="session-grid"]')?.getAttribute("style"),
+            ).toContain("--cols: 1");
         });
         await waitFor(() => {
-            expect(document.querySelector('[data-testid="conversation-message-row"]')?.className).toContain(
-                "compact",
-            );
+            expect(
+                document.querySelector('[data-testid="conversation-message-row"]')?.className,
+            ).toContain("compact");
         });
     });
 

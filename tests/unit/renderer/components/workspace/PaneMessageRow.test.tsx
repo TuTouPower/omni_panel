@@ -12,7 +12,9 @@ function msg(id: string, role: "user" | "assistant", text: string): HistoryMessa
 
 function is_collapsed(root: ParentNode | Document = document): boolean {
     return Boolean(
-        root.querySelector('[data-testid="conversation-message-content"]')?.classList.contains("single-line"),
+        root
+            .querySelector('[data-testid="conversation-message-content"]')
+            ?.classList.contains("single-line"),
     );
 }
 
@@ -166,8 +168,12 @@ describe("PaneMessageRow 点击本体展开 (t408)", () => {
                 <PaneMessageRow {...base} message={msg("a1", "assistant", "hi")} />
             </div>,
         );
-        const user_body = document.querySelector('[data-message-id="u1"] [data-testid="conversation-message-body"]');
-        const agent_body = document.querySelector('[data-message-id="a1"] [data-testid="conversation-message-body"]');
+        const user_body = document.querySelector(
+            '[data-message-id="u1"] [data-testid="conversation-message-body"]',
+        );
+        const agent_body = document.querySelector(
+            '[data-message-id="a1"] [data-testid="conversation-message-body"]',
+        );
         expect(user_body?.className).toMatch(/bg-\[var\(--color-primary-container\)\]/);
         expect(agent_body?.className).not.toMatch(/bg-\[var\(--color-primary-container\)\]/);
     });
@@ -282,7 +288,9 @@ describe("PaneMessageRow 角色标签去重与时间跟展开态 (t427)", () => 
             <PaneMessageRow {...base} message={msg("m1", "user", "hi")} show_role_label />,
         );
         expect(screen.getByText("用户")).toBeTruthy();
-        rerender(<PaneMessageRow {...base} message={msg("m1", "user", "hi")} show_role_label={false} />);
+        rerender(
+            <PaneMessageRow {...base} message={msg("m1", "user", "hi")} show_role_label={false} />,
+        );
         expect(screen.queryByText("用户")).toBeNull();
         // assistant 同理
         rerender(
@@ -290,7 +298,11 @@ describe("PaneMessageRow 角色标签去重与时间跟展开态 (t427)", () => 
         );
         expect(screen.getByText("Agent")).toBeTruthy();
         rerender(
-            <PaneMessageRow {...base} message={msg("m2", "assistant", "yo")} show_role_label={false} />,
+            <PaneMessageRow
+                {...base}
+                message={msg("m2", "assistant", "yo")}
+                show_role_label={false}
+            />,
         );
         expect(screen.queryByText("Agent")).toBeNull();
     });

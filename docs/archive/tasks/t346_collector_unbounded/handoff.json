@@ -1,23 +1,23 @@
 {
-  "tid": "t346",
-  "attempt": 1,
-  "execution_id": "29be88306df1499b88e13812f9a3cc95",
-  "status": "done",
-  "branch": "t346_collector_unbounded",
-  "base_sha": "9145fcbd87600de80b34a62fcca9e51fafd10b75",
-  "tests": "collector.test.ts 38 例全绿：AC-001 裁剪（31 天旧 key 删、新 key 留、新记录带时间戳）、AC-002 无变化跳过保存、unavailable 不触发保存。token-stats 277 例全绿。typecheck/lint/prettier 干净。全量 unit 2425 passed；10 文件因 p153 electron 环境失败与 task 无关。",
-  "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002 由单测覆盖（mock reader 注入数据/空数据/unavailable）。",
-  "review": "review_level=single；Round 1 general FAIL（f001/f002 important 已修、f003 minor 遗留→p167、f004 minor 已修）；Round 2 general PASS（f005 minor 已修）。报告 t346_review_general.md。",
-  "ac_evidence": {
-    "AC-001": [
-      "collector.ts emitted_record_keys Map<key, added_ts> + EMITTED_WINDOW_MS=30d + prune_emitted 每轮裁剪",
-      "collector.test.ts::prunes emitted records older than the window（注入 31 天旧 key 断言删）+ newly emitted carry timestamp"
-    ],
-    "AC-002": [
-      "collector.ts save_state 仅 has_changes 时调用（all_* 非空 || truncated）；删 status 非 ok 分支避免 unavailable 每轮触发",
-      "collector.test.ts::skips save_state when a round has no changes + does not save on unavailable sources"
-    ]
-  },
-  "pending": ["p166", "p167"],
-  "findings": []
+    "tid": "t346",
+    "attempt": 1,
+    "execution_id": "29be88306df1499b88e13812f9a3cc95",
+    "status": "done",
+    "branch": "t346_collector_unbounded",
+    "base_sha": "9145fcbd87600de80b34a62fcca9e51fafd10b75",
+    "tests": "collector.test.ts 38 例全绿：AC-001 裁剪（31 天旧 key 删、新 key 留、新记录带时间戳）、AC-002 无变化跳过保存、unavailable 不触发保存。token-stats 277 例全绿。typecheck/lint/prettier 干净。全量 unit 2425 passed；10 文件因 p153 electron 环境失败与 task 无关。",
+    "blackbox": "默认 pnpm test 受 p153 electron 环境限制未独立跑；AC-001/002 由单测覆盖（mock reader 注入数据/空数据/unavailable）。",
+    "review": "review_level=single；Round 1 general FAIL（f001/f002 important 已修、f003 minor 遗留→p167、f004 minor 已修）；Round 2 general PASS（f005 minor 已修）。报告 t346_review_general.md。",
+    "ac_evidence": {
+        "AC-001": [
+            "collector.ts emitted_record_keys Map<key, added_ts> + EMITTED_WINDOW_MS=30d + prune_emitted 每轮裁剪",
+            "collector.test.ts::prunes emitted records older than the window（注入 31 天旧 key 断言删）+ newly emitted carry timestamp"
+        ],
+        "AC-002": [
+            "collector.ts save_state 仅 has_changes 时调用（all_* 非空 || truncated）；删 status 非 ok 分支避免 unavailable 每轮触发",
+            "collector.test.ts::skips save_state when a round has no changes + does not save on unavailable sources"
+        ]
+    },
+    "pending": ["p166", "p167"],
+    "findings": []
 }

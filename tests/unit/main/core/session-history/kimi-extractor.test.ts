@@ -340,14 +340,17 @@ describe("kimi_code extractor content.part (t425)", () => {
     });
 });
 
-
 describe("kimi_code extractor envelopes (t436)", () => {
     const env_fixture = join(fixture_dir, "wire-envelopes.jsonl");
 
     it("AC-003: drops reminder-only; keeps plain users and content.part assistant", () => {
         const { messages } = extract_kimi_code(env_fixture);
         expect(messages.map((m) => m.role)).toEqual(["user", "user", "assistant"]);
-        expect(messages.map((m) => m.text)).toEqual(["first real", "second real", "assistant body"]);
+        expect(messages.map((m) => m.text)).toEqual([
+            "first real",
+            "second real",
+            "assistant body",
+        ]);
         expect(extract_kimi_code_first_user(env_fixture)).toBe("first real");
     });
 

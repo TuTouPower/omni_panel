@@ -1,48 +1,46 @@
 {
-  "tid": "t424",
-  "attempt": 1,
-  "execution_id": "446245723e4e40d1ab9ff80252262bba",
-  "status": "done",
-  "branch": "t424_type_space_token_unify",
-  "base_sha": "3db780fe60ce263f0d727d37da427e9de7ae0934",
-  "tests": "pnpm test：3348 passed / 9 skipped（含 type_space_token_unify / session_typography / ui / heatmap）",
-  "blackbox": "type_space_token_unify.test.ts 源码审计清零 text-[Npx]/font-medium|normal/半档间距/rounded-[Npx]/fontSize 字面量；AC-008 deploy 目检待人工",
-  "review": "第 1 轮 general PASS（零 finding）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/styles/type_space_token_unify.test.ts AC-001 无 text-[Npx] 与 text-sm 等",
-      "src/renderer 批量改写为 text-[length:var(--text-*)]"
-    ],
-    "AC-002": [
-      "type_space_token_unify.test.ts AC-002 无 font-medium/font-normal",
-      "font-medium→font-[550]、font-normal→font-[450]"
-    ],
-    "AC-003": [
-      "Heatmap/MetricDonut/BarChart/TrendSparkline 使用 TEXT_SCALE_PX",
-      "type_space_token_unify.test.ts AC-003 与 chart 专项断言"
-    ],
-    "AC-004": [
-      "docs/tasks/t424_type_space_token_unify/task.md 实施笔记「AC-004 字号/字重映射表」"
-    ],
-    "AC-005": [
-      "type_space_token_unify.test.ts AC-005 非 4px 倍数且非豁免间距清零",
-      "实施笔记豁免清单（9/10/12/14/16/18/24/40）"
-    ],
-    "AC-006": [
-      "type_space_token_unify.test.ts AC-006 rounded-[Npx] 清零",
-      "rounded-[7/4/9/18px]→xs/md/xl；Heatmap borderRadius→RADIUS_SCALE_PX.xs"
-    ],
-    "AC-007": [
-      "task.md 实施笔记「AC-007 间距/圆角映射表」"
-    ],
-    "AC-008": [
-      "[deploy] 四窗口目检未在本 attempt 执行；映射就近归位风险已记实施笔记，待人工确认"
-    ],
-    "AC-009": [
-      "pnpm test：3348 passed / 9 skipped",
-      "session_typography / ui.test Badge rounded-xs 等断言已同步"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t424",
+    "attempt": 1,
+    "execution_id": "446245723e4e40d1ab9ff80252262bba",
+    "status": "done",
+    "branch": "t424_type_space_token_unify",
+    "base_sha": "3db780fe60ce263f0d727d37da427e9de7ae0934",
+    "tests": "pnpm test：3348 passed / 9 skipped（含 type_space_token_unify / session_typography / ui / heatmap）",
+    "blackbox": "type_space_token_unify.test.ts 源码审计清零 text-[Npx]/font-medium|normal/半档间距/rounded-[Npx]/fontSize 字面量；AC-008 deploy 目检待人工",
+    "review": "第 1 轮 general PASS（零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/styles/type_space_token_unify.test.ts AC-001 无 text-[Npx] 与 text-sm 等",
+            "src/renderer 批量改写为 text-[length:var(--text-*)]"
+        ],
+        "AC-002": [
+            "type_space_token_unify.test.ts AC-002 无 font-medium/font-normal",
+            "font-medium→font-[550]、font-normal→font-[450]"
+        ],
+        "AC-003": [
+            "Heatmap/MetricDonut/BarChart/TrendSparkline 使用 TEXT_SCALE_PX",
+            "type_space_token_unify.test.ts AC-003 与 chart 专项断言"
+        ],
+        "AC-004": [
+            "docs/tasks/t424_type_space_token_unify/task.md 实施笔记「AC-004 字号/字重映射表」"
+        ],
+        "AC-005": [
+            "type_space_token_unify.test.ts AC-005 非 4px 倍数且非豁免间距清零",
+            "实施笔记豁免清单（9/10/12/14/16/18/24/40）"
+        ],
+        "AC-006": [
+            "type_space_token_unify.test.ts AC-006 rounded-[Npx] 清零",
+            "rounded-[7/4/9/18px]→xs/md/xl；Heatmap borderRadius→RADIUS_SCALE_PX.xs"
+        ],
+        "AC-007": ["task.md 实施笔记「AC-007 间距/圆角映射表」"],
+        "AC-008": [
+            "[deploy] 四窗口目检未在本 attempt 执行；映射就近归位风险已记实施笔记，待人工确认"
+        ],
+        "AC-009": [
+            "pnpm test：3348 passed / 9 skipped",
+            "session_typography / ui.test Badge rounded-xs 等断言已同步"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

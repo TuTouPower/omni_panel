@@ -85,9 +85,11 @@ describe("SessionPane (t225)", () => {
         const cwd_el = document.querySelector('[data-testid="conversation-title-cwd"]');
         expect(cwd_el?.textContent).toBe("/path/to/proj");
         expect(screen.getByText(/claude-sonnet-4/)).toBeTruthy();
-        expect(document.querySelector('[data-testid="conversation-agent-badge"]')?.getAttribute("title")).toBe(
-            "claude-sonnet-4",
-        );
+        expect(
+            document
+                .querySelector('[data-testid="conversation-agent-badge"]')
+                ?.getAttribute("title"),
+        ).toBe("claude-sonnet-4");
         expect(document.querySelector('[data-testid="conversation-accent"]')).toBeTruthy();
     });
 
@@ -349,19 +351,27 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         fireEvent.scroll(container);
         const m94_check = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
+            .find((c) =>
+                c
+                    .closest('[data-testid="conversation-message-row"]')
+                    ?.textContent.includes("消息 94"),
+            );
         if (!m94_check) throw new Error("m94 checkbox missing");
         fireEvent.click(m94_check);
         expect(m94_check).toBeChecked();
         // 滚动到中间 → 新窗口渲染（m94 虚拟化卸载）。
         container.scrollTop = 2000;
         fireEvent.scroll(container);
-        expect(document.querySelectorAll('[data-testid="conversation-message-row"]').length).toBeLessThan(100);
+        expect(
+            document.querySelectorAll('[data-testid="conversation-message-row"]').length,
+        ).toBeLessThan(100);
         expect(
             screen
                 .queryAllByRole("checkbox")
                 .some((c) =>
-                    c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"),
+                    c
+                        .closest('[data-testid="conversation-message-row"]')
+                        ?.textContent.includes("消息 94"),
                 ),
         ).toBe(false);
         // 滚回 m94 窗口 → 重挂后仍选中（AC2 选中态保持回归）。
@@ -369,7 +379,11 @@ describe("SessionPane 滚动定位与重渲染 (t265)", () => {
         fireEvent.scroll(container);
         const m94_again = screen
             .getAllByRole("checkbox")
-            .find((c) => c.closest('[data-testid="conversation-message-row"]')?.textContent.includes("消息 94"));
+            .find((c) =>
+                c
+                    .closest('[data-testid="conversation-message-row"]')
+                    ?.textContent.includes("消息 94"),
+            );
         if (!m94_again) throw new Error("m94 checkbox missing after re-scroll");
         expect(m94_again).toBeChecked();
     });
@@ -434,7 +448,8 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         const time_el = document.querySelector('[data-testid="conversation-title-time"]');
         const id_el = document.querySelector('[data-testid="conversation-session-id"]');
         const title_el = document.querySelector('[data-testid="conversation-meta-title"]');
-        if (!cwd_el || !time_el || !id_el || !title_el) throw new Error("header meta nodes missing");
+        if (!cwd_el || !time_el || !id_el || !title_el)
+            throw new Error("header meta nodes missing");
         // cwd 完整文本，无尾部省略类。
         expect(cwd_el.textContent).toBe(long_cwd);
         expect(cwd_el.className).not.toMatch(/\btruncate\b/);
@@ -530,13 +545,7 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
     it("AC-004：agent badge 可拖，单击不调用 on_drag_start 以外的布局回调", () => {
         const on_drag_start = vi.fn();
         const on_drag_end = vi.fn();
-        render(
-            <SessionPane
-                {...PROPS}
-                on_drag_start={on_drag_start}
-                on_drag_end={on_drag_end}
-            />,
-        );
+        render(<SessionPane {...PROPS} on_drag_start={on_drag_start} on_drag_end={on_drag_end} />);
         const badge = document.querySelector('[data-testid="conversation-agent-badge"]');
         if (!badge) throw new Error("badge missing");
         expect(badge.getAttribute("draggable")).toBe("true");
@@ -563,7 +572,9 @@ describe("SessionPane agent icon 拖拽手柄 (t410)", () => {
                 on_drag_end={() => undefined}
             />,
         );
-        expect(document.querySelector('[data-testid="conversation-pane"][data-dragging="true"]')).toBeTruthy();
+        expect(
+            document.querySelector('[data-testid="conversation-pane"][data-dragging="true"]'),
+        ).toBeTruthy();
     });
 
     it("AC-002：drop_active 时面板带落点高亮类", () => {
@@ -613,7 +624,9 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            const el = document.querySelector<HTMLButtonElement>(
+                '[data-testid="conversation-session-id"]',
+            );
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };
@@ -647,7 +660,9 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            const el = document.querySelector<HTMLButtonElement>(
+                '[data-testid="conversation-session-id"]',
+            );
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };
@@ -680,7 +695,9 @@ describe("SessionPane 自定义续接命令模板 (t403)", () => {
             />,
         );
         const btn = () => {
-            const el = document.querySelector<HTMLButtonElement>('[data-testid="conversation-session-id"]');
+            const el = document.querySelector<HTMLButtonElement>(
+                '[data-testid="conversation-session-id"]',
+            );
             if (!el) throw new Error("conversation-session-id missing");
             return el;
         };
@@ -707,12 +724,15 @@ describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
                 })}
             />,
         );
-        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        const rows = Array.from(
+            document.querySelectorAll('[data-testid="conversation-message-row"]'),
+        );
         expect(rows.length).toBe(4);
-        const labels = rows.map((r) =>
-            Array.from(r.querySelectorAll("span"))
-                .map((s) => s.textContent)
-                .find((t) => t === "用户" || t === "Agent") ?? null,
+        const labels = rows.map(
+            (r) =>
+                Array.from(r.querySelectorAll("span"))
+                    .map((s) => s.textContent)
+                    .find((t) => t === "用户" || t === "Agent") ?? null,
         );
         // 组首显示，组内不重复
         expect(labels).toEqual(["用户", null, "Agent", null]);
@@ -731,11 +751,13 @@ describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
                 })}
             />,
         );
-        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        const rows = Array.from(
+            document.querySelectorAll('[data-testid="conversation-message-row"]'),
+        );
         const user_rows = rows.filter((r) =>
-            r.querySelector('[data-testid="conversation-message-body"]')?.className.includes(
-                "var(--color-primary-container)",
-            ),
+            r
+                .querySelector('[data-testid="conversation-message-body"]')
+                ?.className.includes("var(--color-primary-container)"),
         );
         expect(user_rows.length).toBe(2); // 两条 user 各自有底色
         // 相邻 user 行各自是独立行元素（虚拟列表不合并），间距类统一
@@ -744,7 +766,9 @@ describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
         const user1 = user_rows[1];
         expect(user0).toBeDefined();
         expect(user1).toBeDefined();
-        expect(user0?.getAttribute("data-message-id")).not.toBe(user1?.getAttribute("data-message-id"));
+        expect(user0?.getAttribute("data-message-id")).not.toBe(
+            user1?.getAttribute("data-message-id"),
+        );
     });
 
     it("AC-005：assistant 行无 primary-container 背景", () => {
@@ -756,12 +780,14 @@ describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
                 })}
             />,
         );
-        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        const rows = Array.from(
+            document.querySelectorAll('[data-testid="conversation-message-row"]'),
+        );
         expect(rows.length).toBe(1);
         expect(
-            rows[0]?.querySelector('[data-testid="conversation-message-body"]')?.className.includes(
-                "var(--color-primary-container)",
-            ),
+            rows[0]
+                ?.querySelector('[data-testid="conversation-message-body"]')
+                ?.className.includes("var(--color-primary-container)"),
         ).toBe(false);
     });
 
@@ -770,21 +796,21 @@ describe("SessionPane 角色标签去重/间距/背景 (t427)", () => {
             <SessionPane
                 {...PROPS}
                 column={column({
-                    messages: [
-                        msg("m1", "user", "早", 0),
-                        msg("m2", "user", "晚", 12 * 60 * 1000),
-                    ],
+                    messages: [msg("m1", "user", "早", 0), msg("m2", "user", "晚", 12 * 60 * 1000)],
                 })}
             />,
         );
         // 两条 user 间时间差超阈值 → 有 divider
         expect(document.querySelector('[data-testid="conversation-divider"]')).toBeTruthy();
-        const rows = Array.from(document.querySelectorAll('[data-testid="conversation-message-row"]'));
+        const rows = Array.from(
+            document.querySelectorAll('[data-testid="conversation-message-row"]'),
+        );
         expect(rows.length).toBe(2);
-        const labels = rows.map((r) =>
-            Array.from(r.querySelectorAll("span"))
-                .map((s) => s.textContent)
-                .find((t) => t === "用户" || t === "Agent") ?? null,
+        const labels = rows.map(
+            (r) =>
+                Array.from(r.querySelectorAll("span"))
+                    .map((s) => s.textContent)
+                    .find((t) => t === "用户" || t === "Agent") ?? null,
         );
         // 同 role 不因 divider 拆组：第二条无标签
         expect(labels).toEqual(["用户", null]);

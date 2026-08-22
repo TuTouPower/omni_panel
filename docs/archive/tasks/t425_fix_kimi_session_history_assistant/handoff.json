@@ -1,32 +1,32 @@
 {
-  "tid": "t425",
-  "attempt": 1,
-  "execution_id": "c82080429bbd47e49426b7ee93258264",
-  "status": "done",
-  "branch": "t425_fix_kimi_session_history_assistant",
-  "base_sha": "3c57b9a1646fab30587e2e0fd4f62c75c2ad5cde",
-  "tests": "pnpm test：276 files / 3341 tests passed（kimi-extractor.test.ts 22/22，含新增 6 用例）",
-  "blackbox": "pnpm test 全量通过（3341 passed / 9 skipped，exit 0）",
-  "review": "第 3 轮 PASS（code + test 双路；R1/R2/R3 均 PASS）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/main/core/session-history/kimi-extractor.test.ts：kimi_code extractor content.part (t425) > AC-001：新形态 wire 产出 user 与 assistant…（roles/texts 逐项断言）",
-      "同 describe > AC-001：content.part assistant 的 timestamp 取顶层 time"
-    ],
-    "AC-002": [
-      "tests/unit/main/core/session-history/kimi-extractor.test.ts：kimi_code extractor (t209) > 只提取 context.append_message 的 user/assistant text（旧 wire.jsonl append_message assistant 兼容，原样保留通过）"
-    ],
-    "AC-003": [
-      "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-003：think / tool.call / tool.result / step.begin / step.end / turn.prompt / 非 JSON 行不产生消息（fixture wire-loop.jsonl 9 干扰行）"
-    ],
-    "AC-004": [
-      "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-004：全量与增量对同一 content.part 物理行产出相同 id；追加后增量等于全量尾部且不重发",
-      "同 describe > AC-004：全量提取同一 content.part 行 id 稳定唯一"
-    ],
-    "AC-005": [
-      "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-005：first_user 在新形态 wire 上返回首条 user，不把 content.part 当 user"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t425",
+    "attempt": 1,
+    "execution_id": "c82080429bbd47e49426b7ee93258264",
+    "status": "done",
+    "branch": "t425_fix_kimi_session_history_assistant",
+    "base_sha": "3c57b9a1646fab30587e2e0fd4f62c75c2ad5cde",
+    "tests": "pnpm test：276 files / 3341 tests passed（kimi-extractor.test.ts 22/22，含新增 6 用例）",
+    "blackbox": "pnpm test 全量通过（3341 passed / 9 skipped，exit 0）",
+    "review": "第 3 轮 PASS（code + test 双路；R1/R2/R3 均 PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts：kimi_code extractor content.part (t425) > AC-001：新形态 wire 产出 user 与 assistant…（roles/texts 逐项断言）",
+            "同 describe > AC-001：content.part assistant 的 timestamp 取顶层 time"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts：kimi_code extractor (t209) > 只提取 context.append_message 的 user/assistant text（旧 wire.jsonl append_message assistant 兼容，原样保留通过）"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-003：think / tool.call / tool.result / step.begin / step.end / turn.prompt / 非 JSON 行不产生消息（fixture wire-loop.jsonl 9 干扰行）"
+        ],
+        "AC-004": [
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-004：全量与增量对同一 content.part 物理行产出相同 id；追加后增量等于全量尾部且不重发",
+            "同 describe > AC-004：全量提取同一 content.part 行 id 稳定唯一"
+        ],
+        "AC-005": [
+            "tests/unit/main/core/session-history/kimi-extractor.test.ts：AC-005：first_user 在新形态 wire 上返回首条 user，不把 content.part 当 user"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

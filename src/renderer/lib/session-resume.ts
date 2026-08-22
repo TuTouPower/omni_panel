@@ -31,7 +31,9 @@ export function resume_command(
     // t432: source 运行时可能不在默认表（t324 未知来源返回 null）；用 Record
     // 索引保留 string|undefined，避免 `as ResumeCommandSource` 断言把类型收窄
     // 到恒非空而触发 no-unnecessary-condition（t402 引入）。
-    const builtin = (DEFAULT_RESUME_COMMAND_TEMPLATES as Record<string, string | undefined>)[source];
+    const builtin = (DEFAULT_RESUME_COMMAND_TEMPLATES as Record<string, string | undefined>)[
+        source
+    ];
     if (!builtin) return null;
     return builtin.replaceAll("{session_id}", session_id);
 }

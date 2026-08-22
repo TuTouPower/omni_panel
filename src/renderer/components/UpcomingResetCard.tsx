@@ -39,9 +39,7 @@ export function UpcomingResetCard({
             >
                 即将重置
             </span>
-            <Badge variant="accent">
-                {items.length} 项
-            </Badge>
+            <Badge variant="accent">{items.length} 项</Badge>
         </>
     );
     const drag_root_props = onDragStart

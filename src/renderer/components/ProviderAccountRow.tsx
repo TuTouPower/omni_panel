@@ -187,9 +187,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                           ? relative_time(account.updatedAt)
                           : ""}
                     {account.stale && (
-                        <span className="ml-2 font-[650] text-[var(--color-warning)]">
-                            已过期
-                        </span>
+                        <span className="ml-2 font-[650] text-[var(--color-warning)]">已过期</span>
                     )}
                     {_error && (
                         <span

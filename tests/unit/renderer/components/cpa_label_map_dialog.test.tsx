@@ -103,7 +103,9 @@ describe("CpaLabelMapDialog（t397 AC-003）", () => {
         } as unknown as typeof window.usageboard;
     });
 
-    async function render_dialog(save_target: "account" | "provider"): Promise<ReturnType<typeof userEvent.setup>> {
+    async function render_dialog(
+        save_target: "account" | "provider",
+    ): Promise<ReturnType<typeof userEvent.setup>> {
         const user = userEvent.setup();
         render(
             <CpaLabelMapDialog

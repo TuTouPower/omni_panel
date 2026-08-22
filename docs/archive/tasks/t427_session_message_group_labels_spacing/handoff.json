@@ -1,47 +1,47 @@
 {
-  "tid": "t427",
-  "attempt": 1,
-  "execution_id": "0cf421e9c6c342dfa73c4807156fc1c4",
-  "status": "done",
-  "branch": "t427_session_message_group_labels_spacing",
-  "base_sha": "787660015b18a1b264733e8446b7565ebb50504b",
-  "tests": "pnpm test：276 files / 3351 tests passed（PaneMessageRow/SessionPane/WorkspaceView 三文件 94 用例含新增 8 用例）",
-  "blackbox": "pnpm test 全量通过（3351 passed / 9 skipped，exit 0）+ tsc --noEmit 0 error",
-  "review": "第 2 轮 PASS（single general；R1 FAIL → R2 PASS）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-001/AC-002：同 role 连续时仅组首显示角色文案（labels = [用户, null, Agent, null]）"
-    ],
-    "AC-002": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-001/AC-002 同用例异 role 切换处显示新角色",
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：show_role_label=true 渲染角色文案，false 不渲染"
-    ],
-    "AC-003": [
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-003：行本体带统一非零垂直间距类 py-1",
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-003/AC-004：rows.every(py-1) 全行统一间距"
-    ],
-    "AC-004": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-003/AC-004：相邻 user 行各自独立带 primary-container 背景（body 容器），行 div 独立不连通"
-    ],
-    "AC-005": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-005：assistant 行 body 无 primary-container 背景",
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-003（t408）Agent 无底色"
-    ],
-    "AC-006": [
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-006：折叠态不显示时间戳，展开态显示（timestamp 非空）"
-    ],
-    "AC-007": [
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-007：时间显示与 show_time 无关（prop 已移除），timestamp null 不显示",
-      "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx：视图开关测试 show_time 开关不再影响消息时间（折叠态恒无时间节点）"
-    ],
-    "AC-008": [
-      "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-008：divider 插入不拆组——同 role 两侧仍只组首显示标签"
-    ],
-    "AC-009": [
-      "pnpm test 全量 3351 passed（既有 PaneMessageRow 点击展开/checkbox/底色/选中态用例回归通过）",
-      "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：t408 既有用例全部通过"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t427",
+    "attempt": 1,
+    "execution_id": "0cf421e9c6c342dfa73c4807156fc1c4",
+    "status": "done",
+    "branch": "t427_session_message_group_labels_spacing",
+    "base_sha": "787660015b18a1b264733e8446b7565ebb50504b",
+    "tests": "pnpm test：276 files / 3351 tests passed（PaneMessageRow/SessionPane/WorkspaceView 三文件 94 用例含新增 8 用例）",
+    "blackbox": "pnpm test 全量通过（3351 passed / 9 skipped，exit 0）+ tsc --noEmit 0 error",
+    "review": "第 2 轮 PASS（single general；R1 FAIL → R2 PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-001/AC-002：同 role 连续时仅组首显示角色文案（labels = [用户, null, Agent, null]）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-001/AC-002 同用例异 role 切换处显示新角色",
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：show_role_label=true 渲染角色文案，false 不渲染"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-003：行本体带统一非零垂直间距类 py-1",
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-003/AC-004：rows.every(py-1) 全行统一间距"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-003/AC-004：相邻 user 行各自独立带 primary-container 背景（body 容器），行 div 独立不连通"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-005：assistant 行 body 无 primary-container 背景",
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-003（t408）Agent 无底色"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-006：折叠态不显示时间戳，展开态显示（timestamp 非空）"
+        ],
+        "AC-007": [
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：AC-007：时间显示与 show_time 无关（prop 已移除），timestamp null 不显示",
+            "tests/unit/renderer/components/workspace/WorkspaceView.test.tsx：视图开关测试 show_time 开关不再影响消息时间（折叠态恒无时间节点）"
+        ],
+        "AC-008": [
+            "tests/unit/renderer/components/workspace/SessionPane.test.tsx：AC-008：divider 插入不拆组——同 role 两侧仍只组首显示标签"
+        ],
+        "AC-009": [
+            "pnpm test 全量 3351 passed（既有 PaneMessageRow 点击展开/checkbox/底色/选中态用例回归通过）",
+            "tests/unit/renderer/components/workspace/PaneMessageRow.test.tsx：t408 既有用例全部通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

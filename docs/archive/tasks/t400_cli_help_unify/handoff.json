@@ -1,33 +1,33 @@
 {
-  "tid": "t400",
-  "attempt": 1,
-  "execution_id": "74be431e424e4f7a845b9922c0a3049f",
-  "status": "done",
-  "branch": "t400_cli_help_unify",
-  "base_sha": "66b8d5a375ee63bc729bb9e25d693aeed9a3d514",
-  "tests": "pnpm test：3244 passed | 9 skipped（272 files + 1 skipped）；typecheck 通过；相关 tests/unit/scripts + tests/unit/main/cli 88 passed",
-  "blackbox": "launcher 四入口（无参/--help/-h/help）stdout md5 一致 fbb8d6f5…；npx electron . --cli help 与 launcher help 字节一致（944B）；pnpm build 后 out/main/index.js 内联 CLI_HELP_TEXT（含 --gui）；AC-005 [deploy] 未跑 make:linux",
-  "review": "Round 1 code PASS + test PASS（零 finding）；check_review_status overall=PASS",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/scripts/cli_help.test.ts：四入口 translate_launcher_args → mode help",
-      "黑盒：node scripts/omni_panel.mjs 无参/--help/-h/help 四路 md5 均为 fbb8d6f5bca5e90d8ca91559a83c636e"
-    ],
-    "AC-002": [
-      "tests/unit/scripts/cli_help.test.ts：CLI_HELP_TEXT 含 omni_panel --gui 与 serve/open/refresh-all/pause/resume/restart/quit/autostart/export"
-    ],
-    "AC-003": [
-      "tests/unit/scripts/cli_help.test.ts：--cli help → mode cli forwardArgs [--cli,help]",
-      "黑盒：npx electron . --cli help 与 launcher help 字节 md5 一致"
-    ],
-    "AC-004": [
-      "tests/unit/scripts/cli_help.test.ts：omni_panel.mjs 与 src/main/index.ts 均 import cli_help.mjs；主进程无「OmniPanel CLI 子命令：」内联",
-      "src/main/index.ts 帮助分支仅 process.stdout.write(CLI_HELP_TEXT)"
-    ],
-    "AC-005": [
-      "[deploy] 需 pnpm make:linux 后在 artifacts/linux-unpacked 验证四入口；构建期已证明 out/main/index.js 内联帮助文本"
-    ]
-  },
-  "pending": [],
-  "findings": ["d038"]
+    "tid": "t400",
+    "attempt": 1,
+    "execution_id": "74be431e424e4f7a845b9922c0a3049f",
+    "status": "done",
+    "branch": "t400_cli_help_unify",
+    "base_sha": "66b8d5a375ee63bc729bb9e25d693aeed9a3d514",
+    "tests": "pnpm test：3244 passed | 9 skipped（272 files + 1 skipped）；typecheck 通过；相关 tests/unit/scripts + tests/unit/main/cli 88 passed",
+    "blackbox": "launcher 四入口（无参/--help/-h/help）stdout md5 一致 fbb8d6f5…；npx electron . --cli help 与 launcher help 字节一致（944B）；pnpm build 后 out/main/index.js 内联 CLI_HELP_TEXT（含 --gui）；AC-005 [deploy] 未跑 make:linux",
+    "review": "Round 1 code PASS + test PASS（零 finding）；check_review_status overall=PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/scripts/cli_help.test.ts：四入口 translate_launcher_args → mode help",
+            "黑盒：node scripts/omni_panel.mjs 无参/--help/-h/help 四路 md5 均为 fbb8d6f5bca5e90d8ca91559a83c636e"
+        ],
+        "AC-002": [
+            "tests/unit/scripts/cli_help.test.ts：CLI_HELP_TEXT 含 omni_panel --gui 与 serve/open/refresh-all/pause/resume/restart/quit/autostart/export"
+        ],
+        "AC-003": [
+            "tests/unit/scripts/cli_help.test.ts：--cli help → mode cli forwardArgs [--cli,help]",
+            "黑盒：npx electron . --cli help 与 launcher help 字节 md5 一致"
+        ],
+        "AC-004": [
+            "tests/unit/scripts/cli_help.test.ts：omni_panel.mjs 与 src/main/index.ts 均 import cli_help.mjs；主进程无「OmniPanel CLI 子命令：」内联",
+            "src/main/index.ts 帮助分支仅 process.stdout.write(CLI_HELP_TEXT)"
+        ],
+        "AC-005": [
+            "[deploy] 需 pnpm make:linux 后在 artifacts/linux-unpacked 验证四入口；构建期已证明 out/main/index.js 内联帮助文本"
+        ]
+    },
+    "pending": [],
+    "findings": ["d038"]
 }

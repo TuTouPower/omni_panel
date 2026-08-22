@@ -1,37 +1,37 @@
 {
-  "tid": "t426",
-  "attempt": 1,
-  "execution_id": "c2d9efe2a72442cc8cf566975aa85ea7",
-  "status": "done",
-  "branch": "t426_grok_local_collect_linux",
-  "base_sha": "eb3fcfff89c67f272bb15c1008a8a6c13b954fc2",
-  "tests": "pnpm test：276 files / 3343 tests passed（token-stats 15 files / 308 passed）",
-  "blackbox": "pnpm test 全量通过（3343 passed / 9 skipped，exit 0）+ tsc --noEmit 0 error",
-  "review": "第 3 轮 PASS（code + test 双路；R1 FAIL → R2/R3 PASS）",
-  "ac_evidence": {
-    "AC-001": [
-      "tests/unit/main/core/token-stats/collector.test.ts：t426: host=linux source list includes local grok and collects it（grok_local 参与采集，path endsWith /.grok/sessions，session 进入 update）",
-      "tests/unit/main/core/token-stats/grok-reader.test.ts：真实 fixture 扫描产出 session"
-    ],
-    "AC-002": [
-      "tests/unit/main/core/token-stats/collector.test.ts：t426: resolves local grok sessions path on non-Windows hosts（linux/macos homedir 注入断言非 null 本机路径，无 UNC）",
-      "tests/unit/main/core/token-stats/paths.test.ts：grok local env 解析"
-    ],
-    "AC-003": [
-      "tests/unit/main/core/token-stats/collector.test.ts：reads the grok wsl source under WSL and posts its rows (t197 更新版，双源 mock 断言 UNC 路径与 env=wsl)",
-      "同文件 builds WSL grok sessions path (t197)；null on non-Windows hosts"
-    ],
-    "AC-004": [
-      "docs/blueprint/architecture.md:44,151 双源表述；docs/blueprint/domain.md §3.2 双源+主键隔离；review_code.md Round 3 PASS 复核文档与实现一致"
-    ],
-    "AC-005": [
-      "pnpm test 全量 3343 passed / 9 skipped（既有 token-stats / session 列表套件不红）",
-      "token-stats-store.test.ts / manager.test.ts grok 相关用例通过"
-    ],
-    "AC-006": [
-      "deploy 项：人工在 Linux 宿主验证采集一轮后会话库可见当日 grok 会话（对照 ~/.grok/sessions/**/updates.jsonl）；review_test.md Round 3 标 trust_prior"
-    ]
-  },
-  "pending": [],
-  "findings": []
+    "tid": "t426",
+    "attempt": 1,
+    "execution_id": "c2d9efe2a72442cc8cf566975aa85ea7",
+    "status": "done",
+    "branch": "t426_grok_local_collect_linux",
+    "base_sha": "eb3fcfff89c67f272bb15c1008a8a6c13b954fc2",
+    "tests": "pnpm test：276 files / 3343 tests passed（token-stats 15 files / 308 passed）",
+    "blackbox": "pnpm test 全量通过（3343 passed / 9 skipped，exit 0）+ tsc --noEmit 0 error",
+    "review": "第 3 轮 PASS（code + test 双路；R1 FAIL → R2/R3 PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/collector.test.ts：t426: host=linux source list includes local grok and collects it（grok_local 参与采集，path endsWith /.grok/sessions，session 进入 update）",
+            "tests/unit/main/core/token-stats/grok-reader.test.ts：真实 fixture 扫描产出 session"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/collector.test.ts：t426: resolves local grok sessions path on non-Windows hosts（linux/macos homedir 注入断言非 null 本机路径，无 UNC）",
+            "tests/unit/main/core/token-stats/paths.test.ts：grok local env 解析"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/collector.test.ts：reads the grok wsl source under WSL and posts its rows (t197 更新版，双源 mock 断言 UNC 路径与 env=wsl)",
+            "同文件 builds WSL grok sessions path (t197)；null on non-Windows hosts"
+        ],
+        "AC-004": [
+            "docs/blueprint/architecture.md:44,151 双源表述；docs/blueprint/domain.md §3.2 双源+主键隔离；review_code.md Round 3 PASS 复核文档与实现一致"
+        ],
+        "AC-005": [
+            "pnpm test 全量 3343 passed / 9 skipped（既有 token-stats / session 列表套件不红）",
+            "token-stats-store.test.ts / manager.test.ts grok 相关用例通过"
+        ],
+        "AC-006": [
+            "deploy 项：人工在 Linux 宿主验证采集一轮后会话库可见当日 grok 会话（对照 ~/.grok/sessions/**/updates.jsonl）；review_test.md Round 3 标 trust_prior"
+        ]
+    },
+    "pending": [],
+    "findings": []
 }

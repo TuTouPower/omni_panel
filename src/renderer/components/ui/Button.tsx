@@ -2,14 +2,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "reac
 import { cn } from "../../lib/utils";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "icon" | "text";
-type ButtonSize =
-    | "standard"
-    | "sm"
-    | "inline"
-    | "icon"
-    | "icon-md"
-    | "icon-sm"
-    | "icon-xs";
+type ButtonSize = "standard" | "sm" | "inline" | "icon" | "icon-md" | "icon-sm" | "icon-xs";
 
 interface ButtonBaseProps {
     variant?: ButtonVariant;

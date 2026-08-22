@@ -16,13 +16,7 @@ interface BadgeProps {
 }
 
 /** t269: 统一 Badge；t422 增 accent/recommend 收拢手拼配方。 */
-export function Badge({
-    children,
-    variant = "count",
-    color,
-    dot = true,
-    className,
-}: BadgeProps) {
+export function Badge({ children, variant = "count", color, dot = true, className }: BadgeProps) {
     if (variant === "count") {
         return (
             <span
