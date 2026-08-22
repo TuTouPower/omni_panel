@@ -20,6 +20,7 @@ import {
 import {
     clear_resolution_cache,
     resolve_session_file,
+    set_win_home_wsl_probe,
     type LocatorPaths,
 } from "../../../../../src/main/core/session-history/session-locator";
 import type { HistoryMessage } from "../../../../../src/main/core/session-history/types";
@@ -1123,6 +1124,49 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(counting_service.extract_count).toBe(1);
     });
 
+    it("t438 AC-003: kimi env=win 正文含关键词、title/dir/id 不含 → searchContent 命中", async () => {
+        // 首条 user 消息（会成为 store title）与 session id、workDir 均不含
+        // 「黑沙皇」；仅后续 assistant 正文（append_loop_event content.part text）
+        // 含关键词——证明内容支路而非元信息支路。
+        const sess_dir = join(tmp_dir, "win-sessions", "wd_win", "session_kwin", "agents", "main");
+        mkdirSync(sess_dir, { recursive: true });
+        const file = join(sess_dir, "wire.jsonl");
+        const lines = [
+            JSON.stringify({
+                type: "context.append_message",
+                message: {
+                    role: "user",
+                    content: [{ type: "text", text: "普通问题" }],
+                    origin: { kind: "user" },
+                },
+                time: 1784217963000,
+            }),
+            JSON.stringify({
+                type: "context.append_loop_event",
+                event: {
+                    type: "content.part",
+                    part: { type: "text", text: "这里是黑沙皇 的完整说明" },
+                },
+                time: 1784217964000,
+            }),
+        ];
+        writeFileSync(file, `${lines.join("\n")}\n`);
+
+        const hits = await service.searchContent(
+            [
+                {
+                    source: "kimi_code",
+                    env: "win",
+                    session_id: "session_kwin",
+                    file_path: file,
+                    extractor_kind: "kimi",
+                },
+            ],
+            "黑沙皇",
+        );
+        expect([...hits]).toEqual(["kimi_code|win|session_kwin"]);
+    });
+
     it("summaries：返回首条 user 文本前 80 字符", async () => {
         const file = join(tmp_dir, "summary.jsonl");
         writeFileSync(
@@ -1273,12 +1317,16 @@ describe("t310 非 Windows 宿主本机会话（AC-005）", () => {
         tmp_dir = mkdtempSync(join(tmpdir(), "t310-sub-"));
         service = new SessionHistorySubscriptionService({ poll_interval_ms: 30 });
         clear_resolution_cache();
+        // t438 review：host=linux 缺省 win_home_wsl 时 locator 惰性发现（真实
+        // /mnt/c）——装 null probe 保 hermetic。
+        set_win_home_wsl_probe(() => null);
     });
 
     afterEach(() => {
         service.unsubscribe_all();
         rmSync(tmp_dir, { recursive: true, force: true });
         clear_resolution_cache();
+        set_win_home_wsl_probe(null);
     });
 
     it("host=linux 时 locator 解析本机 local 会话，subscription query 返回非空消息列表", () => {

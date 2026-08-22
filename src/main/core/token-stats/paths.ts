@@ -2,13 +2,15 @@ import * as path from "node:path";
 import type { TokenStatsEnv } from "../../../shared/types/token-stats";
 
 /**
- * Platform-aware path layer for token-stats collectors (t308, t437).
+ * Platform-aware path layer for token-stats collectors (t308, t437, t438).
  *
  * Path resolution is a pure function of `(host, env, cfg)` — no hidden
  * process.platform or os.homedir reads, no filesystem access — so every host
  * combination is testable on any machine. `host` is derived from
  * process.platform by the caller (see `host_from_platform`); `homedir` feeds
- * `linux`/`mac` sources, `win_home` feeds `win`, and `wsl_user` is the
+ * `linux`/`mac` sources, `win_home` feeds `win` on the Windows host, and
+ * `win_home_wsl` feeds `win` on a WSL/Linux host (t438: Windows home auto-
+ * discovered via /mnt/c/Users — see win-home-discovery.ts); `wsl_user` is the
  * *effective* WSL user (config override or auto-detected by the collector):
  * empty means undetectable, so every `wsl` path resolves to null instead of a
  * username-less UNC (finding d033).
@@ -16,7 +18,8 @@ import type { TokenStatsEnv } from "../../../shared/types/token-stats";
  * env semantics (t437, replaces the pre-t437 `local`): `win` = Windows user
  * directory data; `linux`/`mac` = the POSIX home on the respective host;
  * `wsl` = the WSL distro reachable via the \\wsl.localhost UNC share — Windows
- * host only.
+ * host only. `win` on a WSL/Linux host resolves under the discovered Windows
+ * home (POSIX separators); on macOS the win sources are unreachable (null).
  */
 
 /** Host the collector runs on. */
@@ -39,8 +42,15 @@ export interface TokenStatsPathInput {
     host: Host;
     /** os.homedir(); base for `linux`/`mac` sources. */
     homedir: string;
-    /** TokenStatsConfig.win_home; base for `win` sources. */
+    /** TokenStatsConfig.win_home; base for `win` sources on the Windows host. */
     win_home: string;
+    /**
+     * t438: auto-discovered Windows user home on a WSL/Linux host
+     * (`/mnt/c/Users/<u>`, POSIX). Base for `win` sources on `linux` hosts;
+     * null/undefined = not discoverable → win sources return null there.
+     * Ignored on `windows`/`macos` hosts.
+     */
+    win_home_wsl?: string | null;
     /** TokenStatsConfig.wsl_distro; distro segment of the UNC path. */
     wsl_distro: string;
     /** Effective WSL user; "" = undetectable → wsl sources return null. */
@@ -59,11 +69,15 @@ function wsl_root(input: TokenStatsPathInput): string | null {
 }
 
 /**
- * Resolve one source path. `win` resolves under win_home with win32 separators
- * (so UNC/win_home paths keep backslashes even when constructed on another
- * OS); `linux`/`mac` resolve under homedir with POSIX separators; `wsl`
- * resolves under the UNC root with win32 separators and returns null when the
- * root is unreachable.
+ * Resolve one source path.
+ * - `win` on a `windows` host resolves under win_home with win32 separators
+ *   (so UNC/win_home paths keep backslashes even when constructed on another
+ *   OS); on a `linux` host it resolves under the discovered win_home_wsl with
+ *   POSIX separators and returns null when the home is undiscoverable (t438);
+ *   on a `macos` host it is always null.
+ * - `linux`/`mac` resolve under homedir with POSIX separators;
+ * - `wsl` resolves under the UNC root with win32 separators and returns null
+ *   when the root is unreachable.
  */
 function resolve(
     input: TokenStatsPathInput,
@@ -71,7 +85,15 @@ function resolve(
     segments: string[],
 ): string | null {
     if (env === "win") {
-        return path.win32.join(input.win_home, ...segments);
+        if (input.host === "windows") {
+            return path.win32.join(input.win_home, ...segments);
+        }
+        if (input.host === "linux") {
+            return input.win_home_wsl === null || input.win_home_wsl === undefined
+                ? null
+                : path.posix.join(input.win_home_wsl, ...segments);
+        }
+        return null;
     }
     if (env === "linux" || env === "mac") {
         return path.posix.join(input.homedir, ...segments);

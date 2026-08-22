@@ -488,10 +488,15 @@ void app.whenReady().then(async () => {
         // t310: locator 路径输入与 t308 路径层对齐——host 从 process.platform 推导，
         // homedir 供非 Windows 宿主 local 源，win_home 供 Windows 宿主 local 源；
         // wsl_* 显式值优先，空串由 locator 自动探测。
+        // t438: linux 宿主上 win 源经 win_home_wsl（/mnt/c/Users 自动发现）解析；
+        // 传 null 由 locator 在 resolve 时惰性发现（review f001：一次性注入覆盖不了
+        // 直接调 resolve_session_file 的路径）；发现失败 → win 会话不可达（零配置）。
+        const session_history_host = host_from_platform(process.platform);
         const session_history_locator_paths = {
-            host: host_from_platform(process.platform),
+            host: session_history_host,
             homedir: homedir(),
             win_home: homedir(),
+            win_home_wsl: null,
             wsl_distro: currentConfigSnapshot.tokenStats?.wslDistro ?? "Ubuntu-22.04",
             wsl_user: currentConfigSnapshot.tokenStats?.wslUser ?? "",
         };

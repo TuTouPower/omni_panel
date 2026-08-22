@@ -198,6 +198,64 @@ describe("token-stats-store", () => {
         });
     });
 
+    describe("t438: env=win 会话（Windows 侧采集数据）", () => {
+        it("AC-002: query_sessions search 命中 title 含「黑沙皇」的 kimi env=win 会话", () => {
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "session_kwin",
+                        source: "kimi_code",
+                        env: "win",
+                        model: "kimi-code/k3",
+                        title: "黑沙皇 帮我整理需求",
+                        directory: "D:\\Kar\\Code\\winproj",
+                    }),
+                ],
+                [],
+            );
+
+            const rows = store.query_sessions({ search: "黑沙皇" });
+            expect(rows).toHaveLength(1);
+            expect(rows[0]?.id).toBe("session_kwin");
+            expect(rows[0]?.env).toBe("win");
+            // 目录与会话 id 也在搜索范围内（AC-007 语义：标题/目录/会话 id）。
+            expect(store.query_sessions({ search: "winproj" })[0]?.id).toBe("session_kwin");
+            expect(store.query_sessions({ search: "session_kwin" })[0]?.id).toBe("session_kwin");
+        });
+
+        it("AC-004: 同 id 的 kimi 会话 linux/win 两 env 并存、互不覆盖", () => {
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "session_shared",
+                        source: "kimi_code",
+                        env: "linux",
+                        title: "wsl 侧需求",
+                        directory: "/home/karon/proj",
+                    }),
+                    delta({
+                        id: "session_shared",
+                        source: "kimi_code",
+                        env: "win",
+                        title: "窗口侧需求",
+                        directory: "D:\\Kar\\Code\\winproj",
+                    }),
+                ],
+                [],
+            );
+
+            const rows = store.query_sessions({ source: "kimi_code" });
+            expect(rows).toHaveLength(2);
+            const linux_row = rows.find((r) => r.env === "linux");
+            const win_row = rows.find((r) => r.env === "win");
+            expect(linux_row?.title).toBe("wsl 侧需求");
+            expect(win_row?.title).toBe("窗口侧需求");
+            // env 过滤各自独立命中（不串）。
+            expect(store.query_sessions({ env: "win" })).toHaveLength(1);
+            expect(store.query_sessions({ env: "linux" })).toHaveLength(1);
+        });
+    });
+
     describe("daily rows + bucket derivation", () => {
         it("derives buckets from daily rows grouped by (source, env, date, model)", () => {
             store.upsert_sessions([], [daily()]);

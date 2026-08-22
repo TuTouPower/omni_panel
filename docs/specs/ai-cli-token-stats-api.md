@@ -97,6 +97,7 @@ src/main/core/token-stats/
 ├── opencode-reader.ts     # opencode.db 只读查询
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
 ├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + 本机平台源，t426/t437）
+├── win-home-discovery.ts  # WSL/Linux 宿主 Windows 用户目录自动发现（t438，注入式纯逻辑）
 ├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
@@ -131,6 +132,8 @@ interface TokenStatsConfig {
 - WSL Claude Code：`\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.claude\metrics\costs.jsonl`
 - OpenCode 同理。
 - env 标签（t437，替代 t308 的 `local|wsl`）：`win` = Windows 用户目录数据（win_home）；`wsl` = 经 UNC 读到的 WSL home 数据（Windows 宿主）；`linux` / `mac` = 对应宿主的 POSIX home 数据。
+
+**WSL/Linux 宿主采集 Windows 侧数据（t438，与 Windows 宿主采 `wsl` 对称）**：linux 宿主上自动发现 Windows 用户目录（`win-home-discovery.ts`：枚举 `/mnt/c/Users` 剔除系统项，取含 agent 标记目录（`.claude`/`.kimi-code`/`.grok`/`.local/share/opencode`）的用户；多候选取标记最多者（并列字典序首），零候选回退 `powershell.exe $env:USERPROFILE`（5s 超时）转换校验；s033/d049），发现结果作 `win_home_wsl`（POSIX 拼接），win 五源（claude_costs/claude_jsonl/opencode/kimi/grok）以 `env=win` 参与采集。零配置；显式 `win_home_wsl` 字符串优先，`""` = 禁用哨兵。发现失败 → win 源 `unavailable` + `path unavailable`，不抛、不影响平台源。发现结果进程内缓存；失败（null）按轮负缓存（collector：下轮重探自愈；locator：60s 时间窗节流后重探）。多候选取舍/回退等关键分支经 `on_decision` 留痕（warn 日志）。
 
 **UNC 超时**：每个文件操作（`readFile`、`access`、`stat`）单独 `Promise.race` + 5 秒超时。超时则跳过该数据源，warn 日志记录，不影响其他源采集。WSL 未运行/挂起时 UNC 会长时间阻塞（实测 30-60 秒），必须防护。
 

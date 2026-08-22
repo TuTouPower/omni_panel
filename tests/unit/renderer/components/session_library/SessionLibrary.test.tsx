@@ -324,6 +324,18 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
+    it("t438 AC-007：未勾选「包含消息内容」时文案说明搜索范围（标题/目录/会话 ID）", async () => {
+        await renderLibrary();
+        const input = screen.getByPlaceholderText(/搜索/);
+        // 未勾选：范围 = 标题 / 目录 / 会话 ID。
+        expect(input.getAttribute("placeholder")).toBe("搜索标题 / 目录 / 会话 ID");
+        // 勾选「包含消息内容」：文案切换为说明包含消息内容。
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        expect(screen.getByPlaceholderText(/搜索/).getAttribute("placeholder")).toBe(
+            "搜索消息内容（含标题 / 目录 / 会话 ID）",
+        );
+    });
+
     it("t248 AC6：摘要只请求当前可见页，不请求未加载会话", async () => {
         const ub = usageboard();
         const first_page = Array.from({ length: 50 }, (_, i) =>

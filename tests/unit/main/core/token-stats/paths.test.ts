@@ -127,6 +127,63 @@ describe("grok", () => {
     });
 });
 
+describe("t438: env=win on non-Windows hosts", () => {
+    const WIN_WSL_HOME = "/mnt/c/Users/Karson";
+
+    it("linux host + win_home_wsl → POSIX paths under the discovered home", () => {
+        const ctx = input({ host: "linux", win_home_wsl: WIN_WSL_HOME });
+        expect(claude_costs_path(ctx, "win")).toBe(
+            "/mnt/c/Users/Karson/.claude/metrics/costs.jsonl",
+        );
+        expect(claude_projects_path(ctx, "win")).toBe("/mnt/c/Users/Karson/.claude/projects");
+        expect(opencode_path(ctx, "win")).toBe(
+            "/mnt/c/Users/Karson/.local/share/opencode/opencode.db",
+        );
+        expect(kimi_sessions_path(ctx, "win")).toBe("/mnt/c/Users/Karson/.kimi-code/sessions");
+        expect(kimi_index_path(ctx, "win")).toBe(
+            "/mnt/c/Users/Karson/.kimi-code/session_index.jsonl",
+        );
+        expect(grok_sessions_path(ctx, "win")).toBe("/mnt/c/Users/Karson/.grok/sessions");
+    });
+
+    it("linux host + win_home_wsl null/undefined → null (undiscoverable)", () => {
+        // null：显式不可发现。
+        const null_ctx = input({ host: "linux", win_home_wsl: null });
+        expect(claude_costs_path(null_ctx, "win")).toBeNull();
+        // undefined（未提供字段）：同样视为未发现。
+        const undef_ctx: TokenStatsPathInput = {
+            host: "linux",
+            homedir: "/home/test",
+            win_home: WIN_HOME,
+            wsl_distro: "Ubuntu-22.04",
+            wsl_user: "karon",
+        };
+        expect(claude_costs_path(undef_ctx, "win")).toBeNull();
+        for (const ctx of [null_ctx, undef_ctx]) {
+            expect(claude_projects_path(ctx, "win")).toBeNull();
+            expect(opencode_path(ctx, "win")).toBeNull();
+            expect(kimi_sessions_path(ctx, "win")).toBeNull();
+            expect(kimi_index_path(ctx, "win")).toBeNull();
+            expect(grok_sessions_path(ctx, "win")).toBeNull();
+        }
+    });
+
+    it("macos host env=win → null even with win_home_wsl set", () => {
+        const ctx = input({ host: "macos", win_home_wsl: WIN_WSL_HOME });
+        expect(claude_costs_path(ctx, "win")).toBeNull();
+        expect(kimi_sessions_path(ctx, "win")).toBeNull();
+        expect(grok_sessions_path(ctx, "win")).toBeNull();
+    });
+
+    it("windows host ignores win_home_wsl (resolves from win_home)", () => {
+        const ctx = input({ host: "windows", win_home_wsl: WIN_WSL_HOME });
+        expect(claude_costs_path(ctx, "win")).toBe(
+            "C:\\Users\\Test\\.claude\\metrics\\costs.jsonl",
+        );
+        expect(kimi_sessions_path(ctx, "win")).toBe("C:\\Users\\Test\\.kimi-code\\sessions");
+    });
+});
+
 describe("TokenStatsEnv / dashboard platform schemas (AC-004/t437)", () => {
     it("accepts only win|wsl|linux|mac", () => {
         expect(tokenStatsEnvSchema.options).toEqual(["win", "wsl", "linux", "mac"]);
