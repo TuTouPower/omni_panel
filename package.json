@@ -4,6 +4,7 @@
     "version": "1.2.0",
     "description": "Multi-platform AI service usage monitoring desktop app.",
     "main": "out/main/index.js",
+    "desktopName": "omni_panel",
     "private": true,
     "scripts": {
         "start": "node scripts/ensure_sqlite_abi.mjs electron && tsx scripts/gen-build-info.ts && electron-vite dev",
