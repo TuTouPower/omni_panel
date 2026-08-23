@@ -60,3 +60,5 @@ linux:
         - AppImage
         - deb
     icon: assets/icon.png
+    category: Utility
+    syncDesktopName: true
