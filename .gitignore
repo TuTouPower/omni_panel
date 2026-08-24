@@ -84,3 +84,8 @@ PixPin_*.png
 
 # 运行时控制面（attempt 账本/goal 队列，仅主仓、不入库）
 docs/runtime/
+
+# 同步自模板（repo-template-sync）
+/artifacts/
+/data/
+node_modules/
