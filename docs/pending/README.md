@@ -6,23 +6,23 @@
 
 一条目一文件，文件名 `pNNN_{slug}.md`；三态由所在目录表达：
 
-| 目录                    | 语义                                 |
-| ----------------------- | ------------------------------------ |
-| `docs/pending/todo/`    | 未闭环、待启动                       |
-| `docs/pending/parked/`  | 用户显式确认暂搁（不办）；不等于闭环 |
-| `docs/archive/pending/` | 已闭环                               |
+|目录|语义|
+|---|---|
+|`docs/pending/todo/`|未闭环、待启动|
+|`docs/pending/parked/`|用户显式确认暂搁（不办）；不等于闭环|
+|`docs/archive/pending/`|已闭环|
 
 `pNNN` 全局递增，跨三个目录共享一条序列，历史编号不复用。已验证的技术发现不属于待办，写 `docs/findings/`。
 
 ## 命令
 
 ```bash
-python3 scripts/repo_template/pending.py new --slug cli_exit_code            # 建普通条目
-python3 scripts/repo_template/pending.py new --slug crash_on_empty --kind bug # 建 bug 条目
-python3 scripts/repo_template/pending.py list --state all                     # 列举
-python3 scripts/repo_template/pending.py archive p047 --fix-ref t012 --write  # 闭环
-python3 scripts/repo_template/pending.py park p047 --reason "等外部依赖" --write
-python3 scripts/repo_template/pending.py revive p047 --write                  # parked → todo
+python3 .repo_template/scripts/pending.py new --slug cli_exit_code            # 建普通条目
+python3 .repo_template/scripts/pending.py new --slug crash_on_empty --kind bug # 建 bug 条目
+python3 .repo_template/scripts/pending.py list --state all                     # 列举
+python3 .repo_template/scripts/pending.py archive p047 --fix-ref t012 --write  # 闭环
+python3 .repo_template/scripts/pending.py park p047 --reason "等外部依赖" --write
+python3 .repo_template/scripts/pending.py revive p047 --write                  # parked → todo
 ```
 
 `new` 在 git 公共目录的排他锁内完成「扫描取号 → 建文件」，并发 worker 不会撞号；禁止手工创建条目文件。迁移一律走命令，命令默认 dry-run，加 `--write` 落盘。
