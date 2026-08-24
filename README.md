@@ -12,24 +12,24 @@
 
 16 个内置连接器，覆盖五种采集模式：
 
-| 连接器      | 类型             | 采集方式                                                        |
-| ----------- | ---------------- | --------------------------------------------------------------- |
-| Claude      | 本地凭证型       | 读取 `~/.claude`                                                |
-| Codex       | 本地凭证型       | 读取 `~/.codex` 会话日志                                        |
-| Antigravity | 本地凭证型       | 读取 `~/.antigravity/session.json`                              |
-| Grok        | OAuth / API 轮询 | OAuth 2.0 device-code 授权，或 API key（`grok_billing`）        |
-| Kimi        | OAuth / API 轮询 | OAuth 2.0 device-code 授权，或 API key（`api.kimi.com`）        |
-| 智谱 GLM    | 官方 API 轮询    | 余额接口                                                        |
-| MiniMax     | 官方 API 轮询    | 余额接口                                                        |
-| DeepSeek    | 官方 API 轮询    | 余额接口                                                        |
-| Tavily      | 官方 API 轮询    | 余额接口                                                        |
-| Firecrawl   | 官方 API 轮询    | 团队信用额度接口                                                |
-| Exa         | 官方 API 轮询    | Service Key + API Key ID 查团队用量                             |
-| GetOneAPI   | 官方 API 轮询    | 余额接口                                                        |
-| TikHub      | 官方 API 轮询    | 用户信息接口                                                    |
-| MiMo        | 网页登录型       | 受控窗口捕获 Cookie                                             |
-| OpenCode Go | 网页登录型       | 受控窗口捕获 Cookie                                             |
-| CPA-Manager | 聚合代理         | 一份管理密钥代拉 Claude×N + Codex×N + Antigravity + Kimi 多账号 |
+|连接器|类型|采集方式|
+|---|---|---|
+|Claude|本地凭证型|读取 `~/.claude`|
+|Codex|本地凭证型|读取 `~/.codex` 会话日志|
+|Antigravity|本地凭证型|读取 `~/.antigravity/session.json`|
+|Grok|OAuth / API 轮询|OAuth 2.0 device-code 授权，或 API key（`grok_billing`）|
+|Kimi|OAuth / API 轮询|OAuth 2.0 device-code 授权，或 API key（`api.kimi.com`）|
+|智谱 GLM|官方 API 轮询|余额接口|
+|MiniMax|官方 API 轮询|余额接口|
+|DeepSeek|官方 API 轮询|余额接口|
+|Tavily|官方 API 轮询|余额接口|
+|Firecrawl|官方 API 轮询|团队信用额度接口|
+|Exa|官方 API 轮询|Service Key + API Key ID 查团队用量|
+|GetOneAPI|官方 API 轮询|余额接口|
+|TikHub|官方 API 轮询|用户信息接口|
+|MiMo|网页登录型|受控窗口捕获 Cookie|
+|OpenCode Go|网页登录型|受控窗口捕获 Cookie|
+|CPA-Manager|聚合代理|一份管理密钥代拉 Claude×N + Codex×N + Antigravity + Kimi 多账号|
 
 配套能力：多账号、账号级隐藏、provider 聚合概览、明暗主题、代理、自定义刷新间隔、数据标签映射、配置导入导出、系统托盘、悬浮 / 弹出两种主面板形态。
 
@@ -71,7 +71,7 @@ pnpm make:linux       # 仅打包 Linux
 - 渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**
 - 配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）
 - 网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力
-- LocalAPI 默认监听 `0.0.0.0:17863`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services-api spec](docs/specs/platform-services-api.md)）
+- LocalAPI 默认监听 `0.0.0.0:18263`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services-api spec](docs/specs/platform-services-api.md)。17863 为 CPA 本机管理 API 端口，刻意避开）
 
 ## 开发
 
@@ -88,7 +88,7 @@ pnpm test:packaged    # 打包 smoke
 
 详见 [测试指南](docs/guides/testing.md)。
 
-测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（17863、蓝图标、`%APPDATA%/omni_panel`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
+测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（18263、蓝图标、`%APPDATA%/omni_panel`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
 
 ## 架构与文档
 
