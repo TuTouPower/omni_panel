@@ -5,4 +5,4 @@
 - 根因：产品缺陷——`SessionLibrary` `on_open_all`（~632–637）只循环 `sessionHistory.open`，未调用工作台 `clear_all`；`SessionShell` 已有 `clear_workspace_ref` 未下传。已扫无已确认同类位点（检索轴：`sessionHistory.open` 循环 / `on_open_all` / `clear_all`；单独打开与 TokenStats `onOpenSelected` 本次排除）。对照正确范式：`WorkspaceView.confirm_recent`、demo `Library.openInWorkspace`。
 - 测试缺口：现有单测只断言 `open` 调用次数与切页签，不断言清空/替换。应补：工作台有旧槽时并排打开后仅含所选（先 clear 再 open）。
 - 线索：`.scratch/p208_library_side_by_side_replace_workspace.md`
-- 处理：未开
+- 处理：t439
