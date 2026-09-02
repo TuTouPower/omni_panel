@@ -6572,6 +6572,21 @@
             "schedule_status": "",
             "note": "来源 p204；依赖 t437",
             "dir": "docs/archive/tasks/t438_wsl_auto_collect_win_agents"
+        },
+        {
+            "tid": "t439",
+            "slug": "library_side_by_side_replace",
+            "title": "会话库并排打开先清空工作台再装入所选",
+            "status": "done",
+            "branch": "t439_library_side_by_side_replace",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "71f4b27e78e30c34a0990e86c13376e0c90261cd",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t439_library_side_by_side_replace"
         }
     ]
 }
