@@ -310,3 +310,60 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         );
     });
 });
+
+describe("SessionShell (t439 会话库并排打开替换语义)", () => {
+    it("AC-001：工作台已有旧槽时并排打开，清空旧槽后仅装入所选", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockImplementation(
+            (_source: string, _env: string, session_id: string) =>
+                Promise.resolve({
+                    messages: [msg("m1", "user", `消息-${session_id}`, 100)],
+                    next_cursor: null,
+                }),
+        );
+        // 会话库列表：两个可选会话。
+        ub.tokenStats.getSessions.mockResolvedValue([
+            { id: "lib_a", source: "opencode", env: "linux", title: "库会话A", ended_at: 1 },
+            { id: "lib_b", source: "grok", env: "linux", title: "库会话B", ended_at: 2 },
+        ] as never);
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // 工作台先开一个旧槽。
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_old" });
+        });
+        await waitFor(() => screen.getByText("消息-sess_old"));
+        expect(document.querySelectorAll('[data-testid="conversation-pane"]')).toHaveLength(1);
+
+        // 会话库 IPC open 模拟服务端回流装槽（桌面端 open → onFocus → 开槽）。
+        const open_focus = focus_cb();
+        ub.sessionHistory.open.mockImplementation(
+            (source: string, env: string, session_id: string) => {
+                open_focus({ source, env, session_id });
+                return Promise.resolve(undefined);
+            },
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
+        await waitFor(() => screen.getByText("库会话A"));
+        fireEvent.click(screen.getByRole("button", { name: "会话 lib_a" }));
+        fireEvent.click(screen.getByRole("button", { name: "会话 lib_b" }));
+        expect(screen.getByText("2/8")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /并排打开/ }));
+
+        // 回流后仅两所选 pane 渲染。
+        await waitFor(() => screen.getByText("消息-lib_a"));
+        await waitFor(() => screen.getByText("消息-lib_b"));
+        expect(document.querySelectorAll('[data-testid="conversation-pane"]')).toHaveLength(2);
+        // 旧槽被 clear_all 退订且不再渲染。
+        expect(ub.sessionHistory.unsubscribe).toHaveBeenCalledWith(
+            "claude_code",
+            "win",
+            "sess_old",
+        );
+        expect(screen.queryByText("消息-sess_old")).toBeNull();
+    });
+});

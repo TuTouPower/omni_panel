@@ -17,6 +17,9 @@ import { format_tokens, key_of } from "./session-library-utils";
 
 interface SessionLibraryProps {
     readonly on_switch_workspace: () => void;
+    /** t439: 并排打开 = 替换语义——先清空工作台全部槽位再装入所选。
+     *  回调由 SessionShell 接线到 WorkspaceView 注册的 clear_all。 */
+    readonly on_clear_workspace: () => void;
     /** t434: 顶栏刷新递增 token，触发按当前筛选/排序重拉列表。 */
     readonly refresh_token?: number | undefined;
 }
@@ -29,7 +32,11 @@ const CONTENT_SCAN_BATCH_SIZE = 64;
 
 type SessionStatsStatus = "loading" | "ready" | "error";
 
-export function SessionLibrary({ on_switch_workspace, refresh_token }: SessionLibraryProps) {
+export function SessionLibrary({
+    on_switch_workspace,
+    on_clear_workspace,
+    refresh_token,
+}: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
     const [search_content, set_search_content] = useState(false);
@@ -630,6 +637,9 @@ export function SessionLibrary({ on_switch_workspace, refresh_token }: SessionLi
                     set_selected([]);
                 }}
                 on_open_all={(sessions) => {
+                    // t439: 替换语义——先同步清空工作台（clear_all 退订+清槽），
+                    // 再逐个 open；顺序与 WorkspaceView.confirm_recent 一致。
+                    on_clear_workspace();
                     for (const s of sessions) {
                         void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
                     }
