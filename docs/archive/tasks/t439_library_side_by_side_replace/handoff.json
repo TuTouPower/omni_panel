@@ -1,0 +1,26 @@
+{
+    "tid": "t439",
+    "attempt": 1,
+    "execution_id": "c152788564de447eb1ff87222f3759d6",
+    "status": "done",
+    "branch": "t439_library_side_by_side_replace",
+    "base_sha": "71f4b27e78e30c34a0990e86c13376e0c90261cd",
+    "tests": "pnpm test：278 文件 3452 passed（新增 SessionLibrary 2 用例 + SessionShell 整壳 1 用例；红→绿实证）",
+    "blackbox": "typecheck/lint/pnpm build 全过；web e2e session_panel.spec.ts 12 passed（web 桥同组件并排打开闭环）",
+    "review": "single 第 1 轮 PASS（clean review，0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx::t439 AC-001 整壳用例：旧槽 sess_old 经 onFocus 装填→会话库并排打开 lib_a/lib_b→断言旧槽被 clear_all unsubscribe、仅 2 个所选 conversation-pane、旧消息消失",
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx::AC-001/AC-002：on_clear_workspace 先于 open（invocationCallOrder）、open 按勾选顺序"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx::AC-001/AC-002：并排打开恒先 clear 再按序 open 并切页签，不依赖工作台槽位状态",
+            "web e2e session_panel.spec.ts「会话库搜索/筛选/排序/预览/并排打开闭环」：空台并排打开 2 会话→2 session-cell"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx::AC-003：卡片「单独打开」不调用 on_clear_workspace，仅 open 一次并切页签"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
