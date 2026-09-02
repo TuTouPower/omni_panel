@@ -149,6 +149,9 @@ export function SessionShell() {
                         on_switch_workspace={() => {
                             set_tab("workspace");
                         }}
+                        on_clear_workspace={() => {
+                            clear_workspace_ref.current?.();
+                        }}
                         refresh_token={refresh_token}
                     />
                 </section>

@@ -41,9 +41,14 @@ function usageboard(): MockBoard {
     return (globalThis as unknown as { usageboard: MockBoard }).usageboard;
 }
 
-async function renderLibrary(props: { on_switch_workspace?: () => void } = {}) {
+async function renderLibrary(
+    props: { on_switch_workspace?: () => void; on_clear_workspace?: () => void } = {},
+) {
     const result = render(
-        <SessionLibrary on_switch_workspace={props.on_switch_workspace ?? (() => undefined)} />,
+        <SessionLibrary
+            on_switch_workspace={props.on_switch_workspace ?? (() => undefined)}
+            on_clear_workspace={props.on_clear_workspace ?? (() => undefined)}
+        />,
     );
     await act(async () => {
         // 冲刷 getSessions/query resolve 等微任务，避免 act 警告。
@@ -1480,5 +1485,51 @@ describe("SessionLibrary (t227)", () => {
         expect(row?.className).toContain("bg-[var(--color-surface-card)]");
         expect(row?.className).not.toMatch(/(?<!hover:)bg-\[var\(--color-surface-raised\)\]/);
         expect(row?.className).toContain("hover:bg-[var(--color-surface-raised)]");
+    });
+});
+
+describe("SessionLibrary (t439 并排打开替换语义)", () => {
+    it("AC-001/AC-002：并排打开先清空工作台，再按勾选顺序 open 并切页签", async () => {
+        const ub = usageboard();
+        const switch_fn = vi.fn();
+        const clear_fn = vi.fn();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await waitFor(() => screen.getByText("会话 a"));
+
+        // 逆列表序勾选 c、a：open 必须按勾选顺序，而非列表顺序。
+        fireEvent.click(screen.getByRole("button", { name: "会话 c" }));
+        fireEvent.click(screen.getByRole("button", { name: "会话 a" }));
+        expect(screen.getByText("2/8")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /并排打开/ }));
+
+        expect(clear_fn).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(2);
+        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "grok", "linux", "c");
+        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(2, "claude_code", "linux", "a");
+        // clear 必须同步先于任何 open（与 WorkspaceView.confirm_recent 同序）。
+        const clear_order = clear_fn.mock.invocationCallOrder[0];
+        const open_orders = ub.sessionHistory.open.mock.invocationCallOrder;
+        expect(clear_order).toBeLessThan(open_orders[0] ?? 0);
+        expect(switch_fn).toHaveBeenCalledTimes(1);
+    });
+
+    it("AC-003：单独打开只装入该会话，不调用清空工作台", async () => {
+        const ub = usageboard();
+        const switch_fn = vi.fn();
+        const clear_fn = vi.fn();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await waitFor(() => screen.getByText("会话 a"));
+
+        const open_btns = screen.getAllByRole("button", { name: "单独打开" });
+        const open_btn = open_btns[0];
+        if (!open_btn) throw new Error("单独打开按钮缺失");
+        fireEvent.click(open_btn);
+
+        expect(clear_fn).not.toHaveBeenCalled();
+        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "claude_code", "linux", "a");
+        expect(switch_fn).toHaveBeenCalledTimes(1);
     });
 });
