@@ -47,6 +47,51 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t444_dashboard_null_session_time_fallback"
+        },
+        {
+            "tid": "t445",
+            "slug": "codex_tokenstats_reader",
+            "title": "codex 代理面板用量采集（token-stats reader 落会话明细）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；用量面板 codex connector 不动，代理面板新增 codex_jsonl reader",
+            "dir": "docs/tasks/t445_codex_tokenstats_reader"
+        },
+        {
+            "tid": "t446",
+            "slug": "codex_session_history_extractor",
+            "title": "codex 会话历史提取器与定位器",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；新增 codex-extractor.ts + locator codex 分支 + HistorySource 加 codex",
+            "dir": "docs/tasks/t446_codex_session_history_extractor"
+        },
+        {
+            "tid": "t447",
+            "slug": "codex_panels_wiring",
+            "title": "两面板 codex 接线（过滤选项/会话展示/resume）",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "t445,t446",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；依赖前两个 codex task；AGENT_OPTIONS/会话库展示/codex resume 接线",
+            "dir": "docs/tasks/t447_codex_panels_wiring"
         }
     ]
 }
