@@ -6587,6 +6587,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t439_library_side_by_side_replace"
+        },
+        {
+            "tid": "t440",
+            "slug": "bg_serve_lock_race_stale_early_exit",
+            "title": "background serve 早退识别修复(单实例锁冲突 code-0 静默退出误报超时)",
+            "status": "done",
+            "branch": "t440_bg_serve_lock_race_stale_early_exit",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "a39420f94a1f9698374b08896a2e70ab33326ae4",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t440_bg_serve_lock_race_stale_early_exit"
         }
     ]
 }
