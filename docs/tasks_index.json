@@ -19,21 +19,6 @@
             "dir": "docs/tasks/t441_fix_index_stale_local_env_comments"
         },
         {
-            "tid": "t442",
-            "slug": "fix_worktree_electron_deps",
-            "title": "task worktree electron 依赖安装不完整修复",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t442_fix_worktree_electron_deps"
-        },
-        {
             "tid": "t443",
             "slug": "bg_serve_lock_e2e_build",
             "title": "background serve 锁冲突打包形态进程级 e2e",
@@ -47,6 +32,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/tasks/t443_bg_serve_lock_e2e_build"
+        },
+        {
+            "tid": "t444",
+            "slug": "dashboard_null_session_time_fallback",
+            "title": "dashboard 会话列表 records 缺失 session 时间兜底修复 + 清脏数据",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t444_dashboard_null_session_time_fallback"
         }
     ]
 }
