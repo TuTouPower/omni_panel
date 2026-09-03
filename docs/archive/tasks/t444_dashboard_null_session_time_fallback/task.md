@@ -2,11 +2,11 @@
 tid: "t444"
 slug: "dashboard_null_session_time_fallback"
 title: "dashboard 会话列表 records 缺失 session 时间兜底修复 + 清脏数据"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t444_dashboard_null_session_time_fallback"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "6156cb0b88e811a3eb2164777a2a2e84a25d4981"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,12 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS（worktree 内 active 预期）；doctor_cmd 无。无 UNVERIFIED-SPIKE（sessions 表有有效 started_at 已实证）。
+- Step 2 红：新增 t444 AC-001/AC-002 失败测试——构造 rollup 就绪 + 脏 session（rollup/sessions 有、records 删），断言兜底时间；红轮 `typeof started_at` 为 object（null）失败确认。
+- Step 3 绿：materialize_session_meta records 补查失败时三层兜底：(1) token_stats_sessions 表（主键 id=session_id）；(2) window_rows hour_start MIN/MAX。实现中发现 sessions 表主键为 (id,source,env) 无 session_id 列，修正查询键。绿轮 t444 测试通过；dashboard+store 全量 135 passed。
+- Step 4 黑盒：真实脏库 dash_probe 等价逻辑（只读）→ DTO VALID（此前 INVALID）；单元 AC-001/002/003 全过。
+- AC-004 [deploy] 清脏数据已执行：备份 /tmp/observations-backup-t444.sqlite（624MB）后删 7 条 8-28 grok 脏 session（rollup 各 1 行 + sessions 各 1 行；records 本无）；常驻实例 /v1/dashboard 与 /v1/dashboard/sessions 同时间窗均回 200（此前 500），sessions total 58。
+- 遗留观察（未修，非本 task 范围）：另有 1 条 kimi_code 脏 session（session_7d3676a2，8-06，rollup 有/records 无）+ 3 条 8-28 grok 会话仅 sessions 表有（rollup/records 均无，不触发本 bug）；前者已被新兜底覆盖（DTO VALID），后两者随采集自然覆盖。未登记 pending（属已知一次性异常模式，无需跟进）。
 
 ## Review 处置
 
@@ -78,6 +83,29 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
+### Round 1 (2026-09-04)
+
+Round 1 零 finding（code/test 双路），未进处置表。
+
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 脏 session 时间兜底 + 7 条清数 + deploy 双端点 200；见上。
+
+## 收尾报告
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足（含 AC-004 [deploy] 真实库验证）
+- 证据：AC-001/002/003 见 handoff.json ac_evidence（t444 单测红绿 + 135 passed）；AC-004 见实施笔记（备份 + 删除计数 + 常驻实例双端点 200）。
+
+### Reviewer verdict
+
+`full`：
+
+- Round 1 code：PASS
+- Round 1 test：PASS
+
+### 结果摘要
+
+- 见上
