@@ -1,0 +1,19 @@
+{
+  "tid": "t440",
+  "attempt": 1,
+  "execution_id": "66441a28ace64a34a016c3f75e88ad36",
+  "status": "done",
+  "branch": "t440_bg_serve_lock_race_stale_early_exit",
+  "base_sha": "a39420f94a1f9698374b08896a2e70ab33326ae4",
+  "tests": "pnpm vitest run：3461 passed / 9 skipped（含 background_serve.test.ts 9 例全绿）",
+  "blackbox": "全量 pnpm test 主层级绿 + 真实 electron probe 已运行路径验证(exit1 快速失败,与打包一致);code0 进程级受 electron dev user-data 透传缺陷阻塞(d050),判定层由单测覆盖",
+  "review": "Round 4 PASS（code+test 各 4 轮,PASS；5 条 minor 全处置已修）",
+  "ac_evidence": {
+    "AC-001": ["tests/unit/main/cli/background_serve.test.ts 非0退出→exited 用例:exitCode 3 → {kind:exited,code:3}", "src/main/cli/background_serve.ts exited 分支 process.exit(outcome.code)"],
+    "AC-002": ["tests/unit/main/cli/background_serve.test.ts code0 退出→exited_code0 用例", "src/main/cli/background_serve.ts exited_code0 分支 exit(1)+日志路径"],
+    "AC-003": ["tests/unit/main/cli/background_serve.test.ts build_early_exit_msg 用例:断言单实例锁冲突/另一实例关闭中/稍候重试/日志路径", "src/main/cli/background_serve.ts build_early_exit_msg 文案含锁冲突诊断"],
+    "AC-004": ["tests/unit/main/cli/background_serve.test.ts ready 用例:存活+cli.json pid 匹配 → {kind:ready,url,port}", "src/main/cli/background_serve.ts ready 分支打印 URL+exit(0),与改动前逐行等价"]
+  },
+  "pending": ["p210"],
+  "findings": ["d050"]
+}
