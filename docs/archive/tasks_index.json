@@ -6604,6 +6604,21 @@
             "dir": "docs/archive/tasks/t440_bg_serve_lock_race_stale_early_exit"
         },
         {
+            "tid": "t441",
+            "slug": "fix_index_stale_local_env_comments",
+            "title": "index.ts 两处过期 local/env 注释修订(t437 残留)",
+            "status": "done",
+            "branch": "t441_fix_index_stale_local_env_comments",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "448619d52b648d39cbc18171bb1ee9e80ce95873",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t441_fix_index_stale_local_env_comments"
+        },
+        {
             "tid": "t442",
             "slug": "fix_worktree_electron_deps",
             "title": "task worktree electron 依赖安装不完整修复",
@@ -6617,6 +6632,81 @@
             "schedule_status": "",
             "note": "dropped: 核实过时:p207 根因已由 t392 修复(pnpm-workspace.yaml onlyBuiltDependencies),不建 task",
             "dir": "docs/archive/tasks/t442_fix_worktree_electron_deps"
+        },
+        {
+            "tid": "t443",
+            "slug": "bg_serve_lock_e2e_build",
+            "title": "background serve 锁冲突打包形态进程级 e2e",
+            "status": "done",
+            "branch": "t443_bg_serve_lock_e2e_build",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "233cd77369a598779ce687ee7732aa0f1f9a1b83",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t443_bg_serve_lock_e2e_build"
+        },
+        {
+            "tid": "t444",
+            "slug": "dashboard_null_session_time_fallback",
+            "title": "dashboard 会话列表 records 缺失 session 时间兜底修复 + 清脏数据",
+            "status": "done",
+            "branch": "t444_dashboard_null_session_time_fallback",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "6156cb0b88e811a3eb2164777a2a2e84a25d4981",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t444_dashboard_null_session_time_fallback"
+        },
+        {
+            "tid": "t445",
+            "slug": "codex_tokenstats_reader",
+            "title": "codex 代理面板用量采集（token-stats reader 落会话明细）",
+            "status": "done",
+            "branch": "t445_codex_tokenstats_reader",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "e43a9fc92088c85a4ff3fecf69181ae4415dc2ca",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；用量面板 codex connector 不动，代理面板新增 codex_jsonl reader",
+            "dir": "docs/archive/tasks/t445_codex_tokenstats_reader"
+        },
+        {
+            "tid": "t446",
+            "slug": "codex_session_history_extractor",
+            "title": "codex 会话历史提取器与定位器",
+            "status": "done",
+            "branch": "t446_codex_session_history_extractor",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "bcebc5303ecb90163052e2c144d054c3486796d7",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；新增 codex-extractor.ts + locator codex 分支 + HistorySource 加 codex",
+            "dir": "docs/archive/tasks/t446_codex_session_history_extractor"
+        },
+        {
+            "tid": "t447",
+            "slug": "codex_panels_wiring",
+            "title": "两面板 codex 接线（过滤选项/会话展示/resume）",
+            "status": "done",
+            "branch": "t447_codex_panels_wiring",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "e5b21a3ee78d6d5be83c92242c9db8949e2d2e25",
+            "depends_on": "t445,t446",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 d051/s034；依赖前两个 codex task；AGENT_OPTIONS/会话库展示/codex resume 接线",
+            "dir": "docs/archive/tasks/t447_codex_panels_wiring"
         }
     ]
 }
