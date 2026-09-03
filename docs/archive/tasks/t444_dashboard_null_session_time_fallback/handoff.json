@@ -1,0 +1,19 @@
+{
+  "tid": "t444",
+  "attempt": 1,
+  "execution_id": "e51ea6127bb14a9699fce37c700f68f9",
+  "status": "done",
+  "branch": "t444_dashboard_null_session_time_fallback",
+  "base_sha": "6156cb0b88e811a3eb2164777a2a2e84a25d4981",
+  "tests": "t444 红绿单测通过；token_stats_dashboard + token-stats-store 全量 135 passed",
+  "blackbox": "真实脏库只读 probe DTO VALID；清数后常驻实例 /v1/dashboard 与 /v1/dashboard/sessions 同窗均 200",
+  "review": "第 1 轮 PASS（full：code/test 双零 finding）",
+  "ac_evidence": {
+    "AC-001": ["token_stats_dashboard.test.ts t444 用例：三表不一致构造下 query_dashboard 脏 session started_at/ended_at 为 number，通过"],
+    "AC-002": ["同用例 query_dashboard_sessions 脏 session 时间为 number，通过"],
+    "AC-003": ["同用例正常 session title 一致且时间为 number；全量 135 passed 无回归"],
+    "AC-004": ["备份 /tmp/observations-backup-t444.sqlite 后删 7 条 8-28 grok 脏 session（rollup+sessions 各 7 行）；常驻实例双端点同窗回 200（此前 500）"]
+  },
+  "pending": [],
+  "findings": []
+}
