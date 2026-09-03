@@ -6602,6 +6602,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t440_bg_serve_lock_race_stale_early_exit"
+        },
+        {
+            "tid": "t442",
+            "slug": "fix_worktree_electron_deps",
+            "title": "task worktree electron 依赖安装不完整修复",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "dropped: 核实过时:p207 根因已由 t392 修复(pnpm-workspace.yaml onlyBuiltDependencies),不建 task",
+            "dir": "docs/archive/tasks/t442_fix_worktree_electron_deps"
         }
     ]
 }
