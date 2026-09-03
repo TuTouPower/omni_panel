@@ -336,6 +336,23 @@ describe("TokenStatsView dashboard query", () => {
         expect(request.agent).toBe("grok");
     });
 
+    it("t447 AC-001: offers a Codex agent filter and sends agent=codex to the dashboard", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        const agentSelect = screen.getByLabelText<HTMLSelectElement>("工具筛选");
+        expect([...agentSelect.options].map((option) => option.textContent)).toContain("Codex");
+
+        await user.selectOptions(agentSelect, "codex");
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        const request = get_dashboard.mock.calls[1]?.[0] as TokenStatsDashboardQuery;
+        expect(request.agent).toBe("codex");
+    });
+
     it("AC4: renders without error after selecting grok when no grok data exists", async () => {
         render(<TokenStatsView />);
         const user = userEvent.setup();

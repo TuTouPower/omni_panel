@@ -31,6 +31,7 @@ const RESUME_SOURCE_TITLES: Record<ResumeCommandSource, string> = {
     kimi_code: "Kimi Code",
     grok: "Grok",
     opencode: "OpenCode",
+    codex: "Codex",
 };
 
 function save_resume_template(
