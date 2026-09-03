@@ -1,0 +1,20 @@
+{
+  "tid": "t446",
+  "attempt": 1,
+  "execution_id": "cb13a48af3fb4731a81dffc7552844ee",
+  "status": "done",
+  "branch": "t446_codex_session_history_extractor",
+  "base_sha": "bcebc5303ecb90163052e2c144d054c3486796d7",
+  "tests": "codex-extractor.test.ts 5 passed；session-history 全目录 210 passed；tsc 全量通过；eslint 零 warning",
+  "blackbox": "真实 25 个 rollout 全量提取 639 条消息 null_ts=0",
+  "review": "第 1 轮 PASS（full：code/test 双零 finding）",
+  "ac_evidence": {
+    "AC-001": ["codex-extractor.test.ts AC-001：干扰行过滤 + 角色/文本/顺序/timestamp 非空断言通过"],
+    "AC-002": ["同文件 AC-002：追加后增量只返新增断言通过"],
+    "AC-003": ["同文件 AC-003：first_user 与全量首条一致断言通过"],
+    "AC-004": ["同文件 AC-004：locator 真实分支解析 + 不存在 null 断言通过"],
+    "AC-005": ["同文件 AC-005：裸信封归一后不含标记断言通过（normalize 标签扩展）"]
+  },
+  "pending": [],
+  "findings": []
+}

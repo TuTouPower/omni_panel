@@ -106,8 +106,8 @@ export function clear_resolution_cache(): void {
     }
 }
 
-/** locator 支持的 source 集合（与 token-stats 四端对齐，kimi 带下划线）。 */
-export type HistorySource = "claude_code" | "opencode" | "kimi_code" | "grok";
+/** locator 支持的 source 集合（t446 +codex；token-stats 五端对齐，kimi 带下划线）。 */
+export type HistorySource = "claude_code" | "opencode" | "kimi_code" | "grok" | "codex";
 
 export interface ResolvedSession {
     /** 提取器要读的源文件 / db 完整路径。 */
@@ -308,6 +308,8 @@ export function locator_source_path(
             return path_layer.kimi_sessions_path(input, env);
         case "grok":
             return path_layer.grok_sessions_path(input, env);
+        case "codex":
+            return path_layer.codex_sessions_path(input, env);
     }
 }
 
@@ -423,6 +425,23 @@ function resolve_grok(paths: LocatorPaths, env: Env, session_id: string): Resolv
         const file_idx = parts.lastIndexOf("chat_history.jsonl");
         if (file_idx > 0 && parts[file_idx - 1] === session_id) {
             return { file_path: file, extractor_kind: "grok" };
+        }
+    }
+    return null;
+}
+
+function resolve_codex(paths: LocatorPaths, env: Env, session_id: string): ResolvedSession | null {
+    // codex 数据仅本机 ~/.codex（t445：无 wsl 对侧）；dated 目录 YYYY/MM/DD 下
+    // 文件名 rollout-*-<session_id>.jsonl 尾部 UUID 即 session_id（d051）。
+    const root = locator_source_path("codex", env, paths);
+    if (root === null) return null;
+    const files: string[] = [];
+    collect_jsonls(root, 0, files);
+    const suffix = `-${session_id}.jsonl`;
+    for (const file of files) {
+        const base = file.split(/[\\/]/).pop() ?? "";
+        if (base.startsWith("rollout-") && base.endsWith(suffix)) {
+            return { file_path: file, extractor_kind: "codex" };
         }
     }
     return null;
@@ -573,6 +592,8 @@ export function resolve_session_file(
                 return resolve_kimi_code(paths, env, session_id);
             case "grok":
                 return resolve_grok(paths, env, session_id);
+            case "codex":
+                return resolve_codex(paths, env, session_id);
         }
     })();
 

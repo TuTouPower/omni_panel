@@ -22,6 +22,7 @@ import {
     extract_claude_code_incremental,
 } from "./claude-code-extractor";
 import { extract_grok, extract_grok_first_user, extract_grok_incremental } from "./grok-extractor";
+import { extract_codex, extract_codex_first_user, extract_codex_incremental } from "./codex-extractor";
 import {
     extract_kimi_code,
     extract_kimi_code_first_user,
@@ -41,7 +42,7 @@ import { createLogger } from "../../../shared/lib/logger";
 const log = createLogger("session-history-subscription");
 
 /** 端类型，与 t209 四端提取器一一对应。 */
-export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok";
+export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok" | "codex";
 
 /** 运行环境，与 t437 的 TokenStatsEnv 对齐（win/wsl/linux/mac 四值，无 `local`）。 */
 export type Env = "win" | "wsl" | "linux" | "mac";
@@ -388,6 +389,8 @@ export class SessionHistorySubscriptionService {
                 return extract_kimi_code(file_path);
             case "grok":
                 return extract_grok(file_path);
+            case "codex":
+                return extract_codex(file_path);
         }
     }
 
@@ -414,6 +417,10 @@ export class SessionHistorySubscriptionService {
                 return cursor
                     ? extract_grok_incremental(file_path, cursor)
                     : extract_grok(file_path);
+            case "codex":
+                return cursor
+                    ? extract_codex_incremental(file_path, cursor)
+                    : extract_codex(file_path);
         }
     }
 
@@ -432,6 +439,8 @@ export class SessionHistorySubscriptionService {
                 return extract_kimi_code_first_user(file_path);
             case "grok":
                 return extract_grok_first_user(file_path);
+            case "codex":
+                return extract_codex_first_user(file_path);
         }
     }
 
