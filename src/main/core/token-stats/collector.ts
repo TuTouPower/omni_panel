@@ -20,6 +20,8 @@ import { scan_kimi_wire_jsonls, create_kimi_scan_state } from "./kimi-reader";
 import type { KimiScanState } from "./kimi-reader";
 import { scan_grok_updates, create_grok_scan_state } from "./grok-reader";
 import type { GrokScanState } from "./grok-reader";
+import { scan_codex_rollouts, create_codex_scan_state } from "./codex-reader";
+import type { CodexScanState } from "./codex-reader";
 import {
     serialize_state as scan_serialize,
     save_state as scan_save,
@@ -41,7 +43,7 @@ interface CostsState {
 interface SourceDef {
     key: string;
     source: TokenStatsSource;
-    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl" | "grok_jsonl";
+    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl" | "grok_jsonl" | "codex_jsonl";
     env: TokenStatsEnv;
     /**
      * Hosts that can host this source (t309). The collector filters the
@@ -107,6 +109,7 @@ const opencode_max_updated = new Map<string, number>();
 const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
+const codex_states = new Map<string, CodexScanState>();
 // t345 AC-003 + t385 AC-001/002: 超上限截断游标——该 source 已发出的
 // session/daily **身份键**集合（非排序位置计数，防新会话排序在游标前被误跳）。
 // 入 scan-state 持久化，跨重启保留推进进度。回滚 state 下轮全量重扫，按
@@ -200,6 +203,7 @@ export function serialize_state(): SerializedScanState {
         jsonl_states,
         kimi_states,
         grok_states,
+        codex_states,
         source_cursors,
     });
 }
@@ -212,6 +216,7 @@ export async function save_state(state_path: string): Promise<void> {
             jsonl_states,
             kimi_states,
             grok_states,
+            codex_states,
             source_cursors,
         },
         state_path,
@@ -229,6 +234,7 @@ export async function load_state(state_path: string): Promise<void> {
             jsonl_states,
             kimi_states,
             grok_states,
+            codex_states,
             source_cursors,
         },
         state_path,
@@ -270,6 +276,8 @@ function platform_source_defs(host: Host): SourceDef[] {
         // Windows 上 grok CLI 仅存在于 WSL（UNC，grok_wsl），平台源在 Windows
         // 无数据时按 missing 处理。两 env 并存时 store 主键 (source,env,id) 区分。
         { key: `grok_${env}`, source: "grok", kind: "grok_jsonl", env, hosts: [host] },
+        // t445: codex 数据仅本机 ~/.codex（无 wsl 对侧），随宿主平台源采集。
+        { key: `codex_${env}`, source: "codex", kind: "codex_jsonl", env, hosts: [host] },
     ];
 }
 
@@ -494,6 +502,15 @@ function kimi_index_path(
     return paths.kimi_index_path(path_input(cfg, host, homedir), env);
 }
 
+function codex_sessions_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.codex_sessions_path(path_input(cfg, host, homedir), env);
+}
+
 function grok_sessions_path(
     cfg: TokenStatsConfig,
     env: TokenStatsEnv,
@@ -610,6 +627,40 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
                 status: "ok",
             };
         }
+        if (src.kind === "codex_jsonl") {
+            const codex_path = codex_sessions_path(cfg, src.env);
+            if (codex_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
+            const state = codex_states.get(src.key) ?? create_codex_scan_state();
+            const result = scan_codex_rollouts(codex_path, src.env, state);
+            codex_states.set(src.key, result.new_state);
+            if (result.missing) {
+                const lastError = `sessions dir missing: ${codex_path}`;
+                return {
+                    ...EMPTY_READ,
+                    status: "unavailable",
+                    lastError,
+                    logMessage: `${src.key} ${lastError}`,
+                };
+            }
+            if (result.file_unreadable) {
+                return {
+                    sessions: result.sessions,
+                    daily: result.daily,
+                    records: result.records,
+                    status: "failed",
+                    lastError: "some codex session files unreadable",
+                    logMessage: `${src.key} partially unreadable: some session files unreadable`,
+                };
+            }
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
+        }
         const opencode_db_path = opencode_path(cfg, src.env);
         if (opencode_db_path === null) {
             return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
@@ -674,6 +725,7 @@ function collect(): void {
         jsonl: SessionScanState | undefined;
         kimi: KimiScanState | undefined;
         grok: GrokScanState | undefined;
+        codex: CodexScanState | undefined;
         cursor: { sessions: Set<string>; daily: Set<string> } | undefined;
     }[] = [];
     // 超上限触发截断的 source（不 break 饿死后续 source）。
@@ -706,6 +758,7 @@ function collect(): void {
             jsonl: jsonl_states.get(src.key),
             kimi: kimi_states.get(src.key),
             grok: grok_states.get(src.key),
+            codex: codex_states.get(src.key),
             cursor: cursor_snap
                 ? { sessions: new Set(cursor_snap.sessions), daily: new Set(cursor_snap.daily) }
                 : undefined,
@@ -782,6 +835,7 @@ function collect(): void {
                 jsonl_states,
                 kimi_states,
                 grok_states,
+                codex_states,
             ] as const) {
                 map.delete(src.key);
             }
@@ -829,6 +883,7 @@ function collect(): void {
             set_or_delete(jsonl_states, snap.jsonl);
             set_or_delete(kimi_states, snap.kimi);
             set_or_delete(grok_states, snap.grok);
+            set_or_delete(codex_states, snap.codex);
             set_or_delete(source_cursors, snap.cursor);
         }
     }

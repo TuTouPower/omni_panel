@@ -1,0 +1,18 @@
+{
+  "tid": "t443",
+  "attempt": 1,
+  "execution_id": "3c51a466ef12468bb529cc9905edea98",
+  "status": "done",
+  "branch": "t443_bg_serve_lock_e2e_build",
+  "base_sha": "233cd77369a598779ce687ee7732aa0f1f9a1b83",
+  "tests": "tsc --noEmit 全量通过；新增 packaged e2e 1 passed（927ms）",
+  "blackbox": "E2E_NO_WEBSERVER=1 DISPLAY=:0 playwright --project=packaged tests/e2e/packaged/bg_serve_lock.spec.ts 1 passed；teardown 后端口释放无残留",
+  "review": "第 1 轮 PASS（full：code 一条 minor 已修，test 零 finding）",
+  "ac_evidence": {
+    "AC-001": ["bg_serve_lock.spec.ts 健康实例起服 + 后台 serve 同隔离目录：exit=1 且 elapsedMs<15000，playwright 实跑 927ms 通过"],
+    "AC-002": ["stderr 含「实例已在运行」+ 不含「等待 serve 启动超时」+ 诊断含本用例端口 port=18711，实跑通过"],
+    "AC-003": ["skipIfNoExe 与 smoke.spec.ts 同机制；产物存在时实跑通过"]
+  },
+  "pending": [],
+  "findings": []
+}

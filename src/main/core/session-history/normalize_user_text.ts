@@ -9,6 +9,9 @@ export type NormalizeUserResult =
 
 /** p203 抽样登记的信封标签（不含 user_query / command-*，那两类有专用展开）。 */
 const STRIP_ENVELOPE_TAGS = [
+    // t446: codex rollout user 大信封（d051：8/45 含环境注入），展示层剥离。
+    "environment_context",
+    "skills_instructions",
     "system-reminder",
     "user_info",
     "git_status",

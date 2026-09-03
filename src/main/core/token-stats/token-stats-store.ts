@@ -332,7 +332,7 @@ function row_to_record(row: Record<string, unknown>): AgentSessionUsage {
         output_tokens: row["output_tokens"] as number,
         cache_read_tokens: row["cache_read_tokens"] as number,
         cache_write_tokens: row["cache_write_tokens"] as number,
-        agent: row["agent"] as "claude-code" | "opencode" | "kimi-code" | "grok",
+        agent: row["agent"] as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex",
     };
 }
 
@@ -842,6 +842,22 @@ function materialize_session_meta(
              SET title = ?, directory = ?, started_at = ?, ended_at = ?
              WHERE source = ? AND env = ? AND session_id = ?`,
         );
+        // t444: records 补查失败（row undefined）的兜底——session 仅
+        // rollup/sessions 表有、records 无时，从 token_stats_sessions 表取
+        // title/directory/started_at/ended_at，杜绝 NULL 时间透出致 DTO 拒。
+        // sessions 表 started_at/ended_at 为 NOT NULL，且写入早于 records 缺失
+        // 的脏数据仍有效（p211 实证）。
+        // sessions 表主键 (id, source, env)，id 即会话键（session_id 语义）。
+        const fallback_stmt = prepare(
+            `SELECT title, directory, started_at, ended_at
+             FROM token_stats_sessions
+             WHERE id = ? AND source = ? AND env = ?`,
+        );
+        const window_fallback_stmt = prepare(
+            `SELECT MIN(hour_start) AS started_at, MAX(hour_start) AS ended_at
+             FROM window_rows
+             WHERE source = ? AND env = ? AND session_id = ?`,
+        );
         for (const s of sessions) {
             const row = meta_stmt.get(
                 s.source,
@@ -866,6 +882,43 @@ function materialize_session_meta(
                     row.directory ?? null,
                     row.started_at,
                     row.ended_at,
+                    s.source,
+                    s.env,
+                    s.session_id,
+                );
+                continue;
+            }
+            const fallback = fallback_stmt.get(s.session_id, s.source, s.env) as
+                | {
+                      title: string | null;
+                      directory: string | null;
+                      started_at: number | null;
+                      ended_at: number | null;
+                  }
+                | undefined;
+            if (fallback && fallback.started_at !== null && fallback.ended_at !== null) {
+                update_stmt.run(
+                    fallback.title ?? null,
+                    fallback.directory ?? null,
+                    fallback.started_at,
+                    fallback.ended_at,
+                    s.source,
+                    s.env,
+                    s.session_id,
+                );
+                continue;
+            }
+            // sessions 表也缺时间（理论极端）：取 window_rows 的 hour_start
+            // MIN/MAX 二次兜底，保证非 null。
+            const window_fallback = window_fallback_stmt.get(s.source, s.env, s.session_id) as
+                | { started_at: number | null; ended_at: number | null }
+                | undefined;
+            if (window_fallback?.started_at !== null && window_fallback?.ended_at !== null) {
+                update_stmt.run(
+                    fallback?.title ?? null,
+                    fallback?.directory ?? null,
+                    window_fallback?.started_at ?? null,
+                    window_fallback?.ended_at ?? null,
                     s.source,
                     s.env,
                     s.session_id,

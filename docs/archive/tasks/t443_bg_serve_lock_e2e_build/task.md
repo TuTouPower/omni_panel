@@ -1,15 +1,15 @@
 ---
-tid: "t445"
-slug: "codex_tokenstats_reader"
-title: "codex 代理面板用量采集（token-stats reader 落会话明细）"
-status: "backlog"
-branch: ""
+tid: "t443"
+slug: "bg_serve_lock_e2e_build"
+title: "background serve 锁冲突打包形态进程级 e2e"
+status: "done"
+branch: "t443_bg_serve_lock_e2e_build"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "233cd77369a598779ce687ee7732aa0f1f9a1b83"
 depends_on: ""
 conflicts_with: ""
-note: "来源 d051/s034；用量面板 codex connector 不动，代理面板新增 codex_jsonl reader"
+note: ""
 ---
 
 # Task 过程总账
@@ -22,7 +22,12 @@ note: "来源 d051/s034；用量面板 codex connector 不动，代理面板新�
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight 在主仓跑显示 FAIL（main 副本滞后，worktree 内 active 属预期）；doctor_cmd 无。t443 纯新增测试，无 UNVERIFIED-SPIKE。
+- Step 2 红：先以 `=` 拼接形态手跑后台 serve，复现 probe 误撞本机常驻实例（诊断指向 18263 常驻实例）——确认 `=` 形态 user-data-dir 被静默丢弃；改空格分隔后红轮验证秒级 exit=1 + 「实例已在运行」指向隔离目录健康实例（18711/18714/18715）。
+- Step 3 绿：新增 tests/e2e/packaged/bg_serve_lock.spec.ts（222 行）；tsc 全量通过；移除未用 `stdout` 变量消 TS6133。
+- Step 4 黑盒：`E2E_NO_WEBSERVER=1 DISPLAY=:0 playwright --project=packaged bg_serve_lock.spec.ts` → 1 passed（927ms）；teardown 后端口释放无残留。
+- 审阅：spawn_agent 不可用，按 code/test prompt 标准直接双路审；code Round 1 一条 minor（固定端口），test Round 1 零 finding；双 PASS。
+- 收尾注意：artifacts 软链仅 worktree 本地验证用（gitignore，不入库）；src/generated/build-info.ts 系复制主仓 gitignore 产物，不入库。
 
 ## Review 处置
 
@@ -44,14 +49,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-09-04)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t443_code_f001|minor|已修|固定端口 18711 说明已补：packaged workers=1 + teardown 回收 user-data-dir 进程树 + 隔离目录防误撞常驻实例；动态端口待 workers>1 再议|tests/e2e/packaged/bg_serve_lock.spec.ts:166-170|
 
 ## 收尾报告
 
@@ -80,4 +82,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 打包形态后台 serve 锁冲突 e2e 已落地并实跑通过；见上。
+
+## 收尾报告
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001/AC-002/AC-003 见 handoff.json ac_evidence；packaged e2e 1 passed（927ms）；code/test 双路 review PASS。
+
+### Reviewer verdict
+
+`full`：
+
+- Round 1 code：PASS
+- Round 1 test：PASS
+
+### 结果摘要
+
+- 见上

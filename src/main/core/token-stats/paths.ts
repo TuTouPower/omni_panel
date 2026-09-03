@@ -129,6 +129,12 @@ export function kimi_sessions_path(input: TokenStatsPathInput, env: TokenStatsEn
     return resolve(input, env, [...KIMI_SEGMENTS, "sessions"]);
 }
 
+/** ~/.codex/sessions (or the win_home / UNC equivalent). t445: codex 数据仅本机
+ * ~/.codex（无 wsl 对侧）；archived_sessions 不存在按 missing 处理（reader 侧）。 */
+export function codex_sessions_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
+    return resolve(input, env, [".codex", "sessions"]);
+}
+
 /** ~/.kimi-code/session_index.jsonl (or the win_home / UNC equivalent). */
 export function kimi_index_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
     return resolve(input, env, [...KIMI_SEGMENTS, "session_index.jsonl"]);

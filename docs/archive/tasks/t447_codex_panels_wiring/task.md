@@ -2,11 +2,11 @@
 tid: "t447"
 slug: "codex_panels_wiring"
 title: "两面板 codex 接线（过滤选项/会话展示/resume）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t447_codex_panels_wiring"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "e5b21a3ee78d6d5be83c92242c9db8949e2d2e25"
 depends_on: "t445,t446"
 conflicts_with: ""
 note: "来源 d051/s034；依赖前两个 codex task；AGENT_OPTIONS/会话库展示/codex resume 接线"
@@ -22,7 +22,12 @@ note: "来源 d051/s034；依赖前两个 codex task；AGENT_OPTIONS/会话库�
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS；doctor_cmd 无。依赖 t445/t446（链式 base 已含其分支 tip）。
+- Step 2 红：先加 Codex 过滤用例（token_stats_view）+ resume codex 用例 + wiring 映射测试；AGENT_OPTIONS 缺 codex 失败确认。
+- Step 3 绿：AgentFilter/AGENT_OPTIONS/resume 模板/vendor 映射/friendly/设置页标题接线。tsc 被动发现 settings Record 穷尽缺 codex 并补齐。
+- Step 4 黑盒：renderer lib + view/header 367 passed；tsc 全量通过；eslint 零 warning。
+- 审阅：spawn_agent 不可用，按 code/test prompt 直接双路审；双零 finding；双 PASS。
+- agent_accent 未加 codex 专色（回退 primary）：有意不改 DESIGN token（写权纪律），待设计侧统一。
 
 ## Review 处置
 
@@ -44,14 +49,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-04)
 
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding（code/test 双路），未进处置表。
 
 ## 收尾报告
 
@@ -80,4 +80,22 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 两面板 codex 接线完成（过滤/展示/resume/logo）；见上。
+
+## 收尾报告
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001~004 见 handoff.json ac_evidence（组件 + 映射单元测试 367 passed）。
+
+### Reviewer verdict
+
+`single`：
+
+- Round 1 general：PASS
+
+### 结果摘要
+
+- 见上

@@ -1,4 +1,8 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import Database from "better-sqlite3";
 import {
     create_token_stats_store,
     type TokenStatsStore,
@@ -813,6 +817,79 @@ describe("token stats dashboard query", () => {
         expect(sonnet.total).toBe(1);
         expect(sonnet.items).toHaveLength(1);
         expect(sonnet.items[0]?.session_id).toBe("s-sonnet");
+    });
+
+    it("rollup-ready session without records falls back to sessions-table time (t444 AC-001/AC-002)", () => {
+        // 脏 session：rollup 就绪 + rollup/sessions 表有行、records 无行。
+        // :memory: 下 rollup 跨连接不可见，用临时文件库 + better-sqlite3 直删 records 行构造。
+        const dir = mkdtempSync(join(tmpdir(), "ts-dash-t444-"));
+        try {
+            const db_path = join(dir, "obs.sqlite");
+            const file_store = create_token_stats_store(db_path);
+            try {
+                file_store.upsert_records([
+                    record({ session_id: "s-good", message_id: "g1", title: "good" }),
+                    record({
+                        session_id: "s-dirty",
+                        message_id: "d1",
+                        source: "grok",
+                        title: "dirty",
+                        timestamp: START + 3_000,
+                    }),
+                ]);
+                file_store.backfill_hour_rollup();
+                expect(file_store.is_hour_rollup_ready()).toBe(true);
+            } finally {
+                file_store.close();
+            }
+            const raw = new Database(db_path);
+            try {
+                raw
+                    .prepare("DELETE FROM token_stats_records WHERE session_id = 's-dirty'")
+                    .run();
+            } finally {
+                raw.close();
+            }
+            const reopened = create_token_stats_store(db_path);
+            try {
+                const query = {
+                    agent: "all" as const,
+                    platform: "all" as const,
+                    start: START,
+                    end: END,
+                    metric: "tokens" as const,
+                    xaxis: "time" as const,
+                    gran: "hour" as const,
+                };
+                const dashboard = reopened.query_dashboard(query, {
+                    running: true,
+                    last_updated: null,
+                });
+                const dirty = dashboard.sessions.items.find((i) => i.session_id === "s-dirty");
+                expect(dirty).toBeDefined();
+                // AC-001：sessions 表兜底时间非 null，不抛。
+                expect(typeof dirty?.started_at).toBe("number");
+                expect(typeof dirty?.ended_at).toBe("number");
+                const page = reopened.query_dashboard_sessions({
+                    agent: "all",
+                    platform: "all",
+                    start: START,
+                    end: END,
+                });
+                const dirty_page = page.items.find((i) => i.session_id === "s-dirty");
+                // AC-002：sessions 端点同样兜底。
+                expect(typeof dirty_page?.started_at).toBe("number");
+                expect(typeof dirty_page?.ended_at).toBe("number");
+                // AC-003：records 正常的 session 不受影响。
+                const good = dashboard.sessions.items.find((i) => i.session_id === "s-good");
+                expect(good?.title).toBe("good");
+                expect(typeof good?.started_at).toBe("number");
+            } finally {
+                reopened.close();
+            }
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
     });
 
     it("heatmap and hour buckets filters accept a model (t204)", () => {
