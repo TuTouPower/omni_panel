@@ -11,6 +11,7 @@ export const DEFAULT_RESUME_COMMAND_TEMPLATES = {
     kimi_code: "kimi -r {session_id}",
     grok: "grok --resume {session_id}",
     opencode: "opencode -s {session_id}",
+    codex: "codex resume {session_id}",
 } as const;
 
 export type ResumeCommandSource = keyof typeof DEFAULT_RESUME_COMMAND_TEMPLATES;

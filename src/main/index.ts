@@ -486,7 +486,8 @@ void app.whenReady().then(async () => {
         // query_sessions 结果映射为 SessionRow（服务层不依赖 store 类型）。
         // t259: 与 web local-api 会话历史端点共享同一 provider/locator，保证同源。
         // t310: locator 路径输入与 t308 路径层对齐——host 从 process.platform 推导，
-        // homedir 供非 Windows 宿主 local 源，win_home 供 Windows 宿主 local 源；
+        // homedir 供 linux/mac 源，win_home 供 Windows 宿主 win 源，
+        // win_home_wsl 供 Linux 宿主 win 源（t438）；
         // wsl_* 显式值优先，空串由 locator 自动探测。
         // t438: linux 宿主上 win 源经 win_home_wsl（/mnt/c/Users 自动发现）解析；
         // 传 null 由 locator 在 resolve 时惰性发现（review f001：一次性注入覆盖不了
@@ -516,7 +517,7 @@ void app.whenReady().then(async () => {
             return tokenStatsStore.query_sessions(filters).map((s) => ({
                 id: s.id,
                 source: s.source,
-                // t310: session-history Env 已与 token-stats 对齐为 local|wsl，直接透传。
+                // t310: session-history Env 已与 token-stats 对齐为 win|wsl|linux|mac，直接透传。
                 env: s.env,
                 title: s.title,
                 model: s.model,

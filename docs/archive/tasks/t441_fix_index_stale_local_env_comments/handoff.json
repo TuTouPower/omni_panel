@@ -1,0 +1,16 @@
+{
+  "tid": "t441",
+  "attempt": 1,
+  "execution_id": "5139bde3b7b64d20886ac4ac3704eb32",
+  "status": "done",
+  "branch": "t441_fix_index_stale_local_env_comments",
+  "base_sha": "448619d52b648d39cbc18171bb1ee9e80ce95873",
+  "tests": "pnpm typecheck 通过；eslint src/main/index.ts 零 warning；纯注释改动有意不测无单测",
+  "blackbox": "eslint src/main/index.ts --max-warnings=0 通过；grep 核验 index.ts 无过期 local env 引用",
+  "review": "第 1 轮 PASS（single general，零 finding）",
+  "ac_evidence": {
+    "AC-001": ["git diff 显示两处注释已改：locator 路径注释改为 linux/mac + win/win_home_wsl，Env 注释改为 win|wsl|linux|mac", "eslint src/main/index.ts 零 warning 通过", "review_general.md Round 1 verdict PASS"]
+  },
+  "pending": [],
+  "findings": []
+}

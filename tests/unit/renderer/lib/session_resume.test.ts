@@ -37,6 +37,12 @@ describe("resume_command templates (t401)", () => {
         ).toBe("echo xyz && kimi -r xyz");
     });
 
+    it("t447 AC-003: codex resume template", () => {
+        expect(resume_command("codex", "01a06865-bbc4-7bb2-a6aa-7fc8c5c71ed6")).toBe(
+            "codex resume 01a06865-bbc4-7bb2-a6aa-7fc8c5c71ed6",
+        );
+    });
+
     it("AC-004: unknown source without template returns null", () => {
         expect(resume_command("unknown_cli", "abc")).toBeNull();
         expect(resume_command("unknown_cli", "abc", {})).toBeNull();

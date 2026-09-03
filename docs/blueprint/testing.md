@@ -47,7 +47,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 黑盒按 task 范围选择层级，非单个命令：
 
 - 默认：`pnpm test`（主）。
-- 涉及打包 / 托盘 / 多窗口 / 真实 Electron 行为：`pnpm package` 后真实启动 `artifacts/win-unpacked/OmniPanel.exe`，跑 `pnpm test:packaged`（CDP 连 exe 的 smoke）。
+- 涉及打包 / 托盘 / 多窗口 / 真实 Electron 行为：`pnpm package` 后真实启动 `artifacts/win-unpacked/OmniPanel.exe`，跑 `pnpm test:packaged`（CDP 连 exe 的 smoke + 后台 serve 锁冲突 `bg_serve_lock.spec.ts`，t443；后者 spawn 隔离 user-data-dir 健康实例再后台 serve，断言秒级 exit=1 + 「实例已在运行」；argv 须空格分隔 `--user-data-dir <dir>`，`=` 拼接被静默丢弃）。
 - 涉及连接器 live 契约：`pnpm test:contract:live`（打真实上游，需凭据）。
 - 涉及 web SPA：`pnpm test:e2e:web`（Playwright chromium，mock local-api）。会话面板关键路径由 `tests/e2e/web/session_panel.spec.ts` 覆盖（双页签状态保留 / 打开会话装槽与消息渲染 / 槽满 toast / 摘选三格式复制 / 会话库搜索筛选排序预览并排打开闭环），数据来自 synthetic fixture（`scripts/e2e/session_fixture.mjs` → `tests/e2e/fixtures/synthetic.json`）；本地与 CI 均须 `MOCK_FIXTURE=synthetic` 运行（`playwright.config.ts` webServer 固定 `--host 127.0.0.1` 供 Windows IPv4 可达）。
 - webServer 环境隔离（t292）：playwright.config 加载期删除代理 env 变体（http_proxy/https_proxy 等 6 个），防探测被代理 400 误判「已可用」→ 不启动 → ECONNREFUSED；本机有代理环境也无需手工 unset。cli 项目（`pnpm test:e2e:cli`）自起 `--cli serve`，脚本注入 `E2E_NO_WEBSERVER=1` 关闭闲置 vite preview。

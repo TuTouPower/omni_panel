@@ -1,15 +1,15 @@
 ---
-tid: "t441"
-slug: "fix_index_stale_local_env_comments"
-title: "index.ts 两处过期 local/env 注释修订(t437 残留)"
-status: "backlog"
-branch: ""
+tid: "t446"
+slug: "codex_session_history_extractor"
+title: "codex 会话历史提取器与定位器"
+status: "done"
+branch: "t446_codex_session_history_extractor"
 worktree: ""
-review_level: "single"
-diff_anchor: ""
+review_level: "full"
+diff_anchor: "bcebc5303ecb90163052e2c144d054c3486796d7"
 depends_on: ""
 conflicts_with: ""
-note: ""
+note: "来源 d051/s034；新增 codex-extractor.ts + locator codex 分支 + HistorySource 加 codex"
 ---
 
 # Task 过程总账
@@ -22,7 +22,11 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS；doctor_cmd 无。无 UNVERIFIED-SPIKE（d051/s034 已核实）。
+- Step 2 红：codex-extractor.test.ts 5 用例先行，模块缺失失败确认。
+- Step 3 绿：新建 codex-extractor.ts（grok 同构）；locator HistorySource + codex 分支（文件名后缀匹配）+ subscription 三 switch；normalize 加 environment_context/skills_instructions 剥离（t436 同模式）。实现中修：AC-004 占位改真实 locator 断言；AC-005 包裹形态改裸信封真实形态；eslint prefer-optional-chain + no-non-null-assertion。
+- Step 4 黑盒：session-history 全目录 210 passed + codex 5 passed；tsc 全量通过；eslint 零 warning；真实 25 rollout 提取 639 条 null_ts=0。
+- 审阅：spawn_agent 不可用，按 code/test prompt 直接双路审；双零 finding；双 PASS。
 
 ## Review 处置
 
@@ -44,14 +48,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-04)
 
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding（code/test 双路），未进处置表。
 
 ## 收尾报告
 
@@ -80,4 +79,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- codex extractor + locator + 三 switch + 信封剥离；见上。
+
+## 收尾报告
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001~005 见 handoff.json ac_evidence（codex-extractor.test.ts 5 passed + 真实库 639 条提取）。
+
+### Reviewer verdict
+
+`full`：
+
+- Round 1 code：PASS
+- Round 1 test：PASS
+
+### 结果摘要
+
+- 见上

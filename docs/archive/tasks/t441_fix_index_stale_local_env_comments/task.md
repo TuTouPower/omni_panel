@@ -1,12 +1,12 @@
 ---
-tid: "t443"
-slug: "bg_serve_lock_e2e_build"
-title: "background serve 锁冲突打包形态进程级 e2e"
-status: "backlog"
-branch: ""
+tid: "t441"
+slug: "fix_index_stale_local_env_comments"
+title: "index.ts 两处过期 local/env 注释修订(t437 残留)"
+status: "done"
+branch: "t441_fix_index_stale_local_env_comments"
 worktree: ""
-review_level: "full"
-diff_anchor: ""
+review_level: "single"
+diff_anchor: "448619d52b648d39cbc18171bb1ee9e80ce95873"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,11 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS（1 条警告：工作区 src/main/index.ts 自身改动，预期内）；doctor_cmd 无，按 testing.md 记「无」。
+- 实施：两处注释修订——(1) t310 locator 路径输入注释：`local 源` 表述改为 linux/mac + win/win_home_wsl（t438）；(2) Env 对齐注释：`local|wsl` 改为 `win|wsl|linux|mac`。无逻辑变更，未触其它注释。
+- 验证：typecheck 通过（worktree 需先 mkdir src/generated + gen-build-info，因 gitignore 文件 worktree 缺失，见 testing.md）；eslint 单文件 0 warning；spec 有意不测故无单测红绿轮。
+- 审阅：sub-agent 派发不可用（spawn_agent unsupported），按 general_review_prompt 标准直接单路审 diff；Round 1 零 finding，verdict PASS，review_scope 指纹一致。
+- 收尾：decisions.md ADR 016/017 是 t308 时期历史记录（t437 前语义），属历史取舍不改；ai-cli-token-stats-api.md 的 `local|wsl` 出现是「t437 替代 t308」的历史叙述，不改。顺手发现：无新增疑似问题。
 
 ## Review 处置
 
@@ -44,14 +48,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-04)
 
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -80,4 +79,24 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 两处过期注释已修订为 t437/t438 后语义，无逻辑变更；见上。
+
+## 收尾报告
+
+本 task 的 commit 用 `git log --grep t441` 查，不在此逐条记 SHA。
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001 注释修订经 grep 核验（`local|` 仅剩历史文档叙述，index.ts 内 env 注释已为 win|wsl|linux|mac）+ eslint 单文件通过 + 单路 review PASS；纯注释改动有意不测。
+
+### Reviewer verdict
+
+`single`：
+
+- Round 1 general：PASS
+
+### 结果摘要
+
+- 见上

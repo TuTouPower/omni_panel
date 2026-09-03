@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import type { SessionScanState } from "./claude-reader";
 import type { KimiScanState } from "./kimi-reader";
 import type { GrokScanState } from "./grok-reader";
+import type { CodexScanState } from "./codex-reader";
 import { writeJsonAtomic } from "../storage/write-json";
 
 /**
@@ -17,6 +18,7 @@ export interface SerializedScanState {
     jsonl_states?: Record<string, SerializedScanBucket>;
     kimi_states?: Record<string, SerializedScanBucket>;
     grok_states?: Record<string, SerializedScanBucket>;
+    codex_states?: Record<string, SerializedScanBucket>;
     /** t385 AC-001: 跨轮截断游标（按已入列身份键记账），跨重启保留推进进度。 */
     source_cursors?: Record<string, SerializedSourceCursor>;
 }
@@ -48,6 +50,7 @@ export interface ScanStateMaps {
     readonly jsonl_states: Map<string, SessionScanState>;
     readonly kimi_states: Map<string, KimiScanState>;
     readonly grok_states: Map<string, GrokScanState>;
+    readonly codex_states: Map<string, CodexScanState>;
     /** t385 AC-001: 截断游标（source → 已入列身份键集合）。 */
     readonly source_cursors: Map<string, SourceCursorMaps>;
 }
@@ -55,7 +58,7 @@ export interface ScanStateMaps {
 export type ScanStateWarn = (message: string) => void;
 
 function serialize_bucket(
-    state: SessionScanState | KimiScanState | GrokScanState,
+    state: SessionScanState | KimiScanState | GrokScanState | CodexScanState,
 ): SerializedScanBucket {
     const mtimes: Record<string, number> = {};
     // mtimeMs preserved as float so reader's strict === comparison still
@@ -114,6 +117,8 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
     for (const [key, state] of maps.kimi_states) kimi[key] = serialize_bucket(state);
     const grok: Record<string, SerializedScanBucket> = {};
     for (const [key, state] of maps.grok_states) grok[key] = serialize_bucket(state);
+    const codex: Record<string, SerializedScanBucket> = {};
+    for (const [key, state] of maps.codex_states) codex[key] = serialize_bucket(state);
     const costs: Record<string, { offset: number; size: number }> = {};
     for (const [key, c] of maps.costs_state) costs[key] = c;
     const opencode: Record<string, number> = {};
@@ -128,6 +133,7 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
         jsonl_states: jsonl,
         kimi_states: kimi,
         grok_states: grok,
+        codex_states: codex,
         source_cursors: cursors,
     };
 }
@@ -166,6 +172,7 @@ export async function load_state(
     maps.jsonl_states.clear();
     maps.kimi_states.clear();
     maps.grok_states.clear();
+    maps.codex_states.clear();
     maps.source_cursors.clear();
     let parsed: unknown;
     try {
@@ -204,6 +211,11 @@ export async function load_state(
                 maps.grok_states.set(k, deserialize_bucket(bucket) as unknown as GrokScanState);
             }
         }
+        if (s.codex_states) {
+            for (const [k, bucket] of Object.entries(s.codex_states)) {
+                maps.codex_states.set(k, deserialize_bucket(bucket) as unknown as CodexScanState);
+            }
+        }
         if (s.source_cursors) {
             for (const [k, c] of Object.entries(s.source_cursors)) {
                 const sessions = new Set<string>();
@@ -221,6 +233,7 @@ export async function load_state(
         maps.jsonl_states.clear();
         maps.kimi_states.clear();
         maps.grok_states.clear();
+    maps.codex_states.clear();
         maps.source_cursors.clear();
     }
 }
