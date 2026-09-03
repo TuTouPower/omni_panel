@@ -9,6 +9,50 @@ import { homedir } from "node:os";
 import { parse_cli_json } from "../../../scripts/cli_json_parse.mjs";
 import type { CliServeOptions } from "./args";
 
+/** 单轮启动探测结果:父进程据此决定 继续等待 / 成功退出 / 失败退出。 */
+export type PollOutcome =
+    | { kind: "continue" }
+    | { kind: "ready"; url: string; port: number }
+    | { kind: "exited"; code: number }
+    | { kind: "exited_code0" };
+
+interface PollInput {
+    /** 子进程退出码;null = 仍在运行。 */
+    exitCode: number | null;
+    childPid: number;
+    cliInfo: { port: number; url?: string; pid?: number } | null;
+}
+
+/**
+ * 判定单轮后台启动探测结果。
+ * 顺序有意固定:退出优先于 cli.json——子进程一旦退出(code 0 或非 0)即失败,
+ * 不再把它当「仍在启动」空等。code 0 对应 Electron 单实例锁冲突等静默早退
+ * (app.quit() 在日志初始化前,serve 日志 0 字节)。
+ */
+export function classify_poll_result(input: PollInput): PollOutcome {
+    const { exitCode, childPid, cliInfo } = input;
+    if (exitCode !== null && exitCode !== 0) return { kind: "exited", code: exitCode };
+    if (exitCode === 0) return { kind: "exited_code0" };
+    if (cliInfo?.pid === childPid && cliInfo.url) {
+        return { kind: "ready", url: cliInfo.url, port: cliInfo.port };
+    }
+    return { kind: "continue" };
+}
+
+/** 子进程早退诊断文案:按退出形态输出可诊断提示,均含 serve 日志路径。 */
+export function build_early_exit_msg(
+    msg: { kind: "exited_code0" } | { kind: "exited"; code: number },
+    log_path: string,
+): string {
+    if (msg.kind === "exited_code0") {
+        return (
+            `[omni_panel] serve 进程启动即退出（code=0）。通常为单实例锁冲突——另一实例正在启动或关闭。` +
+            `若刚执行过 quit 请稍候重试；日志：\n  ${log_path}\n`
+        );
+    }
+    return `[omni_panel] serve 进程提前退出（code=${String(msg.code)}）；日志：\n  ${log_path}\n`;
+}
+
 function data_root_from_options(options: CliServeOptions): string {
     if (options.userDataDir) return resolve(options.userDataDir);
     return join(homedir(), ".config", "OmniPanel");
@@ -100,27 +144,34 @@ export function run_background_serve_parent(options: CliServeOptions): never {
     const cli_json = join(data_root, "cli.json");
     const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
-        if (child.exitCode !== null && child.exitCode !== 0) {
+        const parsed = parse_cli_json(cli_json);
+        const outcome = classify_poll_result({
+            exitCode: child.exitCode,
+            childPid: child.pid ?? 0,
+            cliInfo: parsed.ok ? parsed.info : null,
+        });
+        if (outcome.kind === "exited") {
             closeSync(log_fd);
             process.stderr.write(
-                `[omni_panel] serve 进程提前退出（code=${String(child.exitCode)}）；日志：\n  ${log_path}\n`,
+                build_early_exit_msg({ kind: "exited", code: outcome.code }, log_path),
             );
-            process.exit(child.exitCode);
+            process.exit(outcome.code);
         }
-        const parsed = parse_cli_json(cli_json);
-        if (parsed.ok) {
-            const info = parsed.info;
-            if (info.url && info.pid === child.pid) {
-                process.stdout.write(`OmniPanel CLI mode listening on ${info.url}\n`);
-                process.stderr.write(
-                    `[omni_panel] 已启动新实例（pid=${String(child.pid)}）；日志：\n` +
-                        `  ${log_path}\n` +
-                        `  停止：omni_panel quit --port ${String(info.port)}\n`,
-                );
-                child.unref();
-                closeSync(log_fd);
-                process.exit(0);
-            }
+        if (outcome.kind === "exited_code0") {
+            closeSync(log_fd);
+            process.stderr.write(build_early_exit_msg({ kind: "exited_code0" }, log_path));
+            process.exit(1);
+        }
+        if (outcome.kind === "ready") {
+            process.stdout.write(`OmniPanel CLI mode listening on ${outcome.url}\n`);
+            process.stderr.write(
+                `[omni_panel] 已启动新实例（pid=${String(child.pid)}）；日志：\n` +
+                    `  ${log_path}\n` +
+                    `  停止：omni_panel quit --port ${String(outcome.port)}\n`,
+            );
+            child.unref();
+            closeSync(log_fd);
+            process.exit(0);
         }
         sleep_ms(200);
     }
