@@ -1,0 +1,480 @@
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { calendar_date_of, num } from "./reader-utils";
+import type {
+    AgentSessionUsageRecord,
+    TokenStatsDailyUpsert,
+    TokenStatsEnv,
+    TokenStatsSessionUpsert,
+} from "../../../shared/types/token-stats";
+
+// --- Codex rollout.jsonl reader (t445) ---
+//
+// Codex stores one rollout-*.jsonl per session under dated directories:
+//   ~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<session_id>.jsonl
+// The trailing filename UUID equals session_meta.payload.session_id (d051).
+// Token usage lives in `event_msg.payload.type == "token_count"` lines;
+// info.total_token_usage is cumulative within the file (d051: 8865→18719→
+// 30144), so per-line deltas are attributed to the session (mirrors the
+// existing codex connector's prev_total differencing, but per session and
+// per hour bucket here instead of (model, day) observations).
+// Session attribution: session_meta.payload.cwd → directory; the latest
+// turn_context.payload.model → model (segmented per turn_context change).
+// archived_sessions does not exist (d051) → missing dir = missing, warn once.
+//
+// Mirrors grok-reader.ts: mtime-incremental scan, dirty sessions fully
+// recounted, store INSERT OR REPLACE keeps it idempotent. Each rollout file
+// maps to exactly one session.
+
+const MAX_TITLE_LEN = 120;
+const MAX_SCAN_DEPTH = 6;
+
+interface UsageSums {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+}
+
+export interface CodexScanState {
+    /** Every discovered file → mtimeMs (parse failures included: skip re-reads). */
+    mtimes: Map<string, number>;
+    /** Files that yielded usage → resolved session id + parsed facts. */
+    files: Map<string, { session_id: string; facts: CodexFileFacts }>;
+}
+
+interface CodexFileFacts {
+    calls: number;
+    model: string | null;
+    title: string | null;
+    directory: string | null;
+    min_ts: number;
+    max_ts: number;
+    sums: UsageSums;
+    daily: Map<string, UsageSums & { calls: number; date: string; model: string }>;
+    records: AgentSessionUsageRecord[];
+}
+
+export interface CodexScanResult {
+    sessions: TokenStatsSessionUpsert[];
+    daily: TokenStatsDailyUpsert[];
+    records: AgentSessionUsageRecord[];
+    new_state: CodexScanState;
+    /**
+     * True when the sessions root could not be read (missing/unreadable dir).
+     * The collector warns once per source instead of every poll (t197 AC5).
+     */
+    missing: boolean;
+    /**
+     * t345 AC-001 pattern: 部分文件 stat/read 失败（非目录缺失）。true 时仍返回
+     * 已解析部分，collector 报 failed 而非 unavailable。
+     */
+    file_unreadable: boolean;
+}
+
+export function create_codex_scan_state(): CodexScanState {
+    return { mtimes: new Map(), files: new Map() };
+}
+
+function truncate_title(text: string): string {
+    const collapsed = text.replace(/\s+/g, " ").trim();
+    return collapsed.length > MAX_TITLE_LEN ? collapsed.slice(0, MAX_TITLE_LEN) : collapsed;
+}
+
+function message_id_from_line(line: string): string {
+    return crypto.createHash("sha256").update(line).digest("hex").slice(0, 32);
+}
+
+/** Trailing UUID of rollout-<ts>-<session_id>.jsonl file name. */
+function session_id_from_filename(file: string): string | null {
+    const base = path.basename(file);
+    const match =
+        /^rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i.exec(
+            base,
+        );
+    return match?.[1] ?? null;
+}
+
+function collect_rollout_files(dir: string, depth: number, out: string[]): void {
+    if (depth > MAX_SCAN_DEPTH) {
+        return;
+    }
+    let entries: fs.Dirent[];
+    try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+        return;
+    }
+    for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            collect_rollout_files(full, depth + 1, out);
+        } else if (
+            entry.isFile() &&
+            entry.name.startsWith("rollout-") &&
+            entry.name.endsWith(".jsonl")
+        ) {
+            out.push(full);
+        }
+    }
+}
+
+interface TokenCount {
+    input: number;
+    output: number;
+    cache_read: number;
+    total: number;
+}
+
+function usage_of_token_count(info: unknown): TokenCount | null {
+    if (typeof info !== "object" || info === null) {
+        return null;
+    }
+    const total = (info as Record<string, unknown>)["total_token_usage"];
+    if (typeof total !== "object" || total === null) {
+        return null;
+    }
+    const tu = total as Record<string, unknown>;
+    const input = num(tu["input_tokens"]);
+    const output = num(tu["output_tokens"]) + num(tu["reasoning_output_tokens"]);
+    // d051: cached_input_tokens 全 0 → cacheRate 按 0 计；仍透传读到的值。
+    const cache_read = num(tu["cached_input_tokens"]);
+    const grand_raw = tu["total_tokens"];
+    const grand =
+        typeof grand_raw === "number" && Number.isFinite(grand_raw) && grand_raw > 0
+            ? grand_raw
+            : input + output;
+    if (input === 0 && output === 0 && cache_read === 0) {
+        return null;
+    }
+    return { input, output, cache_read, total: grand };
+}
+
+function parse_rollout_file(
+    content: string,
+    env: TokenStatsEnv,
+    session_id: string,
+): CodexFileFacts | null {
+    let cwd: string | null = null;
+    let model: string | null = null;
+    // 累计差分：同文件单调累计 total_token_usage，按 turn_context 分段归因。
+    // 每段首个 token_count 即该段增量（prev=0 基准）；model 切换开新段。
+    let segment_model: string | null = null;
+    let segment_prev_total: number | null = null;
+    let calls = 0;
+    let min_ts: number | null = null;
+    let max_ts: number | null = null;
+    const sums: UsageSums = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
+    const daily = new Map<string, UsageSums & { calls: number; date: string; model: string }>();
+    const records: AgentSessionUsageRecord[] = [];
+    for (const line of content.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            continue;
+        }
+        let rec: Record<string, unknown>;
+        try {
+            rec = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
+            continue;
+        }
+        const payload =
+            typeof rec["payload"] === "object" && rec["payload"] !== null
+                ? (rec["payload"] as Record<string, unknown>)
+                : null;
+        if (!payload) {
+            continue;
+        }
+        const type = rec["type"];
+        if (type === "session_meta") {
+            const meta_cwd = payload["cwd"];
+            if (typeof meta_cwd === "string" && meta_cwd !== "" && cwd === null) {
+                cwd = meta_cwd;
+            }
+            const meta_sid = payload["session_id"];
+            if (typeof meta_sid === "string" && meta_sid !== "" && meta_sid !== session_id) {
+                // 文件名 UUID 与 session_meta 不一致：以文件名为准（d051 实测一致，
+                // 不一致时不断言，仅保留文件名归因）。
+            }
+            continue;
+        }
+        if (type === "turn_context") {
+            const turn_model = payload["model"];
+            if (typeof turn_model === "string" && turn_model !== "") {
+                model = turn_model;
+                if (turn_model !== segment_model) {
+                    segment_model = turn_model;
+                    segment_prev_total = null;
+                }
+                const turn_cwd = payload["cwd"];
+                if (typeof turn_cwd === "string" && turn_cwd !== "" && cwd === null) {
+                    cwd = turn_cwd;
+                }
+            }
+            continue;
+        }
+        if (type !== "event_msg" || payload["type"] !== "token_count") {
+            continue;
+        }
+        const usage = usage_of_token_count(payload["info"]);
+        if (!usage) {
+            continue;
+        }
+        const raw_ts = rec["timestamp"];
+        const ts = typeof raw_ts === "string" || typeof raw_ts === "number" ? Date.parse(String(raw_ts)) : NaN;
+        if (!Number.isFinite(ts) || ts === 0) {
+            continue;
+        }
+        const active_model = segment_model ?? model ?? "";
+        const prev = segment_prev_total ?? 0;
+        const delta = usage.total - prev;
+        // 单调累计假设：delta<=0（重放/回绕）时按本行绝对值计入，避免丢数；
+        // prev 仍推进到 max，保证后续差分基准正确。
+        const attributable = delta > 0 ? delta : usage.total;
+        segment_prev_total = Math.max(prev, usage.total);
+        if (active_model !== "" && active_model !== segment_model) {
+            segment_model = active_model;
+        }
+        calls++;
+        // 差分按比例拆 input/output（累计口径只有总量可差分；output 含 reasoning）。
+        const ratio_in = usage.total > 0 ? usage.input / usage.total : 0;
+        const in_delta = Math.round(attributable * ratio_in);
+        const out_delta = attributable - in_delta;
+        sums.input_tokens += in_delta;
+        sums.output_tokens += out_delta;
+        if (min_ts === null || ts < min_ts) {
+            min_ts = ts;
+        }
+        if (max_ts === null || ts > max_ts) {
+            max_ts = ts;
+        }
+        const date = calendar_date_of(ts);
+        const key = `${date}|${active_model}`;
+        const entry = daily.get(key) ?? {
+            date,
+            model: active_model,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            calls: 0,
+        };
+        entry.input_tokens += in_delta;
+        entry.output_tokens += out_delta;
+        entry.calls++;
+        daily.set(key, entry);
+        records.push({
+            source: "codex",
+            env,
+            agent: "codex",
+            session_id,
+            title: null,
+            directory: cwd,
+            slug: null,
+            version: null,
+            parent_session_id: null,
+            message_id: message_id_from_line(trimmed),
+            role: "assistant",
+            timestamp: ts,
+            model: active_model,
+            input_tokens: in_delta,
+            output_tokens: out_delta,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+        });
+    }
+    if (min_ts === null || max_ts === null || records.length === 0) {
+        return null;
+    }
+    const directory = cwd;
+    const title = directory !== null ? truncate_title(path.basename(directory)) : null;
+    for (const r of records) {
+        r.title = title;
+        r.directory = directory;
+    }
+    return { calls, model, title, directory, min_ts, max_ts, sums, daily, records };
+}
+
+function merge_codex_session(
+    session_id: string,
+    entries: { file: string; facts: CodexFileFacts }[],
+    env: TokenStatsEnv,
+): {
+    upsert: TokenStatsSessionUpsert;
+    daily: TokenStatsDailyUpsert[];
+    records: AgentSessionUsageRecord[];
+} {
+    const sorted = [...entries].sort((a, b) => a.file.localeCompare(b.file));
+    let calls = 0;
+    let min_ts = Infinity;
+    let max_ts = -Infinity;
+    let model: string | null = null;
+    let title: string | null = null;
+    let directory: string | null = null;
+    const sums: UsageSums = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
+    const daily = new Map<string, TokenStatsDailyUpsert>();
+    const records: AgentSessionUsageRecord[] = [];
+    for (const e of sorted) {
+        const f = e.facts;
+        calls += f.calls;
+        sums.input_tokens += f.sums.input_tokens;
+        sums.output_tokens += f.sums.output_tokens;
+        sums.cache_read_tokens += f.sums.cache_read_tokens;
+        sums.cache_write_tokens += f.sums.cache_write_tokens;
+        if (f.min_ts < min_ts) {
+            min_ts = f.min_ts;
+        }
+        if (f.max_ts > max_ts) {
+            max_ts = f.max_ts;
+        }
+        model ??= f.model;
+        title ??= f.title;
+        directory ??= f.directory;
+        for (const d of f.daily.values()) {
+            const key = `${d.date}|${d.model}`;
+            const acc = daily.get(key) ?? {
+                id: session_id,
+                source: "codex" as const,
+                env,
+                date: d.date,
+                model: d.model,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 0,
+            };
+            acc.input_tokens += d.input_tokens;
+            acc.output_tokens += d.output_tokens;
+            acc.cache_read_tokens += d.cache_read_tokens;
+            acc.cache_write_tokens += d.cache_write_tokens;
+            acc.calls += d.calls;
+            daily.set(key, acc);
+        }
+        for (const r of f.records) {
+            records.push(r);
+        }
+    }
+    for (const r of records) {
+        r.title = title;
+        r.directory = directory;
+    }
+    return {
+        upsert: {
+            id: session_id,
+            source: "codex",
+            env,
+            model,
+            title,
+            directory,
+            input_tokens: sums.input_tokens,
+            output_tokens: sums.output_tokens,
+            cache_read_tokens: sums.cache_read_tokens,
+            cache_write_tokens: sums.cache_write_tokens,
+            calls,
+            started_at: min_ts,
+            ended_at: max_ts,
+        },
+        daily: [...daily.values()],
+        records,
+    };
+}
+
+export function scan_codex_rollouts(
+    sessions_dir: string,
+    env: TokenStatsEnv,
+    prev: CodexScanState,
+): CodexScanResult {
+    let missing = false;
+    try {
+        if (!fs.existsSync(sessions_dir)) {
+            missing = true;
+        } else {
+            try {
+                fs.readdirSync(sessions_dir);
+            } catch {
+                missing = true;
+            }
+        }
+    } catch {
+        missing = true;
+    }
+    if (missing) {
+        return { sessions: [], daily: [], records: [], new_state: prev, missing: true, file_unreadable: false };
+    }
+    const found: string[] = [];
+    collect_rollout_files(sessions_dir, 0, found);
+    const found_set = new Set(found);
+    const new_state = create_codex_scan_state();
+    const dirty = new Set<string>();
+    for (const [file, entry] of prev.files) {
+        if (!found_set.has(file)) {
+            dirty.add(entry.session_id);
+        }
+    }
+    let file_unreadable = false;
+    for (const file of found) {
+        let stat: fs.Stats;
+        try {
+            stat = fs.statSync(file);
+        } catch {
+            file_unreadable = true;
+            continue;
+        }
+        const old_entry = prev.files.get(file);
+        if (prev.mtimes.get(file) === stat.mtimeMs) {
+            new_state.mtimes.set(file, stat.mtimeMs);
+            if (old_entry) {
+                new_state.files.set(file, old_entry);
+            }
+            continue;
+        }
+        if (old_entry) {
+            dirty.add(old_entry.session_id);
+        }
+        let content: string;
+        try {
+            content = fs.readFileSync(file, "utf-8");
+        } catch {
+            file_unreadable = true;
+            continue;
+        }
+        const session_id = session_id_from_filename(file);
+        if (!session_id) {
+            new_state.mtimes.set(file, stat.mtimeMs);
+            continue;
+        }
+        const facts = parse_rollout_file(content, env, session_id);
+        if (!facts) {
+            new_state.mtimes.set(file, stat.mtimeMs);
+            continue;
+        }
+        new_state.mtimes.set(file, stat.mtimeMs);
+        new_state.files.set(file, { session_id, facts });
+        dirty.add(session_id);
+    }
+    const by_session = new Map<string, { file: string; facts: CodexFileFacts }[]>();
+    for (const [file, entry] of new_state.files) {
+        let arr = by_session.get(entry.session_id);
+        if (!arr) {
+            arr = [];
+            by_session.set(entry.session_id, arr);
+        }
+        arr.push({ file, facts: entry.facts });
+    }
+    const sessions: TokenStatsSessionUpsert[] = [];
+    const daily: TokenStatsDailyUpsert[] = [];
+    const records: AgentSessionUsageRecord[] = [];
+    for (const session_id of [...dirty].sort()) {
+        const entries = by_session.get(session_id);
+        if (!entries || entries.length === 0) {
+            continue;
+        }
+        const merged = merge_codex_session(session_id, entries, env);
+        sessions.push(merged.upsert);
+        daily.push(...merged.daily);
+        records.push(...merged.records);
+    }
+    return { sessions, daily, records, new_state, missing: false, file_unreadable };
+}

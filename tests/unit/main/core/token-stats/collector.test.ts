@@ -8,6 +8,7 @@ const mock_scan_jsonls = vi.fn();
 const mock_read_opencode_sessions = vi.fn();
 const mock_scan_kimi = vi.fn();
 const mock_scan_grok = vi.fn();
+const mock_scan_codex = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
     read_costs_jsonl: (...args: unknown[]) => mock_read_costs(...args),
@@ -24,6 +25,10 @@ vi.mock("../../../../../src/main/core/token-stats/kimi-reader", () => ({
 vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
     scan_grok_updates: (...args: unknown[]) => mock_scan_grok(...args),
     create_grok_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
+}));
+vi.mock("../../../../../src/main/core/token-stats/codex-reader", () => ({
+    scan_codex_rollouts: (...args: unknown[]) => mock_scan_codex(...args),
+    create_codex_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
 const mock_scan_save = vi.fn();
@@ -174,6 +179,12 @@ describe("collector", () => {
             new_state: { mtimes: new Map(), files: new Map() },
         });
         mock_scan_grok.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
+        mock_scan_codex.mockReturnValue({
             sessions: [],
             daily: [],
             records: [],
@@ -1140,9 +1151,9 @@ describe("collector", () => {
             configure(wsl_config);
 
             const update = posted_updates()[0]!;
-            // 平台五源 env=mac、全部 ok；reader 收到 env=mac。
+            // 平台六源（t445 +codex）env=mac、全部 ok；reader 收到 env=mac。
             const mac_statuses = update.sources_status.filter((s) => s.env === "mac");
-            expect(mac_statuses).toHaveLength(5);
+            expect(mac_statuses).toHaveLength(6);
             expect(mac_statuses.every((s) => s.status === "ok")).toBe(true);
             expect(mock_scan_grok.mock.calls[0]![1]).toBe("mac");
             expect(mock_read_costs.mock.calls[0]![1]).toBe("mac");
@@ -1175,10 +1186,9 @@ describe("collector", () => {
                 expect(s.status).toBe("unavailable");
                 expect(s.lastError).toContain("windows host");
             }
-            // 平台源 stay healthy（linux 宿主 → 5 个 linux 平台源）。
+            // 平台源 stay healthy（linux 宿主 → 6 个 linux 平台源，t445 +codex）。
             const platform_statuses = update.sources_status.filter((s) => s.env === "linux");
-            // t426: grok_linux 加入平台源清单（5 个平台源）。
-            expect(platform_statuses).toHaveLength(5);
+            expect(platform_statuses).toHaveLength(6);
             expect(platform_statuses.every((s) => s.status === "ok")).toBe(true);
 
             // AC-003: one warn per unavailable source, keyed with source/env + reason.
@@ -1262,8 +1272,8 @@ describe("collector", () => {
 
             expect(posted_logs()).toHaveLength(0);
             const update = posted_updates()[0]!;
-            // t426/t437: 5 个平台源（claude_costs/claude_jsonl/opencode/kimi/grok，env=win）。
-            expect(update.sources_status).toHaveLength(5);
+            // t426/t437/t445: 6 个平台源（claude_costs/claude_jsonl/opencode/kimi/grok/codex，env=win）。
+            expect(update.sources_status).toHaveLength(6);
             expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
         });
     });

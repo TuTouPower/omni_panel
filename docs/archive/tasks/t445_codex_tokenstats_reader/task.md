@@ -2,11 +2,11 @@
 tid: "t445"
 slug: "codex_tokenstats_reader"
 title: "codex 代理面板用量采集（token-stats reader 落会话明细）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t445_codex_tokenstats_reader"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "e43a9fc92088c85a4ff3fecf69181ae4415dc2ca"
 depends_on: ""
 conflicts_with: ""
 note: "来源 d051/s034；用量面板 codex connector 不动，代理面板新增 codex_jsonl reader"
@@ -22,7 +22,11 @@ note: "来源 d051/s034；用量面板 codex connector 不动，代理面板新�
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS；doctor_cmd 无。无 UNVERIFIED-SPIKE（d051/s034 已核实字段与累计语义）。
+- Step 2 红：先写 codex-reader.test.ts（5 用例），模块缺失失败确认。
+- Step 3 绿：新建 codex-reader.ts（grok 同构：mtime 增量/dirty 重算/差分归因/turn_context 分段）；paths + codex_sessions_path；共享类型 source/agent 加 codex + dashboard agent 加 codex；collector kind/sources/read_source/scan-state 接线；store row cast。实现中修：num(v,fallback) 误用；sessions 表主键键位（t444 经验复用）；collector.test mock 补 codex-reader + 平台源计数 5→6（生产行为同步，注记理由）。
+- Step 4 黑盒：token-stats 全目录 355 passed；tsc 全量通过；eslint 零 warning（修 prefer-regexp-exec + no-base-to-string）；真实 ~/.codex 只读扫描 70 sessions/2152 records/17.2亿 tokens 全归因。
+- 审阅：spawn_agent 不可用，按 code/test prompt 直接双路审；code 1 minor（比例拆分偏差），test 零 finding；双 PASS。
 
 ## Review 处置
 
@@ -44,14 +48,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-09-04)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t445_code_f001|minor|遗留|差分按比例拆分项与 last_token_usage 精确值有系统偏差，总量精确；AC 只约总量，分项精度待未来按需改 last 行值口径|p213|
 
 ## 收尾报告
 
@@ -80,4 +81,23 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- codex_jsonl reader 落明细 + agent=codex 查询口径 + 真实库 17.2亿 tokens 归因；见上。
+
+## 收尾报告
+
+### 验收
+
+- spec：[`spec.md`](spec.md)
+- 结果：全部满足
+- 证据：AC-001/002/003/004 见 handoff.json ac_evidence（codex-reader.test.ts 5 passed + 全量 355 passed + 真实库只读扫描）。
+
+### Reviewer verdict
+
+`full`：
+
+- Round 1 code：PASS
+- Round 1 test：PASS
+
+### 结果摘要
+
+- 见上

@@ -1,0 +1,19 @@
+{
+  "tid": "t445",
+  "attempt": 1,
+  "execution_id": "639ec9b90267481ebe2c69affb1d3255",
+  "status": "done",
+  "branch": "t445_codex_tokenstats_reader",
+  "base_sha": "e43a9fc92088c85a4ff3fecf69181ae4415dc2ca",
+  "tests": "codex-reader.test.ts 5 passed；token-stats 全目录 355 passed；tsc 全量通过；eslint 零 warning",
+  "blackbox": "真实 ~/.codex 只读扫描 70 sessions/2152 records/17.2亿 tokens 全归因；多 provider 模型均成功",
+  "review": "第 1 轮 PASS（full：code 1 minor 遗留 p213，test 零 finding）",
+  "ac_evidence": {
+    "AC-001": ["codex-reader.test.ts AC-001：差分总量 12836 + model + directory 断言通过"],
+    "AC-002": ["同文件 AC-002：跨小时 records 落 2 个小时桶断言通过"],
+    "AC-003": ["同文件 AC-003：无 token_count 文件零产出 + 缺失目录 missing 不报错断言通过"],
+    "AC-004": ["同文件 AC-004：source=codex 可查 + agent=codex records 可查 + agent_totals 含 codex 且值 500，通过"]
+  },
+  "pending": ["p213"],
+  "findings": []
+}
