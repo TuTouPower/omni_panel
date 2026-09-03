@@ -2,5 +2,21 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t440",
+            "slug": "bg_serve_lock_race_stale_early_exit",
+            "title": "background serve 早退识别修复(单实例锁冲突 code-0 静默退出误报超时)",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t440_bg_serve_lock_race_stale_early_exit"
+        }
+    ]
 }
