@@ -1,0 +1,19 @@
+{
+  "tid": "t447",
+  "attempt": 1,
+  "execution_id": "6c06f630b2804c2ab851918ff72146a5",
+  "status": "done",
+  "branch": "t447_codex_panels_wiring",
+  "base_sha": "e5b21a3ee78d6d5be83c92242c9db8949e2d2e25",
+  "tests": "token_stats_view 38 passed；renderer lib+view/header 367 passed；tsc 全量通过；eslint 零 warning",
+  "blackbox": "Codex 过滤组件用例真实渲染通过；映射层单元全过；会话库无白名单结构保证 codex 行可展示",
+  "review": "第 1 轮 PASS（full：code/test 双零 finding）",
+  "ac_evidence": {
+    "AC-001": ["token_stats_view.test.tsx t447 用例：下拉含 Codex + 选择后请求 agent=codex，通过"],
+    "AC-002": ["codex_panels_wiring.test.ts friendly/slug 映射通过 + 会话库动态 counts 无白名单（结构保证）+ t446 真实 639 条渲染基础"],
+    "AC-003": ["session_resume.test.ts t447 用例：codex resume {sid} 精确断言通过"],
+    "AC-004": ["codex_panels_wiring.test.ts vendor_id_for_source codex==codex（Icon.tsx 同源）通过"]
+  },
+  "pending": [],
+  "findings": []
+}

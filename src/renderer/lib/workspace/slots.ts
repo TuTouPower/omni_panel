@@ -159,6 +159,7 @@ export function vendor_id_for_source(source: string): string {
     if (source === "claude_code") return "claude";
     if (source === "kimi_code") return "kimi";
     if (source === "grok") return "grok";
+    if (source === "codex") return "codex";
     if (source === "opencode") return "opencode_go";
     return "overview";
 }

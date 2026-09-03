@@ -34,6 +34,7 @@ const AGENT_OPTIONS: { value: AgentFilter; label: string }[] = [
     { value: "opencode", label: "OpenCode" },
     { value: "kimi-code", label: "Kimi Code" },
     { value: "grok", label: "Grok" },
+    { value: "codex", label: "Codex" },
 ];
 
 const PLATFORM_OPTIONS: { value: PlatformFilter; label: string }[] = [
