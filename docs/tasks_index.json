@@ -2,5 +2,51 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t441",
+            "slug": "fix_index_stale_local_env_comments",
+            "title": "index.ts 两处过期 local/env 注释修订(t437 残留)",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t441_fix_index_stale_local_env_comments"
+        },
+        {
+            "tid": "t442",
+            "slug": "fix_worktree_electron_deps",
+            "title": "task worktree electron 依赖安装不完整修复",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t442_fix_worktree_electron_deps"
+        },
+        {
+            "tid": "t443",
+            "slug": "bg_serve_lock_e2e_build",
+            "title": "background serve 锁冲突打包形态进程级 e2e",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t443_bg_serve_lock_e2e_build"
+        }
+    ]
 }
