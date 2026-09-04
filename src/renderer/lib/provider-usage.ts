@@ -202,6 +202,11 @@ export function format_usage_period_label(
     return name;
 }
 
+/** snapshot 携带的 items（ready 恒有；loading/failed 有 lastSuccess 时才有）。 */
+function snapshot_items_of(snapshot: ConnectorInfo["snapshot"]): readonly MetricRecord[] {
+    return "items" in snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+}
+
 export function build_provider_usage_groups(
     connectors: readonly ConnectorInfo[],
 ): ProviderUsageGroup[] {
@@ -217,7 +222,7 @@ export function build_provider_usage_groups(
     for (const connector of connectors) {
         if (!connector.enabled) continue;
         const snapshot = connector.snapshot;
-        const items = "items" in snapshot ? snapshot.items : [];
+        const items = snapshot_items_of(snapshot);
         const has_items = items.length > 0;
         if (has_items && "updatedAt" in snapshot) {
             for (const item of items) {
@@ -434,6 +439,24 @@ export function visible_providers_from_groups(
     const providers = new Set<string>(groups.map((g) => g.provider));
     for (const connector of connectors) {
         if (!connector.enabled) continue;
+        const snapshot = connector.snapshot;
+        // t450：gateway（CPA）仅当 ready 快照携带 items（采集成功且有内容）时，
+        // 用 items 过滤 monitor 空 provider——monitor 开关只表达「希望监控」，不等
+        // 于已有该 provider 账号/用量（p217）。ready 空 items、failed/loading（含
+        // 带 lastSuccess items）都无当前真相，保留全部 activeProviders：失败态供
+        // banner 锚定、loading 与空 items 态维持卡片/入口不整体消失（空 provider
+        // 卡短暂闪跳为 spec 已批准的 loading 语义）。
+        const is_ready = snapshot.status === "ready";
+        const items = snapshot_items_of(snapshot);
+        if (connector.source === "gateway" && is_ready && items.length > 0) {
+            const present = new Set(items.map((i) => i.provider));
+            for (const provider of connector.activeProviders) {
+                if (present.has(provider)) {
+                    providers.add(provider);
+                }
+            }
+            continue;
+        }
         for (const provider of connector.activeProviders) {
             providers.add(provider);
         }
