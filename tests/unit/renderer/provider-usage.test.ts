@@ -464,6 +464,85 @@ describe("provider usage aggregation", () => {
         expect(visibleProviders).not.toContain("kimi");
     });
 
+    it("t450 AC-001: CPA monitor provider with no item in ready snapshot is hidden", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude", "kimi"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem({ provider: "claude" })],
+                },
+            }),
+        ];
+        const visibleProviders = get_visible_providers(connectors);
+        expect(visibleProviders).toEqual(["claude"]);
+        expect(visibleProviders).not.toContain("kimi");
+    });
+
+    it("t450 AC-002: CPA monitor provider with item in ready snapshot stays visible", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude", "kimi"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem({ provider: "kimi" })],
+                },
+            }),
+        ];
+        const visibleProviders = get_visible_providers(connectors);
+        expect(visibleProviders).toEqual(["kimi"]);
+        expect(visibleProviders).not.toContain("claude");
+    });
+
+    it("t450 AC-003: CPA failed snapshot keeps all monitor providers visible (banner anchor)", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude", "kimi"],
+                snapshot: { status: "failed", error: "manager down" },
+            }),
+        ];
+        const visibleProviders = get_visible_providers(connectors);
+        expect(visibleProviders).toEqual(["claude", "kimi"]);
+    });
+
+    it("t450 f001: CPA failed snapshot with stale lastSuccess items still keeps all monitor providers", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude", "kimi"],
+                snapshot: {
+                    status: "failed",
+                    error: "manager down",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [usageItem({ provider: "claude" })],
+                },
+            }),
+        ];
+        const visibleProviders = get_visible_providers(connectors);
+        expect(visibleProviders).toEqual(["claude", "kimi"]);
+    });
+
+    it("t450 f003: CPA ready snapshot with empty items keeps all monitor providers (保留分支)", () => {
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                activeProviders: ["claude", "kimi"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [],
+                },
+            }),
+        ];
+        const visibleProviders = get_visible_providers(connectors);
+        expect(visibleProviders).toEqual(["claude", "kimi"]);
+    });
+
     it("hides ready items from disabled connectors", () => {
         const connectors = [
             connectorInfo({

@@ -6,4 +6,4 @@
 - 同类位点（已确认，合并单点）：`visible_providers_from_groups` 是唯一渲染源（ProviderOverview 卡、ProviderNav tab、activeGroup 明细均派生），修一处覆盖；`get_visible_providers`（444）同源。`use_popup_derived` providerErrors（87-107）依赖 visible 挂失败 banner——CPA failed 时须保留 monitor provider 可见性，不得误删。
 - 测试缺口：现有测试无「gateway ready + items 缺某 monitor provider」用例（provider-usage 单测只覆盖直连/CPA 全量返回）；应补：CPA ready items 含 codex/antigravity 不含 kimi、monitor_kimi=true → visible 不含 kimi；CPA failed → monitor provider 仍可见。
 - 线索：`~/.config/OmniPanel/config.json` CPA 实例 monitor_kimi=true；snapshot-cache CPA items 6 条全 codex/antigravity。
-- 处理：未开
+- 处理：t450
