@@ -6707,6 +6707,21 @@
             "schedule_status": "",
             "note": "来源 d051/s034；依赖前两个 codex task；AGENT_OPTIONS/会话库展示/codex resume 接线",
             "dir": "docs/archive/tasks/t447_codex_panels_wiring"
+        },
+        {
+            "tid": "t448",
+            "slug": "codex_panel_tool_tokens_cache_fix",
+            "title": "codex 面板误标与用量虚胖缓存恒零修复",
+            "status": "done",
+            "branch": "t448_codex_panel_tool_tokens_cache_fix",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "2eb2aabba154ae7848cd9b5744f1210db9bd38b8",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t448_codex_panel_tool_tokens_cache_fix"
         }
     ]
 }
