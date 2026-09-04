@@ -2,21 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t448",
-            "slug": "codex_panel_tool_tokens_cache_fix",
-            "title": "codex 面板误标与用量虚胖缓存恒零修复",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t448_codex_panel_tool_tokens_cache_fix"
-        }
-    ]
+    "tasks": []
 }
