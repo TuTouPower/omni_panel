@@ -2,5 +2,36 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t451",
+            "slug": "agent_custom_range_chain_fix",
+            "title": "代理面板自定义链路修复：下拉打开/应用生效/刷新持久化",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p218；自定义下拉/应用/轮询/持久化行为修复",
+            "dir": "docs/tasks/t451_agent_custom_range_chain_fix"
+        },
+        {
+            "tid": "t452",
+            "slug": "zindex_layer_class_fix",
+            "title": "层级工具类修复：z-menu等裸类换任意值+文档与门禁",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "t451",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p218；同类位点并集+DESIGN修正+正向门禁",
+            "dir": "docs/tasks/t452_zindex_layer_class_fix"
+        }
+    ]
 }
