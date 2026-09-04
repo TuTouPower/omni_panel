@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { agentDisplayLabel } from "../../../../../src/renderer/lib/token-stats/chart-data";
 import { sortSessionRows } from "../../../../../src/renderer/components/token-stats/SessionTable";
 
 function row(overrides: Partial<Record<string, unknown>> = {}) {
@@ -20,6 +21,19 @@ function row(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe("SessionTable", () => {
+    describe("agentDisplayLabel (t448 AC-001)", () => {
+        it("codex 显示 Codex，不再兜底 OpenCode", () => {
+            expect(agentDisplayLabel("codex")).toBe("Codex");
+        });
+
+        it("既有 agent 文案不变", () => {
+            expect(agentDisplayLabel("claude-code")).toBe("Claude Code");
+            expect(agentDisplayLabel("kimi-code")).toBe("Kimi Code");
+            expect(agentDisplayLabel("grok")).toBe("Grok");
+            expect(agentDisplayLabel("opencode")).toBe("OpenCode");
+        });
+    });
+
     describe("sortSessionRows", () => {
         it("sorts by numeric keys descending by default", () => {
             const rows = [row({ tokens: 10 }), row({ tokens: 30 }), row({ tokens: 20 })];

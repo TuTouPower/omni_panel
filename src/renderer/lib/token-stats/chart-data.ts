@@ -39,13 +39,19 @@ export function build_resolver(
     return (key) => map[key] ?? key;
 }
 
-/** Fixed display labels for the four agents (matches SessionTable chips). */
+/** Fixed display labels for the five agents (matches SessionTable chips). */
 const AGENT_LABELS: Record<string, string> = {
     "claude-code": "Claude Code",
     "kimi-code": "Kimi Code",
     opencode: "OpenCode",
     grok: "Grok",
+    codex: "Codex",
 };
+
+/** Agent（dash 键）→ 展示名单一来源（t448：会话表 Badge 与 donut 共用，防再次分叉）。 */
+export function agentDisplayLabel(agent: string): string {
+    return AGENT_LABELS[agent] ?? agent;
+}
 
 /** Donut segments comparing token usage across the four agents. */
 export function agentSegments(
@@ -58,7 +64,7 @@ export function agentSegments(
     }
     return agent_segments(
         totals,
-        ["claude-code", "kimi-code", "opencode", "grok"],
+        ["claude-code", "kimi-code", "opencode", "grok", "codex"],
         AGENT_LABELS,
         theme,
     );
@@ -601,6 +607,7 @@ const BUCKET_AGENT_LABELS: Record<string, string> = {
     opencode: "OpenCode",
     kimi_code: "Kimi Code",
     grok: "Grok",
+    codex: "Codex",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -614,7 +621,7 @@ export function agentSegmentsFromBuckets(
     }
     return agent_segments(
         totals,
-        ["claude_code", "opencode", "kimi_code", "grok"],
+        ["claude_code", "opencode", "kimi_code", "grok", "codex"],
         BUCKET_AGENT_LABELS,
         theme,
     );
@@ -761,6 +768,7 @@ const ROLLUP_AGENT_LABELS: Record<string, string> = {
     opencode: "OpenCode",
     kimi_code: "Kimi Code",
     grok: "Grok",
+    codex: "Codex",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -774,7 +782,7 @@ export function agentSegmentsFromRollup(
     }
     return agent_segments(
         totals,
-        ["claude_code", "opencode", "kimi_code", "grok"],
+        ["claude_code", "opencode", "kimi_code", "grok", "codex"],
         ROLLUP_AGENT_LABELS,
         theme,
     );

@@ -33,6 +33,7 @@ const css_tokens: Record<string, string> = {
     "--color-agent-grok": "#c2c2c2",
     "--color-agent-opencode": "#c3c3c3",
     "--color-agent-kimi": "#c4c4c4",
+    "--color-agent-codex": "#c5c5c5",
     "--color-warning": "#ff9900",
     "--color-on-surface-variant": "#909090",
     "--color-outline": "#303030",
@@ -82,6 +83,7 @@ describe("echarts token resolver", () => {
             grok: "#c2c2c2",
             opencode: "#c3c3c3",
             kimi: "#c4c4c4",
+            codex: "#c5c5c5",
         });
         expect(palette.composition).toEqual({
             cache_read: "#333333",
@@ -129,6 +131,10 @@ describe("echarts token resolver", () => {
         expect(top_category_color(99, "dark")).toBe("#707070");
         expect(agent_color("claude-code", "dark")).toBe("#c1c1c1");
         expect(agent_color("unknown", "dark")).toBe("#123456");
+    });
+
+    it("t448 AC-003: codex 取独立色，不回退 accent", () => {
+        expect(agent_color("codex", "dark")).toBe("#c5c5c5");
     });
 
     it("caches palette per (theme, revision) so取色不重复重建 (t350 AC-001)", () => {

@@ -1394,6 +1394,62 @@ describe("local-api web read endpoints", () => {
         expect(data[0]).toMatchObject({ message_id: "m1", agent: "claude-code" });
     });
 
+    it("t448 AC-004: GET /v1/records?agent=codex 返回 codex 行且排除他源", async () => {
+        token_stats_store.upsert_records([
+            {
+                source: "codex",
+                env: "linux",
+                session_id: "s-codex",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m-codex",
+                role: "assistant",
+                timestamp: Date.now(),
+                model: "gpt-5",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 5,
+                cache_write_tokens: 0,
+                agent: "codex",
+            },
+            {
+                source: "claude_code",
+                env: "linux",
+                session_id: "s-claude",
+                title: null,
+                directory: null,
+                slug: null,
+                version: null,
+                parent_session_id: null,
+                message_id: "m-claude",
+                role: "assistant",
+                timestamp: Date.now(),
+                model: "sonnet",
+                input_tokens: 10,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                agent: "claude-code",
+            },
+        ]);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/records?agent=codex`,
+        );
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as Record<string, unknown>[];
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({
+            message_id: "m-codex",
+            agent: "codex",
+            input_tokens: 10,
+            cache_read_tokens: 5,
+        });
+    });
+
     it("GET /v1/heatmap returns weekday×hour aggregate cells without auth", async () => {
         // 2026-07-06 09:00 UTC+8 = Monday (strftime %w=1), hour 9.
         const ts = Date.parse("2026-07-06T09:00:00+08:00");

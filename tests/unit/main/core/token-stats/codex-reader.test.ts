@@ -18,7 +18,7 @@ function fixture_rollout(opts: {
     session_id: string;
     cwd: string;
     model: string;
-    counts: { ts: string; total: number; input: number; output: number }[];
+    counts: { ts: string; total: number; input: number; output: number; cached?: number }[];
 }): string {
     const lines = [
         rollout_line({
@@ -46,7 +46,7 @@ function fixture_rollout(opts: {
                     info: {
                         total_token_usage: {
                             input_tokens: c.input,
-                            cached_input_tokens: 0,
+                            cached_input_tokens: c.cached ?? 0,
                             output_tokens: c.output,
                             reasoning_output_tokens: 0,
                             total_tokens: c.total,
@@ -185,5 +185,75 @@ describe("codex rollout reader (t445)", () => {
             "linux",
         );
         expect(p).toBe("/home/testuser/.codex/sessions");
+    });
+
+    it("t448 AC-005: 连续重复 total 事件不 double 计", () => {
+        const dir = mkdtempSync(join(tmpdir(), "codex-t448-"));
+        try {
+            write_rollout(
+                dir,
+                "rollout-2026-09-03T17-51-32-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.jsonl",
+                fixture_rollout({
+                    session_id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                    cwd: "/home/testuser/proj",
+                    model: "m",
+                    counts: [
+                        { ts: "2026-09-03T17:51:47.670Z", total: 1000, input: 900, output: 100 },
+                        // codex 同 total 重复落盘：零增量事件不得再计全量。
+                        { ts: "2026-09-03T17:52:00.000Z", total: 1000, input: 900, output: 100 },
+                        { ts: "2026-09-03T17:53:00.000Z", total: 2500, input: 2200, output: 300 },
+                    ],
+                }),
+            );
+            const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
+            expect(result.sessions).toHaveLength(1);
+            const session = result.sessions[0];
+            const tokens =
+                (session?.input_tokens ?? 0) + (session?.output_tokens ?? 0);
+            expect(tokens).toBe(2500);
+            // 重复事件本身仍保留调用计数语义由实现定，但 tokens 不得 double。
+            expect(tokens).toBeLessThan(1000 + 1000 + 2500);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("t448 AC-006: cached_input_tokens 透传且 input 归一不双计", () => {
+        const dir = mkdtempSync(join(tmpdir(), "codex-t448-"));
+        try {
+            write_rollout(
+                dir,
+                "rollout-2026-09-03T17-51-32-ffffffff-ffff-ffff-ffff-eeeeeeeeeeee.jsonl",
+                fixture_rollout({
+                    session_id: "ffffffff-ffff-ffff-ffff-eeeeeeeeeeee",
+                    cwd: "/home/testuser/proj",
+                    model: "m",
+                    counts: [
+                        { ts: "2026-09-03T17:51:47.670Z", total: 1000, input: 900, output: 100, cached: 800 },
+                        { ts: "2026-09-03T17:53:00.000Z", total: 2000, input: 1800, output: 200, cached: 1500 },
+                    ],
+                }),
+            );
+            const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
+            expect(result.sessions).toHaveLength(1);
+            const session = result.sessions[0];
+            const cache_read = session?.cache_read_tokens ?? 0;
+            expect(cache_read).toBeGreaterThan(0);
+            const input = session?.input_tokens ?? 0;
+            const output = session?.output_tokens ?? 0;
+            // 不双计强断言：面板总账 input(归一)+output+cache_read 精确等于
+            // 真实累计 total（首事件 total=1000 从 0 累计，末 total=2000）。
+            // 若 input 未归一且 cache 另加，总账会到 3500（double），被抓。
+            const panel_total = input + output + cache_read;
+            expect(panel_total).toBe(2000);
+            expect(input).toBe(300); // 900-800 + 900-700 = 300（归一后真实新读）
+            for (const r of result.records) {
+                expect(r.cache_read_tokens).toBeGreaterThanOrEqual(0);
+            }
+            // 至少一行 cache_read 非零（透传真实发生）。
+            expect(result.records.some((r) => r.cache_read_tokens > 0)).toBe(true);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
     });
 });
