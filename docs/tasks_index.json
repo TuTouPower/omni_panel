@@ -2,5 +2,21 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t450",
+            "slug": "gateway_empty_monitor_provider_hide",
+            "title": "CPA 网关空 monitor provider 隐藏",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/tasks/t450_gateway_empty_monitor_provider_hide"
+        }
+    ]
 }
