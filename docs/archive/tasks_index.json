@@ -6722,6 +6722,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t448_codex_panel_tool_tokens_cache_fix"
+        },
+        {
+            "tid": "t449",
+            "slug": "codex_reader_model_switch_fix",
+            "title": "codex reader model 切换双计修复",
+            "status": "done",
+            "branch": "t449_codex_reader_model_switch_fix",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "6afd035dc7e500a85d313f012d3faaafd17382ec",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t449_codex_reader_model_switch_fix"
         }
     ]
 }
