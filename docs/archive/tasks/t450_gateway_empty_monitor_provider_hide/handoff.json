@@ -1,0 +1,25 @@
+{
+    "tid": "t450",
+    "attempt": 1,
+    "execution_id": "4fbddfdf0524461b8cf242afb97dabf8",
+    "status": "done",
+    "branch": "t450_gateway_empty_monitor_provider_hide",
+    "base_sha": "a44fdace91422e81e7532b72f002f996e7901c5d",
+    "tests": "pnpm test：3494 passed / 9 skipped；pnpm typecheck 0 err；lint 1 pre-existing（p215 非本 task）",
+    "blackbox": "synthetic e2e fixture CPA items 全覆盖 monitor provider 无回归；真实 config CPA monitor_kimi=true + items 无 kimi → AC-001 语义（kimi 剔除）由单测等效覆盖",
+    "review": "Round 1 code FAIL（f001+f002）/ test PASS；Round 2 code FAIL（f003）/ test PASS；Round 3 code PASS（minor f004）/ test PASS；Round 4 code PASS + test PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/provider-usage.test.ts::t450 AC-001 CPA monitor provider with no item in ready snapshot is hidden 通过（activeProviders 含 kimi 但 items 无 → visible 不含 kimi）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/provider-usage.test.ts::t450 AC-002 CPA monitor provider with item in ready snapshot stays visible 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/provider-usage.test.ts::t450 AC-003 CPA failed snapshot keeps all monitor providers visible 通过",
+            "provider-usage.test.ts::t450 f001 failed with stale lastSuccess items keeps all 通过"
+        ]
+    },
+    "pending": ["p215"],
+    "findings": []
+}
