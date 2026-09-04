@@ -48,6 +48,7 @@
     --color-agent-grok: #3b6fe0;
     --color-agent-opencode: #1f9d66;
     --color-agent-kimi: #4f6fe0;
+    --color-agent-codex: #d6336c;
     --color-heat-1: #e8f0ff;
     --color-heat-2: #cfe0ff;
     --color-heat-3: #b6d0f8;
@@ -97,6 +98,7 @@
     --color-agent-grok-dark: #5b8cff;
     --color-agent-opencode-dark: #3ecf8e;
     --color-agent-kimi-dark: #7f9cff;
+    --color-agent-codex-dark: #f06595;
     --color-scrollbar-thumb: rgba(120, 130, 150, 0.35);
     --color-scrollbar-thumb-hover: rgba(120, 130, 150, 0.55);
     --color-scrollbar-thumb-dark: #2c3746;
@@ -145,6 +147,7 @@
     --z-modal: 120;
 }
 /* ── designmd-export:end ── DO NOT EDIT ── */
+
 
 /* ── t268 语义层：accent 体系 + 语义色 ── */
 
@@ -243,6 +246,7 @@
     --color-agent-grok: var(--color-agent-grok-dark);
     --color-agent-opencode: var(--color-agent-opencode-dark);
     --color-agent-kimi: var(--color-agent-kimi-dark);
+    --color-agent-codex: var(--color-agent-codex-dark);
     --color-heat-1: var(--color-heat-1-dark);
     --color-heat-2: var(--color-heat-2-dark);
     --color-heat-3: var(--color-heat-3-dark);
