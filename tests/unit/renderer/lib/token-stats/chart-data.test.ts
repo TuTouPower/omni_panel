@@ -93,6 +93,17 @@ describe("agentSegments", () => {
         expect(byName.get("Grok")).toBe(90);
         expect(segs).toHaveLength(4);
     });
+
+    it("t448 AC-002: records 口径含 codex 独立段", () => {
+        const records = [
+            record({ agent: "codex", input_tokens: 100, output_tokens: 50 }),
+            record({ agent: "opencode", input_tokens: 30, output_tokens: 10 }),
+        ];
+        const segs = agentSegments(records);
+        const byName = new Map(segs.map((s) => [s.name, s.value]));
+        expect(byName.get("Codex")).toBe(150);
+        expect(segs.some((s) => s.name.startsWith("其他"))).toBe(false);
+    });
 });
 
 describe("chart-data", () => {
@@ -627,6 +638,17 @@ describe("chart-data", () => {
             expect(byName.get("Grok")).toBe(90);
             expect(segs).toHaveLength(4);
         });
+
+        it("t448 AC-002: buckets 口径含 codex 独立段", () => {
+            const buckets = [
+                bucket({ source: "codex", input_tokens: 100, output_tokens: 50 }),
+                bucket({ source: "opencode", input_tokens: 30, output_tokens: 10 }),
+            ];
+            const segs = agentSegmentsFromBuckets(buckets);
+            const byName = new Map(segs.map((s) => [s.name, s.value]));
+            expect(byName.get("Codex")).toBe(150);
+            expect(segs.some((s) => s.name.startsWith("其他"))).toBe(false);
+        });
     });
 
     describe("modelSegmentsFromBuckets", () => {
@@ -832,6 +854,17 @@ describe("chart-data", () => {
             expect(open?.value).toBe(55);
             expect(grok?.value).toBe(60);
             expect(segs.some((s) => s.name === "Kimi Code")).toBe(false);
+        });
+
+        it("t448 AC-002: rollup 口径含 codex 独立段", () => {
+            const rows = [
+                rollup_row({ source: "codex", input_tokens: 100 }),
+                rollup_row({ source: "opencode", input_tokens: 50 }),
+            ];
+            const segs = agentSegmentsFromRollup(rows);
+            const codex = segs.find((s) => s.name === "Codex");
+            expect(codex).toBeDefined();
+            expect(codex?.value).toBe(105);
         });
 
         it("compositionSegmentsFromRollup sums each token component", () => {

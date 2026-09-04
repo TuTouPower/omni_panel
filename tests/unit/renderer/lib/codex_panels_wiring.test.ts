@@ -27,8 +27,7 @@ describe("codex panels wiring (t447)", () => {
         expect(vendor_id_for_source("codex")).toBe("codex");
     });
 
-    it("agent_accent 未知/已知来源不抛（codex 回退 primary，待 design token）", () => {
-        expect(typeof agent_accent("codex")).toBe("string");
-        expect(agent_accent("codex")).toBe("var(--color-primary)");
+    it("t448 AC-003: codex accent 走独立色，不回退 primary", () => {
+        expect(agent_accent("codex")).toBe("var(--color-agent-codex)");
     });
 });

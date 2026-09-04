@@ -111,6 +111,7 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
             grok: "#3b6fe0",
             opencode: "#1f9d66",
             kimi: "#4f6fe0",
+            codex: "#d6336c",
         },
         composition: {
             cache_read: "#46c7c7",
@@ -158,6 +159,7 @@ const FALLBACK_PALETTES: Record<ChartTheme, ChartPalette> = {
             grok: "#5b8cff",
             opencode: "#3ecf8e",
             kimi: "#7f9cff",
+            codex: "#f06595",
         },
         composition: {
             cache_read: "#46c7c7",
@@ -398,6 +400,11 @@ function build_chart_palette(theme: ChartTheme, root: HTMLElement | null): Chart
             root,
             ["--color-agent-kimi"],
             fallback.agents["kimi"] ?? fallback.other,
+        ),
+        codex: resolved_token(
+            root,
+            ["--color-agent-codex"],
+            fallback.agents["codex"] ?? fallback.other,
         ),
     };
     const composition = {

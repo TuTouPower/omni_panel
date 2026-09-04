@@ -6,7 +6,7 @@ import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
 import { agent_color, palette_for } from "../../lib/echarts_token_resolver";
 import { fmtTime, fmtTok } from "../../lib/token-stats/format";
-import { build_resolver } from "../../lib/token-stats/chart-data";
+import { agentDisplayLabel, build_resolver } from "../../lib/token-stats/chart-data";
 import type { SessionRow } from "../../lib/token-stats/types";
 
 interface SessionTableProps {
@@ -260,13 +260,7 @@ export function SessionTable({
                                             color={agent_color(r.agent, theme)}
                                             dot={false}
                                         >
-                                            {r.agent === "claude-code"
-                                                ? "Claude Code"
-                                                : r.agent === "kimi-code"
-                                                  ? "Kimi Code"
-                                                  : r.agent === "grok"
-                                                    ? "Grok"
-                                                    : "OpenCode"}
+                                            {agentDisplayLabel(r.agent)}
                                         </Badge>
                                     </td>
                                     <td className="max-w-[240px] truncate px-3 py-2 font-mono text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">

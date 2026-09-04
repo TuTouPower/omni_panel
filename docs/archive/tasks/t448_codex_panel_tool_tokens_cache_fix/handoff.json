@@ -1,0 +1,40 @@
+{
+    "tid": "t448",
+    "attempt": 1,
+    "execution_id": "f02cc62131c8485abe7f5fdf22087dbf",
+    "status": "done",
+    "branch": "t448_codex_panel_tool_tokens_cache_fix",
+    "base_sha": "2eb2aabba154ae7848cd9b5744f1210db9bd38b8",
+    "tests": "pnpm test：3488 passed / 9 skipped；pnpm typecheck 0 err；designmd:check passed；pnpm lint 剩 1 pre-existing error（token-stats-store.ts:899，已登记 p215 非本 task 引入）",
+    "blackbox": "真实 rollout 黑盒复现：reader 去重后 tokens 196196593（0.196B，原 1.35B），缓存率 98%，与真值 196133354 差 0.03%",
+    "review": "Round 1 code PASS（2 minor）/ test FAIL（1 important+1 minor）→ 全修；Round 2 code PASS + test PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/token-stats/SessionTable.test.tsx::agentDisplayLabel codex 显示 Codex 通过",
+            "chart-data agentDisplayLabel 单一来源（SessionTable.tsx render 引用）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/lib/token-stats/chart-data.test.ts agentSegments records 口径含 codex 独立段 通过",
+            "chart-data.test.ts agentSegmentsFromBuckets buckets 口径含 codex 通过",
+            "chart-data.test.ts agentSegmentsFromRollup rollup 口径含 codex 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/lib/token-stats/palette.test.ts agent_color('codex','dark')=#c5c5c5 通过",
+            "tests/unit/renderer/lib/codex_panels_wiring.test.ts agent_accent('codex')=var(--color-agent-codex) 通过",
+            "DESIGN.md agent-codex token 导出 + globals.css dark 翻转"
+        ],
+        "AC-004": [
+            "tests/integration/local-api/server.test.ts GET /v1/records?agent=codex 返回 codex 行且排除 claude 通过"
+        ],
+        "AC-005": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts 连续重复 total 不 double 计 通过",
+            "黑盒：真实 rollout 1.35B→0.196B（真值 196133354）"
+        ],
+        "AC-006": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts cached 透传 + 归一强断言（panel_total==2000，double 会 3500）通过",
+            "黑盒：真实 rollout 缓存率 98%"
+        ]
+    },
+    "pending": ["p215"],
+    "findings": []
+}
