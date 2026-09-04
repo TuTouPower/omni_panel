@@ -162,6 +162,7 @@ function parse_rollout_file(
     // 每段首个 token_count 即该段增量（prev=0 基准）；model 切换开新段。
     let segment_model: string | null = null;
     let segment_prev_total: number | null = null;
+    let segment_prev_cache: number | null = null;
     let calls = 0;
     let min_ts: number | null = null;
     let max_ts: number | null = null;
@@ -206,6 +207,7 @@ function parse_rollout_file(
                 if (turn_model !== segment_model) {
                     segment_model = turn_model;
                     segment_prev_total = null;
+                    segment_prev_cache = null;
                 }
                 const turn_cwd = payload["cwd"];
                 if (typeof turn_cwd === "string" && turn_cwd !== "" && cwd === null) {
@@ -229,10 +231,18 @@ function parse_rollout_file(
         const active_model = segment_model ?? model ?? "";
         const prev = segment_prev_total ?? 0;
         const delta = usage.total - prev;
-        // 单调累计假设：delta<=0（重放/回绕）时按本行绝对值计入，避免丢数；
-        // prev 仍推进到 max，保证后续差分基准正确。
-        const attributable = delta > 0 ? delta : usage.total;
+        // 单调累计差分：delta<=0 视为零增量（codex 会对同 total 重复落盘
+        // token_count；实测 116 文件 0 回绕 75 相邻重复，delta<=0 若按全量
+        // 计入会把整段累计重复吃满——p214 1.3B 虚增根因）。零增量事件不再
+        // double 计；prev 推进到 max 保持后续差分基准。
+        const attributable = delta > 0 ? delta : 0;
         segment_prev_total = Math.max(prev, usage.total);
+        // cache_read 同为单调累计（OpenAI input 含 cached）：独立差分透传，
+        // 零增量事件 cache 增量同样为 0。
+        const prev_cache = segment_prev_cache ?? 0;
+        const cache_delta =
+            delta > 0 ? Math.max(0, usage.cache_read - prev_cache) : 0;
+        segment_prev_cache = Math.max(prev_cache, usage.cache_read);
         if (active_model !== "" && active_model !== segment_model) {
             segment_model = active_model;
         }
@@ -241,8 +251,13 @@ function parse_rollout_file(
         const ratio_in = usage.total > 0 ? usage.input / usage.total : 0;
         const in_delta = Math.round(attributable * ratio_in);
         const out_delta = attributable - in_delta;
-        sums.input_tokens += in_delta;
+        // OpenAI input_tokens 已含 cached_input_tokens：归一使 input 不含缓存，
+        // 与 claude-reader 同语义——面板 tokens=input+output+cache_read 不双计，
+        // 缓存率 = cache_read/(input+cache_read) 即真实命中率。
+        const normalized_in = Math.max(0, in_delta - cache_delta);
+        sums.input_tokens += normalized_in;
         sums.output_tokens += out_delta;
+        sums.cache_read_tokens += cache_delta;
         if (min_ts === null || ts < min_ts) {
             min_ts = ts;
         }
@@ -260,8 +275,9 @@ function parse_rollout_file(
             cache_write_tokens: 0,
             calls: 0,
         };
-        entry.input_tokens += in_delta;
+        entry.input_tokens += normalized_in;
         entry.output_tokens += out_delta;
+        entry.cache_read_tokens += cache_delta;
         entry.calls++;
         daily.set(key, entry);
         records.push({
@@ -278,9 +294,9 @@ function parse_rollout_file(
             role: "assistant",
             timestamp: ts,
             model: active_model,
-            input_tokens: in_delta,
+            input_tokens: normalized_in,
             output_tokens: out_delta,
-            cache_read_tokens: 0,
+            cache_read_tokens: cache_delta,
             cache_write_tokens: 0,
         });
     }

@@ -15,4 +15,4 @@
     - 为何漏过：codex-reader.test.ts:47-52 固件 cached 全 0（d051 采样），断言与写死 0 的实现同构，测不出丢弃；无重复 total 事件用例，delta\<=0 全量分支（:234）零覆盖；t447 codex_panels_wiring.test.ts:30-33 把 agent_accent 回退 primary 显式固化为“待 design token”，展示层缺分支被当 TODO 放过；chart-data 三套 labels 无 codex 用例。
     - 补测方向：codex-reader 单测加重复 total 事件用例（期望去重/幂等，不 double 计）+ cached 非零透传用例（含 input 归一断言）；面板单测加 codex 行 Badge 文案 == Codex、donut 三套含 codex 段、agent_color/agent_accent 回归设计 token；local-api ?agent=codex 过滤用例。
 - 线索：`.scratch/bug_codex_tokens_cacheread_repro.py`（python3 直接跑，REPRO OK 输出 reader=1356472098 vs 真实=196124034）
-- 处理：未开
+- 处理：t448

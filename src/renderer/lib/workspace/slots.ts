@@ -169,6 +169,7 @@ const AGENT_COLOR_VAR: Record<string, string> = {
     opencode: "--color-agent-opencode",
     kimi_code: "--color-agent-kimi",
     grok: "--color-agent-grok",
+    codex: "--color-agent-codex",
 };
 
 /** 返回当前主题下 agent 识别色；未知来源回退到全局 primary。 */
