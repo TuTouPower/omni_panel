@@ -6737,6 +6737,21 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t449_codex_reader_model_switch_fix"
+        },
+        {
+            "tid": "t450",
+            "slug": "gateway_empty_monitor_provider_hide",
+            "title": "CPA 网关空 monitor provider 隐藏",
+            "status": "done",
+            "branch": "t450_gateway_empty_monitor_provider_hide",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "a44fdace91422e81e7532b72f002f996e7901c5d",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t450_gateway_empty_monitor_provider_hide"
         }
     ]
 }
