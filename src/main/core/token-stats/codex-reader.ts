@@ -158,11 +158,12 @@ function parse_rollout_file(
 ): CodexFileFacts | null {
     let cwd: string | null = null;
     let model: string | null = null;
-    // 累计差分：同文件单调累计 total_token_usage，按 turn_context 分段归因。
-    // 每段首个 token_count 即该段增量（prev=0 基准）；model 切换开新段。
+    // 累计差分：同文件单调累计 total_token_usage。codex total 是文件级连续
+    // 累计（d051/t449 实测 116 文件 0 回绕、model 切换处无跳变），差分基准
+    // 不随 model 重置；model 仅作增量归因标签。
     let segment_model: string | null = null;
-    let segment_prev_total: number | null = null;
-    let segment_prev_cache: number | null = null;
+    let prev_total: number | null = null;
+    let prev_cache: number | null = null;
     let calls = 0;
     let min_ts: number | null = null;
     let max_ts: number | null = null;
@@ -206,8 +207,6 @@ function parse_rollout_file(
                 model = turn_model;
                 if (turn_model !== segment_model) {
                     segment_model = turn_model;
-                    segment_prev_total = null;
-                    segment_prev_cache = null;
                 }
                 const turn_cwd = payload["cwd"];
                 if (typeof turn_cwd === "string" && turn_cwd !== "" && cwd === null) {
@@ -229,20 +228,21 @@ function parse_rollout_file(
             continue;
         }
         const active_model = segment_model ?? model ?? "";
-        const prev = segment_prev_total ?? 0;
+        const prev = prev_total ?? 0;
         const delta = usage.total - prev;
         // 单调累计差分：delta<=0 视为零增量（codex 会对同 total 重复落盘
         // token_count；实测 116 文件 0 回绕 75 相邻重复，delta<=0 若按全量
         // 计入会把整段累计重复吃满——p214 1.3B 虚增根因）。零增量事件不再
-        // double 计；prev 推进到 max 保持后续差分基准。
+        // double 计；prev 推进到 max 保持后续差分基准。基准文件级连续，
+        // model 切换不重置（p216 双计根因）。
         const attributable = delta > 0 ? delta : 0;
-        segment_prev_total = Math.max(prev, usage.total);
+        prev_total = Math.max(prev, usage.total);
         // cache_read 同为单调累计（OpenAI input 含 cached）：独立差分透传，
         // 零增量事件 cache 增量同样为 0。
-        const prev_cache = segment_prev_cache ?? 0;
+        const prev_c = prev_cache ?? 0;
         const cache_delta =
-            delta > 0 ? Math.max(0, usage.cache_read - prev_cache) : 0;
-        segment_prev_cache = Math.max(prev_cache, usage.cache_read);
+            delta > 0 ? Math.max(0, usage.cache_read - prev_c) : 0;
+        prev_cache = Math.max(prev_c, usage.cache_read);
         if (active_model !== "" && active_model !== segment_model) {
             segment_model = active_model;
         }
