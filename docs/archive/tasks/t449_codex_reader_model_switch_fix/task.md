@@ -2,11 +2,11 @@
 tid: "t449"
 slug: "codex_reader_model_switch_fix"
 title: "codex reader model 切换双计修复"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t449_codex_reader_model_switch_fix"
 worktree: ""
 review_level: "full"
-diff_anchor: ""
+diff_anchor: "6afd035dc7e500a85d313f012d3faaafd17382ec"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,12 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- attempt=1 execution_id=374dcec87c1049cea99e7f6de76343f2；diff_anchor=6afd035d。
+- 根因：turn_context model 切换把差分基准 segment_prev_total/cache 置 null → 下个 token_count 按全量计入；codex total 实测文件级连续（116 文件 0 回绕含切换处）。
+- 修复：差分基准文件级连续（变量改名 prev_total/prev_cache），model 切换仅更新归因标签 segment_model。
+- 黑盒：真实 omni_game gpt-5.6-sol 文件 reader 输出 196196593（0.196B，vs 目标 196124034 差 0.04%），缓存率 98%。
+- 全量 pnpm test 3489 passed；typecheck 0 err；lint 1 pre-existing（p215 store:899 非本 task）。
+- review Round 1：code PASS（0 finding）+ test PASS（0 finding）。
 
 ## Review 处置
 
@@ -53,6 +58,14 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 |t000_code_f001|critical/important/minor|已修|一句话|文件:行|
 |t000_test_f002|minor|遗留|一句话|pNNN|
 
+### Round 1 (2026-09-04 20:55 UTC+8)
+
+code review PASS（0 finding）；test review PASS（0 finding）。
+
+### Round 2 (2026-09-04 20:56 UTC+8)
+
+无 finding，未进处置表。
+
 ## 收尾报告
 
 本 task 的 commit 用 `git log --grep <tid>` 查，不在此逐条记 SHA。
@@ -60,8 +73,8 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001 双 model fixture 断言 2000（旧实现 3000）；AC-002 真实文件黑盒 196196593；AC-003 既有 t445/t448 用例全绿。
 
 ### Reviewer verdict
 
@@ -69,15 +82,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- N/A
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- p216 codex reader model 切换双计修复：差分基准文件级连续；真实文件 392M→196M，缓存率 98%；review Round 1 双 PASS。
