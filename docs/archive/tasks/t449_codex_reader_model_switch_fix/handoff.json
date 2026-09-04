@@ -1,0 +1,25 @@
+{
+    "tid": "t449",
+    "attempt": 1,
+    "execution_id": "374dcec87c1049cea99e7f6de76343f2",
+    "status": "done",
+    "branch": "t449_codex_reader_model_switch_fix",
+    "base_sha": "6afd035dc7e500a85d313f012d3faaafd17382ec",
+    "tests": "pnpm test：3489 passed / 9 skipped；pnpm typecheck 0 err；lint 1 pre-existing（p215 非本 task）",
+    "blackbox": "真实 rollout 扫描：omni_game gpt-5.6-sol 会话 panel_total 196196593（0.196B，原 392M 双计），缓存率 98%，与文件累计 196124034 差 0.04%",
+    "review": "Round 1 code PASS（0 finding）+ test PASS（0 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts::model 切换不重置差分基准 通过（断言 2000，旧实现 3000）"
+        ],
+        "AC-002": [
+            "黑盒：.scratch/verify_t449.mts 真实扫描 panel_total 196196593，vs 196124034 差 72559"
+        ],
+        "AC-003": [
+            "codex-reader.test.ts 既有 t445/t448 用例 8/8 绿",
+            "全量 pnpm test 3489 passed 无回归"
+        ]
+    },
+    "pending": ["p215"],
+    "findings": []
+}

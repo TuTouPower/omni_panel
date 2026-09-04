@@ -179,6 +179,84 @@ describe("codex rollout reader (t445)", () => {
         }
     });
 
+    it("t449 AC-001: model 切换不重置差分基准（total 连续累计不 double 计）", () => {
+        const dir = mkdtempSync(join(tmpdir(), "codex-t449-"));
+        try {
+            const sid = "aaaaaaaa-1111-2222-3333-eeeeeeeeeeee";
+            const lines = [
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:43.486Z",
+                    ordinal: 0,
+                    type: "session_meta",
+                    payload: { session_id: sid, cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:44.000Z",
+                    ordinal: 1,
+                    type: "turn_context",
+                    payload: { model: "model-a", cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:47.000Z",
+                    ordinal: 2,
+                    type: "event_msg",
+                    payload: {
+                        type: "token_count",
+                        info: {
+                            total_token_usage: {
+                                input_tokens: 900,
+                                cached_input_tokens: 800,
+                                output_tokens: 100,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 1000,
+                            },
+                        },
+                    },
+                }),
+                // model 切换（codex total 文件级连续累计，不重置）。
+                rollout_line({
+                    timestamp: "2026-09-03T17:52:00.000Z",
+                    ordinal: 3,
+                    type: "turn_context",
+                    payload: { model: "model-b", cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:52:05.000Z",
+                    ordinal: 4,
+                    type: "event_msg",
+                    payload: {
+                        type: "token_count",
+                        info: {
+                            total_token_usage: {
+                                input_tokens: 1800,
+                                cached_input_tokens: 1500,
+                                output_tokens: 200,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 2000,
+                            },
+                        },
+                    },
+                }),
+            ];
+            write_rollout(
+                dir,
+                `rollout-2026-09-03T17-51-32-${sid}.jsonl`,
+                lines.join("\n"),
+            );
+            const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
+            expect(result.sessions).toHaveLength(1);
+            const session = result.sessions[0];
+            const panel_total =
+                (session?.input_tokens ?? 0) +
+                (session?.output_tokens ?? 0) +
+                (session?.cache_read_tokens ?? 0);
+            // 若 model 切换重置基准，model-b 段首全量 2000 + model-a 段 1000 = 3000。
+            expect(panel_total).toBe(2000);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     it("paths: codex_sessions_path 解析 ~/.codex/sessions", () => {
         const p = codex_sessions_path(
             { host: "linux", homedir: "/home/karon", win_home: "", wsl_distro: "Ubuntu-22.04", wsl_user: "" },
