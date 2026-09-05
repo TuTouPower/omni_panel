@@ -2,11 +2,11 @@
 tid: "t454"
 slug: "custom_entry_single_dropdown"
 title: "自定义入口收敛：删📅按钮+选中动作才开面板"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t454_custom_entry_single_dropdown"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "eab2856a6c33e2eadae24f963a6e4365607aa588"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p219 跟进+用户需求；双弹修复"
@@ -22,7 +22,11 @@ note: "来源 p219 跟进+用户需求；双弹修复"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 红：AC-001/002 双红（按钮存在、开下拉即弹）。
+- 关键转向：初拟 mousedown 标记时发现真机选项拾取 click 之前必有下拉打开时的 select-mousedown，朴素标记会杀死重选路径；Chromium 真机 probe（临时 e2e，已删）确认键盘改值无 click、Esc 无信号、外部点击必 blur，遂定稿“开下拉（带 mousedown）跳过、选中（无 down）才开”+ blur 收场。
+- 绿：RangePicker 删按钮转纯受控（`open`/`onOpenChange` 必填，`active` prop 同删）；Select 加 onMouseDown 标记；旧按钮入口单测整体删除（入口不存在），行为用例改受控 open。
+- 插曲：联跑时 t312 AC-004 失败一次，单跑+重跑全绿，改动面无关（刷新/缓存），记 p222 观察。
+- R1 零 finding PASS。顺手：p222（抖动观察）、d053（手势事件形态）；specs 累积 ai-cli-token-stats-ui + index。
 
 ## Review 处置
 
@@ -44,14 +48,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding，未进处置表。
 
 ## 收尾报告
 
@@ -60,7 +57,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足（AC-005 为 `[deploy]`，真机双弹消除待用户签收；同值鼠标拾取路径 e2e 程序化 change 已过，真鼠标靠人工）
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -74,10 +71,10 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 单入口收敛：📅 按钮删除、开/选中 click 区分、blur 收场保留：单测 3511 通过、e2e 9 通过（含同值重选）、typecheck/lint 过、R1 零 finding PASS；p222/d053 已记。见上

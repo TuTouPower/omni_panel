@@ -34,6 +34,26 @@ test.describe("web agent custom range (t451)", () => {
         await expect(page.getByRole("button", { name: "应用" })).toBeVisible();
     });
 
+    test("t454 AC-002: 同值重选自定义可重新打开面板", async ({ webPage }) => {
+        const page = webPage;
+        await page.goto("/#agent");
+        await expect(page.locator("[data-panel-titlebar=Agent]")).toBeVisible();
+
+        // 先落一个 custom（面板关闭、下拉为 custom）。
+        await page.getByLabel("时间范围").selectOption("custom");
+        await expect(page.getByRole("button", { name: "应用" })).toBeVisible();
+        const inputs = page.locator('input[type="datetime-local"]');
+        await inputs.nth(0).fill("2026-06-01T08:00");
+        await inputs.nth(1).fill("2026-06-03T08:00");
+        await page.getByRole("button", { name: "应用" }).click();
+        await expect(page.getByRole("button", { name: "应用" })).toHaveCount(0);
+        await expect(page.getByLabel("时间范围")).toHaveValue("custom");
+
+        // 同值重选：面板重新打开（程序化 change 路径；真鼠标拾取靠 AC-005 人工）。
+        await page.getByLabel("时间范围").selectOption("custom");
+        await expect(page.getByRole("button", { name: "应用" })).toBeVisible();
+    });
+
     test("AC-004: 合法区间应用后保持自定义", async ({ webPage }) => {
         const page = webPage;
         await page.goto("/#agent");
