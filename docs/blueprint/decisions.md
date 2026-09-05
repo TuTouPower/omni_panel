@@ -223,3 +223,11 @@
 - 结论：选 B（s033/d049 本机实测验证发现规则）。显式 `win_home_wsl` 字符串优先，`""` = 禁用哨兵（对齐 `wsl_user` 空串语义）；缺省惰性发现。发现失败不抛——win 源 `unavailable`；失败结果短窗负缓存（collector 按轮、locator 60s）重探自愈，成功结果进程内缓存。多候选取舍与回退经 `on_decision` 留痕。不默认提供 UI 关闭开关（遗留 p206 决策）。
 - 落地：t438；路径纯逻辑在 `token-stats/win-home-discovery.ts`（注入式 deps，测试全桩），collector 与 session-locator 各自缓存调用。
 - 替代：无
+
+## 024 z-index 只写 `z-[var(--z-*)]` 任意值，禁裸层级类（2026-09-05）
+
+- 背景：Tailwind v4 不由 `--z-*` 生成裸 `z-*` 工具类，`z-menu/z-sticky/z-scrim/z-context/z-modal` 在构建产物中零规则，引用点静默回到 `z-index:auto` 被后续内容盖住（p218 症状C；t415 只查裸数字、未正向验证，曾假绿）。
+- 选项：A) 自定义 `@utility z-menu` 等补齐裸类；B) 统一改任意值写法 + 门禁。
+- 结论：选 B。五层语义与数值不变（见 DESIGN.md 层级节）；源码一律 `z-[var(--z-*)]`；`tests/unit/renderer/styles/layer_class_gate.test.ts` 正向门禁（字符串字面量扫裸类 + 四位点 pin + token 存在 + 检测器自检）。
+- 落地：t452。
+- 替代：无
