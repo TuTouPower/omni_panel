@@ -1,0 +1,30 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/styles/layer_class_gate.test.ts::源码无裸类 + 三位点 pin 通过",
+            "黑盒：pnpm build 后 out/renderer 与 out/web CSS 均含 z-[var(--z-sticky)] 与 z-[var(--z-context)] 规则、零裸层级规则"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/styles/layer_class_gate.test.ts::RangePicker 位点 pin 通过（t451 之上复验）",
+            "黑盒：双产物 CSS 均含 z-[var(--z-menu)] 规则"
+        ],
+        "AC-003": [
+            "review_general.md Round 1 AC 复验：DESIGN.md:434,473 已改任意值表述、文档无残留裸类存在断言"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/styles/layer_class_gate.test.ts::检测器自检（裸命中/任意值放行/反引号）通过"
+        ],
+        "AC-005": ["[deploy] 真机多窗口目视待用户签收"]
+    },
+    "attempt": 1,
+    "base_sha": "56a44e019d6c77ae8a9b1b67924cbf7fec71aee9",
+    "blackbox": "pnpm build 通过 + 双产物三层级规则全量存在 + designmd check 通过 + 全量单测绿",
+    "branch": "t452_zindex_layer_class_fix",
+    "execution_id": "e40b6278a937409092298182be22af14",
+    "findings": [],
+    "pending": [],
+    "review": "general 第 2 轮 PASS（R1 1 minor f001 已修；R2 0 新 finding）",
+    "status": "done",
+    "tests": "pnpm test：284 文件 283 passed/1 skipped，3516 用例 3507 passed/9 skipped",
+    "tid": "t452"
+}

@@ -1,0 +1,46 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-001 通过（userEvent 全序列）",
+            "tests/e2e/web/agent_custom_range.spec.ts::AC-001 Chromium 原生手势通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-002 通过（同值重选重开）"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-003 通过（打开期值为 custom）"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-004 通过（getDashboard 精确起止）",
+            "tests/e2e/web/agent_custom_range.spec.ts::AC-004 通过"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/token-stats/RangePicker.test.tsx::t451 AC-005 + f001 两分支通过（报错/不回调/面板仍开）",
+            "tests/e2e/web/agent_custom_range.spec.ts::AC-005 通过"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-006 通过（fire_updated(0) 后输入保留、应用带用户日期）"
+        ],
+        "AC-007": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-007 通过（localStorage 预置 custom 首查即用）"
+        ],
+        "AC-008": [
+            "tests/unit/renderer/components/token-stats/RangePicker.test.tsx::t451 AC-008 通过（类名 + --z-menu token 映射）",
+            "黑盒：pnpm build 后 out/renderer 与 out/web CSS 均含 z-[var(--z-menu)] 规则"
+        ],
+        "AC-009": [
+            "[deploy] 真机手点待用户签收；最接近证据：tests/e2e/web/agent_custom_range.spec.ts 3 passed（Chromium 原生下拉手势全链路）"
+        ]
+    },
+    "attempt": 1,
+    "base_sha": "c474462be7fbda6795cf65f370c4806ba49a7ee8",
+    "blackbox": "pnpm build 通过 + 双产物 z 规则存在 + panel_navigation e2e 5 passed + agent_custom_range e2e 3 passed",
+    "branch": "t451_agent_custom_range_chain_fix",
+    "execution_id": "2689d32485f3402f8b12dbbfe0eb7ece",
+    "findings": ["d052"],
+    "pending": ["p219"],
+    "review": "general 第 2 轮 PASS（R1 3 minor：f001/f002 已修、f003 遗留 p219；R2 0 新 finding）",
+    "status": "done",
+    "tests": "pnpm test：283 文件 282 passed/1 skipped，3511 用例 3502 passed/9 skipped",
+    "tid": "t451"
+}
