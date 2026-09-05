@@ -2,21 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t453",
-            "slug": "custom_select_click_close_polish",
-            "title": "自定义下拉click重开面板的无change收场自动关闭",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "来源 p219；t451_gen_f003 跟进",
-            "dir": "docs/tasks/t453_custom_select_click_close_polish"
-        }
-    ]
+    "tasks": []
 }

@@ -6782,6 +6782,21 @@
             "schedule_status": "",
             "note": "来源 p218；同类位点并集+DESIGN修正+正向门禁",
             "dir": "docs/archive/tasks/t452_zindex_layer_class_fix"
+        },
+        {
+            "tid": "t453",
+            "slug": "custom_select_click_close_polish",
+            "title": "自定义下拉click重开面板的无change收场自动关闭",
+            "status": "done",
+            "branch": "t453_custom_select_click_close_polish",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "9d3e56f53e17264c04c684135b5a297c91b018e1",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p219；t451_gen_f003 跟进",
+            "dir": "docs/archive/tasks/t453_custom_select_click_close_polish"
         }
     ]
 }
