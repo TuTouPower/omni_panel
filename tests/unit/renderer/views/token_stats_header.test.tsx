@@ -535,4 +535,52 @@ describe("TokenStatsView header single row (t312)", () => {
         expect(request.end).toBe(end);
         expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
     });
+
+    it("t453 AC-001: click 重开后无选择变更而失焦，面板自动关闭且不发新查询", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        // 先落一个 custom：面板关闭、下拉为 custom、已发 2 次查询。
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+
+        // 单击下拉（同值无 change）重开面板，随后无选择变更而失焦。
+        fireEvent.click(screen.getByLabelText("时间范围"));
+        await screen.findByRole("button", { name: "应用" });
+        fireEvent.blur(screen.getByLabelText("时间范围"));
+
+        await waitFor(() => {
+            expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+        });
+        expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
+        expect(get_dashboard).toHaveBeenCalledTimes(2);
+    });
+
+    it("t453 AC-002: click 重开后完成选择走既有逻辑", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+
+        // click 重开后选预设：预设生效、面板关闭。
+        fireEvent.click(screen.getByLabelText("时间范围"));
+        await screen.findByRole("button", { name: "应用" });
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "7d" } });
+        await waitFor(() => {
+            expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+        });
+        const request = get_dashboard.mock.calls.at(-1)?.[0] as TokenStatsDashboardQuery;
+        expect(request.end - request.start).toBe(7 * 24 * 3600000);
+        expect(screen.getByLabelText("时间范围")).toHaveValue("7d");
+    });
 });

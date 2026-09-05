@@ -1,0 +1,22 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t453 AC-001 通过（click 重开后 blur 关面板、值保持 custom、查询次数不变）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t453 AC-002 通过（click 重开后选预设生效关面板）"
+        ],
+        "AC-003": ["[deploy] 真机点外部/Esc 待用户签收"]
+    },
+    "attempt": 1,
+    "base_sha": "9d3e56f53e17264c04c684135b5a297c91b018e1",
+    "blackbox": "全量单测绿 + agent_custom_range/panel_navigation e2e 8 passed",
+    "branch": "t453_custom_select_click_close_polish",
+    "execution_id": "6fe88b6f71df46379af24c0ccd3781f4",
+    "findings": [],
+    "pending": [],
+    "review": "general 第 2 轮 PASS（R1/R2 均零 finding）",
+    "status": "done",
+    "tests": "pnpm test：284 文件 283 passed/1 skipped，3519 用例 3510 passed/9 skipped",
+    "tid": "t453"
+}
