@@ -1,0 +1,29 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t454 AC-001 通过（无 title=自定义时间范围按钮、下拉含 custom）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t454 AC-002 通过（mousedown+click 不开、单独 click 开）",
+            "tests/e2e/web/agent_custom_range.spec.ts::t454 同值重选 change 路径通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t451 AC-001 全序列回归通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/views/token_stats_header.test.tsx::t453 AC-001/AC-002 回归通过"
+        ],
+        "AC-005": ["[deploy] 真机双弹消除+📅消失待用户签收"]
+    },
+    "attempt": 1,
+    "base_sha": "eab2856a6c33e2eadae24f963a6e4365607aa588",
+    "blackbox": "全量单测绿 + agent_custom_range/panel_navigation e2e 9 passed + Chromium 键盘/失焦 probe（临时，已删）",
+    "branch": "t454_custom_entry_single_dropdown",
+    "execution_id": "2406e71b12e74229ba0d41604d17494a",
+    "findings": ["d053"],
+    "pending": ["p222"],
+    "review": "general 第 1 轮 PASS（零 finding）",
+    "status": "done",
+    "tests": "pnpm test：284 文件 283 passed/1 skipped，3520 用例 3511 passed/9 skipped",
+    "tid": "t454"
+}

@@ -5,17 +5,17 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { RangePicker } from "../../../../../src/renderer/components/token-stats/RangePicker";
 
 describe("RangePicker", () => {
-    it("opens the popup when the button is clicked", () => {
-        render(<RangePicker start={0} end={1000} active={false} onApply={() => undefined} />);
-        fireEvent.click(screen.getByTitle("自定义时间范围"));
-        expect(screen.getByText("开始")).toBeInTheDocument();
-        expect(screen.getByText("结束")).toBeInTheDocument();
-    });
-
     it("applies a valid custom range", () => {
         const onApply = vi.fn();
-        render(<RangePicker start={0} end={1000} active={false} onApply={onApply} />);
-        fireEvent.click(screen.getByTitle("自定义时间范围"));
+        render(
+            <RangePicker
+                start={0}
+                end={1000}
+                onApply={onApply}
+                open
+                onOpenChange={() => undefined}
+            />,
+        );
 
         const inputs = document.querySelectorAll('input[type="datetime-local"]');
         const startInput = inputs[0] as HTMLInputElement;
@@ -34,8 +34,15 @@ describe("RangePicker", () => {
 
     it("t451 AC-005: 非法区间应用报错且面板不关闭、不回调", () => {
         const onApply = vi.fn();
-        render(<RangePicker start={0} end={1000} active={false} onApply={onApply} />);
-        fireEvent.click(screen.getByTitle("自定义时间范围"));
+        render(
+            <RangePicker
+                start={0}
+                end={1000}
+                onApply={onApply}
+                open
+                onOpenChange={() => undefined}
+            />,
+        );
 
         const inputs = document.querySelectorAll('input[type="datetime-local"]');
         fireEvent.change(inputs[0] as HTMLInputElement, {
@@ -53,7 +60,15 @@ describe("RangePicker", () => {
     });
 
     it("t451 AC-008: 弹出层使用可解析的层级类", () => {
-        render(<RangePicker start={0} end={1000} active={false} onApply={() => undefined} open />);
+        render(
+            <RangePicker
+                start={0}
+                end={1000}
+                onApply={() => undefined}
+                open
+                onOpenChange={() => undefined}
+            />,
+        );
         const popup = screen.getByRole("button", { name: "应用" }).closest("div.absolute");
         expect(popup?.className).toContain("z-[var(--z-menu)]");
         // t451_gen_f002：类引用的 token 必须在 globals @theme 真实定义，
@@ -67,8 +82,15 @@ describe("RangePicker", () => {
 
     it("t451 AC-005 f001: 空输入应用报错且面板不关闭、不回调", () => {
         const onApply = vi.fn();
-        render(<RangePicker start={0} end={1000} active={false} onApply={onApply} />);
-        fireEvent.click(screen.getByTitle("自定义时间范围"));
+        render(
+            <RangePicker
+                start={0}
+                end={1000}
+                onApply={onApply}
+                open
+                onOpenChange={() => undefined}
+            />,
+        );
 
         const inputs = document.querySelectorAll('input[type="datetime-local"]');
         fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: "" } });
@@ -82,8 +104,15 @@ describe("RangePicker", () => {
 
     it("t451 AC-005 f001: 起止相等应用报错且面板不关闭、不回调", () => {
         const onApply = vi.fn();
-        render(<RangePicker start={0} end={1000} active={false} onApply={onApply} />);
-        fireEvent.click(screen.getByTitle("自定义时间范围"));
+        render(
+            <RangePicker
+                start={0}
+                end={1000}
+                onApply={onApply}
+                open
+                onOpenChange={() => undefined}
+            />,
+        );
 
         const inputs = document.querySelectorAll('input[type="datetime-local"]');
         fireEvent.change(inputs[0] as HTMLInputElement, {
