@@ -226,6 +226,32 @@ describe("provider usage aggregation", () => {
         expect(groups.map((group) => group.provider)).not.toContain("cpa");
     });
 
+    it("p220: filters out malformed snapshot items without dropping valid ones", () => {
+        const items = [
+            usageItem(),
+            null,
+            "junk",
+            { provider: "claude" },
+        ] as unknown as readonly MetricRecord[];
+        const connectors = [
+            connectorInfo({
+                source: "gateway",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items,
+                },
+            }),
+        ];
+
+        const groups = build_provider_usage_groups(connectors);
+
+        expect(groups).toHaveLength(1);
+        expect(groups[0]?.accountCount).toBe(1);
+    });
+
     it("keeps provider groups from loading snapshots with last successful items", () => {
         const connectors = [
             connectorInfo({
