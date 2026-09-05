@@ -2,5 +2,21 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t454",
+            "slug": "custom_entry_single_dropdown",
+            "title": "自定义入口收敛：删📅按钮+选中动作才开面板",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p219 跟进+用户需求；双弹修复",
+            "dir": "docs/tasks/t454_custom_entry_single_dropdown"
+        }
+    ]
 }
