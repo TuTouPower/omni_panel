@@ -658,6 +658,7 @@ export function TokenStatsView() {
     }, []);
 
     const handlePresetChange = (p: RangePreset) => {
+        click_opened_ref.current = false;
         setPreset(p);
         setCustom(null);
         setGran(p === "24h" ? "hour" : "day");
@@ -666,6 +667,7 @@ export function TokenStatsView() {
     };
 
     const handleCustomApply = (range: { start: number; end: number }) => {
+        click_opened_ref.current = false;
         setCustom(range);
         setPreset(null);
     };
@@ -681,6 +683,12 @@ export function TokenStatsView() {
 
     // t451 AC-001: 时间范围下拉与 RangePicker 同区，同区点击不算点击外部。
     const range_zone_ref = useRef<HTMLDivElement>(null);
+    // t453: click 重开未被 change 收场时，失焦自动关闭。
+    const click_opened_ref = useRef(false);
+    const handleRangeOpenChange = (open: boolean) => {
+        if (!open) click_opened_ref.current = false;
+        setRangePickerOpen(open);
+    };
 
     const header_title_extra = (
         <>
@@ -771,6 +779,7 @@ export function TokenStatsView() {
                     aria-label="时间范围"
                     value={select_range_value}
                     onChange={(e) => {
+                        click_opened_ref.current = false;
                         const v = e.target.value;
                         if (v === "custom") {
                             setRangePickerOpen(true);
@@ -780,9 +789,21 @@ export function TokenStatsView() {
                     }}
                     // t451 AC-002: 同值重选不发 change，靠点击重开面板；
                     // 选预设走 onChange 关面板，这里只处理已处自定义态。
+                    // t453: click 打开后无 change 收场（失焦）则自动关闭。
                     onClick={() => {
                         if (select_range_value === "custom") {
+                            click_opened_ref.current = true;
                             setRangePickerOpen(true);
+                        }
+                    }}
+                    onBlur={(e) => {
+                        const next = e.relatedTarget as Node | null;
+                        if (
+                            click_opened_ref.current &&
+                            (next === null || !range_zone_ref.current?.contains(next))
+                        ) {
+                            // 与其它关闭路径统一走 handler（flag 清零内聚一处）。
+                            handleRangeOpenChange(false);
                         }
                     }}
                 >
@@ -798,7 +819,7 @@ export function TokenStatsView() {
                     end={currentRange.end}
                     active={custom !== null}
                     open={rangePickerOpen}
-                    onOpenChange={setRangePickerOpen}
+                    onOpenChange={handleRangeOpenChange}
                     zoneRef={range_zone_ref}
                     onApply={(range) => {
                         handleCustomApply(range);
