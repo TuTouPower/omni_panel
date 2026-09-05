@@ -204,7 +204,22 @@ export function format_usage_period_label(
 
 /** snapshot 携带的 items（ready 恒有；loading/failed 有 lastSuccess 时才有）。 */
 function snapshot_items_of(snapshot: ConnectorInfo["snapshot"]): readonly MetricRecord[] {
-    return "items" in snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+    if (!("items" in snapshot) || !Array.isArray(snapshot.items)) return [];
+    return snapshot.items.filter(is_metric_record);
+}
+
+/** 快照 items 来自外部（类型为 any）：仅当具备 MetricRecord 必需键时收窄（p220）。 */
+function is_metric_record(value: unknown): value is MetricRecord {
+    if (typeof value !== "object" || value === null) return false;
+    const record = value as Record<string, unknown>;
+    return (
+        typeof record["provider"] === "string" &&
+        typeof record["source"] === "string" &&
+        typeof record["sourceInstanceId"] === "string" &&
+        typeof record["accountId"] === "string" &&
+        typeof record["raw_label"] === "string" &&
+        typeof record["normalized_label"] === "string"
+    );
 }
 
 export function build_provider_usage_groups(

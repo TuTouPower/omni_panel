@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 const repo_root = resolve(__dirname, "..");
 const out_path = resolve(repo_root, "src/generated/build-info.ts");
@@ -26,5 +26,7 @@ export const BUILD_INFO = {
 } as const;
 `;
 
+// p221: 新鲜 worktree 下 src/generated/ 不存在（gitignore），先建目录。
+mkdirSync(dirname(out_path), { recursive: true });
 writeFileSync(out_path, content);
 console.log(`build-info: ${branch}@${commit} ${subject}`);
