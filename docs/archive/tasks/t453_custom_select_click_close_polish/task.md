@@ -2,11 +2,11 @@
 tid: "t453"
 slug: "custom_select_click_close_polish"
 title: "自定义下拉click重开面板的无change收场自动关闭"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t453_custom_select_click_close_polish"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "9d3e56f53e17264c04c684135b5a297c91b018e1"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p219；t451_gen_f003 跟进"
@@ -22,7 +22,10 @@ note: "来源 p219；t451_gen_f003 跟进"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 红：AC-001 blur 关闭失败（面板滞留），AC-002 首轮即绿（既有逻辑，作回归锁）。
+- 绿：`click_opened_ref` 标记 click 重开；change/apply/preset/面板关闭清标记；blur 仅当标记有效且焦点落同区外才关（relatedTarget 在区内如面板输入框则保留，防误关主流程）。
+- R1 零 finding PASS；未进表建议（blur 走 handler）顺手落实→R2 0 新 finding PASS。
+- 顺手发现：无新增。specs 累积 ai-cli-token-stats-ui 自定义行 + index；p219 已闭环。
 
 ## Review 处置
 
@@ -44,14 +47,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
-
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+Round 1 零 finding，未进处置表。Round 2 同样零 finding（仅落实 R1 未进表建议，无新 finding）。
 
 ## 收尾报告
 
@@ -60,7 +56,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足（AC-003 为 `[deploy]`，真机点外部/Esc 待用户签收）
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -74,10 +70,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- click 重开无 change 失焦自动关闭：单测 21/21、全量 3510 通过、e2e 8 通过、typecheck/lint 过、两轮审阅 PASS 零遗留；p219 已闭环。见上
