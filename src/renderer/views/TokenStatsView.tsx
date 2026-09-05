@@ -82,6 +82,8 @@ interface TokenStatsPrefs {
     agent: AgentFilter;
     platform: PlatformFilter;
     preset: RangePreset | null;
+    /** t451 AC-007: 自定义区间持久化（与 preset 联动保存/恢复）。 */
+    custom: { start: number; end: number } | null;
     metric: Metric;
     xaxis: XAxis;
     gran: Granularity;
@@ -177,6 +179,17 @@ function save_prefs(p: TokenStatsPrefs): void {
     }
 }
 
+/** t451 AC-007: 恢复持久化的自定义区间（非法值丢弃）。 */
+function load_saved_custom(saved: Partial<TokenStatsPrefs>): { start: number; end: number } | null {
+    const custom = saved.custom;
+    if (!custom || typeof custom.start !== "number" || typeof custom.end !== "number") {
+        return null;
+    }
+    if (!Number.isFinite(custom.start) || !Number.isFinite(custom.end)) return null;
+    if (custom.start >= custom.end) return null;
+    return { start: custom.start, end: custom.end };
+}
+
 export function TokenStatsView() {
     const saved = useMemo(() => load_prefs(), []);
     const [dashboard, setDashboard] = useState<TokenStatsDashboardDto | null>(null);
@@ -194,8 +207,12 @@ export function TokenStatsView() {
             ? saved.platform
             : "all",
     );
-    const [preset, setPreset] = useState<RangePreset | null>(saved.preset ?? "30d");
-    const [custom, setCustom] = useState<{ start: number; end: number } | null>(null);
+    const [preset, setPreset] = useState<RangePreset | null>(() =>
+        load_saved_custom(saved) ? null : (saved.preset ?? "30d"),
+    );
+    const [custom, setCustom] = useState<{ start: number; end: number } | null>(() =>
+        load_saved_custom(saved),
+    );
     // t312: 时间范围下拉「自定义」触发 RangePicker 面板（受控开关）。
     const [rangePickerOpen, setRangePickerOpen] = useState(false);
     const [metric, setMetric] = useState<Metric>(saved.metric ?? "tokens");
@@ -315,7 +332,7 @@ export function TokenStatsView() {
         const alias = originalToAlias.get(model);
         if (alias !== undefined && alias !== model) {
             setModel(alias);
-            save_prefs({ agent, platform, preset, metric, xaxis, gran, model: alias });
+            save_prefs({ agent, platform, preset, custom, metric, xaxis, gran, model: alias });
         }
         // model 变为 alias 后 originalToAlias.get(alias) 为 undefined，幂等无环。
         // eslint-disable-next-line react-hooks/exhaustive-deps -- model 变化即退出
@@ -520,8 +537,8 @@ export function TokenStatsView() {
     }, [loadData, preset, query_cache]);
 
     useEffect(() => {
-        save_prefs({ agent, platform, preset, metric, xaxis, gran, model });
-    }, [agent, platform, preset, metric, xaxis, gran, model]);
+        save_prefs({ agent, platform, preset, custom, metric, xaxis, gran, model });
+    }, [agent, platform, preset, custom, metric, xaxis, gran, model]);
 
     const currentSessionItems = useMemo(
         () => session_page?.items ?? dashboard?.sessions.items ?? [],
@@ -644,6 +661,8 @@ export function TokenStatsView() {
         setPreset(p);
         setCustom(null);
         setGran(p === "24h" ? "hour" : "day");
+        // t451 AC-001: 同区下拉选择不触发点击外部关闭，显式关面板。
+        setRangePickerOpen(false);
     };
 
     const handleCustomApply = (range: { start: number; end: number }) => {
@@ -656,7 +675,12 @@ export function TokenStatsView() {
         if (m === "sessions") setXaxis("time");
     };
 
-    const select_range_value: string = custom !== null ? "custom" : (preset ?? "30d");
+    // t451 AC-003: 面板打开期间下拉保持「自定义」，不再弹回预设。
+    const select_range_value: string =
+        custom !== null || rangePickerOpen ? "custom" : (preset ?? "30d");
+
+    // t451 AC-001: 时间范围下拉与 RangePicker 同区，同区点击不算点击外部。
+    const range_zone_ref = useRef<HTMLDivElement>(null);
 
     const header_title_extra = (
         <>
@@ -741,37 +765,47 @@ export function TokenStatsView() {
                     </option>
                 ))}
             </Select>
-            <Select
-                className="h-8 w-auto min-w-[104px] py-1 text-[length:var(--text-label-md)]"
-                aria-label="时间范围"
-                value={select_range_value}
-                onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "custom") {
-                        setRangePickerOpen(true);
-                    } else {
-                        handlePresetChange(v as RangePreset);
-                    }
-                }}
-            >
-                {RANGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                        {o.label}
-                    </option>
-                ))}
-                <option value="custom">自定义</option>
-            </Select>
-            <RangePicker
-                start={currentRange.start}
-                end={currentRange.end}
-                active={custom !== null}
-                open={rangePickerOpen}
-                onOpenChange={setRangePickerOpen}
-                onApply={(range) => {
-                    handleCustomApply(range);
-                    setRangePickerOpen(false);
-                }}
-            />
+            <div ref={range_zone_ref} className="flex items-center gap-2">
+                <Select
+                    className="h-8 w-auto min-w-[104px] py-1 text-[length:var(--text-label-md)]"
+                    aria-label="时间范围"
+                    value={select_range_value}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "custom") {
+                            setRangePickerOpen(true);
+                        } else {
+                            handlePresetChange(v as RangePreset);
+                        }
+                    }}
+                    // t451 AC-002: 同值重选不发 change，靠点击重开面板；
+                    // 选预设走 onChange 关面板，这里只处理已处自定义态。
+                    onClick={() => {
+                        if (select_range_value === "custom") {
+                            setRangePickerOpen(true);
+                        }
+                    }}
+                >
+                    {RANGE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                            {o.label}
+                        </option>
+                    ))}
+                    <option value="custom">自定义</option>
+                </Select>
+                <RangePicker
+                    start={currentRange.start}
+                    end={currentRange.end}
+                    active={custom !== null}
+                    open={rangePickerOpen}
+                    onOpenChange={setRangePickerOpen}
+                    zoneRef={range_zone_ref}
+                    onApply={(range) => {
+                        handleCustomApply(range);
+                        setRangePickerOpen(false);
+                    }}
+                />
+            </div>
         </div>
     );
 

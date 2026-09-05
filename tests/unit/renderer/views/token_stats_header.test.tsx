@@ -420,4 +420,119 @@ describe("TokenStatsView header single row (t312)", () => {
             document.documentElement.removeAttribute("data-web");
         }
     });
+
+    it("t451 AC-001: 下拉选自定义后面板保持打开（userEvent 全序列）", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // 真实手势：click 打开 → change → 选择项的第二次 click。
+        // 第二次 click 若被点击外部关闭逻辑吞掉，面板即闪退（p218 症状A）。
+        await user.selectOptions(screen.getByLabelText("时间范围"), "custom");
+        expect(screen.queryByRole("button", { name: "应用" })).not.toBeNull();
+    });
+
+    it("t451 AC-002: custom 生效后下拉重选自定义可重新打开面板", async () => {
+        render(<TokenStatsView />);
+        const user = userEvent.setup();
+        await screen.findByTestId("session-records");
+
+        // 先落一个 custom（fireEvent.change 避开 AC-001 的尾随 click 干扰）。
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        await user.click(screen.getByRole("button", { name: "应用" }));
+        expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
+        expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+
+        // 同值重选：原生 select 不发 change，必须仍能打开。
+        await user.selectOptions(screen.getByLabelText("时间范围"), "custom");
+        expect(screen.queryByRole("button", { name: "应用" })).not.toBeNull();
+    });
+
+    it("t451 AC-003: 经下拉打开面板后下拉值保持自定义不弹回预设", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
+    });
+
+    it("t451 AC-004: 键入合法起止并应用，查询收到精确起止", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        const inputs = document.querySelectorAll('input[type="datetime-local"]');
+        fireEvent.change(inputs[0] as HTMLInputElement, {
+            target: { value: "2026-06-01T08:00" },
+        });
+        fireEvent.change(inputs[1] as HTMLInputElement, {
+            target: { value: "2026-06-03T08:00" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
+
+        await waitFor(() => {
+            expect(get_dashboard).toHaveBeenCalledTimes(2);
+        });
+        const request = get_dashboard.mock.calls.at(-1)?.[0] as TokenStatsDashboardQuery;
+        expect(request.start).toBe(new Date("2026-06-01T08:00").getTime());
+        expect(request.end).toBe(new Date("2026-06-03T08:00").getTime());
+        expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
+    });
+
+    it("t451 AC-006: 编辑中途后台刷新不丢输入，应用仍带用户日期", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        const inputs = document.querySelectorAll('input[type="datetime-local"]');
+        const start_input = inputs[0] as HTMLInputElement;
+        const end_input = inputs[1] as HTMLInputElement;
+        fireEvent.change(start_input, { target: { value: "2026-06-01T08:00" } });
+        fireEvent.change(end_input, { target: { value: "2026-06-02T08:00" } });
+
+        // web 10s 轮询推送（dataVersion 0）：不得改写编辑中的输入。
+        act(() => {
+            updated_listener?.(0);
+        });
+        expect(start_input.value).toBe("2026-06-01T08:00");
+
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
+        // 轮询本身会触发一次后台重取（ revision bump），应用再触发一次；
+        // 关键是最后一次查询必须带用户日期。
+        await waitFor(() => {
+            expect(get_dashboard.mock.calls.length).toBeGreaterThanOrEqual(2);
+        });
+        const request = get_dashboard.mock.calls.at(-1)?.[0] as TokenStatsDashboardQuery;
+        expect(request.start).toBe(new Date("2026-06-01T08:00").getTime());
+        expect(request.end).toBe(new Date("2026-06-02T08:00").getTime());
+    });
+
+    it("t451 AC-007: 重载后自定义区间恢复并沿用查询", async () => {
+        const start = new Date("2026-05-01T08:00").getTime();
+        const end = new Date("2026-05-03T08:00").getTime();
+        localStorage.setItem(
+            "token-stats-prefs",
+            JSON.stringify({
+                agent: "all",
+                platform: "all",
+                preset: null,
+                custom: { start, end },
+                metric: "tokens",
+                xaxis: "time",
+                gran: "day",
+                model: "all",
+            }),
+        );
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const request = get_dashboard.mock.calls[0]?.[0] as TokenStatsDashboardQuery;
+        expect(request.start).toBe(start);
+        expect(request.end).toBe(end);
+        expect(screen.getByLabelText("时间范围")).toHaveValue("custom");
+    });
 });

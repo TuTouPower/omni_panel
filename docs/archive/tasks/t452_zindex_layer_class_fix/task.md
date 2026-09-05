@@ -2,11 +2,11 @@
 tid: "t452"
 slug: "zindex_layer_class_fix"
 title: "层级工具类修复：z-menu等裸类换任意值+文档与门禁"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t452_zindex_layer_class_fix"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "56a44e019d6c77ae8a9b1b67924cbf7fec71aee9"
 depends_on: "t451"
 conflicts_with: ""
 note: "来源 p218；同类位点并集+DESIGN修正+正向门禁"
@@ -22,7 +22,11 @@ note: "来源 p218；同类位点并集+DESIGN修正+正向门禁"
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 红：先写门禁 `layer_class_gate.test.ts`（3 用例）， sweep 命中 3 违规、位点 pin 失败；检测器自检首轮即绿（机制正确）。
+- 绿：三位点换任意值（数值不变）+ DESIGN.md 两处表述修正 + decisions 024。t415 存量测试只查裸数字，与本门禁互补无冲突。
+- 审阅 R1 1 minor（f001 模板字面量盲点）→已修（反引号纳入+插值 fail-closed+三自检用例）→R2 0 新 finding PASS。reviewer 提示（source_files ENOENT、单字面量首命中）已阅：属诊断完备性非缺陷，无动作。
+- 顺手发现：无新增（t451 已记 p219/p220/p221；本 task 范围内无存量疑点）。
+- specs 累积：`elevation_layering_unify.md` 规则节修正 + t452 落位段 + index 行更新（t415 spec 仍生效，同 blessing 假前提一并修正）。
 
 ## Review 处置
 
@@ -44,14 +48,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-05 09:30 UTC+8)
 
-有 finding 时用本表；每条 finding 一行。
+首轮 general：1 条 minor，无 critical/important，verdict PASS。
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t452_gen_f001|minor|已修|STRING_RE 纳入反引号模板字面量（插值 fail-closed），自检 pin 同步加三用例|tests/unit/renderer/styles/layer_class_gate.test.ts|
 
 ## 收尾报告
 
@@ -60,7 +63,7 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
+- 结果：全部满足（AC-005 为 `[deploy]`，真机多窗口目视待用户签收；最接近证据为构建产物规则全量存在 + 全量单测绿）
 - 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
 
 ### Reviewer verdict
@@ -74,10 +77,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 `single`：
 
-- Round 1 general：PASS / FAIL
+- Round 1 general：PASS
+- Round 2 general：PASS
 
 遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 三位点换任意值写法 + DESIGN/层级 spec/024 修正 + 正向门禁落地：门禁 3 用例、全量 3507 通过、designmd check 过、构建双产物三层级规则全量存在、审阅两轮 PASS 无遗留。见上

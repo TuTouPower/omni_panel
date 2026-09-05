@@ -334,7 +334,7 @@ export function SessionPane({
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="absolute bottom-3.5 right-[18px] z-sticky rounded-full shadow-menu"
+                        className="absolute bottom-3.5 right-[18px] z-[var(--z-sticky)] rounded-full shadow-menu"
                         data-testid="conversation-to-bottom"
                         onClick={scroll_to_bottom}
                     >
@@ -343,7 +343,7 @@ export function SessionPane({
                 )}
                 {outline_open && (
                     <div
-                        className="absolute bottom-0 right-0 top-0 z-context flex w-60 min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-menu"
+                        className="absolute bottom-0 right-0 top-0 z-[var(--z-context)] flex w-60 min-w-0 flex-col border-l border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-menu"
                         data-testid="conversation-outline"
                     >
                         <div className="shrink-0 border-b border-[var(--color-outline)] px-3.5 py-2.5 text-[length:var(--text-body-sm)] font-semibold text-[var(--color-on-surface-variant)]">

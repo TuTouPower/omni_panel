@@ -20,7 +20,7 @@
 |add-account-catalog|API|t121|2026-07-26|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|
-|ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321，t437|2026-08-23|
+|ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321，t437，t451|2026-09-05|
 |tokenstats-performance-baseline|API|t189|2026-08-02|
 |config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401|2026-08-16|
 |resume_command_template|API / Web|t401, t402, t403|2026-08-16|
@@ -48,7 +48,7 @@
 |session_scrollbar_unify|Web+Desktop|t412|2026-08-16|
 |surface_token_unify|Web+Desktop|t406 全窗口背景两级（window/card），raised 仅交互态|2026-08-16|
 |type_space_token_unify|Web|t424|2026-08-16|
-|elevation_layering_unify|Web+Desktop|t415 阴影变量翻转、z 五层、logo-drop-shadow、SelectionDock 去 blur|2026-08-16|
+|elevation_layering_unify|Web+Desktop|t415 阴影变量翻转、z 五层、logo-drop-shadow、SelectionDock 去 blur；t452 裸层级类换任意值+正向门禁|2026-09-05|
 |usage_color_single_source|Web+Desktop|t418 九色/accent 预设/about tint 收口单一 token 来源|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
 |design-tokens-foundation|Desktop|t268|2026-08-09|
