@@ -6797,6 +6797,21 @@
             "schedule_status": "",
             "note": "来源 p219；t451_gen_f003 跟进",
             "dir": "docs/archive/tasks/t453_custom_select_click_close_polish"
+        },
+        {
+            "tid": "t454",
+            "slug": "custom_entry_single_dropdown",
+            "title": "自定义入口收敛：删📅按钮+选中动作才开面板",
+            "status": "done",
+            "branch": "t454_custom_entry_single_dropdown",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "eab2856a6c33e2eadae24f963a6e4365607aa588",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p219 跟进+用户需求；双弹修复",
+            "dir": "docs/archive/tasks/t454_custom_entry_single_dropdown"
         }
     ]
 }
