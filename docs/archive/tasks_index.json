@@ -6752,6 +6752,36 @@
             "schedule_status": "",
             "note": "",
             "dir": "docs/archive/tasks/t450_gateway_empty_monitor_provider_hide"
+        },
+        {
+            "tid": "t451",
+            "slug": "agent_custom_range_chain_fix",
+            "title": "代理面板自定义链路修复：下拉打开/应用生效/刷新持久化",
+            "status": "done",
+            "branch": "t451_agent_custom_range_chain_fix",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "c474462be7fbda6795cf65f370c4806ba49a7ee8",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p218；自定义下拉/应用/轮询/持久化行为修复",
+            "dir": "docs/archive/tasks/t451_agent_custom_range_chain_fix"
+        },
+        {
+            "tid": "t452",
+            "slug": "zindex_layer_class_fix",
+            "title": "层级工具类修复：z-menu等裸类换任意值+文档与门禁",
+            "status": "done",
+            "branch": "t452_zindex_layer_class_fix",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "56a44e019d6c77ae8a9b1b67924cbf7fec71aee9",
+            "depends_on": "t451",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "来源 p218；同类位点并集+DESIGN修正+正向门禁",
+            "dir": "docs/archive/tasks/t452_zindex_layer_class_fix"
         }
     ]
 }
