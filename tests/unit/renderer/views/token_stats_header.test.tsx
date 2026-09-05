@@ -583,4 +583,36 @@ describe("TokenStatsView header single row (t312)", () => {
         expect(request.end - request.start).toBe(7 * 24 * 3600000);
         expect(screen.getByLabelText("时间范围")).toHaveValue("7d");
     });
+
+    it("t454 AC-001: 标题栏无📅按钮，下拉仍含自定义项", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        expect(screen.queryByTitle("自定义时间范围")).toBeNull();
+        const range = screen.getByLabelText<HTMLSelectElement>("时间范围");
+        expect([...range.options].map((o) => o.value)).toContain("custom");
+    });
+
+    it("t454 AC-002: 开下拉手势不弹面板，选中动作才弹", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        // 先落一个 custom：面板关闭、下拉为 custom。
+        fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "custom" } });
+        await screen.findByRole("button", { name: "应用" });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
+        await waitFor(() => {
+            expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+        });
+
+        // 开下拉手势（mousedown+click）：只出选项列表，不弹日期窗。
+        const range = screen.getByLabelText("时间范围");
+        fireEvent.mouseDown(range);
+        fireEvent.click(range);
+        expect(screen.queryByRole("button", { name: "应用" })).toBeNull();
+
+        // 选中动作（无 down 阶段的 click）：弹面板。
+        fireEvent.click(range);
+        expect(await screen.findByRole("button", { name: "应用" })).toBeInTheDocument();
+    });
 });

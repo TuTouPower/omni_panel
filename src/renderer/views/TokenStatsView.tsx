@@ -685,6 +685,10 @@ export function TokenStatsView() {
     const range_zone_ref = useRef<HTMLDivElement>(null);
     // t453: click 重开未被 change 收场时，失焦自动关闭。
     const click_opened_ref = useRef(false);
+    // t454: 区分「开下拉动作」（mousedown+click，只出选项列表）与
+    // 「选中动作」（无 down 阶段的 click，选项收场）：仅后者在 custom 态开面板。
+    // 实测依据见 d052（原生 select 选项手势的第二次 click 无 down 阶段）。
+    const select_down_ref = useRef(false);
     const handleRangeOpenChange = (open: boolean) => {
         if (!open) click_opened_ref.current = false;
         setRangePickerOpen(open);
@@ -780,6 +784,7 @@ export function TokenStatsView() {
                     value={select_range_value}
                     onChange={(e) => {
                         click_opened_ref.current = false;
+                        select_down_ref.current = false;
                         const v = e.target.value;
                         if (v === "custom") {
                             setRangePickerOpen(true);
@@ -787,10 +792,16 @@ export function TokenStatsView() {
                             handlePresetChange(v as RangePreset);
                         }
                     }}
-                    // t451 AC-002: 同值重选不发 change，靠点击重开面板；
-                    // 选预设走 onChange 关面板，这里只处理已处自定义态。
-                    // t453: click 打开后无 change 收场（失焦）则自动关闭。
+                    // t454: 开下拉动作只出选项列表不开面板；选中动作（custom 态）
+                    // 才开面板。change 照常开（覆盖值变化路径）。
+                    onMouseDown={() => {
+                        select_down_ref.current = true;
+                    }}
                     onClick={() => {
+                        if (select_down_ref.current) {
+                            select_down_ref.current = false;
+                            return;
+                        }
                         if (select_range_value === "custom") {
                             click_opened_ref.current = true;
                             setRangePickerOpen(true);
@@ -817,7 +828,6 @@ export function TokenStatsView() {
                 <RangePicker
                     start={currentRange.start}
                     end={currentRange.end}
-                    active={custom !== null}
                     open={rangePickerOpen}
                     onOpenChange={handleRangeOpenChange}
                     zoneRef={range_zone_ref}
