@@ -1,0 +1,20 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/lib/antigravity_panels_wiring.test.ts AC-001 通过；真机黑盒 friendly=Antigravity vendor=antigravity"
+        ],
+        "AC-002": ["同文件 AC-002 resume_command=agy --conversation 通过；真机黑盒同值"],
+        "AC-003": ["同文件 AC-003 类型级守卫通过（tsc）；TokenStatsView 未改动"]
+    },
+    "attempt": 1,
+    "base_sha": "333b7d526d63b5557b29eba4bb59da1727a592f4",
+    "blackbox": "tsx .scratch/bb_antigravity_wiring.ts 真实会话全链通过",
+    "branch": "t456_antigravity_panels_wiring",
+    "execution_id": "aa8172c7a7254ec29e3c44846f9ec890",
+    "findings": [],
+    "pending": [],
+    "review": "第 1 轮 general PASS，零 finding",
+    "status": "done",
+    "tests": "vitest 接线单测 3 passed；相关 16 文件 230 passed；tsc/eslint/prettier 干净",
+    "tid": "t456"
+}
