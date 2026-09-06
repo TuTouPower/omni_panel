@@ -9,10 +9,19 @@ function log(msg: string) {
     console.log(`[package:run] ${msg}`);
 }
 
+/**
+ * p223: Linux 下 pkill/pgrep 的 -f 全命令行匹配 pattern。必须只命中打包产物
+ * （`artifacts/linux-unpacked/omni_panel`），不能用裸 `omni_panel`——tsx 自身
+ * 命令行含仓库路径 `.../omni_panel/scripts/package-and-run.ts`，裸串会自杀（exit 143）。
+ */
+export function linux_proc_match_pattern(): string {
+    return "linux-unpacked/omni_panel";
+}
+
 function kill_omni(): void {
     const is_win = platform() === "win32";
     // t369 AC-001: 产物名 Linux 为 omni_panel（小写），pkill 大小写不匹配杀不掉旧实例。
-    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
+    const procs = is_win ? ["OmniPanel.exe"] : [linux_proc_match_pattern()];
 
     for (const proc of procs) {
         try {
@@ -29,7 +38,7 @@ function kill_omni(): void {
 
 function wait_for_exit(max_ms = 5000): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniPanel.exe"] : ["omni_panel"];
+    const procs = is_win ? ["OmniPanel.exe"] : [linux_proc_match_pattern()];
     const deadline = Date.now() + max_ms;
     while (Date.now() < deadline) {
         let running = false;
@@ -41,7 +50,7 @@ function wait_for_exit(max_ms = 5000): void {
                     .toString()
                     .includes("OmniPanel.exe");
             } else {
-                execSync(`pgrep -f ${procs[0] ?? "omni_panel"}`, { stdio: "pipe" });
+                execSync(`pgrep -f ${procs[0] ?? linux_proc_match_pattern()}`, { stdio: "pipe" });
                 running = true;
             }
         } catch {
@@ -63,7 +72,7 @@ function wait_for_exit(max_ms = 5000): void {
         execSync(
             is_win
                 ? "taskkill /f /t /im OmniPanel.exe 2>nul"
-                : `pkill -9 -f ${procs[0] ?? "omni_panel"}`,
+                : `pkill -9 -f ${procs[0] ?? linux_proc_match_pattern()}`,
             {
                 shell: is_win ? "cmd.exe" : "/bin/sh",
                 stdio: "pipe",

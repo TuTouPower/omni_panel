@@ -6,7 +6,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { execSync } from "node:child_process";
-import { run_package_build } from "../../../../scripts/package-and-run";
+import { linux_proc_match_pattern, run_package_build } from "../../../../scripts/package-and-run";
 
 const exec_mock = vi.mocked(execSync);
 
@@ -41,5 +41,16 @@ describe("package-and-run run_package_build", () => {
 
         const calls = exec_mock.mock.calls.map(([cmd]) => cmd);
         expect(calls[calls.length - 1]).toContain("ensure_sqlite_abi.mjs node");
+    });
+});
+
+describe("package-and-run linux proc match (p223)", () => {
+    it("pattern 命中打包产物，不命中自身 tsx 命令行", () => {
+        const pattern = linux_proc_match_pattern();
+        const packaged =
+            "/home/karon/karson_ubuntu/omni_panel/artifacts/linux-unpacked/omni_panel --type=renderer";
+        const self_cmdline = "node /home/karon/karson_ubuntu/omni_panel/scripts/package-and-run.ts";
+        expect(packaged.includes(pattern)).toBe(true);
+        expect(self_cmdline.includes(pattern)).toBe(false);
     });
 });
