@@ -2,36 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t455",
-            "slug": "antigravity_session_history_extractor",
-            "title": "antigravity 会话历史提取器与定位器",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t455_antigravity_session_history_extractor"
-        },
-        {
-            "tid": "t456",
-            "slug": "antigravity_panels_wiring",
-            "title": "会话面板 antigravity 接线",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "schedule_status": "",
-            "note": "",
-            "dir": "docs/tasks/t456_antigravity_panels_wiring"
-        }
-    ]
+    "tasks": []
 }

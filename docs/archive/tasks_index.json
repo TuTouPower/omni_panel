@@ -6812,6 +6812,36 @@
             "schedule_status": "",
             "note": "来源 p219 跟进+用户需求；双弹修复",
             "dir": "docs/archive/tasks/t454_custom_entry_single_dropdown"
+        },
+        {
+            "tid": "t455",
+            "slug": "antigravity_session_history_extractor",
+            "title": "antigravity 会话历史提取器与定位器",
+            "status": "done",
+            "branch": "t455_antigravity_session_history_extractor",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "284914af9dec4051c88d142ebe9a03903ce10f61",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t455_antigravity_session_history_extractor"
+        },
+        {
+            "tid": "t456",
+            "slug": "antigravity_panels_wiring",
+            "title": "会话面板 antigravity 接线",
+            "status": "done",
+            "branch": "t456_antigravity_panels_wiring",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "333b7d526d63b5557b29eba4bb59da1727a592f4",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t456_antigravity_panels_wiring"
         }
     ]
 }
