@@ -12,6 +12,7 @@ export const DEFAULT_RESUME_COMMAND_TEMPLATES = {
     grok: "grok --resume {session_id}",
     opencode: "opencode -s {session_id}",
     codex: "codex resume {session_id}",
+    antigravity: "agy --conversation {session_id}",
 } as const;
 
 export type ResumeCommandSource = keyof typeof DEFAULT_RESUME_COMMAND_TEMPLATES;

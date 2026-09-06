@@ -2,11 +2,11 @@
 tid: "t456"
 slug: "antigravity_panels_wiring"
 title: "会话面板 antigravity 接线"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t456_antigravity_panels_wiring"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+diff_anchor: "333b7d526d63b5557b29eba4bb59da1727a592f4"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,11 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- 红→绿：接线测试 2 失败（缺映射）→加 markdown/slots/resume/general_section 四处→3/3 绿。
+- AC-003 守卫：AGENT_OPTIONS 未导出，改类型级 Exclude 断言，由 tsc 执行。
+- 基建：沿 t455，electron 目录整体从主仓拷（gitignore，不入库）。
+- 黑盒：真实会话全链（resolve→extract→friendly/vendor/resume）通过。
+- 审阅：general Round 1 PASS，零 finding。
 
 ## Review 处置
 
@@ -41,6 +45,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### Round 1 场景说明
 
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
+
+Round 1 零 finding，未进处置表。
+
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
@@ -60,24 +67,15 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：3 条 AC 在 `handoff.json` 的 `ac_evidence` 全覆盖（接线单测 + 真机黑盒）
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 会话面板 antigravity 接线完成，展示名/logo/resume 就绪，代理面板未动

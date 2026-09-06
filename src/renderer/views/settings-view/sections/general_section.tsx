@@ -32,6 +32,7 @@ const RESUME_SOURCE_TITLES: Record<ResumeCommandSource, string> = {
     grok: "Grok",
     opencode: "OpenCode",
     codex: "Codex",
+    antigravity: "Antigravity",
 };
 
 function save_resume_template(
