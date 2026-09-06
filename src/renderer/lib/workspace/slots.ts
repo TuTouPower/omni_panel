@@ -160,6 +160,7 @@ export function vendor_id_for_source(source: string): string {
     if (source === "kimi_code") return "kimi";
     if (source === "grok") return "grok";
     if (source === "codex") return "codex";
+    if (source === "antigravity") return "antigravity";
     if (source === "opencode") return "opencode_go";
     return "overview";
 }
