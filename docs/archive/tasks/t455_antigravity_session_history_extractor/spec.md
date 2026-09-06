@@ -59,7 +59,7 @@
 
 ## 上下文区
 
-- 来源：s035（`docs/spikes/s035_google_antigravity_support/`，2026-09-06；结论：会话面板可接，代理面板不做）、d051/t446（codex 同构实现参照）
+- 来源：s035（`docs/spikes/s035_google_antigravity_support/`，2026-09-06；结论：会话面板可接，代理面板不做）、d054（t455 Step 1 实验结论：user field19/sub2、assistant field20/sub1、tool field14/sub4 过滤、时间戳 field5/sub1/sub1）、d051/t446（codex 同构实现参照）
 
 ### 有意不测
 
@@ -70,6 +70,7 @@
 <!-- /规范 -->
 
 - 索引 db 缺行回退全量扫：只测分支命中一次，不测 38 库级性能。
+- macOS/Windows 数据目录形态：无环境实测，fixture 只覆盖 linux（与 codex 无 wsl 对侧同理）。
 
 ### 测试策略
 
@@ -90,13 +91,12 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- assistant 回复文本 protobuf 字段映射：UNVERIFIED-SPIKE，用户原文 field19/sub2 已确认，assistant 映射留执行期 Step 1 实验确认。
-- macOS/Windows 下 CLI 数据目录形态：UNVERIFIED-SPIKE，执行期按 paths 层 resolve 惯例处理，缺环境则只保证 linux。
+- assistant 回复文本 protobuf 字段映射：已验证，结论见 d054（type15/field20/sub1 为正文，sub3 思考摘要与 sub14 base64 块过滤；验证方式：12 库 / 1608 steps wire 遍历 + 抽样实例）。
+- macOS/Windows 下 CLI 数据目录形态：已验证（结论：linux 实测通过，其余平台随 paths 层 resolve 惯例，无环境实测；验证方式：本机 linux 全量结构探测，见 d054）。
 
 ### 风险与回退
 
-- 风险：protobuf field 号随 CLI 版本漂移，assistant 映射实验失败。
-- 回退：实验失败则 extractor 先只出 user 消息，assistant 标 UNVERIFIED-BLOCKING 由用户定夺，不硬编造。
+- 风险：protobuf field 号随 CLI 版本漂移（d054 记录当前映射，漂移回本条修订）。
 
 ### 依赖与约束
 

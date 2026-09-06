@@ -1,12 +1,12 @@
 ---
-tid: "t456"
-slug: "antigravity_panels_wiring"
-title: "会话面板 antigravity 接线"
-status: "backlog"
-branch: ""
+tid: "t455"
+slug: "antigravity_session_history_extractor"
+title: "antigravity 会话历史提取器与定位器"
+status: "done"
+branch: "t455_antigravity_session_history_extractor"
 worktree: ""
-review_level: "single"
-diff_anchor: ""
+review_level: "full"
+diff_anchor: "284914af9dec4051c88d142ebe9a03903ce10f61"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -22,7 +22,11 @@ note: ""
 
 创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
 
-无
+- Step 1：preflight PASS（2 UNVERIFIED-SPIKE）。实验确认 assistant 映射（type15/field20/sub1）与时间戳（field5/sub1/sub1 秒→ms，实例 cross-check 一致），结论入 d054；spec 未知契约改写后 `--require-verified` PASS。
+- Step 2/3：红灯 5 用例（缺实现文件）→实现 extractor/locator/subscription/paths→1 用例 timestamp 失败：fixture 与实现各多套/少套一层 LEN（真实结构 field5→sub1(LEN)→sub1(varint)），同时修正后 5/5 绿。
+- 基建：worktree `pnpm install` 未下载 electron 二进制（无网），从主仓 node_modules 拷 `path.txt`+`dist/` 恢复（gitignore 内，不入库）。
+- Step 4 黑盒：真实库 210 steps→14 消息（7 user/7 assistant），零空 timestamp，first_user 与已知原文一致，缺席 id 返回 null。
+- Step 5：code/test 双路 Round 1 PASS，零 finding。
 
 ## Review 处置
 
@@ -41,6 +45,9 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### Round 1 场景说明
 
 - **无 finding**：写「Round 1 零 finding，未进处置表。」
+
+Round 1 零 finding，未进处置表。
+
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
@@ -60,24 +67,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：5 条 AC 在 `handoff.json` 的 `ac_evidence` 全覆盖（单测 5 用例 + 真机黑盒）
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
 `full`：
 
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
-`single`：
-
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 code：PASS
+- Round 1 test：PASS
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- antigravity 会话提取器与定位器就绪，t456 可接线

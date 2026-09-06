@@ -1,0 +1,24 @@
+{
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/session-history/antigravity-extractor.test.ts AC-001/AC-004 locator 索引命中与缺席用例通过"
+        ],
+        "AC-002": [
+            "同文件 AC-002 全量 user/assistant+timestamp 用例通过；真机黑盒 210 steps→14 消息零空 timestamp"
+        ],
+        "AC-003": ["同文件 AC-003 增量只返回新增且 id 一致用例通过"],
+        "AC-004": ["同文件 AC-004 缺席 id 返回 null 用例通过"],
+        "AC-005": ["同文件 AC-005 tool 行过滤用例通过"]
+    },
+    "attempt": 1,
+    "base_sha": "284914af9dec4051c88d142ebe9a03903ce10f61",
+    "blackbox": "tsx .scratch/bb_antigravity.ts 真实库通过（14 消息 7/7，first_user 与已知原文一致）",
+    "branch": "t455_antigravity_session_history_extractor",
+    "execution_id": "e544396bf74a4f83a50e89020193d203",
+    "findings": ["d054"],
+    "pending": [],
+    "review": "第 1 轮 code/test 双 PASS，零 finding",
+    "status": "done",
+    "tests": "vitest session-history+paths 14 文件 230 passed；antigravity 新单测 5 passed；tsc/eslint/prettier 干净",
+    "tid": "t455"
+}
