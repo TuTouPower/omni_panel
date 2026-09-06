@@ -149,3 +149,22 @@ export function kimi_index_path(input: TokenStatsPathInput, env: TokenStatsEnv):
 export function grok_sessions_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
     return resolve(input, env, [".grok", "sessions"]);
 }
+
+const ANTIGRAVITY_SEGMENTS = [".gemini", "antigravity-cli"];
+
+/** ~/.gemini/antigravity-cli/conversations (or the win_home / UNC equivalent).
+ * t455: CLI 数据仅本机（用户确认只做 CLI）；部分会话无索引行，locator 回退扫文件名。 */
+export function antigravity_conversations_path(
+    input: TokenStatsPathInput,
+    env: TokenStatsEnv,
+): string | null {
+    return resolve(input, env, [...ANTIGRAVITY_SEGMENTS, "conversations"]);
+}
+
+/** ~/.gemini/antigravity-cli/conversation_summaries.db (or the win_home / UNC equivalent). */
+export function antigravity_summaries_path(
+    input: TokenStatsPathInput,
+    env: TokenStatsEnv,
+): string | null {
+    return resolve(input, env, [...ANTIGRAVITY_SEGMENTS, "conversation_summaries.db"]);
+}

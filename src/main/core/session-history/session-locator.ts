@@ -24,6 +24,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Env, ExtractorKind } from "./subscription-service";
+import { antigravity_index_has_session } from "./antigravity-extractor";
 import { getDataRoot } from "../paths";
 import * as path_layer from "../token-stats/paths";
 import {
@@ -106,8 +107,14 @@ export function clear_resolution_cache(): void {
     }
 }
 
-/** locator 支持的 source 集合（t446 +codex；token-stats 五端对齐，kimi 带下划线）。 */
-export type HistorySource = "claude_code" | "opencode" | "kimi_code" | "grok" | "codex";
+/** locator 支持的 source 集合（t446 +codex；t455 +antigravity）。 */
+export type HistorySource =
+    | "claude_code"
+    | "opencode"
+    | "kimi_code"
+    | "grok"
+    | "codex"
+    | "antigravity";
 
 export interface ResolvedSession {
     /** 提取器要读的源文件 / db 完整路径。 */
@@ -310,6 +317,8 @@ export function locator_source_path(
             return path_layer.grok_sessions_path(input, env);
         case "codex":
             return path_layer.codex_sessions_path(input, env);
+        case "antigravity":
+            return path_layer.antigravity_conversations_path(input, env);
     }
 }
 
@@ -442,6 +451,38 @@ function resolve_codex(paths: LocatorPaths, env: Env, session_id: string): Resol
         const base = file.split(/[\\/]/).pop() ?? "";
         if (base.startsWith("rollout-") && base.endsWith(suffix)) {
             return { file_path: file, extractor_kind: "codex" };
+        }
+    }
+    return null;
+}
+
+function resolve_antigravity(
+    paths: LocatorPaths,
+    env: Env,
+    session_id: string,
+): ResolvedSession | null {
+    // antigravity 每会话一库：conversations/<session_id>.db（d054）。
+    // 索引优先：conversation_summaries.db 命中则直接拼文件（仍校验存在）；
+    // 索引缺行（实测 7/38）回退扫目录文件名。
+    const root = locator_source_path("antigravity", env, paths);
+    if (root === null) return null;
+    const direct = join(root, `${session_id}.db`);
+    const input = locator_path_input(paths, env);
+    const summaries = path_layer.antigravity_summaries_path(input, env);
+    if (summaries !== null && antigravity_index_has_session(summaries, session_id)) {
+        try {
+            const st = statSync(direct);
+            if (st.isFile()) {
+                return { file_path: direct, extractor_kind: "antigravity" };
+            }
+        } catch {
+            // 索引命中但文件缺失：继续回退扫目录。
+        }
+    }
+    const files = safe_readdir(root);
+    for (const entry of files) {
+        if (entry.isFile() && entry.name === `${session_id}.db`) {
+            return { file_path: join(root, entry.name), extractor_kind: "antigravity" };
         }
     }
     return null;
@@ -594,6 +635,8 @@ export function resolve_session_file(
                 return resolve_grok(paths, env, session_id);
             case "codex":
                 return resolve_codex(paths, env, session_id);
+            case "antigravity":
+                return resolve_antigravity(paths, env, session_id);
         }
     })();
 
