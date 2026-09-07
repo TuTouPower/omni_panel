@@ -2,5 +2,66 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t457",
+            "slug": "session_query_title_directory_filters",
+            "title": "会话查询支持独立标题、工作目录过滤",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "查询契约：title/directory 独立 AND；下游 UI 与 skill 依赖",
+            "dir": "docs/tasks/t457_session_query_title_directory_filters"
+        },
+        {
+            "tid": "t458",
+            "slug": "session_library_title_cwd_ui",
+            "title": "会话库 UI 独立标题、工作目录筛选",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "t457",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "会话库筛栏对齐查询契约；single：纯 UI 接线，无鉴权/资金/迁移",
+            "dir": "docs/tasks/t458_session_library_title_cwd_ui"
+        },
+        {
+            "tid": "t459",
+            "slug": "desktop_write_cli_json",
+            "title": "桌面启动写入 cli.json 实例发现",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "GUI 与 serve 同写 cli.json；single：复用现发现文件，无新鉴权面",
+            "dir": "docs/tasks/t459_desktop_write_cli_json"
+        },
+        {
+            "tid": "t460",
+            "slug": "session_library_search_skill",
+            "title": "会话库搜索 skill 附使用指南",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "diff_anchor": "",
+            "depends_on": "t457,t459",
+            "conflicts_with": "",
+            "schedule_status": "",
+            "note": "仅 skill+指南，不 MCP；single：纯文档交付",
+            "dir": "docs/tasks/t460_session_library_search_skill"
+        }
+    ]
 }
