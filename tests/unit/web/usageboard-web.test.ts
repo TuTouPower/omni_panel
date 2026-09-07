@@ -686,6 +686,24 @@ describe("web usageboard bridge", () => {
         expect(opts.headers?.["Content-Type"]).toContain("application/json");
     });
 
+    it("t458 AC-006: web searchContent body 原样携带 title/directory filters", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ hits: [], sessions: [] }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.searchContent({
+            filters: { title: "部署", directory: "/srv", search: "kw" },
+            keyword: "kw",
+        });
+        const opts = fetch_mock.mock.calls[0]?.[1] as { body?: string };
+        expect(JSON.parse(opts.body ?? "{}")).toEqual({
+            filters: { title: "部署", directory: "/srv", search: "kw" },
+            keyword: "kw",
+        });
+    });
+
     it("sessionHistory.summaries POSTs to /v1/sessionHistory/summaries (t259 AC1)", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()
