@@ -573,6 +573,84 @@ describe("session-history-ipc (t210)", () => {
         );
     });
 
+    it("t457 AC-006: SEARCH_CONTENT filters.title/directory 透传候选枚举与 metadata 查询", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/hidden.jsonl",
+            extractor_kind: "claude_code",
+        });
+        service.searchContent.mockResolvedValue(new Set(["claude_code|win|hidden"]));
+        const sessions_provider = vi.fn().mockReturnValue([
+            {
+                id: "hidden",
+                source: "claude_code",
+                env: "win",
+                title: "backend candidate",
+                model: "sonnet",
+                started_at: 100,
+                ended_at: 200,
+                session: {
+                    id: "hidden",
+                    source: "claude_code",
+                    env: "win",
+                    model: "sonnet",
+                    title: "backend candidate",
+                    directory: "/hidden",
+                    input_tokens: 1,
+                    output_tokens: 2,
+                    cache_read_tokens: 3,
+                    cache_write_tokens: 4,
+                    calls: 1,
+                    started_at: 100,
+                    ended_at: 200,
+                },
+            },
+        ]);
+        await register(sessions_provider);
+
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { title: "backend", directory: "/hidden", search: "backend" },
+            keyword: "秘密词",
+        })) as { ok: boolean; data: { hits: string[] } };
+
+        expect(result.ok).toBe(true);
+        // 候选枚举与 metadata 查询均携带独立 title/directory 条件。
+        expect(sessions_provider).toHaveBeenNthCalledWith(1, {
+            title: "backend",
+            directory: "/hidden",
+            limit: 100,
+            offset: 0,
+        });
+        expect(sessions_provider).toHaveBeenNthCalledWith(2, {
+            search: "backend",
+            title: "backend",
+            directory: "/hidden",
+            limit: 100,
+            offset: 0,
+        });
+        expect(result.data.hits).toEqual(["claude_code|win|hidden"]);
+    });
+
+    it("t457 AC-005: SEARCH_CONTENT title/directory 空串视为不约束", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/sess.jsonl",
+            extractor_kind: "claude_code",
+        });
+        const sessions_provider = vi.fn().mockReturnValue([]);
+        await register(sessions_provider);
+        const handler = get_handler("sessionHistory:searchContent");
+        const result = (await handler(valid_sender, {
+            filters: { title: "", directory: "" },
+            keyword: "hello",
+        })) as { ok: boolean };
+        expect(result.ok).toBe(true);
+        // 空串不进 provider 过滤条件（与省略等价）。
+        expect(sessions_provider).toHaveBeenCalledWith({
+            limit: 100,
+            offset: 0,
+        });
+    });
+
     it("SEARCH_CONTENT 去重 metadata 与 candidate 重叠会话，不重复输出 (t354 AC-001)", async () => {
         locator_mock.resolve_session_file.mockReturnValue({
             file_path: "/x/sess.jsonl",

@@ -1214,6 +1214,67 @@ describe("local-api web read endpoints", () => {
         expect(res.status).toBe(200);
     });
 
+    it("t457 AC-007: GET /v1/sessions?title=&directory= 独立过滤生效（真实 store）", async () => {
+        token_stats_store.upsert_sessions(
+            [
+                {
+                    id: "sess-title",
+                    source: "claude_code",
+                    env: "linux",
+                    model: "sonnet",
+                    title: "Refactor auth",
+                    directory: "/home/user/alpha",
+                    input_tokens: 10,
+                    output_tokens: 1,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 1,
+                    started_at: Date.now() - 1000,
+                    ended_at: Date.now(),
+                },
+                {
+                    id: "sess-dir",
+                    source: "claude_code",
+                    env: "linux",
+                    model: "sonnet",
+                    title: "Other task",
+                    directory: "/home/user/Refactor",
+                    input_tokens: 10,
+                    output_tokens: 1,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 1,
+                    started_at: Date.now() - 1000,
+                    ended_at: Date.now(),
+                },
+            ],
+            [],
+        );
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+        // title="Refactor auth" 只命中 sess-title；directory 含 Refactor 的 sess-dir
+        // 不因目录命中而进入 title 查询结果（AC-001 不串字段）。
+        const by_title = (await (
+            await fetch(`${base}/v1/sessions?title=refactor%20auth`)
+        ).json()) as { id: string }[];
+        expect(by_title.map((s) => s.id)).toEqual(["sess-title"]);
+        // directory 独立过滤。
+        const by_directory = (await (
+            await fetch(`${base}/v1/sessions?directory=/home/user/Refactor`)
+        ).json()) as { id: string }[];
+        expect(by_directory.map((s) => s.id)).toEqual(["sess-dir"]);
+        // AND：同时提供，无交集则空。
+        const both = (await (
+            await fetch(`${base}/v1/sessions?title=Refactor&directory=/home/user/alpha`)
+        ).json()) as { id: string }[];
+        expect(both.map((s) => s.id)).toEqual(["sess-title"]);
+        // 空串 = 不约束。
+        const empty = (await (await fetch(`${base}/v1/sessions?title=&directory=`)).json()) as {
+            id: string;
+        }[];
+        expect(empty).toHaveLength(2);
+    });
+
     it("GET /v1/dashboard forwards an optional model filter (t204)", async () => {
         const dispatcher = {
             request_dashboard: vi.fn(),
@@ -1951,6 +2012,47 @@ describe("local-api session history endpoints (t259)", () => {
             "hello",
             expect.any(AbortSignal),
         );
+    });
+
+    it("t457 AC-006: POST searchContent filters.title/directory 过滤候选", async () => {
+        const service = base_session_service();
+        const provider: SessionsProvider = vi.fn(() => [make_session_row()]);
+        setup_session_api(service, provider);
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filters: { title: "Test Session", directory: "/proj" },
+                    keyword: "hello",
+                }),
+            },
+        );
+        expect(res.status).toBe(200);
+        // 候选枚举携带独立 title/directory。
+        expect(provider).toHaveBeenCalledWith(
+            expect.objectContaining({ title: "Test Session", directory: "/proj", limit: 100 }),
+        );
+    });
+
+    it("t457: POST searchContent filters.title/directory 非字符串返回 400", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/searchContent`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: { title: 123 }, keyword: "hello" }),
+            },
+        );
+        expect(res.status).toBe(400);
     });
 
     it("t404: POST searchContent offset/limit 分块返回 progress", async () => {

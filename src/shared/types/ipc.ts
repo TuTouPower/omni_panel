@@ -443,6 +443,10 @@ export interface HistoryMessageLike {
 export interface SessionHistorySearchContentFilters {
     readonly sources?: readonly string[];
     readonly search?: string;
+    /** t457: 独立 title 子串过滤（大小写不敏感；空/省略不约束）。 */
+    readonly title?: string;
+    /** t457: 独立 directory 子串过滤（大小写不敏感；空/省略不约束）。 */
+    readonly directory?: string;
     readonly start_at?: number;
     readonly end_at?: number;
 }
