@@ -1,6 +1,7 @@
 """Canonical lifecycle implementation for the task toolchain."""
 
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -13,21 +14,6 @@ from .locks import TASK_ID_LOCK_NAME, git_common_lock
 from .scheduling import _dependency_cycle
 from .store import append_audit, append_note, git_text_at_ref, load_task, load_task_at_ref, rebuild_index, require_status, scan_tasks, scan_tasks_at_ref, task_effective_state, task_schedule_references
 from .worktrees import discard_worktree, remove_worktree
-
-def _dependency_path_exists(
-    dependencies: dict[str, list[str]], src: str, dst: str
-) -> bool:
-    """dependencies 图上 src → … → dst 传递可达性（src 直接或间接依赖 dst）。"""
-    stack, seen = [src], set()
-    while stack:
-        node = stack.pop()
-        if node == dst:
-            return True
-        if node in seen:
-            continue
-        seen.add(node)
-        stack.extend(dependencies.get(node, []))
-    return False
 
 def cmd_add(args):
     require_primary_worktree()
@@ -92,13 +78,13 @@ def cmd_edit(args):
     field_names = (
         "title", "note", "note_append", "review_level", "depends_on",
         "depends_append", "depends_remove", "conflicts_with",
-        "conflicts_append", "conflicts_remove", "schedule_status",
+        "conflicts_append", "conflicts_remove",
     )
     values = {name: getattr(args, name, None) for name in field_names}
     if all(value is None for value in values.values()):
         sys.exit(
             "没有要改的字段；传 --title / --note / --note-append / --review-level / "
-            "--depends-* / --conflicts-* / --schedule-status"
+            "--depends-* / --conflicts-*"
         )
     if values["note"] is not None and values["note_append"] is not None:
         sys.exit("--note 与 --note-append 互斥")
@@ -121,7 +107,7 @@ def cmd_edit(args):
     if fm["status"] != "backlog":
         sys.exit(
             f"{args.tid} status={fm['status']}；edit 只改 main 中未进入链的 backlog，"
-            "active/blocked 请在自身 worktree 内编辑"
+            "active 请在自身 worktree 内编辑"
         )
     covered = task_effective_state(args.tid, fm)
     if covered:
@@ -131,7 +117,7 @@ def cmd_edit(args):
         )
 
     changed = []
-    peer_updates: dict[Path, tuple[dict, str]] = {}
+    peer_conflict_update = None
     if values["title"] is not None:
         title = values["title"].strip()
         if not title:
@@ -219,9 +205,26 @@ def cmd_edit(args):
             )
             if len(remove_tid) != 1:
                 sys.exit("--conflicts-remove 只接受一个 tid")
-            if remove_tid[0] not in conflicts:
-                sys.exit(f"{args.tid}.conflicts_with 不含 {remove_tid[0]}")
-            conflicts.remove(remove_tid[0])
+            peer_tid = remove_tid[0]
+            _peer_task, peer_path, peer_fm, peer_body = load_task(peer_tid)
+            peer_conflicts = parse_tid_list(
+                peer_fm.get("conflicts_with", ""), field=f"{peer_tid}.conflicts_with"
+            )
+            local_declares = peer_tid in conflicts
+            peer_declares = args.tid in peer_conflicts
+            if not local_declares and not peer_declares:
+                sys.exit(f"{args.tid} 与 {peer_tid} 不存在有效 conflicts_with 关系")
+            if local_declares:
+                conflicts.remove(peer_tid)
+            if peer_declares:
+                if peer_fm["status"] != "backlog" or task_effective_state(peer_tid, peer_fm):
+                    sys.exit(
+                        f"{peer_tid} 仍声明与 {args.tid} 冲突，但其状态不可安全编辑；"
+                        "请先处理该 task 后再移除关系"
+                    )
+                peer_conflicts.remove(args.tid)
+                peer_fm["conflicts_with"] = dump_tid_list(peer_conflicts)
+                peer_conflict_update = (peer_path, peer_fm, peer_body)
         validate_tid_references(
             conflicts,
             field="conflicts_with",
@@ -234,107 +237,77 @@ def cmd_edit(args):
         if dropped_conflicts:
             sys.exit(f"conflicts_with 不可引用 dropped task：{', '.join(dropped_conflicts)}")
 
-        affected = sorted(set(current_conflicts) | set(conflicts), key=tid_sort_key)
-        for peer_tid in affected:
-            peer_task = tasks_by_tid[peer_tid]
-            # done target 已合 main 或归档，不可编辑：跳过反向边同步，
-            # owner 单边增删即可；调度由 view 的 main_done_set 释放。
-            if peer_task["status"] == "done":
-                continue
-            if peer_task["status"] != "backlog":
-                sys.exit(
-                    f"无法维护冲突反向边：{peer_tid} status={peer_task['status']}，"
-                    "须为可编辑 backlog"
-                )
-            _, peer_path, peer_fm, peer_body = load_task(peer_tid)
-            peer_covered = task_effective_state(peer_tid, peer_fm)
-            if peer_covered:
-                sys.exit(f"无法维护冲突反向边：{peer_tid} {peer_covered}")
-            peer_conflicts = parse_tid_list(
-                peer_fm.get("conflicts_with", ""),
-                field=f"{peer_tid}.conflicts_with",
-            )
-            if peer_tid in conflicts:
-                peer_conflicts = sorted(
-                    set(peer_conflicts + [args.tid]), key=tid_sort_key
-                )
-            else:
-                peer_conflicts = [tid for tid in peer_conflicts if tid != args.tid]
-            peer_fm["conflicts_with"] = dump_tid_list(peer_conflicts)
-            peer_updates[peer_path] = (peer_fm, peer_body)
         fm["conflicts_with"] = dump_tid_list(conflicts)
         changed.append(f"conflicts_with={fm['conflicts_with']!r}")
 
-    if values["schedule_status"] is not None:
-        fm["schedule_status"] = values["schedule_status"]
-        changed.append(f"schedule_status={values['schedule_status']}")
 
-    # L1 冗余门禁：仅当本次变更触碰了依赖/冲突字段时，校验 owner 相关
-    # pair——冲突边两端间不得存在（传递）依赖路径。依赖已蕴含串行，
-    # 冗余冲突边无意义（数据卫生，见 blueprint 调度图语义不变式）。
-    # 只拦新增/留存于本次变更后图中的 pair，不全图重验，保证
-    # --conflicts-remove / --depends-remove 的增量修复路径畅通。
-    if any(value is not None for value in dependency_actions + conflict_actions):
-        final_depends = parse_tid_list(
-            fm.get("depends_on", ""), field=f"{args.tid}.depends_on"
-        )
-        final_conflicts = parse_tid_list(
-            fm.get("conflicts_with", ""), field=f"{args.tid}.conflicts_with"
-        )
-        # 冲突边双向口径：owner 声明 ∪ peer 声明（防脏数据单边挂边漏检）；
-        # peer 反向边若本次已同步变更，须用 peer_updates 里的新值而非旧快照，
-        # 否则 --conflicts-remove 的修复路径会被自己的反向边误拦
-        updated_peer_fm = {
-            peer_fm["tid"]: peer_fm for peer_fm, _ in peer_updates.values()
-        }
-        conflict_peers = set(final_conflicts)
-        for candidate in tasks:
-            if candidate["tid"] == args.tid:
-                continue
-            peer_fm = updated_peer_fm.get(candidate["tid"], candidate)
-            peer_conflicts = parse_tid_list(
-                peer_fm.get("conflicts_with", ""),
-                field=f"{candidate['tid']}.conflicts_with",
-            )
-            if args.tid in peer_conflicts:
-                conflict_peers.add(candidate["tid"])
-        candidate_dependencies = {
-            candidate["tid"]: parse_tid_list(
-                candidate.get("depends_on", ""),
-                field=f"{candidate['tid']}.depends_on",
-            )
-            for candidate in tasks
-            if candidate["status"] not in ctx.ARCHIVED_STATUSES
-        }
-        candidate_dependencies[args.tid] = final_depends
-        for peer in sorted(conflict_peers, key=tid_sort_key):
-            forward = _dependency_path_exists(
-                candidate_dependencies, args.tid, peer
-            )
-            backward = _dependency_path_exists(
-                candidate_dependencies, peer, args.tid
-            )
-            if forward or backward:
-                direction = (
-                    f"{args.tid} ⋯depends⋯→ {peer}"
-                    if forward
-                    else f"{peer} ⋯depends⋯→ {args.tid}"
-                )
-                sys.exit(
-                    f"冲突边与依赖路径冗余：{args.tid} ↔ {peer} 冲突，但{direction}"
-                    "（依赖已蕴含串行）；请只保留依赖，删除冲突边"
-                )
-
-    # 先在内存完成全部新 front matter，再批量落盘（owner 最后），
-    # 避免 peer 反向边与 owner 顺序写中途崩溃留单向残留（RT-008）
-    files = [
-        (peer_path, peer_fm, peer_body)
-        for peer_path, (peer_fm, peer_body) in peer_updates.items()
-    ]
-    files.append((path, fm, body))
-    write_front_matter_many(files)
+    if peer_conflict_update is not None:
+        write_front_matter_many([peer_conflict_update, (path, fm, body)])
+    else:
+        write_front_matter(path, fm, body)
     rebuild_index()
     print(f"{args.tid} updated: {', '.join(changed)}")
+
+_TESTING_PENDING_RE = re.compile(
+    r"^[\s`*_/、。:：-]*(待填|待补|未填|占位|todo|tbd)[\s`*_/、。:：-]*$", re.IGNORECASE
+)
+
+
+def _testing_line_has_content(line: str, placeholders: tuple[str, ...]) -> bool:
+    """正文行剥去门禁占位符字面后是否仍承载内容。
+
+    覆盖章节体内占位符回显（`{doctor_cmd}` 待填）不算已配置；对其他占位符的
+    有效引用（如「同 {test_cmd}」）算已配置。
+    """
+    body = re.sub(r"\{(" + "|".join(placeholders) + r")\}", "", line).strip()
+    if not body:
+        return False
+    return not _TESTING_PENDING_RE.fullmatch(body)
+
+
+def _missing_testing_sections(text: str) -> list[str]:
+    """检查三个门禁章节是否已配置（章节体存在非占位内容）。
+
+    章节名是 preflight 与 skill 的机械锚点。用 HEADING_RE 识别标题行（同级及
+    更高层标题结束当前章节，章节内 ### 小节仍属章节），用 FENCE_RE/
+    FENCE_CLOSE_RE 跳过 fenced code——fence 内的 `#` 注释行不是标题，fence
+    本身计作已配置。正文行剥去占位符字面后无剩余内容（或仅为待填标记）的
+    章节视为未配置；正文写「无」按 task-preflight / task-work skill 的门禁
+    语义裁定，此处视为已配置。
+    """
+    sections = ("doctor_cmd", "test_cmd", "blackbox_verify")
+    found = {name: False for name in sections}
+    current = None
+    current_level = 0
+    fence_marker = None
+    for line in text.splitlines():
+        if fence_marker is not None:
+            fence = ctx.FENCE_CLOSE_RE.match(line)
+            if fence and fence.group(1)[0] == fence_marker:
+                fence_marker = None
+                if current:
+                    found[current] = True
+            continue
+        fence = ctx.FENCE_RE.match(line)
+        if fence:
+            if current:
+                found[current] = True
+            fence_marker = fence.group(1)[0]
+            continue
+        heading = ctx.HEADING_RE.fullmatch(line)
+        if heading:
+            level = len(heading.group(1))
+            title = heading.group(2).strip().strip("`").lower()
+            if current and level > current_level:
+                found[current] = True
+                continue
+            current = title if title in found else None
+            current_level = level if current else 0
+            continue
+        if current and line.strip() and _testing_line_has_content(line, sections):
+            found[current] = True
+    return [f"{{{name}}}" for name in sections if not found[name]]
+
 
 def cmd_preflight(args):
     ref_arg = args.ref
@@ -349,11 +322,12 @@ def cmd_preflight(args):
     problems, warnings = [], []
 
     # 1. 状态
-    allow_backlog = args.allow_backlog
+    creation = getattr(args, "creation", False)
+    if creation and (fm["status"] != "backlog" or args.require_verified):
+        sys.exit("--creation 仅用于 backlog，且不能与 --require-verified 同用")
+    allow_backlog = args.allow_backlog or creation
     if fm["status"] in ctx.ARCHIVED_STATUSES:
         problems.append(f"status={fm['status']}，已归档不可执行")
-    elif fm["status"] == "blocked":
-        problems.append("status=blocked，须用户放行（加轮 resume 或 drop）后再执行")
     elif fm["status"] == "backlog" and not allow_backlog:
         problems.append("status=backlog，须先 start")
     elif fm["status"] not in ("active", "backlog"):
@@ -379,6 +353,7 @@ def cmd_preflight(args):
             text,
             task_body,
             require_verified=args.require_verified,
+            creation=creation,
         )
         problems.extend(document_problems)
         warnings.extend(document_warnings)
@@ -419,14 +394,11 @@ def cmd_preflight(args):
     testing_md = ctx.REPO_ROOT / "docs" / "blueprint" / "testing.md"
     if testing_md.is_file():
         testing_text = testing_md.read_text(encoding="utf-8")
-        missing = [
-            ph for ph in ("{doctor_cmd}", "{test_cmd}", "{blackbox_verify}")
-            if ph in testing_text
-        ]
+        missing = _missing_testing_sections(testing_text)
         if missing:
             warnings.append(
                 f"testing.md 仍有未填占位符 {' / '.join(missing)}；"
-                "门禁命令未定义，task-work Step 1/3/4 与合并后验证无机械锚点。"
+                "门禁命令未定义，task-work 的前置、测试、黑盒与合并后验证无机械锚点。"
                 "项目复制后须在 testing.md 填写实际命令"
             )
 
@@ -442,22 +414,32 @@ def cmd_preflight(args):
         sys.exit(1)
     print(f"\npreflight=PASS{f'（{len(warnings)} 条警告）' if warnings else ''}")
 
-def cmd_block(args):
+def cmd_limits(args):
+    """Increase persisted execution budgets without changing task status."""
     task, path, fm, body = load_task(args.tid)
     require_status(fm, "active")
     require_own_task_worktree(fm)
-    fm["status"] = "blocked"
-    append_note(fm, f"blocked: {args.reason}")
+    from .review import review_limits
+    limits = review_limits(fm)
+    changes = []
+    for field, arg_name in (("review_limit", "review"), ("verify_limit", "verify")):
+        value = getattr(args, arg_name, None)
+        if value is None:
+            continue
+        if value <= limits[field]:
+            sys.exit(f"{field} 必须大于当前上限 {limits[field]}；不重置历史轮次")
+        changes.append(f"{field}: {limits[field]}->{value}")
+        limits[field] = value
+    if not changes:
+        sys.exit("至少传 --review 或 --verify，且只能增加绝对上限")
+    reason = (args.reason or "").strip()
+    if not reason:
+        sys.exit("调整轮次上限必须 --reason 记录用户授权")
+    fm.update({key: str(value) for key, value in limits.items()})
+    append_note(fm, f"budget: {', '.join(changes)}; {reason}")
     write_front_matter(path, fm, body)
-    print(f"{args.tid} status=blocked reason={args.reason}")
+    print(f"{args.tid} limits updated: {', '.join(changes)}")
 
-def cmd_resume(args):
-    task, path, fm, body = load_task(args.tid)
-    require_status(fm, "blocked")
-    require_own_task_worktree(fm)
-    fm["status"] = "active"
-    write_front_matter(path, fm, body)
-    print(f"{args.tid} status=active (resumed)")
 
 def _close_task(args, status: str, note: str | None) -> None:
     """done / dropped 收尾：先做 git 侧动作，再单次写盘，最后归档目录。
@@ -472,7 +454,7 @@ def _close_task(args, status: str, note: str | None) -> None:
         require_own_task_worktree(fm)
     elif fm["status"] in ctx.ARCHIVED_STATUSES:
         sys.exit(f"{args.tid} 已是 {fm['status']}")
-    elif fm["status"] in ("active", "blocked"):
+    elif fm["status"] == "active":
         require_own_task_worktree(fm)
     else:
         require_primary_worktree()
@@ -499,7 +481,8 @@ def _close_task(args, status: str, note: str | None) -> None:
             ctx.effective_worktree(fm), expected_branch=fm.get("branch")
         )
 
-    orig_fm = dict(fm)
+    fm = dict(fm)
+    orig_status = fm["status"]
     fm["status"] = status
     if note:
         append_note(fm, note)
@@ -513,11 +496,38 @@ def _close_task(args, status: str, note: str | None) -> None:
     try:
         shutil.move(str(src), str(dst))
     except (OSError, shutil.Error) as e:
-        write_front_matter(path, orig_fm, body)
+        # 移动失败：front matter 已写成目标状态但目录仍在原处。回滚 front matter
+        # 避免「状态已迁 + 目录未归档」的中间态；回滚本身失败则如实报告现场。
+        rollback_note = ""
+        if src.exists():
+            try:
+                fm["status"] = orig_status
+                write_front_matter(path, fm, body)
+                rollback_note = "；front matter 已回滚"
+            except (OSError, ctx.TaskDataError) as rb:
+                rollback_note = f"；front matter 回滚失败（{rb}），仍是 status={status}"
+        else:
+            rollback_note = "；源目录不存在，无法回滚 front matter"
         sys.exit(
-            f"归档移动失败（{e}）；front matter 已回滚为 status={orig_fm['status']}，"
-            f"目录仍在 {ctx._rel(src)}。排除原因后重试"
+            f"归档移动失败（{e}）{rollback_note}；"
+            f"目录在 {ctx._rel(src) if src.exists() else ctx._rel(dst)}。排除原因后重试"
         )
+    # 归档已成功；此后只派生索引重建，失败不反向搬动状态权威（目录/front matter
+    # 保持归档终态），只提示索引待重建。
+    # 条件等价于 not in_own_worktree：done 分支前置校验无条件要求自身 worktree，
+    # done 恒 in_own_worktree=True。写 dropped 是为保持该不变量显式可见。
+    # main 上直接 drop 会改变 task 的目录归属；同步两个派生索引。
+    # active worktree 中的 finish/drop 由后续 task commit/integrate 收尾索引，
+    # 此处不能提前把索引写进执行分支，否则会制造 merge 冲突。
+    if status == "dropped" and not in_own_worktree:
+        try:
+            rebuild_index()
+        except (OSError, ctx.TaskDataError) as e:
+            sys.exit(
+                f"{args.tid} status={status}; 目录已归档 -> {ctx._rel(dst)}; {wt_msg}\n"
+                f"派生索引重建失败（{e}）；归档状态已生效，"
+                "运行 `task.py list --rebuild` 修复索引后随维护 commit 入库"
+            )
     print(f"{args.tid} status={status}; 目录已归档 -> {ctx._rel(dst)}; {wt_msg}")
     if not removed and not in_own_worktree:
         print("WARNING: worktree 未移除，已记入 note；请手动清理", file=sys.stderr)
@@ -546,7 +556,7 @@ def cmd_rewind(args):
         worktree_task = worktree / task["dir"] / "task.md"
         if worktree_task.is_file():
             worktree_fm, _ = parse_front_matter(worktree_task)
-            if worktree_fm.get("status") in ("active", "blocked"):
+            if worktree_fm.get("status") == "active":
                 fm = worktree_fm
 
     effective = fm["status"]
@@ -562,7 +572,7 @@ def cmd_rewind(args):
     if target not in ctx.STATUS_ORDER:
         sys.exit(f"--to {target!r} 非法；须为 {ctx.STATUS_ORDER} 之一")
     if ctx.STATUS_ORDER.index(target) >= ctx.STATUS_ORDER.index(effective):
-        sys.exit(f"rewind 只向后：{effective} -> {target} 不是撤回（前进用 start/block）")
+        sys.exit(f"rewind 只向后：{effective} -> {target} 不是撤回（前进用 start；执行受阻不改变 task 状态）")
 
     wt_msg = ""
     if target == "backlog":
@@ -621,8 +631,6 @@ def cmd_rewind(args):
         require_own_task_worktree(fm)
 
     fm["status"] = target
-    if target == "backlog":
-        fm["schedule_status"] = "pending_clarification"
     if effective == recorded:
         transition = f"{effective} -> {target}"
     else:

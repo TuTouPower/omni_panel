@@ -61,8 +61,6 @@ def cmd_view(args):
         selected = schedule["selected"]
         waiting_deps = schedule["waiting_deps"]
         blocked_conflicts = schedule["blocked_conflicts"]
-        pending_clarify = schedule["pending_clarify"]
-        unscheduled = schedule["unscheduled"]
 
         lines: list[str] = ["== task 全景 ==", "", f"[运行中] active {len(active_list)}"]
         if active_list:
@@ -79,12 +77,22 @@ def cmd_view(args):
         else:
             lines.append("  -")
         lines.extend(["", f"[待运行] backlog {len(backlog_tasks)}"])
+        selected_set = set(selected)
+        ready_conflicts = sorted(
+            {
+                tuple(sorted((tid, peer), key=tid_sort_key))
+                for tid in selected
+                for peer in conflicts[tid] & selected_set
+                if tid != peer
+            },
+            key=lambda pair: (tid_sort_key(pair[0]), tid_sort_key(pair[1])),
+        )
         groups = (
-            ("▸ 下一批可跑", [(tid, tasks[tid]["title"]) for tid in selected]),
+            ("▸ 下一批可跑（冲突项勿并行，分链以 plan 为准）",
+             [(tid, tasks[tid]["title"]) for tid in selected]),
+            ("▸ 可跑但互相冲突", ready_conflicts),
             ("▸ 被依赖阻塞", waiting_deps),
             ("▸ 被冲突阻塞", blocked_conflicts),
-            ("▸ 调度未就绪", [(tid, "schedule_status=pending_clarification") for tid in pending_clarify]),
-            ("▸ 未排程", [(tid, tasks[tid]["title"]) for tid in unscheduled]),
         )
         for heading, rows in groups:
             if not rows:
@@ -93,17 +101,12 @@ def cmd_view(args):
             for left, right in rows:
                 if heading == "▸ 被依赖阻塞":
                     lines.append(f"    {left} → {right}")
+                elif heading == "▸ 可跑但互相冲突":
+                    lines.append(f"    {left} ↔ {right}  — 不要并行启动")
                 elif heading == "▸ 被冲突阻塞":
                     lines.append(f"    {left} ↔ {right}  — {left}: {tasks[left]['title']}")
                 else:
                     lines.append(f"    {left}  {right}")
-        if schedule["stalled"]:
-            lines.extend([
-                "",
-                "  ⚠ 调度停滞：已排程 backlog 无可跑项且无运行中 task，不会自行恢复；"
-                "检查前置是否未排程或调度图异常："
-                + " ".join(schedule["stalled_backlog"]),
-            ])
         lines.extend(["", f"[已结束] done={len(main_done_set)}  dropped={len(dropped_set)}"])
         if unmerged_done:
             lines.append(
@@ -159,24 +162,6 @@ def cmd_attempt_report(args):
         fail_class=args.fail_class,
         reason=args.reason,
     ))
-
-
-def cmd_ledger_record(args):
-    if args.event not in ctx.LEDGER_RECORDABLE_EVENTS:
-        sys.exit(
-            f"ledger record 不允许生命周期事件 {args.event!r}；请使用 task.py attempt 子命令"
-        )
-    event = {"event": args.event}
-    if args.tid:
-        event["tid"] = args.tid
-    if args.reason is not None:
-        event["text"] = args.reason
-    final = ledger_append(event)
-    parts = [f"recorded: {final['event']}"]
-    for key in ("tid",):
-        if final.get(key):
-            parts.append(f"{key}={final[key]}")
-    print(" ".join(parts))
 
 
 def cmd_ledger_tail(args):

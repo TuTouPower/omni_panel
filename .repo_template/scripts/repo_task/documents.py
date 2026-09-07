@@ -81,8 +81,8 @@ def write_front_matter(path: Path, fm: dict, body: str) -> None:
 def write_front_matter_many(files: list[tuple[Path, dict, str]]) -> None:
     """批量写 front matter：先全部写 .tmp，再逐个 os.replace（调用方保证 owner 最后）。
 
-    单个 write_front_matter 已原子，但多个文件顺序写中途崩溃仍会单向残留
-    （edit 的 peer 反向边）；两阶段把「部分更新」窗口缩到 replace 循环（RT-008）。
+    单个 write_front_matter 已原子，但多个文件顺序写中途崩溃仍可能只更新一部分；
+    两阶段把 conflict 关系清理等批量写的「部分更新」窗口缩到 replace 循环（RT-008）。
     """
     staged: list[tuple[Path, Path]] = []
     for path, fm, body in files:
@@ -187,6 +187,7 @@ def unverified_contract_gate(
     spec_text: str,
     *,
     require_verified: bool = False,
+    creation: bool = False,
 ) -> tuple[list[str], list[str]]:
     """返回未知契约的 (阻塞项, 警告项)。"""
     contracts = parse_unverified_contracts(spec_text)
@@ -198,7 +199,7 @@ def unverified_contract_gate(
             "须明确改为 UNVERIFIED-BLOCKING 或 UNVERIFIED-SPIKE"
         )
     if contracts["blocking"]:
-        problems.append(
+        (warnings if creation and not require_verified else problems).append(
             f"未知契约清单有 {len(contracts['blocking'])} 项 UNVERIFIED-BLOCKING；"
             "须由用户或外部环境核实并改写结论"
         )
@@ -210,7 +211,7 @@ def unverified_contract_gate(
         if require_verified:
             problems.append(message)
         else:
-            warnings.append(f"{message}；当前仅可执行 Step 1")
+            warnings.append(f"{message}；当前只能先完成实验并回填结论")
 
     return problems, warnings
 
@@ -344,6 +345,7 @@ def validate_task_documents(
     *,
     require_verified: bool = False,
     allow_template_placeholders: bool = False,
+    creation: bool = False,
 ) -> tuple[list[str], list[str]]:
     """校验 task 创建骨架与未知契约门禁，返回 (阻塞项, 警告项)。"""
     problems, warnings = [], []
@@ -355,8 +357,7 @@ def validate_task_documents(
             + "、".join(missing_spec_headings)
         )
 
-    # 规范块门禁：模板中带 `<!-- 规范 -->` 标记的就近规范逐字保留，
-    # agent 只能替换块外占位符，不得删除或改写规范块内容。
+    # 规范块属于严格模板契约；repo-template-sync 负责先强制迁移存量 task。
     template_spec_path = ctx.TEMPLATE_DIR / "spec.md"
     if template_spec_path.is_file():
         template_blocks = _extract_guide_blocks(
@@ -364,15 +365,11 @@ def validate_task_documents(
         )
         if template_blocks:
             spec_blocks = set(_extract_guide_blocks(spec_text))
-            missing_blocks = [b for b in template_blocks if b not in spec_blocks]
+            missing_blocks = [item for item in template_blocks if item not in spec_blocks]
             if missing_blocks:
                 problems.append(
-                    f"spec.md 缺或被改 {len(missing_blocks)} 个规范块"
-                    "（`<!-- 规范 -->` 标记内的内容不得删除或改写，"
-                    "只能替换块外占位符；改模板须同步修改本校验）：\n  - "
-                    + "\n  - ".join(
-                        block.replace("\n", " ")[:100] for block in missing_blocks
-                    )
+                    f"spec.md 缺或被改 {len(missing_blocks)} 个当前规范块；"
+                    "先运行 repo-template-sync 强制迁移，规范块不得手改"
                 )
 
     acceptance = _extract_markdown_section(spec_text, 3, "验收标准")
@@ -408,12 +405,13 @@ def validate_task_documents(
             + "、".join(missing_task_headings)
         )
 
+
     visible_task_lines = {line.strip() for line in _visible_markdown_lines(task_body)}
     missing_guidance = [
         line for line in ctx.IMPLEMENTATION_NOTE_GUIDANCE if line not in visible_task_lines
     ]
     if missing_guidance:
-        problems.append("task.md 实施笔记缺模板固定说明")
+        problems.append("task.md 实施笔记缺当前模板固定说明；先运行 repo-template-sync 强制迁移")
 
     notes = _extract_markdown_section(task_body, 2, "实施笔记")
     if notes is not None:
@@ -437,6 +435,7 @@ def validate_task_documents(
     contract_problems, contract_warnings = unverified_contract_gate(
         spec_text,
         require_verified=require_verified,
+        creation=creation,
     )
     problems.extend(contract_problems)
     warnings.extend(contract_warnings)
