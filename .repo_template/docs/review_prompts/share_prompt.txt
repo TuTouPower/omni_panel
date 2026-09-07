@@ -3,7 +3,7 @@
 本报告必须含一行审查范围指纹，格式精确如下（整行照抄，禁止反引号、加粗或列表前缀等 markdown 修饰）：
 reviewed_scope: {review_scope_fingerprint}
 
-指纹由实施方渲染 prompt 时按 `git diff {diff_anchor}`（排除 task.md / 处置表 / pending / findings 等流程文件）计算。`check_review_status.py` 重算当前指纹比对：
+指纹按相对 `{diff_anchor}` 的完整 worktree 内容变化计算，包含未跟踪交付文件，排除 task.md / 处置表 / pending / findings 等流程文件。实施方派审前须对明确的新交付文件执行 `git add -N`，让它们同时出现在 reviewer 的 `git diff` 中。`check_review_status.py` 重算当前指纹比对：
 
 - 报告缺 `reviewed_scope` 行，或指纹与当前不一致 → 判定「审查后又改动，PASS 失效」，overall=INCOMPLETE，须重审。
 - 多轮追加时，`## Round N` 小节内写**本轮** reviewed_scope 行；脚本取全文最后一条与当前比对。
@@ -26,7 +26,7 @@ reviewed_scope: {review_scope_fingerprint}
 
 ### 不信任 implementer 自述
 
-`task.md`（实施笔记 / 收尾报告）是 claim 不是证据。一切以 `git -C '{repo_root}' diff {diff_anchor}` 与代码/测试本身为准。implementer 的「理由」（YAGNI / 保持简单 / 故意如此 / mock 是临时的）不算 finding 降级依据。
+`task.md`（实施笔记 / 收尾报告）是 claim 不是证据。一切以相对 `{diff_anchor}` 的完整交付内容、`git -C '{repo_root}' diff {diff_anchor}`、`git status --short` 与代码/测试本身为准；若状态中仍有 reviewer 看不到的未跟踪交付文件，结论必须为 INCOMPLETE。implementer 的「理由」（YAGNI / 保持简单 / 故意如此 / mock 是临时的）不算 finding 降级依据。
 
 ### AC 复验披露（结论段必写）
 
@@ -85,7 +85,7 @@ Round N（N≥2）在对应报告文件末尾追加 `## Round N (YYYY-MM-DD HH:M
 
 ### 系统性缺口去重
 
-发现跨 task 的测试基础设施、公共代码、环境或工具链缺口时，先只读运行 `.repo_template/scripts/task.py list`，必要时 `.repo_template/scripts/task.py show <tid>` 查找等价 follow-up。**仅允许** `list` / `show`（只读）；禁止 `add` / `start` / `finish` / `block` 等写命令。已有 task 时在结论引用 tid，不重复报告同一 finding；当前 diff 扩大问题或缺口直接影响当前正确性、安全、协议兼容、测试可信度时，仍报告本次新增影响。
+发现跨 task 的测试基础设施、公共代码、环境或工具链缺口时，先只读运行 `.repo_template/scripts/task.py list`，必要时 `.repo_template/scripts/task.py show <tid>` 查找等价 follow-up。**仅允许** `list` / `show`（只读）；禁止 `add` / `start` / `finish` 等写命令。已有 task 时在结论引用 tid，不重复报告同一 finding；当前 diff 扩大问题或缺口直接影响当前正确性、安全、协议兼容、测试可信度时，仍报告本次新增影响。
 
 reviewer 只建议 follow-up 标题、slug 和阻断性。
 
@@ -93,13 +93,13 @@ reviewer 只建议 follow-up 标题、slug 和阻断性。
 
 `critical` / `important` 为 blocking finding；`minor` 非阻断，但仍须由 implementer 写入 `task.md` 处置表。
 
-- **职责边界**：你只写 finding 与本报告 `verdict`。`已修` / `遗留` / `撤回` 由 implementer 在 `task.md` 处置表填写；task 是否 `blocked` 由 `.agents/skills/task-work/SKILL.md`「Step 6：处置」决定，不是你的 verdict 字段。
+- **职责边界**：你只写 finding 与本报告 `verdict`。`已修` / `遗留` / `撤回` 由 implementer 在 `task.md` 处置表填写；task 阻塞由实施者记录在实施笔记和 attempt report，不是 reviewer verdict。
 - **PASS**：以 `git -C '{repo_root}' diff` 与代码/测试为准，当前无未解决的 critical / important（可有 minor）。
 - **FAIL**：仍存在未解决的 critical / important。
 - **Round N（N≥2）**：追加新 `## Round N` 小节并给**本轮** verdict（脚本取最后一条 `verdict`）。前轮 blocker 须用 diff/代码核实是否已消除或已按撤回流程作废，**不**采信处置表自称「已修」。前轮 blocker 仍在或本轮有新 blocker → FAIL；否则 PASS。
-- **禁止**在同一 round 内因 implementer 临时修复而覆盖或追加「复核翻 PASS」；修完代码后须走完整下一轮审阅（`.agents/skills/task-work/SKILL.md` Step 3→5）。
+- **禁止**在同一 round 内因 implementer 临时修复而覆盖或追加「复核翻 PASS」；修完代码后须走完整下一轮审阅（见 `.agents/skills/task-work/SKILL.md`“三道硬门禁”与“实施”）。
 
-权威流程见 `.agents/skills/task-work/SKILL.md`「Step 6：处置」。
+权威流程见 `.agents/skills/task-work/SKILL.md`“独立 review”与 finding 处置要求。
 
 ## 严重度三级（完整定义）
 

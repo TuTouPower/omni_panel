@@ -10,6 +10,8 @@ diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
 note: "查询契约：title/directory 独立 AND；下游 UI 与 skill 依赖"
+review_limit: "5"
+verify_limit: "5"
 ---
 
 # Task 过程总账
@@ -18,9 +20,9 @@ note: "查询契约：title/directory 独立 AND；下游 UI 与 skill 依赖"
 
 ## 实施笔记
 
-执行期边做边写：实际步骤、踩坑、中途决策、偏离 spec、关键验证、blocked 原因与用户放行的新轮次上限。
+执行期记录关键步骤、决策、验证、阻塞和用户批准的新轮次上限。
 
-创建期不预测实施步骤——那时尚未读代码，预测必然失准。只记有追溯价值的内容，不写命令流水账。无事项时写：无
+创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
 无
 

@@ -10,25 +10,24 @@ from .control import (
     cmd_attempt_reserve,
     cmd_attempt_terminal,
     cmd_effective_status,
-    cmd_ledger_record,
     cmd_ledger_tail,
     cmd_ps,
     cmd_view,
 )
 from .goal import cmd_goal, cmd_goal_check
+from .recovery import cmd_recovery
 from .plan import cmd_plan
 from .integration import cmd_cleanup_worktree, cmd_integrate, cmd_integrate_chain, cmd_start
 from .lifecycle import (
     cmd_add,
-    cmd_block,
     cmd_drop,
     cmd_edit,
     cmd_finish,
     cmd_list,
     cmd_preflight,
     cmd_purge,
-    cmd_resume,
     cmd_rewind,
+    cmd_limits,
     cmd_show,
 )
 
@@ -43,6 +42,9 @@ def main():
         description="task 状态入口（状态权威 = task.md；执行权威 = exact attempt identity）"
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
+    recovery = sub.add_parser("recovery", help="只读判定 start/finish/commit/attempt 中断阶段（JSON）")
+    recovery.add_argument("tid")
+    recovery.set_defaults(func=cmd_recovery)
 
     add = sub.add_parser("add", help="新增 backlog task")
     add.add_argument("--title", required=True)
@@ -63,7 +65,6 @@ def main():
     edit.add_argument("--conflicts-with")
     edit.add_argument("--conflicts-append")
     edit.add_argument("--conflicts-remove")
-    edit.add_argument("--schedule-status", choices=ctx.SCHEDULE_STATUSES)
     edit.set_defaults(func=cmd_edit)
 
     start = sub.add_parser("start", help="backlog -> active：创建 task branch/worktree")
@@ -74,18 +75,17 @@ def main():
     preflight = sub.add_parser("preflight", help="开干前门禁")
     preflight.add_argument("tid")
     preflight.add_argument("--allow-backlog", action="store_true")
+    preflight.add_argument("--creation", action="store_true", help="只验 backlog 创建有效性；已分类 BLOCKING 不阻断创建")
     preflight.add_argument("--ref")
     preflight.add_argument("--require-verified", action="store_true")
     preflight.set_defaults(func=cmd_preflight)
 
-    block = sub.add_parser("block", help="active -> blocked")
-    block.add_argument("tid")
-    block.add_argument("--reason", required=True, choices=ctx.BLOCK_REASONS)
-    block.set_defaults(func=cmd_block)
-
-    resume = sub.add_parser("resume", help="blocked -> active")
-    resume.add_argument("tid")
-    resume.set_defaults(func=cmd_resume)
+    limits = sub.add_parser("limits", help="增加 active task 的 review/verify 绝对上限")
+    limits.add_argument("tid")
+    limits.add_argument("--review", type=int)
+    limits.add_argument("--verify", type=int)
+    limits.add_argument("--reason", required=True)
+    limits.set_defaults(func=cmd_limits)
 
     finish = sub.add_parser("finish", help="active -> done")
     finish.add_argument("tid")
@@ -191,7 +191,7 @@ def main():
     integrate.add_argument("tid")
     _add_identity(integrate)
     integrate.add_argument("--continue", dest="continue_merge", action="store_true")
-    integrate.add_argument("--keep-branch", action="store_true")
+    integrate.add_argument("--keep-branch", action="store_true", help="仅在 --continue 收尾或幂等重入时保留已合入分支")
     integrate.set_defaults(func=cmd_integrate)
 
     chain = sub.add_parser("integrate-chain", help="聚合校验后一次合并线性 task 链尾")
@@ -215,25 +215,20 @@ def main():
     goal.add_argument(
         "--reset",
         action="store_true",
-        help="按 backlog ∪ active 升序重建默认队列并覆盖已有快照",
+        help="按 backlog ∪ active 升序重建默认队列并直接覆盖已有快照（免确认）",
     )
     goal.add_argument(
         "--yes",
         action="store_true",
-        help="覆盖已有快照且顺序不一致时跳过确认",
+        help="显式 tid 覆盖已有快照且顺序不一致时跳过确认（--reset 本身已免确认）",
     )
     goal.set_defaults(func=cmd_goal)
 
     goal_check = sub.add_parser("goal-check", help="只读判定 goal 队列终态 marker")
     goal_check.set_defaults(func=cmd_goal_check)
 
-    ledger = sub.add_parser("ledger", help="非生命周期账本记录与读取")
+    ledger = sub.add_parser("ledger", help="读取 attempt 账本")
     ledger_sub = ledger.add_subparsers(dest="ledger_cmd", required=True)
-    record = ledger_sub.add_parser("record", help="仅 note")
-    record.add_argument("--event", required=True, choices=ctx.LEDGER_RECORDABLE_EVENTS)
-    record.add_argument("--tid")
-    record.add_argument("--reason")
-    record.set_defaults(func=cmd_ledger_record)
     tail = ledger_sub.add_parser("tail", help="倒序读取账本")
     tail.add_argument("--tid")
     tail.add_argument("-n", type=int, default=20)
