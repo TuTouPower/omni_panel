@@ -297,6 +297,8 @@ function content_search_candidates(
     }
     const filters: SessionQueryFilters = {
         ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
+        ...(request.filters.title ? { title: request.filters.title } : {}),
+        ...(request.filters.directory ? { directory: request.filters.directory } : {}),
         ...(request.filters.start_at !== undefined ? { start_at: request.filters.start_at } : {}),
         ...(request.filters.end_at !== undefined ? { end_at: request.filters.end_at } : {}),
     };
@@ -443,6 +445,15 @@ async function handle_session_history_search_content(
             json_response(res, 400, { error: "Invalid searchContent request" });
             return;
         }
+        // t457: 独立 title/directory 过滤；类型校验与 search 同级。
+        if (filters["title"] !== undefined && typeof filters["title"] !== "string") {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
+        if (filters["directory"] !== undefined && typeof filters["directory"] !== "string") {
+            json_response(res, 400, { error: "Invalid searchContent request" });
+            return;
+        }
     }
     const request = body as unknown as SessionHistorySearchRequest;
     const candidates = content_search_candidates(deps, request);
@@ -460,6 +471,8 @@ async function handle_session_history_search_content(
             : session_history_query_all_sessions(deps, {
                   ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
                   search: request.filters.search,
+                  ...(request.filters.title ? { title: request.filters.title } : {}),
+                  ...(request.filters.directory ? { directory: request.filters.directory } : {}),
                   ...(request.filters.start_at !== undefined
                       ? { start_at: request.filters.start_at }
                       : {}),
@@ -1338,7 +1351,14 @@ export function create_local_api_server(
                     200,
                     store.query_records({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" }
+                            ? {
+                                  agent: agent as
+                                      | "claude-code"
+                                      | "opencode"
+                                      | "kimi-code"
+                                      | "grok"
+                                      | "codex",
+                              }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(rec_start !== null ? { start: rec_start } : {}),
@@ -1355,7 +1375,14 @@ export function create_local_api_server(
                     200,
                     store.query_heatmap({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" }
+                            ? {
+                                  agent: agent as
+                                      | "claude-code"
+                                      | "opencode"
+                                      | "kimi-code"
+                                      | "grok"
+                                      | "codex",
+                              }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
@@ -1373,7 +1400,14 @@ export function create_local_api_server(
                     200,
                     store.query_hour_buckets({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" }
+                            ? {
+                                  agent: agent as
+                                      | "claude-code"
+                                      | "opencode"
+                                      | "kimi-code"
+                                      | "grok"
+                                      | "codex",
+                              }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
@@ -1391,7 +1425,14 @@ export function create_local_api_server(
                     200,
                     store.query_range_rollup({
                         ...(agent
-                            ? { agent: agent as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" }
+                            ? {
+                                  agent: agent as
+                                      | "claude-code"
+                                      | "opencode"
+                                      | "kimi-code"
+                                      | "grok"
+                                      | "codex",
+                              }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
                         ...(model ? { model } : {}),
@@ -1412,6 +1453,11 @@ export function create_local_api_server(
                 if (sources) filters.sources = sources.split(",").filter((item) => item.length > 0);
                 if (env) filters.env = env;
                 if (search) filters.search = search;
+                // t457: 独立 title/directory 过滤（空串视为不约束）。
+                const title = params.get("title");
+                const directory = params.get("directory");
+                if (title) filters.title = title;
+                if (directory) filters.directory = directory;
                 if (params.has("start_at")) {
                     const start_at = parse_int_param(params, "start_at", { require_present: true });
                     if (start_at !== null) filters.start_at = start_at;

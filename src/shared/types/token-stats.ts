@@ -2,7 +2,13 @@ import { z } from "zod/v3";
 
 // --- Enums ---
 
-export const tokenStatsSourceSchema = z.enum(["claude_code", "opencode", "kimi_code", "grok", "codex"]);
+export const tokenStatsSourceSchema = z.enum([
+    "claude_code",
+    "opencode",
+    "kimi_code",
+    "grok",
+    "codex",
+]);
 /**
  * t437: 会话数据所在平台标签（替代 t308 的 `local`）。`win` = Windows 用户目录
  * 数据，`wsl` = 经 UNC 读到的 WSL home 数据，`linux`/`mac` = 原生 POSIX home 数据。
@@ -191,6 +197,10 @@ export interface TokenStatsSessionFilters {
     sources?: string[];
     env?: string;
     search?: string;
+    /** t457: 独立 title 子串过滤（大小写不敏感；空/省略不约束）。 */
+    title?: string;
+    /** t457: 独立 directory 子串过滤（大小写不敏感；空/省略不约束）。 */
+    directory?: string;
     start_at?: number;
     end_at?: number;
     order_by?: "ended_at" | "tokens" | "calls" | "started_at";

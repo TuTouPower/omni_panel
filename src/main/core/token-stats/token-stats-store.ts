@@ -62,6 +62,10 @@ export interface TokenStatsStore {
         sources?: string[];
         env?: string;
         search?: string;
+        /** t457: 独立 title 子串过滤（大小写不敏感；空/省略不约束）。 */
+        title?: string;
+        /** t457: 独立 directory 子串过滤（大小写不敏感；空/省略不约束）。 */
+        directory?: string;
         start_at?: number;
         end_at?: number;
         order_by?: "ended_at" | "tokens" | "calls" | "started_at";
@@ -896,7 +900,7 @@ function materialize_session_meta(
                       ended_at: number | null;
                   }
                 | undefined;
-            if (fallback && fallback.started_at !== null && fallback.ended_at !== null) {
+            if (fallback?.started_at !== null && fallback?.ended_at !== null && fallback) {
                 update_stmt.run(
                     fallback.title ?? null,
                     fallback.directory ?? null,
@@ -1464,6 +1468,24 @@ export function create_token_stats_store(
                     "unicode_lower(COALESCE(title, '') || ' ' || COALESCE(directory, '') || ' ' || id) LIKE unicode_lower(@search) ESCAPE '\\'",
                 );
                 params["search"] = `%${escaped}%`;
+            }
+            if (filters.title) {
+                // t457: 独立 title 过滤；转义与参数绑定策略同 search。
+                const escaped = filters.title.replace(/[\\%_]/g, (character) => `\\${character}`);
+                conditions.push(
+                    "unicode_lower(COALESCE(title, '')) LIKE unicode_lower(@title) ESCAPE '\\'",
+                );
+                params["title"] = `%${escaped}%`;
+            }
+            if (filters.directory) {
+                const escaped = filters.directory.replace(
+                    /[\\%_]/g,
+                    (character) => `\\${character}`,
+                );
+                conditions.push(
+                    "unicode_lower(COALESCE(directory, '')) LIKE unicode_lower(@directory) ESCAPE '\\'",
+                );
+                params["directory"] = `%${escaped}%`;
             }
             if (filters.start_at !== undefined) {
                 // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。
