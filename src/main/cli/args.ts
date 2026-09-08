@@ -77,12 +77,26 @@ function parse_port(val: string | undefined, arg: string): number {
     return n;
 }
 
-/** 从 process.argv 抽出用户参数（去掉 electron/二进制与主脚本路径）。 */
+/**
+ * 从 process.argv 抽出用户参数（去掉 electron/二进制与主脚本路径）。
+ *
+ * d055：`_electron.launch` 会在主脚本前注入 Chromium 开关（--no-sandbox 等），
+ * 主脚本 `.js` 可能不在 rest[0]。只剥「路径形态」的 `.js` 条目，且跳过
+ * `VALUE_FLAGS` 的值位置，避免打包态 `serve --config /tmp/cfg.js` 误删配置路径。
+ */
 export function extract_user_argv(process_argv: readonly string[]): string[] {
     const rest = process_argv.slice(1);
-    const first = rest[0];
-    if (first !== undefined && /\.(c|m)?js$/i.test(first)) {
-        return rest.slice(1);
+    const script_idx = rest.findIndex((arg, i) => {
+        if (arg.startsWith("-")) return false;
+        if (!/\.(c|m)?js$/i.test(arg)) return false;
+        const prev = i > 0 ? rest[i - 1] : undefined;
+        if (prev !== undefined && VALUE_FLAGS.has(prev)) return false;
+        // 开发态常见 rest[0]=index.js；playwright 注入开关后主脚本在中间且为路径形态。
+        if (i === 0) return true;
+        return /[/\\]/.test(arg);
+    });
+    if (script_idx >= 0) {
+        return rest.filter((_, i) => i !== script_idx);
     }
     return [...rest];
 }

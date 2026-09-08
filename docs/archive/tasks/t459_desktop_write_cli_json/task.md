@@ -2,16 +2,16 @@
 tid: "t459"
 slug: "desktop_write_cli_json"
 title: "桌面启动写入 cli.json 实例发现"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t459_desktop_write_cli_json"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
+review_limit: "5"
+verify_limit: "5"
+diff_anchor: "e72e62ca3357eb40ff399d9f9341b2abc20c7176"
 depends_on: ""
 conflicts_with: ""
 note: "GUI 与 serve 同写 cli.json；single：复用现发现文件，无新鉴权面"
-review_limit: "5"
-verify_limit: "5"
 ---
 
 # Task 过程总账
@@ -24,7 +24,11 @@ verify_limit: "5"
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+- GUI 与 serve 共用 `write_cli_json`：LocalAPI start 后无条件写入；CLI 仍只负责 stdout 打印 URL。
+- 黑盒发现 d055：playwright 注入 Chromium 开关使 `extract_user_argv` 只剥 rest[0] 失效 → 改剥第一个 `.js` 主脚本；补单测；顺带修 `cli_control` 桌面用例假命令。
+- AC-003：把 `cli.json` 预置为目录触发 EISDIR，断言进程与 health 仍可达。
+- AC-002：`cli_serve` AC1/AC2 e2e 回归绿；d056（cli_flow 干净退出）main 基线即红，记 finding，不阻塞本 task。
+- 文档：architecture / cli-mode / specs/desktop_cli_json_discovery + specs_index。
 
 ## Review 处置
 
@@ -46,14 +50,13 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-09-08 08:56 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t459_gen_f001|important|已修|extract_user_argv 只剥路径形态 `.js`，跳过 VALUE_FLAGS 值位|src/main/cli/args.ts + args.test.ts|
+|t459_gen_f002|important|已修|AC-001/004 e2e 固定 OMNI_PANEL_PORT=17934 并断言 port/url|tests/e2e/electron/desktop_cli_json.spec.ts|
+|t459_gen_f003|minor|已修|AC-003 改 statSync.isDirectory|tests/e2e/electron/desktop_cli_json.spec.ts|
 
 ## 收尾报告
 
@@ -62,24 +65,16 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001/003/004 由 `desktop_cli_json.spec.ts`；AC-002 由 `cli_serve.spec.ts` AC1/AC2 回归；见 `handoff.json` ac_evidence
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：FAIL（3 finding，已处置）
+- Round 2 general：PASS（0 新 finding；前轮 3 条已消除）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- GUI 与 serve 均写 cli.json；d055 argv 剥离修复并防打包误剥；e2e 固定非默认端口覆盖 AC-004
