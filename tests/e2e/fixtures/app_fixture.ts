@@ -6,6 +6,8 @@ export interface AppFixtureOptions {
     setupPlugins?: (userDataDir: string) => void;
     /** Enable system tray in E2E mode. */
     enableTray?: boolean;
+    /** t459: 额外注入 electron 子进程 env（如 OMNI_PANEL_PORT 固定端口）。 */
+    env?: Record<string, string>;
 }
 
 export class AppFixture {
@@ -43,6 +45,7 @@ export class AppFixture {
             ...(this.options.enableTray === undefined
                 ? {}
                 : { enableTray: this.options.enableTray }),
+            ...(this.options.env ? { env: this.options.env } : {}),
         };
 
         this.launched = await launchApp(launchOptions);

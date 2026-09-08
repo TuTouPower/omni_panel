@@ -53,10 +53,11 @@
 - Markdown 渲染安全硬约束：会话文本不可信，禁止 `dangerouslySetInnerHTML` 直渲、不安装 rehype-raw（react-markdown 默认丢弃原始 HTML）。
 - **链接 scheme 白名单（t297）**：MarkdownMessage 链接仅允许 `http:`/`https:`（渲染为 `<a target="_blank" rel="noopener noreferrer">`），`javascript:`/`file:`/未知 scheme 渲染为纯文本。
 
-## 会话库视图（SessionLibrary，t227，t248）
+## 会话库视图（SessionLibrary，t227，t248，t458）
 
-- 会话库页签（`SessionShell` 第二页签）为真实视图：页头统计行（会话数 · agent 数 · 总 tokens），sticky 筛选工具栏（搜索框 + 包含消息内容开关 + 时间范围 + 排序 + 网格/列表切换），agent 多选芯片。
+- 会话库页签（`SessionShell` 第二页签）为真实视图：页头统计行（会话数 · agent 数 · 总 tokens），sticky 筛选工具栏（搜索框 + 独立标题输入 + 独立工作目录输入 + 包含消息内容开关 + 时间范围 + 排序 + 网格/列表切换），agent 多选芯片。
 - 搜索：默认只匹配元信息（title/directory/id）；「包含消息内容」开启后结果 = 元信息命中 ∪ 正文命中（并集），正文候选由后端按当前 Agent/日期筛选分页确定，扫描支持取消；搜索结果按当前排序展示，失败时清空过期结果并提示。
+- 独立标题/工作目录筛选（t458）：输入值分别作为查询 `title`/`directory`（大小写不敏感子串、与全部条件 AND、空值不带参数）；「包含消息内容」开启时候选过滤同样携带；「清除筛选」一并清空；web 与桌面共用组件，行为一致。
 - 时间范围：只纳入活动时间（[started_at, ended_at]）与范围有交集的会话。
 - 排序：最近活跃 / Token 最多 / 轮次最多 / 最早创建（数据层 `filter.ts` sort_sessions）。
 - 结果区：网格卡片（agent 色条/徽标/标题/首条用户消息摘要懒加载/meta 轮数·tokens·相对日期/目录）或列表行；hover 浮现「单独打开/预览」；点卡片/行勾选（上限 8）。

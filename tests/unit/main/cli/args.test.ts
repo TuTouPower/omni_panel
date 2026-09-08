@@ -21,6 +21,43 @@ describe("extract_user_argv", () => {
             extract_user_argv(["electron", "out/main/index.js", "serve", "--foreground"]),
         ).toEqual(["serve", "--foreground"]);
     });
+
+    it("d055：playwright 注入 Chromium 开关时主脚本不在首位仍被剥离", () => {
+        expect(
+            extract_user_argv([
+                "/path/electron",
+                "--no-sandbox",
+                "--inspect=0",
+                "--remote-debugging-port=0",
+                "/abs/out/main/index.js",
+                "--user-data-dir=/tmp/x",
+            ]),
+        ).toEqual([
+            "--no-sandbox",
+            "--inspect=0",
+            "--remote-debugging-port=0",
+            "--user-data-dir=/tmp/x",
+        ]);
+    });
+
+    it("d055/t459_gen_f001：打包态 --config 的 .js 路径不被当主脚本剥离", () => {
+        expect(
+            extract_user_argv([
+                "/opt/omni_panel",
+                "serve",
+                "--config",
+                "/tmp/cfg.js",
+                "--port",
+                "18263",
+            ]),
+        ).toEqual(["serve", "--config", "/tmp/cfg.js", "--port", "18263"]);
+    });
+
+    it("d055/t459_gen_f001：--user-data-dir 的 .js 目录值不被剥离", () => {
+        expect(
+            extract_user_argv(["/opt/omni_panel", "quit", "--user-data-dir", "/tmp/app.js"]),
+        ).toEqual(["quit", "--user-data-dir", "/tmp/app.js"]);
+    });
 });
 
 describe("resolve_entry", () => {

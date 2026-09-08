@@ -1,0 +1,39 @@
+{
+    "tid": "t460",
+    "attempt": 1,
+    "execution_id": "f0cfe60cf7d94216852c2e41d4b94bed",
+    "status": "done",
+    "branch": "t460_session_library_search_skill",
+    "base_sha": "3fa2c70a095ca1e4ee959fe403185271f89a2c20",
+    "tests": "pnpm exec vitest run tests/unit/session_library_search_skill.test.ts 6 passed；eslint 该测试文件绿",
+    "blackbox": "文档交付：单测直接读 skill/指南正文断言 AC（不启 LocalAPI / 不启第三方 agent，与有意不测一致）",
+    "review": "single Round 1 PASS（2 minor 已修）→ Round 2 PASS → Round 3 PASS（prettier 后 scope 重锚，reviewed_scope ff38f7b8ab4275dc ok）；check_review_status overall=PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "skills/session_library_search/SKILL.md Discover 节：cli.json + 127.0.0.1 + instance not running / do not invent",
+            "tests/unit/session_library_search_skill.test.ts AC-001"
+        ],
+        "AC-002": [
+            "SKILL.md List 节 GET /v1/sessions 与 title/directory/sources/start_at/end_at/order_by/direction/limit/offset",
+            "tests/unit/session_library_search_skill.test.ts AC-002"
+        ],
+        "AC-003": [
+            "SKILL.md Search 节 POST searchContent；candidate scanning / not result count；Prefer metadata filters first",
+            "tests/unit/session_library_search_skill.test.ts AC-003"
+        ],
+        "AC-004": [
+            "SKILL.md Read messages：id/source/env required；limit + before_cursor",
+            "tests/unit/session_library_search_skill.test.ts AC-004"
+        ],
+        "AC-005": [
+            "SKILL.md Hard rules：Read-only；禁止 subscribe/unsubscribe/open",
+            "tests/unit/session_library_search_skill.test.ts AC-005"
+        ],
+        "AC-006": [
+            "docs/guides/session_library_agent_search.md：Claude Code / Cursor / Grok 拷贝步骤；不配 MCP",
+            "tests/unit/session_library_search_skill.test.ts AC-006"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

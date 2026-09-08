@@ -88,6 +88,8 @@ OmniPanel CLI mode listening on http://localhost:18263/
 
 瘦客户端（CLI 控制子命令）读取该文件取得端口，无需扫描进程。
 
+t459 起桌面 GUI 启动也写同一份发现文件（同路径同字段，`port`/`url` 为实际监听端口）：GUI 与 serve 后写覆盖先写，单实例锁保证同时只有一个实例；实例退出后文件保留（端口即失效），以连接失败判断实例未运行。
+
 ## 浏览器访问
 
 浏览器打开 stdout 打印的 URL 即可看到用量面板。local-api 监听 `0.0.0.0`，WSL 内可从 Windows 宿主以 `http://localhost:<port>/` 访问。

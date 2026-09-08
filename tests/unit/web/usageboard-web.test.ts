@@ -70,6 +70,22 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/records"));
     });
 
+    it("t457 AC-007: web getSessions 透传 title/directory，空串省略", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getSessions({ title: "Refactor", directory: "/home/alpha" });
+        const url = fetch_mock.mock.calls[0]?.[0];
+        expect(typeof url === "string" && url.includes("title=Refactor")).toBe(true);
+        expect(typeof url === "string" && url.includes("directory=%2Fhome%2Falpha")).toBe(true);
+        // 空串不序列化（不约束语义）。
+        await api.tokenStats.getSessions({ title: "", directory: "" });
+        const url_empty = fetch_mock.mock.calls[1]?.[0];
+        expect(typeof url_empty === "string" && url_empty.includes("title=")).toBe(false);
+        expect(typeof url_empty === "string" && url_empty.includes("directory=")).toBe(false);
+    });
+
     it("tokenStats.getHeatmap forwards window/env/agent filters as query params", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
         vi.stubGlobal("fetch", fetch_mock);
@@ -668,6 +684,24 @@ describe("web usageboard bridge", () => {
             keyword: "hello",
         });
         expect(opts.headers?.["Content-Type"]).toContain("application/json");
+    });
+
+    it("t458 AC-006: web searchContent body 原样携带 title/directory filters", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ hits: [], sessions: [] }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.searchContent({
+            filters: { title: "部署", directory: "/srv", search: "kw" },
+            keyword: "kw",
+        });
+        const opts = fetch_mock.mock.calls[0]?.[1] as { body?: string };
+        expect(JSON.parse(opts.body ?? "{}")).toEqual({
+            filters: { title: "部署", directory: "/srv", search: "kw" },
+            keyword: "kw",
+        });
     });
 
     it("sessionHistory.summaries POSTs to /v1/sessionHistory/summaries (t259 AC1)", async () => {

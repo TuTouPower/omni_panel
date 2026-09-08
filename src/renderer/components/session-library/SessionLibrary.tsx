@@ -39,6 +39,9 @@ export function SessionLibrary({
 }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
+    // t458: 独立标题 / 工作目录筛选，分别作为查询的 title / directory。
+    const [title_filter, set_title_filter] = useState("");
+    const [directory_filter, set_directory_filter] = useState("");
     const [search_content, set_search_content] = useState(false);
     const [start_date, set_start_date] = useState("");
     const [end_date, set_end_date] = useState("");
@@ -104,12 +107,15 @@ export function SessionLibrary({
         return {
             ...(agents.length > 0 ? { sources: [...agents] } : {}),
             ...(!search_content && search ? { search } : {}),
+            // t458: 独立标题 / 工作目录条件；空串不进请求。
+            ...(title_filter ? { title: title_filter } : {}),
+            ...(directory_filter ? { directory: directory_filter } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
             order_by,
             direction,
         } as const;
-    }, [agents, search, search_content, start_at, end_at, sort]);
+    }, [agents, search, search_content, title_filter, directory_filter, start_at, end_at, sort]);
 
     const agent_counts = useMemo(() => {
         if (session_stats_status !== "ready") return [];
@@ -277,6 +283,9 @@ export function SessionLibrary({
                                 filters: {
                                     ...(agents.length > 0 ? { sources: [...agents] } : {}),
                                     ...(search ? { search } : {}),
+                                    // t458: 内容搜索候选同样受独立标题 / 目录约束。
+                                    ...(title_filter ? { title: title_filter } : {}),
+                                    ...(directory_filter ? { directory: directory_filter } : {}),
                                     ...(start_at !== undefined ? { start_at } : {}),
                                     ...(end_at !== undefined ? { end_at } : {}),
                                 },
@@ -366,7 +375,7 @@ export function SessionLibrary({
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, agents, start_at, end_at]);
+    }, [search, search_content, agents, start_at, end_at, title_filter, directory_filter]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
@@ -452,7 +461,15 @@ export function SessionLibrary({
     }, []);
 
     const selected_ids = useMemo(() => new Set(selected.map((s) => key_of(s))), [selected]);
-    const has_filters = search || search_content || start_date || end_date || agents.length > 0;
+    // t458: 独立标题/目录也计入「有筛选」与清空范围。
+    const has_filters =
+        search ||
+        search_content ||
+        start_date ||
+        end_date ||
+        agents.length > 0 ||
+        Boolean(title_filter) ||
+        Boolean(directory_filter);
     const show_clear = has_filters || all.length > 0;
     const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
     const stats_text =
@@ -488,6 +505,25 @@ export function SessionLibrary({
                     value={search}
                     onChange={(e) => {
                         set_search(e.target.value);
+                    }}
+                />
+                {/* t458: 独立标题 / 工作目录筛选输入。 */}
+                <Input
+                    className="w-auto min-w-[140px]"
+                    aria-label="标题"
+                    placeholder="标题"
+                    value={title_filter}
+                    onChange={(e) => {
+                        set_title_filter(e.target.value);
+                    }}
+                />
+                <Input
+                    className="w-auto min-w-[140px]"
+                    aria-label="工作目录"
+                    placeholder="工作目录"
+                    value={directory_filter}
+                    onChange={(e) => {
+                        set_directory_filter(e.target.value);
                     }}
                 />
                 <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
@@ -597,6 +633,9 @@ export function SessionLibrary({
                                 set_start_date("");
                                 set_end_date("");
                                 set_agents([]);
+                                // t458: 清空筛选同时清空独立标题与工作目录。
+                                set_title_filter("");
+                                set_directory_filter("");
                             }}
                         >
                             清除筛选

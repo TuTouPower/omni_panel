@@ -1,0 +1,43 @@
+{
+    "tid": "t457",
+    "attempt": 1,
+    "execution_id": "ea0b8bdd7a604aed92ca0581d4fbb59d",
+    "status": "done",
+    "branch": "t457_session_query_title_directory_filters",
+    "base_sha": "2f5bc2f3f9b360efe33bd0f1f86591e9c6af3674",
+    "tests": "pnpm test 全量 286 files / 3532 passed（含 t457 新增 12 用例：store 6 / IPC 2 / HTTP 3 / web 1）；pnpm typecheck / lint / deadcode / arch / build 全绿",
+    "blackbox": "按 testing.md 层级选择：查询契约层走默认层 pnpm test + HTTP 集成测试触达可观察行为（真实 better-sqlite3 store + LocalAPI GET /v1/sessions?title=&directory= 端到端，AC-007 三入口过滤语义）",
+    "review": "Round 1 code PASS（0 finding）/ test PASS（3 minor 遗留 p224）；收尾文档更新触发 Round 2 重审，code/test 均 PASS（scope 8e8e69b64bfe5e0d ok）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts t457 AC-001 用例：title=alpha 只命中 a，title=other 命中 c，大小写不敏感",
+            "tests/integration/local-api/server.test.ts t457 AC-007 用例：GET /v1/sessions?title=refactor%20auth 只返回 sess-title，directory 含 Refactor 的行被排除"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts t457 AC-002 用例：directory=/beta 只命中 b，directory=match 为空（title 含 match 不串），大小写不敏感"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts t457 AC-003 用例：title+directory 同时提供 AND，只满足其一不返回",
+            "tests/integration/local-api/server.test.ts 同用例同时提供两参数返回交集"
+        ],
+        "AC-004": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts t457 AC-004 用例：title+sources+start_at/end_at+order_by/direction+limit/offset 五因子 AND，排序断言 [a,c,b]"
+        ],
+        "AC-005": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts t457 AC-005 用例：title=/directory= 空串与 baseline 一致，search 混搜语义不变",
+            "tests/unit/ipc/session-history-ipc.test.ts t457 AC-005 用例：searchContent 空串不进 provider 过滤条件",
+            "tests/unit/web/usageboard-web.test.ts t457 AC-007 用例：web 序列化空串省略"
+        ],
+        "AC-006": [
+            "tests/unit/ipc/session-history-ipc.test.ts t457 AC-006 用例：filters.title/directory 透传候选枚举与 metadata 两次 provider 调用",
+            "tests/integration/local-api/server.test.ts t457 AC-006 用例：HTTP searchContent 透传 + 非字符串 400"
+        ],
+        "AC-007": [
+            "tests/integration/local-api/server.test.ts t457 AC-007 用例：GET /v1/sessions 真实 store 端到端",
+            "tests/unit/web/usageboard-web.test.ts t457 AC-007 用例：web getSessions 序列化",
+            "src/main/ipc/token-stats-ipc.ts TOKEN_STATS_SESSIONS handler 纯透传（类型 TokenStatsSessionFilters 已扩展）；code reviewer 锚点核对"
+        ]
+    },
+    "pending": ["p224"],
+    "findings": []
+}

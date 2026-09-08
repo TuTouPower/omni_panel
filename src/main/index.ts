@@ -745,24 +745,26 @@ void app.whenReady().then(async () => {
         });
         await local_api.start();
         log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
-        // t275 AC2：CLI 模式启动成功后 stdout 打印面板地址，并把实例发现信息写入
-        // cli.json 供后续瘦客户端读取。cli.json 是辅助产物，写失败只降级 warn，
-        // 不阻断已成功启动的服务。
+        // t275 AC2：CLI 模式启动成功后 stdout 打印面板地址。
+        const panel_url = `http://localhost:${String(local_api.get_port())}/`;
         if (cliMode) {
-            const panel_url = `http://localhost:${String(local_api.get_port())}/`;
             process.stdout.write(`OmniPanel CLI mode listening on ${panel_url}\n`);
-            await write_cli_json(dataRoot, {
-                port: local_api.get_port(),
-                url: panel_url,
-                userData: dataRoot,
-            }).catch((err: unknown) => {
-                log.warn(
-                    `Failed to write cli.json (instance discovery disabled): ${
-                        err instanceof Error ? err.message : String(err)
-                    }`,
-                );
-            });
         }
+        // t275 AC2 / t459：GUI 与 serve 均在 LocalAPI 成功监听后写 cli.json（同路径
+        // 同字段集，port/url 用实际监听端口），供外部瘦客户端发现运行中实例。cli.json
+        // 是辅助产物，写失败只降级 warn，不阻断已成功启动的服务。启动时重写；退出后
+        // 文件保留（端口即失效），瘦客户端以连接失败判断实例未运行。
+        await write_cli_json(dataRoot, {
+            port: local_api.get_port(),
+            url: panel_url,
+            userData: dataRoot,
+        }).catch((err: unknown) => {
+            log.warn(
+                `Failed to write cli.json (instance discovery disabled): ${
+                    err instanceof Error ? err.message : String(err)
+                }`,
+            );
+        });
         await registerLogIpc(dataRoot);
         registerBuildInfoIpc(() => app.getVersion());
         cleanupEventIpc = registerEventIpc({

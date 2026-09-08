@@ -1,0 +1,29 @@
+{
+    "tid": "t459",
+    "attempt": 1,
+    "execution_id": "b86fd7a6a31440b9a6c7b596b218247a",
+    "status": "done",
+    "branch": "t459_desktop_write_cli_json",
+    "base_sha": "e72e62ca3357eb40ff399d9f9341b2abc20c7176",
+    "tests": "pnpm exec vitest run tests/unit/main/cli/args.test.ts 35 passed；pnpm typecheck 绿；eslint 改动文件 --max-warnings=0 绿",
+    "blackbox": "pnpm exec playwright test --project=electron tests/e2e/electron/desktop_cli_json.spec.ts 2 passed（AC-001/003/004）；cli_serve.spec.ts -g AC1/AC2 1 passed（AC-002 serve 回归）",
+    "review": "single Round 1 FAIL（3 finding）→ 已修；Round 2 general PASS（0 新 finding，reviewed_scope 07711a2c34324b7d ok）；check_review_status overall=PASS next_action=finalize",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/index.ts：LocalAPI start 后无条件 write_cli_json（GUI 与 serve 共用）",
+            "tests/e2e/electron/desktop_cli_json.spec.ts：GUI 启动后断言 cli.json 字段完整且 health 200"
+        ],
+        "AC-002": [
+            "同一无条件写路径保留 serve；tests/e2e/electron/cli_serve.spec.ts AC1/AC2 回归绿"
+        ],
+        "AC-003": [
+            "write_cli_json 失败只 warn；e2e 以目录占位触发 EISDIR 后 firstWindow + health 200，且 statSync.isDirectory"
+        ],
+        "AC-004": ["e2e 固定 OMNI_PANEL_PORT=17934，断言 info.port/url 等于该端口且 health 可达"]
+    },
+    "pending": [],
+    "findings": [
+        "d055_playwright_electron_argv_main_entry",
+        "d056_cli_flow_quit_test_baseline_failure"
+    ]
+}

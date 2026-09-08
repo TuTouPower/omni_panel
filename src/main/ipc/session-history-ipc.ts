@@ -129,6 +129,8 @@ function content_search_candidates(
 
     const filters: SessionQueryFilters = {
         ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
+        ...(request.filters.title ? { title: request.filters.title } : {}),
+        ...(request.filters.directory ? { directory: request.filters.directory } : {}),
         ...(request.filters.start_at !== undefined ? { start_at: request.filters.start_at } : {}),
         ...(request.filters.end_at !== undefined ? { end_at: request.filters.end_at } : {}),
     };
@@ -284,6 +286,10 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                                   ? { sources: [...request.filters.sources] }
                                   : {}),
                               search: request.filters.search,
+                              ...(request.filters.title ? { title: request.filters.title } : {}),
+                              ...(request.filters.directory
+                                  ? { directory: request.filters.directory }
+                                  : {}),
                               ...(request.filters.start_at !== undefined
                                   ? { start_at: request.filters.start_at }
                                   : {}),

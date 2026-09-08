@@ -1,0 +1,35 @@
+{
+    "tid": "t458",
+    "attempt": 1,
+    "execution_id": "118d4910eff34b089fe82d3276dda947",
+    "status": "done",
+    "branch": "t458_session_library_title_cwd_ui",
+    "base_sha": "1e6a9c13d40277c88a8c928d108d998cb3870c4e",
+    "tests": "pnpm test 286 files / 3546 passed（t458 新增 7 用例：组件 6 + web bridge 1）；pnpm typecheck / lint / deadcode / arch / build 全绿",
+    "blackbox": "pnpm test:e2e:web 全量 96 passed（MOCK_FIXTURE=synthetic；含会话库搜索/筛选/排序/预览闭环与 session_library_mount_refill 3 用例——新输入框使筛栏 +44px，视口 2100→2200 恢复「50 条首屏不溢出」前提，探针实测 ch/sh 留痕于 spec 注释）",
+    "review": "single 级 Round 1 general PASS（0 finding，scope 1051c38807bcb17e ok）。流程纠正：最初误按 full 派 code/test reviewer，其报告（review_code.md/review_test.md，双 PASS 0 finding）保留入库但不作 single 级门禁证据",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx t458 AC-001：标题输入触发带 title 的请求且不带 search/directory；结果断言 directory/id 含同串会话不展示",
+            "同文件 t458 AC-001 补充：标题清空后请求不带 title"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx t458 AC-002：工作目录输入触发带 directory 的请求，title 含同串会话不展示"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx t458 AC-003：title+directory+日期+Agent+排序同时设置；加载更多（offset 50）仍携带全部条件"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx t458 AC-004：清空筛选后两输入为空，后续请求不含 title/directory 键"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/session_library/SessionLibrary.test.tsx t458 AC-005：勾选包含消息内容后 searchContent filters 携带 title/directory/search"
+        ],
+        "AC-006": [
+            "tests/unit/web/usageboard-web.test.ts t458 AC-006：web searchContent body 原样携带 title/directory filters",
+            "web getSessions 序列化由 t457 用例覆盖（usageboard-web.test.ts t457 AC-007）；桌面/web 共用同一 App→SessionShell→SessionLibrary（main-web.tsx import 链，general reviewer 独立核实）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
