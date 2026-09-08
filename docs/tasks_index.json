@@ -2,22 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t462",
-            "slug": "cpa_antigravity_quota_summary_weekly",
-            "title": "CPA Antigravity 改走 quota-summary：gemini/claude 五小时加周用量，去 GPT，全新 id",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "参考 CPA-Manager-Plus antigravity 用量查询；quota-summary 主路径加 fetchAvailableModels 回退；gemini/claude 各 5h+weekly 共 4 条观测；去 GPT；全新 metric_id 不兼容旧数据",
-            "dir": "docs/tasks/t462_cpa_antigravity_quota_summary_weekly"
-        }
-    ]
+    "tasks": []
 }
