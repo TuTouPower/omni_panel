@@ -235,6 +235,7 @@ const VENDOR_LOGOS: Record<string, string> = {
     codex: codex_svg,
     antigravity: antigravity_svg,
     kimi: kimi_svg,
+    kimi_web: kimi_svg,
     glm: glm_svg,
     deepseek: deepseek_svg,
     getoneapi: getoneapi_png,

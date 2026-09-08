@@ -1,0 +1,70 @@
+{
+    "subscription": {
+        "subscriptionId": "00000000-0000-0000-0000-000000000003",
+        "goods": {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "title": "Andante",
+            "durationDays": 30,
+            "useRegion": "REGION_CN",
+            "membershipLevel": "LEVEL_TRIAL",
+            "billingCycle": {
+                "duration": 1,
+                "timeUnit": "TIME_UNIT_MONTH"
+            },
+            "type": "GOODS_TYPE_SUBSCRIPTION",
+            "domain": "DOMAIN_NEXUS",
+            "version": "GOODS_VERSION_V1"
+        },
+        "subscriptionTime": "2026-09-08T20:01:24.000Z",
+        "currentStartTime": "2026-09-08T20:01:24.000Z",
+        "currentEndTime": "2026-10-09T00:00:00Z",
+        "nextBillingTime": "2026-10-08T20:01:24.000Z",
+        "status": "SUBSCRIPTION_STATUS_ACTIVE",
+        "type": "TYPE_PURCHASE",
+        "active": true
+    },
+    "balances": [
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "feature": "FEATURE_OMNI",
+            "type": "SUBSCRIPTION",
+            "unit": "UNIT_CREDIT",
+            "amountUsedRatio": 0.42,
+            "expireTime": "2026-10-09T00:00:00Z",
+            "domain": "DOMAIN_NEXUS"
+        }
+    ],
+    "subscribed": true,
+    "purchaseSubscription": {
+        "subscriptionId": "00000000-0000-0000-0000-000000000003",
+        "goods": {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "title": "Andante",
+            "durationDays": 30,
+            "useRegion": "REGION_CN",
+            "membershipLevel": "LEVEL_TRIAL",
+            "billingCycle": {
+                "duration": 1,
+                "timeUnit": "TIME_UNIT_MONTH"
+            },
+            "type": "GOODS_TYPE_SUBSCRIPTION",
+            "domain": "DOMAIN_NEXUS",
+            "version": "GOODS_VERSION_V1"
+        },
+        "subscriptionTime": "2026-09-08T20:01:24.000Z",
+        "currentStartTime": "2026-09-08T20:01:24.000Z",
+        "currentEndTime": "2026-10-09T00:00:00Z",
+        "nextBillingTime": "2026-10-08T20:01:24.000Z",
+        "status": "SUBSCRIPTION_STATUS_ACTIVE",
+        "type": "TYPE_PURCHASE",
+        "active": true
+    },
+    "capabilities": [
+        {
+            "feature": "FEATURE_CODING",
+            "constraint": {
+                "parallelism": 10
+            }
+        }
+    ]
+}

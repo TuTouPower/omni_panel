@@ -1,0 +1,27 @@
+{
+    "tid": "t464",
+    "attempt": 1,
+    "execution_id": "9c12464ece5545cda0125e8ec5627b64",
+    "status": "done",
+    "branch": "t464_kimi_web_connector_monthly",
+    "base_sha": "a81217026540f77624123a7f7c5e606804fbc3da",
+    "tests": "pnpm test：287 个文件通过、1 个跳过；3561 个用例通过、9 个跳过；新增 kimi_web/manifest 相关断言 21 个；pnpm typecheck、pnpm lint、pnpm build、git diff --check 通过",
+    "blackbox": "t463 已完成真实 Kimi 网页扫码登录与 Copy-as-cURL quota 重放；本 task 用脱敏 fixture 验证 connector 三窗口解析与缺失 Bearer 可见失败。AC-002 的真实账号同屏月指标验证需用户在测试实例手工执行",
+    "review": "full 级 Round 1：review_code PASS、review_test PASS，零 finding；reviewed_scope 8b7c4ea96901b76a ok",
+    "ac_evidence": {
+        "AC-001": [
+            "ADD_COMMON_SERVICES 新增 kimi_web/Kimi 网页版；manifest auth.method=web_login；AddAccountDialog 按 manifest auth descriptor 自动渲染 WebLoginForm；common_services.test 与 manifest-contract.test 覆盖注册"
+        ],
+        "AC-002": [
+            "tests/integration/connector/kimi_web_connector.test.ts：使用 t463 GetSubscriptionStats 脱敏 fixture 断言 second/week/month 三窗口与 monthly used=0.42；真实账号同屏验证留给部署手工验收"
+        ],
+        "AC-003": [
+            "kimi_web_connector.test.ts：缺少 Bearer 时 connector 返回非空错误，错误包含 Bearer/重新打开网页登录；runtime 失败结果非静默成功"
+        ],
+        "AC-004": [
+            "pnpm test 全量 3561 passed；kimi 原 provider 文件与 OAuth device 入口未改；provider schema/common services/catalog 回归通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
