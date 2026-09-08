@@ -1,10 +1,18 @@
 # 测试
 
-`doctor_cmd` / `test_cmd` / `blackbox_verify` 必须在本文件给出说明。
+`doctor_cmd` / `test_cmd` / `blackbox_verify` 定义如下（`##` 标题为 preflight 门禁机械锚点）。
 
-- `doctor_cmd`：环境前置检查——本仓无独立 doctor 命令；`task-run` Step 1 写「无」，靠 `test_cmd` 各命令自身的失败信号判定环境。
-- `test_cmd`：日常测试（红/绿）——`pnpm test`（vitest run，单元 + 集成），见下方「门禁类别清单」。
-- `blackbox_verify`：黑盒验证——是一套方法论，不是单个命令。agent 按本文件描述自行决定如何执行。
+## doctor_cmd
+
+环境前置检查——本仓无独立 doctor 命令；`task-run` Step 1 写「无」，靠 `test_cmd` 各命令自身的失败信号判定环境。
+
+## test_cmd
+
+日常测试（红/绿）——`pnpm test`（vitest run，单元 + 集成），见下方「门禁类别清单」。
+
+## blackbox_verify
+
+黑盒验证——是一套方法论，不是单个命令。agent 按下方「黑盒验证细则」自行决定如何执行。
 
 日常命令速查（人读）见 `docs/guides/testing.md`；本文件是权威定义。
 
@@ -24,12 +32,12 @@
 
 填 `test_cmd`（`pnpm test`）时按本节逐类覆盖。运行时通过 ≠ 类型 / 构建正确，每类须有独立验证。本仓当前全部绿。
 
-| 类别                    | 命令             | 说明                                                                                                                                                                                                                                                                                                                                |
-| ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 单元测试                | `pnpm test`      | vitest run；单元 + 集成。mock 不得掉被测逻辑、断言不得过弱（假绿）。vitest.config.mts 用 projects 拆两项目（t177）：`renderer`（jsdom + `tests/smoke/setup.ts`，`tests/unit/renderer/**`、`tests/smoke/**`、`tests/unit/web/**`）+ `node`（node 环境无 setupFiles，其余全部）。新增测试目录须列入对应项目 include，否则被静默跳过。 |
-| 生产 + 测试代码类型检查 | `pnpm typecheck` | `tsc --noEmit`；`tsconfig.json` 的 `include` 含 `src` 与 `tests`，生产与测试代码同一次检查覆盖。                                                                                                                                                                                                                                    |
-| lint                    | `pnpm lint`      | `eslint src tests scripts connectors tests/fixtures *.ts *.mts --max-warnings=0`；零 warning 零 error。                                                                                                                                                                                                                             |
-| 生产构建                | `pnpm build`     | `gen-build-info` + `electron-vite build` + `vite build`（web）；暴露 codegen、RSC 边界、server-only 导入等问题。                                                                                                                                                                                                                    |
+|类别|命令|说明|
+|---|---|---|
+|单元测试|`pnpm test`|vitest run；单元 + 集成。mock 不得掉被测逻辑、断言不得过弱（假绿）。vitest.config.mts 用 projects 拆两项目（t177）：`renderer`（jsdom + `tests/smoke/setup.ts`，`tests/unit/renderer/**`、`tests/smoke/**`、`tests/unit/web/**`）+ `node`（node 环境无 setupFiles，其余全部）。新增测试目录须列入对应项目 include，否则被静默跳过。|
+|生产 + 测试代码类型检查|`pnpm typecheck`|`tsc --noEmit`；`tsconfig.json` 的 `include` 含 `src` 与 `tests`，生产与测试代码同一次检查覆盖。|
+|lint|`pnpm lint`|`eslint src tests scripts connectors tests/fixtures *.ts *.mts --max-warnings=0`；零 warning 零 error。|
+|生产构建|`pnpm build`|`gen-build-info` + `electron-vite build` + `vite build`（web）；暴露 codegen、RSC 边界、server-only 导入等问题。|
 
 综合门禁速查：`pnpm check`（typecheck + lint + format:check + deadcode + arch）。
 
@@ -42,7 +50,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - better-sqlite3 ABI 由 `scripts/ensure_sqlite_abi.mjs` 在 worktree 内按 Electron/Node 运行时切换；`pnpm test` 前置 `node scripts/ensure_sqlite_abi.mjs node`。
 - `src/generated/`（gitignore）需在 worktree 内先 `npx tsx scripts/gen-build-info.ts` 生成，否则 `build-info-ipc` 相关测试整批必挂（t218 实测）。
 
-## 黑盒验证（blackbox_verify）
+## 黑盒验证细则
 
 黑盒按 task 范围选择层级，非单个命令：
 
