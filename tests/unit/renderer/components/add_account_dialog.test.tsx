@@ -659,6 +659,145 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             expect(screen.getByPlaceholderText("sk-…")).toBeInTheDocument();
         });
     });
+
+    describe("empty-catalog gateway fallback guard (t461)", () => {
+        // Web 端 GET /v1/catalog 缺失时 catalog 为 []，回退分支不得命中 CPA 网关实例
+        //（其 supportedProviders 为 monitor_* 全集，含 kimi/claude/codex/antigravity）。
+        function make_cpa_plugin(): PluginInfo {
+            return make_plugin({
+                instanceId: "cpa-1",
+                name: "CPA",
+                displayName: "CPA",
+                source: "gateway",
+                supportedProviders: ["claude", "kimi", "codex", "antigravity"],
+                activeProviders: ["codex", "antigravity"],
+                metadata: {
+                    name: "cpa",
+                    auth: {
+                        method: "cpa_mgmt",
+                        secret_name: "cpa_mgmt_key",
+                        require_endpoint: true,
+                    },
+                    parameters: [
+                        {
+                            name: "cpa_mgmt_key",
+                            label: "CPA 管理密钥",
+                            type: "secret",
+                            required: true,
+                        },
+                    ],
+                },
+            });
+        }
+
+        function mock_kimi_oauth() {
+            const kimi = {
+                login_start: vi.fn().mockResolvedValue({
+                    device_code: "dc-kimi",
+                    user_code: "KIMI-CODE",
+                    verification_uri: "https://kimi.example/device",
+                    verification_uri_complete: "https://kimi.example/device?user_code=KIMI-CODE",
+                    expires_in: 1800,
+                    interval: 5,
+                }),
+                login_poll: vi.fn().mockResolvedValue({ saved: true, token: "kimi-token" }),
+                login_cancel: vi.fn().mockResolvedValue(undefined),
+                login_status: vi
+                    .fn()
+                    .mockResolvedValue({ has_token: false, expires_at: null, can_refresh: false }),
+                logout: vi.fn().mockResolvedValue({ logged_out: true }),
+                refresh: vi.fn().mockResolvedValue({ success: true }),
+            };
+            (window as unknown as { usageboard: unknown }).usageboard = { kimi };
+        }
+
+        it("renders OAuthDeviceForm for kimi when catalog has kimi despite CPA instance", async () => {
+            mock_kimi_oauth();
+            const kimi_entry: ConnectorCatalogEntry = {
+                manifest_id: "kimi",
+                source: "poll",
+                supported_providers: ["kimi"],
+                metadata: {
+                    name: "kimi",
+                    auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+                    parameters: [],
+                },
+            };
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[make_cpa_plugin()]}
+                    catalog={[kimi_entry]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Kimi"));
+            expect(screen.getByText("开始登录")).toBeInTheDocument();
+            expect(screen.getByText("OAuth 设备码授权")).toBeInTheDocument();
+            expect(screen.queryByText("CPA 管理端授权")).not.toBeInTheDocument();
+        });
+
+        it("does not route kimi to CPA form when catalog is empty", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[make_cpa_plugin()]}
+                    catalog={[]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Kimi"));
+            expect(screen.queryByText("CPA 管理端授权")).not.toBeInTheDocument();
+            expect(screen.queryByText("CPA 管理密钥")).not.toBeInTheDocument();
+            expect(screen.getByPlaceholderText("sk-…")).toBeInTheDocument();
+
+            await user.type(screen.getByPlaceholderText("sk-…"), "sk-kimi-xxx");
+            await user.click(screen.getByText("添加账号"));
+            await vi.waitFor(() => {
+                expect(on_save).toHaveBeenCalledTimes(1);
+            });
+            const saved = get_saved_params(on_save);
+            expect(saved.vendor_id).toBe("kimi");
+            expect(saved.auth_method).toBe("apikey");
+            expect(saved.manifest_id).not.toBe("cpa");
+            expect(saved.source_instance_id).toBeUndefined();
+        });
+
+        it("does not route claude to CPA form when catalog is empty (t461 同类位点抽查）", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[make_cpa_plugin()]}
+                    catalog={[]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("Claude"));
+            expect(screen.queryByText("CPA 管理端授权")).not.toBeInTheDocument();
+            expect(screen.queryByText("CPA 管理密钥")).not.toBeInTheDocument();
+        });
+
+        it("still renders CpaMgmtForm for cpa itself when catalog is empty", async () => {
+            const user = userEvent.setup();
+            render(
+                <AddAccountDialog
+                    plugin_infos={[make_cpa_plugin()]}
+                    catalog={[]}
+                    on_close={on_close}
+                    on_save={on_save}
+                />,
+            );
+
+            await user.click(screen.getByText("CPA Manager"));
+            expect(screen.getByText("CPA 管理密钥")).toBeInTheDocument();
+        });
+    });
 });
 
 describe("AddAccountDialog open connectors dir (t094)", () => {
