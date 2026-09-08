@@ -84,7 +84,7 @@ export const PROVIDER_LABELS: Record<string, string> = {
     codex: "Codex",
     antigravity: "Antigravity",
     kimi: "Kimi",
-    kimi_web: "Kimi 网页版",
+    kimi_web: "Kimi Web",
     glm: "GLM",
     minimax: "MiniMax",
     deepseek: "DeepSeek",

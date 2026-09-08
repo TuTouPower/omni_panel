@@ -43,6 +43,26 @@ describe("WebLoginForm", () => {
         expect(screen.getByTestId("web-login-manual-save")).toBeInTheDocument();
     });
 
+    it("Kimi Web only shows automatic web login controls", () => {
+        mock_session_api();
+        render(
+            <WebLoginForm
+                provider="kimi_web"
+                login_url="https://www.kimi.com/settings/subscription?tab=quota"
+                secret_name="SESSION_COOKIE"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={make_on_save()}
+            />,
+        );
+
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("例如：工作账号")).toBeInTheDocument();
+        expect(screen.queryByLabelText("网页登录 Cookie")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("web-login-manual-save")).not.toBeInTheDocument();
+        expect(screen.queryByText("接口地址")).not.toBeInTheDocument();
+    });
+
     it("saves a manually pasted cookie", async () => {
         mock_session_api();
         const on_save = make_on_save();

@@ -8,7 +8,7 @@ export const ADD_COMMON_SERVICES: { id: AddServiceId; label: string }[] = [
     { id: "antigravity", label: "Antigravity" },
     { id: "glm", label: "GLM" },
     { id: "kimi", label: "Kimi" },
-    { id: "kimi_web", label: "Kimi 网页版" },
+    { id: "kimi_web", label: "Kimi Web" },
     { id: "deepseek", label: "DeepSeek" },
     { id: "getoneapi", label: "GetOneAPI" },
     { id: "minimax", label: "MiniMax" },

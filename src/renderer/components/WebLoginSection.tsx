@@ -116,29 +116,33 @@ export function WebLoginSection({
                     {COOKIE_LOGIN_MESSAGES.anon_web_guide}
                 </p>
             )}
-            <label
-                className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
-                htmlFor={`web-login-cookie-${provider}`}
-            >
-                Cookie 字符串
-            </label>
-            <Textarea
-                id={`web-login-cookie-${provider}`}
-                className="min-h-[72px] font-[var(--font-code-md)]"
-                spellCheck={false}
-                autoCorrect="off"
-                autoCapitalize="off"
-                aria-label="网页登录 Cookie"
-                value={value}
-                onChange={(event) => {
-                    onChange(event.target.value);
-                }}
-                placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
-            />
-            <p className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
-                <Icon name="info" size={12} strokeWidth={1.8} />
-                可点击网页登录自动捕获，也可手动粘贴 Cookie 后保存。
-            </p>
+            {provider !== "kimi_web" && (
+                <>
+                    <label
+                        className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]"
+                        htmlFor={`web-login-cookie-${provider}`}
+                    >
+                        Cookie 字符串
+                    </label>
+                    <Textarea
+                        id={`web-login-cookie-${provider}`}
+                        className="min-h-[72px] font-[var(--font-code-md)]"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        aria-label="网页登录 Cookie"
+                        value={value}
+                        onChange={(event) => {
+                            onChange(event.target.value);
+                        }}
+                        placeholder="在浏览器登录后，从开发者工具复制完整 Cookie…"
+                    />
+                    <p className="flex items-center gap-1 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
+                        <Icon name="info" size={12} strokeWidth={1.8} />
+                        可点击网页登录自动捕获，也可手动粘贴 Cookie 后保存。
+                    </p>
+                </>
+            )}
         </div>
     );
 }
