@@ -2,6 +2,8 @@
 
 常驻桌面进程，把多个 AI 服务商的用量/额度/余额集中读出来、统一展示，如实标注来源与新鲜度。对标 macOS 原生版 UsageBoard，跨 Windows / macOS / Linux。
 
+本项目使用模板仓 repo_template。此声明必须保留，消费仓不得删除。
+
 本文件是 agent 行为入口：目录权责、状态机与 skill 路由。只加载当前任务所需文档。
 
 命名与格式约定见 `docs/blueprint/conventions.md`「命名与格式」。
@@ -15,7 +17,7 @@
 |`DESIGN.md`|设计语言真相源（front matter → designmd → globals.css）|改 token/形态走 task，并跑 `pnpm designmd:export` / `check`；UI task 默认只消费、不改数值；不由 `task.py` 管理|
 |`docs/specs_index.md`|当前生效 spec 清单（在表即生效）|task 收尾时更新；废弃删除行|
 |`docs/specs/<slug>.md`|需求级 spec（按已完成 task 累积）|task 收尾时累积更新；废弃移入 `docs/archive/specs/`|
-|`docs/tasks/{tid}_{slug}/`|task 工作区兼**状态权威**（backlog 起即存在）|`spec.md` / `task.md` 正文由实现侧写；`task.md` front matter 只经 `.repo_template/scripts/task.py`；reviewer 写 `review_code.md` / `review_test.md`（`single` 级写 `review_general.md`）；`finish`/`drop` 由脚本移入 archive|
+|`docs/tasks/{tid}_{slug}/`|task 工作区兼**状态权威**（backlog 起即存在）|`spec.md` / `task.md` 正文由实现侧写；`task.md` front matter 只经 `.repo_template/scripts/task.py`；reviewer 写 `review_code.md` / `review_test.md`（`single` 级写 `review_general.md`）；`finish`/`drop` 由脚本移入 `docs/archive/tasks/{tid}_{slug}/`|
 |`docs/tasks/task_template/`|task 文件模板（非工作项）|只改模板本身|
 |`docs/archive/tasks/{tid}_{slug}/`|已归档 task 工作区|仅由 `.repo_template/scripts/task.py finish` / `drop` 从 `docs/tasks/` 移入；内部文件只准新增|
 |`docs/tasks_index.json` / `docs/archive/tasks_index.json`|活跃/归档 task 派生索引|工作区可由 `add`/`edit`/`rewind`/`purge` 重建；入库 commit：维护期随操作提交，集成时由 `integrate` / `integrate-chain` 重建并放入同一个 merge commit；`list` 只读，`list --rebuild` 手动重建；不进 task worktree 的执行 commit|
