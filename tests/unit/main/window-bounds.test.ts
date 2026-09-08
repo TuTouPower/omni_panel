@@ -1,11 +1,53 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+    apply_window_bounds,
     compute_clamped_bounds,
     get_saved_bounds,
     PANEL_MIN_HEIGHT,
     PANEL_MIN_WIDTH,
 } from "../../../src/main/window/window-bounds";
 import type { AppConfiguration } from "../../../src/shared/types/config";
+import type { BrowserWindow } from "electron";
+
+vi.mock("electron", () => ({
+    screen: {
+        getAllDisplays: () => [
+            { id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } },
+            { id: 2, workArea: { x: 1280, y: 0, width: 1920, height: 1080 } },
+        ],
+        getPrimaryDisplay: () => ({ id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } }),
+        getDisplayMatching: () => ({ id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } }),
+    },
+}));
+
+function make_fake_win(visible: boolean): {
+    win: BrowserWindow;
+    calls: string[];
+    bounds: unknown[];
+    fire: (event: string) => void;
+} {
+    const calls: string[] = [];
+    const bounds: unknown[] = [];
+    const listeners = new Map<string, () => void>();
+    const win = {
+        setBounds: (b: unknown) => {
+            calls.push("setBounds");
+            bounds.push(b);
+        },
+        isVisible: () => visible,
+        isDestroyed: () => false,
+        once: (event: string, listener: () => void) => {
+            calls.push(`once:${event}`);
+            listeners.set(event, listener);
+        },
+    };
+    return {
+        win: win as unknown as BrowserWindow,
+        calls,
+        bounds,
+        fire: (event: string) => listeners.get(event)?.(),
+    };
+}
 
 const primary = { id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } };
 const second = { id: 2, workArea: { x: 1280, y: 0, width: 1920, height: 1080 } };
@@ -130,5 +172,35 @@ describe("get_saved_bounds (t251)", () => {
         const out = get_saved_bounds(config, "historyWindowBounds");
         expect(out).toEqual({ x: 1, y: 2, width: 1000, height: 720 });
         expect("displayId" in (out ?? {})).toBe(false);
+    });
+});
+
+describe("apply_window_bounds (t251)", () => {
+    const saved = { x: 100, y: 50, width: 900, height: 600 };
+
+    it("无保存值时返回 false 且不动窗口", () => {
+        const f = make_fake_win(false);
+        expect(apply_window_bounds(f.win, null)).toBe(false);
+        expect(f.calls).toEqual([]);
+    });
+
+    it("可见窗口立即 setBounds 且不挂 show 监听", () => {
+        const f = make_fake_win(true);
+        expect(apply_window_bounds(f.win, saved)).toBe(true);
+        expect(f.bounds).toEqual([{ x: 100, y: 50, width: 900, height: 600 }]);
+        expect(f.calls).toEqual(["setBounds"]);
+    });
+
+    it("隐藏窗口先设一次并在 show/ready-to-show 后补设同值（X11 首 map 丢位置兜底）", () => {
+        const f = make_fake_win(false);
+        expect(apply_window_bounds(f.win, saved)).toBe(true);
+        expect(f.calls).toEqual(["setBounds", "once:show", "once:ready-to-show"]);
+        f.fire("show");
+        f.fire("ready-to-show");
+        expect(f.bounds).toEqual([
+            { x: 100, y: 50, width: 900, height: 600 },
+            { x: 100, y: 50, width: 900, height: 600 },
+            { x: 100, y: 50, width: 900, height: 600 },
+        ]);
     });
 });

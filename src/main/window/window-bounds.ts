@@ -82,6 +82,16 @@ export function apply_window_bounds(win: BrowserWindow, saved: PanelBounds | nul
     const preferred = screen.getPrimaryDisplay();
     const clamped = compute_clamped_bounds(saved, displays, preferred);
     win.setBounds(clamped);
+    if (!win.isVisible()) {
+        // 部分 X11 环境在窗口首次 map 时丢弃 map 前的 setBounds（多屏实测重开回 0,0，
+        // map 完成后再次 setBounds 则生效；show 事件仍可能早于实际 map）。map 后幂等
+        // 补设；已生效平台此为同值 no-op。
+        const reapply = (): void => {
+            if (!win.isDestroyed()) win.setBounds(clamped);
+        };
+        win.once("show", reapply);
+        win.once("ready-to-show", reapply);
+    }
     return true;
 }
 
