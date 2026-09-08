@@ -103,6 +103,7 @@ pnpm test:packaged    # 打包 smoke
 - [`docs/blueprint/decisions.md`](docs/blueprint/decisions.md) — 已确认的非显然决策（ADR）
 - [`docs/specs_index.md`](docs/specs_index.md) — 已实现功能清单 → `docs/specs/<slug>.md`
 - [`docs/guides/testing.md`](docs/guides/testing.md) — 测试命令 / 分层 / 覆盖率 / 打包 smoke
+- [`docs/guides/session_library_agent_search.md`](docs/guides/session_library_agent_search.md) — 拷贝 skill，让 coding agent 经 LocalAPI 搜会话库（不配 MCP）
 
 ## 已知限制
 
