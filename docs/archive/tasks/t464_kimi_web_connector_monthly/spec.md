@@ -67,7 +67,7 @@ Kimi 现只有设备码/API Key 模式（`connectors/kimi`，`oauth_device`）�
 
 <!-- /规范 -->
 
-- Kimi quota 页数据形态：UNVERIFIED-SPIKE，t463 结论未出前本 task 不能 start（启动门禁）。
+- Kimi quota 页数据形态：已由 t463 验证；`GetSubscriptionStats` 返回 5 小时/7 天窗口与月周期余额，完整脱敏样本见 `docs/spikes/s036_kimi_web_quota_pump/code/`，认证约束与失效特征见 `docs/findings/d057_*`。
 
 ### 风险与回退
 

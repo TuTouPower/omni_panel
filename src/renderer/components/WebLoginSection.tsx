@@ -59,7 +59,9 @@ export function WebLoginSection({
                 login_url,
                 cookie_names: cookie_names ?? ["*"],
                 ...(instance_id ? { instance_id } : {}),
-                ...(instance_id ? {} : { auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS }),
+                ...(instance_id || provider === "kimi_web"
+                    ? {}
+                    : { auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS }),
             });
             if (!result.saved) {
                 // t337: 区分「未捕获到 Cookie」与「登录态无效」——无效时引导重登或手动粘贴。
