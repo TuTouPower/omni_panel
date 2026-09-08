@@ -26,11 +26,11 @@
 
 CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示：
 
-| 失败层级   | 触发                                     | 表现                                                  |
-| ---------- | ---------------------------------------- | ----------------------------------------------------- |
-| source 级  | `cpa_mgmt_key` 失效 / CPA-Manager 连不上 | 该渠道所有账号 stale，提示"CPA 数据源连接失败"        |
-| account 级 | 单账号采集失败（最常见）                 | 仅该账号红点 + 自己的 stale；同 provider 其他账号照常 |
-| 来源移除   | 采集成功但账号已从 CPA 列表消失          | 标"来源已移除"，保留有限历史后清理                    |
+|失败层级|触发|表现|
+|---|---|---|
+|source 级|`cpa_mgmt_key` 失效 / CPA-Manager 连不上|该渠道所有账号 stale，提示"CPA 数据源连接失败"|
+|account 级|单账号采集失败（最常见）|仅该账号红点 + 自己的 stale；同 provider 其他账号照常|
+|来源移除|采集成功但账号已从 CPA 列表消失|标"来源已移除"，保留有限历史后清理|
 
 **核心约束**：Kimi 拉失败不能让整个 CPA 挂掉、连累 Claude。
 
@@ -43,6 +43,13 @@ CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示
 - **整体使用率 = `sum(used) / sum(limit)`**，绝不取各账号百分比平均。
 - 聚合时间（刷新/重置）同样不取均值：同周期有效账号时间差 ≤10 分钟显示最新，>10 分钟不显示。
 - 无有效 used/limit 不伪造数值。
+
+## Antigravity 用量（t462）
+
+- 主路径 `retrieveUserQuotaSummary`（三 endpoint 轮询），请求体 `{ project }`（`loadCodeAssist` 的 `cloudaicompanionProject`），UA 为 `antigravity/cli` 形式；无可用 bucket 时回退 `fetchAvailableModels`。
+- 输出 gemini / claude 各五小时（`window: second`、`cycleDurationMs: 18_000_000`）与周（`window: day`、`cycleDurationMs: 604_800_000`）观测；`metric_id` 为 `antigravity:{account}:{family}_{five_hour|weekly}` 全新方案，旧 `gemini-models` / `claude-gpt` 不延续。
+- 上游已不再提供 GPT：OPENAI 系 provider 与 GPT 分组一律跳过，不产出相关观测。
+- `remainingFraction` 缺失的 bucket/model 跳过（不按 0 聚合）；模型回退中缺字段但有 `resetTime` 的按耗尽（0）计。
 
 ## 配置
 

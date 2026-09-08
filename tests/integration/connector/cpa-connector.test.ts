@@ -505,9 +505,174 @@ describe("cpa connector", () => {
         expect(codex[1]?.raw_label).toBe("secondary_window");
     });
 
-    it("produces two Antigravity five-hour observations via CPA api-call", async () => {
+    // t462: 旧“两条 five-hour 观测”（gemini-models / claude-gpt 无窗口共享组）用例整体删除。
+    // 语义变更：quota-summary 主路径输出 gemini/claude 各 5h+weekly 共 4 条、全新 id、去 GPT，
+    // 无数据时回退模型列表。由下方三组新用例覆盖新语义，不就地改旧预期。
+    it("emits gemini/claude five-hour and weekly observations from quota summary", async () => {
         const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
         const ctx = create_ctx();
+        const requested_urls: string[] = [];
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [
+                    {
+                        name: "auth-antigravity-1.json",
+                        provider: "antigravity",
+                        auth_index: "ag-auth",
+                    },
+                ],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const typed = body as {
+                url?: string;
+                data?: string;
+                header?: Record<string, string>;
+            };
+            const url = typed.url ?? "";
+            requested_urls.push(url);
+            if (url.includes("loadCodeAssist")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: { cloudaicompanionProject: "proj-123" },
+                });
+            }
+            if (url.includes("retrieveUserQuotaSummary")) {
+                if (!url.includes("daily-cloudcode-pa.googleapis.com/v1internal")) {
+                    return Promise.resolve({ status_code: 404, body: {} });
+                }
+                expect(typed.header?.["User-Agent"]).toContain("antigravity/cli/");
+                expect(JSON.parse(typed.data ?? "{}")).toMatchObject({ project: "proj-123" });
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        groups: [
+                            {
+                                displayName: "Gemini models",
+                                buckets: [
+                                    {
+                                        bucketId: "gemini-5h",
+                                        displayName: "5 hour limit",
+                                        window: "5h",
+                                        remainingFraction: 0.8,
+                                        resetTime: "2026-06-15T05:00:00Z",
+                                    },
+                                    {
+                                        bucket_id: "gemini-weekly",
+                                        display_name: "Weekly limit",
+                                        window: "weekly",
+                                        remaining_fraction: 0.6,
+                                        reset_time: "2026-06-22T05:00:00Z",
+                                    },
+                                ],
+                            },
+                            {
+                                display_name: "Claude models",
+                                buckets: [
+                                    {
+                                        bucketId: "claude-5h",
+                                        displayName: "5 hour limit",
+                                        window: "five_hour",
+                                        remainingFraction: 0.5,
+                                        resetTime: "2026-06-15T05:20:00Z",
+                                    },
+                                    {
+                                        bucketId: "claude-weekly",
+                                        displayName: "Weekly limit",
+                                        window: "week",
+                                        remainingFraction: 0.7,
+                                        resetTime: "2026-06-22T05:20:00Z",
+                                    },
+                                ],
+                            },
+                            {
+                                displayName: "GPT models",
+                                buckets: [
+                                    {
+                                        bucketId: "gpt-weekly",
+                                        displayName: "Weekly limit",
+                                        window: "weekly",
+                                        remainingFraction: 0.9,
+                                        resetTime: "2026-06-22T05:30:00Z",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const antigravity_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(antigravity_result.error).toBeNull();
+        // 主路径优先：先 loadCodeAssist 取 project，再 quota-summary；命中后不再回退模型列表。
+        expect(requested_urls[0]).toContain("loadCodeAssist");
+        expect(requested_urls[1]).toContain("retrieveUserQuotaSummary");
+        expect(requested_urls.some((u) => u.includes("fetchAvailableModels"))).toBe(false);
+        const antigravity = antigravity_result.observations.filter(
+            (o) => o.provider === "antigravity",
+        );
+        expect(antigravity).toHaveLength(4);
+        expect(antigravity).toEqual([
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:gemini_five_hour",
+                raw_label: "gemini_five_hour",
+                normalized_label: "Gemini 5小时",
+                window: "second",
+                cycleDurationMs: 18_000_000,
+                used: 20,
+                limit: 100,
+                display_style: "percent",
+                reset_at: Date.parse("2026-06-15T05:00:00Z"),
+            }),
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:gemini_weekly",
+                raw_label: "gemini_weekly",
+                normalized_label: "Gemini 一周",
+                window: "day",
+                cycleDurationMs: 604_800_000,
+                used: 40,
+                limit: 100,
+                display_style: "percent",
+                reset_at: Date.parse("2026-06-22T05:00:00Z"),
+            }),
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:claude_five_hour",
+                raw_label: "claude_five_hour",
+                normalized_label: "Claude 5小时",
+                window: "second",
+                cycleDurationMs: 18_000_000,
+                used: 50,
+                limit: 100,
+                display_style: "percent",
+                reset_at: Date.parse("2026-06-15T05:20:00Z"),
+            }),
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:claude_weekly",
+                raw_label: "claude_weekly",
+                normalized_label: "Claude 一周",
+                window: "day",
+                cycleDurationMs: 604_800_000,
+                used: 30,
+                limit: 100,
+                display_style: "percent",
+                reset_at: Date.parse("2026-06-22T05:20:00Z"),
+            }),
+        ]);
+        for (const o of antigravity) {
+            expect(o.metric_id).not.toMatch(/gpt/i);
+            expect(o.raw_label).not.toMatch(/gpt/i);
+            expect(o.normalized_label).not.toMatch(/gpt/i);
+        }
+    });
+
+    it("falls back to available models without GPT when summary has no usable data", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        const requested_urls: string[] = [];
         ctx.http.get_json = () =>
             Promise.resolve({
                 files: [
@@ -520,11 +685,15 @@ describe("cpa connector", () => {
             });
         ctx.http.post_json = (_ep, _path, body) => {
             const url = (body as { url?: string }).url ?? "";
+            requested_urls.push(url);
             if (url.includes("loadCodeAssist")) {
                 return Promise.resolve({
                     status_code: 200,
                     body: { cloudaicompanionProject: "proj-123" },
                 });
+            }
+            if (url.includes("retrieveUserQuotaSummary")) {
+                return Promise.resolve({ status_code: 404, body: {} });
             }
             if (url.includes("fetchAvailableModels")) {
                 return Promise.resolve({
@@ -547,10 +716,21 @@ describe("cpa connector", () => {
                                 apiProvider: "API_PROVIDER_GOOGLE_GEMINI",
                                 modelProvider: "MODEL_PROVIDER_GOOGLE",
                             },
+                            "gemini-no-quota": {
+                                apiProvider: "API_PROVIDER_GOOGLE_GEMINI",
+                                modelProvider: "MODEL_PROVIDER_GOOGLE",
+                            },
                             "claude-sonnet-4-6": {
                                 quotaInfo: {
                                     remainingFraction: 0.6,
                                     resetTime: "2026-06-15T05:20:00Z",
+                                },
+                                apiProvider: "API_PROVIDER_ANTHROPIC_VERTEX",
+                                modelProvider: "MODEL_PROVIDER_ANTHROPIC",
+                            },
+                            "claude-exhausted": {
+                                quotaInfo: {
+                                    resetTime: "2026-06-15T06:00:00Z",
                                 },
                                 apiProvider: "API_PROVIDER_ANTHROPIC_VERTEX",
                                 modelProvider: "MODEL_PROVIDER_ANTHROPIC",
@@ -583,26 +763,126 @@ describe("cpa connector", () => {
         });
 
         expect(antigravity_result.error).toBeNull();
+        // summary 三 endpoint 均 404 后才回退模型列表。
+        const first_models = requested_urls.findIndex((u) => u.includes("fetchAvailableModels"));
+        expect(requested_urls.filter((u) => u.includes("retrieveUserQuotaSummary"))).toHaveLength(
+            3,
+        );
+        expect(first_models).toBeGreaterThan(2);
         const antigravity = antigravity_result.observations.filter(
             (o) => o.provider === "antigravity",
         );
         expect(antigravity).toHaveLength(2);
         expect(antigravity).toEqual([
             expect.objectContaining({
-                metric_id: "antigravity:ag-auth:gemini-models",
-                raw_label: "gemini-models",
-                normalized_label: "Gemini Models",
+                metric_id: "antigravity:ag-auth:gemini_shared",
+                raw_label: "gemini_shared",
+                normalized_label: "Gemini",
                 window: "second",
+                cycleDurationMs: null,
+                // 组内最小剩余 0.7（无 quota 字段的 gemini-no-quota 被跳过，不按 0 聚合）。
                 used: 30,
                 reset_at: Date.parse("2026-06-15T05:10:00Z"),
             }),
             expect.objectContaining({
-                metric_id: "antigravity:ag-auth:claude-gpt",
-                raw_label: "claude-gpt",
-                normalized_label: "Claude/GPT",
+                metric_id: "antigravity:ag-auth:claude_shared",
+                raw_label: "claude_shared",
+                normalized_label: "Claude",
                 window: "second",
-                used: 40,
-                reset_at: Date.parse("2026-06-15T05:20:00Z"),
+                cycleDurationMs: null,
+                // 有 resetTime 但缺 remainingFraction 视为耗尽（0）；GPT 模型不参与聚合。
+                used: 100,
+                reset_at: Date.parse("2026-06-15T06:00:00Z"),
+            }),
+        ]);
+        for (const o of antigravity) {
+            expect(o.metric_id).not.toMatch(/gpt/i);
+            expect(o.raw_label).not.toMatch(/gpt/i);
+            expect(o.normalized_label).not.toMatch(/gpt/i);
+        }
+    });
+
+    it("skips summary buckets with missing remainingFraction but keeps explicit zero", async () => {
+        const script = await readFile(join("connectors", "cpa", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        ctx.http.get_json = () =>
+            Promise.resolve({
+                files: [
+                    {
+                        name: "auth-antigravity-1.json",
+                        provider: "antigravity",
+                        auth_index: "ag-auth",
+                    },
+                ],
+            });
+        ctx.http.post_json = (_ep, _path, body) => {
+            const url = (body as { url?: string }).url ?? "";
+            if (url.includes("loadCodeAssist")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: { cloudaicompanionProject: "proj-123" },
+                });
+            }
+            if (url.includes("retrieveUserQuotaSummary")) {
+                return Promise.resolve({
+                    status_code: 200,
+                    body: {
+                        groups: [
+                            {
+                                displayName: "Gemini models",
+                                buckets: [
+                                    {
+                                        bucketId: "gemini-5h",
+                                        displayName: "5 hour limit",
+                                        window: "5h",
+                                        remainingFraction: 0.8,
+                                        resetTime: "2026-06-15T05:00:00Z",
+                                    },
+                                    {
+                                        bucketId: "gemini-weekly",
+                                        displayName: "Weekly limit",
+                                        window: "weekly",
+                                        resetTime: "2026-06-22T05:00:00Z",
+                                    },
+                                ],
+                            },
+                            {
+                                displayName: "Claude models",
+                                buckets: [
+                                    {
+                                        bucketId: "claude-weekly",
+                                        displayName: "Weekly limit",
+                                        window: "weekly",
+                                        remainingFraction: 0,
+                                        resetTime: "2026-06-22T05:20:00Z",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                });
+            }
+            return Promise.resolve({ status_code: 404, body: {} });
+        };
+        const antigravity_result = await run_connector(manifest, script, {
+            ...ctx,
+            params: { cpa_mgmt_key: "management-key" },
+        });
+
+        expect(antigravity_result.error).toBeNull();
+        const antigravity = antigravity_result.observations.filter(
+            (o) => o.provider === "antigravity",
+        );
+        // 缺字段的 weekly 被跳过；显式 0 保留为 used 100。
+        expect(antigravity).toHaveLength(2);
+        expect(antigravity).toEqual([
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:gemini_five_hour",
+                used: 20,
+            }),
+            expect.objectContaining({
+                metric_id: "antigravity:ag-auth:claude_weekly",
+                used: 100,
             }),
         ]);
     });

@@ -51,7 +51,7 @@ test.describe("multi-account display (web)", () => {
 
         const live = popup.root();
         const nav = live.locator('[data-testid="popup-tabs-wrap"]');
-        // Antigravity provider 含 Gemini Models + Claude/GPT 两个 item（real/synthetic 均有）
+        // Antigravity provider 含 gemini/claude 五小时+周用量多个 item（t462 起采集侧 4 条；fixture 为静态 mock，保持 ≥1 断言）
         await nav.getByRole("button", { name: /Antigravity/ }).click();
         await webPage.waitForTimeout(500);
 
