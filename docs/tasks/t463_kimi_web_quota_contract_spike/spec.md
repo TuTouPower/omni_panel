@@ -46,6 +46,23 @@ Kimi 新增网页登录模式（对标 opencode_go 的 web_login），登录后�
 
 - 来源：用户需求（2026-09-09：Kimi 两种登录模式 + 网页登录查月用量）；无外部来源
 
+### 已有抓包输入（2026-09-09，用户提供浏览器全量抓包）
+
+- 位置：`data/capture_20260909_052941.zip`（运行数据，不入库；响应体未捕获，仅 URL/方法/状态/脱敏头）。
+- 登录：二维码流程，`auth.kimi.com/api/account.gateway.v1.AuthService/CreateLoginQRCode` → `GetLoginQRCodeStatus`（均为 200）。
+- quota 页数据（`?tab=quota` 打开同时触发，ConnectRPC JSON，`connect-protocol-version: 1`）：
+    - `www.kimi.com/apiv2/kimi.gateway.membership.v2.MembershipService/GetSubscriptionStats`
+    - `.../GetSubscription`、`.../ListSubscriptions`
+- 请求头含 `authorization: [REDACTED]`（Bearer 形态待 spike 确认来源）+ `x-msh-session-id` + `x-msh-device-id`。
+- spike 待确认：响应 JSON 形态（三窗口字段）、会话凭证来自哪块 Cookie、失效特征。
+
+### 抓包工具限制（2026-09-09，两次抓包验证）
+
+- `data/capture_20260909_052941.zip`：请求体/响应体开关均关闭，仅 URL/方法/状态/脱敏头可用。
+- `data/capture_20260909_053303.zip`：两开关均打开，请求体抓到 119 个但内容全为 `[body_redacted:len=N]` 占位符（`len=2` 看似 `{}` 实为脱敏，不可信）；响应体 427 条**全部** `not_enabled`（含普通 script/css/document）。结论：该工具开 `redact_data` 即拿不到任何 body，重抓无意义。
+- 两次抓包可用情报：端点路径、ConnectRPC JSON 协议（`connect-protocol-version: 1`）、请求头集合（`authorization` + `x-msh-session-id` + `x-msh-device-id`，值脱敏）、`GetSubscriptionStats` 曾回一次 401（前后均为 200，疑似失效特征）。
+- 请求/响应 payload 形态一律以 spike 带登录态实探为准，抓包文件仅作端点清单用。
+
 ### 有意不测
 
 - 自动化测试：不写，spike 交付物是结论与样本（上游页面随时会变，自动化断言无意义）。
