@@ -1532,4 +1532,192 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "claude_code", "linux", "a");
         expect(switch_fn).toHaveBeenCalledTimes(1);
     });
+
+    it("t458 AC-001：只填标题输入时列表请求带 title，不带 search", async () => {
+        const ub = usageboard();
+        const hit = sess("t-hit", "claude_code");
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
+            typeof filters["title"] === "string" && filters["title"].length > 0
+                ? Promise.resolve([hit])
+                : Promise.resolve(SESSIONS),
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "t-hit" } });
+        await waitFor(() => {
+            expect(screen.getByText("会话 t-hit")).toBeTruthy();
+            expect(screen.queryByText("会话 a")).toBeNull();
+        });
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ title: "t-hit", limit: 50, offset: 0 }),
+        );
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("search");
+        expect(last_call).not.toHaveProperty("directory");
+    });
+
+    it("t458 AC-002：只填工作目录输入时列表请求带 directory，不串 title/id", async () => {
+        const ub = usageboard();
+        const dir_hit = sess("d-hit", "opencode");
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
+            typeof filters["directory"] === "string" && filters["directory"].length > 0
+                ? Promise.resolve([dir_hit])
+                : Promise.resolve(SESSIONS),
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/proj/d-hit" } });
+        await waitFor(() => {
+            expect(screen.getByText("会话 d-hit")).toBeTruthy();
+            expect(screen.queryByText("会话 a")).toBeNull();
+        });
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ directory: "/proj/d-hit" }),
+        );
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("title");
+    });
+
+    it("t458 AC-003：标题+目录+日期+Agent+排序同时设置，加载更多分页不丢条件", async () => {
+        const ub = usageboard();
+        const first_page = Array.from({ length: 50 }, (_, i) =>
+            sess(`p${String(i)}`, "claude_code"),
+        );
+        const second_page = [sess("p50", "claude_code")];
+        ub.tokenStats.getSessionStats.mockResolvedValue({
+            sessions: 51,
+            agents: 1,
+            tokens: 1125,
+            source_counts: { claude_code: 51 },
+        });
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) => {
+            if (filters["offset"] === 50) return Promise.resolve(second_page);
+            return Promise.resolve(first_page);
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 p0"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "重构" } });
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/home/alpha" } });
+        fireEvent.change(screen.getByLabelText("起始日期"), { target: { value: "2026-07-01" } });
+        fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-07-31" } });
+        fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
+        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    title: "重构",
+                    directory: "/home/alpha",
+                    sources: ["claude_code"],
+                    order_by: "tokens",
+                }),
+            );
+        });
+
+        scroll_to_bottom(grid());
+        await waitFor(() => {
+            expect(screen.getByText("会话 p50")).toBeTruthy();
+        });
+        // 加载更多仍携带全部条件与 offset。
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                title: "重构",
+                directory: "/home/alpha",
+                sources: ["claude_code"],
+                start_at: expect.any(Number) as number,
+                end_at: expect.any(Number) as number,
+                order_by: "tokens",
+                offset: 50,
+            }),
+        );
+    });
+
+    it("t458 AC-004：清空筛选后 title/directory 输入为空且后续请求不带两参数", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
+            filters["title"] === "ghost" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "ghost" } });
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/nope" } });
+        await waitFor(() => {
+            expect(screen.getByText(/清除筛选/)).toBeTruthy();
+        });
+        fireEvent.click(screen.getByText(/清除筛选/));
+        await waitFor(() => {
+            expect(screen.getByText("会话 a")).toBeTruthy();
+        });
+        expect(screen.getByLabelText<HTMLInputElement>("标题").value).toBe("");
+        expect(screen.getByLabelText<HTMLInputElement>("工作目录").value).toBe("");
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.not.objectContaining({
+                title: expect.stringMatching(/.+/) as string,
+                directory: expect.stringMatching(/.+/) as string,
+            }),
+        );
+    });
+
+    it("t458 AC-005：勾选包含消息内容时 searchContent filters 带 title/directory", async () => {
+        const ub = usageboard();
+        const hidden = sess("hidden", "opencode");
+        ub.tokenStats.getSessions.mockResolvedValue([sess("visible", "claude_code")]);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(hidden)],
+            sessions: [hidden],
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 visible"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "部署" } });
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/srv" } });
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
+        await waitFor(() => {
+            expect(ub.sessionHistory.searchContent).toHaveBeenCalled();
+        });
+        const request = ub.sessionHistory.searchContent.mock.calls[0]?.[0] as unknown as Record<
+            string,
+            unknown
+        >;
+        expect(request["filters"]).toMatchObject({
+            title: "部署",
+            directory: "/srv",
+            search: "秘密词",
+        });
+    });
+
+    it("t458 AC-001 补充：标题输入为空串时请求不带 title", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "临时" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ title: "临时" }),
+            );
+        });
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ limit: 50, offset: 0 }),
+            );
+        });
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("title");
+    });
 });

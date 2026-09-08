@@ -59,6 +59,7 @@
 |legacy_css_cleanup|Web+Desktop|t274，t419|2026-08-16|
 |ui-views-desktop|Desktop|拆自 ui-views（t037），t153|2026-07-27|
 |cli-mode|Desktop|t275, t285, t322, t335, t399, t400|2026-08-16|
+|desktop_cli_json_discovery|Desktop|t459|2026-09-08|
 |cli_help_unify|Desktop|t400|2026-08-16|
 |cli-import-config|API|t285|2026-08-10|
 |vendor-forms-oauth-weblogin|Web|t109|2026-07-25|
@@ -78,9 +79,11 @@
 |session-history-window|Desktop|t211，t212，t213，t436|2026-08-23|
 |kimi-session-history-extractor|Desktop|t425，t436|2026-08-23|
 |antigravity-session-history-extractor|Desktop|t455|2026-09-06|
+|session_query_title_directory_filters|API|t457|2026-09-08|
 |session_content_search_cold_perf|Web+Desktop|t404|2026-08-16|
+|session_library_agent_search|API|t460|2026-09-08|
 |session-shell|Desktop|t223，t224，t245，t326，t327，t328，t334|2026-08-13|
-|workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407，t409，t410，t411，t439|2026-09-03|
+|workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407，t409，t410，t411，t439，t458|2026-09-08|
 |draggable_provider_tabs|Web|t242|2026-08-07|
 |provider-tab-active-state|Web|t305|2026-08-11|
 |renderer-bundle-code-split|Web+Desktop|t249|2026-08-07|

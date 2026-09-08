@@ -1,17 +1,17 @@
 ---
-tid: "t459"
-slug: "desktop_write_cli_json"
-title: "桌面启动写入 cli.json 实例发现"
-status: "backlog"
-branch: ""
+tid: "t460"
+slug: "session_library_search_skill"
+title: "会话库搜索 skill 附使用指南"
+status: "done"
+branch: "t460_session_library_search_skill"
 worktree: ""
 review_level: "single"
-diff_anchor: ""
-depends_on: ""
-conflicts_with: ""
-note: "GUI 与 serve 同写 cli.json；single：复用现发现文件，无新鉴权面"
 review_limit: "5"
 verify_limit: "5"
+diff_anchor: "3fa2c70a095ca1e4ee959fe403185271f89a2c20"
+depends_on: "t457,t459"
+conflicts_with: ""
+note: "仅 skill+指南，不 MCP；single：纯文档交付"
 ---
 
 # Task 过程总账
@@ -24,7 +24,9 @@ verify_limit: "5"
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+- 交付 `skills/session_library_search/SKILL.md` + `docs/guides/session_library_agent_search.md`；README 链指南。
+- 正文契约用 `tests/unit/session_library_search_skill.test.ts`（落在 vitest `tests/unit/*.test.ts` include）。
+- 沉淀 `docs/specs/session_library_agent_search.md` 并入 specs_index。
 
 ## Review 处置
 
@@ -46,14 +48,12 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 - **仅有 minor（无 critical / important）**：仍建表，逐条处置 minor。
 - **有 critical / important**：建表，逐条填 status（不得留空）。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
-
-有 finding 时用本表；每条 finding 一行。
+### Round 1 (2026-09-08 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修|一句话|文件:行|
-|t000_test_f002|minor|遗留|一句话|pNNN|
+|t460_gen_f001|minor|已修|searchContent 示例改为合法 JSON，可选字段用文字说明|skills/session_library_search/SKILL.md|
+|t460_gen_f002|minor|已修|AC-004 断言改为精确 required 句|tests/unit/session_library_search_skill.test.ts|
 
 ## 收尾报告
 
@@ -62,24 +62,17 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 ### 验收
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 证据：每条 AC 在 `handoff.json` 的 `ac_evidence` 有对应引用（覆盖闭合门禁强制）；此处写一句话摘要，不复制 AC 正文
+- 结果：全部满足
+- 证据：AC-001～006 由 `tests/unit/session_library_search_skill.test.ts` 覆盖；见 `handoff.json`
 
 ### Reviewer verdict
 
-取自对应 review 报告**最后一条** `verdict:`（`full`：`review_code.md` + `review_test.md`；`single`：`review_general.md`；多轮追加时以末轮为准）。按**实际发生**的轮次列出（上限见 `task-work` `max_review_round`）；未开的轮次不写或写 N/A。收尾前最新一轮必须全部 PASS，历史 FAIL 保留。
-
-`full`：
-
-- Round 1 code：PASS / FAIL
-- Round 1 test：PASS / FAIL
-
 `single`：
 
-- Round 1 general：PASS / FAIL
-
-遗留不在此列出——见 `docs/pending/todo/`，本文件处置表的 `fix_ref` 指向对应 `pNNN`。
+- Round 1 general：PASS（2 minor，已处置）
+- Round 2 general：PASS（0 新 finding）
+- Round 3 general：PASS（prettier 后 scope 重锚，0 新 finding）
 
 ### 结果摘要
 
-- 一句话；无额外说明可写「见上」
+- 交付可拷贝 skill + 指南；正文契约单测绿；不配 MCP

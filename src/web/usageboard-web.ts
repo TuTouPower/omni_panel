@@ -524,6 +524,9 @@ export function create_web_usageboard(): UsageboardApi {
                 if (filters?.sources?.length) params.set("sources", filters.sources.join(","));
                 if (filters?.env) params.set("env", filters.env);
                 if (filters?.search) params.set("search", filters.search);
+                // t457: 独立 title/directory 过滤透传。
+                if (filters?.title) params.set("title", filters.title);
+                if (filters?.directory) params.set("directory", filters.directory);
                 if (filters?.start_at !== undefined)
                     params.set("start_at", String(filters.start_at));
                 if (filters?.end_at !== undefined) params.set("end_at", String(filters.end_at));

@@ -518,6 +518,102 @@ describe("token-stats-store", () => {
             expect(rows.map((row) => row.id)).toEqual(["a"]);
         });
 
+        it("t457 AC-001: title 独立过滤只匹配 title，不串 directory/id", () => {
+            // directory 与 id 含 "alpha" 的只有 a；title 含 "alpha" 的也是 a。
+            // 构造 id/title 交叉用例：title-match 不含 alpha → 只命中 a。
+            expect(store.query_sessions({ title: "alpha" }).map((r) => r.id)).toEqual(["a"]);
+            // title 不含 T 的不返回，即使 id 含 T。
+            const rows = store.query_sessions({ title: "other" });
+            expect(rows.map((r) => r.id)).toEqual(["c"]);
+            // 大小写不敏感。
+            expect(store.query_sessions({ title: "OTHER" }).map((r) => r.id)).toEqual(["c"]);
+        });
+
+        it("t457 AC-002: directory 独立过滤只匹配 directory，不串 title/id", () => {
+            expect(store.query_sessions({ directory: "/beta" }).map((r) => r.id)).toEqual(["b"]);
+            // directory 不含 D 的不返回，即使 title 含 D。
+            expect(store.query_sessions({ directory: "match" }).map((r) => r.id)).toEqual([]);
+            // 大小写不敏感。
+            expect(store.query_sessions({ directory: "/GAMMA" }).map((r) => r.id)).toEqual(["c"]);
+        });
+
+        it("t457 AC-003: title 与 directory 同时提供时 AND", () => {
+            expect(
+                store.query_sessions({ title: "match", directory: "/alpha" }).map((r) => r.id),
+            ).toEqual(["a"]);
+            // 只满足 title 的 b、只满足 directory 的 a 都不返回。
+            expect(
+                store.query_sessions({ title: "match", directory: "/gamma" }).map((r) => r.id),
+            ).toEqual([]);
+        });
+
+        it("t457 AC-004: 新条件与 sources/时间窗/order/limit/offset 全 AND", () => {
+            expect(
+                store
+                    .query_sessions({
+                        title: "match",
+                        sources: ["claude_code", "opencode"],
+                        start_at: 150,
+                        end_at: 550,
+                        order_by: "ended_at",
+                        direction: "asc",
+                        limit: 1,
+                        offset: 1,
+                    })
+                    .map((r) => r.id),
+            ).toEqual(["b"]);
+            // order_by/direction 在新过滤下仍生效。
+            expect(
+                store
+                    .query_sessions({ directory: "/", order_by: "tokens", direction: "desc" })
+                    .map((r) => r.id),
+            ).toEqual(["a", "c", "b"]);
+        });
+
+        it("t457 AC-005: title/directory 省略或空串时与其余条件单独使用一致", () => {
+            const baseline = store.query_sessions({ search: "match" });
+            expect(store.query_sessions({ search: "match", title: "" }).map((r) => r.id)).toEqual(
+                baseline.map((r) => r.id),
+            );
+            expect(
+                store
+                    .query_sessions({ search: "match", title: "", directory: "" })
+                    .map((r) => r.id),
+            ).toEqual(baseline.map((r) => r.id));
+            expect(store.query_sessions({ title: "" })).toEqual(store.query_sessions({}));
+        });
+
+        it("t457: title/directory LIKE 特殊字符转义与 search 同策略", () => {
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "literal-t",
+                        title: "100%_done",
+                        directory: "C:\\work\\plain",
+                    }),
+                    delta({
+                        id: "literal-d",
+                        title: "plain title",
+                        directory: "C:\\work\\100%_done",
+                    }),
+                    delta({
+                        id: "literal-bs",
+                        title: "back\\slash path",
+                        directory: "/tmp",
+                    }),
+                ],
+                [],
+            );
+            // "%" 不作通配符：只命中字面含 % 的行。
+            expect(store.query_sessions({ title: "%" }).map((r) => r.id)).toEqual(["literal-t"]);
+            expect(store.query_sessions({ directory: "%" }).map((r) => r.id)).toEqual([
+                "literal-d",
+            ]);
+            expect(store.query_sessions({ title: "_" }).map((r) => r.id)).toEqual(["literal-t"]);
+            // 反斜杠字面：只命中 title 含 "\" 的行（escape 转义防注入）。
+            expect(store.query_sessions({ title: "\\" }).map((r) => r.id)).toEqual(["literal-bs"]);
+        });
+
         it("orders by tokens and calls in both directions", () => {
             expect(
                 store
