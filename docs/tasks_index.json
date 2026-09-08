@@ -4,22 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t461",
-            "slug": "web_catalog_misroute_cpa_form",
-            "title": "Web 面板添加账号 catalog 误路由到 CPA 表单",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "single",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "p225：GET /v1/catalog 无服务端路由，空 catalog 回退命中 CPA 网关实例；kimi/claude/codex/antigravity 均误渲染 CpaMgmtForm",
-            "dir": "docs/tasks/t461_web_catalog_misroute_cpa_form"
-        },
-        {
             "tid": "t462",
             "slug": "cpa_antigravity_quota_summary_weekly",
             "title": "CPA Antigravity 改走 quota-summary：gemini/claude 五小时加周用量，去 GPT，全新 id",

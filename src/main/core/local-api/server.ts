@@ -50,6 +50,7 @@ import {
     type KimiAuthIpcDeps,
 } from "../../ipc/kimi_auth_ipc";
 import {
+    handleConnectorCatalog,
     handleConnectorGetState,
     handleConnectorList,
     handleConnectorRefresh,
@@ -1630,6 +1631,15 @@ export function create_local_api_server(
                 // handleConnectorRefreshAll is synchronous (t196 fire-and-forget
                 // ack); no await needed.
                 send_result(res, handleConnectorRefreshAll(deps));
+                return true;
+            }
+            return false;
+        }
+        // t461: Web 桥 connector.catalog() 与桌面 IPC 同源。读端点免认证
+        //（与 /v1/connectors 对齐，Web renderer 无 token；catalog 无 secret）。
+        if (url.pathname === "/v1/catalog") {
+            if (req.method === "GET") {
+                send_result(res, handleConnectorCatalog(deps));
                 return true;
             }
             return false;

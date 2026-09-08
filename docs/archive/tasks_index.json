@@ -7362,6 +7362,22 @@
             "conflicts_with": "",
             "note": "仅 skill+指南，不 MCP；single：纯文档交付",
             "dir": "docs/archive/tasks/t460_session_library_search_skill"
+        },
+        {
+            "tid": "t461",
+            "slug": "web_catalog_misroute_cpa_form",
+            "title": "Web 面板添加账号 catalog 误路由到 CPA 表单",
+            "status": "done",
+            "branch": "t461_web_catalog_misroute_cpa_form",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "880fd64a3d52af5676dd9e35d24d3d8d9058a0e8",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "p225：GET /v1/catalog 无服务端路由，空 catalog 回退命中 CPA 网关实例；kimi/claude/codex/antigravity 均误渲染 CpaMgmtForm",
+            "dir": "docs/archive/tasks/t461_web_catalog_misroute_cpa_form"
         }
     ]
 }
