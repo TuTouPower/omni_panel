@@ -167,7 +167,12 @@ function parse_rollout_file(
     let calls = 0;
     let min_ts: number | null = null;
     let max_ts: number | null = null;
-    const sums: UsageSums = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
+    const sums: UsageSums = {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+    };
     const daily = new Map<string, UsageSums & { calls: number; date: string; model: string }>();
     const records: AgentSessionUsageRecord[] = [];
     for (const line of content.split("\n")) {
@@ -223,7 +228,10 @@ function parse_rollout_file(
             continue;
         }
         const raw_ts = rec["timestamp"];
-        const ts = typeof raw_ts === "string" || typeof raw_ts === "number" ? Date.parse(String(raw_ts)) : NaN;
+        const ts =
+            typeof raw_ts === "string" || typeof raw_ts === "number"
+                ? Date.parse(String(raw_ts))
+                : NaN;
         if (!Number.isFinite(ts) || ts === 0) {
             continue;
         }
@@ -240,8 +248,7 @@ function parse_rollout_file(
         // cache_read 同为单调累计（OpenAI input 含 cached）：独立差分透传，
         // 零增量事件 cache 增量同样为 0。
         const prev_c = prev_cache ?? 0;
-        const cache_delta =
-            delta > 0 ? Math.max(0, usage.cache_read - prev_c) : 0;
+        const cache_delta = delta > 0 ? Math.max(0, usage.cache_read - prev_c) : 0;
         prev_cache = Math.max(prev_c, usage.cache_read);
         if (active_model !== "" && active_model !== segment_model) {
             segment_model = active_model;
@@ -328,7 +335,12 @@ function merge_codex_session(
     let model: string | null = null;
     let title: string | null = null;
     let directory: string | null = null;
-    const sums: UsageSums = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
+    const sums: UsageSums = {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+    };
     const daily = new Map<string, TokenStatsDailyUpsert>();
     const records: AgentSessionUsageRecord[] = [];
     for (const e of sorted) {
@@ -417,7 +429,14 @@ export function scan_codex_rollouts(
         missing = true;
     }
     if (missing) {
-        return { sessions: [], daily: [], records: [], new_state: prev, missing: true, file_unreadable: false };
+        return {
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: prev,
+            missing: true,
+            file_unreadable: false,
+        };
     }
     const found: string[] = [];
     collect_rollout_files(sessions_dir, 0, found);

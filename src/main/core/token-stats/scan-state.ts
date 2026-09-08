@@ -233,7 +233,7 @@ export async function load_state(
         maps.jsonl_states.clear();
         maps.kimi_states.clear();
         maps.grok_states.clear();
-    maps.codex_states.clear();
+        maps.codex_states.clear();
         maps.source_cursors.clear();
     }
 }

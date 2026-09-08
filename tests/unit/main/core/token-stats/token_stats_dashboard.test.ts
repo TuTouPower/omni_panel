@@ -844,9 +844,7 @@ describe("token stats dashboard query", () => {
             }
             const raw = new Database(db_path);
             try {
-                raw
-                    .prepare("DELETE FROM token_stats_records WHERE session_id = 's-dirty'")
-                    .run();
+                raw.prepare("DELETE FROM token_stats_records WHERE session_id = 's-dirty'").run();
             } finally {
                 raw.close();
             }

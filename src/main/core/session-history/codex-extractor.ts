@@ -58,9 +58,7 @@ function record_to_message(
     }
     const raw_ts = rec["timestamp"];
     const ts =
-        typeof raw_ts === "string" || typeof raw_ts === "number"
-            ? Date.parse(String(raw_ts))
-            : NaN;
+        typeof raw_ts === "string" || typeof raw_ts === "number" ? Date.parse(String(raw_ts)) : NaN;
     if (!Number.isFinite(ts) || ts === 0) return null;
     return {
         id: `codex:${String(line_index)}`,
