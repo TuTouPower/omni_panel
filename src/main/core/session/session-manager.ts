@@ -108,6 +108,9 @@ export function create_session_manager(
             let wildcard_left_login_origin = false;
             let wildcard_returned_to_login_origin = false;
             let captured_cookie: string | null = null;
+            let captured_authorization: string | null = null;
+            let captured_session_id: string | null = null;
+            let captured_device_id: string | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
             let auto_close_timer: ReturnType<typeof setTimeout> | null = null;
             let completed = false;
@@ -156,7 +159,7 @@ export function create_session_manager(
                         // t337: 捕获后有效性探测。web_login 捕获点早于认证 cookie 生效，
                         // 匿名/旧 cookie 被判有效会存库导致 connector /auth 判定失效；
                         // 探测失败按「无效」处理不落库，返回可读提示。
-                        if (deps.verify_cookie) {
+                        if (deps.verify_cookie && request.provider !== "kimi_web") {
                             const valid = await deps.verify_cookie(
                                 captured_cookie,
                                 request.login_url,
@@ -170,16 +173,25 @@ export function create_session_manager(
                             }
                         }
 
+                        const saved_secret =
+                            request.provider === "kimi_web"
+                                ? JSON.stringify({
+                                      cookie: captured_cookie,
+                                      authorization: captured_authorization,
+                                      session_id: captured_session_id,
+                                      device_id: captured_device_id,
+                                  })
+                                : captured_cookie;
                         if (!instance_id) {
                             log.info("Anonymous session cookie captured");
-                            resolve({ saved: true, cookie: captured_cookie });
+                            resolve({ saved: true, cookie: saved_secret });
                             return;
                         }
 
                         try {
                             await deps.vault.set(
                                 keyFor(instance_id, SESSION_COOKIE_KEY),
-                                captured_cookie,
+                                saved_secret,
                             );
                         } catch (save_err) {
                             // t367 AC-003: cookie 已捕获但保存失败——包装可读错误，
@@ -196,6 +208,9 @@ export function create_session_manager(
                         reject(to_error(error));
                     } finally {
                         captured_cookie = null;
+                        captured_authorization = null;
+                        captured_session_id = null;
+                        captured_device_id = null;
                         release_lock();
                     }
                 }
@@ -213,15 +228,32 @@ export function create_session_manager(
                     }
 
                     if (request_origin !== login_origin) return;
-                    if (is_wildcard_login && !wildcard_returned_to_login_origin) return;
+                    if (
+                        is_wildcard_login &&
+                        !wildcard_returned_to_login_origin &&
+                        request.provider !== "kimi_web"
+                    )
+                        return;
 
                     const cookie = extract_cookie_header(details.requestHeaders);
                     const selected_cookie = cookie
                         ? select_cookie_header_values(cookie, request.cookie_names)
                         : null;
+                    if (request.provider === "kimi_web") {
+                        captured_authorization =
+                            details.requestHeaders["authorization"] ??
+                            details.requestHeaders["Authorization"] ??
+                            captured_authorization;
+                        captured_session_id =
+                            details.requestHeaders["x-msh-session-id"] ?? captured_session_id;
+                        captured_device_id =
+                            details.requestHeaders["x-msh-device-id"] ?? captured_device_id;
+                    }
                     if (selected_cookie) {
                         log.info(`Cookie captured for ${login_id}`);
                         captured_cookie = selected_cookie;
+                        if (request.provider === "kimi_web") {
+                        }
                         if (request.auto_close_ms != null) {
                             auto_close_timer ??= setTimeout(() => {
                                 auto_close_timer = null;

@@ -1,0 +1,22 @@
+{
+    "ratelimitCode5h": {
+        "ratio": 0.62,
+        "enabled": true,
+        "resetTime": "2026-09-09T01:01:24.000Z"
+    },
+    "ratelimitCode7d": {
+        "ratio": 0.35,
+        "enabled": true,
+        "resetTime": "2026-09-15T20:01:24.000Z"
+    },
+    "subscriptionBalance": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "feature": "FEATURE_OMNI",
+        "type": "SUBSCRIPTION",
+        "unit": "UNIT_CREDIT",
+        "amountUsedRatio": 0.42,
+        "kimiCodeUsedRatio": 0.11,
+        "expireTime": "2026-10-09T00:00:00Z",
+        "domain": "DOMAIN_NEXUS"
+    }
+}
