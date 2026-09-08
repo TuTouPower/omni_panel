@@ -367,13 +367,14 @@ test.describe("CLI 控制子命令（t276）", () => {
         const desktopPort = 18270;
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-desktop-"));
         const app = await electron.launch({
-            args: [MAIN_ENTRY, "not-a-command", `--user-data-dir=${userDataDir}`],
+            // d055：勿塞假命令；playwright 注入 Chromium 开关后假命令会变成 invalid。
+            // t459：GUI 也会写 cli.json；本用例仍用 --port 直连，不依赖发现文件。
+            args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
             executablePath: ELECTRON,
             cwd: ROOT,
             env: { ...process.env, E2E: "1", OMNI_PANEL_PORT: String(desktopPort) },
         });
         try {
-            // 桌面实例不写 cli.json；OMNI_PANEL_PORT 固定 local-api 端口
             await waitHealth(desktopPort, 20000);
             // 桌面实例被 refresh-all 控制
             const r = await runThinClient(
