@@ -79,9 +79,9 @@ Kimi 新增网页登录模式（对标 opencode_go 的 web_login），登录后�
 
 <!-- /规范 -->
 
-- Kimi 网页登录入口与 Cookie 名：UNVERIFIED-SPIKE，spike 内真实浏览器验证。
-- quota 页 5 小时/周/月用量数据形态：UNVERIFIED-SPIKE，spike 内抓包/读接口验证。
-- 登录态有效期与失效特征：UNVERIFIED-SPIKE，spike 内验证（决定 connector 失效报错文案）。
+- Kimi 网页登录入口与 Cookie 名：已验证为二维码登录（`auth.kimi.com` `CreateLoginQRCode`/`GetLoginQRCodeStatus`）；未观测到可单独认证 quota 口的有效 Cookie 名，Cookie-only 调用三接口均 401，实际认证依赖 Bearer 与 `x-msh-session-id`/`x-msh-device-id`。
+- quota 页 5 小时/周/月用量数据形态：已验证（`GetSubscriptionStats` 三窗口 + 周期接口；样本 `docs/spikes/s036_kimi_web_quota_pump/code/`）。
+- 登录态有效期与失效特征：已验证（Bearer 15 分钟；续期走 token pump；失效 401 `REASON_INVALID_AUTH_TOKEN`）。结论详见 `docs/findings/d057_*` 与 spike 报告。
 
 ### 风险与回退
 
