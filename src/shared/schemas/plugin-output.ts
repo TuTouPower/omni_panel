@@ -8,6 +8,7 @@ export const usageProviderSchema = z.enum([
     "codex",
     "antigravity",
     "kimi",
+    "kimi_web",
     "glm",
     "minimax",
     "deepseek",

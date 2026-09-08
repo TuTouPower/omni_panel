@@ -1,0 +1,35 @@
+{
+    "id": "kimi_web",
+    "provider": "kimi_web",
+    "capabilities": ["session"],
+    "auth": {
+        "method": "web_login",
+        "secret_name": "SESSION_COOKIE",
+        "login_url": "https://www.kimi.com/settings/subscription?tab=quota"
+    },
+    "parameters": [
+        {
+            "name": "SESSION_COOKIE",
+            "type": "secret",
+            "required": true,
+            "label": "Kimi Web Session",
+            "label@zh-Hans": "网页登录会话",
+            "exposeToScript": true
+        },
+        {
+            "name": "AUTHORIZATION",
+            "type": "secret",
+            "required": false,
+            "label": "Kimi Web Authorization",
+            "label@zh-Hans": "网页登录令牌",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://www.kimi.com",
+        "login": "https://www.kimi.com/settings/subscription?tab=quota"
+    },
+    "loginDomains": ["kimi.com", "www.kimi.com", "auth.kimi.com"],
+    "cookieNames": ["*"],
+    "script": "connector.ts"
+}

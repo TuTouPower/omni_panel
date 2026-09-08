@@ -9,6 +9,7 @@ describe("add-account common services", () => {
             "antigravity",
             "glm",
             "kimi",
+            "kimi_web",
             "deepseek",
             "getoneapi",
             "minimax",
