@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { codex_sessions_path } from "../../../../../src/main/core/token-stats/paths";
-import { scan_codex_rollouts, create_codex_scan_state } from "../../../../../src/main/core/token-stats/codex-reader";
 import {
-    create_token_stats_store,
-} from "../../../../../src/main/core/token-stats/token-stats-store";
+    scan_codex_rollouts,
+    create_codex_scan_state,
+} from "../../../../../src/main/core/token-stats/codex-reader";
+import { create_token_stats_store } from "../../../../../src/main/core/token-stats/token-stats-store";
 
 const START = new Date("2026-09-03T17:00:00Z").getTime();
 
@@ -56,7 +57,18 @@ function fixture_rollout(opts: {
             }),
         );
     }
-    lines.push(rollout_line({ timestamp: "2026-09-03T17:52:00.000Z", ordinal, type: "response_item", payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "hi" }] } }));
+    lines.push(
+        rollout_line({
+            timestamp: "2026-09-03T17:52:00.000Z",
+            ordinal,
+            type: "response_item",
+            payload: {
+                type: "message",
+                role: "assistant",
+                content: [{ type: "output_text", text: "hi" }],
+            },
+        }),
+    );
     return lines.join("\n");
 }
 
@@ -90,8 +102,7 @@ describe("codex rollout reader (t445)", () => {
             const session = result.sessions[0];
             expect(session?.model).toBe("muse-spark-1.3-contributor");
             expect(session?.directory).toBe("/home/karon/proj");
-            const tokens =
-                (session?.input_tokens ?? 0) + (session?.output_tokens ?? 0);
+            const tokens = (session?.input_tokens ?? 0) + (session?.output_tokens ?? 0);
             expect(tokens).toBe(12836);
             expect(result.records).toHaveLength(2);
         } finally {
@@ -129,12 +140,21 @@ describe("codex rollout reader (t445)", () => {
             write_rollout(
                 dir,
                 "rollout-2026-09-03T17-51-32-cccccccc-cccc-cccc-dddd-eeeeeeeeeeee.jsonl",
-                rollout_line({ timestamp: "2026-09-03T17:51:43.486Z", ordinal: 0, type: "session_meta", payload: { session_id: "cccccccc-cccc-cccc-dddd-eeeeeeeeeeee", cwd: "/x" } }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:43.486Z",
+                    ordinal: 0,
+                    type: "session_meta",
+                    payload: { session_id: "cccccccc-cccc-cccc-dddd-eeeeeeeeeeee", cwd: "/x" },
+                }),
             );
             const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
             expect(result.sessions).toHaveLength(0);
             expect(result.records).toHaveLength(0);
-            const missing = scan_codex_rollouts(join(dir, "nope"), "linux", create_codex_scan_state());
+            const missing = scan_codex_rollouts(
+                join(dir, "nope"),
+                "linux",
+                create_codex_scan_state(),
+            );
             expect(missing.missing).toBe(true);
             expect(missing.sessions).toHaveLength(0);
         } finally {
@@ -152,7 +172,9 @@ describe("codex rollout reader (t445)", () => {
                     session_id: "dddddddd-dddd-dddd-dddd-eeeeeeeeeeee",
                     cwd: "/home/karon/proj",
                     model: "m",
-                    counts: [{ ts: "2026-09-03T17:10:00.000Z", total: 500, input: 400, output: 100 }],
+                    counts: [
+                        { ts: "2026-09-03T17:10:00.000Z", total: 500, input: 400, output: 100 },
+                    ],
                 }),
             );
             const scanned = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
@@ -165,7 +187,15 @@ describe("codex rollout reader (t445)", () => {
                 const by_agent = store.query_records({ agent: "codex" });
                 expect(by_agent.length).toBeGreaterThan(0);
                 const dashboard = store.query_dashboard(
-                    { agent: "all", platform: "all", start: START, end: START + 3600000, metric: "tokens", xaxis: "time", gran: "hour" },
+                    {
+                        agent: "all",
+                        platform: "all",
+                        start: START,
+                        end: START + 3600000,
+                        metric: "tokens",
+                        xaxis: "time",
+                        gran: "hour",
+                    },
                     { running: true, last_updated: null },
                 );
                 const codex_total = dashboard.current.agent_totals.find((t) => t.key === "codex");
@@ -238,11 +268,7 @@ describe("codex rollout reader (t445)", () => {
                     },
                 }),
             ];
-            write_rollout(
-                dir,
-                `rollout-2026-09-03T17-51-32-${sid}.jsonl`,
-                lines.join("\n"),
-            );
+            write_rollout(dir, `rollout-2026-09-03T17-51-32-${sid}.jsonl`, lines.join("\n"));
             const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
             expect(result.sessions).toHaveLength(1);
             const session = result.sessions[0];
@@ -259,7 +285,13 @@ describe("codex rollout reader (t445)", () => {
 
     it("paths: codex_sessions_path 解析 ~/.codex/sessions", () => {
         const p = codex_sessions_path(
-            { host: "linux", homedir: "/home/karon", win_home: "", wsl_distro: "Ubuntu-22.04", wsl_user: "" },
+            {
+                host: "linux",
+                homedir: "/home/karon",
+                win_home: "",
+                wsl_distro: "Ubuntu-22.04",
+                wsl_user: "",
+            },
             "linux",
         );
         expect(p).toBe("/home/karon/.codex/sessions");
@@ -286,8 +318,7 @@ describe("codex rollout reader (t445)", () => {
             const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
             expect(result.sessions).toHaveLength(1);
             const session = result.sessions[0];
-            const tokens =
-                (session?.input_tokens ?? 0) + (session?.output_tokens ?? 0);
+            const tokens = (session?.input_tokens ?? 0) + (session?.output_tokens ?? 0);
             expect(tokens).toBe(2500);
             // 重复事件本身仍保留调用计数语义由实现定，但 tokens 不得 double。
             expect(tokens).toBeLessThan(1000 + 1000 + 2500);
@@ -307,8 +338,20 @@ describe("codex rollout reader (t445)", () => {
                     cwd: "/home/karon/proj",
                     model: "m",
                     counts: [
-                        { ts: "2026-09-03T17:51:47.670Z", total: 1000, input: 900, output: 100, cached: 800 },
-                        { ts: "2026-09-03T17:53:00.000Z", total: 2000, input: 1800, output: 200, cached: 1500 },
+                        {
+                            ts: "2026-09-03T17:51:47.670Z",
+                            total: 1000,
+                            input: 900,
+                            output: 100,
+                            cached: 800,
+                        },
+                        {
+                            ts: "2026-09-03T17:53:00.000Z",
+                            total: 2000,
+                            input: 1800,
+                            output: 200,
+                            cached: 1500,
+                        },
                     ],
                 }),
             );
