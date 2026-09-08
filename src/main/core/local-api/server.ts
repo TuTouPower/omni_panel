@@ -1685,12 +1685,18 @@ export function create_local_api_server(
                 json_response(res, 200, { status: "ok" });
                 return true;
             case "/v1/control/restart":
-                deps.restart();
+                // 自杀端点须先回包再退出：stop() 会 closeAllConnections（含本连接），
+                // 同 tick 内 quit 会把 200 一起掐掉，瘦客户端误报「实例未运行」。
                 json_response(res, 200, { status: "ok" });
+                setImmediate(() => {
+                    deps.restart();
+                });
                 return true;
             case "/v1/control/quit":
-                deps.quit();
                 json_response(res, 200, { status: "ok" });
+                setImmediate(() => {
+                    deps.quit();
+                });
                 return true;
             default:
                 return false;
@@ -1820,6 +1826,13 @@ export function create_local_api_server(
             if (!active_server) return;
             for (const client of sse_clients) client.end();
             sse_clients.clear();
+            // quit/restart 语义要求进程及时退出：health 轮询（测试与瘦客户端
+            // wait_quit_confirmed，500ms 间隔 + keep-alive 复用）会让同一连接
+            // 在 close 时仍被反复复用、永远等不到 drain 而挂住 will-quit
+            //（实测 cli quit 用例 10s 超时，stop 入口 listening=false 但 conns=1
+            // 且轮询持续 200）。stop 只在 will-quit 调用，进程即将退出，
+            // 直接断全部连接再 close，后续轮询 ECONNREFUSED，调用方正确判定退出。
+            active_server.closeAllConnections();
             await new Promise<void>((resolve, reject) => {
                 active_server.close((error?: Error) => {
                     if (error) {
