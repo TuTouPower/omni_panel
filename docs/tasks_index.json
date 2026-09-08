@@ -2,5 +2,22 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t465",
+            "slug": "kimi_web_naming_login_form_cleanup",
+            "title": "Kimi Web 名称与网页登录表单精简",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "将 Kimi 网页版统一显示为 Kimi Web；网页登录表单只保留必要的网页登录操作，移除 Cookie 字符串、网页登录令牌、接口地址(login)等手动字段。",
+            "dir": "docs/tasks/t465_kimi_web_naming_login_form_cleanup"
+        }
+    ]
 }
