@@ -1,9 +1,9 @@
 {
-    "template_source": {
-        "kind": "path",
-        "value": "/home/karon/karson_ubuntu/repo_template/repo"
-    },
-    "last_synced_commit": "45556afef3989f4d1094e2c358264cb4d14e077b",
-    "last_synced_at": "2026-09-08T04:10:58+08:00",
-    "user_prompts": []
+  "template_source": {
+    "kind": "path",
+    "value": "/home/karon/karson_ubuntu/repo_template/repo"
+  },
+  "last_synced_commit": "fbe115c33ce42ef10823ca19fb954044266bc8d3",
+  "last_synced_at": "2026-09-08T18:02:52+08:00",
+  "user_prompts": []
 }

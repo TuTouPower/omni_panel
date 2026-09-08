@@ -14,3 +14,13 @@ docs/blueprint/architecture_repo_template.md
 docs/tasks/task_template/
 docs/reviews/prompts/
 scripts/repo_template/
+
+# 同步自模板（repo-template-sync）：模板自有路径不受消费仓 format 门禁约束
+.repo_template/scripts/package.json
+.repo_template/tests/package.json
+.repo_template/scripts/repo_task/view_static/
+.repo_template/tests/test_chain_plan_cases.js
+.opencode/package.json
+.opencode/package-lock.json
+# 消费仓补充：sync_state.json 由 repo_sync.py 每轮 2 空格重写，不跟消费仓 4 空格体例
+.repo_template/sync_state.json
