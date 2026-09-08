@@ -86,9 +86,13 @@ function find_vendor(
     }
     const info = plugin_infos.find(
         (c) =>
-            c.metadata?.name === vendor_id ||
-            c.supportedProviders.includes(vendor_id) ||
-            c.activeProviders.includes(vendor_id),
+            (c.metadata?.name === vendor_id ||
+                c.supportedProviders.includes(vendor_id) ||
+                c.activeProviders.includes(vendor_id)) &&
+            // t461: 回退分支排除网关实例——CPA 的 supportedProviders 为 monitor_*
+            // 全集，catalog 缺失时会把 kimi/claude/codex/antigravity 误判为 cpa；
+            // cpa 本体不受影响。
+            (vendor_id === "cpa" || c.source !== "gateway"),
     );
     if (info) {
         // metadata.name is set to manifest id by metadata_from_definition (connector-ipc.ts).

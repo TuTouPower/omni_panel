@@ -15,6 +15,7 @@ import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
 import type { ConnectorIpcDeps } from "../../../src/main/ipc/connector-ipc";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
+import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
 import type {
     Env,
     QueryResult,
@@ -3440,6 +3441,58 @@ describe("local-api 控制端点（t276）", () => {
             expect(res.status).toBe(401);
         } finally {
             await plain_api.stop();
+        }
+    });
+});
+
+describe("local-api web catalog (t461)", () => {
+    it("GET /v1/catalog 返回 200，kimi 条目为 oauth_device（与桌面 connector:catalog 同源）", async () => {
+        const kimi_manifest = await load_manifest(join(process.cwd(), "connectors", "kimi"));
+        const cpa_manifest = await load_manifest(join(process.cwd(), "connectors", "cpa"));
+        assert_non_null(kimi_manifest, "kimi manifest missing");
+        assert_non_null(cpa_manifest, "cpa manifest missing");
+        const catalog_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            config_deps,
+            connector_deps: {
+                ...connector_deps,
+                definitions: [
+                    {
+                        directory: join(process.cwd(), "connectors", "kimi"),
+                        executablePath: join(process.cwd(), "connectors", "kimi"),
+                        manifest: kimi_manifest,
+                    },
+                    {
+                        directory: join(process.cwd(), "connectors", "cpa"),
+                        executablePath: join(process.cwd(), "connectors", "cpa"),
+                        manifest: cpa_manifest,
+                    },
+                ],
+            },
+            web_root,
+        });
+        await catalog_api.start();
+        try {
+            // Web renderer 无 token：与 /v1/connectors 对齐，读端点免认证。
+            const res = await fetch(
+                `http://127.0.0.1:${String(catalog_api.get_port())}/v1/catalog`,
+            );
+            expect(res.status).toBe(200);
+            // send_result 成功时直接回 data（无 ok 信封）。
+            const body = (await res.json()) as {
+                manifest_id: string;
+                supported_providers: string[];
+                metadata: { auth?: { method: string } };
+            }[];
+            const kimi = body.find((e) => e.manifest_id === "kimi");
+            expect(kimi?.metadata.auth?.method).toBe("oauth_device");
+            const cpa = body.find((e) => e.manifest_id === "cpa");
+            expect(cpa?.supported_providers).toEqual(
+                expect.arrayContaining(["kimi", "claude", "codex", "antigravity"]),
+            );
+        } finally {
+            await catalog_api.stop();
         }
     });
 });

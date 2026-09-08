@@ -1,0 +1,30 @@
+{
+    "tid": "t461",
+    "attempt": 1,
+    "execution_id": "c835f7ae1ba441339b5fb8a5eef0fda0",
+    "status": "done",
+    "branch": "t461_web_catalog_misroute_cpa_form",
+    "base_sha": "880fd64a3d52af5676dd9e35d24d3d8d9058a0e8",
+    "tests": "pnpm test 286 passed 文件 + build_code_split 7 passed（pnpm build 后补跑）；server.test.ts 99 passed；add_account_dialog.test.tsx 27 passed；typecheck/eslint/prettier/diff-check 全绿",
+    "blackbox": "pnpm test:e2e:web 96/96；xvfb 真实 serve GET /v1/catalog 200（16 条目、kimi oauth_device、CPA 四 provider），quit 退出并清理",
+    "review": "single Round 1 PASS（review_general.md，零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/local-api/server.test.ts t461：真 manifest + 真 HTTP 无 token，GET /v1/catalog 200 且 kimi auth.method=oauth_device",
+            "src/main/core/local-api/server.ts handle_web_connector 新增 /v1/catalog（复用 handleConnectorCatalog，与桌面 IPC 同源，鉴权与 /v1/connectors 对齐）"
+        ],
+        "AC-002": [
+            "add_account_dialog.test.tsx：catalog 含 kimi + CPA 实例共存，点 Kimi 渲染 开始登录/OAuth 设备码授权且无 CPA 表单",
+            "catalog exact-match 分支未动（grok/exa/opencode 既有用例佐证）"
+        ],
+        "AC-003": [
+            "add_account_dialog.test.tsx：空 catalog 下 Kimi 走 apikey、无 CpaMgmtForm、manifest_id≠cpa、source_instance_id 缺席；Claude 抽查同断言；CPA 本体仍渲染 CpaMgmtForm",
+            "src/renderer/components/AddAccountDialog.tsx find_vendor 回退分支排除 source=gateway（cpa 本体除外）"
+        ],
+        "AC-004": ["pnpm test 全量回归无既有测试改动；桌面 catalog/IPC 通路零改动"]
+    },
+    "pending": [
+        "p225 已闭环归档（docs/archive/pending/p225_web_add_kimi_misroutes_to_cpa_form.md，fix-ref t461）"
+    ],
+    "findings": []
+}
