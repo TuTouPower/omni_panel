@@ -241,12 +241,23 @@ function parse_codex(
 }
 
 // ─── Antigravity ───────────────────────────────────────
+// t462: 主路径为 retrieveUserQuotaSummary（groups/buckets，5h + weekly），
+// 无可用数据时回退 fetchAvailableModels（models 共享组）。上游已不再提供 GPT。
 
-const ANTIGRAVITY_URLS = [
+const ANTIGRAVITY_QUOTA_SUMMARY_URLS = [
+    "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:retrieveUserQuotaSummary",
+    "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+];
+
+const ANTIGRAVITY_AVAILABLE_MODELS_URLS = [
     "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
     "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
 ];
+
+// 对齐 CPA-Manager-Plus 的 antigravity/cli UA（公开常量，非 secret）。
+const ANTIGRAVITY_USER_AGENT = "antigravity/cli/1.0.13 (aidev_client; os_type=darwin; arch=arm64)";
 
 interface AntigravityQuotaGroup {
     readonly id: string;
@@ -256,19 +267,14 @@ interface AntigravityQuotaGroup {
 
 const ANTIGRAVITY_QUOTA_GROUPS: readonly AntigravityQuotaGroup[] = [
     {
-        id: "gemini-models",
-        label: "Gemini Models",
+        id: "gemini",
+        label: "Gemini",
         provider_values: ["API_PROVIDER_GOOGLE_GEMINI"],
     },
     {
-        id: "claude-gpt",
-        label: "Claude/GPT",
-        provider_values: [
-            "API_PROVIDER_ANTHROPIC_VERTEX",
-            "MODEL_PROVIDER_ANTHROPIC",
-            "API_PROVIDER_OPENAI_VERTEX",
-            "MODEL_PROVIDER_OPENAI",
-        ],
+        id: "claude",
+        label: "Claude",
+        provider_values: ["API_PROVIDER_ANTHROPIC_VERTEX", "MODEL_PROVIDER_ANTHROPIC"],
     },
 ];
 
@@ -286,7 +292,164 @@ function matches_antigravity_group(
     );
 }
 
-function parse_antigravity(
+// remainingFraction 缺失与 0 必须区分：缺失（非有限数）返回 null 由调用方跳过，
+// 显式 0 保留（按耗尽处理）。对齐 CPA-Manager-Plus 的 normalizeQuotaFraction。
+function extract_remaining_fraction(record: Record<string, unknown>): number | null {
+    const direct = record["remainingFraction"] ?? record["remaining_fraction"];
+    if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+    if (typeof direct === "string" && direct.trim() !== "" && Number.isFinite(Number(direct))) {
+        return Number(direct);
+    }
+    const quota = record["quotaInfo"] ?? record["quota_info"];
+    if (!is_record(quota)) return null;
+    const nested = quota["remainingFraction"] ?? quota["remaining_fraction"] ?? quota["remaining"];
+    if (typeof nested === "number" && Number.isFinite(nested)) return nested;
+    if (typeof nested === "string" && nested.trim() !== "" && Number.isFinite(Number(nested))) {
+        return Number(nested);
+    }
+    return null;
+}
+
+function remaining_to_used(remaining: number): number {
+    const pct = remaining <= 1 ? remaining * 100 : remaining;
+    return Math.round(Math.min(Math.max(0, 100 - pct), 100) * 10) / 10;
+}
+
+// summary 分组归属：按组 displayName 文本识别 gemini / claude；GPT 与未知分组返回 null 跳过。
+function classify_antigravity_family(group: Record<string, unknown>): "gemini" | "claude" | null {
+    const label = group["displayName"] ?? group["display_name"];
+    if (typeof label !== "string") return null;
+    const text = label.toLowerCase();
+    if (text.includes("gemini")) return "gemini";
+    if (text.includes("claude") || text.includes("anthropic")) return "claude";
+    return null;
+}
+
+interface AntigravityWindowDescriptor {
+    readonly key: "five_hour" | "weekly";
+    readonly window: "second" | "day";
+    readonly cycleDurationMs: number;
+    readonly label: string;
+}
+
+function classify_antigravity_window(window: unknown): AntigravityWindowDescriptor | null {
+    const text = typeof window === "string" ? window.trim().toLowerCase() : "";
+    if (text === "5h" || text === "5-hour" || text === "five-hour" || text === "five_hour") {
+        return { key: "five_hour", window: "second", cycleDurationMs: 18_000_000, label: "5小时" };
+    }
+    if (text === "weekly" || text === "week" || text === "7d") {
+        return { key: "weekly", window: "day", cycleDurationMs: 604_800_000, label: "一周" };
+    }
+    return null;
+}
+
+function to_stable_id(value: string, fallback: string): string {
+    const normalized = value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    return normalized || fallback;
+}
+
+function make_antigravity_observation(
+    account: CpaAccount,
+    now: number,
+    metric_key: string,
+    normalized_label: string,
+    window: "second" | "day",
+    cycleDurationMs: number | null,
+    used: number,
+    reset_at: number | null,
+): ScriptObservation {
+    return {
+        provider: "antigravity",
+        account_id: account.account_id,
+        account_label: account.account_label,
+        metric_id: `antigravity:${account.account_id}:${metric_key}`,
+        raw_label: metric_key,
+        normalized_label,
+        window,
+        cycleDurationMs,
+        used,
+        limit: 100,
+        display_style: "percent",
+        reset_at,
+        status: ctx.status.for_pct(used),
+        observed_at: now,
+        source: "gateway",
+        stale: false,
+        last_error: null,
+    } satisfies ScriptObservation;
+}
+
+function parse_antigravity_summary(
+    body: Record<string, unknown>,
+    account: CpaAccount,
+    now: number,
+): ScriptObservation[] {
+    const groups = body["groups"];
+    if (!Array.isArray(groups)) return [];
+    const observations: ScriptObservation[] = [];
+    for (const group of groups) {
+        if (!is_record(group)) continue;
+        const family = classify_antigravity_family(group);
+        if (family === null) continue;
+        const family_label = family === "gemini" ? "Gemini" : "Claude";
+        const buckets = group["buckets"];
+        if (!Array.isArray(buckets)) continue;
+        buckets.forEach((bucket, bucket_index) => {
+            if (!is_record(bucket)) return;
+            const remaining = extract_remaining_fraction(bucket);
+            if (remaining === null) return;
+            const used = remaining_to_used(remaining);
+            const reset_at = to_reset_at(bucket["resetTime"] ?? bucket["reset_time"]);
+            const descriptor = classify_antigravity_window(bucket["window"]);
+            if (descriptor === null) {
+                // 未知窗口不丢数据：无周期观测（upcoming-reset 跳过 cycle null）。
+                const raw_id =
+                    bucket["bucketId"] ??
+                    bucket["bucket_id"] ??
+                    bucket["displayName"] ??
+                    bucket["display_name"];
+                const bucket_label =
+                    bucket["displayName"] ??
+                    bucket["display_name"] ??
+                    `bucket-${String(bucket_index + 1)}`;
+                const key = `${family}_${to_stable_id(typeof raw_id === "string" ? raw_id : "", `bucket_${String(bucket_index + 1)}`)}`;
+                observations.push(
+                    make_antigravity_observation(
+                        account,
+                        now,
+                        key,
+                        `${family_label} ${typeof bucket_label === "string" ? bucket_label : `bucket-${String(bucket_index + 1)}`}`,
+                        "second",
+                        null,
+                        used,
+                        reset_at,
+                    ),
+                );
+                return;
+            }
+            const key = `${family}_${descriptor.key}`;
+            observations.push(
+                make_antigravity_observation(
+                    account,
+                    now,
+                    key,
+                    `${family_label} ${descriptor.label}`,
+                    descriptor.window,
+                    descriptor.cycleDurationMs,
+                    used,
+                    reset_at,
+                ),
+            );
+        });
+    }
+    return observations;
+}
+
+function parse_antigravity_models(
     body: Record<string, unknown>,
     account: CpaAccount,
     now: number,
@@ -305,12 +468,26 @@ function parse_antigravity(
             if (!matches_antigravity_group(model_info, group)) continue;
 
             const quota = model_info["quotaInfo"] ?? model_info["quota_info"];
-            if (!is_record(quota)) continue;
-            let remaining = to_number(quota["remainingFraction"]);
-            if (remaining <= 1) remaining *= 100;
-            const model_reset = to_reset_at(quota["resetTime"] ?? quota["reset_time"]);
-            if (!found || remaining < min_remaining) {
-                min_remaining = remaining;
+            const quota_record = is_record(quota) ? quota : null;
+            const model_reset = quota_record
+                ? to_reset_at(quota_record["resetTime"] ?? quota_record["reset_time"])
+                : null;
+            const remaining = extract_remaining_fraction(model_info);
+            if (remaining === null) {
+                // 缺字段且有 resetTime 视为耗尽（对齐 CPA-Manager-Plus）；两者皆无则跳过，
+                // 不按 0 参与聚合，避免误报整组 100% 用尽。
+                if (model_reset === null) continue;
+                if (!found || 0 < min_remaining) {
+                    min_remaining = 0;
+                    reset_at = model_reset;
+                }
+                found = true;
+                continue;
+            }
+            let pct = remaining;
+            if (pct <= 1) pct *= 100;
+            if (!found || pct < min_remaining) {
+                min_remaining = pct;
                 reset_at = model_reset;
             }
             found = true;
@@ -318,27 +495,45 @@ function parse_antigravity(
 
         if (!found) continue;
         const used = Math.round(Math.min(Math.max(0, 100 - min_remaining), 100) * 10) / 10;
-        observations.push({
-            provider: "antigravity",
-            account_id: account.account_id,
-            account_label: account.account_label,
-            metric_id: `antigravity:${account.account_id}:${group.id}`,
-            raw_label: group.id,
-            normalized_label: group.label,
-            window: "second",
-            cycleDurationMs: null,
-            used,
-            limit: 100,
-            display_style: "percent",
-            reset_at,
-            status: ctx.status.for_pct(used),
-            observed_at: now,
-            source: "gateway",
-            stale: false,
-            last_error: null,
-        });
+        observations.push(
+            make_antigravity_observation(
+                account,
+                now,
+                `${group.id}_shared`,
+                group.label,
+                "second",
+                null,
+                used,
+                reset_at,
+            ),
+        );
     }
     return observations;
+}
+
+function parse_antigravity(
+    body: Record<string, unknown>,
+    account: CpaAccount,
+    now: number,
+): ScriptObservation[] {
+    if (Array.isArray(body["groups"])) return parse_antigravity_summary(body, account, now);
+    return parse_antigravity_models(body, account, now);
+}
+
+function summary_has_usable_buckets(body: Record<string, unknown>): boolean {
+    const groups = body["groups"];
+    if (!Array.isArray(groups)) return false;
+    for (const group of groups) {
+        if (!is_record(group)) continue;
+        if (classify_antigravity_family(group) === null) continue;
+        const buckets = group["buckets"];
+        if (!Array.isArray(buckets)) continue;
+        for (const bucket of buckets) {
+            if (!is_record(bucket)) continue;
+            if (extract_remaining_fraction(bucket) !== null) return true;
+        }
+    }
+    return false;
 }
 
 // ─── Kimi ──────────────────────────────────────────────
@@ -448,7 +643,8 @@ async function fetch_provider(
         const body: Record<string, unknown> = {};
         if (project) body["project"] = project;
         let last_error: Error | null = null;
-        for (const url of ANTIGRAVITY_URLS) {
+        const urls = [...ANTIGRAVITY_QUOTA_SUMMARY_URLS, ...ANTIGRAVITY_AVAILABLE_MODELS_URLS];
+        for (const url of urls) {
             try {
                 const result = await cpa_api_call(
                     mgmt_key,
@@ -458,11 +654,18 @@ async function fetch_provider(
                     {
                         Authorization: "Bearer $TOKEN$",
                         "Content-Type": "application/json",
-                        "User-Agent": "antigravity/1.11.5 windows/amd64",
+                        "User-Agent": ANTIGRAVITY_USER_AGENT,
                     },
                     body,
                 );
-                return parse_api_body(result);
+                const parsed = parse_api_body(result);
+                if (Object.keys(parsed).length === 0) continue;
+                // summary 形态但无可用 bucket（显式空库存 / GPT 专属 / 字段缺失）时继续走
+                // 剩余 URL，最终落到模型列表回退；对齐 CPA-Manager-Plus 的空 groups 继续逻辑。
+                if (Array.isArray(parsed["groups"]) && !summary_has_usable_buckets(parsed)) {
+                    continue;
+                }
+                return parsed;
             } catch (err) {
                 last_error = err instanceof Error ? err : new Error(String(err));
             }
