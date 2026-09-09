@@ -201,6 +201,25 @@ const ANTIGRAVITY_PERIOD_ORDER = [
     "claude_weekly",
 ] as const;
 
+function is_grok_weekly_period(period: ProviderUsagePeriod): boolean {
+    // Grok's current connector calls the weekly quota `credits`; the label map
+    // may render it as either "额度" or "一周". Keep the ordering contract
+    // based on both the stable raw key and the human-facing fallbacks.
+    const raw_label = period.raw_label.toLowerCase();
+    return (
+        raw_label === "credits" ||
+        raw_label === "credit" ||
+        raw_label === "weekly" ||
+        raw_label === "seven_day" ||
+        raw_label === "7d" ||
+        raw_label.includes("week") ||
+        period.name.includes("一周") ||
+        period.name.includes("周") ||
+        period.display_label?.includes("一周") === true ||
+        period.display_label?.includes("周") === true
+    );
+}
+
 function usage_period_order(provider: string, period: ProviderUsagePeriod): number {
     if (provider === "antigravity") {
         const index = ANTIGRAVITY_PERIOD_ORDER.indexOf(
@@ -208,16 +227,7 @@ function usage_period_order(provider: string, period: ProviderUsagePeriod): numb
         );
         return index >= 0 ? index : ANTIGRAVITY_PERIOD_ORDER.length;
     }
-    if (
-        provider === "grok" &&
-        (period.raw_label === "credits" ||
-            period.raw_label === "weekly" ||
-            period.raw_label === "seven_day" ||
-            period.name.includes("一周"))
-    ) {
-        return 1;
-    }
-    return 0;
+    return provider === "grok" && is_grok_weekly_period(period) ? 1 : 0;
 }
 
 function order_usage_periods(
