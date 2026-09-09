@@ -656,6 +656,27 @@ export function build_overview_for_group(
         });
     }
 
+    // The overview path rebuilds rows from a Map keyed by the rendered label,
+    // so it must apply the provider ordering again. Otherwise Grok's `credits`
+    // row can move back to the position dictated by the API response order.
+    result.sort((a, b) => {
+        if (group.provider !== "grok") return 0;
+        const is_weekly = (period: OverviewWindow): boolean => {
+            const raw_label = period.raw_label.toLowerCase();
+            return (
+                raw_label === "credits" ||
+                raw_label === "credit" ||
+                raw_label === "weekly" ||
+                raw_label === "seven_day" ||
+                raw_label === "7d" ||
+                raw_label.includes("week") ||
+                period.name.includes("一周") ||
+                period.name.includes("周")
+            );
+        };
+        return Number(is_weekly(a)) - Number(is_weekly(b));
+    });
+
     if (should_log_raw) {
         log.debug("provider overview periods raw", {
             provider: group.provider,
