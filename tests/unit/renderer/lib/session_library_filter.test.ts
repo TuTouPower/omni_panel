@@ -5,6 +5,8 @@ import {
     filter_sessions,
     match_content,
     sort_sessions,
+    time_filter_range,
+    TIME_PRESET_WINDOW_MS,
     type LibrarySort,
 } from "../../../../src/renderer/lib/session-library/filter";
 
@@ -106,5 +108,32 @@ describe("count_stats (t227)", () => {
         expect(stats.sessions).toBe(3);
         expect(stats.agents).toBe(3);
         expect(stats.tokens).toBe(1125);
+    });
+});
+
+describe("time_filter_range（时间预设→查询区间）", () => {
+    const NOW = new Date("2026-09-09T12:00:00Z").getTime();
+
+    it("all 不限时间", () => {
+        expect(time_filter_range("all", null, NOW)).toEqual({});
+    });
+
+    it.each([
+        ["24h", TIME_PRESET_WINDOW_MS["24h"]],
+        ["7d", TIME_PRESET_WINDOW_MS["7d"]],
+        ["30d", TIME_PRESET_WINDOW_MS["30d"]],
+    ] as const)("预设 %s 以 now 为锚回看固定窗口", (preset, window_ms) => {
+        expect(time_filter_range(preset, null, NOW)).toEqual({
+            start_at: NOW - window_ms,
+        });
+    });
+
+    it("custom 用用户所选区间；缺 start 视为不限", () => {
+        expect(time_filter_range("custom", { start_at: 100, end_at: 200 }, NOW)).toEqual({
+            start_at: 100,
+            end_at: 200,
+        });
+        expect(time_filter_range("custom", { start_at: 100 }, NOW)).toEqual({ start_at: 100 });
+        expect(time_filter_range("custom", null, NOW)).toEqual({});
     });
 });

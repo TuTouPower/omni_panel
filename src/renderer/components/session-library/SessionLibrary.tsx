@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
-import { count_stats, sort_sessions, type LibrarySort } from "../../lib/session-library/filter";
+import {
+    count_stats,
+    sort_sessions,
+    type LibrarySort,
+    type TimePreset,
+} from "../../lib/session-library/filter";
 import { AgentFilterChips } from "./AgentFilterChips";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
+import { TimeRangeFilter } from "./TimeRangeFilter";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
@@ -39,12 +45,10 @@ export function SessionLibrary({
 }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
-    // t458: 独立标题 / 工作目录筛选，分别作为查询的 title / directory。
-    const [title_filter, set_title_filter] = useState("");
-    const [directory_filter, set_directory_filter] = useState("");
     const [search_content, set_search_content] = useState(false);
-    const [start_date, set_start_date] = useState("");
-    const [end_date, set_end_date] = useState("");
+    // 时间筛选：预设分段 + 自定义弹层；区间为点击时刻冻结的快照（time_range）。
+    const [time_preset, set_time_preset] = useState<TimePreset>("all");
+    const [time_range, set_time_range] = useState<{ start_at?: number; end_at?: number }>({});
     const [agents, set_agents] = useState<string[]>([]);
     const [sort, set_sort] = useState<LibrarySort>("recent");
     const [view_mode, set_view_mode] = useState<"grid" | "list">("grid");
@@ -85,14 +89,8 @@ export function SessionLibrary({
         window.setTimeout(flush_summaries, 0);
     }, [flush_summaries]);
 
-    const start_at = useMemo(() => {
-        if (!start_date) return undefined;
-        return new Date(`${start_date}T00:00:00`).getTime();
-    }, [start_date]);
-    const end_at = useMemo(() => {
-        if (!end_date) return undefined;
-        return new Date(`${end_date}T23:59:59`).getTime();
-    }, [end_date]);
+    const start_at = time_range.start_at;
+    const end_at = time_range.end_at;
 
     const backend_filters = useMemo(() => {
         const order_by =
@@ -107,15 +105,12 @@ export function SessionLibrary({
         return {
             ...(agents.length > 0 ? { sources: [...agents] } : {}),
             ...(!search_content && search ? { search } : {}),
-            // t458: 独立标题 / 工作目录条件；空串不进请求。
-            ...(title_filter ? { title: title_filter } : {}),
-            ...(directory_filter ? { directory: directory_filter } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
             order_by,
             direction,
         } as const;
-    }, [agents, search, search_content, title_filter, directory_filter, start_at, end_at, sort]);
+    }, [agents, search, search_content, start_at, end_at, sort]);
 
     const agent_counts = useMemo(() => {
         if (session_stats_status !== "ready") return [];
@@ -283,9 +278,6 @@ export function SessionLibrary({
                                 filters: {
                                     ...(agents.length > 0 ? { sources: [...agents] } : {}),
                                     ...(search ? { search } : {}),
-                                    // t458: 内容搜索候选同样受独立标题 / 目录约束。
-                                    ...(title_filter ? { title: title_filter } : {}),
-                                    ...(directory_filter ? { directory: directory_filter } : {}),
                                     ...(start_at !== undefined ? { start_at } : {}),
                                     ...(end_at !== undefined ? { end_at } : {}),
                                 },
@@ -375,7 +367,7 @@ export function SessionLibrary({
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, agents, start_at, end_at, title_filter, directory_filter]);
+    }, [search, search_content, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
@@ -461,15 +453,7 @@ export function SessionLibrary({
     }, []);
 
     const selected_ids = useMemo(() => new Set(selected.map((s) => key_of(s))), [selected]);
-    // t458: 独立标题/目录也计入「有筛选」与清空范围。
-    const has_filters =
-        search ||
-        search_content ||
-        start_date ||
-        end_date ||
-        agents.length > 0 ||
-        Boolean(title_filter) ||
-        Boolean(directory_filter);
+    const has_filters = search || search_content || time_preset !== "all" || agents.length > 0;
     const show_clear = has_filters || all.length > 0;
     const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
     const stats_text =
@@ -507,25 +491,6 @@ export function SessionLibrary({
                         set_search(e.target.value);
                     }}
                 />
-                {/* t458: 独立标题 / 工作目录筛选输入。 */}
-                <Input
-                    className="w-auto min-w-[140px]"
-                    aria-label="标题"
-                    placeholder="标题"
-                    value={title_filter}
-                    onChange={(e) => {
-                        set_title_filter(e.target.value);
-                    }}
-                />
-                <Input
-                    className="w-auto min-w-[140px]"
-                    aria-label="工作目录"
-                    placeholder="工作目录"
-                    value={directory_filter}
-                    onChange={(e) => {
-                        set_directory_filter(e.target.value);
-                    }}
-                />
                 <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                     <Checkbox
                         checked={search_content}
@@ -536,27 +501,14 @@ export function SessionLibrary({
                     />
                     包含消息内容
                 </label>
-                <div className="flex items-center gap-2">
-                    <Input
-                        type="date"
-                        className="w-auto min-w-[130px]"
-                        aria-label="起始日期"
-                        value={start_date}
-                        onChange={(e) => {
-                            set_start_date(e.target.value);
-                        }}
-                    />
-                    <span className="text-[var(--color-on-surface-muted)]">—</span>
-                    <Input
-                        type="date"
-                        className="w-auto min-w-[130px]"
-                        aria-label="结束日期"
-                        value={end_date}
-                        onChange={(e) => {
-                            set_end_date(e.target.value);
-                        }}
-                    />
-                </div>
+                <TimeRangeFilter
+                    preset={time_preset}
+                    applied_range={time_range}
+                    on_change={(preset, range) => {
+                        set_time_preset(preset);
+                        set_time_range(range);
+                    }}
+                />
                 <Select
                     className="w-auto min-w-[120px]"
                     aria-label="排序方式"
@@ -630,12 +582,9 @@ export function SessionLibrary({
                             onClick={() => {
                                 set_search("");
                                 set_search_content(false);
-                                set_start_date("");
-                                set_end_date("");
+                                set_time_preset("all");
+                                set_time_range({});
                                 set_agents([]);
-                                // t458: 清空筛选同时清空独立标题与工作目录。
-                                set_title_filter("");
-                                set_directory_filter("");
                             }}
                         >
                             清除筛选
