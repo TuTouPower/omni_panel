@@ -271,19 +271,13 @@ describe("SessionLibrary (t227)", () => {
         });
 
         fireEvent.click(screen.getByRole("button", { name: /^OpenCode/ }));
-        fireEvent.change(screen.getByLabelText("起始日期"), {
-            target: { value: "2026-07-10" },
-        });
-        fireEvent.change(screen.getByLabelText("结束日期"), {
-            target: { value: "2026-07-11" },
-        });
+        fireEvent.click(screen.getByTestId("time-preset-30d"));
 
         await waitFor(() => {
             expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
                 expect.objectContaining({
                     sources: ["opencode"],
                     start_at: expect.any(Number) as unknown,
-                    end_at: expect.any(Number) as unknown,
                     limit: 50,
                     offset: 0,
                 }),
@@ -547,7 +541,7 @@ describe("SessionLibrary (t227)", () => {
         );
     });
 
-    it("起始日期输入过滤：活动时间结束于起始日之前的会话被排除（f002）", async () => {
+    it("时间预设过滤：活动时间结束于回看窗口之前的会话被排除（f002）", async () => {
         const ub = usageboard();
         const day = 24 * 3600 * 1000;
         const start_day = new Date("2026-07-10T00:00:00").getTime();
@@ -566,14 +560,14 @@ describe("SessionLibrary (t227)", () => {
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
-        fireEvent.change(screen.getByLabelText("起始日期"), { target: { value: "2026-07-10" } });
+        fireEvent.click(screen.getByTestId("time-preset-30d"));
         await waitFor(() => {
             expect(screen.queryByText("会话 old")).toBeNull();
             expect(screen.getByText("会话 new")).toBeTruthy();
         });
     });
 
-    it("结束日期输入过滤：活动时间起始于结束日之后的会话被排除（f002）", async () => {
+    it("自定义时间区间过滤：活动时间起始于结束时刻之后的会话被排除（f002）", async () => {
         const ub = usageboard();
         const day = 24 * 3600 * 1000;
         const start_day = new Date("2026-07-10T00:00:00").getTime();
@@ -592,7 +586,10 @@ describe("SessionLibrary (t227)", () => {
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
-        fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-07-09" } });
+        fireEvent.click(screen.getByRole("button", { name: "📅 自定义" }));
+        fireEvent.change(screen.getByLabelText("开始"), { target: { value: "2026-07-01T00:00" } });
+        fireEvent.change(screen.getByLabelText("结束"), { target: { value: "2026-07-09T23:59" } });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
         await waitFor(() => {
             expect(screen.getByText("会话 old")).toBeTruthy();
             expect(screen.queryByText("会话 new")).toBeNull();
