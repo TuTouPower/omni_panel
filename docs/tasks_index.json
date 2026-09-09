@@ -2,5 +2,38 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t467",
+            "slug": "codex_reader_last_token_usage_precision",
+            "title": "Codex reader 按 last_token_usage 记录精确分项用量",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p213：t445 遗留；分项差分改用 last_token_usage，补双 model 分段 fixture。",
+            "dir": "docs/tasks/t467_codex_reader_last_token_usage_precision"
+        },
+        {
+            "tid": "t468",
+            "slug": "session_query_filter_test_coverage",
+            "title": "会话查询过滤补强测试覆盖",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p224：补 store 组合过滤、id/title 判别及桌面 IPC filters 透传断言。",
+            "dir": "docs/tasks/t468_session_query_filter_test_coverage"
+        }
+    ]
 }
