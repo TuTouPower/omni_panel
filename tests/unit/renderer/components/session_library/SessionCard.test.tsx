@@ -4,9 +4,15 @@ import { SessionCard } from "../../../../../src/renderer/components/session-libr
 import type { TokenStatsSession } from "../../../../../src/shared/types/token-stats";
 
 /**
- * t326 会话库卡片三行重排：VendorMark 徽标；cwd 末级+精确时间 / 轮次·tokens·session id / 会话名；
- * session id 点击复制续接命令（复用 t324 分派）。
+ * t326 会话库卡片三行重排：VendorMark 徽标；cwd 末级+首条→末条消息时间区间 /
+ * 轮次·tokens·session id / 会话名；session id 点击复制续接命令（复用 t324 分派）。
  */
+
+/** 钉住系统时间为 2026 年，format_compact_datetime 走当年 MMDD HH:mm 格式（t407 同款）。 */
+function pin_system_year_2026(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 16, 12, 0, 0));
+}
 
 function sess(
     id: string,
@@ -15,6 +21,7 @@ function sess(
         calls?: number;
         input_tokens?: number;
         directory?: string | null;
+        started_at?: number;
         ended_at?: number;
         title?: string;
     } = {},
@@ -31,7 +38,7 @@ function sess(
         cache_read_tokens: 50,
         cache_write_tokens: 25,
         calls: opts.calls ?? 3,
-        started_at: 0,
+        started_at: opts.started_at ?? 0,
         ended_at: opts.ended_at ?? new Date(2026, 0, 1).getTime(),
     };
 }
@@ -71,28 +78,50 @@ beforeEach(() => {
 });
 
 describe("SessionCard (t326)", () => {
-    it("AC1：第一行渲染 cwd 末级与精确时间，不渲染完整路径", () => {
-        const ts = new Date(2026, 7, 7, 9, 8, 7).getTime();
+    it("AC1：第一行渲染 cwd 末级与首条→末条消息时间区间（紧凑格式），title 给精确起止", () => {
+        pin_system_year_2026();
+        const started = new Date(2026, 7, 6, 20, 30, 0).getTime();
+        const ended = new Date(2026, 7, 7, 9, 8, 7).getTime();
         render_card({
-            s: sess("sess_a", "claude_code", { ended_at: ts, directory: "/path/to/proj" }),
+            s: sess("sess_a", "claude_code", {
+                started_at: started,
+                ended_at: ended,
+                directory: "/path/to/proj",
+            }),
         });
         const first = document.querySelector('[data-testid="library-card-top"]');
         if (!first) throw new Error("library-card-top missing");
         expect(first.textContent).toContain("proj");
-        expect(first.textContent).toContain("2026-08-07 09:08:07");
+        expect(first.textContent).toContain("0806 20:30 → 0807 09:08");
         expect(first.textContent).not.toContain("/path/to/proj");
         expect(document.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe(
             "proj",
         );
+        const range = document.querySelector('[data-testid="library-card-time-range"]');
+        if (!range) throw new Error("library-card-time-range missing");
+        expect(range.getAttribute("title")).toBe("2026-08-06 20:30:00 → 2026-08-07 09:08:07");
+        vi.useRealTimers();
     });
 
-    it("AC1：directory 为空时第一行仅渲染时间", () => {
-        const ts = new Date(2026, 0, 2, 3, 4, 5).getTime();
-        render_card({ s: sess("sess_a", "claude_code", { directory: null, ended_at: ts }) });
+    it("AC1：directory 为空时第一行仅渲染时间区间", () => {
+        pin_system_year_2026();
+        const started = new Date(2026, 0, 1, 22, 15, 0).getTime();
+        const ended = new Date(2026, 0, 2, 3, 4, 5).getTime();
+        render_card({
+            s: sess("sess_a", "claude_code", {
+                directory: null,
+                started_at: started,
+                ended_at: ended,
+            }),
+        });
         const first = document.querySelector('[data-testid="library-card-top"]');
         if (!first) throw new Error("library-card-top missing");
-        expect(first.textContent).toContain("2026-01-02 03:04:05");
+        expect(first.textContent).toContain("0101 22:15 → 0102 03:04");
         expect(document.querySelector('[data-testid="library-card-cwd"]')).toBeNull();
+        const range = document.querySelector('[data-testid="library-card-time-range"]');
+        if (!range) throw new Error("library-card-time-range missing");
+        expect(range.getAttribute("title")).toBe("2026-01-01 22:15:00 → 2026-01-02 03:04:05");
+        vi.useRealTimers();
     });
 
     it("AC2：第二行渲染 轮次 / tokens / session id（内容与数据源一致）", () => {
