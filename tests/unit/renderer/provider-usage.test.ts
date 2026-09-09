@@ -167,6 +167,65 @@ describe("build_provider_usage_groups failed-account placeholder (t040)", () => 
     });
 });
 
+describe("provider usage period order", () => {
+    it("puts Grok weekly usage last", () => {
+        const groups = build_provider_usage_groups([
+            connectorInfo({
+                source: "poll",
+                supportedProviders: ["grok"],
+                activeProviders: ["grok"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T00:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "grok",
+                            raw_label: "weekly",
+                            normalized_label: "一周",
+                        }),
+                        usageItem({
+                            provider: "grok",
+                            raw_label: "credits",
+                            normalized_label: "额度",
+                        }),
+                    ],
+                },
+            }),
+        ]);
+        expect(groups[0]?.accounts[0]?.periods.map((period) => period.raw_label)).toEqual([
+            "credits",
+            "weekly",
+        ]);
+    });
+
+    it("orders Antigravity as Gemini 5h, Gemini 7d, Claude 5h, Claude 7d", () => {
+        const labels = ["claude_weekly", "gemini_weekly", "claude_five_hour", "gemini_five_hour"];
+        const groups = build_provider_usage_groups([
+            connectorInfo({
+                supportedProviders: ["antigravity"],
+                activeProviders: ["antigravity"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T00:00:00Z",
+                    items: labels.map((raw_label) =>
+                        usageItem({
+                            provider: "antigravity",
+                            raw_label,
+                            normalized_label: raw_label,
+                        }),
+                    ),
+                },
+            }),
+        ]);
+        expect(groups[0]?.accounts[0]?.periods.map((period) => period.raw_label)).toEqual([
+            "gemini_five_hour",
+            "gemini_weekly",
+            "claude_five_hour",
+            "claude_weekly",
+        ]);
+    });
+});
+
 describe("format_usage_period_label", () => {
     it("returns normalized_label when no override exists", () => {
         expect(format_usage_period_label("any_raw", "我的标签")).toBe("我的标签");

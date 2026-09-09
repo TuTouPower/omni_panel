@@ -194,6 +194,45 @@ export function accountKey(item: AccountKeyInput): string {
     return `${item.sourceInstanceId}|${item.accountId}`;
 }
 
+const ANTIGRAVITY_PERIOD_ORDER = [
+    "gemini_five_hour",
+    "gemini_weekly",
+    "claude_five_hour",
+    "claude_weekly",
+] as const;
+
+function usage_period_order(provider: string, period: ProviderUsagePeriod): number {
+    if (provider === "antigravity") {
+        const index = ANTIGRAVITY_PERIOD_ORDER.indexOf(
+            period.raw_label as (typeof ANTIGRAVITY_PERIOD_ORDER)[number],
+        );
+        return index >= 0 ? index : ANTIGRAVITY_PERIOD_ORDER.length;
+    }
+    if (
+        provider === "grok" &&
+        (period.raw_label === "weekly" ||
+            period.raw_label === "seven_day" ||
+            period.name.includes("一周"))
+    ) {
+        return 1;
+    }
+    return 0;
+}
+
+function order_usage_periods(
+    provider: string,
+    periods: readonly ProviderUsagePeriod[],
+): ProviderUsagePeriod[] {
+    return periods
+        .map((period, index) => ({ period, index }))
+        .sort(
+            (a, b) =>
+                usage_period_order(provider, a.period) - usage_period_order(provider, b.period) ||
+                a.index - b.index,
+        )
+        .map(({ period }) => period);
+}
+
 export function format_usage_period_label(
     raw_label: string,
     name: string,
@@ -287,7 +326,7 @@ export function build_provider_usage_groups(
     const groups = [...allProviders]
         .sort((a, b) => compare_providers(a, b))
         .map((provider) => {
-            const periods = periodsByProvider.get(provider) ?? [];
+            const periods = order_usage_periods(provider, periodsByProvider.get(provider) ?? []);
             const accountsByKey = new Map<string, ProviderUsageAccount>();
             let groupStatus: MetricRecord["status"] = "normal";
             let groupUpdatedAt = periods[0]?.updatedAt ?? "";
