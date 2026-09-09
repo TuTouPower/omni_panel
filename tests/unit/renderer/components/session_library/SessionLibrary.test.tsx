@@ -922,7 +922,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("统计不可用")).toBeTruthy();
         });
         expect(screen.queryByText(/1 个会话/)).toBeNull();
-        expect(document.querySelectorAll('[data-testid="library-agent-all"]')).toHaveLength(1);
+        expect(document.querySelectorAll('[data-testid^="library-agent-logo-"]')).toHaveLength(0);
         expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
     });
     it("t404 AC-001/002：内容搜索分块进度文案与增量结果", async () => {
@@ -1762,7 +1762,34 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         vi.useRealTimers();
     });
 
-    it("上限拖到顶端回传 undefined：显示「不限」且查询不带 max_calls", async () => {
+    it("数轴轨道：灰底 + 主色填充段随区间定位", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText(/3 个会话/));
+
+        const card = screen.getByTestId("range-filter-tokens");
+        const find_fill = () =>
+            [...card.querySelectorAll("div")].find((d) =>
+                d.className.includes("bg-[var(--color-primary)]"),
+            );
+        const find_track = () =>
+            [...card.querySelectorAll("div")].find((d) =>
+                d.className.includes("bg-[var(--color-surface-raised)]"),
+            );
+        expect(find_track()).toBeTruthy();
+        // 默认全区间：填充段铺满。
+        expect(find_fill()?.style.left).toBe("0%");
+        expect(find_fill()?.style.right).toBe("0%");
+        // min 拖到一半（450000/900000）：填充段左端 50%。
+        fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
+            target: { value: "450000" },
+        });
+        expect(find_fill()?.style.left).toBe("50%");
+    });
+
+    it("上限拖到顶端回传 undefined：常显区间值且查询不带 max_calls", async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const ub = usageboard();
         ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
@@ -1775,7 +1802,8 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         fireEvent.change(screen.getByTestId("range-filter-calls-max"), {
             target: { value: "80" },
         });
-        expect(screen.getByTestId("range-filter-calls-value").textContent).toBe("不限");
+        // 展示对齐 demo：常显区间值，上限端带「+」（拖至端点仍回传 undefined）。
+        expect(screen.getByTestId("range-filter-calls-value").textContent).toBe("0 – 80+");
         act(() => {
             vi.advanceTimersByTime(400);
         });
@@ -1918,7 +1946,7 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         });
 
         expect(screen.getByPlaceholderText(/搜索标题/)).toHaveValue("");
-        expect(screen.getByTestId("range-filter-tokens-value").textContent).toBe("不限");
+        expect(screen.getByTestId("range-filter-tokens-value").textContent).toBe("0 – 900k+");
         const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
         expect(last["min_tokens"]).toBeUndefined();
         expect(last["start_at"]).toBeUndefined();

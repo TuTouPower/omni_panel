@@ -25,7 +25,8 @@ const THUMB_CLASSES =
 
 /**
  * 会话库数轴筛选卡：双滑杆选 [min, max]（含边界）。拖到端点即「不限」该侧
- * （min=0 / max=上限时回传 undefined，查询参数省略）。上限来自全量统计
+ * （min=0 / max=上限时回传 undefined，查询参数省略；展示对齐 demo：上限端
+ * 显示「上限+」）。灰底轨道 + 两滑块间主色填充段。上限来自全量统计
  * （session_stats.max_tokens/max_calls），未就绪（<=0）时禁用。
  */
 export function RangeFilterCard({
@@ -40,24 +41,39 @@ export function RangeFilterCard({
     const step = Math.max(1, Math.round(max_limit / 200));
     const min_val = value.min ?? 0;
     const max_val = value.max ?? max_limit;
-    const active = value.min !== undefined || value.max !== undefined;
     const fmt = format_value ?? ((v: number) => String(v));
-    const range_text = active ? `${fmt(min_val)} – ${fmt(max_val)}` : "不限";
+    const pct = (v: number): number => (max_limit > 0 ? (v / max_limit) * 100 : 0);
+    // 两滑块靠近时抬高对应 input 的层级，保证都可点（对齐 demo）。
+    const lo_z = pct(min_val) > 50 ? 5 : 3;
+    const hi_z = pct(min_val) > 50 ? 3 : 4;
+    const range_text = `${fmt(min_val)} – ${max_val >= max_limit ? `${fmt(max_limit)}+` : fmt(max_val)}`;
 
     return (
-        <div className="flex flex-col gap-2" data-testid={testid}>
-            <div className="flex items-baseline justify-between">
-                <span className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]">
+        <div
+            className="rounded-[14px] border border-[var(--color-hairline)] bg-[var(--color-surface-card)] px-4 py-3 shadow-[var(--shadow-card)]"
+            data-testid={testid}
+        >
+            <div className="mb-2.5 flex items-center justify-between">
+                <span className="text-[length:var(--text-label-caps)] uppercase text-[var(--color-on-surface-muted)]">
                     {label}
                 </span>
                 <span
-                    className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
+                    className="text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface)]"
                     data-testid={`${testid}-value`}
                 >
                     {disabled ? "暂无数据" : range_text}
                 </span>
             </div>
             <div className="relative h-4">
+                {/* 灰底轨道 + 选中区间主色填充段（demo 轨道配色）。 */}
+                <div className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[var(--color-surface-raised)]" />
+                <div
+                    className="absolute top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[var(--color-primary)]"
+                    style={{
+                        left: `${String(pct(min_val))}%`,
+                        right: `${String(100 - pct(max_val))}%`,
+                    }}
+                />
                 <input
                     type="range"
                     aria-label={`${label}下限`}
@@ -67,6 +83,7 @@ export function RangeFilterCard({
                     max={max_limit}
                     step={step}
                     value={min_val}
+                    style={{ zIndex: lo_z }}
                     className={`absolute inset-0 h-4 w-full appearance-none bg-transparent ${THUMB_CLASSES}`}
                     onChange={(e) => {
                         const v = Math.min(Number(e.target.value), max_val);
@@ -85,6 +102,7 @@ export function RangeFilterCard({
                     max={max_limit}
                     step={step}
                     value={max_val}
+                    style={{ zIndex: hi_z }}
                     className={`absolute inset-0 h-4 w-full appearance-none bg-transparent ${THUMB_CLASSES}`}
                     onChange={(e) => {
                         const v = Math.max(Number(e.target.value), min_val);
