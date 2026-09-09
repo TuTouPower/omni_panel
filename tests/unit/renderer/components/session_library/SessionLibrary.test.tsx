@@ -442,7 +442,7 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
-    it("agent 芯片多选过滤 + 排序 + 视图切换", async () => {
+    it("agent logo 多选过滤 + 排序 + 视图切换", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessionStats.mockResolvedValue({
             sessions: 3,
@@ -470,7 +470,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.queryByText("会话 b")).toBeNull();
         });
         // 排序：calls desc → c 在前
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "calls" } });
+        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
         await waitFor(() => {
             const first_card = document.querySelector('[data-testid="library-card-title"]');
             expect(first_card?.textContent).toContain("会话 c");
@@ -514,7 +514,7 @@ describe("SessionLibrary (t227)", () => {
                 document.querySelectorAll('[data-testid="library-card-title"]'),
                 (node) => node.textContent,
             );
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
+        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
         });
@@ -527,7 +527,7 @@ describe("SessionLibrary (t227)", () => {
             }),
         );
 
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "calls" } });
+        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 medium", "会话 high", "会话 low"]);
         });
@@ -863,12 +863,12 @@ describe("SessionLibrary (t227)", () => {
                 document.querySelectorAll('[data-testid="library-card-title"]'),
                 (node) => node.textContent,
             );
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
+        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
         });
 
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "earliest" } });
+        fireEvent.click(screen.getByRole("button", { name: "最早创建" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 low", "会话 medium", "会话 high"]);
         });
@@ -912,7 +912,7 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.queryByTestId("search-truncated-hint")).not.toBeInTheDocument();
     });
 
-    it("getSessionStats 失败时不显示首屏部分统计或 source chips", async () => {
+    it("getSessionStats 失败时不显示首屏部分统计或 agent logo 行", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);
         ub.tokenStats.getSessionStats.mockRejectedValue(new Error("stats unavailable"));
@@ -922,7 +922,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("统计不可用")).toBeTruthy();
         });
         expect(screen.queryByText(/1 个会话/)).toBeNull();
-        expect(document.querySelectorAll('[data-testid="library-agent-chip"]')).toHaveLength(1);
+        expect(document.querySelectorAll('[data-testid="library-agent-all"]')).toHaveLength(1);
         expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
     });
     it("t404 AC-001/002：内容搜索分块进度文案与增量结果", async () => {
@@ -1528,5 +1528,207 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         expect(ub.sessionHistory.open).toHaveBeenCalledTimes(1);
         expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "claude_code", "linux", "a");
         expect(switch_fn).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () => {
+    function stats_with_maxima() {
+        return { sessions: 3, agents: 3, tokens: 1125, max_tokens: 900000, max_calls: 80 };
+    }
+
+    it("Token 数轴下限拖动 300ms 防抖后转为后端 min_tokens", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
+            target: { value: "450000" },
+        });
+        expect(screen.getByTestId("range-filter-tokens-value").textContent).toContain("450k");
+        const calls_before = ub.tokenStats.getSessions.mock.calls.length;
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ min_tokens: 450000 }),
+        );
+        // 未继续拖动不再触发额外请求（prev 身份守卫）。
+        act(() => {
+            vi.advanceTimersByTime(600);
+        });
+        expect(ub.tokenStats.getSessions.mock.calls.length).toBe(calls_before + 1);
+        vi.useRealTimers();
+    });
+
+    it("上限拖到顶端回传 undefined：显示「不限」且查询不带 max_calls", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.change(screen.getByTestId("range-filter-calls-max"), {
+            target: { value: "80" },
+        });
+        expect(screen.getByTestId("range-filter-calls-value").textContent).toBe("不限");
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        expect("max_calls" in last).toBe(false);
+        vi.useRealTimers();
+    });
+
+    it("统计缺 max_tokens/max_calls（旧 mock）时数轴滑杆禁用", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText(/3 个会话/));
+        const min_slider = screen.getByTestId("range-filter-tokens-min");
+        const max_slider = screen.getByTestId("range-filter-calls-max");
+        expect((min_slider as HTMLInputElement).disabled).toBe(true);
+        expect((max_slider as HTMLInputElement).disabled).toBe(true);
+    });
+
+    it("内容搜索命中集按数轴区间客户端补过滤", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
+        const low = sess("low", "claude_code", { input_tokens: 100 }); // 375 tokens
+        const high = sess("high", "opencode", { input_tokens: 400000 }); // 400375 tokens
+        ub.tokenStats.getSessions.mockResolvedValue([low, high]);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(low), key_of(high)],
+            sessions: [low, high],
+        });
+        await renderLibrary();
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.change(screen.getByPlaceholderText(/搜索标题/), { target: { value: "fix" } });
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await waitFor(() => {
+            expect(screen.getByText("会话 low")).toBeTruthy();
+            expect(screen.getByText("会话 high")).toBeTruthy();
+        });
+
+        fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
+            target: { value: "100000" },
+        });
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await waitFor(() => {
+            expect(screen.queryByText("会话 low")).toBeNull();
+            expect(screen.getByText("会话 high")).toBeTruthy();
+        });
+        vi.useRealTimers();
+    });
+
+    it("同屏最近 4：按 ended_at desc 拉取后先清空再逐个打开并切工作台", async () => {
+        const ub = usageboard();
+        const switch_fn = vi.fn();
+        const clear_fn = vi.fn();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.click(screen.getByTestId("open-recent-4"));
+        await waitFor(() => {
+            expect(switch_fn).toHaveBeenCalledTimes(1);
+        });
+        expect(clear_fn).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(3);
+        const clear_order = clear_fn.mock.invocationCallOrder[0];
+        const first_open_order = ub.sessionHistory.open.mock.invocationCallOrder[0];
+        if (clear_order === undefined || first_open_order === undefined) {
+            throw new Error("调用序缺失");
+        }
+        expect(clear_order).toBeLessThan(first_open_order);
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                order_by: "ended_at",
+                direction: "desc",
+                limit: 4,
+                offset: 0,
+            }),
+        );
+    });
+
+    it("同屏最近结果为空：toast 提示且不清空工作台", async () => {
+        const ub = usageboard();
+        const clear_fn = vi.fn();
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        await renderLibrary({ on_clear_workspace: clear_fn });
+
+        fireEvent.click(screen.getByTestId("open-recent-2"));
+        await waitFor(() => {
+            expect(screen.getByText("没有可同屏打开的会话")).toBeTruthy();
+        });
+        expect(clear_fn).not.toHaveBeenCalled();
+    });
+
+    it("重置：清空搜索/预设/agent/数轴并恢复排序为最近活跃", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const ub = usageboard();
+        ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.change(screen.getByPlaceholderText(/搜索标题/), { target: { value: "abc" } });
+        fireEvent.click(screen.getByTestId("time-preset-7d"));
+        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
+        fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
+            target: { value: "450000" },
+        });
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "重置" }));
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(screen.getByPlaceholderText(/搜索标题/).value).toBe("");
+        expect(screen.getByTestId("range-filter-tokens-value").textContent).toBe("不限");
+        const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        expect(last["min_tokens"]).toBeUndefined();
+        expect(last["start_at"]).toBeUndefined();
+        expect(last["order_by"]).toBe("ended_at");
+        vi.useRealTimers();
     });
 });
