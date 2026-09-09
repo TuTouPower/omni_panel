@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import type { MetricRecord } from "../../../src/shared/schemas/plugin-output";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
 import type { ConnectorInfo } from "../../../src/shared/types/ipc";
+import type { ProviderUsageGroup } from "../../../src/renderer/lib/provider-usage";
 import {
     accountKey,
     apply_account_labels,
@@ -779,6 +780,55 @@ describe("provider usage aggregation", () => {
         const [overview] = build_overview_for_group(group, undefined, { rolling: "五小时" });
         expect(overview?.name).toBe("五小时");
         expect(overview?.id).toBe("overview-五小时");
+    });
+
+    it("keeps Grok weekly overview quota last even when API returns credits first", () => {
+        const group: ProviderUsageGroup = {
+            provider: "grok",
+            label: "Grok",
+            accountCount: 1,
+            status: "normal",
+            updatedAt: "2026-09-09T00:00:00.000Z",
+            observedAt: 0,
+            source: "poll",
+            stale: false,
+            periods: [
+                usageItem({
+                    id: "credits",
+                    provider: "grok",
+                    raw_label: "credits",
+                    normalized_label: "额度",
+                    name: "额度",
+                    used: 10,
+                    limit: 100,
+                }),
+                usageItem({
+                    id: "grok_build",
+                    provider: "grok",
+                    raw_label: "grok_build",
+                    normalized_label: "Grok Build",
+                    name: "Grok Build",
+                    used: 20,
+                    limit: 100,
+                }),
+                usageItem({
+                    id: "grok_chat",
+                    provider: "grok",
+                    raw_label: "grok_chat",
+                    normalized_label: "Grok Chat",
+                    name: "Grok Chat",
+                    used: 30,
+                    limit: 100,
+                }),
+            ] as unknown as ProviderUsageGroup["periods"],
+            accounts: [],
+        };
+        const overview = build_overview_for_group(group);
+        expect(overview.map((period) => period.raw_label)).toEqual([
+            "grok_build",
+            "grok_chat",
+            "credits",
+        ]);
     });
 
     it("hides overview reset time when account reset times are too far apart (default 10min)", () => {
