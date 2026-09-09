@@ -180,21 +180,21 @@ describe("provider usage period order", () => {
                     items: [
                         usageItem({
                             provider: "grok",
-                            raw_label: "weekly",
-                            normalized_label: "一周",
+                            raw_label: "credits",
+                            normalized_label: "额度",
                         }),
                         usageItem({
                             provider: "grok",
-                            raw_label: "credits",
-                            normalized_label: "额度",
+                            raw_label: "grok_chat",
+                            normalized_label: "Grok Chat",
                         }),
                     ],
                 },
             }),
         ]);
         expect(groups[0]?.accounts[0]?.periods.map((period) => period.raw_label)).toEqual([
+            "grok_chat",
             "credits",
-            "weekly",
         ]);
     });
 
