@@ -1459,6 +1459,9 @@ export function create_local_api_server(
                 const directory = params.get("directory");
                 if (title) filters.title = title;
                 if (directory) filters.directory = directory;
+                // 目录精确匹配列表（重复参数 directories=a&directories=b；空项忽略）。
+                const directories = params.getAll("directories").filter((d) => d.length > 0);
+                if (directories.length > 0) filters.directories = directories;
                 if (params.has("start_at")) {
                     const start_at = parse_int_param(params, "start_at", { require_present: true });
                     if (start_at !== null) filters.start_at = start_at;

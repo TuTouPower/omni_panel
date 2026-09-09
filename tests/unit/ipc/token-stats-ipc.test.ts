@@ -225,6 +225,48 @@ describe("token-stats-ipc sender validation", () => {
         expect(query_sessions).not.toHaveBeenCalled();
     });
 
+    it("非法 directories（超 32 项/空串/非字符串）被拒", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const bad_cases: unknown[] = [
+            Array.from({ length: 33 }, (_, i) => `/d${String(i)}`),
+            [""],
+            ["/ok", ""],
+            [123],
+            ["x".repeat(1025)],
+        ];
+        for (const bad of bad_cases) {
+            const result = pick_handler("tokenStats:sessions")(good_event(), {
+                directories: bad,
+            });
+            expect((result as { ok: boolean }).ok, JSON.stringify(bad).slice(0, 40)).toBe(false);
+        }
+        expect(query_sessions).not.toHaveBeenCalled();
+    });
+
+    it("合法 directories 原样透传到 store", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const filters = { directories: ["/proj/a", "/proj/b"] };
+        const result = pick_handler("tokenStats:sessions")(good_event(), filters);
+        expect(result).toEqual({ ok: true, data: [] });
+        expect(query_sessions).toHaveBeenCalledWith(filters);
+    });
+
     it("合法区间边界原样透传到 store", async () => {
         const deps = createMockDeps();
         const query_sessions = (

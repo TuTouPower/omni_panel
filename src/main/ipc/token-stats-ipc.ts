@@ -43,6 +43,18 @@ function valid_range_bound(value: number | undefined): boolean {
     return value === undefined || (Number.isInteger(value) && value >= 0);
 }
 
+const DIRECTORIES_MAX = 32;
+const DIRECTORY_LEN_MAX = 1024;
+
+/** 目录精确匹配列表：缺省合法；否则须为 ≤32 个非空字符串，单个 ≤1024 字符。 */
+function valid_directories(value: string[] | undefined): boolean {
+    if (value === undefined) return true;
+    if (!Array.isArray(value) || value.length > DIRECTORIES_MAX) return false;
+    return value.every(
+        (d) => typeof d === "string" && d.length > 0 && d.length <= DIRECTORY_LEN_MAX,
+    );
+}
+
 export function registerTokenStatsIpc(
     ipc: IpcMain,
     deps: {
@@ -90,6 +102,12 @@ export function registerTokenStatsIpc(
                 return fail(
                     "INVALID_RANGE",
                     "min_tokens/max_tokens/min_calls/max_calls must be non-negative integers",
+                );
+            }
+            if (!valid_directories(filters?.directories)) {
+                return fail(
+                    "INVALID_DIRECTORIES",
+                    `directories must be an array of <= ${String(DIRECTORIES_MAX)} non-empty strings`,
                 );
             }
             return ok(deps.store.query_sessions(filters ?? {}));
