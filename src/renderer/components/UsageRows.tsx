@@ -51,8 +51,8 @@ function percent(used: number, limit: number | null): number {
     return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 }
 
-const GRID_THIN = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-2";
-const GRID_CAPSULE = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-2";
+const GRID_THIN = "grid grid-cols-[7ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-2";
+const GRID_CAPSULE = "grid grid-cols-[7ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-2";
 
 const META_CLS =
     "min-w-0 whitespace-nowrap text-right text-[length:var(--text-body-sm)] tabular-nums text-[var(--color-on-surface-muted)]";
