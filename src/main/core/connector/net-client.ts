@@ -1,6 +1,6 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext, type Logger } from "../../../shared/lib/logger";
@@ -77,14 +77,20 @@ function expand_home(path_pattern: string): string {
 }
 
 function is_within_allowed(path: string, allowed: readonly string[]): boolean {
-    const resolved = resolve(path);
-    // Windows is case-insensitive but preserves case; normalize before comparing
-    // so a manifest path "C:\Users\..." still matches an actual "c:\users\...".
-    const norm = process.platform === "win32" ? (s: string) => s.toLowerCase() : (s: string) => s;
-    const np = norm(resolved);
+    const normalize = (value: string): string =>
+        resolve(value)
+            .replace(/[\\/]+/g, "/")
+            .replace(/\/$/, "")
+            .toLowerCase();
+    const normalized_path = normalize(path);
     for (const root of allowed) {
-        const nr = norm(resolve(root));
-        if (np === nr || np.startsWith(nr + sep)) return true;
+        const normalized_root = normalize(root);
+        if (
+            normalized_path === normalized_root ||
+            normalized_path.startsWith(`${normalized_root}/`)
+        ) {
+            return true;
+        }
     }
     return false;
 }
