@@ -158,6 +158,35 @@ describe("token-stats-ipc sender validation", () => {
         expect(query_sessions).toHaveBeenCalledWith({ limit: 100 });
     });
 
+    it("t468 AC-003: TOKEN_STATS_SESSIONS 完整透传 title/directory filters", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const filters = {
+            source: "kimi_code",
+            sources: ["kimi_code", "grok"],
+            env: "win",
+            search: "alpha",
+            title: "需求",
+            directory: "D:\\proj",
+            start_at: 100,
+            end_at: 200,
+            order_by: "started_at",
+            direction: "asc",
+            limit: 25,
+            offset: 5,
+        };
+        const result = pick_handler("tokenStats:sessions")(good_event(), filters);
+        expect(result).toEqual({ ok: true, data: [] });
+        expect(query_sessions).toHaveBeenCalledWith(filters);
+    });
+
     it("t389 AC-002/004: TOKEN_STATS_SESSIONS 超大/非法 limit 被拒", async () => {
         const deps = createMockDeps();
         const query_sessions = (

@@ -519,8 +519,18 @@ describe("token-stats-store", () => {
         });
 
         it("t457 AC-001: title 独立过滤只匹配 title，不串 directory/id", () => {
-            // directory 与 id 含 "alpha" 的只有 a；title 含 "alpha" 的也是 a。
-            // 构造 id/title 交叉用例：title-match 不含 alpha → 只命中 a。
+            store.upsert_sessions(
+                [
+                    delta({
+                        id: "alpha-only-id",
+                        source: "grok",
+                        title: "unrelated title",
+                        directory: "/delta",
+                    }),
+                ],
+                [],
+            );
+            // d 的 id 含 alpha，但 title/directory 不含 alpha，title 过滤不能误命中 d。
             expect(store.query_sessions({ title: "alpha" }).map((r) => r.id)).toEqual(["a"]);
             // title 不含 T 的不返回，即使 id 含 T。
             const rows = store.query_sessions({ title: "other" });
@@ -544,6 +554,19 @@ describe("token-stats-store", () => {
             // 只满足 title 的 b、只满足 directory 的 a 都不返回。
             expect(
                 store.query_sessions({ title: "match", directory: "/gamma" }).map((r) => r.id),
+            ).toEqual([]);
+        });
+
+        it("t468 AC-001: search 与 title/directory 组合过滤按 AND 且正确绑定参数", () => {
+            expect(
+                store
+                    .query_sessions({ search: "alpha", title: "match", directory: "/alpha" })
+                    .map((r) => r.id),
+            ).toEqual(["a"]);
+            expect(
+                store
+                    .query_sessions({ search: "alpha", title: "match", directory: "/beta" })
+                    .map((r) => r.id),
             ).toEqual([]);
         });
 

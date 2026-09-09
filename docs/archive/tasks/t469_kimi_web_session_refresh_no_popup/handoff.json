@@ -1,0 +1,27 @@
+{
+    "tid": "t469",
+    "attempt": 1,
+    "execution_id": "fde0518f546044ffbbdf5497ac712075",
+    "status": "done",
+    "branch": "t469_kimi_web_session_refresh_no_popup",
+    "base_sha": "7aff2e1c4c6955e6e72c3c42ce5daaf65ac471d2",
+    "tests": "auth IPC 单测 17/17 通过；pnpm test 全量 287 个测试文件通过、1 个跳过，3573 个测试通过、9 个跳过；pnpm typecheck、变更文件 ESLint、Prettier 检查通过",
+    "blackbox": "按项目默认黑盒命令 pnpm test 全量通过",
+    "review": "full 级 Round 1：review_code PASS、review_test PASS，0 finding；check_review_status overall=PASS / review_scope=ok / round=1",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/ipc/auth-ipc.test.ts::t469 AC-001/002：cookieNames=[\"*\"] 从持久化分区读取全部实际 Cookie，静默刷新成功，未调用 start_login"
+        ],
+        "AC-002": [
+            "tests/unit/ipc/auth-ipc.test.ts::t469 AC-001/002：刷新后 JSON 保留 authorization、session_id、device_id，仅更新 cookie"
+        ],
+        "AC-003": [
+            "tests/unit/ipc/auth-ipc.test.ts::t469 AC-003：旧纯 Cookie/缺 Bearer 时返回 false 且不覆盖原 secret；既有具体 cookieNames 测试保持通过"
+        ],
+        "AC-004": [
+            "tests/unit/ipc/auth-ipc.test.ts::t469 AC-001/002/003：覆盖 wildcard 成功、凭据保留和失败回退前置条件"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

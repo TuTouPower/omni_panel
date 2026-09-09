@@ -19,7 +19,14 @@ function fixture_rollout(opts: {
     session_id: string;
     cwd: string;
     model: string;
-    counts: { ts: string; total: number; input: number; output: number; cached?: number }[];
+    counts: {
+        ts: string;
+        total: number;
+        input: number;
+        output: number;
+        cached?: number;
+        last?: { input: number; output: number; cached?: number; total?: number };
+    }[];
 }): string {
     const lines = [
         rollout_line({
@@ -52,6 +59,17 @@ function fixture_rollout(opts: {
                             reasoning_output_tokens: 0,
                             total_tokens: c.total,
                         },
+                        ...(c.last
+                            ? {
+                                  last_token_usage: {
+                                      input_tokens: c.last.input,
+                                      cached_input_tokens: c.last.cached ?? 0,
+                                      output_tokens: c.last.output,
+                                      reasoning_output_tokens: 0,
+                                      total_tokens: c.last.total ?? c.last.input + c.last.output,
+                                  },
+                              }
+                            : {}),
                     },
                 },
             }),
@@ -278,6 +296,124 @@ describe("codex rollout reader (t445)", () => {
                 (session?.cache_read_tokens ?? 0);
             // 若 model 切换重置基准，model-b 段首全量 2000 + model-a 段 1000 = 3000。
             expect(panel_total).toBe(2000);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("t467 AC-001/002: 使用 last_token_usage 精确归因并跨 model 分段", () => {
+        const dir = mkdtempSync(join(tmpdir(), "codex-t467-"));
+        try {
+            const sid = "eeeeeeee-1111-2222-3333-ffffffffffff";
+            const lines = [
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:43.486Z",
+                    ordinal: 0,
+                    type: "session_meta",
+                    payload: { session_id: sid, cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:44.000Z",
+                    ordinal: 1,
+                    type: "turn_context",
+                    payload: { model: "model-a", cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:51:47.000Z",
+                    ordinal: 2,
+                    type: "event_msg",
+                    payload: {
+                        type: "token_count",
+                        info: {
+                            total_token_usage: {
+                                input_tokens: 900,
+                                cached_input_tokens: 0,
+                                output_tokens: 100,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 1000,
+                            },
+                            last_token_usage: {
+                                input_tokens: 900,
+                                cached_input_tokens: 0,
+                                output_tokens: 100,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 1000,
+                            },
+                        },
+                    },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:52:00.000Z",
+                    ordinal: 3,
+                    type: "turn_context",
+                    payload: { model: "model-b", cwd: "/p" },
+                }),
+                rollout_line({
+                    timestamp: "2026-09-03T17:52:05.000Z",
+                    ordinal: 4,
+                    type: "event_msg",
+                    payload: {
+                        type: "token_count",
+                        info: {
+                            total_token_usage: {
+                                input_tokens: 1000,
+                                cached_input_tokens: 0,
+                                output_tokens: 1000,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 2000,
+                            },
+                            last_token_usage: {
+                                input_tokens: 100,
+                                cached_input_tokens: 0,
+                                output_tokens: 900,
+                                reasoning_output_tokens: 0,
+                                total_tokens: 1000,
+                            },
+                        },
+                    },
+                }),
+            ];
+            write_rollout(dir, `rollout-2026-09-03T17-51-32-${sid}.jsonl`, lines.join("\n"));
+            const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
+            expect(result.records).toHaveLength(2);
+            expect(
+                result.records.map((record) => [
+                    record.model,
+                    record.input_tokens,
+                    record.output_tokens,
+                ]),
+            ).toEqual([
+                ["model-a", 900, 100],
+                ["model-b", 100, 900],
+            ]);
+            const session = result.sessions[0];
+            expect(session?.input_tokens).toBe(1000);
+            expect(session?.output_tokens).toBe(1000);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("t467 AC-003: 缺少 last_token_usage 时保留兼容比例拆分", () => {
+        const dir = mkdtempSync(join(tmpdir(), "codex-t467-fallback-"));
+        try {
+            write_rollout(
+                dir,
+                "rollout-2026-09-03T17-51-32-ffffffff-1111-2222-3333-aaaaaaaaaaaa.jsonl",
+                fixture_rollout({
+                    session_id: "ffffffff-1111-2222-3333-aaaaaaaaaaaa",
+                    cwd: "/p",
+                    model: "legacy",
+                    counts: [
+                        { ts: "2026-09-03T17:51:47.000Z", total: 1000, input: 900, output: 100 },
+                        { ts: "2026-09-03T17:52:00.000Z", total: 2000, input: 1800, output: 200 },
+                    ],
+                }),
+            );
+            const result = scan_codex_rollouts(dir, "linux", create_codex_scan_state());
+            const session = result.sessions[0];
+            expect(session?.input_tokens).toBe(1800);
+            expect(session?.output_tokens).toBe(200);
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }
