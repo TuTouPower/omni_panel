@@ -41,10 +41,19 @@ export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeF
                     on_change(value, time_filter_range(value, null, Date.now()));
                 }}
             />
+            <button
+                type="button"
+                aria-label="📅 自定义"
+                className="rounded-md border border-[var(--color-outline)] px-2 py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)]"
+                onClick={() => {
+                    setPickerOpen((open) => !open);
+                }}
+            >
+                📅 自定义
+            </button>
             <RangePicker
                 start={applied_range.start_at ?? now - CUSTOM_DEFAULT_WINDOW_MS}
                 end={applied_range.end_at ?? now}
-                active={preset === "custom"}
                 open={pickerOpen}
                 onOpenChange={setPickerOpen}
                 onApply={(range) => {

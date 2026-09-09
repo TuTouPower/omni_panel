@@ -1604,10 +1604,16 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
 
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "重构" } });
         fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/home/alpha" } });
-        fireEvent.change(screen.getByLabelText("起始日期"), { target: { value: "2026-07-01" } });
-        fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-07-31" } });
+        fireEvent.click(screen.getByRole("button", { name: "📅 自定义" }));
+        fireEvent.change(screen.getByLabelText("开始"), {
+            target: { value: "2026-07-01T00:00" },
+        });
+        fireEvent.change(screen.getByLabelText("结束"), {
+            target: { value: "2026-07-31T23:59" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "应用" }));
         fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
-        fireEvent.change(screen.getByLabelText("排序方式"), { target: { value: "tokens" } });
+        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
         await waitFor(() => {
             expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
                 expect.objectContaining({
@@ -1911,7 +1917,7 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
 
-        expect(screen.getByPlaceholderText(/搜索标题/).value).toBe("");
+        expect(screen.getByPlaceholderText(/搜索标题/)).toHaveValue("");
         expect(screen.getByTestId("range-filter-tokens-value").textContent).toBe("不限");
         const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
         expect(last["min_tokens"]).toBeUndefined();

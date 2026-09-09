@@ -62,6 +62,10 @@ export interface TokenStatsStore {
         sources?: string[];
         env?: string;
         search?: string;
+        /** t457: 独立 title 子串过滤。 */
+        title?: string;
+        /** t457: 独立 directory 子串过滤。 */
+        directory?: string;
         start_at?: number;
         end_at?: number;
         min_tokens?: number;
@@ -903,12 +907,14 @@ function materialize_session_meta(
                       ended_at: number | null;
                   }
                 | undefined;
-            if (fallback?.started_at !== null && fallback.ended_at !== null) {
+            const fallback_started_at = fallback?.started_at;
+            const fallback_ended_at = fallback?.ended_at;
+            if (fallback_started_at != null && fallback_ended_at != null) {
                 update_stmt.run(
-                    fallback.title ?? null,
-                    fallback.directory ?? null,
-                    fallback.started_at,
-                    fallback.ended_at,
+                    fallback?.title ?? null,
+                    fallback?.directory ?? null,
+                    fallback_started_at,
+                    fallback_ended_at,
                     s.source,
                     s.env,
                     s.session_id,
@@ -1471,6 +1477,23 @@ export function create_token_stats_store(
                     "unicode_lower(COALESCE(title, '') || ' ' || COALESCE(directory, '') || ' ' || id) LIKE unicode_lower(@search) ESCAPE '\\'",
                 );
                 params["search"] = `%${escaped}%`;
+            }
+            if (filters.title) {
+                const escaped = filters.title.replace(/[\\%_]/g, (character) => `\\${character}`);
+                conditions.push(
+                    "unicode_lower(COALESCE(title, '')) LIKE unicode_lower(@title) ESCAPE '\\'",
+                );
+                params["title"] = `%${escaped}%`;
+            }
+            if (filters.directory) {
+                const escaped = filters.directory.replace(
+                    /[\\%_]/g,
+                    (character) => `\\${character}`,
+                );
+                conditions.push(
+                    "unicode_lower(COALESCE(directory, '')) LIKE unicode_lower(@directory) ESCAPE '\\'",
+                );
+                params["directory"] = `%${escaped}%`;
             }
             if (filters.start_at !== undefined) {
                 // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。
