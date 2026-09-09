@@ -7,6 +7,12 @@ export interface LibraryFilters {
     readonly search?: string;
     readonly start_at?: number;
     readonly end_at?: number;
+    /** 总 tokens（四列之和）区间下限/上限（含边界）；内容搜索命中集的客户端补过滤用。 */
+    readonly min_tokens?: number;
+    readonly max_tokens?: number;
+    /** 轮次区间下限/上限（含边界）。 */
+    readonly min_calls?: number;
+    readonly max_calls?: number;
 }
 
 export type LibrarySort = "recent" | "tokens" | "calls" | "earliest";
@@ -56,6 +62,18 @@ export function filter_sessions(
         }
         if (filters.start_at !== undefined && s.ended_at < filters.start_at) return false;
         if (filters.end_at !== undefined && s.started_at > filters.end_at) return false;
+        if (
+            filters.min_tokens !== undefined ||
+            filters.max_tokens !== undefined ||
+            filters.min_calls !== undefined ||
+            filters.max_calls !== undefined
+        ) {
+            const tokens = session_tokens(s);
+            if (filters.min_tokens !== undefined && tokens < filters.min_tokens) return false;
+            if (filters.max_tokens !== undefined && tokens > filters.max_tokens) return false;
+            if (filters.min_calls !== undefined && s.calls < filters.min_calls) return false;
+            if (filters.max_calls !== undefined && s.calls > filters.max_calls) return false;
+        }
         if (filters.search) {
             const q = filters.search.toLowerCase();
             const hay = [s.title ?? "", s.directory ?? "", s.id].join(" ").toLowerCase();

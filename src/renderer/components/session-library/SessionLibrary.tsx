@@ -3,11 +3,13 @@ import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
 import {
     count_stats,
+    filter_sessions,
     sort_sessions,
     type LibrarySort,
     type TimePreset,
 } from "../../lib/session-library/filter";
-import { AgentFilterChips } from "./AgentFilterChips";
+import { AgentLogoRow } from "./AgentLogoRow";
+import { RangeFilterCard, type RangeValue } from "./RangeFilterCard";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
@@ -17,7 +19,6 @@ import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Input } from "../ui/Input";
 import { Segmented } from "../ui/Segmented";
-import { Select } from "../ui/Select";
 import { Toast } from "../ui/Toast";
 import { format_tokens, key_of } from "./session-library-utils";
 
@@ -32,6 +33,11 @@ interface SessionLibraryProps {
 
 const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
+/** 同屏最近并排打开的档位数。 */
+const RECENT_CO_OPEN_OPTIONS = [2, 4, 6, 8] as const;
+/** 侧边栏小节标题样式。 */
+const SECTION_LABEL_CLASS =
+    "text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]";
 const PREVIEW_MESSAGES = 5;
 /** t404: 内容搜索每批扫描候选数；首批结果可先展示，后续批次合并。 */
 const CONTENT_SCAN_BATCH_SIZE = 64;
@@ -51,6 +57,15 @@ export function SessionLibrary({
     const [time_range, set_time_range] = useState<{ start_at?: number; end_at?: number }>({});
     const [agents, set_agents] = useState<string[]>([]);
     const [sort, set_sort] = useState<LibrarySort>("recent");
+    // 数轴筛选：滑杆即时值（tokens_range/calls_range）→ 300ms 防抖后提交 applied_ranges。
+    const [tokens_range, set_tokens_range] = useState<RangeValue>({});
+    const [calls_range, set_calls_range] = useState<RangeValue>({});
+    const [applied_ranges, set_applied_ranges] = useState<{
+        min_tokens?: number;
+        max_tokens?: number;
+        min_calls?: number;
+        max_calls?: number;
+    }>({});
     const [view_mode, set_view_mode] = useState<"grid" | "list">("grid");
     const [visible, set_visible] = useState(PAGE_SIZE);
     const [has_more, set_has_more] = useState(false);
@@ -107,10 +122,48 @@ export function SessionLibrary({
             ...(!search_content && search ? { search } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
+            ...(applied_ranges.min_tokens !== undefined
+                ? { min_tokens: applied_ranges.min_tokens }
+                : {}),
+            ...(applied_ranges.max_tokens !== undefined
+                ? { max_tokens: applied_ranges.max_tokens }
+                : {}),
+            ...(applied_ranges.min_calls !== undefined
+                ? { min_calls: applied_ranges.min_calls }
+                : {}),
+            ...(applied_ranges.max_calls !== undefined
+                ? { max_calls: applied_ranges.max_calls }
+                : {}),
             order_by,
             direction,
         } as const;
-    }, [agents, search, search_content, start_at, end_at, sort]);
+    }, [agents, search, search_content, start_at, end_at, applied_ranges, sort]);
+
+    // 滑杆 300ms 防抖提交；值未变时返回 prev，避免新 {} 身份触发多余重拉。
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            set_applied_ranges((prev) => {
+                const next = {
+                    ...(tokens_range.min !== undefined ? { min_tokens: tokens_range.min } : {}),
+                    ...(tokens_range.max !== undefined ? { max_tokens: tokens_range.max } : {}),
+                    ...(calls_range.min !== undefined ? { min_calls: calls_range.min } : {}),
+                    ...(calls_range.max !== undefined ? { max_calls: calls_range.max } : {}),
+                };
+                if (
+                    prev.min_tokens === next.min_tokens &&
+                    prev.max_tokens === next.max_tokens &&
+                    prev.min_calls === next.min_calls &&
+                    prev.max_calls === next.max_calls
+                ) {
+                    return prev;
+                }
+                return next;
+            });
+        }, 300);
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [tokens_range, calls_range]);
 
     const agent_counts = useMemo(() => {
         if (session_stats_status !== "ready") return [];
@@ -225,9 +278,13 @@ export function SessionLibrary({
     }, []);
 
     const filtered = all;
+    // 内容搜索命中集不走后端分页查询，数轴区间在客户端补过滤（口径同 filter_sessions）。
     const content_filtered = useMemo(
-        () => (search && search_content ? sort_sessions(content_sessions, sort) : filtered),
-        [content_sessions, filtered, search, search_content, sort],
+        () =>
+            search && search_content
+                ? sort_sessions(filter_sessions(content_sessions, applied_ranges), sort)
+                : filtered,
+        [content_sessions, filtered, applied_ranges, search, search_content, sort],
     );
 
     // 内容搜索 effect：防抖 300ms + AbortController 作废旧查询（t239/t248）。
@@ -442,6 +499,43 @@ export function SessionLibrary({
         on_switch_workspace();
     }
 
+    /** 同屏最近：按当前筛选取最近 N 条，清空工作台后并排打开（替换语义，同 SelectionDock）。 */
+    async function open_recent(count: number): Promise<void> {
+        try {
+            const recent = await window.usageboard.tokenStats.getSessions({
+                ...backend_filters,
+                order_by: "ended_at",
+                direction: "desc",
+                limit: count,
+                offset: 0,
+            });
+            if (recent.length === 0) {
+                show_toast("没有可同屏打开的会话");
+                return;
+            }
+            on_clear_workspace();
+            for (const s of recent) {
+                void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
+            }
+            on_switch_workspace();
+        } catch {
+            show_toast("会话列表加载失败");
+        }
+    }
+
+    /** 重置全部筛选与排序回默认（数轴滑杆立即清零，applied 同步清）。 */
+    function reset_filters(): void {
+        set_search("");
+        set_search_content(false);
+        set_time_preset("all");
+        set_time_range({});
+        set_agents([]);
+        set_sort("recent");
+        set_tokens_range({});
+        set_calls_range({});
+        set_applied_ranges({});
+    }
+
     useEffect(() => {
         function on_key(e: KeyboardEvent): void {
             if (e.key === "Escape") set_preview(null);
@@ -453,7 +547,17 @@ export function SessionLibrary({
     }, []);
 
     const selected_ids = useMemo(() => new Set(selected.map((s) => key_of(s))), [selected]);
-    const has_filters = search || search_content || time_preset !== "all" || agents.length > 0;
+    const has_ranges =
+        applied_ranges.min_tokens !== undefined ||
+        applied_ranges.max_tokens !== undefined ||
+        applied_ranges.min_calls !== undefined ||
+        applied_ranges.max_calls !== undefined;
+    const has_filters = Boolean(
+        search || search_content || time_preset !== "all" || agents.length > 0 || has_ranges,
+    );
+    // 数轴上限来自全量统计；旧 mock/加载中缺省为 0 → 滑杆禁用。
+    const max_tokens_limit = session_stats?.max_tokens ?? 0;
+    const max_calls_limit = session_stats?.max_calls ?? 0;
     const show_clear = has_filters || all.length > 0;
     const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
     const stats_text =
@@ -476,134 +580,186 @@ export function SessionLibrary({
                 </span>
             </header>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-[var(--color-hairline)] px-[18px] py-2">
-                <Input
-                    className="min-w-[200px] flex-1"
-                    placeholder={
-                        // AC-007: 未勾选「包含消息内容」时明确搜索范围（标题/目录/会话 ID）；
-                        // 勾选态说明包含消息内容。
-                        search_content
-                            ? "搜索消息内容（含标题 / 目录 / 会话 ID）"
-                            : "搜索标题 / 目录 / 会话 ID"
-                    }
-                    value={search}
-                    onChange={(e) => {
-                        set_search(e.target.value);
-                    }}
-                />
-                <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
-                    <Checkbox
-                        checked={search_content}
-                        aria-label="包含消息内容"
-                        onChange={(e) => {
-                            set_search_content(e.target.checked);
-                        }}
-                    />
-                    包含消息内容
-                </label>
-                <TimeRangeFilter
-                    preset={time_preset}
-                    applied_range={time_range}
-                    on_change={(preset, range) => {
-                        set_time_preset(preset);
-                        set_time_range(range);
-                    }}
-                />
-                <Select
-                    className="w-auto min-w-[120px]"
-                    aria-label="排序方式"
-                    value={sort}
-                    onChange={(e) => {
-                        set_sort(e.target.value as LibrarySort);
-                    }}
+            <div className="flex min-h-0 flex-1">
+                <aside
+                    className="flex w-[248px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--color-hairline)] px-3 py-3"
+                    data-testid="library-sidebar"
                 >
-                    <option value="recent">最近活跃</option>
-                    <option value="tokens">Token 最多</option>
-                    <option value="calls">轮次最多</option>
-                    <option value="earliest">最早创建</option>
-                </Select>
-                <Segmented
-                    value={view_mode}
-                    aria-label="视图模式"
-                    options={[
-                        { value: "grid", label: "网格", "aria-label": "网格视图" },
-                        { value: "list", label: "列表", "aria-label": "列表视图" },
-                    ]}
-                    onChange={set_view_mode}
-                />
-            </div>
-
-            <AgentFilterChips
-                agents={agents}
-                counts={agent_counts}
-                on_change={(next) => {
-                    set_agents(next);
-                }}
-            />
-
-            {content_searching && (
-                <div
-                    className="px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
-                    data-testid="content-search-progress"
-                >
-                    {content_search_progress
-                        ? `搜索消息内容中…（已扫描 ${String(content_search_progress.scanned)}/${String(content_search_progress.total)} 个会话）`
-                        : "搜索消息内容中…"}
-                </div>
-            )}
-            {content_search_error && (
-                <Alert tone="error" className="mx-[18px] mb-2.5">
-                    消息内容搜索失败
-                </Alert>
-            )}
-
-            {load_error && visible_sessions.length > 0 && (
-                <Alert tone="error" className="mx-[18px] mb-2.5">
-                    会话列表加载中断，已显示部分数据
-                </Alert>
-            )}
-
-            {content_truncated && (
-                <Alert
-                    tone="warning"
-                    className="mx-[18px] mb-2.5"
-                    data-testid="search-truncated-hint"
-                >
-                    结果已截断，仅显示部分匹配项
-                </Alert>
-            )}
-
-            {visible_sessions.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
-                    <p>{empty_text}</p>
-                    {show_clear && (
-                        <Button
-                            variant="secondary"
-                            onClick={() => {
-                                set_search("");
-                                set_search_content(false);
-                                set_time_preset("all");
-                                set_time_range({});
-                                set_agents([]);
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>搜索</span>
+                        <Input
+                            placeholder={
+                                // AC-007: 未勾选「包含消息内容」时明确搜索范围（标题/目录/会话 ID）；
+                                // 勾选态说明包含消息内容。
+                                search_content
+                                    ? "搜索消息内容（含标题 / 目录 / 会话 ID）"
+                                    : "搜索标题 / 目录 / 会话 ID"
+                            }
+                            value={search}
+                            onChange={(e) => {
+                                set_search(e.target.value);
                             }}
+                        />
+                        <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                            <Checkbox
+                                checked={search_content}
+                                aria-label="包含消息内容"
+                                onChange={(e) => {
+                                    set_search_content(e.target.checked);
+                                }}
+                            />
+                            包含消息内容
+                        </label>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>时间</span>
+                        <TimeRangeFilter
+                            preset={time_preset}
+                            applied_range={time_range}
+                            on_change={(preset, range) => {
+                                set_time_preset(preset);
+                                set_time_range(range);
+                            }}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>Agent</span>
+                        <AgentLogoRow
+                            agents={agents}
+                            counts={agent_counts}
+                            on_change={(next) => {
+                                set_agents(next);
+                            }}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <RangeFilterCard
+                            label="Token 数"
+                            testid="range-filter-tokens"
+                            max_limit={max_tokens_limit}
+                            value={tokens_range}
+                            format_value={format_tokens}
+                            on_change={set_tokens_range}
+                        />
+                        <RangeFilterCard
+                            label="轮次"
+                            testid="range-filter-calls"
+                            max_limit={max_calls_limit}
+                            value={calls_range}
+                            on_change={set_calls_range}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>排序</span>
+                        <Segmented
+                            size="sm"
+                            aria-label="排序方式"
+                            value={sort}
+                            options={[
+                                { value: "recent", label: "最近", "aria-label": "最近活跃" },
+                                { value: "tokens", label: "Token", "aria-label": "Token 最多" },
+                                { value: "calls", label: "轮次", "aria-label": "轮次最多" },
+                                { value: "earliest", label: "最早", "aria-label": "最早创建" },
+                            ]}
+                            onChange={set_sort}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>视图</span>
+                        <Segmented
+                            value={view_mode}
+                            aria-label="视图模式"
+                            options={[
+                                { value: "grid", label: "网格", "aria-label": "网格视图" },
+                                { value: "list", label: "列表", "aria-label": "列表视图" },
+                            ]}
+                            onChange={set_view_mode}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <span className={SECTION_LABEL_CLASS}>同屏最近</span>
+                        <div className="flex gap-2">
+                            {RECENT_CO_OPEN_OPTIONS.map((n) => (
+                                <Button
+                                    key={n}
+                                    variant="secondary"
+                                    size="sm"
+                                    data-testid={`open-recent-${String(n)}`}
+                                    onClick={() => {
+                                        void open_recent(n);
+                                    }}
+                                >
+                                    {n}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-auto self-start"
+                        onClick={reset_filters}
+                    >
+                        重置
+                    </Button>
+                </aside>
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                    {content_searching && (
+                        <div
+                            className="px-[18px] py-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
+                            data-testid="content-search-progress"
                         >
-                            清除筛选
-                        </Button>
+                            {content_search_progress
+                                ? `搜索消息内容中…（已扫描 ${String(content_search_progress.scanned)}/${String(content_search_progress.total)} 个会话）`
+                                : "搜索消息内容中…"}
+                        </div>
+                    )}
+                    {content_search_error && (
+                        <Alert tone="error" className="mx-[18px] mb-2.5">
+                            消息内容搜索失败
+                        </Alert>
+                    )}
+
+                    {load_error && visible_sessions.length > 0 && (
+                        <Alert tone="error" className="mx-[18px] mb-2.5">
+                            会话列表加载中断，已显示部分数据
+                        </Alert>
+                    )}
+
+                    {content_truncated && (
+                        <Alert
+                            tone="warning"
+                            className="mx-[18px] mb-2.5"
+                            data-testid="search-truncated-hint"
+                        >
+                            结果已截断，仅显示部分匹配项
+                        </Alert>
+                    )}
+
+                    {visible_sessions.length === 0 ? (
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-[length:var(--text-body-md)] text-[var(--color-on-surface-muted)]">
+                            <p>{empty_text}</p>
+                            {show_clear && (
+                                <Button variant="secondary" onClick={reset_filters}>
+                                    清除筛选
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <SessionList
+                            view_mode={view_mode}
+                            sessions={visible_sessions}
+                            summaries={summaries}
+                            selected_ids={selected_ids}
+                            on_toggle={toggle_select}
+                            on_preview={open_preview}
+                            on_open={open_session}
+                            on_show_toast={show_toast}
+                            on_scroll_to_bottom={load_more}
+                        />
                     )}
                 </div>
-            ) : (
-                <SessionList
-                    view_mode={view_mode}
-                    sessions={visible_sessions}
-                    summaries={summaries}
-                    selected_ids={selected_ids}
-                    on_toggle={toggle_select}
-                    on_preview={open_preview}
-                    on_open={open_session}
-                    on_show_toast={show_toast}
-                    on_scroll_to_bottom={load_more}
-                />
-            )}
+            </div>
 
             {preview && (
                 <SessionPreview

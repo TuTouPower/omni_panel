@@ -137,3 +137,37 @@ describe("time_filter_range（时间预设→查询区间）", () => {
         expect(time_filter_range("custom", null, NOW)).toEqual({});
     });
 });
+
+describe("filter_sessions 数轴区间（tokens/calls 含边界）", () => {
+    // 默认 sess：tokens=375（100+200+50+25），calls=3。
+    it("min/max tokens 含边界过滤", () => {
+        const a = sess("a", "claude_code", { input_tokens: 1000 }); // 1175
+        const b = sess("b", "opencode"); // 375
+        expect(
+            filter_sessions([a, b], { min_tokens: 375, max_tokens: 375 }).map((s) => s.id),
+        ).toEqual(["b"]);
+        expect(filter_sessions([a, b], { min_tokens: 376 }).map((s) => s.id)).toEqual(["a"]);
+        expect(filter_sessions([a, b], { max_tokens: 374 })).toEqual([]);
+    });
+
+    it("min/max calls 含边界过滤", () => {
+        const a = sess("a", "claude_code", { calls: 5 });
+        const b = sess("b", "opencode", { calls: 3 });
+        expect(filter_sessions([a, b], { min_calls: 3, max_calls: 3 }).map((s) => s.id)).toEqual([
+            "b",
+        ]);
+        expect(filter_sessions([a, b], { min_calls: 4 }).map((s) => s.id)).toEqual(["a"]);
+        expect(filter_sessions([a, b], { max_calls: 2 })).toEqual([]);
+    });
+
+    it("区间与 agents/search 组合", () => {
+        const a = sess("a", "claude_code", { input_tokens: 1000, calls: 5 });
+        const b = sess("b", "opencode");
+        const out = filter_sessions([a, b], {
+            agents: ["claude_code"],
+            min_tokens: 400,
+            min_calls: 4,
+        });
+        expect(out.map((s) => s.id)).toEqual(["a"]);
+    });
+});
