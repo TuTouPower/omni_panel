@@ -66,6 +66,8 @@ export interface TokenStatsStore {
         title?: string;
         /** t457: 独立 directory 子串过滤。 */
         directory?: string;
+        /** 目录精确匹配列表（OR，区分大小写；空数组/省略不约束）。 */
+        directories?: string[];
         start_at?: number;
         end_at?: number;
         min_tokens?: number;
@@ -1494,6 +1496,11 @@ export function create_token_stats_store(
                     "unicode_lower(COALESCE(directory, '')) LIKE unicode_lower(@directory) ESCAPE '\\'",
                 );
                 params["directory"] = `%${escaped}%`;
+            }
+            if (filters.directories && filters.directories.length > 0) {
+                // 目录精确匹配（OR）：会话库「添加目录」chips，与 directory 子串过滤并存取交集。
+                conditions.push("directory IN (SELECT value FROM json_each(@directories))");
+                params["directories"] = JSON.stringify(filters.directories);
             }
             if (filters.start_at !== undefined) {
                 // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。

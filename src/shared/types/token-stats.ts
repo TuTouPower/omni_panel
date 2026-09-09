@@ -204,6 +204,8 @@ export interface TokenStatsSessionFilters {
     title?: string;
     /** t457: 独立 directory 子串过滤（大小写不敏感；空/省略不约束）。 */
     directory?: string;
+    /** 目录精确匹配列表（OR，区分大小写；空数组/省略不约束）。会话库「添加目录」chips。 */
+    directories?: string[];
     start_at?: number;
     end_at?: number;
     /** 总 tokens（input+output+cache_read+cache_write）区间下限/上限（含边界）。 */

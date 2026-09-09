@@ -1280,6 +1280,49 @@ describe("local-api web read endpoints", () => {
         expect(empty).toHaveLength(2);
     });
 
+    it("GET /v1/sessions?directories= 精确匹配列表（OR；空项忽略）", async () => {
+        const base_session = {
+            source: "claude_code" as const,
+            env: "linux" as const,
+            model: "sonnet",
+            title: null,
+            input_tokens: 10,
+            output_tokens: 1,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            calls: 1,
+            started_at: Date.now() - 1000,
+            ended_at: Date.now(),
+        };
+        token_stats_store.upsert_sessions(
+            [
+                { ...base_session, id: "sess-a", directory: "/home/user/alpha" },
+                { ...base_session, id: "sess-b", directory: "/home/user/beta" },
+                { ...base_session, id: "sess-c", directory: "/home/user/gamma" },
+            ],
+            [],
+        );
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+        // 重复参数 OR：alpha + gamma 命中 a、c（默认 ended_at desc 同时刻按插入序，排序后断言）。
+        const rows = (await (
+            await fetch(
+                `${base}/v1/sessions?directories=/home/user/alpha&directories=/home/user/gamma`,
+            )
+        ).json()) as { id: string }[];
+        expect(rows.map((s) => s.id).sort()).toEqual(["sess-a", "sess-c"]);
+        // 空项忽略：仅剩一个有效值。
+        const one = (await (
+            await fetch(`${base}/v1/sessions?directories=&directories=/home/user/beta`)
+        ).json()) as { id: string }[];
+        expect(one.map((s) => s.id)).toEqual(["sess-b"]);
+        // 子串不命中（精确匹配）。
+        const partial = (await (
+            await fetch(`${base}/v1/sessions?directories=/home/user/alph`)
+        ).json()) as { id: string }[];
+        expect(partial).toEqual([]);
+    });
+
     it("GET /v1/dashboard forwards an optional model filter (t204)", async () => {
         const dispatcher = {
             request_dashboard: vi.fn(),

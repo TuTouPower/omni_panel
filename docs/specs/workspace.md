@@ -65,7 +65,7 @@
 - 分页：「加载更多」逐步加载（PAGE_SIZE=50）；筛选或排序变化重新从首屏请求，过期请求不得覆盖当前结果；空态含「清除筛选」。
 - 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
 - SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ 先清空工作台全部槽位再按所选顺序逐个 `sessionHistory.open`，并切工作台页签（t439 起替换语义：工作台只剩所选会话；与最近会话确认 clear→open 同序，单独打开仍为装入/追加）。
-- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
+- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，「添加目录」chips）/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
 
 ## 会话面板对齐收尾（t228）
 

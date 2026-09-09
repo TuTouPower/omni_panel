@@ -547,6 +547,27 @@ describe("token-stats-store", () => {
             expect(store.query_sessions({ directory: "/GAMMA" }).map((r) => r.id)).toEqual(["c"]);
         });
 
+        it("directories 精确匹配列表（OR，区分大小写）", () => {
+            // 精确匹配：/alpha 与 /gamma 命中 a、c；b 不在列表（默认 ended_at desc：c 在前）。
+            expect(
+                store.query_sessions({ directories: ["/alpha", "/gamma"] }).map((r) => r.id),
+            ).toEqual(["c", "a"]);
+            // 空数组不约束（同省略）。
+            expect(store.query_sessions({ directories: [] })).toHaveLength(3);
+            // 无命中。
+            expect(store.query_sessions({ directories: ["/nowhere"] })).toEqual([]);
+            // 区分大小写：/ALPHA 不命中 /alpha（与 directory 子串过滤的大小写不敏感不同）。
+            expect(store.query_sessions({ directories: ["/ALPHA"] })).toEqual([]);
+            // 子串不命中：/alph 不命中 /alpha（精确匹配）。
+            expect(store.query_sessions({ directories: ["/alph"] })).toEqual([]);
+            // 与 directory 子串过滤并存取交集（"a" 三者都含；∩ 精确列表 = b、c，desc 序）。
+            expect(
+                store
+                    .query_sessions({ directory: "a", directories: ["/beta", "/gamma"] })
+                    .map((r) => r.id),
+            ).toEqual(["c", "b"]);
+        });
+
         it("t457 AC-003: title 与 directory 同时提供时 AND", () => {
             expect(
                 store.query_sessions({ title: "match", directory: "/alpha" }).map((r) => r.id),
