@@ -530,6 +530,14 @@ export function create_web_usageboard(): UsageboardApi {
                 if (filters?.start_at !== undefined)
                     params.set("start_at", String(filters.start_at));
                 if (filters?.end_at !== undefined) params.set("end_at", String(filters.end_at));
+                if (filters?.min_tokens !== undefined)
+                    params.set("min_tokens", String(filters.min_tokens));
+                if (filters?.max_tokens !== undefined)
+                    params.set("max_tokens", String(filters.max_tokens));
+                if (filters?.min_calls !== undefined)
+                    params.set("min_calls", String(filters.min_calls));
+                if (filters?.max_calls !== undefined)
+                    params.set("max_calls", String(filters.max_calls));
                 if (filters?.order_by) params.set("order_by", filters.order_by);
                 if (filters?.direction) params.set("direction", filters.direction);
                 if (filters?.limit !== undefined) params.set("limit", String(filters.limit));

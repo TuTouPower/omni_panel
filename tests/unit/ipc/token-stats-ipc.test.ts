@@ -204,6 +204,43 @@ describe("token-stats-ipc sender validation", () => {
         expect(query_sessions).not.toHaveBeenCalled();
     });
 
+    it("非法区间边界（负数/小数/NaN）被拒", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        for (const key of ["min_tokens", "max_tokens", "min_calls", "max_calls"]) {
+            for (const bad of [-1, 1.5, Number.NaN]) {
+                const result = pick_handler("tokenStats:sessions")(good_event(), {
+                    [key]: bad,
+                });
+                expect((result as { ok: boolean }).ok, `${key}=${String(bad)}`).toBe(false);
+            }
+        }
+        expect(query_sessions).not.toHaveBeenCalled();
+    });
+
+    it("合法区间边界原样透传到 store", async () => {
+        const deps = createMockDeps();
+        const query_sessions = (
+            deps.store as TokenStatsStore & {
+                query_sessions: ReturnType<typeof vi.fn>;
+            }
+        ).query_sessions;
+        const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
+        registerTokenStatsIpc((await import("electron")).ipcMain, deps);
+
+        const filters = { min_tokens: 100, max_tokens: 5000, min_calls: 2, max_calls: 40 };
+        const result = pick_handler("tokenStats:sessions")(good_event(), filters);
+        expect(result).toEqual({ ok: true, data: [] });
+        expect(query_sessions).toHaveBeenCalledWith(filters);
+    });
+
     it("TOKEN_STATS_SESSION_STATS rejects unknown sender", async () => {
         const { registerTokenStatsIpc } = await import("../../../src/main/ipc/token-stats-ipc");
         registerTokenStatsIpc((await import("electron")).ipcMain, createMockDeps());
