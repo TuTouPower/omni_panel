@@ -210,7 +210,8 @@ function usage_period_order(provider: string, period: ProviderUsagePeriod): numb
     }
     if (
         provider === "grok" &&
-        (period.raw_label === "weekly" ||
+        (period.raw_label === "credits" ||
+            period.raw_label === "weekly" ||
             period.raw_label === "seven_day" ||
             period.name.includes("一周"))
     ) {
