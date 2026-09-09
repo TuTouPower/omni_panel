@@ -14,6 +14,7 @@ import {
     CloudOff,
     Code,
     CircleAlert,
+    Columns2,
     Download,
     ExternalLink,
     Eye,
@@ -112,6 +113,8 @@ const UI_ICONS = {
     tag: Tag,
     book: BookOpen,
     code: Code,
+    // 会话库「同屏最近」内联图标。
+    columns2: Columns2,
     // 用量面板（面板间导航，时间快进）。
     feedback: MessageCircle,
     clock_forward: ClockArrowUp,

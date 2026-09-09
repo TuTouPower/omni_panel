@@ -50,7 +50,7 @@ export function RangeFilterCard({
 
     return (
         <div
-            className="rounded-[14px] border border-[var(--color-hairline)] bg-[var(--color-surface-card)] px-4 py-3 shadow-[var(--shadow-card)]"
+            className="rounded-lg border border-[var(--color-hairline)] bg-[var(--color-surface-card)] px-4 py-3 shadow-card"
             data-testid={testid}
         >
             <div className="mb-2.5 flex items-center justify-between">

@@ -214,7 +214,7 @@ export interface TokenStatsSessionFilters {
     /** 轮次区间下限/上限（含边界）。 */
     min_calls?: number;
     max_calls?: number;
-    order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+    order_by?: "ended_at" | "tokens" | "calls" | "started_at" | "title";
     direction?: "asc" | "desc";
     limit?: number;
     offset?: number;

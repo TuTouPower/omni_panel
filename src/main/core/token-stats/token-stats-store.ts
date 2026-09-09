@@ -74,7 +74,7 @@ export interface TokenStatsStore {
         max_tokens?: number;
         min_calls?: number;
         max_calls?: number;
-        order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+        order_by?: "ended_at" | "tokens" | "calls" | "started_at" | "title";
         direction?: "asc" | "desc";
         limit?: number;
         offset?: number;
@@ -1538,7 +1538,9 @@ export function create_token_stats_store(
                       ? "started_at"
                       : filters.order_by === "calls"
                         ? "calls"
-                        : "ended_at";
+                        : filters.order_by === "title"
+                          ? "unicode_lower(COALESCE(title, ''))"
+                          : "ended_at";
             const direction = filters.direction === "asc" ? "ASC" : "DESC";
             const sql = `SELECT * FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
             params["limit"] = limit;

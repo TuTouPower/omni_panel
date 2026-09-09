@@ -32,7 +32,7 @@ export function AgentLogoRow({ agents, counts, on_change }: AgentLogoRowProps) {
                         title={name}
                         data-testid={`library-agent-logo-${source}`}
                         className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-[8px] border transition-feedback",
+                            "flex h-8 w-8 items-center justify-center rounded-sm border transition-feedback",
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
                             active ? "" : "opacity-45 hover:opacity-90",
                         )}
