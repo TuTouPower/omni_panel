@@ -7458,6 +7458,54 @@
             "conflicts_with": "",
             "note": "Grok 周用量条移到最下面；Antigravity 用量按 Gemini 5h、Gemini 7d、Claude 5h、Claude 7d 排序。; dropped: 用户要求直接在 main 修改，不保留 task",
             "dir": "docs/archive/tasks/t466_grok_antigravity_usage_order"
+        },
+        {
+            "tid": "t467",
+            "slug": "codex_reader_last_token_usage_precision",
+            "title": "Codex reader 按 last_token_usage 记录精确分项用量",
+            "status": "done",
+            "branch": "t467_codex_reader_last_token_usage_precision",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "0fd0635d833e6c37d2f77b0822d941877306041f",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p213：t445 遗留；分项差分改用 last_token_usage，补双 model 分段 fixture。",
+            "dir": "docs/archive/tasks/t467_codex_reader_last_token_usage_precision"
+        },
+        {
+            "tid": "t468",
+            "slug": "session_query_filter_test_coverage",
+            "title": "会话查询过滤补强测试覆盖",
+            "status": "done",
+            "branch": "t468_session_query_filter_test_coverage",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "ce42dc1e229a01577a636b5a6b7c2b5937c3f7e0",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p224：补 store 组合过滤、id/title 判别及桌面 IPC filters 透传断言。",
+            "dir": "docs/archive/tasks/t468_session_query_filter_test_coverage"
+        },
+        {
+            "tid": "t469",
+            "slug": "kimi_web_session_refresh_no_popup",
+            "title": "修复 Kimi Web 会话刷新重复弹出登录窗口",
+            "status": "done",
+            "branch": "t469_kimi_web_session_refresh_no_popup",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "7aff2e1c4c6955e6e72c3c42ce5daaf65ac471d2",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "修复 wildcard cookie 静默刷新误判，并保留 Kimi Bearer/session/device 凭据；来源：2026-09-09 代码核查。",
+            "dir": "docs/archive/tasks/t469_kimi_web_session_refresh_no_popup"
         }
     ]
 }

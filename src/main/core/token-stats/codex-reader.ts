@@ -125,30 +125,43 @@ interface TokenCount {
     output: number;
     cache_read: number;
     total: number;
+    /** Per-event exact usage when Codex provides last_token_usage. */
+    last: TokenUsage | null;
+}
+
+interface TokenUsage {
+    input: number;
+    output: number;
+    cache_read: number;
+    total: number;
+}
+
+function parse_token_usage(value: unknown): TokenUsage | null {
+    if (typeof value !== "object" || value === null) return null;
+    const usage = value as Record<string, unknown>;
+    const input = num(usage["input_tokens"]);
+    const output = num(usage["output_tokens"]) + num(usage["reasoning_output_tokens"]);
+    const cache_read = num(usage["cached_input_tokens"]);
+    const grand_raw = usage["total_tokens"];
+    const total =
+        typeof grand_raw === "number" && Number.isFinite(grand_raw) && grand_raw > 0
+            ? grand_raw
+            : input + output;
+    if (input === 0 && output === 0 && cache_read === 0) return null;
+    return { input, output, cache_read, total };
 }
 
 function usage_of_token_count(info: unknown): TokenCount | null {
     if (typeof info !== "object" || info === null) {
         return null;
     }
-    const total = (info as Record<string, unknown>)["total_token_usage"];
-    if (typeof total !== "object" || total === null) {
-        return null;
-    }
-    const tu = total as Record<string, unknown>;
-    const input = num(tu["input_tokens"]);
-    const output = num(tu["output_tokens"]) + num(tu["reasoning_output_tokens"]);
-    // d051: cached_input_tokens 全 0 → cacheRate 按 0 计；仍透传读到的值。
-    const cache_read = num(tu["cached_input_tokens"]);
-    const grand_raw = tu["total_tokens"];
-    const grand =
-        typeof grand_raw === "number" && Number.isFinite(grand_raw) && grand_raw > 0
-            ? grand_raw
-            : input + output;
-    if (input === 0 && output === 0 && cache_read === 0) {
-        return null;
-    }
-    return { input, output, cache_read, total: grand };
+    const record = info as Record<string, unknown>;
+    const total = parse_token_usage(record["total_token_usage"]);
+    if (!total) return null;
+    return {
+        ...total,
+        last: parse_token_usage(record["last_token_usage"]),
+    };
 }
 
 function parse_rollout_file(
@@ -254,17 +267,24 @@ function parse_rollout_file(
             segment_model = active_model;
         }
         calls++;
-        // 差分按比例拆 input/output（累计口径只有总量可差分；output 含 reasoning）。
-        const ratio_in = usage.total > 0 ? usage.input / usage.total : 0;
-        const in_delta = Math.round(attributable * ratio_in);
-        const out_delta = attributable - in_delta;
+        // last_token_usage 是当前事件的精确分项增量。首行可能同时满足
+        // last_token_usage === total_token_usage，此时直接计入；重复/回绕事件
+        // 仍由累计 total 的正向差分门控，避免重复计数。旧 rollout 没有 last
+        // 时保留比例拆分兼容口径。
+        const exact = delta > 0 ? usage.last : null;
+        const in_delta = exact
+            ? exact.input
+            : Math.round(attributable * (usage.total > 0 ? usage.input / usage.total : 0));
+        const out_delta = exact ? exact.output : attributable - in_delta;
+        const raw_cache_delta = exact ? exact.cache_read : cache_delta;
         // OpenAI input_tokens 已含 cached_input_tokens：归一使 input 不含缓存，
         // 与 claude-reader 同语义——面板 tokens=input+output+cache_read 不双计，
         // 缓存率 = cache_read/(input+cache_read) 即真实命中率。
-        const normalized_in = Math.max(0, in_delta - cache_delta);
+        const effective_cache_delta = Math.max(0, raw_cache_delta);
+        const normalized_in = Math.max(0, in_delta - effective_cache_delta);
         sums.input_tokens += normalized_in;
         sums.output_tokens += out_delta;
-        sums.cache_read_tokens += cache_delta;
+        sums.cache_read_tokens += effective_cache_delta;
         if (min_ts === null || ts < min_ts) {
             min_ts = ts;
         }
@@ -284,7 +304,7 @@ function parse_rollout_file(
         };
         entry.input_tokens += normalized_in;
         entry.output_tokens += out_delta;
-        entry.cache_read_tokens += cache_delta;
+        entry.cache_read_tokens += effective_cache_delta;
         entry.calls++;
         daily.set(key, entry);
         records.push({
@@ -303,7 +323,7 @@ function parse_rollout_file(
             model: active_model,
             input_tokens: normalized_in,
             output_tokens: out_delta,
-            cache_read_tokens: cache_delta,
+            cache_read_tokens: effective_cache_delta,
             cache_write_tokens: 0,
         });
     }
