@@ -15,7 +15,9 @@ export interface LibraryFilters {
     readonly max_calls?: number;
 }
 
-export type LibrarySort = "recent" | "tokens" | "calls" | "earliest";
+/** 排序字段（对齐 demo：时间/Token/轮次/标题）；direction 独立，点同字段切换升降。 */
+export type LibrarySortField = "ended_at" | "tokens" | "calls" | "title";
+export type LibrarySortDirection = "asc" | "desc";
 
 /** 时间筛选预设：全部 / 最近 24h / 最近 7 天 / 最近 30 天 / 自定义（弹层选区间）。 */
 export type TimePreset = "all" | "24h" | "7d" | "30d" | "custom";
@@ -90,18 +92,26 @@ export function match_content(text: string, keyword: string): boolean {
 
 export function sort_sessions(
     sessions: readonly TokenStatsSession[],
-    sort: LibrarySort,
+    field: LibrarySortField,
+    direction: LibrarySortDirection,
 ): TokenStatsSession[] {
+    const sign = direction === "asc" ? 1 : -1;
     const copy = [...sessions];
-    switch (sort) {
-        case "recent":
-            return copy.sort((a, b) => b.ended_at - a.ended_at);
-        case "earliest":
-            return copy.sort((a, b) => a.started_at - b.started_at);
+    switch (field) {
+        case "ended_at":
+            return copy.sort((a, b) => sign * (a.ended_at - b.ended_at));
         case "tokens":
-            return copy.sort((a, b) => session_tokens(b) - session_tokens(a));
+            return copy.sort((a, b) => sign * (session_tokens(a) - session_tokens(b)));
         case "calls":
-            return copy.sort((a, b) => b.calls - a.calls);
+            return copy.sort((a, b) => sign * (a.calls - b.calls));
+        case "title":
+            // 无标题排最后（与后端 COALESCE(title,'') 口径一致：空串最小）。
+            return copy.sort((a, b) => {
+                const ta = (a.title ?? "").toLowerCase();
+                const tb = (b.title ?? "").toLowerCase();
+                if (ta === tb) return 0;
+                return (ta < tb ? -1 : 1) * sign;
+            });
     }
 }
 

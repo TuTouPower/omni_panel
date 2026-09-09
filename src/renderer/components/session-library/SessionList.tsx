@@ -96,7 +96,7 @@ export function SessionList({
         return (
             <div
                 ref={grid_ref}
-                className="scrollbar-token grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
+                className="scrollbar-token grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
                 data-testid="library-grid"
                 onScroll={handle_scroll}
             >

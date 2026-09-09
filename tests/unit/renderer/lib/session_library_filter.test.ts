@@ -7,7 +7,8 @@ import {
     sort_sessions,
     time_filter_range,
     TIME_PRESET_WINDOW_MS,
-    type LibrarySort,
+    type LibrarySortDirection,
+    type LibrarySortField,
 } from "../../../../src/renderer/lib/session-library/filter";
 
 /**
@@ -86,19 +87,33 @@ describe("match_content (t227)", () => {
 });
 
 describe("sort_sessions (t227)", () => {
-    const sorts: LibrarySort[] = ["recent", "tokens", "calls", "earliest"];
+    const fields: LibrarySortField[] = ["ended_at", "tokens", "calls", "title"];
+    const directions: LibrarySortDirection[] = ["asc", "desc"];
 
-    it("四种排序生效", () => {
-        expect(sort_sessions(SESSIONS, "recent")[0]?.id).toBe("a");
-        expect(sort_sessions(SESSIONS, "earliest")[0]?.id).toBe("b");
+    it("字段 + 方向排序生效", () => {
+        expect(sort_sessions(SESSIONS, "ended_at", "desc")[0]?.id).toBe("a");
+        expect(sort_sessions(SESSIONS, "ended_at", "asc")[0]?.id).toBe("b");
         // tokens 四维和：a=375, b=375, c=375（默认同值）→ 用不同 input 区分
         const with_tokens = [
             sess("a", "claude_code", { input_tokens: 1000 }),
             sess("b", "opencode", { input_tokens: 300 }),
         ];
-        expect(sort_sessions(with_tokens, "tokens")[0]?.id).toBe("a");
-        expect(sort_sessions(SESSIONS, "calls")[0]?.id).toBe("c");
-        void sorts;
+        expect(sort_sessions(with_tokens, "tokens", "desc")[0]?.id).toBe("a");
+        expect(sort_sessions(with_tokens, "tokens", "asc")[0]?.id).toBe("b");
+        expect(sort_sessions(SESSIONS, "calls", "desc")[0]?.id).toBe("c");
+        expect(sort_sessions(SESSIONS, "calls", "asc")[0]?.id).toBe("b");
+        void fields;
+        void directions;
+    });
+
+    it("标题排序：小写比较，空标题最小", () => {
+        const titled = [
+            sess("a", "claude_code", { title: "Beta" }),
+            sess("b", "opencode", { title: "alpha" }),
+            sess("c", "grok", { title: "" }),
+        ];
+        expect(sort_sessions(titled, "title", "asc").map((s) => s.id)).toEqual(["c", "b", "a"]);
+        expect(sort_sessions(titled, "title", "desc").map((s) => s.id)).toEqual(["a", "b", "c"]);
     });
 });
 

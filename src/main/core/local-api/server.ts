@@ -1488,7 +1488,8 @@ export function create_local_api_server(
                     order_by === "ended_at" ||
                     order_by === "tokens" ||
                     order_by === "calls" ||
-                    order_by === "started_at"
+                    order_by === "started_at" ||
+                    order_by === "title"
                 ) {
                     filters.order_by = order_by;
                 }

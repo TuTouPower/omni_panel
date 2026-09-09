@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession, TokenStatsSessionStats } from "../../../shared/types/token-stats";
 import {
-    count_stats,
     filter_sessions,
     sort_sessions,
-    type LibrarySort,
+    type LibrarySortDirection,
+    type LibrarySortField,
     type TimePreset,
 } from "../../lib/session-library/filter";
 import { AgentLogoRow } from "./AgentLogoRow";
@@ -21,6 +21,7 @@ import { Input } from "../ui/Input";
 import { Segmented } from "../ui/Segmented";
 import { Toast } from "../ui/Toast";
 import { format_tokens, key_of } from "./session-library-utils";
+import { Icon } from "../Icon";
 
 interface SessionLibraryProps {
     readonly on_switch_workspace: () => void;
@@ -35,9 +36,6 @@ const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
 /** 同屏最近并排打开的档位数。 */
 const RECENT_CO_OPEN_OPTIONS = [2, 4, 6, 8] as const;
-/** 侧边栏小节标题样式。 */
-const SECTION_LABEL_CLASS =
-    "text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]";
 const PREVIEW_MESSAGES = 5;
 /** t404: 内容搜索每批扫描候选数；首批结果可先展示，后续批次合并。 */
 const CONTENT_SCAN_BATCH_SIZE = 64;
@@ -51,14 +49,15 @@ export function SessionLibrary({
 }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
-    const [title, set_title] = useState("");
-    const [directory, set_directory] = useState("");
+
     const [search_content, set_search_content] = useState(false);
     // 时间筛选：预设分段 + 自定义弹层；区间为点击时刻冻结的快照（time_range）。
     const [time_preset, set_time_preset] = useState<TimePreset>("all");
     const [time_range, set_time_range] = useState<{ start_at?: number; end_at?: number }>({});
     const [agents, set_agents] = useState<string[]>([]);
-    const [sort, set_sort] = useState<LibrarySort>("recent");
+    // 排序（对齐 demo）：字段 + 独立方向；点同字段切换升降，默认 ended_at desc。
+    const [sort_field, set_sort_field] = useState<LibrarySortField>("ended_at");
+    const [sort_dir, set_sort_dir] = useState<LibrarySortDirection>("desc");
     // 数轴筛选：滑杆即时值（tokens_range/calls_range）→ 300ms 防抖后提交 applied_ranges。
     const [tokens_range, set_tokens_range] = useState<RangeValue>({});
     const [calls_range, set_calls_range] = useState<RangeValue>({});
@@ -110,20 +109,9 @@ export function SessionLibrary({
     const end_at = time_range.end_at;
 
     const backend_filters = useMemo(() => {
-        const order_by =
-            sort === "tokens"
-                ? "tokens"
-                : sort === "calls"
-                  ? "calls"
-                  : sort === "earliest"
-                    ? "started_at"
-                    : "ended_at";
-        const direction = sort === "earliest" ? "asc" : "desc";
         return {
             ...(agents.length > 0 ? { sources: [...agents] } : {}),
             ...(!search_content && search ? { search } : {}),
-            ...(title ? { title } : {}),
-            ...(directory ? { directory } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
             ...(applied_ranges.min_tokens !== undefined
@@ -138,10 +126,10 @@ export function SessionLibrary({
             ...(applied_ranges.max_calls !== undefined
                 ? { max_calls: applied_ranges.max_calls }
                 : {}),
-            order_by,
-            direction,
+            order_by: sort_field,
+            direction: sort_dir,
         } as const;
-    }, [agents, search, search_content, title, directory, start_at, end_at, applied_ranges, sort]);
+    }, [agents, search, search_content, start_at, end_at, applied_ranges, sort_field, sort_dir]);
 
     // 滑杆 300ms 防抖提交；值未变时返回 prev，避免新 {} 身份触发多余重拉。
     useEffect(() => {
@@ -181,11 +169,6 @@ export function SessionLibrary({
         for (const s of all) counts.set(s.source, (counts.get(s.source) ?? 0) + 1);
         return [...counts.entries()].sort((a, b) => b[1] - a[1]);
     }, [all, session_stats?.source_counts, session_stats_status]);
-
-    const stats = useMemo(() => {
-        if (session_stats_status !== "ready") return null;
-        return session_stats ?? count_stats(all);
-    }, [all, session_stats, session_stats_status]);
 
     useEffect(() => {
         void window.usageboard.tokenStats
@@ -286,9 +269,13 @@ export function SessionLibrary({
     const content_filtered = useMemo(
         () =>
             search && search_content
-                ? sort_sessions(filter_sessions(content_sessions, applied_ranges), sort)
+                ? sort_sessions(
+                      filter_sessions(content_sessions, applied_ranges),
+                      sort_field,
+                      sort_dir,
+                  )
                 : filtered,
-        [content_sessions, filtered, applied_ranges, search, search_content, sort],
+        [content_sessions, filtered, applied_ranges, search, search_content, sort_field, sort_dir],
     );
 
     // 内容搜索 effect：防抖 300ms + AbortController 作废旧查询（t239/t248）。
@@ -339,8 +326,6 @@ export function SessionLibrary({
                                 filters: {
                                     ...(agents.length > 0 ? { sources: [...agents] } : {}),
                                     ...(search ? { search } : {}),
-                                    ...(title ? { title } : {}),
-                                    ...(directory ? { directory } : {}),
                                     ...(start_at !== undefined ? { start_at } : {}),
                                     ...(end_at !== undefined ? { end_at } : {}),
                                 },
@@ -430,7 +415,7 @@ export function SessionLibrary({
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, title, directory, agents, start_at, end_at]);
+    }, [search, search_content, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
@@ -510,7 +495,7 @@ export function SessionLibrary({
         try {
             const recent =
                 search && search_content
-                    ? sort_sessions(content_filtered, "recent").slice(0, count)
+                    ? sort_sessions(content_filtered, "ended_at", "desc").slice(0, count)
                     : await window.usageboard.tokenStats.getSessions({
                           ...backend_filters,
                           order_by: "ended_at",
@@ -535,13 +520,12 @@ export function SessionLibrary({
     /** 重置全部筛选与排序回默认（数轴滑杆立即清零，applied 同步清）。 */
     function reset_filters(): void {
         set_search("");
-        set_title("");
-        set_directory("");
         set_search_content(false);
         set_time_preset("all");
         set_time_range({});
         set_agents([]);
-        set_sort("recent");
+        set_sort_field("ended_at");
+        set_sort_dir("desc");
         set_tokens_range({});
         set_calls_range({});
         set_applied_ranges({});
@@ -564,75 +548,124 @@ export function SessionLibrary({
         applied_ranges.min_calls !== undefined ||
         applied_ranges.max_calls !== undefined;
     const has_filters = Boolean(
-        search ||
-        title ||
-        directory ||
-        search_content ||
-        time_preset !== "all" ||
-        agents.length > 0 ||
-        has_ranges,
+        search || search_content || time_preset !== "all" || agents.length > 0 || has_ranges,
     );
     // 数轴上限来自全量统计；旧 mock/加载中缺省为 0 → 滑杆禁用。
     const max_tokens_limit = session_stats?.max_tokens ?? 0;
     const max_calls_limit = session_stats?.max_calls ?? 0;
     const show_clear = has_filters || all.length > 0;
     const empty_text = load_error ? "会话列表加载失败" : "没有匹配的会话";
-    const stats_text =
-        session_stats_status === "ready" && stats !== null
-            ? `${String(stats.sessions)} 个会话 · ${String(stats.agents)} 个 Agent · ${format_tokens(stats.tokens)} tokens`
-            : session_stats_status === "loading"
-              ? "统计加载中…"
-              : "统计不可用";
+
+    /** 排序字段标签：当前字段追加方向箭头（↓ 降序 / ↑ 升序）。 */
+    function sort_label(field: LibrarySortField, text: string): string {
+        if (sort_field !== field) return text;
+        return `${text} ${sort_dir === "desc" ? "↓" : "↑"}`;
+    }
+
+    /** 点同字段切换升降；换新字段时数值类默认降序、标题默认升序。 */
+    function on_sort_change(field: LibrarySortField): void {
+        if (field === sort_field) {
+            set_sort_dir((d) => (d === "desc" ? "asc" : "desc"));
+            return;
+        }
+        set_sort_field(field);
+        set_sort_dir(field === "title" ? "asc" : "desc");
+    }
+
+    // 生效条件计数（对齐 demo 底部「N 个条件生效」）：搜索/时间/Agent/Token 数轴/轮次数轴。
+    const active_filter_count =
+        (search ? 1 : 0) +
+        (time_preset !== "all" ? 1 : 0) +
+        (agents.length > 0 ? 1 : 0) +
+        (applied_ranges.min_tokens !== undefined || applied_ranges.max_tokens !== undefined
+            ? 1
+            : 0) +
+        (applied_ranges.min_calls !== undefined || applied_ranges.max_calls !== undefined ? 1 : 0);
     return (
         <div
             className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-surface-window)] text-[var(--color-on-surface)]"
             data-testid="library-view"
         >
-            <header className="flex shrink-0 items-baseline gap-3 px-[18px] pb-2 pt-3.5">
-                <span className="text-[length:var(--text-title-lg)] font-bold tracking-tight">
-                    会话库
-                </span>
-                <span className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
-                    {stats_text}
-                </span>
-            </header>
-
             <div className="flex min-h-0 flex-1">
                 <aside
                     className="flex w-[248px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--color-hairline)] px-3 py-3"
                     data-testid="library-sidebar"
                 >
+                    {/* 对齐 demo：顶部统计（当前 / 总量 条会话）+ 网格/列表切换。 */}
+                    <div className="flex items-center justify-between gap-2">
+                        <span
+                            className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
+                            data-testid="library-count"
+                        >
+                            {visible_sessions.length} / {session_stats?.sessions ?? 0} 条会话
+                        </span>
+                        <Segmented
+                            size="sm"
+                            value={view_mode}
+                            aria-label="视图模式"
+                            options={[
+                                { value: "grid", label: "网格", "aria-label": "网格视图" },
+                                { value: "list", label: "列表", "aria-label": "列表视图" },
+                            ]}
+                            onChange={set_view_mode}
+                        />
+                    </div>
+                    {/* 排序：字段分段；点同字段切换升降（↓ 降序 / ↑ 升序）。 */}
+                    <Segmented
+                        size="sm"
+                        aria-label="排序方式"
+                        value={sort_field}
+                        options={[
+                            {
+                                value: "ended_at",
+                                label: sort_label("ended_at", "时间"),
+                                "aria-label": "按时间排序",
+                            },
+                            {
+                                value: "tokens",
+                                label: sort_label("tokens", "Token"),
+                                "aria-label": "按Token排序",
+                            },
+                            {
+                                value: "calls",
+                                label: sort_label("calls", "轮次"),
+                                "aria-label": "按轮次排序",
+                            },
+                            {
+                                value: "title",
+                                label: sort_label("title", "标题"),
+                                "aria-label": "按标题排序",
+                            },
+                        ]}
+                        onChange={on_sort_change}
+                    />
+                    {/* 搜索：图标输入 + 清除 X；勾选后同时搜消息内容。 */}
                     <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>搜索</span>
-                        <Input
-                            placeholder={
-                                // AC-007: 未勾选「包含消息内容」时明确搜索范围（标题/目录/会话 ID）；
-                                // 勾选态说明包含消息内容。
-                                search_content
-                                    ? "搜索消息内容（含标题 / 目录 / 会话 ID）"
-                                    : "搜索标题 / 目录 / 会话 ID"
-                            }
-                            value={search}
-                            onChange={(e) => {
-                                set_search(e.target.value);
-                            }}
-                        />
-                        <Input
-                            aria-label="标题"
-                            placeholder="标题"
-                            value={title}
-                            onChange={(e) => {
-                                set_title(e.target.value);
-                            }}
-                        />
-                        <Input
-                            aria-label="工作目录"
-                            placeholder="工作目录"
-                            value={directory}
-                            onChange={(e) => {
-                                set_directory(e.target.value);
-                            }}
-                        />
+                        <div className="relative">
+                            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-on-surface-muted)]">
+                                <Icon name="search" size={14} />
+                            </span>
+                            <Input
+                                className="pl-8 pr-7"
+                                placeholder="标题 / 消息内容 / 会话 ID"
+                                value={search}
+                                onChange={(e) => {
+                                    set_search(e.target.value);
+                                }}
+                            />
+                            {search && (
+                                <button
+                                    type="button"
+                                    aria-label="清除搜索"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-on-surface-muted)] hover:text-[var(--color-on-surface)]"
+                                    onClick={() => {
+                                        set_search("");
+                                    }}
+                                >
+                                    <Icon name="close" size={12} />
+                                </button>
+                            )}
+                        </div>
                         <label className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
                             <Checkbox
                                 checked={search_content}
@@ -644,74 +677,45 @@ export function SessionLibrary({
                             包含消息内容
                         </label>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>时间</span>
-                        <TimeRangeFilter
-                            preset={time_preset}
-                            applied_range={time_range}
-                            on_change={(preset, range) => {
-                                set_time_preset(preset);
-                                set_time_range(range);
-                            }}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>Agent</span>
-                        <AgentLogoRow
-                            agents={agents}
-                            counts={agent_counts}
-                            on_change={(next) => {
-                                set_agents(next);
-                            }}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <RangeFilterCard
-                            label="Token 数"
-                            testid="range-filter-tokens"
-                            max_limit={max_tokens_limit}
-                            value={tokens_range}
-                            format_value={format_tokens}
-                            on_change={set_tokens_range}
-                        />
-                        <RangeFilterCard
-                            label="轮次"
-                            testid="range-filter-calls"
-                            max_limit={max_calls_limit}
-                            value={calls_range}
-                            on_change={set_calls_range}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>排序</span>
-                        <Segmented
-                            size="sm"
-                            aria-label="排序方式"
-                            value={sort}
-                            options={[
-                                { value: "recent", label: "最近", "aria-label": "最近活跃" },
-                                { value: "tokens", label: "Token", "aria-label": "Token 最多" },
-                                { value: "calls", label: "轮次", "aria-label": "轮次最多" },
-                                { value: "earliest", label: "最早", "aria-label": "最早创建" },
-                            ]}
-                            onChange={set_sort}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>视图</span>
-                        <Segmented
-                            value={view_mode}
-                            aria-label="视图模式"
-                            options={[
-                                { value: "grid", label: "网格", "aria-label": "网格视图" },
-                                { value: "list", label: "列表", "aria-label": "列表视图" },
-                            ]}
-                            onChange={set_view_mode}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <span className={SECTION_LABEL_CLASS}>同屏最近</span>
-                        <div className="flex gap-2">
+                    <TimeRangeFilter
+                        preset={time_preset}
+                        applied_range={time_range}
+                        on_change={(preset, range) => {
+                            set_time_preset(preset);
+                            set_time_range(range);
+                        }}
+                    />
+                    <AgentLogoRow
+                        agents={agents}
+                        counts={agent_counts}
+                        on_change={(next) => {
+                            set_agents(next);
+                        }}
+                    />
+                    <RangeFilterCard
+                        label="Token 数"
+                        testid="range-filter-tokens"
+                        max_limit={max_tokens_limit}
+                        value={tokens_range}
+                        format_value={format_tokens}
+                        on_change={set_tokens_range}
+                    />
+                    <RangeFilterCard
+                        label="轮次"
+                        testid="range-filter-calls"
+                        max_limit={max_calls_limit}
+                        value={calls_range}
+                        on_change={set_calls_range}
+                    />
+                    {/* 同屏最近：图标 + 文案 + 档位同排一行（对齐 demo）。 */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[var(--color-on-surface-muted)]">
+                            <Icon name="columns2" size={14} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                            同屏最近
+                        </span>
+                        <div className="ml-auto flex gap-1">
                             {RECENT_CO_OPEN_OPTIONS.map((n) => (
                                 <Button
                                     key={n}
@@ -727,14 +731,25 @@ export function SessionLibrary({
                             ))}
                         </div>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-auto self-start"
-                        onClick={reset_filters}
-                    >
-                        重置
-                    </Button>
+                    {/* 底部：生效条件数 + 重置（无条件时禁用）。 */}
+                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--color-hairline)] pt-3">
+                        <span
+                            className="text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
+                            data-testid="library-active-filters"
+                        >
+                            {active_filter_count > 0
+                                ? `${String(active_filter_count)} 个条件生效`
+                                : "无筛选条件"}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={active_filter_count === 0}
+                            onClick={reset_filters}
+                        >
+                            重置
+                        </Button>
+                    </div>
                 </aside>
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {content_searching && (
@@ -774,7 +789,7 @@ export function SessionLibrary({
                             <p>{empty_text}</p>
                             {show_clear && (
                                 <Button variant="secondary" onClick={reset_filters}>
-                                    清除筛选
+                                    清空全部条件
                                 </Button>
                             )}
                         </div>

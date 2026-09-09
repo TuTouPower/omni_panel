@@ -116,15 +116,13 @@ beforeEach(() => {
 });
 
 describe("SessionLibrary (t227)", () => {
-    it("页头显示统计行：会话数/agent 数/总 tokens", async () => {
+    it("侧边栏顶部显示统计：当前 / 总量 条会话", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText(/3 个会话/)).toBeTruthy();
+            expect(screen.getByTestId("library-count").textContent).toBe("3 / 3 条会话");
         });
-        expect(screen.getByText(/3 个 Agent/)).toBeTruthy();
-        expect(screen.getByText(/1,125 tokens/)).toBeTruthy();
     });
 
     it("t248 AC1/AC2：首屏只取 limit=50 一页，统计独立于列表请求", async () => {
@@ -147,7 +145,7 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         await waitFor(() => {
-            expect(screen.getByText(/73 个会话/)).toBeTruthy();
+            expect(screen.getByTestId("library-count").textContent).toBe("0 / 73 条会话");
         });
         expect(screen.queryByText("会话 p0")).toBeNull();
         expect(ub.tokenStats.getSessions).toHaveBeenCalledTimes(1);
@@ -194,7 +192,7 @@ describe("SessionLibrary (t227)", () => {
             expect.objectContaining({ limit: 50, offset: 50 }),
         );
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), {
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "needle" },
         });
         await waitFor(() => {
@@ -243,7 +241,7 @@ describe("SessionLibrary (t227)", () => {
         });
 
         // 搜索重置（触发 has_more 重置）
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), {
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "zz" },
         });
         await waitFor(() => {
@@ -300,7 +298,7 @@ describe("SessionLibrary (t227)", () => {
         });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), {
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "秘密词" },
         });
         await waitFor(() => {
@@ -323,16 +321,14 @@ describe("SessionLibrary (t227)", () => {
         });
     });
 
-    it("t438 AC-007：未勾选「包含消息内容」时文案说明搜索范围（标题/目录/会话 ID）", async () => {
+    it("t438 AC-007：搜索框占位文案说明搜索范围，输入后可一键清除", async () => {
         await renderLibrary();
-        const input = screen.getByPlaceholderText(/搜索/);
-        // 未勾选：范围 = 标题 / 目录 / 会话 ID。
-        expect(input.getAttribute("placeholder")).toBe("搜索标题 / 目录 / 会话 ID");
-        // 勾选「包含消息内容」：文案切换为说明包含消息内容。
-        fireEvent.click(screen.getByLabelText("包含消息内容"));
-        expect(screen.getByPlaceholderText(/搜索/).getAttribute("placeholder")).toBe(
-            "搜索消息内容（含标题 / 目录 / 会话 ID）",
-        );
+        const input = screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID");
+        // 输入后出现清除 X；点击清空并移除 X。
+        fireEvent.change(input, { target: { value: "abc" } });
+        fireEvent.click(screen.getByRole("button", { name: "清除搜索" }));
+        expect(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID")).toHaveValue("");
+        expect(screen.queryByRole("button", { name: "清除搜索" })).toBeNull();
     });
 
     it("t248 AC6：摘要只请求当前可见页，不请求未加载会话", async () => {
@@ -383,7 +379,9 @@ describe("SessionLibrary (t227)", () => {
         });
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "proj/b" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "proj/b" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话 b")).toBeTruthy();
             expect(screen.queryByText("会话 a")).toBeNull();
@@ -470,7 +468,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.queryByText("会话 b")).toBeNull();
         });
         // 排序：calls desc → c 在前
-        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按轮次排序" }));
         await waitFor(() => {
             const first_card = document.querySelector('[data-testid="library-card-title"]');
             expect(first_card?.textContent).toContain("会话 c");
@@ -514,7 +512,7 @@ describe("SessionLibrary (t227)", () => {
                 document.querySelectorAll('[data-testid="library-card-title"]'),
                 (node) => node.textContent,
             );
-        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
         });
@@ -527,7 +525,7 @@ describe("SessionLibrary (t227)", () => {
             }),
         );
 
-        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按轮次排序" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 medium", "会话 high", "会话 low"]);
         });
@@ -586,7 +584,7 @@ describe("SessionLibrary (t227)", () => {
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 new"));
-        fireEvent.click(screen.getByRole("button", { name: "📅 自定义" }));
+        fireEvent.click(screen.getByRole("button", { name: "自定义时间范围" }));
         fireEvent.change(screen.getByLabelText("开始"), { target: { value: "2026-07-01T00:00" } });
         fireEvent.change(screen.getByLabelText("结束"), { target: { value: "2026-07-09T23:59" } });
         fireEvent.click(screen.getByRole("button", { name: "应用" }));
@@ -656,30 +654,34 @@ describe("SessionLibrary (t227)", () => {
         expect(switch_fn).toHaveBeenCalled();
     });
 
-    it("无匹配结果显示清除筛选空态", async () => {
+    it("无匹配结果显示清空全部条件空态", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
             filters["search"] === "不存在" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "不存在" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "不存在" },
+        });
         await waitFor(() => {
             expect(screen.getByText("没有匹配的会话")).toBeTruthy();
-            expect(screen.getByText(/清除筛选/)).toBeTruthy();
+            expect(screen.getByText(/清空全部条件/)).toBeTruthy();
         });
     });
 
-    it("加载失败且筛选 0 条时显示加载失败并保留清除筛选", async () => {
+    it("加载失败且筛选 0 条时显示加载失败并保留清空全部条件", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockRejectedValue(new Error("boom"));
         await renderLibrary();
         await waitFor(() => screen.getByText("会话列表加载失败"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "x" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "x" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话列表加载失败")).toBeTruthy();
         });
-        expect(screen.getByText(/清除筛选/)).toBeTruthy();
+        expect(screen.getByText(/清空全部条件/)).toBeTruthy();
     });
 
     it("筛选首屏请求失败时不展示上一筛选的会话", async () => {
@@ -690,7 +692,9 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "失败筛选" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "失败筛选" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话列表加载失败")).toBeTruthy();
         });
@@ -782,7 +786,9 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 p0"));
 
         scroll_to_bottom(grid());
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "needle" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "needle" },
+        });
         await waitFor(() => screen.getByText("会话 needle0"));
 
         scroll_to_bottom(grid());
@@ -829,18 +835,22 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密词" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话 b")).toBeTruthy();
         });
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "会话 a" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "会话 a" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话 a")).toBeTruthy();
             expect(screen.queryByText("会话 b")).toBeNull();
         });
     });
 
-    it("内容搜索结果遵循 tokens/earliest 排序并随切换重新渲染", async () => {
+    it("内容搜索结果遵循 tokens 排序，同字段再点切换升降", async () => {
         const ub = usageboard();
         const low = sess("low", "claude_code", { input_tokens: 1, started_at: T0 });
         const high = sess("high", "opencode", { input_tokens: 100, started_at: T0 + 2000 });
@@ -853,7 +863,9 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "关键词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "关键词" },
+        });
         await waitFor(() => {
             expect(screen.getAllByText(/会话 (low|high|medium)/)).toHaveLength(3);
         });
@@ -863,12 +875,13 @@ describe("SessionLibrary (t227)", () => {
                 document.querySelectorAll('[data-testid="library-card-title"]'),
                 (node) => node.textContent,
             );
-        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
         });
 
-        fireEvent.click(screen.getByRole("button", { name: "最早创建" }));
+        // 同字段再点 → 升序。
+        fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
             expect(card_titles()).toEqual(["会话 low", "会话 medium", "会话 high"]);
         });
@@ -886,7 +899,9 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "关键词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "关键词" },
+        });
         await waitFor(() => {
             expect(screen.getByTestId("search-truncated-hint")).toBeInTheDocument();
         });
@@ -905,23 +920,24 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "关键词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "关键词" },
+        });
         await waitFor(() => {
             expect(screen.getByText("会话 hit")).toBeTruthy();
         });
         expect(screen.queryByTestId("search-truncated-hint")).not.toBeInTheDocument();
     });
 
-    it("getSessionStats 失败时不显示首屏部分统计或 agent logo 行", async () => {
+    it("getSessionStats 失败时不显示 agent logo 行，统计总量按 0 展示", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);
         ub.tokenStats.getSessionStats.mockRejectedValue(new Error("stats unavailable"));
         await renderLibrary();
 
         await waitFor(() => {
-            expect(screen.getByText("统计不可用")).toBeTruthy();
+            expect(screen.getByTestId("library-count").textContent).toBe("1 / 0 条会话");
         });
-        expect(screen.queryByText(/1 个会话/)).toBeNull();
         expect(document.querySelectorAll('[data-testid^="library-agent-logo-"]')).toHaveLength(0);
         expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
     });
@@ -958,7 +974,9 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "启用" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "启用" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1057,14 +1075,18 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 a"));
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "旧" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
         });
         expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "新" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1101,8 +1123,12 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 a"));
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "密" } });
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "密" },
+        });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密" },
+        });
 
         expect(ub.sessionHistory.searchContent).not.toHaveBeenCalled();
         await act(async () => {
@@ -1136,7 +1162,9 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 a"));
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密词" },
+        });
         // 首次防抖触发 → 搜索 A in-flight。
         await act(async () => {
             vi.advanceTimersByTime(400);
@@ -1147,7 +1175,9 @@ describe("SessionLibrary (t227)", () => {
         expect(first_call_signal).toBeInstanceOf(AbortSignal);
 
         // 防抖窗口外再次输入 → 前序请求被 abort。
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词2" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密词2" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1167,7 +1197,9 @@ describe("SessionLibrary (t227)", () => {
         await renderLibrary();
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧关键词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "旧关键词" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1176,7 +1208,9 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByText("会话 a")).toBeTruthy();
         });
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新关键词" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "新关键词" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1215,7 +1249,9 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 a"));
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "旧" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "旧" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1223,7 +1259,9 @@ describe("SessionLibrary (t227)", () => {
         // 旧查询仍在 pending
         expect(ub.sessionHistory.searchContent).toHaveBeenCalledTimes(1);
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "新" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "新" },
+        });
         await act(async () => {
             vi.advanceTimersByTime(400);
             await Promise.resolve();
@@ -1346,7 +1384,9 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => screen.getByText("会话 q0"));
 
         // 搜索重置 → 首屏 50 条、has_more 重置为 true → 触底继续加载下一页。
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "needle" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "needle" },
+        });
         await waitFor(() => screen.getByText("会话 needle0"));
         scroll_to_bottom(grid());
         await waitFor(() => screen.getByText("会话 needle50"));
@@ -1530,60 +1570,7 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         expect(switch_fn).toHaveBeenCalledTimes(1);
     });
 
-    it("t458 AC-001：只填标题输入时列表请求带 title，不带 search", async () => {
-        const ub = usageboard();
-        const hit = sess("t-hit", "claude_code");
-        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
-            typeof filters["title"] === "string" && filters["title"].length > 0
-                ? Promise.resolve([hit])
-                : Promise.resolve(SESSIONS),
-        );
-        await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
-
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "t-hit" } });
-        await waitFor(() => {
-            expect(screen.getByText("会话 t-hit")).toBeTruthy();
-            expect(screen.queryByText("会话 a")).toBeNull();
-        });
-        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-            expect.objectContaining({ title: "t-hit", limit: 50, offset: 0 }),
-        );
-        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
-            string,
-            unknown
-        >;
-        expect(last_call).not.toHaveProperty("search");
-        expect(last_call).not.toHaveProperty("directory");
-    });
-
-    it("t458 AC-002：只填工作目录输入时列表请求带 directory，不串 title/id", async () => {
-        const ub = usageboard();
-        const dir_hit = sess("d-hit", "opencode");
-        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
-            typeof filters["directory"] === "string" && filters["directory"].length > 0
-                ? Promise.resolve([dir_hit])
-                : Promise.resolve(SESSIONS),
-        );
-        await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
-
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/proj/d-hit" } });
-        await waitFor(() => {
-            expect(screen.getByText("会话 d-hit")).toBeTruthy();
-            expect(screen.queryByText("会话 a")).toBeNull();
-        });
-        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-            expect.objectContaining({ directory: "/proj/d-hit" }),
-        );
-        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
-            string,
-            unknown
-        >;
-        expect(last_call).not.toHaveProperty("title");
-    });
-
-    it("t458 AC-003：标题+目录+日期+Agent+排序同时设置，加载更多分页不丢条件", async () => {
+    it("t458 AC-003：搜索+日期+Agent+排序同时设置，加载更多分页不丢条件", async () => {
         const ub = usageboard();
         const first_page = Array.from({ length: 50 }, (_, i) =>
             sess(`p${String(i)}`, "claude_code"),
@@ -1602,9 +1589,10 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 p0"));
 
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "重构" } });
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/home/alpha" } });
-        fireEvent.click(screen.getByRole("button", { name: "📅 自定义" }));
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "重构" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "自定义时间范围" }));
         fireEvent.change(screen.getByLabelText("开始"), {
             target: { value: "2026-07-01T00:00" },
         });
@@ -1613,12 +1601,11 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: "应用" }));
         fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
-        fireEvent.click(screen.getByRole("button", { name: "Token 最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
             expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    title: "重构",
-                    directory: "/home/alpha",
+                    search: "重构",
                     sources: ["claude_code"],
                     order_by: "tokens",
                 }),
@@ -1632,8 +1619,7 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         // 加载更多仍携带全部条件与 offset。
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({
-                title: "重构",
-                directory: "/home/alpha",
+                search: "重构",
                 sources: ["claude_code"],
                 start_at: expect.any(Number) as number,
                 end_at: expect.any(Number) as number,
@@ -1643,85 +1629,30 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         );
     });
 
-    it("t458 AC-004：清空筛选后 title/directory 输入为空且后续请求不带两参数", async () => {
+    it("t458 AC-004：清空全部条件后搜索框为空且后续请求不带 search", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
-            filters["title"] === "ghost" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
+            filters["search"] === "ghost" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
 
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "ghost" } });
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/nope" } });
-        await waitFor(() => {
-            expect(screen.getByText(/清除筛选/)).toBeTruthy();
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "ghost" },
         });
-        fireEvent.click(screen.getByText(/清除筛选/));
+        await waitFor(() => {
+            expect(screen.getByText(/清空全部条件/)).toBeTruthy();
+        });
+        fireEvent.click(screen.getByText(/清空全部条件/));
         await waitFor(() => {
             expect(screen.getByText("会话 a")).toBeTruthy();
         });
-        expect(screen.getByLabelText<HTMLInputElement>("标题").value).toBe("");
-        expect(screen.getByLabelText<HTMLInputElement>("工作目录").value).toBe("");
-        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-            expect.not.objectContaining({
-                title: expect.stringMatching(/.+/) as string,
-                directory: expect.stringMatching(/.+/) as string,
-            }),
-        );
-    });
-
-    it("t458 AC-005：勾选包含消息内容时 searchContent filters 带 title/directory", async () => {
-        const ub = usageboard();
-        const hidden = sess("hidden", "opencode");
-        ub.tokenStats.getSessions.mockResolvedValue([sess("visible", "claude_code")]);
-        ub.sessionHistory.searchContent.mockResolvedValue({
-            hits: [key_of(hidden)],
-            sessions: [hidden],
-        });
-        await renderLibrary();
-        await waitFor(() => screen.getByText("会话 visible"));
-
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "部署" } });
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/srv" } });
-        fireEvent.click(screen.getByLabelText("包含消息内容"));
-        fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: "秘密词" } });
-        await waitFor(() => {
-            expect(ub.sessionHistory.searchContent).toHaveBeenCalled();
-        });
-        const request = ub.sessionHistory.searchContent.mock.calls[0]?.[0] as unknown as Record<
-            string,
-            unknown
-        >;
-        expect(request["filters"]).toMatchObject({
-            title: "部署",
-            directory: "/srv",
-            search: "秘密词",
-        });
-    });
-
-    it("t458 AC-001 补充：标题输入为空串时请求不带 title", async () => {
-        const ub = usageboard();
-        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
-
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "临时" } });
-        await waitFor(() => {
-            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-                expect.objectContaining({ title: "临时" }),
-            );
-        });
-        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "" } });
-        await waitFor(() => {
-            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-                expect.objectContaining({ limit: 50, offset: 0 }),
-            );
-        });
+        expect(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID")).toHaveValue("");
         const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
             string,
             unknown
         >;
-        expect(last_call).not.toHaveProperty("title");
+        expect(last_call).not.toHaveProperty("search");
     });
 });
 
@@ -1767,7 +1698,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
-        await waitFor(() => screen.getByText(/3 个会话/));
+        await waitFor(() => {
+            expect(screen.getByTestId("library-count").textContent).toBe("3 / 3 条会话");
+        });
 
         const card = screen.getByTestId("range-filter-tokens");
         const find_fill = () =>
@@ -1819,7 +1752,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
-        await waitFor(() => screen.getByText(/3 个会话/));
+        await waitFor(() => {
+            expect(screen.getByTestId("library-count").textContent).toBe("3 / 3 条会话");
+        });
         const min_slider = screen.getByTestId("range-filter-tokens-min");
         const max_slider = screen.getByTestId("range-filter-calls-max");
         expect((min_slider as HTMLInputElement).disabled).toBe(true);
@@ -1842,7 +1777,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索标题/), { target: { value: "fix" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "fix" },
+        });
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         act(() => {
             vi.advanceTimersByTime(400);
@@ -1914,7 +1851,7 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         expect(clear_fn).not.toHaveBeenCalled();
     });
 
-    it("重置：清空搜索/预设/agent/数轴并恢复排序为最近活跃", async () => {
+    it("重置：清空搜索/预设/agent/数轴并恢复排序为时间降序", async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const ub = usageboard();
         ub.tokenStats.getSessionStats.mockResolvedValue(stats_with_maxima());
@@ -1924,9 +1861,11 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
 
-        fireEvent.change(screen.getByPlaceholderText(/搜索标题/), { target: { value: "abc" } });
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "abc" },
+        });
         fireEvent.click(screen.getByTestId("time-preset-7d"));
-        fireEvent.click(screen.getByRole("button", { name: "轮次最多" }));
+        fireEvent.click(screen.getByRole("button", { name: "按轮次排序" }));
         fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
             target: { value: "450000" },
         });
@@ -1945,7 +1884,7 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
 
-        expect(screen.getByPlaceholderText(/搜索标题/)).toHaveValue("");
+        expect(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID")).toHaveValue("");
         expect(screen.getByTestId("range-filter-tokens-value").textContent).toBe("0 – 900k+");
         const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
         expect(last["min_tokens"]).toBeUndefined();
