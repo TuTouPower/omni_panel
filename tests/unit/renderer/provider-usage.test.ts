@@ -198,6 +198,42 @@ describe("provider usage period order", () => {
         ]);
     });
 
+    it("puts Grok credits after both chat and build usage", () => {
+        const groups = build_provider_usage_groups([
+            connectorInfo({
+                source: "poll",
+                supportedProviders: ["grok"],
+                activeProviders: ["grok"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T00:00:00Z",
+                    items: [
+                        usageItem({
+                            provider: "grok",
+                            raw_label: "credits",
+                            normalized_label: "额度",
+                        }),
+                        usageItem({
+                            provider: "grok",
+                            raw_label: "grok_build",
+                            normalized_label: "Grok Build",
+                        }),
+                        usageItem({
+                            provider: "grok",
+                            raw_label: "grok_chat",
+                            normalized_label: "Grok Chat",
+                        }),
+                    ],
+                },
+            }),
+        ]);
+        expect(groups[0]?.accounts[0]?.periods.map((period) => period.raw_label)).toEqual([
+            "grok_build",
+            "grok_chat",
+            "credits",
+        ]);
+    });
+
     it("orders Antigravity as Gemini 5h, Gemini 7d, Claude 5h, Claude 7d", () => {
         const labels = ["claude_weekly", "gemini_weekly", "claude_five_hour", "gemini_five_hour"];
         const groups = build_provider_usage_groups([
