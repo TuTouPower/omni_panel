@@ -1,0 +1,24 @@
+{
+    "tid": "t467",
+    "attempt": 1,
+    "execution_id": "2996ee599d2543f5b116f396a2323593",
+    "status": "done",
+    "branch": "t467_codex_reader_last_token_usage_precision",
+    "base_sha": "0fd0635d833e6c37d2f77b0822d941877306041f",
+    "tests": "相关 reader 单测 10/10 通过；pnpm test 全量 287 个测试文件通过、1 个跳过，3569 个测试通过、9 个跳过；pnpm typecheck、变更文件 ESLint、Prettier 检查通过",
+    "blackbox": "按项目默认黑盒命令 pnpm test 全量通过；pnpm build 通过，保留既有 CSS 优化警告",
+    "review": "full 级 Round 1：review_code PASS、review_test PASS，0 finding；check_review_status overall=PASS / review_scope=ok / round=1",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts::t467 AC-001/002：两条 token_count 使用 last_token_usage 直接断言 model-a/model-b 的 input/output 分项"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts::t467 AC-001/002：首行 last_token_usage === total_token_usage，模型切换后累计汇总 input=1000、output=1000"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/codex-reader.test.ts::t467 AC-003：缺少 last_token_usage 时仍按既有比例拆分，汇总 input=1800、output=200"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
