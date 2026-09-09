@@ -2,13 +2,13 @@
 tid: "t468"
 slug: "session_query_filter_test_coverage"
 title: "会话查询过滤补强测试覆盖"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t468_session_query_filter_test_coverage"
 worktree: ""
 review_level: "single"
 review_limit: "5"
 verify_limit: "5"
-diff_anchor: ""
+diff_anchor: "ce42dc1e229a01577a636b5a6b7c2b5937c3f7e0"
 depends_on: ""
 conflicts_with: ""
 note: "来源 p224：补 store 组合过滤、id/title 判别及桌面 IPC filters 透传断言。"
@@ -32,25 +32,25 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 每个结构化 finding 一行。`已修` 表示本 task 已修复；`遗留` 必须指向 `pNNN` 或 follow-up tid；`撤回` 必须写清理由。critical/important 未解决时不得 PASS。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-09 15:07 UTC+8)
 
 |finding_id|severity|status|rationale|fix_ref|
 |---|---|---|---|---|
 |t000_code_f001|critical/important/minor|已修/遗留/撤回|一句话|文件:行 / pNNN / tid|
 
-无 finding 时写“Round N 零 finding”。
+Round 1 零 finding。
 
 ## 收尾报告
 
 ### 验收与验证
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 测试：待执行时填写
-- 黑盒：待执行时填写
-- review：待执行时填写
+- 结果：全部满足
+- 测试：相关 store + IPC 测试 145/145 通过；`pnpm test` 全量 287 个测试文件通过、1 个跳过，3571 个测试通过、9 个跳过；`pnpm typecheck`、变更文件 ESLint、Prettier 检查通过。
+- 黑盒：按项目默认黑盒命令执行 `pnpm test`，通过。
+- review：single 级 `review_general.md` Round 1 PASS，无 finding。
 - AC 证据：见 `handoff.json`
 
 ### 结果摘要
 
-- 待执行时填写；遗留只写引用，不复制正文
+- 补齐会话 store 组合过滤、id/title 判别和桌面 IPC filters 透传测试，未改变生产逻辑。
