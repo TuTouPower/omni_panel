@@ -7442,6 +7442,22 @@
             "conflicts_with": "",
             "note": "将 Kimi 网页版统一显示为 Kimi Web；网页登录表单只保留必要的网页登录操作，移除 Cookie 字符串、网页登录令牌、接口地址(login)等手动字段。",
             "dir": "docs/archive/tasks/t465_kimi_web_naming_login_form_cleanup"
+        },
+        {
+            "tid": "t466",
+            "slug": "grok_antigravity_usage_order",
+            "title": "Grok 周用量与 Antigravity 用量排序调整",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "Grok 周用量条移到最下面；Antigravity 用量按 Gemini 5h、Gemini 7d、Claude 5h、Claude 7d 排序。; dropped: 用户要求直接在 main 修改，不保留 task",
+            "dir": "docs/archive/tasks/t466_grok_antigravity_usage_order"
         }
     ]
 }
