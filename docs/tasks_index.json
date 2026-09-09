@@ -34,6 +34,22 @@
             "conflicts_with": "",
             "note": "来源 p224：补 store 组合过滤、id/title 判别及桌面 IPC filters 透传断言。",
             "dir": "docs/tasks/t468_session_query_filter_test_coverage"
+        },
+        {
+            "tid": "t469",
+            "slug": "kimi_web_session_refresh_no_popup",
+            "title": "修复 Kimi Web 会话刷新重复弹出登录窗口",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "修复 wildcard cookie 静默刷新误判，并保留 Kimi Bearer/session/device 凭据；来源：2026-09-09 代码核查。",
+            "dir": "docs/tasks/t469_kimi_web_session_refresh_no_popup"
         }
     ]
 }
