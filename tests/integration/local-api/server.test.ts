@@ -1193,6 +1193,10 @@ describe("local-api web read endpoints", () => {
         ["/v1/sessions", "end_at", "abc"],
         ["/v1/sessions", "limit", "abc"],
         ["/v1/sessions", "offset", "abc"],
+        ["/v1/sessions", "min_tokens", "abc"],
+        ["/v1/sessions", "max_tokens", "-1"],
+        ["/v1/sessions", "min_calls", "abc"],
+        ["/v1/sessions", "max_calls", "-5"],
     ])(
         "GET %s with invalid numeric param ?%s=%s returns 400 (t353 AC-001)",
         async (path, param, value) => {

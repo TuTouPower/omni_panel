@@ -62,12 +62,12 @@ export interface TokenStatsStore {
         sources?: string[];
         env?: string;
         search?: string;
-        /** t457: 独立 title 子串过滤（大小写不敏感；空/省略不约束）。 */
-        title?: string;
-        /** t457: 独立 directory 子串过滤（大小写不敏感；空/省略不约束）。 */
-        directory?: string;
         start_at?: number;
         end_at?: number;
+        min_tokens?: number;
+        max_tokens?: number;
+        min_calls?: number;
+        max_calls?: number;
         order_by?: "ended_at" | "tokens" | "calls" | "started_at";
         direction?: "asc" | "desc";
         limit?: number;
@@ -265,6 +265,9 @@ ${ROLLUP_INIT_SQL}`;
 // Buckets are fully derived from the daily usage table: rebuilt on every
 // upsert batch so partial deltas can never drop or double-count usage.
 const DELETE_BUCKETS_SQL = `DELETE FROM token_stats_buckets`;
+
+/** 会话总 tokens 列表达式：区间筛选 / 排序 / 聚合共用同一口径。 */
+const TOKENS_EXPR = "(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens)";
 
 const INSERT_BUCKETS_SQL = `
 INSERT INTO token_stats_buckets (
@@ -900,7 +903,7 @@ function materialize_session_meta(
                       ended_at: number | null;
                   }
                 | undefined;
-            if (fallback?.started_at !== null && fallback?.ended_at !== null && fallback) {
+            if (fallback?.started_at !== null && fallback.ended_at !== null) {
                 update_stmt.run(
                     fallback.title ?? null,
                     fallback.directory ?? null,
@@ -1469,24 +1472,6 @@ export function create_token_stats_store(
                 );
                 params["search"] = `%${escaped}%`;
             }
-            if (filters.title) {
-                // t457: 独立 title 过滤；转义与参数绑定策略同 search。
-                const escaped = filters.title.replace(/[\\%_]/g, (character) => `\\${character}`);
-                conditions.push(
-                    "unicode_lower(COALESCE(title, '')) LIKE unicode_lower(@title) ESCAPE '\\'",
-                );
-                params["title"] = `%${escaped}%`;
-            }
-            if (filters.directory) {
-                const escaped = filters.directory.replace(
-                    /[\\%_]/g,
-                    (character) => `\\${character}`,
-                );
-                conditions.push(
-                    "unicode_lower(COALESCE(directory, '')) LIKE unicode_lower(@directory) ESCAPE '\\'",
-                );
-                params["directory"] = `%${escaped}%`;
-            }
             if (filters.start_at !== undefined) {
                 // 活动时间交集：会话 [started_at, ended_at] 与 [start_at, end_at] 有重叠。
                 conditions.push("ended_at >= @start_at");
@@ -1496,13 +1481,29 @@ export function create_token_stats_store(
                 conditions.push("started_at <= @end_at");
                 params["end_at"] = filters.end_at;
             }
+            if (filters.min_tokens !== undefined) {
+                conditions.push(TOKENS_EXPR + " >= @min_tokens");
+                params["min_tokens"] = filters.min_tokens;
+            }
+            if (filters.max_tokens !== undefined) {
+                conditions.push(TOKENS_EXPR + " <= @max_tokens");
+                params["max_tokens"] = filters.max_tokens;
+            }
+            if (filters.min_calls !== undefined) {
+                conditions.push("calls >= @min_calls");
+                params["min_calls"] = filters.min_calls;
+            }
+            if (filters.max_calls !== undefined) {
+                conditions.push("calls <= @max_calls");
+                params["max_calls"] = filters.max_calls;
+            }
 
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
             const limit = filters.limit ?? 100;
             const offset = filters.offset ?? 0;
             const order_expr =
                 filters.order_by === "tokens"
-                    ? "(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens)"
+                    ? TOKENS_EXPR
                     : filters.order_by === "started_at"
                       ? "started_at"
                       : filters.order_by === "calls"
@@ -1522,7 +1523,9 @@ export function create_token_stats_store(
                 .prepare(
                     `SELECT COUNT(*) AS sessions,
                             COUNT(DISTINCT source) AS agents,
-                            COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens), 0) AS tokens
+                            COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens), 0) AS tokens,
+                            COALESCE(MAX(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens), 0) AS max_tokens,
+                            COALESCE(MAX(calls), 0) AS max_calls
                      FROM token_stats_sessions`,
                 )
                 .get() as Record<string, unknown>;
@@ -1538,6 +1541,8 @@ export function create_token_stats_store(
                 sessions: Number(row["sessions"] ?? 0),
                 agents: Number(row["agents"] ?? 0),
                 tokens: Number(row["tokens"] ?? 0),
+                max_tokens: Number(row["max_tokens"] ?? 0),
+                max_calls: Number(row["max_calls"] ?? 0),
                 source_counts: Object.fromEntries(
                     source_rows.map((source_row) => [source_row.source, source_row.count]),
                 ),

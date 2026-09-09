@@ -880,6 +880,32 @@ describe("web usageboard bridge", () => {
         expect(session_urls.length).toBeGreaterThan(0);
     });
 
+    it("getSessions 序列化 tokens/calls 区间筛选参数", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockImplementation((input) => {
+            const url = typeof input === "string" ? input : input instanceof URL ? input.href : "";
+            if (url.includes("/v1/sessions")) return Promise.resolve(mock_response([]));
+            return Promise.resolve(mock_response({ subscribed: true }));
+        });
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getSessions({
+            min_tokens: 100,
+            max_tokens: 5000,
+            min_calls: 2,
+            max_calls: 40,
+        });
+        const session_urls = fetch_mock.mock.calls
+            .map((c) => c[0])
+            .filter((u): u is string => typeof u === "string" && u.includes("/v1/sessions"));
+        expect(session_urls.length).toBeGreaterThan(0);
+        const qs = new URLSearchParams(session_urls[0]?.split("?")[1] ?? "");
+        expect(qs.get("min_tokens")).toBe("100");
+        expect(qs.get("max_tokens")).toBe("5000");
+        expect(qs.get("min_calls")).toBe("2");
+        expect(qs.get("max_calls")).toBe("40");
+    });
+
     it("共享 SSE open 后 POST 订阅含 connection_id (t414)", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()
