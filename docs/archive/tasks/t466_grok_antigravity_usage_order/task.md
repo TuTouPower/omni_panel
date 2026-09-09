@@ -2,7 +2,7 @@
 tid: "t466"
 slug: "grok_antigravity_usage_order"
 title: "Grok 周用量与 Antigravity 用量排序调整"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
@@ -11,7 +11,7 @@ verify_limit: "5"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: "Grok 周用量条移到最下面；Antigravity 用量按 Gemini 5h、Gemini 7d、Claude 5h、Claude 7d 排序。"
+note: "Grok 周用量条移到最下面；Antigravity 用量按 Gemini 5h、Gemini 7d、Claude 5h、Claude 7d 排序。; dropped: 用户要求直接在 main 修改，不保留 task"
 ---
 
 # Task 过程总账
