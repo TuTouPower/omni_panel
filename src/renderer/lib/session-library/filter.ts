@@ -11,6 +11,36 @@ export interface LibraryFilters {
 
 export type LibrarySort = "recent" | "tokens" | "calls" | "earliest";
 
+/** 时间筛选预设：全部 / 最近 24h / 最近 7 天 / 最近 30 天 / 自定义（弹层选区间）。 */
+export type TimePreset = "all" | "24h" | "7d" | "30d" | "custom";
+
+/** 各预设的回看窗口毫秒数；all/custom 不走窗口。 */
+export const TIME_PRESET_WINDOW_MS: Record<Exclude<TimePreset, "all" | "custom">, number> = {
+    "24h": 24 * 60 * 60 * 1000,
+    "7d": 7 * 24 * 60 * 60 * 1000,
+    "30d": 30 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * 由预设算后端查询区间。预设以「点击时刻的 now」冻结，避免每次渲染漂移导致
+ * 重复拉取；custom 直接用用户所选区间；all/未就绪的 custom 返回空（不限时间）。
+ */
+export function time_filter_range(
+    preset: TimePreset,
+    custom_range: { start_at?: number; end_at?: number } | null,
+    now: number,
+): { start_at?: number; end_at?: number } {
+    if (preset === "all") return {};
+    if (preset === "custom") {
+        if (custom_range?.start_at === undefined) return {};
+        return {
+            start_at: custom_range.start_at,
+            ...(custom_range.end_at !== undefined ? { end_at: custom_range.end_at } : {}),
+        };
+    }
+    return { start_at: now - TIME_PRESET_WINDOW_MS[preset] };
+}
+
 export function session_tokens(s: TokenStatsSession): number {
     return s.input_tokens + s.output_tokens + s.cache_read_tokens + s.cache_write_tokens;
 }
