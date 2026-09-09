@@ -1,0 +1,24 @@
+{
+    "tid": "t468",
+    "attempt": 1,
+    "execution_id": "91b2d61faa0a4527a0fe4b94b36bb6e4",
+    "status": "done",
+    "branch": "t468_session_query_filter_test_coverage",
+    "base_sha": "ce42dc1e229a01577a636b5a6b7c2b5937c3f7e0",
+    "tests": "相关 store + IPC 测试 145/145 通过；pnpm test 全量 287 个测试文件通过、1 个跳过，3571 个测试通过、9 个跳过；pnpm typecheck、变更文件 ESLint、Prettier 检查通过",
+    "blackbox": "按项目默认黑盒命令 pnpm test 全量通过",
+    "review": "single 级 general Round 1 PASS，0 finding；check_review_status overall=PASS / review_scope=ok / round=1",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::t468 AC-001：search/title/directory 同时提供时只返回满足全部条件的会话"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::t457 AC-001：id alpha-only-id 但 title/directory 不含 alpha 时，title=alpha 只返回真实 title 命中项"
+        ],
+        "AC-003": [
+            "tests/unit/ipc/token-stats-ipc.test.ts::t468 AC-003：完整 filters 对象原样传给 query_sessions"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
