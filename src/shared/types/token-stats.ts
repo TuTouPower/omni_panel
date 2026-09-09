@@ -184,6 +184,9 @@ export interface TokenStatsSessionStats {
     readonly tokens: number;
     /** Full session counts by source; optional for legacy renderer mocks. */
     readonly source_counts?: Readonly<Record<string, number>>;
+    /** 全量会话的最大总 tokens / 最大轮次：会话库数轴筛选的上限；旧 mock 可省略。 */
+    readonly max_tokens?: number;
+    readonly max_calls?: number;
 }
 
 export interface TokenStatsSessionFilters {
@@ -193,6 +196,12 @@ export interface TokenStatsSessionFilters {
     search?: string;
     start_at?: number;
     end_at?: number;
+    /** 总 tokens（input+output+cache_read+cache_write）区间下限/上限（含边界）。 */
+    min_tokens?: number;
+    max_tokens?: number;
+    /** 轮次区间下限/上限（含边界）。 */
+    min_calls?: number;
+    max_calls?: number;
     order_by?: "ended_at" | "tokens" | "calls" | "started_at";
     direction?: "asc" | "desc";
     limit?: number;

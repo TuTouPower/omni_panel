@@ -1420,6 +1420,20 @@ export function create_local_api_server(
                     const end_at = parse_int_param(params, "end_at", { require_present: true });
                     if (end_at !== null) filters.end_at = end_at;
                 }
+                for (const range_key of [
+                    "min_tokens",
+                    "max_tokens",
+                    "min_calls",
+                    "max_calls",
+                ] as const) {
+                    if (params.has(range_key)) {
+                        const bound = parse_int_param(params, range_key, {
+                            require_present: true,
+                            min: 0,
+                        });
+                        if (bound !== null) filters[range_key] = bound;
+                    }
+                }
                 if (
                     order_by === "ended_at" ||
                     order_by === "tokens" ||

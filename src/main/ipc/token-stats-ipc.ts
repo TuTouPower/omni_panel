@@ -38,6 +38,11 @@ function valid_limit(limit: number | undefined): limit is number {
     );
 }
 
+/** 区间筛选边界须为非负整数；缺省（undefined）合法——不做该维过滤。 */
+function valid_range_bound(value: number | undefined): boolean {
+    return value === undefined || (Number.isInteger(value) && value >= 0);
+}
+
 export function registerTokenStatsIpc(
     ipc: IpcMain,
     deps: {
@@ -74,6 +79,17 @@ export function registerTokenStatsIpc(
                 return fail(
                     "INVALID_LIMIT",
                     `limit must be an integer in [1, ${String(TOKEN_STATS_LIMIT_MAX)}]`,
+                );
+            }
+            if (
+                !valid_range_bound(filters?.min_tokens) ||
+                !valid_range_bound(filters?.max_tokens) ||
+                !valid_range_bound(filters?.min_calls) ||
+                !valid_range_bound(filters?.max_calls)
+            ) {
+                return fail(
+                    "INVALID_RANGE",
+                    "min_tokens/max_tokens/min_calls/max_calls must be non-negative integers",
                 );
             }
             return ok(deps.store.query_sessions(filters ?? {}));

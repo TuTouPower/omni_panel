@@ -549,6 +549,49 @@ describe("token-stats-store", () => {
             expect(rows.map((row) => row.id)).toEqual(["b"]);
         });
 
+        it("filters by inclusive token range", () => {
+            // a=1800, b=1100, c=1500（总 tokens = 四列之和）。
+            expect(
+                store
+                    .query_sessions({ min_tokens: 1100, max_tokens: 1500 })
+                    .map((row) => row.id)
+                    .sort(),
+            ).toEqual(["b", "c"]);
+            expect(store.query_sessions({ min_tokens: 1501 }).map((row) => row.id)).toEqual(["a"]);
+            expect(store.query_sessions({ max_tokens: 1099 })).toEqual([]);
+        });
+
+        it("filters by inclusive calls range", () => {
+            // a=5, b=2, c=9。
+            expect(
+                store
+                    .query_sessions({ min_calls: 5 })
+                    .map((row) => row.id)
+                    .sort(),
+            ).toEqual(["a", "c"]);
+            expect(
+                store
+                    .query_sessions({ max_calls: 5 })
+                    .map((row) => row.id)
+                    .sort(),
+            ).toEqual(["a", "b"]);
+            expect(
+                store.query_sessions({ min_calls: 3, max_calls: 8 }).map((row) => row.id),
+            ).toEqual(["a"]);
+            expect(store.query_sessions({ min_calls: 10 })).toEqual([]);
+        });
+
+        it("combines token/calls range with sources, ordering and pagination", () => {
+            const rows = store.query_sessions({
+                min_tokens: 1100,
+                min_calls: 5,
+                order_by: "tokens",
+                direction: "desc",
+                limit: 1,
+            });
+            expect(rows.map((row) => row.id)).toEqual(["a"]);
+        });
+
         it("t248 AC2：session stats 聚合全量会话，不受列表分页影响", () => {
             const page = store.query_sessions({ limit: 1 });
             expect(page).toHaveLength(1);
@@ -556,6 +599,9 @@ describe("token-stats-store", () => {
                 sessions: 3,
                 agents: 3,
                 tokens: 4400,
+                // 数轴筛选上限：全量会话的最大总 tokens / 最大轮次。
+                max_tokens: 1800,
+                max_calls: 9,
                 source_counts: { claude_code: 1, grok: 1, opencode: 1 },
             });
         });
