@@ -2,7 +2,11 @@ import { memo, type CSSProperties } from "react";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { use_config } from "../../hooks/use-config";
 import { resume_command } from "../../lib/session-resume";
-import { format_precise_datetime, last_dir_segment } from "../../lib/workspace/pane";
+import {
+    format_compact_datetime,
+    format_precise_datetime,
+    last_dir_segment,
+} from "../../lib/workspace/pane";
 import { agent_accent, vendor_id_for_source } from "../../lib/workspace/slots";
 import { cn } from "../../lib/utils";
 import { VendorMark } from "../Icon";
@@ -95,8 +99,14 @@ export const SessionCard = memo(function SessionCard({
                                     </span>
                                 </>
                             ) : null}
-                            <span className="shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]">
-                                {format_precise_datetime(s.ended_at)}
+                            <span
+                                className="shrink-0 font-code-md tabular-nums text-[var(--color-on-surface-muted)]"
+                                data-testid="library-card-time-range"
+                                title={`${format_precise_datetime(s.started_at)} → ${format_precise_datetime(s.ended_at)}`}
+                            >
+                                {format_compact_datetime(s.started_at)}
+                                {" → "}
+                                {format_compact_datetime(s.ended_at)}
                             </span>
                         </div>
                         <div
