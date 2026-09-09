@@ -324,6 +324,7 @@ export function SettingsForm({
 
     const visible_parameters = parameters.filter(
         (param) =>
+            (providerId !== "kimi_web" || param.name !== "AUTHORIZATION") &&
             (providerId !== "opencode_go" || param.name !== "ACCOUNT_LABEL") &&
             // 有专用 auth 区时排除主认证 secret（auth_secret_name 由 OAuth/WebLogin 区处理），
             // 其余 secret 参数（如 kimi 的 API_KEY 回退）保留表单输入（t362）。
@@ -505,6 +506,7 @@ export function SettingsForm({
                 </div>
             ))}
             {providerId !== "grok" &&
+                providerId !== "kimi_web" &&
                 Object.keys(endpoints ?? {}).map((endpointName) => (
                     <div className="flex flex-col gap-2" key={endpointName}>
                         <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">

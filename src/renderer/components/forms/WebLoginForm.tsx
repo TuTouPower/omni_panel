@@ -85,23 +85,27 @@ export function WebLoginForm({
                 buttonLabel="网页登录"
                 onSecrets={handle_secrets}
             />
-            <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                data-testid="web-login-manual-save"
-                disabled={!cookie.trim()}
-                onClick={() => void handle_manual_save()}
-            >
-                添加账号
-            </Button>
-            {manual_error && (
-                <p
-                    className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
-                    role="alert"
-                >
-                    {manual_error}
-                </p>
+            {provider !== "kimi_web" && (
+                <>
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                        data-testid="web-login-manual-save"
+                        disabled={!cookie.trim()}
+                        onClick={() => void handle_manual_save()}
+                    >
+                        添加账号
+                    </Button>
+                    {manual_error && (
+                        <p
+                            className="text-[length:var(--text-body-sm)] text-[var(--color-error)]"
+                            role="alert"
+                        >
+                            {manual_error}
+                        </p>
+                    )}
+                </>
             )}
         </div>
     );

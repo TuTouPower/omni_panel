@@ -1,0 +1,26 @@
+{
+    "tid": "t465",
+    "attempt": 1,
+    "execution_id": "c71021030fed47619b759793b54b38c7",
+    "status": "done",
+    "branch": "t465_kimi_web_naming_login_form_cleanup",
+    "base_sha": "d4f32d01021f100dd52b6386ad8a1793cba84e96",
+    "tests": "相关 renderer 测试 50 passed；pnpm test 287 files passed/1 skipped，3563 passed/9 skipped；pnpm typecheck、pnpm lint、pnpm build、git diff --check 通过",
+    "blackbox": "组件测试验证添加/编辑账号可观察表单；t464 已完成真实 Kimi 登录协议验证，本 task 未改变认证捕获或 quota 请求",
+    "review": "single 级 Round 1 general PASS，零 finding；reviewed_scope e4ffad0137c33611 ok",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/lib/common-services.ts 与 provider-usage.ts：kimi_web 标签为 Kimi Web；common_services.test.ts 断言该标签",
+            "AddAccountDialog 使用 common-services 标签生成标题，故添加入口与标题均显示 Kimi Web"
+        ],
+        "AC-002": [
+            "WebLoginSection/WebLoginForm 对 provider=kimi_web 隐藏 Cookie textarea、手动保存按钮和 Cookie 提示；settings_form 对 providerId=kimi_web 隐藏 AUTHORIZATION 参数及所有 endpoint 字段",
+            "web_login_form.test.tsx Kimi Web 用例断言必要控件存在、网页登录 Cookie 与手动保存控件不存在"
+        ],
+        "AC-003": [
+            "其它 provider 的 WebLoginSection 手动 Cookie 路径测试保持通过；全量 pnpm test 3563 passed；Kimi Web 自动捕获代码未在本 task 改动"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

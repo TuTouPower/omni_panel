@@ -28,4 +28,8 @@ describe("add-account common services", () => {
         expect(ADD_COMMON_SERVICES).toContainEqual({ id: "minimax", label: "MiniMax" });
         expect(ADD_COMMON_SERVICES).toContainEqual({ id: "firecrawl", label: "Firecrawl" });
     });
+
+    it("labels the web Kimi entry as Kimi Web", () => {
+        expect(ADD_COMMON_SERVICES).toContainEqual({ id: "kimi_web", label: "Kimi Web" });
+    });
 });

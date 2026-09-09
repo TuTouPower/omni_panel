@@ -7426,6 +7426,22 @@
             "conflicts_with": "",
             "note": "新增 kimi_web 连接器（session/web_login），Cookie 查 quota，新增月用量指标与独立入口；依赖 spike 结论",
             "dir": "docs/archive/tasks/t464_kimi_web_connector_monthly"
+        },
+        {
+            "tid": "t465",
+            "slug": "kimi_web_naming_login_form_cleanup",
+            "title": "Kimi Web 名称与网页登录表单精简",
+            "status": "done",
+            "branch": "t465_kimi_web_naming_login_form_cleanup",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "d4f32d01021f100dd52b6386ad8a1793cba84e96",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "将 Kimi 网页版统一显示为 Kimi Web；网页登录表单只保留必要的网页登录操作，移除 Cookie 字符串、网页登录令牌、接口地址(login)等手动字段。",
+            "dir": "docs/archive/tasks/t465_kimi_web_naming_login_form_cleanup"
         }
     ]
 }
