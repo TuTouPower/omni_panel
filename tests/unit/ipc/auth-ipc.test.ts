@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { SessionManager, LoginRequest } from "../../../src/main/core/session/session-manager";
+import type { AuthIpcDeps } from "../../../src/main/ipc/auth-ipc";
 
 const mock_window_events: Record<string, (() => void) | undefined> = {};
 let mock_cookie_get_result: { name: string; value: string }[] = [];
@@ -561,6 +562,124 @@ describe("trySilentCookieRefresh", () => {
         expect(secrets_store["silent-test-1:SESSION_COOKIE"]).toBe(
             "my_custom_cookie=val_abc; another_custom=val_xyz",
         );
+    });
+
+    it("t469 AC-001/002: wildcard Kimi refresh keeps Bearer and device fields", async () => {
+        mock_cookie_get_result = [
+            { name: "kimi_session", value: "new-cookie" },
+            { name: "device_cookie", value: "device-value" },
+        ];
+        const kimi_definition: ConnectorDefinition = {
+            directory: "connectors/kimi_web",
+            executablePath: "connectors/kimi_web",
+            manifest: {
+                id: "kimi_web",
+                provider: "kimi_web",
+                capabilities: ["session"],
+                parameters: [],
+                cookieNames: ["*"],
+            },
+        };
+        const existing = JSON.stringify({
+            cookie: "old-cookie=stale",
+            authorization: "Bearer token-sentinel",
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+        });
+        secrets_store["kimi-web:SESSION_COOKIE"] = existing;
+        const deps = {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "kimi-web",
+                            stateId: "kimi-web",
+                            name: "Kimi Web",
+                            enabled: true,
+                            executablePath: kimi_definition.executablePath,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+            },
+            secretsStore: {
+                set: vi.fn((_key: string, value: string) => {
+                    secrets_store[_key] = value;
+                    return Promise.resolve();
+                }),
+                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
+            },
+            definitions: [kimi_definition],
+            sessionManager: { start_login: vi.fn() },
+        };
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        await expect(
+            mod.trySilentCookieRefresh(deps as unknown as AuthIpcDeps, "kimi-web"),
+        ).resolves.toBe(true);
+        expect(JSON.parse(secrets_store["kimi-web:SESSION_COOKIE"] ?? "{}")).toEqual({
+            cookie: "kimi_session=new-cookie; device_cookie=device-value",
+            authorization: "Bearer token-sentinel",
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+        });
+        expect(deps.sessionManager.start_login).not.toHaveBeenCalled();
+    });
+
+    it("t469 AC-003: Kimi refresh without Bearer falls back instead of overwriting secret", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "cookie-value" }];
+        const kimi_definition: ConnectorDefinition = {
+            directory: "connectors/kimi_web",
+            executablePath: "connectors/kimi_web",
+            manifest: {
+                id: "kimi_web",
+                provider: "kimi_web",
+                capabilities: ["session"],
+                parameters: [],
+                cookieNames: ["*"],
+            },
+        };
+        const old_secret = "legacy-cookie-only";
+        secrets_store["kimi-legacy:SESSION_COOKIE"] = old_secret;
+        const deps = {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: "kimi-legacy",
+                            stateId: "kimi-legacy",
+                            name: "Kimi Web",
+                            enabled: true,
+                            executablePath: kimi_definition.executablePath,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+            },
+            secretsStore: {
+                set: vi.fn(),
+                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
+            },
+            definitions: [kimi_definition],
+            sessionManager: { start_login: vi.fn() },
+        };
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        await expect(
+            mod.trySilentCookieRefresh(deps as unknown as AuthIpcDeps, "kimi-legacy"),
+        ).resolves.toBe(false);
+        expect(deps.secretsStore.set).not.toHaveBeenCalled();
+        expect(secrets_store["kimi-legacy:SESSION_COOKIE"]).toBe(old_secret);
     });
 
     it("returns false when manifest declares no cookieNames (P1-4)", async () => {

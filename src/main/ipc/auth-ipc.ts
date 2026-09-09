@@ -171,20 +171,52 @@ export async function trySilentCookieRefresh(
         log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);
         return false;
     }
+    const is_wildcard = cookie_names.includes("*");
     const targetNames = new Set(cookie_names);
     const partition = get_session_login_partition(instanceId);
     const loginSession = session.fromPartition(partition);
     try {
         const allCookies = await loginSession.cookies.get({});
-        const matched = allCookies.filter((c) => targetNames.has(c.name));
-        if (matched.length < targetNames.size) {
+        const matched = is_wildcard
+            ? allCookies
+            : allCookies.filter((cookie) => targetNames.has(cookie.name));
+        if (matched.length === 0 || (!is_wildcard && matched.length < targetNames.size)) {
             log.debug(
-                `Silent refresh: only ${String(matched.length)}/${String(targetNames.size)} cookies found, skipping`,
+                is_wildcard
+                    ? `Silent refresh: no cookies found, skipping`
+                    : `Silent refresh: only ${String(matched.length)}/${String(targetNames.size)} cookies found, skipping`,
             );
             return false;
         }
         const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
-        await deps.secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), cookieHeader);
+        let savedSecret = cookieHeader;
+        if (def.manifest.provider === "kimi_web") {
+            const existing = await deps.secretsStore.get(keyFor(instanceId, "SESSION_COOKIE"));
+            if (!existing) {
+                log.debug(`Silent refresh: Kimi session secret missing, skipping`);
+                return false;
+            }
+            let parsed: Record<string, unknown>;
+            try {
+                const value: unknown = JSON.parse(existing);
+                if (typeof value !== "object" || value === null || Array.isArray(value)) {
+                    return false;
+                }
+                parsed = value as Record<string, unknown>;
+            } catch {
+                log.debug(`Silent refresh: Kimi session secret is not JSON, skipping`);
+                return false;
+            }
+            if (typeof parsed["authorization"] !== "string" || !parsed["authorization"].trim()) {
+                log.debug(`Silent refresh: Kimi authorization missing, skipping`);
+                return false;
+            }
+            savedSecret = JSON.stringify({
+                ...parsed,
+                cookie: cookieHeader,
+            });
+        }
+        await deps.secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), savedSecret);
         log.info(`Silent cookie refresh succeeded for ${instanceId}`);
         return true;
     } catch (err: unknown) {
