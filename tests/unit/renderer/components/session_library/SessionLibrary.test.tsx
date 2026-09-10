@@ -929,18 +929,6 @@ describe("SessionLibrary (t227)", () => {
         expect(screen.queryByTestId("search-truncated-hint")).not.toBeInTheDocument();
     });
 
-    it("getSessionStats 失败时不显示 agent logo 行，统计总量按 0 展示", async () => {
-        const ub = usageboard();
-        ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);
-        ub.tokenStats.getSessionStats.mockRejectedValue(new Error("stats unavailable"));
-        await renderLibrary();
-
-        await waitFor(() => {
-            expect(screen.getByTestId("library-count").textContent).toBe("1 / 0 条会话");
-        });
-        expect(document.querySelectorAll('[data-testid^="library-agent-logo-"]')).toHaveLength(0);
-        expect(screen.queryByRole("button", { name: /^Claude/ })).toBeNull();
-    });
     it("t404 AC-001/002：内容搜索分块进度文案与增量结果", async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const ub = usageboard();
@@ -1891,5 +1879,172 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         expect(last["start_at"]).toBeUndefined();
         expect(last["order_by"]).toBe("ended_at");
         vi.useRealTimers();
+    });
+});
+
+describe("PR #7 regression: unavailable totals and retained independent filters", () => {
+    it("统计失败保留列表并标注总量未知，不伪造零", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);
+        ub.tokenStats.getSessionStats.mockRejectedValue(new Error("stats unavailable"));
+        await renderLibrary();
+        await waitFor(() => expect(screen.getByText("会话 partial")).toBeInTheDocument());
+        expect(screen.getByTestId("library-count")).toHaveTextContent("1 / 总量未知 条会话");
+        expect(document.querySelectorAll('[data-testid^="library-agent-logo-"]')).toHaveLength(0);
+    });
+    it("统计加载中显示加载中，成功返回零后才显示零", async () => {
+        const ub = usageboard();
+        let finish!: (value: { sessions: number; agents: number; tokens: number }) => void;
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        ub.tokenStats.getSessionStats.mockReturnValue(
+            new Promise((resolve) => {
+                finish = resolve;
+            }),
+        );
+        await renderLibrary();
+        expect(screen.getByTestId("library-count")).toHaveTextContent("0 / 加载中 条会话");
+        await act(async () => {
+            finish({ sessions: 0, agents: 0, tokens: 0 });
+            await Promise.resolve();
+        });
+        expect(screen.getByTestId("library-count")).toHaveTextContent("0 / 0 条会话");
+    });
+    it("独立标题和目录计入生效条件，重置同时移除请求条件", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        await renderLibrary();
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "fix" } });
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/repo" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ title: "fix", directory: "/repo" }),
+            );
+        });
+        expect(screen.getByTestId("library-active-filters")).toHaveTextContent("2 个条件生效");
+        fireEvent.click(screen.getByRole("button", { name: "重置" }));
+        expect(screen.getByLabelText("标题")).toHaveValue("");
+        expect(screen.getByLabelText("工作目录")).toHaveValue("");
+        await waitFor(() => {
+            const filters: unknown = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0];
+            expect(filters).not.toHaveProperty("title");
+            expect(filters).not.toHaveProperty("directory");
+        });
+    });
+});
+
+describe("retained independent filter regression", () => {
+    it("t458 AC-001：只填标题输入时列表请求带 title，不带 search", async () => {
+        const ub = usageboard();
+        const hit = sess("t-hit", "claude_code");
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
+            typeof filters["title"] === "string" && filters["title"].length > 0
+                ? Promise.resolve([hit])
+                : Promise.resolve(SESSIONS),
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "t-hit" } });
+        await waitFor(() => {
+            expect(screen.getByText("会话 t-hit")).toBeTruthy();
+            expect(screen.queryByText("会话 a")).toBeNull();
+        });
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ title: "t-hit", limit: 50, offset: 0 }),
+        );
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("search");
+        expect(last_call).not.toHaveProperty("directory");
+    });
+});
+
+describe("retained independent filter regression", () => {
+    it("t458 AC-002：只填工作目录输入时列表请求带 directory，不串 title/id", async () => {
+        const ub = usageboard();
+        const dir_hit = sess("d-hit", "opencode");
+        ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
+            typeof filters["directory"] === "string" && filters["directory"].length > 0
+                ? Promise.resolve([dir_hit])
+                : Promise.resolve(SESSIONS),
+        );
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/proj/d-hit" } });
+        await waitFor(() => {
+            expect(screen.getByText("会话 d-hit")).toBeTruthy();
+            expect(screen.queryByText("会话 a")).toBeNull();
+        });
+        expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+            expect.objectContaining({ directory: "/proj/d-hit" }),
+        );
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("title");
+    });
+});
+
+describe("retained independent filter regression", () => {
+    it("t458 AC-005：勾选包含消息内容时 searchContent filters 带 title/directory", async () => {
+        const ub = usageboard();
+        const hidden = sess("hidden", "opencode");
+        ub.tokenStats.getSessions.mockResolvedValue([sess("visible", "claude_code")]);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(hidden)],
+            sessions: [hidden],
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 visible"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "部署" } });
+        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/srv" } });
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密词" },
+        });
+        await waitFor(() => {
+            expect(ub.sessionHistory.searchContent).toHaveBeenCalled();
+        });
+        const request = ub.sessionHistory.searchContent.mock.calls[0]?.[0] as unknown as Record<
+            string,
+            unknown
+        >;
+        expect(request["filters"]).toMatchObject({
+            title: "部署",
+            directory: "/srv",
+            search: "秘密词",
+        });
+    });
+});
+
+describe("retained independent filter regression", () => {
+    it("t458 AC-001 补充：标题输入为空串时请求不带 title", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "临时" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ title: "临时" }),
+            );
+        });
+        fireEvent.change(screen.getByLabelText("标题"), { target: { value: "" } });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ limit: 50, offset: 0 }),
+            );
+        });
+        const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
+            string,
+            unknown
+        >;
+        expect(last_call).not.toHaveProperty("title");
     });
 });

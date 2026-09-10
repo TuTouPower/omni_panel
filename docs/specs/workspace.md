@@ -61,14 +61,28 @@
 - 时间范围：只纳入活动时间（[started_at, ended_at]）与范围有交集的会话。
 - 排序：字段（时间 / Token / 轮次 / 标题）+ 独立方向（↓ 降序 / ↑ 升序），点同字段切换升降；新字段数值类默认降序、标题默认升序（数据层 `filter.ts` sort_sessions(field, direction)，后端 `order_by` 白名单含 `title` → `unicode_lower(COALESCE(title, ''))`）。
 - 侧边栏（对齐 demo 顺序）：统计 + 网格/列表切换 → 排序分段（字段 + 升降箭头）→ 搜索（图标输入 + 清除 X，占位「标题 / 消息内容 / 会话 ID」+ 包含消息内容开关）→ 时间预设（全部/24h/7 天/30 天 + 日历按钮弹层；自定义生效后变主色胶囊：区间 + 重选 + 清除）→ agent logo 行多选（纯 logo 方块，无数量角标/「全部」）→ Token 数/轮次数轴区间（双滑杆，含边界，拖至端点即不限，上限来自全量统计 max_tokens/max_calls，防抖 300ms 提交后端）→「同屏最近 2/4/6/8」内联行（替换语义并排打开）→ 底部「N 个条件生效 / 无筛选条件」+ 重置（0 条件禁用）。
-- 结果区：网格卡片（一行最多 5 列：1/2/3/4/5 随断点递增）或列表行；卡片含 agent 色条/徽标/标题/首条用户消息摘要懒加载/meta 轮数·tokens·首条→末条消息时间区间/目录；hover 浮现「单独打开/预览」；点卡片/行勾选（上限 8）。
+- 结果区：网格卡片（按内容宽度自适应，最小列宽 280px，最多 5 列；不足单列宽度时收缩）或列表行；卡片含 agent 色条/徽标/标题/首条用户消息摘要懒加载/meta 轮数·tokens·首条→末条消息时间区间/目录；hover 浮现「单独打开/预览」；点卡片/行勾选（上限 8）。
 - 分页：「加载更多」逐步加载（PAGE_SIZE=50）；筛选或排序变化重新从首屏请求，过期请求不得覆盖当前结果；空态含「清空全部条件」。
 - 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
 - SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ 先清空工作台全部槽位再按所选顺序逐个 `sessionHistory.open`，并切工作台页签（t439 起替换语义：工作台只剩所选会话；与最近会话确认 clear→open 同序，单独打开仍为装入/追加）。
-- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，「添加目录」chips）/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
+- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，为后续「添加目录」chips 提供数据层）/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
 
 ## 会话面板对齐收尾（t228）
 
 - web e2e 覆盖关键路径（`tests/e2e/web/session_panel.spec.ts`，fixture 来自 `scripts/e2e/session_fixture.mjs` 合成会话+消息，经 synthetic.json）：双页签切换状态保留、打开会话装入槽位与消息渲染、槽满 toast 拒绝、摘选三格式复制内容、会话库搜索/筛选/排序/预览/并排打开闭环。全量 `pnpm test:e2e:web`（MOCK_FIXTURE=synthetic）53 passed。
 - web 会话桥语义：web 版 `sessionHistory` 经 local-api mock 读消息（`/v1/sessionHistory?id=&source=&env=`，fixture 按 session_id 索引；缺 source/env 服务端返回 400，t263 移除 id-only 全量枚举回退）；`sessionHistory.open` 直接分发给 `onFocus` 订阅者（对齐 Electron 主进程 open_or_focus 广播），使 web 下「打开会话」能装工作台槽位；跨面板打开时 open 把 loc 编码进 URL search（一次性，面板挂载后 initial_loc 读取并清除），会话面板懒挂载后据此定位（t263）；`recent` 由 `/v1/sessions` 派生。
 - 旧实现残留确认：6 栏视图（`SessionHistoryView`）、栏满弹窗（`HistoryOverflowModal`）、旧单一 Markdown 复制（`build_copy_markdown`）均无源码残留（仅 docs/archive 注释保留记录）。
+
+### 会话库 PR #5–#7 集成修复
+
+- 总量由独立统计接口提供：加载中显示「加载中」，失败或无有效统计显示「总量未知」，仅成功返回零时显示 0。列表请求成功不掩盖统计失败。
+
+- 保留标题和工作目录独立子串筛选，普通列表分页、正文搜索候选与同屏最近均沿用筛选；两项计入生效条件并可重置。后续多目录 chips 就绪前不删除旧入口。
+
+- 多目录精确筛选在桌面 IPC 与 HTTP 共用数量/长度校验；HTTP 忽略空查询项后校验，超限返回 400 + INVALID_DIRECTORIES，不查询 store。
+
+- 网格按内容区而非整个视口计算列数，通常最小列宽 280px，最多五列；内容区不足 280px 时单列收缩。
+
+- 测试维护：删除 PR #7 中断言「1 / 0 条会话」的错误降级用例，新增加载中、失败、成功零值的回归测试；恢复被删除的独立过滤测试，不修改其行为预期。
+
+- 端到端测试维护：旧 session_panel 的下拉排序/页头统计闭环整体迁移至 session_library_review_regressions，以新侧边栏入口重建同等流程，保留搜索、Agent、轮次排序、预览与并排打开的原业务预期。

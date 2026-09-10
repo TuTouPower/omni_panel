@@ -1280,6 +1280,32 @@ describe("local-api web read endpoints", () => {
         expect(empty).toHaveLength(2);
     });
 
+    it.each([Array.from({ length: 33 }, (_, i) => `/repo/${String(i)}`), ["x".repeat(1025)]])(
+        "GET /v1/sessions rejects invalid directory bounds before querying: %j",
+        async (...directories) => {
+            const query = vi.spyOn(token_stats_store, "query_sessions");
+            await api.start();
+            const params = new URLSearchParams();
+            for (const directory of directories) params.append("directories", directory);
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessions?${params.toString()}`,
+            );
+            expect(res.status).toBe(400);
+            expect(await res.json()).toMatchObject({ code: "INVALID_DIRECTORIES" });
+            expect(query).not.toHaveBeenCalled();
+        },
+    );
+    it("GET /v1/sessions accepts directory count and length boundaries", async () => {
+        await api.start();
+        const params = new URLSearchParams();
+        for (let i = 0; i < 32; i++)
+            params.append("directories", i === 0 ? "x".repeat(1024) : `/repo/${String(i)}`);
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessions?${params.toString()}`,
+        );
+        expect(res.status).toBe(200);
+    });
+
     it("GET /v1/sessions?directories= 精确匹配列表（OR；空项忽略）", async () => {
         const base_session = {
             source: "claude_code" as const,

@@ -201,47 +201,6 @@ test.describe("session panel (web, t228)", () => {
         expect(grouped).toContain("# ");
     });
 
-    test("会话库搜索/筛选/排序/预览/并排打开闭环", async ({ webPage }) => {
-        const page = webPage;
-        await open_history(page);
-        await page.getByRole("button", { name: "会话库", exact: true }).click();
-        await expect(page.locator('[data-testid="library-card"]').first()).toBeVisible();
-        // 统计行。
-        await expect(page.getByText(/9 个会话/)).toBeVisible();
-        // 搜索：目录关键词过滤。
-        await page.getByPlaceholder(/搜索/).fill("auth");
-        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(1);
-        await expect(page.getByText("登录页 bug 修复")).toBeVisible();
-        // 清空搜索。
-        await page.getByPlaceholder(/搜索/).fill("");
-        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(9);
-        // agent 芯片过滤：Claude。
-        await page.getByRole("button", { name: /^Claude/ }).click();
-        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(3);
-        await page.getByRole("button", { name: /^Claude/ }).click();
-        await expect(page.locator('[data-testid="library-card"]')).toHaveCount(9);
-        // 排序：calls → 首卡为轮次最多会话（s1 calls=12 最大）。
-        await page.getByLabel("排序方式").selectOption("calls");
-        await expect(page.locator('[data-testid="library-card-title"]').first()).toHaveText(
-            "登录页 bug 修复",
-        );
-        // 预览抽屉：前 5 条消息可见。
-        const card = page.locator('[data-testid="library-card"]').first();
-        await card.hover();
-        await card.getByRole("button", { name: "预览" }).first().click();
-        await expect(page.locator('[data-testid="preview-message"]').first()).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(page.locator('[data-testid="preview-panel"]')).toHaveCount(0);
-        // 并排打开 2 个会话 → 工作台 2 槽。
-        await page.getByRole("button", { name: "会话 s1" }).click();
-        await page.getByRole("button", { name: "会话 s2" }).click();
-        await page.getByRole("button", { name: /并排打开/ }).click();
-        await expect(page.locator('[data-testid="session-cell"]')).toHaveCount(2);
-        await expect(
-            page.locator('[data-testid="conversation-message-row"]').first(),
-        ).toBeVisible();
-    });
-
     test("t406：会话窗口根背景统一 surface-window，卡片为 surface-card（computed 两色可辨）", async ({
         webPage,
     }) => {
