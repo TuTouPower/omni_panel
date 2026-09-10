@@ -73,6 +73,15 @@ describe("filter_sessions (t227)", () => {
     it("无过滤返回原样", () => {
         expect(filter_sessions(SESSIONS, {})).toHaveLength(3);
     });
+
+    it("directories 精确匹配（OR），null 目录不命中", () => {
+        const r = filter_sessions(SESSIONS, { directories: ["/proj/a", "/proj/c"] });
+        expect(r.map((s) => s.id).sort()).toEqual(["a", "c"]);
+        // 子串不命中（区别于旧 directory 子串参数）。
+        expect(filter_sessions(SESSIONS, { directories: ["/proj/a/x"] })).toHaveLength(0);
+        const with_null = sess("n", "grok", { directory: null });
+        expect(filter_sessions([with_null], { directories: ["/proj/a"] })).toHaveLength(0);
+    });
 });
 
 describe("match_content (t227)", () => {

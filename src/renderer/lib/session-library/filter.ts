@@ -5,6 +5,8 @@ import type { TokenStatsSession } from "../../../shared/types/token-stats";
 export interface LibraryFilters {
     readonly agents?: readonly string[];
     readonly search?: string;
+    /** 目录精确匹配列表（OR，区分大小写）；内容搜索命中集的客户端补过滤用，口径同后端 directories[]。 */
+    readonly directories?: readonly string[];
     readonly start_at?: number;
     readonly end_at?: number;
     /** 总 tokens（四列之和）区间下限/上限（含边界）；内容搜索命中集的客户端补过滤用。 */
@@ -60,6 +62,13 @@ export function filter_sessions(
 ): TokenStatsSession[] {
     return sessions.filter((s) => {
         if (filters.agents && filters.agents.length > 0 && !filters.agents.includes(s.source)) {
+            return false;
+        }
+        if (
+            filters.directories &&
+            filters.directories.length > 0 &&
+            (s.directory === null || !filters.directories.includes(s.directory))
+        ) {
             return false;
         }
         if (filters.start_at !== undefined && s.ended_at < filters.start_at) return false;

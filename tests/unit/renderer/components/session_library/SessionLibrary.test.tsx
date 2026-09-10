@@ -1796,6 +1796,84 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         vi.useRealTimers();
     });
 
+    it("目录 chips：回车添加 → 请求带 directories[]；X 移除后不再携带", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        fireEvent.change(screen.getByLabelText("添加目录"), {
+            target: { value: "/proj/a, /proj/c" },
+        });
+        fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ directories: ["/proj/a", "/proj/c"] }),
+            );
+        });
+        // chips 展示末级名，输入框清空。
+        expect(screen.getAllByTestId("directory-chip")).toHaveLength(2);
+        expect(screen.getByLabelText("添加目录")).toHaveValue("");
+
+        fireEvent.click(screen.getByRole("button", { name: "移除目录 /proj/a" }));
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ directories: ["/proj/c"] }),
+            );
+        });
+        const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        expect(last["directories"]).toEqual(["/proj/c"]);
+    });
+
+    it("目录 chips：重复添加去重；重置清空 chips 且请求不带 directories", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        const input = screen.getByLabelText("添加目录");
+        fireEvent.change(input, { target: { value: "/proj/a" } });
+        fireEvent.keyDown(input, { key: "Enter" });
+        fireEvent.change(input, { target: { value: "/proj/a" } });
+        fireEvent.keyDown(input, { key: "Enter" });
+        expect(screen.getAllByTestId("directory-chip")).toHaveLength(1);
+
+        fireEvent.click(screen.getByRole("button", { name: "重置" }));
+        await waitFor(() => {
+            expect(screen.queryByTestId("directory-chip")).toBeNull();
+        });
+        const last = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        expect(last).not.toHaveProperty("directories");
+    });
+
+    it("内容搜索时 searchContent filters 携带 directories[]", async () => {
+        const ub = usageboard();
+        const hit = { ...sess("hit", "claude_code"), directory: "/proj/a" };
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        ub.sessionHistory.searchContent.mockResolvedValue({
+            hits: [key_of(hit)],
+            sessions: [hit],
+        });
+        await renderLibrary();
+        await waitFor(() => screen.getByText("会话 a"));
+
+        const input = screen.getByLabelText("添加目录");
+        fireEvent.change(input, { target: { value: "/proj/a" } });
+        fireEvent.keyDown(input, { key: "Enter" });
+        fireEvent.click(screen.getByLabelText("包含消息内容"));
+        fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
+            target: { value: "秘密词" },
+        });
+        await waitFor(() => {
+            expect(ub.sessionHistory.searchContent).toHaveBeenCalled();
+        });
+        const request = ub.sessionHistory.searchContent.mock.calls[0]?.[0] as unknown as Record<
+            string,
+            unknown
+        >;
+        expect(request["filters"]).toMatchObject({ directories: ["/proj/a"] });
+    });
+
     it("同屏最近 4：按 ended_at desc 拉取后先清空再逐个打开并切工作台", async () => {
         const ub = usageboard();
         const switch_fn = vi.fn();
@@ -1909,25 +1987,26 @@ describe("PR #7 regression: unavailable totals and retained independent filters"
         });
         expect(screen.getByTestId("library-count")).toHaveTextContent("0 / 0 条会话");
     });
-    it("独立标题和目录计入生效条件，重置同时移除请求条件", async () => {
+    it("独立标题和目录 chips 计入生效条件，重置同时移除请求条件", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([]);
         await renderLibrary();
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "fix" } });
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/repo" } });
+        fireEvent.change(screen.getByLabelText("添加目录"), { target: { value: "/repo" } });
+        fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
         await waitFor(() => {
             expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-                expect.objectContaining({ title: "fix", directory: "/repo" }),
+                expect.objectContaining({ title: "fix", directories: ["/repo"] }),
             );
         });
         expect(screen.getByTestId("library-active-filters")).toHaveTextContent("2 个条件生效");
         fireEvent.click(screen.getByRole("button", { name: "重置" }));
         expect(screen.getByLabelText("标题")).toHaveValue("");
-        expect(screen.getByLabelText("工作目录")).toHaveValue("");
+        expect(screen.queryByTestId("directory-chip")).toBeNull();
         await waitFor(() => {
             const filters: unknown = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0];
             expect(filters).not.toHaveProperty("title");
-            expect(filters).not.toHaveProperty("directory");
+            expect(filters).not.toHaveProperty("directories");
         });
     });
 });
@@ -1962,35 +2041,39 @@ describe("retained independent filter regression", () => {
 });
 
 describe("retained independent filter regression", () => {
-    it("t458 AC-002：只填工作目录输入时列表请求带 directory，不串 title/id", async () => {
+    it("t458 AC-002：只添加目录 chip 时列表请求带 directories[]，不串 title/search", async () => {
         const ub = usageboard();
         const dir_hit = sess("d-hit", "opencode");
         ub.tokenStats.getSessions.mockImplementation((filters: Record<string, unknown> = {}) =>
-            typeof filters["directory"] === "string" && filters["directory"].length > 0
+            Array.isArray(filters["directories"]) && filters["directories"].length > 0
                 ? Promise.resolve([dir_hit])
                 : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
         await waitFor(() => screen.getByText("会话 a"));
 
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/proj/d-hit" } });
+        fireEvent.change(screen.getByLabelText("添加目录"), {
+            target: { value: "/proj/d-hit" },
+        });
+        fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
         await waitFor(() => {
             expect(screen.getByText("会话 d-hit")).toBeTruthy();
             expect(screen.queryByText("会话 a")).toBeNull();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
-            expect.objectContaining({ directory: "/proj/d-hit" }),
+            expect.objectContaining({ directories: ["/proj/d-hit"] }),
         );
         const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
             string,
             unknown
         >;
         expect(last_call).not.toHaveProperty("title");
+        expect(last_call).not.toHaveProperty("search");
     });
 });
 
 describe("retained independent filter regression", () => {
-    it("t458 AC-005：勾选包含消息内容时 searchContent filters 带 title/directory", async () => {
+    it("t458 AC-005：勾选包含消息内容时 searchContent filters 带 title/directories", async () => {
         const ub = usageboard();
         const hidden = sess("hidden", "opencode");
         ub.tokenStats.getSessions.mockResolvedValue([sess("visible", "claude_code")]);
@@ -2002,7 +2085,8 @@ describe("retained independent filter regression", () => {
         await waitFor(() => screen.getByText("会话 visible"));
 
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "部署" } });
-        fireEvent.change(screen.getByLabelText("工作目录"), { target: { value: "/srv" } });
+        fireEvent.change(screen.getByLabelText("添加目录"), { target: { value: "/srv" } });
+        fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "秘密词" },
@@ -2016,7 +2100,7 @@ describe("retained independent filter regression", () => {
         >;
         expect(request["filters"]).toMatchObject({
             title: "部署",
-            directory: "/srv",
+            directories: ["/srv"],
             search: "秘密词",
         });
     });

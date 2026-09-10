@@ -9,6 +9,7 @@ import {
     type TimePreset,
 } from "../../lib/session-library/filter";
 import { AgentLogoRow } from "./AgentLogoRow";
+import { DirectoryChipsFilter } from "./DirectoryChipsFilter";
 import { RangeFilterCard, type RangeValue } from "./RangeFilterCard";
 import { SelectionDock } from "./SelectionDock";
 import { SessionList } from "./SessionList";
@@ -50,7 +51,8 @@ export function SessionLibrary({
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
     const [title, set_title] = useState("");
-    const [directory, set_directory] = useState("");
+    // 目录精确筛选 chips（对齐 demo「添加目录」）；后端走 directories[]（OR）。
+    const [directories, set_directories] = useState<string[]>([]);
 
     const [search_content, set_search_content] = useState(false);
     // 时间筛选：预设分段 + 自定义弹层；区间为点击时刻冻结的快照（time_range）。
@@ -115,7 +117,7 @@ export function SessionLibrary({
             ...(agents.length > 0 ? { sources: [...agents] } : {}),
             ...(!search_content && search ? { search } : {}),
             ...(title ? { title } : {}),
-            ...(directory ? { directory } : {}),
+            ...(directories.length > 0 ? { directories: [...directories] } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
             ...(applied_ranges.min_tokens !== undefined
@@ -138,7 +140,7 @@ export function SessionLibrary({
         search,
         search_content,
         title,
-        directory,
+        directories,
         start_at,
         end_at,
         applied_ranges,
@@ -342,7 +344,9 @@ export function SessionLibrary({
                                     ...(agents.length > 0 ? { sources: [...agents] } : {}),
                                     ...(search ? { search } : {}),
                                     ...(title ? { title } : {}),
-                                    ...(directory ? { directory } : {}),
+                                    ...(directories.length > 0
+                                        ? { directories: [...directories] }
+                                        : {}),
                                     ...(start_at !== undefined ? { start_at } : {}),
                                     ...(end_at !== undefined ? { end_at } : {}),
                                 },
@@ -432,7 +436,7 @@ export function SessionLibrary({
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, title, directory, agents, start_at, end_at]);
+    }, [search, search_content, title, directories, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
@@ -538,7 +542,7 @@ export function SessionLibrary({
     function reset_filters(): void {
         set_search("");
         set_title("");
-        set_directory("");
+        set_directories([]);
         set_search_content(false);
         set_time_preset("all");
         set_time_range({});
@@ -569,7 +573,7 @@ export function SessionLibrary({
     const has_filters = Boolean(
         search ||
         title ||
-        directory ||
+        directories.length > 0 ||
         search_content ||
         time_preset !== "all" ||
         agents.length > 0 ||
@@ -601,7 +605,7 @@ export function SessionLibrary({
     const active_filter_count =
         (search ? 1 : 0) +
         (title ? 1 : 0) +
-        (directory ? 1 : 0) +
+        (directories.length > 0 ? 1 : 0) +
         (time_preset !== "all" ? 1 : 0) +
         (agents.length > 0 ? 1 : 0) +
         (applied_ranges.min_tokens !== undefined || applied_ranges.max_tokens !== undefined
@@ -710,7 +714,6 @@ export function SessionLibrary({
                             包含消息内容
                         </label>
                     </div>
-                    {/* 保留独立过滤入口，直到多目录 chips 完整替代。 */}
                     <div className="flex flex-col gap-2">
                         <Input
                             aria-label="标题"
@@ -720,13 +723,10 @@ export function SessionLibrary({
                                 set_title(e.target.value);
                             }}
                         />
-                        <Input
-                            aria-label="工作目录"
-                            placeholder="工作目录"
-                            value={directory}
-                            onChange={(e) => {
-                                set_directory(e.target.value);
-                            }}
+                        {/* 目录精确筛选 chips（对齐 demo）；替代旧「工作目录」子串输入。 */}
+                        <DirectoryChipsFilter
+                            directories={directories}
+                            on_change={set_directories}
                         />
                     </div>
                     <TimeRangeFilter

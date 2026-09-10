@@ -57,7 +57,7 @@
 
 - 会话库页签（`SessionShell` 第二页签）为真实视图：无独立页头，左侧边栏顶部为统计（当前 / 总量 条会话）+ 网格/列表切换，其下依次为排序、搜索、时间、Agent、数轴、同屏最近、底部重置。
 - 搜索：默认只匹配元信息（title/directory/id）；「包含消息内容」开启后结果 = 元信息命中 ∪ 正文命中（并集），正文候选由后端按当前 Agent/日期筛选分页确定，扫描支持取消；搜索结果按当前排序展示，失败时清空过期结果并提示。
-- 独立标题/工作目录筛选（t458）：输入值分别作为查询 `title`/`directory`（大小写不敏感子串、与全部条件 AND、空值不带参数）；「包含消息内容」开启时候选过滤同样携带；「清除筛选」一并清空；web 与桌面共用组件，行为一致。
+- 独立标题筛选（t458）：输入值作为查询 `title`（大小写不敏感子串、与全部条件 AND、空值不带参数）。目录筛选为「添加目录」chips（对齐 demo）：文件夹图标输入框回车添加（逗号/空白分隔批量、去重），chips 展示末级名 + X 移除；值作为 `directories[]`（精确匹配 OR）查询，「包含消息内容」开启时候选过滤同样携带；重置一并清空。web 与桌面共用组件，行为一致。
 - 时间范围：只纳入活动时间（[started_at, ended_at]）与范围有交集的会话。
 - 排序：字段（时间 / Token / 轮次 / 标题）+ 独立方向（↓ 降序 / ↑ 升序），点同字段切换升降；新字段数值类默认降序、标题默认升序（数据层 `filter.ts` sort_sessions(field, direction)，后端 `order_by` 白名单含 `title` → `unicode_lower(COALESCE(title, ''))`）。
 - 侧边栏（对齐 demo 顺序）：统计 + 网格/列表切换 → 排序分段（字段 + 升降箭头）→ 搜索（图标输入 + 清除 X，占位「标题 / 消息内容 / 会话 ID」+ 包含消息内容开关）→ 时间预设（全部/24h/7 天/30 天 + 日历按钮弹层；自定义生效后变主色胶囊：区间 + 重选 + 清除）→ agent logo 行多选（纯 logo 方块，无数量角标/「全部」）→ Token 数/轮次数轴区间（双滑杆，含边界，拖至端点即不限，上限来自全量统计 max_tokens/max_calls，防抖 300ms 提交后端）→「同屏最近 2/4/6/8」内联行（替换语义并排打开）→ 底部「N 个条件生效 / 无筛选条件」+ 重置（0 条件禁用）。
@@ -65,7 +65,7 @@
 - 分页：「加载更多」逐步加载（PAGE_SIZE=50）；筛选或排序变化重新从首屏请求，过期请求不得覆盖当前结果；空态含「清空全部条件」。
 - 预览抽屉：右侧滑出，徽标/标题/meta/文件路径/前 5 条消息（只读 Markdown），「单独打开」（装入工作台并切页签）「加入选择」；Esc 关闭；序号守卫防切卡串消息。
 - SelectionDock：底部 sticky，已选微缩槽位（可移除，按 (id,source,env) 主键）、n/8 计数、清空、「并排打开 (n)」→ 先清空工作台全部槽位再按所选顺序逐个 `sessionHistory.open`，并切工作台页签（t439 起替换语义：工作台只剩所选会话；与最近会话确认 clear→open 同序，单独打开仍为装入/追加）。
-- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，为后续「添加目录」chips 提供数据层）/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
+- 数据源：`tokenStats.getSessionStats` 独立提供全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，数轴筛选上限）和 source 计数；`tokenStats.getSessions` 经 main 侧 `query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，「添加目录」chips）/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 分页查询，order_by 白名单防 SQL 注入，区间边界非法（负数/非整数）IPC 返回 `INVALID_RANGE`；摘要只请求当前已加载且可见的会话。
 
 ## 会话面板对齐收尾（t228）
 
@@ -77,7 +77,7 @@
 
 - 总量由独立统计接口提供：加载中显示「加载中」，失败或无有效统计显示「总量未知」，仅成功返回零时显示 0。列表请求成功不掩盖统计失败。
 
-- 保留标题和工作目录独立子串筛选，普通列表分页、正文搜索候选与同屏最近均沿用筛选；两项计入生效条件并可重置。后续多目录 chips 就绪前不删除旧入口。
+- 保留标题独立子串筛选；目录筛选已由「添加目录」chips（directories[] 精确匹配）替代旧「工作目录」子串输入。普通列表分页、正文搜索候选与同屏最近均沿用筛选；两项计入生效条件并可重置。
 
 - 多目录精确筛选在桌面 IPC 与 HTTP 共用数量/长度校验；HTTP 忽略空查询项后校验，超限返回 400 + INVALID_DIRECTORIES，不查询 store。
 
