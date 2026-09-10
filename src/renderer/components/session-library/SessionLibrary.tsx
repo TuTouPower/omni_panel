@@ -49,6 +49,8 @@ export function SessionLibrary({
 }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
+    const [title, set_title] = useState("");
+    const [directory, set_directory] = useState("");
 
     const [search_content, set_search_content] = useState(false);
     // 时间筛选：预设分段 + 自定义弹层；区间为点击时刻冻结的快照（time_range）。
@@ -112,6 +114,8 @@ export function SessionLibrary({
         return {
             ...(agents.length > 0 ? { sources: [...agents] } : {}),
             ...(!search_content && search ? { search } : {}),
+            ...(title ? { title } : {}),
+            ...(directory ? { directory } : {}),
             ...(start_at !== undefined ? { start_at } : {}),
             ...(end_at !== undefined ? { end_at } : {}),
             ...(applied_ranges.min_tokens !== undefined
@@ -129,7 +133,18 @@ export function SessionLibrary({
             order_by: sort_field,
             direction: sort_dir,
         } as const;
-    }, [agents, search, search_content, start_at, end_at, applied_ranges, sort_field, sort_dir]);
+    }, [
+        agents,
+        search,
+        search_content,
+        title,
+        directory,
+        start_at,
+        end_at,
+        applied_ranges,
+        sort_field,
+        sort_dir,
+    ]);
 
     // 滑杆 300ms 防抖提交；值未变时返回 prev，避免新 {} 身份触发多余重拉。
     useEffect(() => {
@@ -326,6 +341,8 @@ export function SessionLibrary({
                                 filters: {
                                     ...(agents.length > 0 ? { sources: [...agents] } : {}),
                                     ...(search ? { search } : {}),
+                                    ...(title ? { title } : {}),
+                                    ...(directory ? { directory } : {}),
                                     ...(start_at !== undefined ? { start_at } : {}),
                                     ...(end_at !== undefined ? { end_at } : {}),
                                 },
@@ -415,7 +432,7 @@ export function SessionLibrary({
             }
             content_abort_ref.current?.abort();
         };
-    }, [search, search_content, agents, start_at, end_at]);
+    }, [search, search_content, title, directory, agents, start_at, end_at]);
 
     const visible_sessions = content_filtered.slice(0, visible);
 
@@ -520,6 +537,8 @@ export function SessionLibrary({
     /** 重置全部筛选与排序回默认（数轴滑杆立即清零，applied 同步清）。 */
     function reset_filters(): void {
         set_search("");
+        set_title("");
+        set_directory("");
         set_search_content(false);
         set_time_preset("all");
         set_time_range({});
@@ -548,7 +567,13 @@ export function SessionLibrary({
         applied_ranges.min_calls !== undefined ||
         applied_ranges.max_calls !== undefined;
     const has_filters = Boolean(
-        search || search_content || time_preset !== "all" || agents.length > 0 || has_ranges,
+        search ||
+        title ||
+        directory ||
+        search_content ||
+        time_preset !== "all" ||
+        agents.length > 0 ||
+        has_ranges,
     );
     // 数轴上限来自全量统计；旧 mock/加载中缺省为 0 → 滑杆禁用。
     const max_tokens_limit = session_stats?.max_tokens ?? 0;
@@ -575,6 +600,8 @@ export function SessionLibrary({
     // 生效条件计数（对齐 demo 底部「N 个条件生效」）：搜索/时间/Agent/Token 数轴/轮次数轴。
     const active_filter_count =
         (search ? 1 : 0) +
+        (title ? 1 : 0) +
+        (directory ? 1 : 0) +
         (time_preset !== "all" ? 1 : 0) +
         (agents.length > 0 ? 1 : 0) +
         (applied_ranges.min_tokens !== undefined || applied_ranges.max_tokens !== undefined
@@ -597,7 +624,13 @@ export function SessionLibrary({
                             className="font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
                             data-testid="library-count"
                         >
-                            {visible_sessions.length} / {session_stats?.sessions ?? 0} 条会话
+                            {visible_sessions.length} /{" "}
+                            {session_stats_status === "loading"
+                                ? "加载中"
+                                : session_stats_status === "ready" && session_stats
+                                  ? session_stats.sessions
+                                  : "总量未知"}{" "}
+                            条会话
                         </span>
                         <Segmented
                             size="sm"
@@ -676,6 +709,25 @@ export function SessionLibrary({
                             />
                             包含消息内容
                         </label>
+                    </div>
+                    {/* 保留独立过滤入口，直到多目录 chips 完整替代。 */}
+                    <div className="flex flex-col gap-2">
+                        <Input
+                            aria-label="标题"
+                            placeholder="标题"
+                            value={title}
+                            onChange={(e) => {
+                                set_title(e.target.value);
+                            }}
+                        />
+                        <Input
+                            aria-label="工作目录"
+                            placeholder="工作目录"
+                            value={directory}
+                            onChange={(e) => {
+                                set_directory(e.target.value);
+                            }}
+                        />
                     </div>
                     <TimeRangeFilter
                         preset={time_preset}

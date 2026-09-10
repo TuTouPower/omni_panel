@@ -1,3 +1,7 @@
+import {
+    valid_directories,
+    INVALID_DIRECTORIES_MESSAGE,
+} from "../../shared/lib/session_directories";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
@@ -41,18 +45,6 @@ function valid_limit(limit: number | undefined): limit is number {
 /** 区间筛选边界须为非负整数；缺省（undefined）合法——不做该维过滤。 */
 function valid_range_bound(value: number | undefined): boolean {
     return value === undefined || (Number.isInteger(value) && value >= 0);
-}
-
-const DIRECTORIES_MAX = 32;
-const DIRECTORY_LEN_MAX = 1024;
-
-/** 目录精确匹配列表：缺省合法；否则须为 ≤32 个非空字符串，单个 ≤1024 字符。 */
-function valid_directories(value: string[] | undefined): boolean {
-    if (value === undefined) return true;
-    if (!Array.isArray(value) || value.length > DIRECTORIES_MAX) return false;
-    return value.every(
-        (d) => typeof d === "string" && d.length > 0 && d.length <= DIRECTORY_LEN_MAX,
-    );
 }
 
 export function registerTokenStatsIpc(
@@ -105,10 +97,7 @@ export function registerTokenStatsIpc(
                 );
             }
             if (!valid_directories(filters?.directories)) {
-                return fail(
-                    "INVALID_DIRECTORIES",
-                    `directories must be an array of <= ${String(DIRECTORIES_MAX)} non-empty strings`,
-                );
+                return fail("INVALID_DIRECTORIES", INVALID_DIRECTORIES_MESSAGE);
             }
             return ok(deps.store.query_sessions(filters ?? {}));
         },

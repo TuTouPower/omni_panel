@@ -92,11 +92,13 @@ export function SessionList({
         // on_scroll_to_bottom 由父 load_more 守卫（has_more/inflight），无并发/无限请求。
     }, [sessions.length, view_mode]);
 
+    // 按内容区宽度自适应：280px 最小列宽，窄于单列时允许收缩，最多五列。
+    // gap-3 = .75rem，五列的四个间隙共 3rem。
     if (view_mode === "grid") {
         return (
             <div
                 ref={grid_ref}
-                className="scrollbar-token grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
+                className="scrollbar-token grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(min(100%,max(280px,calc((100%_-_3rem)/5))),1fr))] content-start items-start auto-rows-max gap-3 overflow-y-auto px-[18px] py-3.5"
                 data-testid="library-grid"
                 onScroll={handle_scroll}
             >

@@ -1,3 +1,7 @@
+import {
+    valid_directories,
+    INVALID_DIRECTORIES_MESSAGE,
+} from "../../../shared/lib/session_directories";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import * as fs from "node:fs";
@@ -1461,6 +1465,13 @@ export function create_local_api_server(
                 if (directory) filters.directory = directory;
                 // 目录精确匹配列表（重复参数 directories=a&directories=b；空项忽略）。
                 const directories = params.getAll("directories").filter((d) => d.length > 0);
+                if (!valid_directories(directories)) {
+                    json_response(res, 400, {
+                        code: "INVALID_DIRECTORIES",
+                        message: INVALID_DIRECTORIES_MESSAGE,
+                    });
+                    return true;
+                }
                 if (directories.length > 0) filters.directories = directories;
                 if (params.has("start_at")) {
                     const start_at = parse_int_param(params, "start_at", { require_present: true });
