@@ -106,6 +106,7 @@ export function SessionList({
                     <SessionCard
                         key={`${s.source}|${s.env}|${s.id}`}
                         s={s}
+                        summary={summaries[key_of(s)] ?? ""}
                         selected={selected_ids.has(key_of(s))}
                         on_toggle={handleToggle}
                         on_preview={handlePreview}

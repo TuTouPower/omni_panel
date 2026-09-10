@@ -564,7 +564,9 @@ async function handle_session_history_summaries(
             extractor_kind: resolved.extractor_kind,
         });
     }
-    const summaries = await deps.service.summaries(resolved_locs);
+    const summaries = await deps.service.summaries(resolved_locs, {
+        mode: request.mode === "last" ? "last" : "first",
+    });
     const result: SessionHistorySummariesResponse = { summaries };
     json_response(res, 200, result);
 }

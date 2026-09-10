@@ -38,7 +38,7 @@
 ## 调用点（t403）
 
 - `SessionPane`（工作台）：`use_config()` → `resume_command(source, session_id, config?.resumeCommandTemplates)`
-- `SessionCard`（会话库）：同上
+- ~~`SessionCard`（会话库）~~：会话库卡片对齐 demo 后移除续接命令复制入口（IdChip 改为复制完整 session id）；续接命令复制保留在 SessionPane
 - 点击 session ID 复制到剪贴板；clipboard 缺失/拒绝静默跳过；成功 toast「已复制」；未知来源 `null` 不复制
 - 未配置或 config 加载中：第三参缺省，内置默认
 
@@ -47,7 +47,7 @@
 - 单测：`tests/unit/renderer/lib/session_resume.test.ts`（t401 AC-001~004）
 - schema：`tests/unit/config/config-schema.test.ts`（t401 AC-005~006）
 - 设置 UI：`tests/unit/renderer/views/settings_view_general.test.tsx`（t402 AC-001~004）
-- 调用点：`tests/unit/renderer/components/workspace/SessionPane.test.tsx`、`tests/unit/renderer/components/session_library/SessionCard.test.tsx`（t403 AC-001~004）
+- 调用点：`tests/unit/renderer/components/workspace/SessionPane.test.tsx`（t403 AC-001~004；SessionCard 侧用例随卡片入口移除一并删除）
 
 ## 来源
 

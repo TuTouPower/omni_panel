@@ -20,26 +20,36 @@ import {
     extract_claude_code,
     extract_claude_code_first_user,
     extract_claude_code_incremental,
+    extract_claude_code_last_user,
 } from "./claude-code-extractor";
-import { extract_grok, extract_grok_first_user, extract_grok_incremental } from "./grok-extractor";
+import {
+    extract_grok,
+    extract_grok_first_user,
+    extract_grok_incremental,
+    extract_grok_last_user,
+} from "./grok-extractor";
 import {
     extract_antigravity,
     extract_antigravity_first_user,
+    extract_antigravity_last_user,
     extract_antigravity_incremental,
 } from "./antigravity-extractor";
 import {
     extract_codex,
     extract_codex_first_user,
+    extract_codex_last_user,
     extract_codex_incremental,
 } from "./codex-extractor";
 import {
     extract_kimi_code,
     extract_kimi_code_first_user,
+    extract_kimi_code_last_user,
     extract_kimi_code_incremental,
 } from "./kimi-extractor";
 import {
     extract_opencode,
     extract_opencode_first_user,
+    extract_opencode_last_user,
     extract_opencode_incremental,
 } from "./opencode-extractor";
 import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
@@ -465,6 +475,28 @@ export class SessionHistorySubscriptionService {
         }
     }
 
+    /** 轻量取某 session 末条 user 消息文本（会话库卡片第三行，对齐 demo lastTalk）。 */
+    protected extract_last_user(
+        extractor_kind: ExtractorKind,
+        file_path: string,
+        session_id: string,
+    ): string {
+        switch (extractor_kind) {
+            case "claude_code":
+                return extract_claude_code_last_user(file_path);
+            case "opencode":
+                return extract_opencode_last_user(file_path, session_id);
+            case "kimi":
+                return extract_kimi_code_last_user(file_path);
+            case "grok":
+                return extract_grok_last_user(file_path);
+            case "codex":
+                return extract_codex_last_user(file_path);
+            case "antigravity":
+                return extract_antigravity_last_user(file_path);
+        }
+    }
+
     private get_extract_cache(key: string, file_path: string): ExtractCacheEntry | null {
         const cached = this.extract_cache.get(key);
         if (cached?.file_path !== file_path) return null;
@@ -759,10 +791,11 @@ export class SessionHistorySubscriptionService {
      */
     async summaries(
         locs: readonly ResolvedSessionLoc[],
-        options?: { concurrency?: number },
+        options?: { concurrency?: number; mode?: "first" | "last" },
     ): Promise<Record<string, string>> {
         const result: Record<string, string> = {};
         const concurrency = options?.concurrency ?? 5;
+        const mode = options?.mode ?? "first";
 
         const tasks = locs.map((loc) => async (): Promise<void> => {
             // 让出事件循环，避免首屏批量摘要同步 fs 阻塞主进程（t256）。
@@ -771,10 +804,18 @@ export class SessionHistorySubscriptionService {
             const cached = this.get_extract_cache(key, loc.file_path);
             let text = "";
             if (cached) {
-                const first = cached.messages.find((m) => m.role === "user");
-                text = first?.text ?? "";
+                const users = cached.messages.filter((m) => m.role === "user");
+                const picked = mode === "last" ? users.at(-1) : users[0];
+                text = picked?.text ?? "";
             } else {
-                text = this.extract_first_user(loc.extractor_kind, loc.file_path, loc.session_id);
+                text =
+                    mode === "last"
+                        ? this.extract_last_user(loc.extractor_kind, loc.file_path, loc.session_id)
+                        : this.extract_first_user(
+                              loc.extractor_kind,
+                              loc.file_path,
+                              loc.session_id,
+                          );
             }
             result[key] = text.slice(0, 80);
         });

@@ -424,7 +424,10 @@ export interface SessionHistoryApi {
         signal?: AbortSignal,
     ): Promise<SessionHistorySearchContentResponse>;
     /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
-    summaries(locs: readonly SessionHistoryLoc[]): Promise<Readonly<Record<string, string>>>;
+    summaries(
+        locs: readonly SessionHistoryLoc[],
+        mode?: "first" | "last",
+    ): Promise<Readonly<Record<string, string>>>;
     onMessagesUpdated(
         callback: (payload: SessionHistoryMessagesUpdatedPayload) => void,
     ): () => void;
@@ -488,12 +491,13 @@ export interface SessionHistorySearchContentResponse {
     readonly progress?: SessionHistorySearchContentProgress;
 }
 
-/** t239: 批量首条用户消息摘要请求。 */
+/** t239: 批量用户消息摘要请求。mode = first（默认，首条 user）/ last（末条 user，会话库卡片第三行）。 */
 export interface SessionHistorySummariesRequest {
     readonly locs: readonly SessionHistoryLoc[];
+    readonly mode?: "first" | "last";
 }
 
-/** t239: 批量首条用户消息摘要响应：loc key → 首条 user 文本前 80 字符。 */
+/** t239: 批量首条用户消息摘要响应：loc key → user 文本前 80 字符。 */
 export interface SessionHistorySummariesResponse {
     readonly summaries: Readonly<Record<string, string>>;
 }

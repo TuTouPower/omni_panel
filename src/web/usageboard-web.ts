@@ -788,10 +788,11 @@ export function create_web_usageboard(): UsageboardApi {
                     abort_signal,
                 ) as Promise<SessionHistorySearchContentResponse>;
             },
-            summaries: async (locs: readonly SessionHistoryLoc[]) => {
+            summaries: async (locs: readonly SessionHistoryLoc[], mode?: "first" | "last") => {
                 // t259: 从 stub 空实现改为真调用本地 API（t239 批量摘要契约）。
                 const data = (await post_json("/v1/sessionHistory/summaries", {
                     locs,
+                    ...(mode !== undefined ? { mode } : {}),
                 })) as { summaries: Record<string, string> };
                 return data.summaries;
             },

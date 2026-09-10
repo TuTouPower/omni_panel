@@ -15,7 +15,7 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import type { HistoryMessage, ExtractResult, ExtractCursor } from "./types";
-import { read_head } from "./head-read";
+import { read_head, read_tail } from "./head-read";
 import { pick_text_from_content } from "./extract-content";
 import { normalize_user_display_text } from "./normalize_user_text";
 
@@ -77,6 +77,34 @@ export function extract_grok_first_user(file: string, max_lines = 1000): string 
     const content = read_head(file);
     const lines = content.split("\n");
     for (let i = 0; i < Math.min(lines.length, max_lines); i += 1) {
+        const line = lines[i];
+        if (line === undefined) continue;
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let rec: Record<string, unknown>;
+        try {
+            rec = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
+            continue;
+        }
+        const msg = record_to_message(rec, 0);
+        if (msg?.role === "user") {
+            return msg.text;
+        }
+    }
+    return "";
+}
+
+/**
+ * 轻量扫描：从文件尾部限量读取逐行倒序解析，返回最后一条 role === "user"
+ * 的消息文本。尾部窗口内未命中或文件不存在返回空串。不调用 extract_full，不缓存。
+ */
+export function extract_grok_last_user(file: string, max_lines = 1000): string {
+    const content = read_tail(file);
+    const lines = content.split("\n");
+    const upper = Math.max(0, lines.length - 1);
+    const lower = Math.max(-1, lines.length - 1 - max_lines);
+    for (let i = upper; i > lower; i -= 1) {
         const line = lines[i];
         if (line === undefined) continue;
         const trimmed = line.trim();

@@ -35,6 +35,7 @@ export const SessionRow = memo(function SessionRow({
                 selected && "bg-[var(--color-primary-container)]",
             )}
             data-testid="library-row"
+            data-session-id={s.id}
             style={{ "--agent-accent": agent_accent(s.source) } as CSSProperties}
         >
             <Checkbox

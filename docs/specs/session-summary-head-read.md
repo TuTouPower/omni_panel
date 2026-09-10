@@ -35,3 +35,10 @@
 - `tests/unit/main/core/session-history/head-read.test.ts`：AC1 顶部 user 返回文本、AC2 大文件 readSync 字节 ≤READ_CAP 且未整文件读（readFileSync spy）、AC3 窗口内无 user 空串、user 窗口外裁剪、跨窗口行补全、多字节边界无 U+FFFD、损坏行、缺失文件、grok/kimi 复用。
 - `tests/unit/main/core/session-history/claude-code-extractor.test.ts` 等既有 extractor 测试回归未动。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + `pnpm test:packaged`。
+
+## 末条用户消息（read_tail，会话库卡片对齐 demo）
+
+- 会话库卡片第 3 行展示末条（非首条）user 摘要：`summaries(locs, { mode })` 新增 `mode: "first" | "last"`，IPC（`SessionHistorySummariesRequest.mode`）/ HTTP `/v1/sessionHistory/summaries` / preload / web 全链路透传，默认 `first` 保持旧行为。
+- 未缓存轻量扫描对称新增 `extract_*_last_user`：JSONL 四端（claude_code/codex/grok/kimi_code）经 `head-read.ts` 的 `read_tail` 限量读末尾 64KB（丢弃窗口起始的残缺首行，StringDecoder 防 U+FFFD），从尾部按行扫描取第一条 user；opencode 按 part rowid DESC LIMIT 50 取末条 user text；antigravity 按 step idx DESC LIMIT 200 取末条 user。
+- 已缓存路径直接过滤 user 消息后按 mode 取 `[0]` / `at(-1)`。
+- 测试：`head-read.test.ts`（read_tail 窗口/残缺行/多字节）、各 extractor last_user 用例、`subscription-service.test.ts` mode=last 用例；集成 `server.test.ts` 断言 summaries 收到 `{ mode }` 选项。
