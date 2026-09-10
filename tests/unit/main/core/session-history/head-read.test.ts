@@ -6,7 +6,11 @@ import { tmpdir } from "node:os";
 import { extract_claude_code_first_user } from "../../../../../src/main/core/session-history/claude-code-extractor";
 import { extract_grok_first_user } from "../../../../../src/main/core/session-history/grok-extractor";
 import { extract_kimi_code_first_user } from "../../../../../src/main/core/session-history/kimi-extractor";
-import { READ_CAP, read_head } from "../../../../../src/main/core/session-history/head-read";
+import {
+    READ_CAP,
+    read_head,
+    read_tail,
+} from "../../../../../src/main/core/session-history/head-read";
 
 /**
  * t255 摘要限量头部读取：单个会话文件最多读 SUMMARY_HEAD_BYTES 字节，
@@ -174,5 +178,34 @@ describe("grok / kimi first_user 复用头部读取 (t255)", () => {
         } finally {
             cleanup();
         }
+    });
+});
+
+describe("read_tail", () => {
+    it("读取文件尾部内容", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "read-tail-"));
+        const file = join(tmp, "a.txt");
+        try {
+            writeFileSync(file, "line1\nline2\nline3\n");
+            expect(read_tail(file)).toBe("line1\nline2\nline3\n");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("窗口从文件中部开始时丢弃首部残缺行", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "read-tail-partial-"));
+        const file = join(tmp, "a.txt");
+        try {
+            writeFileSync(file, "abcdefgh\nijkl\n");
+            // 窗口 8 字节从 "fgh\nijkl\n" 开始：残缺首行 "fgh" 丢弃。
+            expect(read_tail(file, 8)).toBe("ijkl\n");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("文件不存在返回空串", () => {
+        expect(read_tail("/nonexistent/path/x.jsonl")).toBe("");
     });
 });

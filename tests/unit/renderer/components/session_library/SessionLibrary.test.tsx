@@ -111,6 +111,18 @@ function session_at(index: number): TokenStatsSession {
     return session;
 }
 
+/** 网格卡片无标题行（demo 对齐）：按 data-session-id 定位卡片。 */
+function card_with_id(id: string): HTMLElement | null {
+    return document.querySelector(`[data-session-id="${id}"]`);
+}
+
+/** 当前网格卡片顺序（data-session-id 列表）。 */
+function card_ids(): (string | null)[] {
+    return Array.from(document.querySelectorAll('[data-testid="library-card"]'), (node) =>
+        node.getAttribute("data-session-id"),
+    );
+}
+
 beforeEach(() => {
     install_history_usageboard();
 });
@@ -147,7 +159,7 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => {
             expect(screen.getByTestId("library-count").textContent).toBe("0 / 73 条会话");
         });
-        expect(screen.queryByText("会话 p0")).toBeNull();
+        expect(card_with_id("p0")).toBeNull();
         expect(ub.tokenStats.getSessions).toHaveBeenCalledTimes(1);
         expect(ub.tokenStats.getSessions).toHaveBeenCalledWith(
             expect.objectContaining({ limit: 50, offset: 0 }),
@@ -155,7 +167,7 @@ describe("SessionLibrary (t227)", () => {
 
         resolve_list(first_page);
         await waitFor(() => {
-            expect(screen.getByText("会话 p0")).toBeTruthy();
+            expect(card_with_id("p0")).toBeTruthy();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenCalledTimes(1);
     });
@@ -178,7 +190,7 @@ describe("SessionLibrary (t227)", () => {
 
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 p0")).toBeTruthy();
+            expect(card_with_id("p0")).toBeTruthy();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ limit: 50, offset: 0 }),
@@ -186,7 +198,7 @@ describe("SessionLibrary (t227)", () => {
 
         scroll_to_bottom(grid());
         await waitFor(() => {
-            expect(screen.getByText("会话 p50")).toBeTruthy();
+            expect(card_with_id("p50")).toBeTruthy();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ limit: 50, offset: 50 }),
@@ -196,9 +208,9 @@ describe("SessionLibrary (t227)", () => {
             target: { value: "needle" },
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 needle")).toBeTruthy();
+            expect(card_with_id("needle")).toBeTruthy();
         });
-        expect(screen.queryByText("会话 p0")).toBeNull();
+        expect(card_with_id("p0")).toBeNull();
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ search: "needle", limit: 50, offset: 0 }),
         );
@@ -212,7 +224,7 @@ describe("SessionLibrary (t227)", () => {
         ub.tokenStats.getSessions.mockResolvedValue(first_page);
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 p0")).toBeTruthy();
+            expect(card_with_id("p0")).toBeTruthy();
         });
         const calls_before = ub.tokenStats.getSessions.mock.calls.length;
         // 模拟未触底滚动：jsdom 无布局，用 scrollTop/clientHeight 手动设非底部。
@@ -237,7 +249,7 @@ describe("SessionLibrary (t227)", () => {
         });
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 p0")).toBeTruthy();
+            expect(card_with_id("p0")).toBeTruthy();
         });
 
         // 搜索重置（触发 has_more 重置）
@@ -253,7 +265,7 @@ describe("SessionLibrary (t227)", () => {
         // 重置后滚到底应继续加载第 2 页
         scroll_to_bottom(grid());
         await waitFor(() => {
-            expect(screen.getByText("会话 p50")).toBeTruthy();
+            expect(card_with_id("p50")).toBeTruthy();
         });
     });
 
@@ -265,7 +277,7 @@ describe("SessionLibrary (t227)", () => {
         ub.tokenStats.getSessions.mockResolvedValue(first_page);
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 f0")).toBeTruthy();
+            expect(card_with_id("f0")).toBeTruthy();
         });
 
         fireEvent.click(screen.getByRole("button", { name: /^OpenCode/ }));
@@ -294,7 +306,7 @@ describe("SessionLibrary (t227)", () => {
         });
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 visible")).toBeTruthy();
+            expect(card_with_id("visible")).toBeTruthy();
         });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
@@ -317,7 +329,7 @@ describe("SessionLibrary (t227)", () => {
         const signal: unknown = ub.sessionHistory.searchContent.mock.calls[0]?.[1];
         expect(signal).toBeInstanceOf(AbortSignal);
         await waitFor(() => {
-            expect(screen.getByText("会话 hidden")).toBeTruthy();
+            expect(card_with_id("hidden")).toBeTruthy();
         });
     });
 
@@ -343,7 +355,7 @@ describe("SessionLibrary (t227)", () => {
         ub.sessionHistory.summaries.mockResolvedValue({});
         await renderLibrary();
         await waitFor(() => {
-            expect(screen.getByText("会话 v0")).toBeTruthy();
+            expect(card_with_id("v0")).toBeTruthy();
         });
         await waitFor(() => {
             expect(ub.sessionHistory.summaries).toHaveBeenCalledTimes(1);
@@ -358,7 +370,7 @@ describe("SessionLibrary (t227)", () => {
 
         scroll_to_bottom(grid());
         await waitFor(() => {
-            expect(screen.getByText("会话 hidden")).toBeTruthy();
+            expect(card_with_id("hidden")).toBeTruthy();
         });
         await waitFor(() => {
             expect(ub.sessionHistory.summaries).toHaveBeenCalledTimes(2);
@@ -378,13 +390,15 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(SESSIONS);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "proj/b" },
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 b")).toBeTruthy();
-            expect(screen.queryByText("会话 a")).toBeNull();
+            expect(card_with_id("b")).toBeTruthy();
+            expect(card_with_id("a")).toBeNull();
         });
         const card = document.querySelector('[data-testid="library-card"]');
         expect(card).toBeTruthy();
@@ -398,39 +412,49 @@ describe("SessionLibrary (t227)", () => {
         expect(card?.querySelector('[data-testid="library-card-badge"]')?.textContent ?? "").toBe(
             "",
         );
-        // t326：第三行渲染会话名。
-        expect(card?.querySelector('[data-testid="library-card-title"]')?.textContent).toContain(
-            "会话 b",
-        );
-        // t326：摘要行（line-clamp-2）已移除。
-        expect(card?.querySelector(".library-card-summary")).toBeNull();
-        // t326：第二行渲染轮次/tokens/session id。
+        // demo 对齐：无独立标题行；行2 = 目录末级 / tokens / 轮次 / IdChip（短 id）。
+        expect(card?.querySelector('[data-testid="library-card-title"]')).toBeNull();
         expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
             "2 轮",
         );
         expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
             "375 tokens",
         );
-        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).toContain(
+        expect(card?.querySelector('[data-testid="library-card-id-chip"]')?.textContent).toContain(
             "b",
         );
-        // t326：第一行只显示目录末级，不再渲染完整路径。
+        // 目录只显示末级，不渲染完整路径。
         expect(card?.querySelector('[data-testid="library-card-cwd"]')?.textContent).toBe("b");
-        expect(card?.querySelector('[data-testid="library-card-top"]')?.textContent).not.toContain(
+        expect(card?.querySelector('[data-testid="library-card-meta"]')?.textContent).not.toContain(
             "/proj/b",
         );
+        // 行1 = 徽标 + 时间区间（无目录）。
+        expect(card?.querySelector('[data-testid="library-card-time-range"]')).toBeTruthy();
+        // 行3 = 摘要行（末条用户消息，未加载时为空）。
+        expect(card?.querySelector('[data-testid="library-card-summary"]')).toBeTruthy();
     });
 
-    it("行摘要取首条用户消息内容（f008）；卡片摘要行已移除（t326 AC-003）", async () => {
+    it("行摘要取末条用户消息内容（demo lastTalk 对齐）：网格卡片行3与列表行均展示", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue([sess("a", "claude_code")]);
         ub.sessionHistory.summaries.mockResolvedValue({
             "claude_code|linux|a": "真正要显示的用户消息",
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
-        // t326：卡片不再渲染摘要行。
-        expect(document.querySelector(".library-card-summary")).toBeNull();
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
+        // 摘要请求带 mode "last"。
+        await waitFor(() => {
+            expect(ub.sessionHistory.summaries).toHaveBeenCalledWith(expect.anything(), "last");
+        });
+        // 网格卡片行3渲染摘要。
+        await waitFor(() => {
+            expect(
+                card_with_id("a")?.querySelector('[data-testid="library-card-summary"]')
+                    ?.textContent,
+            ).toContain("真正要显示的用户消息");
+        });
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
             const row_summary = document.querySelector(
@@ -455,23 +479,24 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(SESSIONS);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         fireEvent.click(screen.getByRole("button", { name: /^Claude/ }));
         await waitFor(() => {
-            expect(screen.getByText("会话 a")).toBeTruthy();
-            expect(screen.queryByText("会话 b")).toBeNull();
-            expect(screen.queryByText("会话 c")).toBeNull();
+            expect(card_with_id("a")).toBeTruthy();
+            expect(card_with_id("b")).toBeNull();
+            expect(card_with_id("c")).toBeNull();
         });
         fireEvent.click(screen.getByRole("button", { name: /^Grok/ }));
         await waitFor(() => {
-            expect(screen.getByText("会话 c")).toBeTruthy();
-            expect(screen.queryByText("会话 b")).toBeNull();
+            expect(card_with_id("c")).toBeTruthy();
+            expect(card_with_id("b")).toBeNull();
         });
         // 排序：calls desc → c 在前
         fireEvent.click(screen.getByRole("button", { name: "按轮次排序" }));
         await waitFor(() => {
-            const first_card = document.querySelector('[data-testid="library-card-title"]');
-            expect(first_card?.textContent).toContain("会话 c");
+            expect(card_ids()[0]).toBe("c");
         });
         // 列表视图
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
@@ -505,16 +530,14 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(unsorted);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 low"));
+        await waitFor(() => {
+            expect(card_with_id("low")).toBeTruthy();
+        });
 
-        const card_titles = (): (string | null)[] =>
-            Array.from(
-                document.querySelectorAll('[data-testid="library-card-title"]'),
-                (node) => node.textContent,
-            );
+        const card_titles = card_ids;
         fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
-            expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
+            expect(card_titles()).toEqual(["high", "medium", "low"]);
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({
@@ -527,7 +550,7 @@ describe("SessionLibrary (t227)", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "按轮次排序" }));
         await waitFor(() => {
-            expect(card_titles()).toEqual(["会话 medium", "会话 high", "会话 low"]);
+            expect(card_titles()).toEqual(["medium", "high", "low"]);
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({
@@ -557,11 +580,13 @@ describe("SessionLibrary (t227)", () => {
                 : Promise.resolve([older, newer]),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 new"));
+        await waitFor(() => {
+            expect(card_with_id("new")).toBeTruthy();
+        });
         fireEvent.click(screen.getByTestId("time-preset-30d"));
         await waitFor(() => {
-            expect(screen.queryByText("会话 old")).toBeNull();
-            expect(screen.getByText("会话 new")).toBeTruthy();
+            expect(card_with_id("old")).toBeNull();
+            expect(card_with_id("new")).toBeTruthy();
         });
     });
 
@@ -583,14 +608,16 @@ describe("SessionLibrary (t227)", () => {
                 : Promise.resolve([older, newer]),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 new"));
+        await waitFor(() => {
+            expect(card_with_id("new")).toBeTruthy();
+        });
         fireEvent.click(screen.getByRole("button", { name: "自定义时间范围" }));
         fireEvent.change(screen.getByLabelText("开始"), { target: { value: "2026-07-01T00:00" } });
         fireEvent.change(screen.getByLabelText("结束"), { target: { value: "2026-07-09T23:59" } });
         fireEvent.click(screen.getByRole("button", { name: "应用" }));
         await waitFor(() => {
-            expect(screen.getByText("会话 old")).toBeTruthy();
-            expect(screen.queryByText("会话 new")).toBeNull();
+            expect(card_with_id("old")).toBeTruthy();
+            expect(card_with_id("new")).toBeNull();
         });
     });
 
@@ -599,7 +626,9 @@ describe("SessionLibrary (t227)", () => {
         const many = Array.from({ length: 9 }, (_, i) => sess(`s${String(i)}`, "claude_code"));
         ub.tokenStats.getSessions.mockResolvedValue(many);
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 s0"));
+        await waitFor(() => {
+            expect(card_with_id("s0")).toBeTruthy();
+        });
         const cards = screen.getAllByRole("button", { name: /会话 s\d/ });
         for (const c of cards) fireEvent.click(c);
         expect(screen.getByText(/8\/8/)).toBeTruthy();
@@ -620,7 +649,9 @@ describe("SessionLibrary (t227)", () => {
             next_cursor: null,
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
         if (!preview_btn) throw new Error("preview button missing");
@@ -641,7 +672,9 @@ describe("SessionLibrary (t227)", () => {
         const switch_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary({ on_switch_workspace: switch_fn });
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         const cards = screen.getAllByRole("button", { name: /会话 [abc]/ });
         const card0 = cards[0];
         const card1 = cards[1];
@@ -660,7 +693,9 @@ describe("SessionLibrary (t227)", () => {
             filters["search"] === "不存在" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "不存在" },
         });
@@ -690,7 +725,9 @@ describe("SessionLibrary (t227)", () => {
             .mockResolvedValueOnce(SESSIONS)
             .mockRejectedValueOnce(new Error("filtered page failed"));
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "失败筛选" },
@@ -698,7 +735,7 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => {
             expect(screen.getByText("会话列表加载失败")).toBeTruthy();
         });
-        expect(screen.queryByText("会话 a")).toBeNull();
+        expect(card_with_id("a")).toBeNull();
     });
 
     it("t328 AC-003/AC-004：滚到底自动加载，重复触底不并发重复请求，has_more=false 后停止", async () => {
@@ -713,7 +750,9 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(first);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
 
         // AC-001：无「加载更多」按钮。
         expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
@@ -723,7 +762,7 @@ describe("SessionLibrary (t227)", () => {
         scroll_to_bottom(container);
         scroll_to_bottom(container);
         await waitFor(() => {
-            expect(screen.getByText("会话 p51")).toBeTruthy();
+            expect(card_with_id("p51")).toBeTruthy();
         });
         expect(document.querySelectorAll('[data-testid="library-card"]').length).toBe(52);
         expect(
@@ -748,7 +787,9 @@ describe("SessionLibrary (t227)", () => {
             .mockResolvedValueOnce(first)
             .mockRejectedValueOnce(new Error("boom"));
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
         expect(document.querySelectorAll('[data-testid="library-card"]').length).toBe(50);
 
         scroll_to_bottom(grid());
@@ -783,13 +824,17 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(first);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
 
         scroll_to_bottom(grid());
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "needle" },
         });
-        await waitFor(() => screen.getByText("会话 needle0"));
+        await waitFor(() => {
+            expect(card_with_id("needle0")).toBeTruthy();
+        });
 
         scroll_to_bottom(grid());
         await waitFor(() => {
@@ -813,7 +858,9 @@ describe("SessionLibrary (t227)", () => {
         ).toHaveLength(2);
 
         resolve_new(filtered_second);
-        await waitFor(() => screen.getByText("会话 needle50"));
+        await waitFor(() => {
+            expect(card_with_id("needle50")).toBeTruthy();
+        });
     });
 
     it("「包含消息内容」开关接线：正文命中并入结果（并集，f001）", async () => {
@@ -833,20 +880,22 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve({ hits: [], sessions: [] });
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "秘密词" },
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 b")).toBeTruthy();
+            expect(card_with_id("b")).toBeTruthy();
         });
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "会话 a" },
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 a")).toBeTruthy();
-            expect(screen.queryByText("会话 b")).toBeNull();
+            expect(card_with_id("a")).toBeTruthy();
+            expect(card_with_id("b")).toBeNull();
         });
     });
 
@@ -867,23 +916,19 @@ describe("SessionLibrary (t227)", () => {
             target: { value: "关键词" },
         });
         await waitFor(() => {
-            expect(screen.getAllByText(/会话 (low|high|medium)/)).toHaveLength(3);
+            expect(document.querySelectorAll('[data-testid="library-card"]')).toHaveLength(3);
         });
 
-        const card_titles = (): (string | null)[] =>
-            Array.from(
-                document.querySelectorAll('[data-testid="library-card-title"]'),
-                (node) => node.textContent,
-            );
+        const card_titles = card_ids;
         fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
-            expect(card_titles()).toEqual(["会话 high", "会话 medium", "会话 low"]);
+            expect(card_titles()).toEqual(["high", "medium", "low"]);
         });
 
         // 同字段再点 → 升序。
         fireEvent.click(screen.getByRole("button", { name: "按Token排序" }));
         await waitFor(() => {
-            expect(card_titles()).toEqual(["会话 low", "会话 medium", "会话 high"]);
+            expect(card_titles()).toEqual(["low", "medium", "high"]);
         });
     });
 
@@ -924,7 +969,7 @@ describe("SessionLibrary (t227)", () => {
             target: { value: "关键词" },
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 hit")).toBeTruthy();
+            expect(card_with_id("hit")).toBeTruthy();
         });
         expect(screen.queryByTestId("search-truncated-hint")).not.toBeInTheDocument();
     });
@@ -975,7 +1020,7 @@ describe("SessionLibrary (t227)", () => {
             expect(screen.getByTestId("content-search-progress").textContent).toMatch(
                 /已扫描 64\/128/,
             );
-            expect(screen.getByText("会话 first")).toBeTruthy();
+            expect(card_with_id("first")).toBeTruthy();
         });
         expect(ub.sessionHistory.searchContent).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1001,8 +1046,8 @@ describe("SessionLibrary (t227)", () => {
             await Promise.resolve();
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 second")).toBeTruthy();
-            expect(screen.getByText("会话 first")).toBeTruthy();
+            expect(card_with_id("second")).toBeTruthy();
+            expect(card_with_id("first")).toBeTruthy();
             expect(screen.queryByTestId("content-search-progress")).toBeNull();
         });
         vi.useRealTimers();
@@ -1060,7 +1105,9 @@ describe("SessionLibrary (t227)", () => {
             },
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
@@ -1080,7 +1127,7 @@ describe("SessionLibrary (t227)", () => {
             await Promise.resolve();
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 b")).toBeTruthy();
+            expect(card_with_id("b")).toBeTruthy();
         });
         // 旧词仅首批挂起后被 abort，不应出现 offset=64 的旧词调用。
         const old_offsets = ub.sessionHistory.searchContent.mock.calls
@@ -1097,8 +1144,8 @@ describe("SessionLibrary (t227)", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        expect(screen.queryByText("会话 a")).toBeNull();
-        expect(screen.getByText("会话 b")).toBeTruthy();
+        expect(card_with_id("a")).toBeNull();
+        expect(card_with_id("b")).toBeTruthy();
         vi.useRealTimers();
     });
 
@@ -1108,7 +1155,9 @@ describe("SessionLibrary (t227)", () => {
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         ub.sessionHistory.searchContent.mockResolvedValue([]);
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
@@ -1147,7 +1196,9 @@ describe("SessionLibrary (t227)", () => {
             },
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
@@ -1193,7 +1244,7 @@ describe("SessionLibrary (t227)", () => {
             await Promise.resolve();
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 a")).toBeTruthy();
+            expect(card_with_id("a")).toBeTruthy();
         });
 
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
@@ -1206,7 +1257,7 @@ describe("SessionLibrary (t227)", () => {
         await waitFor(() => {
             expect(screen.getByText("消息内容搜索失败")).toBeTruthy();
         });
-        expect(screen.queryByText("会话 a")).toBeNull();
+        expect(card_with_id("a")).toBeNull();
         vi.useRealTimers();
     });
 
@@ -1234,7 +1285,9 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve({ hits: [], sessions: [] });
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.click(screen.getByLabelText("包含消息内容"));
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
@@ -1261,8 +1314,8 @@ describe("SessionLibrary (t227)", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        expect(screen.queryByText("会话 a")).toBeNull();
-        expect(screen.getByText("会话 b")).toBeTruthy();
+        expect(card_with_id("a")).toBeNull();
+        expect(card_with_id("b")).toBeTruthy();
         vi.useRealTimers();
     });
 
@@ -1275,7 +1328,9 @@ describe("SessionLibrary (t227)", () => {
             "grok|linux|c": "摘要 c",
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         await waitFor(() => {
             expect(ub.sessionHistory.summaries).toHaveBeenCalledTimes(1);
@@ -1286,9 +1341,10 @@ describe("SessionLibrary (t227)", () => {
                 expect.objectContaining({ source: "opencode", env: "linux", session_id: "b" }),
                 expect.objectContaining({ source: "grok", env: "linux", session_id: "c" }),
             ]),
+            "last",
         );
         expect(ub.sessionHistory.query).not.toHaveBeenCalled();
-        // t326：卡片摘要行已移除，摘要改由列表行呈现（AC-003）。
+        // demo 对齐：摘要同时呈现在网格卡片行3与列表行。
         fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
         await waitFor(() => {
             expect(
@@ -1304,7 +1360,9 @@ describe("SessionLibrary (t227)", () => {
             .mockResolvedValueOnce(many.slice(0, 50))
             .mockResolvedValueOnce(many.slice(50));
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 s0"));
+        await waitFor(() => {
+            expect(card_with_id("s0")).toBeTruthy();
+        });
         expect(document.querySelectorAll('[data-testid="library-card"]').length).toBe(50);
         scroll_to_bottom(grid());
         await waitFor(() => {
@@ -1324,7 +1382,9 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(first);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
 
         // 网格视图：无按钮（AC-001）。
         expect(grid()).toBeTruthy();
@@ -1340,7 +1400,7 @@ describe("SessionLibrary (t227)", () => {
 
         scroll_to_bottom(list());
         await waitFor(() => {
-            expect(screen.getByText("会话 q0")).toBeTruthy();
+            expect(card_with_id("q0")).toBeTruthy();
         });
         expect(document.querySelectorAll('[data-testid="library-row"]').length).toBe(100);
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
@@ -1365,19 +1425,27 @@ describe("SessionLibrary (t227)", () => {
             return Promise.resolve(first);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
 
         // 普通模式滚到底 → 第二页，has_more 保持 true。
         scroll_to_bottom(grid());
-        await waitFor(() => screen.getByText("会话 q0"));
+        await waitFor(() => {
+            expect(card_with_id("q0")).toBeTruthy();
+        });
 
         // 搜索重置 → 首屏 50 条、has_more 重置为 true → 触底继续加载下一页。
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "needle" },
         });
-        await waitFor(() => screen.getByText("会话 needle0"));
+        await waitFor(() => {
+            expect(card_with_id("needle0")).toBeTruthy();
+        });
         scroll_to_bottom(grid());
-        await waitFor(() => screen.getByText("会话 needle50"));
+        await waitFor(() => {
+            expect(card_with_id("needle50")).toBeTruthy();
+        });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ search: "needle", limit: 50, offset: 50 }),
         );
@@ -1392,7 +1460,9 @@ describe("SessionLibrary (t227)", () => {
             next_cursor: null,
         });
         await renderLibrary({ on_switch_workspace: switch_fn });
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
         if (!preview_btn) throw new Error("preview button missing");
@@ -1416,7 +1486,9 @@ describe("SessionLibrary (t227)", () => {
             next_cursor: null,
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
         const preview_btns = screen.getAllByRole("button", { name: "预览" });
         const preview_btn = preview_btns[0];
         if (!preview_btn) throw new Error("preview button missing");
@@ -1464,6 +1536,7 @@ describe("SessionLibrary (t227)", () => {
                     </button>
                     <SessionCard
                         s={s1}
+                        summary=""
                         selected={false}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
@@ -1472,6 +1545,7 @@ describe("SessionLibrary (t227)", () => {
                     />
                     <SessionCard
                         s={s2}
+                        summary=""
                         selected={selected_b}
                         on_toggle={noop_toggle}
                         on_preview={noop_preview}
@@ -1520,7 +1594,9 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         const clear_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         // 逆列表序勾选 c、a：open 必须按勾选顺序，而非列表顺序。
         fireEvent.click(screen.getByRole("button", { name: "会话 c" }));
@@ -1545,7 +1621,9 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         const clear_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         const open_btns = screen.getAllByRole("button", { name: "单独打开" });
         const open_btn = open_btns[0];
@@ -1575,7 +1653,9 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
             return Promise.resolve(first_page);
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 p0"));
+        await waitFor(() => {
+            expect(card_with_id("p0")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "重构" },
@@ -1602,7 +1682,7 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
 
         scroll_to_bottom(grid());
         await waitFor(() => {
-            expect(screen.getByText("会话 p50")).toBeTruthy();
+            expect(card_with_id("p50")).toBeTruthy();
         });
         // 加载更多仍携带全部条件与 offset。
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
@@ -1623,7 +1703,9 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
             filters["search"] === "ghost" ? Promise.resolve([]) : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID"), {
             target: { value: "ghost" },
@@ -1633,7 +1715,7 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         });
         fireEvent.click(screen.getByText(/清空全部条件/));
         await waitFor(() => {
-            expect(screen.getByText("会话 a")).toBeTruthy();
+            expect(card_with_id("a")).toBeTruthy();
         });
         expect(screen.getByPlaceholderText("标题 / 消息内容 / 会话 ID")).toHaveValue("");
         const last_call = ub.tokenStats.getSessions.mock.calls.at(-1)?.[0] as Record<
@@ -1776,8 +1858,8 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
         await waitFor(() => {
-            expect(screen.getByText("会话 low")).toBeTruthy();
-            expect(screen.getByText("会话 high")).toBeTruthy();
+            expect(card_with_id("low")).toBeTruthy();
+            expect(card_with_id("high")).toBeTruthy();
         });
 
         fireEvent.change(screen.getByTestId("range-filter-tokens-min"), {
@@ -1790,8 +1872,8 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             await Promise.resolve();
         });
         await waitFor(() => {
-            expect(screen.queryByText("会话 low")).toBeNull();
-            expect(screen.getByText("会话 high")).toBeTruthy();
+            expect(card_with_id("low")).toBeNull();
+            expect(card_with_id("high")).toBeTruthy();
         });
         vi.useRealTimers();
     });
@@ -1800,7 +1882,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByLabelText("添加目录"), {
             target: { value: "/proj/a, /proj/c" },
@@ -1829,7 +1913,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         const input = screen.getByLabelText("添加目录");
         fireEvent.change(input, { target: { value: "/proj/a" } });
@@ -1855,7 +1941,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
             sessions: [hit],
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         const input = screen.getByLabelText("添加目录");
         fireEvent.change(input, { target: { value: "/proj/a" } });
@@ -1880,7 +1968,9 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         const clear_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.click(screen.getByTestId("open-recent-4"));
         await waitFor(() => {
@@ -1966,7 +2056,7 @@ describe("PR #7 regression: unavailable totals and retained independent filters"
         ub.tokenStats.getSessions.mockResolvedValue([sess("partial", "claude_code")]);
         ub.tokenStats.getSessionStats.mockRejectedValue(new Error("stats unavailable"));
         await renderLibrary();
-        await waitFor(() => expect(screen.getByText("会话 partial")).toBeInTheDocument());
+        await waitFor(() => expect(card_with_id("partial")).toBeInTheDocument());
         expect(screen.getByTestId("library-count")).toHaveTextContent("1 / 总量未知 条会话");
         expect(document.querySelectorAll('[data-testid^="library-agent-logo-"]')).toHaveLength(0);
     });
@@ -2021,12 +2111,14 @@ describe("retained independent filter regression", () => {
                 : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "t-hit" } });
         await waitFor(() => {
-            expect(screen.getByText("会话 t-hit")).toBeTruthy();
-            expect(screen.queryByText("会话 a")).toBeNull();
+            expect(card_with_id("t-hit")).toBeTruthy();
+            expect(card_with_id("a")).toBeNull();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ title: "t-hit", limit: 50, offset: 0 }),
@@ -2050,15 +2142,17 @@ describe("retained independent filter regression", () => {
                 : Promise.resolve(SESSIONS),
         );
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByLabelText("添加目录"), {
             target: { value: "/proj/d-hit" },
         });
         fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
         await waitFor(() => {
-            expect(screen.getByText("会话 d-hit")).toBeTruthy();
-            expect(screen.queryByText("会话 a")).toBeNull();
+            expect(card_with_id("d-hit")).toBeTruthy();
+            expect(card_with_id("a")).toBeNull();
         });
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({ directories: ["/proj/d-hit"] }),
@@ -2082,7 +2176,9 @@ describe("retained independent filter regression", () => {
             sessions: [hidden],
         });
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 visible"));
+        await waitFor(() => {
+            expect(card_with_id("visible")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "部署" } });
         fireEvent.change(screen.getByLabelText("添加目录"), { target: { value: "/srv" } });
@@ -2111,7 +2207,9 @@ describe("retained independent filter regression", () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         await renderLibrary();
-        await waitFor(() => screen.getByText("会话 a"));
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
 
         fireEvent.change(screen.getByLabelText("标题"), { target: { value: "临时" } });
         await waitFor(() => {

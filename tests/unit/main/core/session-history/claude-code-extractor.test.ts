@@ -19,6 +19,7 @@ import {
     extract_claude_code,
     extract_claude_code_first_user,
     extract_claude_code_incremental,
+    extract_claude_code_last_user,
 } from "../../../../../src/main/core/session-history/claude-code-extractor";
 
 const fixture = join(__dirname, "../../../../fixtures/session-history/claude_code/session.jsonl");
@@ -184,6 +185,53 @@ describe("claude_code extractor (t209)", () => {
     it("first_user：首条 user 在顶部时直接返回其文本", () => {
         const text = extract_claude_code_first_user(fixture);
         expect(text).toBe("帮我看看这个文件");
+    });
+
+    it("last_user：返回末条 user 文本", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-last-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            const lines = [
+                JSON.stringify({
+                    type: "user",
+                    message: { role: "user", content: "第一条用户消息" },
+                }),
+                JSON.stringify({
+                    type: "assistant",
+                    message: { role: "assistant", content: [{ type: "text", text: "回复" }] },
+                }),
+                JSON.stringify({
+                    type: "user",
+                    message: { role: "user", content: "最后一条用户消息" },
+                }),
+                JSON.stringify({
+                    type: "assistant",
+                    message: { role: "assistant", content: [{ type: "text", text: "再回复" }] },
+                }),
+            ];
+            writeFileSync(tmp_file, lines.join("\n") + "\n");
+            expect(extract_claude_code_first_user(tmp_file)).toBe("第一条用户消息");
+            expect(extract_claude_code_last_user(tmp_file)).toBe("最后一条用户消息");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
+    });
+
+    it("last_user：无 user 行返回空串", () => {
+        const tmp = mkdtempSync(join(tmpdir(), "claude-last-none-"));
+        const tmp_file = join(tmp, "session.jsonl");
+        try {
+            writeFileSync(
+                tmp_file,
+                JSON.stringify({
+                    type: "assistant",
+                    message: { role: "assistant", content: [{ type: "text", text: "只有助手" }] },
+                }) + "\n",
+            );
+            expect(extract_claude_code_last_user(tmp_file)).toBe("");
+        } finally {
+            rmSync(tmp, { recursive: true, force: true });
+        }
     });
 
     it("first_user：跳过非 user 行后返回首条 user 文本", () => {

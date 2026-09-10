@@ -101,6 +101,21 @@ ORDER BY p.rowid ASC
 LIMIT 50
 `;
 
+const LAST_USER_PARTS_QUERY = `
+SELECT p.rowid AS rowid,
+       p.id AS id,
+       p.time_created AS time_created,
+       p.data AS data,
+       m.data AS message_data
+FROM part p
+JOIN message m ON m.id = p.message_id
+WHERE p.session_id = ?
+  AND json_extract(p.data, '$.type') = 'text'
+  AND json_extract(m.data, '$.role') = 'user'
+ORDER BY p.rowid DESC
+LIMIT 50
+`;
+
 function row_to_message(row: PartRow): HistoryMessage | null {
     let part_data: Record<string, unknown>;
     let message_data: Record<string, unknown>;
@@ -154,6 +169,35 @@ export function extract_opencode_first_user(db_path: string, session_id: string)
     try {
         db = open_db(db_path);
         const rows = db.prepare(FIRST_USER_PARTS_QUERY).all(session_id) as PartRow[];
+        for (const row of rows) {
+            const msg = row_to_message(row);
+            if (msg?.role === "user") {
+                return msg.text;
+            }
+        }
+        return "";
+    } catch {
+        return "";
+    } finally {
+        if (db) {
+            try {
+                db.close();
+            } catch {
+                // ignore
+            }
+        }
+    }
+}
+
+/**
+ * 轻量扫描：按 rowid 降序取前 50 条 text part，返回最后一条 role === "user"
+ * 的消息文本；无 user、超限或 db 异常时返回空串。不调用 extract_full。
+ */
+export function extract_opencode_last_user(db_path: string, session_id: string): string {
+    let db: Database.Database | undefined;
+    try {
+        db = open_db(db_path);
+        const rows = db.prepare(LAST_USER_PARTS_QUERY).all(session_id) as PartRow[];
         for (const row of rows) {
             const msg = row_to_message(row);
             if (msg?.role === "user") {

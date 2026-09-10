@@ -455,7 +455,7 @@ export function SessionLibrary({
         const locs = needed.map((s) => ({ source: s.source, env: s.env, session_id: s.id }));
         const keys = needed.map((s) => key_of(s));
         void window.usageboard.sessionHistory
-            .summaries(locs)
+            .summaries(locs, "last")
             .then((result) => {
                 for (const s of needed) {
                     const k = key_of(s);

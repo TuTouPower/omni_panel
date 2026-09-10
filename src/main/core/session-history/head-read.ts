@@ -13,7 +13,7 @@
  * 与整文件读的本质差异）。真实会话首条 user 行远小于此（spike s020 采样
  * 100% 在 64KB 内），超限单行回退为空摘要，属接受取舍，见 spec 风险节。
  */
-import { openSync, readSync, closeSync } from "node:fs";
+import { openSync, readSync, closeSync, fstatSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 
 export const SUMMARY_HEAD_BYTES = 64 * 1024;
@@ -53,6 +53,36 @@ export function read_head(file: string, max_bytes = SUMMARY_HEAD_BYTES): string 
         // StringDecoder 丢弃残缺尾字节，避免多字节 utf-8 截断产出 U+FFFD。
         const decoder = new StringDecoder("utf8");
         return decoder.write(raw.subarray(0, end));
+    } catch {
+        return "";
+    } finally {
+        closeSync(fd);
+    }
+}
+
+/** 只读文件尾部为 utf-8 字符串（末 max_bytes）；首部残缺行丢弃。文件不存在/读取失败返回 ""。 */
+export function read_tail(file: string, max_bytes = SUMMARY_HEAD_BYTES): string {
+    let fd: number;
+    try {
+        fd = openSync(file, "r");
+    } catch {
+        return "";
+    }
+    try {
+        const size = fstatSync(fd).size;
+        const start = Math.max(0, size - max_bytes);
+        const buf = Buffer.alloc(size - start);
+        const n = readSync(fd, buf, 0, size - start, start);
+        const raw = buf.subarray(0, n);
+        // 窗口从文件中部开始时，首行可能残缺：丢弃到第一个换行符之后。
+        let begin = 0;
+        if (start > 0) {
+            const first_nl = raw.indexOf(0x0a);
+            begin = first_nl >= 0 ? first_nl + 1 : raw.length;
+        }
+        // StringDecoder 丢弃首部残缺字节，避免多字节 utf-8 截断产出 U+FFFD。
+        const decoder = new StringDecoder("utf8");
+        return decoder.write(raw.subarray(begin)) + decoder.end();
     } catch {
         return "";
     } finally {

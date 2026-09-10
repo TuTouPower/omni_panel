@@ -2388,9 +2388,10 @@ describe("local-api session history endpoints (t259)", () => {
         expect(res.status).toBe(200);
         const data = (await res.json()) as { summaries: Record<string, string> };
         expect(data.summaries).toEqual({ "claude_code|linux|sess-1": "hello world" });
-        expect(service.summaries).toHaveBeenCalledWith([
-            expect.objectContaining({ session_id: "sess-1" }),
-        ]);
+        expect(service.summaries).toHaveBeenCalledWith(
+            [expect.objectContaining({ session_id: "sess-1" })],
+            { mode: "first" },
+        );
     });
 
     it("POST /v1/sessionHistory/subscribe 未先经 /v1/events 注册返回 409 (t279)", async () => {

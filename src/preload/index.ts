@@ -263,11 +263,11 @@ const session_history_full_methods = {
             request_or_locs,
         );
     },
-    summaries: async (locs: readonly SessionHistoryLoc[]) => {
+    summaries: async (locs: readonly SessionHistoryLoc[], mode?: "first" | "last") => {
         // t341: main 返回 `{ summaries }` 包装对象，先解包再返回，与 web 语义一致。
         const data = await invoke<{ summaries: Record<string, string> }>(
             IPC_CHANNELS.SESSION_HISTORY_SUMMARIES,
-            { locs },
+            { locs, ...(mode !== undefined ? { mode } : {}) },
         );
         return data.summaries;
     },

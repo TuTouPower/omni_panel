@@ -226,6 +226,14 @@ ORDER BY idx ASC
 LIMIT 200
 `;
 
+const LAST_USER_QUERY = `
+SELECT idx AS idx, step_type AS step_type, step_payload AS step_payload
+FROM steps
+WHERE step_type = 14
+ORDER BY idx DESC
+LIMIT 200
+`;
+
 /**
  * 轻量扫描：按 idx 升序取前 200 个 user step，返回第一条可保留 user 文本；
  * 无 user 或 db 异常返回空串。不调用 extract_full。
@@ -234,6 +242,35 @@ LIMIT 200
     try {
         db = open_db(file);
         const rows = db.prepare(FIRST_USER_QUERY).all() as StepRow[];
+        for (const row of rows) {
+            const msg = row_to_message(row);
+            if (msg?.role === "user") {
+                return msg.text;
+            }
+        }
+        return "";
+    } catch {
+        return "";
+    } finally {
+        if (db) {
+            try {
+                db.close();
+            } catch {
+                // ignore
+            }
+        }
+    }
+}
+
+/**
+ * 轻量扫描：按 idx 降序取前 200 个 user step，返回最后一条可保留 user 文本；
+ * 无 user 或 db 异常返回空串。不调用 extract_full。
+ */
+export function extract_antigravity_last_user(file: string): string {
+    let db: Database.Database | undefined;
+    try {
+        db = open_db(file);
+        const rows = db.prepare(LAST_USER_QUERY).all() as StepRow[];
         for (const row of rows) {
             const msg = row_to_message(row);
             if (msg?.role === "user") {

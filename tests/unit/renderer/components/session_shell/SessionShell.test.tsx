@@ -348,7 +348,9 @@ describe("SessionShell (t439 会话库并排打开替换语义)", () => {
         );
 
         fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        await waitFor(() => screen.getByText("库会话A"));
+        await waitFor(() => {
+            expect(document.querySelector('[data-session-id="lib_a"]')).toBeTruthy();
+        });
         fireEvent.click(screen.getByRole("button", { name: "会话 lib_a" }));
         fireEvent.click(screen.getByRole("button", { name: "会话 lib_b" }));
         expect(screen.getByText("2/8")).toBeTruthy();

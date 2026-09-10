@@ -6,6 +6,7 @@ import * as path from "node:path";
 import {
     extract_opencode,
     extract_opencode_first_user,
+    extract_opencode_last_user,
     extract_opencode_incremental,
 } from "../../../../../src/main/core/session-history/opencode-extractor";
 
@@ -279,6 +280,32 @@ CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_c
     });
 
     it("first_user：返回首条 user text part 的文本", () => {
+        expect(extract_opencode_first_user(fixture.db_path, fixture.session_id)).toBe("你好");
+    });
+
+    it("last_user：返回末条 user text part 的文本", () => {
+        expect(extract_opencode_last_user(fixture.db_path, fixture.session_id)).not.toBe("");
+        // 追加一条更晚的 user part 后，last 取新值、first 不变。
+        const db = new_db(fixture.db_path);
+        try {
+            db.prepare(
+                "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+            ).run("msg_last", fixture.session_id, 999999, JSON.stringify({ role: "user" }));
+            db.prepare(
+                "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+            ).run(
+                "part_last",
+                "msg_last",
+                fixture.session_id,
+                999999,
+                JSON.stringify({ type: "text", text: "最后的用户输入" }),
+            );
+        } finally {
+            db.close();
+        }
+        expect(extract_opencode_last_user(fixture.db_path, fixture.session_id)).toBe(
+            "最后的用户输入",
+        );
         expect(extract_opencode_first_user(fixture.db_path, fixture.session_id)).toBe("你好");
     });
 

@@ -1189,6 +1189,31 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(result["claude_code|linux|sum"]).toBe("u".repeat(80));
     });
 
+    it("summaries：mode=last 返回末条 user 文本", async () => {
+        const file = join(tmp_dir, "summary_last.jsonl");
+        writeFileSync(
+            file,
+            make_jsonl_line("user", "最早的用户消息", "u1", "2026-08-05T10:00:00Z") +
+                "\n" +
+                make_jsonl_line("assistant", "回复", "a1", "2026-08-05T10:00:01Z") +
+                "\n" +
+                make_jsonl_line("user", "最后的用户消息", "u2", "2026-08-05T10:00:02Z") +
+                "\n",
+        );
+
+        const loc = {
+            source: "claude_code",
+            env: "linux",
+            session_id: "sumlast",
+            file_path: file,
+            extractor_kind: "claude_code",
+        } as const;
+        const first = await service.summaries([loc]);
+        expect(first["claude_code|linux|sumlast"]).toBe("最早的用户消息");
+        const last = await service.summaries([loc], { mode: "last" });
+        expect(last["claude_code|linux|sumlast"]).toBe("最后的用户消息");
+    });
+
     it("summaries：无 user 消息时返回空串", async () => {
         const file = join(tmp_dir, "summary_none.jsonl");
         writeFileSync(

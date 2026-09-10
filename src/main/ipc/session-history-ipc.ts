@@ -402,7 +402,9 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                     extractor_kind: resolved.extractor_kind,
                 });
             }
-            const summaries = await deps.service.summaries(resolved_locs);
+            const summaries = await deps.service.summaries(resolved_locs, {
+                mode: request.mode === "last" ? "last" : "first",
+            });
             return ok({ summaries });
         },
     );
