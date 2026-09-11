@@ -1,8 +1,14 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { WorkspaceView } from "../../../../../src/renderer/components/workspace/WorkspaceView";
-import { SessionShell } from "../../../../../src/renderer/components/session-shell/SessionShell";
+import { WorkspaceToolbar } from "../../../../../src/renderer/components/workspace/WorkspaceToolbar";
+import type { LayoutCount } from "../../../../../src/renderer/lib/workspace/slots";
+import {
+    load_saved_layout,
+    save_layout,
+} from "../../../../../src/renderer/lib/workspace/workspace-storage";
+import type { PaneView } from "../../../../../src/renderer/components/workspace/SessionPane";
 import {
     reset_selection_store,
     selection_store,
@@ -15,7 +21,8 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
  * 消息推送追加、选择与复制、全空空态、最近会话替换全部、picker 弹窗。
  *
  * t323：三按钮与 rail-toggle 上移顶栏后，涉及工具栏/rail-toggle/最近会话/视图的
- * 交互测试改经 SessionShell 渲染；纯槽位/消息/选择测试用 render_workspace 提供受控 props。
+ * 交互测试改经 WorkspaceShellHarness 渲染（P6 起生产壳不再挂工作台）；
+ * 纯槽位/消息/选择测试用 render_workspace 提供受控 props。
  */
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -125,17 +132,89 @@ function render_workspace(overrides: Partial<ComponentProps<typeof WorkspaceView
     );
 }
 
-/** t323：工具栏交互经 SessionShell 渲染（三按钮/rail-toggle 在顶栏）。 */
+/**
+ * P6：生产 SessionShell 不再挂载工作台。
+ * 本 harness 保留旧外壳接线，供 WorkspaceView 工具栏/持久化单测继续覆盖。
+ */
+function WorkspaceShellHarness() {
+    const saved_layout = useMemo(() => load_saved_layout(), []);
+    const [layout, set_layout] = useState<LayoutCount>(saved_layout?.layout ?? 3);
+    const [view, set_view] = useState<PaneView>(
+        saved_layout?.view ?? { show_time: false, compact: false },
+    );
+    const [recent_open, set_recent_open] = useState(false);
+    const [rail_collapsed, set_rail_collapsed] = useState(false);
+    const [count, set_count] = useState(0);
+    const [refresh_token, set_refresh_token] = useState(0);
+    const clear_workspace_ref = useRef<(() => void) | null>(null);
+    const register_clear = useCallback((fn: (() => void) | null): void => {
+        clear_workspace_ref.current = fn;
+    }, []);
+
+    useEffect(() => {
+        save_layout(layout, view);
+    }, [layout, view]);
+
+    return (
+        <div data-testid="session-shell">
+            <header data-testid="session-topbar">
+                <WorkspaceToolbar
+                    layout={layout}
+                    count={count}
+                    view={view}
+                    on_view_change={set_view}
+                    on_layout_change={set_layout}
+                    on_recent={() => {
+                        set_recent_open(true);
+                    }}
+                    on_clear={() => {
+                        clear_workspace_ref.current?.();
+                    }}
+                />
+                <button
+                    type="button"
+                    title="刷新当前面板"
+                    onClick={() => {
+                        set_refresh_token((k) => k + 1);
+                    }}
+                >
+                    刷新
+                </button>
+            </header>
+            <WorkspaceView
+                refresh_token={refresh_token}
+                layout={layout}
+                view={view}
+                recent_open={recent_open}
+                rail_collapsed={rail_collapsed}
+                on_rail_toggle={() => {
+                    set_rail_collapsed((v) => !v);
+                }}
+                on_layout_change={set_layout}
+                on_recent={() => {
+                    set_recent_open(true);
+                }}
+                on_recent_close={() => {
+                    set_recent_open(false);
+                }}
+                on_count_change={set_count}
+                on_register_clear={register_clear}
+            />
+        </div>
+    );
+}
+
+/** t323：工具栏交互经 harness 渲染（三按钮/rail-toggle）。 */
 async function render_shell() {
-    render(<SessionShell />);
+    render(<WorkspaceShellHarness />);
     await act(async () => {
         await Promise.resolve();
     });
 }
 
-/** t329：mount SessionShell 并 flush 副作用，返回结果供 unmount 后重挂载。 */
+/** t329：mount harness 并 flush 副作用，返回结果供 unmount 后重挂载。 */
 async function mount_shell() {
-    const view = render(<SessionShell />);
+    const view = render(<WorkspaceShellHarness />);
     await act(async () => {
         await Promise.resolve();
     });

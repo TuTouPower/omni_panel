@@ -28,8 +28,8 @@ export function SelectionBar({
         >
             <div
                 className={cn(
-                    "glass-menu flex items-center gap-1 rounded-[10px]",
-                    "border border-[var(--color-outline)] px-1.5 py-1.5",
+                    "glass-menu flex items-center gap-1 rounded-lg",
+                    "border border-[var(--color-outline)] px-2 py-2",
                 )}
             >
                 <span className="px-2 text-[length:var(--text-label-md)] tabular-nums text-[var(--color-primary)]">
@@ -37,21 +37,21 @@ export function SelectionBar({
                 </span>
                 <button
                     type="button"
-                    className="cursor-pointer rounded-[8px] px-2.5 py-1.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
+                    className="cursor-pointer rounded-md px-2.5 py-2 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-on-surface)]"
                     onClick={on_select_all}
                 >
                     全选结果 ({total_filtered})
                 </button>
                 <button
                     type="button"
-                    className="cursor-pointer rounded-[8px] px-2.5 py-1.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-error)]"
+                    className="cursor-pointer rounded-md px-2.5 py-2 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-error)]"
                     onClick={on_clear}
                 >
                     清空
                 </button>
                 <button
                     type="button"
-                    className="ml-1 flex cursor-pointer items-center gap-1.5 rounded-[8px] bg-[var(--color-primary)] px-3 py-1.5 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-primary)] transition-feedback hover:bg-[var(--color-primary-strong)]"
+                    className="ml-1 flex cursor-pointer items-center gap-2 rounded-md bg-[var(--color-primary)] px-3 py-2 text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-primary)] transition-feedback hover:bg-[var(--color-primary-strong)]"
                     onClick={on_compare}
                 >
                     <Icon name="columns2" size={13} />
