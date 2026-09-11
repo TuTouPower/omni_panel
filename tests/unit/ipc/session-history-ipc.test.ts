@@ -925,14 +925,17 @@ describe("session-history-ipc (t210)", () => {
         })) as { ok: boolean; data: { summaries: Record<string, string> } };
 
         expect(result.ok).toBe(true);
-        expect(service.summaries).toHaveBeenCalledWith([
-            {
-                source: "claude_code",
-                env: "win",
-                session_id: "s1",
-                file_path: "/x/s1.jsonl",
-                extractor_kind: "claude_code",
-            },
-        ]);
+        expect(service.summaries).toHaveBeenCalledWith(
+            [
+                {
+                    source: "claude_code",
+                    env: "win",
+                    session_id: "s1",
+                    file_path: "/x/s1.jsonl",
+                    extractor_kind: "claude_code",
+                },
+            ],
+            { mode: "first" },
+        );
     });
 });

@@ -65,8 +65,8 @@ export function CompareView({
                     返回会话库
                 </Button>
 
-                <div className="flex items-center gap-1.5">
-                    <span className="mr-0.5 flex items-center gap-1.5 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
+                <div className="flex items-center gap-2">
+                    <span className="mr-1 flex items-center gap-2 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]">
                         <Icon name="columns2" size={14} />
                         同屏最近
                     </span>
@@ -76,7 +76,7 @@ export function CompareView({
                             type="button"
                             title={`同屏打开最近 ${String(n)} 条会话`}
                             data-testid={`compare-open-recent-${String(n)}`}
-                            className="w-7 cursor-pointer rounded-[8px] border border-[var(--color-outline)] py-[5px] text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)]"
+                            className="w-7 cursor-pointer rounded-md border border-[var(--color-outline)] py-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-variant)] transition-feedback hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-container)] hover:text-[var(--color-primary)]"
                             onClick={() => {
                                 on_open_recent(n);
                             }}
@@ -96,7 +96,7 @@ export function CompareView({
             {sessions.length === 0 ? (
                 <div className="grid flex-1 place-items-center">
                     <div className="text-center">
-                        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-[14px] border border-dashed border-[var(--color-outline)] text-[var(--color-on-surface-muted)]">
+                        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-xl border border-dashed border-[var(--color-outline)] text-[var(--color-on-surface-muted)]">
                             <Icon name="columns2" size={22} />
                         </div>
                         <p className="text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)]">
@@ -235,7 +235,7 @@ function ComparePanel({
 
     return (
         <div
-            className="flex h-full min-w-0 flex-col overflow-hidden rounded-[14px] border border-[var(--color-hairline)] bg-[var(--color-surface-card)] shadow-card"
+            className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--color-hairline)] bg-[var(--color-surface-card)] shadow-card"
             data-testid="compare-panel"
             data-session-id={session.id}
             style={{ "--agent-accent": agent_accent(session.source) } as CSSProperties}
