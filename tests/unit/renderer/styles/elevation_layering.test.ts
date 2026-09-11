@@ -93,11 +93,11 @@ describe("elevation / layering 归位（t415）", () => {
         expect(hits, `drop-shadow-[ 残留: ${hits.join(", ")}`).toEqual([]);
     });
 
-    it("AC-004：SelectionDock 无 backdrop-blur；blur 仅菜单/对话框", () => {
-        const dock = [...file_texts.entries()].find(([p]) => p.endsWith("SelectionDock.tsx"));
-        expect(dock, "SelectionDock.tsx 须存在").toBeDefined();
-        const dock_text = dock?.[1] ?? "";
-        expect(dock_text).not.toMatch(/backdrop-blur/);
+    it("AC-004：SelectionBar 无 backdrop-blur 字面量；blur 仅菜单/对话框", () => {
+        const bar = [...file_texts.entries()].find(([p]) => p.endsWith("SelectionBar.tsx"));
+        expect(bar, "SelectionBar.tsx 须存在").toBeDefined();
+        const bar_text = bar?.[1] ?? "";
+        expect(bar_text).not.toMatch(/backdrop-blur/);
 
         const hits: string[] = [];
         for (const [path, text] of file_texts) {

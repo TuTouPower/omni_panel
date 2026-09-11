@@ -5,9 +5,7 @@ import { SessionShell } from "../../../../../src/renderer/components/session-she
 import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
- * t223 会话窗口单壳双页签外壳测试。
- * 覆盖 AC：页签切换与内部状态保留、全局主题跟随与事件同步、跳转按钮 IPC、
- * 会话库空态占位、无命令面板/拖文件导入入口。
+ * P6 会话窗口外壳：默认会话库 + 同屏查看，无工作台页签。
  */
 
 const THEME_KEY = "omni_session_theme";
@@ -23,7 +21,12 @@ interface MockBoard {
         onMessagesUpdated: MockFn;
         onFocus: MockFn;
     };
-    tokenStats: { open: MockFn; forceCollect: MockFn; getSessions: MockFn };
+    tokenStats: {
+        open: MockFn;
+        forceCollect: MockFn;
+        getSessions: MockFn;
+        getSessionStats: MockFn;
+    };
     tray: { open_panel: MockFn };
 }
 
@@ -48,45 +51,92 @@ beforeEach(() => {
     install_history_usageboard();
 });
 
-describe("SessionShell (t223)", () => {
-    it("默认落在工作台页签，渲染工作台视图", async () => {
+describe("SessionShell (P6 library + compare)", () => {
+    it("默认落在会话库，无工作台页签", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
-        expect(screen.getByRole("button", { name: "工作台" })).toBeTruthy();
-        expect(screen.getByRole("button", { name: "会话库" })).toBeTruthy();
-        expect(screen.getByText("工作台为空")).toBeTruthy();
-        expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
-            "true",
-        );
-        expect(document.querySelector('[data-pane="library"]')?.getAttribute("data-active")).toBe(
-            "false",
-        );
-    });
-
-    it("切换到会话库显示会话库视图，工作台隐藏但保持挂载", async () => {
-        render(<SessionShell />);
-        await act(async () => {
-            await Promise.resolve();
-        });
-        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        // t227 会话库为真实视图（[data-testid="library-view"]），非空态占位。
+        expect(screen.queryByRole("button", { name: "工作台" })).toBeNull();
+        expect(screen.queryByRole("navigation", { name: "面板页签" })).toBeNull();
         expect(document.querySelector('[data-testid="library-view"]')).toBeTruthy();
-        expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
-            "false",
-        );
         expect(document.querySelector('[data-pane="library"]')?.getAttribute("data-active")).toBe(
             "true",
         );
-        // 工作台内容仍在 DOM（display 隐藏而非卸载）
-        expect(screen.getByText("工作台为空")).toBeTruthy();
+        expect(document.querySelector('[data-pane="compare"]')?.getAttribute("data-active")).toBe(
+            "false",
+        );
     });
 
-    it("切回工作台后已打开会话的栏状态保留", async () => {
+    it("同屏查看进入 compare，返回会话库保留库视图挂载", async () => {
         const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue([
+            {
+                id: "lib_a",
+                source: "opencode",
+                env: "linux",
+                title: "库会话A",
+                model: "",
+                directory: null,
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 1,
+                started_at: 1,
+                ended_at: 2,
+            },
+            {
+                id: "lib_b",
+                source: "grok",
+                env: "linux",
+                title: "库会话B",
+                model: "",
+                directory: null,
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 1,
+                started_at: 1,
+                ended_at: 3,
+            },
+        ] as never);
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        render(<SessionShell />);
+        await waitFor(() => {
+            expect(document.querySelector('[data-session-id="lib_a"]')).toBeTruthy();
+        });
+        fireEvent.click(screen.getByRole("button", { name: "会话 lib_a" }));
+        fireEvent.click(screen.getByRole("button", { name: "会话 lib_b" }));
+        expect(screen.getByText("已选 2 条")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /同屏查看/ }));
+
+        await waitFor(() => {
+            expect(document.querySelector('[data-testid="compare-view"]')).toBeTruthy();
+        });
+        expect(document.querySelector('[data-pane="compare"]')?.getAttribute("data-active")).toBe(
+            "true",
+        );
+        expect(document.querySelector('[data-pane="library"]')?.getAttribute("data-active")).toBe(
+            "false",
+        );
+        // 库仍挂载（hidden）
+        expect(document.querySelector('[data-testid="library-view"]')).toBeTruthy();
+
+        fireEvent.click(screen.getByRole("button", { name: "返回会话库" }));
+        expect(document.querySelector('[data-pane="library"]')?.getAttribute("data-active")).toBe(
+            "true",
+        );
+    });
+
+    it("外部 onFocus 打开进入同屏查看", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "外部消息", 100)],
             next_cursor: null,
         });
         render(<SessionShell />);
@@ -96,19 +146,11 @@ describe("SessionShell (t223)", () => {
         act(() => {
             focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
         });
-        await waitFor(() => screen.getByText("你好"));
-
-        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
-            "false",
-        );
-
-        fireEvent.click(screen.getByRole("button", { name: "工作台" }));
-        expect(document.querySelector('[data-pane="workspace"]')?.getAttribute("data-active")).toBe(
-            "true",
-        );
-        expect(screen.getByText("你好")).toBeTruthy();
-        expect(ub.sessionHistory.unsubscribe).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(document.querySelector('[data-testid="compare-view"]')).toBeTruthy();
+        });
+        await waitFor(() => screen.getByText("外部消息"));
+        expect(document.querySelector('[data-testid="compare-panel"]')).toBeTruthy();
     });
 
     it("顶栏移除主题切换按钮与未生效的摘选托盘按钮", async () => {
@@ -159,7 +201,6 @@ describe("SessionShell (t223)", () => {
         await act(async () => {
             await Promise.resolve();
         });
-        // t252: 原 shell-actions 跳转按钮被统一控制区吸收；点击切换图标跳转目标面板。
         fireEvent.click(screen.getByRole("button", { name: "Usage面板" }));
         expect(ub.tray.open_panel).toHaveBeenCalled();
         fireEvent.click(screen.getByRole("button", { name: "Agent面板" }));
@@ -176,23 +217,17 @@ describe("SessionShell (t223)", () => {
         expect(screen.queryByText(/拖文件|拖拽导入|import/i)).toBeNull();
     });
 
-    it("t380 AC-004：页签迁入 PanelTitleBar 中间插槽，不再绝对定位", async () => {
+    it("P6：无工作台/会话库页签导航", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
-        const titlebar = document.querySelector("[data-panel-titlebar=Session]");
-        expect(titlebar?.className).toContain("flex-1");
-        const tabs = document.querySelector(".session-tabs");
-        // t380: 页签入 center 插槽，不再 absolute/translate 居中；仍 no-drag 可点。
-        expect(tabs).toBeNull();
-        expect(screen.getByRole("navigation", { name: "面板页签" })).toBeInTheDocument();
-        const tab_nav = document.querySelector("nav[aria-label='面板页签']");
-        expect(tab_nav).toBeTruthy();
-        expect(titlebar?.contains(tab_nav)).toBe(true);
+        expect(screen.queryByRole("navigation", { name: "面板页签" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "工作台" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "会话库" })).toBeNull();
     });
 
-    it("t315 AC1：根容器与顶栏背景为 surface-window（对齐用量/设置/代理面板）", async () => {
+    it("t315 AC1：根容器与顶栏背景为 surface-window", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
@@ -204,68 +239,34 @@ describe("SessionShell (t223)", () => {
         expect(topbar?.className).toContain("bg-[var(--color-surface-window)]");
         expect(topbar?.className).not.toContain("bg-[var(--color-surface)]");
     });
-});
 
-function before(a: HTMLElement, b: HTMLElement): boolean {
-    return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-}
-
-describe("SessionShell (t323 顶栏三按钮上移)", () => {
-    it("AC-001：三按钮渲染于刷新按钮左侧，顺序 最近会话/清空/视图", async () => {
-        render(<SessionShell />);
-        await act(async () => {
-            await Promise.resolve();
-        });
-        const titlebar = document.querySelector("[data-panel-titlebar=Session]");
-        expect(titlebar).toBeTruthy();
-        const recent = screen.getByRole("button", { name: "最近会话" });
-        const clear = screen.getByRole("button", { name: "清空" });
-        const view = screen.getByRole("button", { name: /视图/ });
-        const refresh = screen.getByTitle("刷新当前面板");
-        // 三按钮位于面板顶栏（PanelTitleBar）内。
-        for (const el of [recent, clear, view]) {
-            expect(titlebar?.contains(el)).toBe(true);
-        }
-        // 顺序：最近会话 → 清空 → 视图 → 刷新。
-        expect(before(recent, clear)).toBe(true);
-        expect(before(clear, view)).toBe(true);
-        expect(before(view, refresh)).toBe(true);
-    });
-
-    it("t434 AC-001/AC-002/AC-003: 顶栏刷新触发 forceCollect、槽位消息重拉与会话库重拉", async () => {
+    it("顶栏刷新触发 forceCollect 与会话库重拉", async () => {
         const ub = usageboard();
-        ub.sessionHistory.query.mockResolvedValue({
-            messages: [msg("m1", "user", "你好", 100)],
-            next_cursor: null,
-        });
         ub.tokenStats.getSessions.mockResolvedValue([
-            { id: "s1", source: "claude_code", env: "win", title: "会话一", ended_at: 1 },
+            {
+                id: "s1",
+                source: "claude_code",
+                env: "win",
+                title: "会话一",
+                model: "",
+                directory: null,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 0,
+                started_at: 1,
+                ended_at: 1,
+            },
         ] as never);
         render(<SessionShell />);
-        await act(async () => {
-            await Promise.resolve();
-        });
-        // 打开一个槽位：query 至少一次。
-        act(() => {
-            focus_cb()({ source: "claude_code", env: "win", session_id: "s1" });
-        });
-        await waitFor(() => screen.getByText("你好"));
-        const query_after_focus = ub.sessionHistory.query.mock.calls.length;
-        expect(query_after_focus).toBeGreaterThan(0);
-
-        // 切到会话库页签，列表加载一次。
-        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
         await waitFor(() => screen.getByTestId("library-card"));
         const sessions_after_first = ub.tokenStats.getSessions.mock.calls.length;
         expect(sessions_after_first).toBeGreaterThan(0);
 
-        // 点顶栏刷新：forceCollect 被调用 + 槽位消息 query 再调 + getSessions 再调。
         fireEvent.click(screen.getByTitle("刷新当前面板"));
         await waitFor(() => {
             expect(ub.tokenStats.forceCollect).toHaveBeenCalled();
-        });
-        await waitFor(() => {
-            expect(ub.sessionHistory.query.mock.calls.length).toBeGreaterThan(query_after_focus);
         });
         await waitFor(() => {
             expect(ub.tokenStats.getSessions.mock.calls.length).toBeGreaterThan(
@@ -274,98 +275,13 @@ describe("SessionShell (t323 顶栏三按钮上移)", () => {
         });
     });
 
-    it("t413 AC-001/002：无 session-rail-toggle-row；折叠按钮在侧栏头部，折叠/展开不变", async () => {
+    it("无工作台三按钮与槽位栏", async () => {
         render(<SessionShell />);
         await act(async () => {
             await Promise.resolve();
         });
-        // AC-001：不再渲染独立空带行；页签栏之下直接内容区。
+        expect(screen.queryByRole("button", { name: "最近会话" })).toBeNull();
+        expect(document.querySelector('[data-testid="session-rail"]')).toBeNull();
         expect(document.querySelector(".session-rail-toggle-row")).toBeNull();
-        const topbar = document.querySelector('[data-testid="session-topbar"]');
-        const body = document.querySelector('[data-testid="session-body"]');
-        expect(topbar).toBeTruthy();
-        expect(body).toBeTruthy();
-        // 顶栏下一节点即 session-body（中间无 toggle-row）。
-        expect(topbar?.nextElementSibling).toBe(body);
-
-        const toggle = screen.getByRole("button", { name: "折叠槽位栏" });
-        // AC-002：toggle 在侧栏头部行内，不在顶栏。
-        expect(toggle.closest('[data-testid="session-rail-header"]')).not.toBeNull();
-        expect(toggle.closest('[data-testid="session-rail"]')).not.toBeNull();
-        expect(toggle.closest('[data-testid="session-topbar"]')).toBeNull();
-        const toggle_cls = toggle.className;
-        expect(toggle.getAttribute("data-testid")).toBe("session-rail-toggle");
-        expect(toggle_cls).not.toContain("color-mix");
-
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
-            "collapsed",
-        );
-        fireEvent.click(toggle);
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).toContain(
-            "collapsed",
-        );
-        fireEvent.click(screen.getByRole("button", { name: "展开槽位栏" }));
-        expect(document.querySelector('[data-testid="session-rail"]')?.className).not.toContain(
-            "collapsed",
-        );
-    });
-});
-
-describe("SessionShell (t439 会话库并排打开替换语义)", () => {
-    it("AC-001：工作台已有旧槽时并排打开，清空旧槽后仅装入所选", async () => {
-        const ub = usageboard();
-        ub.sessionHistory.query.mockImplementation(
-            (_source: string, _env: string, session_id: string) =>
-                Promise.resolve({
-                    messages: [msg("m1", "user", `消息-${session_id}`, 100)],
-                    next_cursor: null,
-                }),
-        );
-        // 会话库列表：两个可选会话。
-        ub.tokenStats.getSessions.mockResolvedValue([
-            { id: "lib_a", source: "opencode", env: "linux", title: "库会话A", ended_at: 1 },
-            { id: "lib_b", source: "grok", env: "linux", title: "库会话B", ended_at: 2 },
-        ] as never);
-        render(<SessionShell />);
-        await act(async () => {
-            await Promise.resolve();
-        });
-
-        // 工作台先开一个旧槽。
-        act(() => {
-            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_old" });
-        });
-        await waitFor(() => screen.getByText("消息-sess_old"));
-        expect(document.querySelectorAll('[data-testid="conversation-pane"]')).toHaveLength(1);
-
-        // 会话库 IPC open 模拟服务端回流装槽（桌面端 open → onFocus → 开槽）。
-        const open_focus = focus_cb();
-        ub.sessionHistory.open.mockImplementation(
-            (source: string, env: string, session_id: string) => {
-                open_focus({ source, env, session_id });
-                return Promise.resolve(undefined);
-            },
-        );
-
-        fireEvent.click(screen.getByRole("button", { name: "会话库" }));
-        await waitFor(() => {
-            expect(document.querySelector('[data-session-id="lib_a"]')).toBeTruthy();
-        });
-        fireEvent.click(screen.getByRole("button", { name: "会话 lib_a" }));
-        fireEvent.click(screen.getByRole("button", { name: "会话 lib_b" }));
-        expect(screen.getByText("2/8")).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: /并排打开/ }));
-
-        // 回流后仅两所选 pane 渲染。
-        await waitFor(() => screen.getByText("消息-lib_a"));
-        await waitFor(() => screen.getByText("消息-lib_b"));
-        expect(document.querySelectorAll('[data-testid="conversation-pane"]')).toHaveLength(2);
-        // 旧槽被 clear_all 退订且不再渲染。
-        expect(ub.sessionHistory.unsubscribe).toHaveBeenCalledWith(
-            "claude_code",
-            "win",
-            "sess_old",
-        );
-        expect(screen.queryByText("消息-sess_old")).toBeNull();
     });
 });

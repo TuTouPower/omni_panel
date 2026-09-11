@@ -77,7 +77,7 @@ describe("z-index 层级类正向门禁（t452）", () => {
             "utf8",
         );
         const dock = readFileSync(
-            join(root, "src/renderer/components/session-library/SelectionDock.tsx"),
+            join(root, "src/renderer/components/session-library/SelectionBar.tsx"),
             "utf8",
         );
         const range_picker = readFileSync(
