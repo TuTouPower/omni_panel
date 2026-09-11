@@ -74,6 +74,19 @@ export function save_layout(layout: LayoutCount, view: WorkspaceLayoutPrefs["vie
     }
 }
 
+/**
+ * P6：工作台入口已下线，`WorkspaceView` 无挂载点，槽位/布局持久化无人读写——
+ * 挂载会话外壳时清理一次，删用户 localStorage 残留孤儿键。幂等，失败静默。
+ */
+export function clear_saved_workspace(): void {
+    try {
+        localStorage.removeItem(SLOTS_KEY);
+        localStorage.removeItem(LAYOUT_KEY);
+    } catch {
+        // 清理失败忽略：残留键无害。
+    }
+}
+
 function empty_loc_slots(): (SessionHistoryLoc | null)[] {
     return Array.from({ length: MAX_SLOTS }, () => null);
 }

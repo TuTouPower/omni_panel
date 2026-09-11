@@ -1904,6 +1904,28 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         expect(last["directories"]).toEqual(["/proj/c"]);
     });
 
+    it("目录 chips：引号包裹的含空格路径保持单个目录", async () => {
+        const ub = usageboard();
+        ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
+        await renderLibrary();
+        await waitFor(() => {
+            expect(card_with_id("a")).toBeTruthy();
+        });
+
+        fireEvent.change(screen.getByLabelText("添加目录"), {
+            target: { value: '"/home/u/My Docs" /proj/c' },
+        });
+        fireEvent.keyDown(screen.getByLabelText("添加目录"), { key: "Enter" });
+        await waitFor(() => {
+            expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
+                expect.objectContaining({ directories: ["/home/u/My Docs", "/proj/c"] }),
+            );
+        });
+        const chips = screen.getAllByTestId("directory-chip");
+        expect(chips).toHaveLength(2);
+        expect(chips[0]?.textContent).toContain("My Docs");
+    });
+
     it("目录 chips：重复添加去重；重置清空 chips 且请求不带 directories", async () => {
         const ub = usageboard();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);

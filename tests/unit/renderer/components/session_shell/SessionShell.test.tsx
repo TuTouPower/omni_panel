@@ -36,7 +36,9 @@ function usageboard(): MockBoard {
 
 function focus_cb(): (loc: unknown) => void {
     const ub = usageboard();
-    const cb = ub.sessionHistory.onFocus.mock.calls[0]?.[0] as ((loc: unknown) => void) | undefined;
+    // 取最后一次注册：回调随 compare_sessions 变化重建，effect 重跑会重新订阅。
+    const calls = ub.sessionHistory.onFocus.mock.calls;
+    const cb = calls.at(-1)?.[0] as ((loc: unknown) => void) | undefined;
     if (!cb) throw new Error("onFocus callback not registered");
     return cb;
 }
@@ -151,6 +153,85 @@ describe("SessionShell (P6 library + compare)", () => {
         });
         await waitFor(() => screen.getByText("外部消息"));
         expect(document.querySelector('[data-testid="compare-panel"]')).toBeTruthy();
+    });
+
+    it("外部 onFocus 补全会话元信息（标题/目录/tokens 非桩）", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "外部消息", 100)],
+            next_cursor: null,
+        });
+        ub.tokenStats.getSessions.mockResolvedValue([
+            {
+                id: "sess_a",
+                source: "claude_code",
+                env: "win",
+                title: "真实标题",
+                model: "",
+                directory: "/proj/a",
+                input_tokens: 100,
+                output_tokens: 200,
+                cache_read_tokens: 0,
+                cache_write_tokens: 0,
+                calls: 3,
+                started_at: 1000,
+                ended_at: 2000,
+            },
+        ] as never);
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        // 桩头先挂载，随后被库内真实行替换：标题与目录均为真实值。
+        await waitFor(() => {
+            expect(screen.getByText("真实标题")).toBeTruthy();
+        });
+        await waitFor(() => {
+            expect(screen.getByText("/proj/a")).toBeTruthy();
+        });
+    });
+
+    it("同屏已满 8 条时外部 onFocus 给上限提示且不追加", async () => {
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
+        ub.tokenStats.getSessions.mockResolvedValue([]);
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        act(() => {
+            for (let i = 0; i < 8; i += 1) {
+                focus_cb()({ source: "claude_code", env: "win", session_id: `sess_${String(i)}` });
+            }
+        });
+        await waitFor(() => {
+            expect(document.querySelectorAll('[data-testid="compare-panel"]')).toHaveLength(8);
+        });
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_overflow" });
+        });
+        await waitFor(() => {
+            expect(screen.getByText("已达同屏上限 8 条")).toBeTruthy();
+        });
+        expect(document.querySelectorAll('[data-testid="compare-panel"]')).toHaveLength(8);
+        expect(document.querySelector('[data-session-id="sess_overflow"]')).toBeNull();
+    });
+
+    it("挂载时清理工作台残留持久化孤儿键", async () => {
+        localStorage.setItem("workspace-slots", JSON.stringify([{ source: "x" }]));
+        localStorage.setItem(
+            "workspace-layout",
+            JSON.stringify({ layout: 3, view: { show_time: false, compact: false } }),
+        );
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(localStorage.getItem("workspace-slots")).toBeNull();
+        expect(localStorage.getItem("workspace-layout")).toBeNull();
     });
 
     it("顶栏移除主题切换按钮与未生效的摘选托盘按钮", async () => {

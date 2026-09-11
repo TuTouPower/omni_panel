@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionHistoryLoc } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { PanelTitleBar } from "../ui/PanelTitleBar";
@@ -9,6 +9,7 @@ import { cn } from "../../lib/utils";
 import { SessionLibrary } from "../session-library/SessionLibrary";
 import { CompareView } from "../session-compare/CompareView";
 import { key_of } from "../session-library/session-library-utils";
+import { clear_saved_workspace } from "../../lib/workspace/workspace-storage";
 import { initial_loc } from "../workspace/workspace-view-helpers";
 
 type ShellPage = "library" | "compare";
@@ -32,6 +33,22 @@ function session_stub_from_loc(loc: SessionHistoryLoc): TokenStatsSession {
         started_at: Date.now(),
         ended_at: Date.now(),
     };
+}
+
+/** 外部定位补全会话元信息：按 source/env + id 子串查库，精确命中则替换桩头；查无/失败返回 null（保留桩）。 */
+async function resolve_session_from_loc(loc: SessionHistoryLoc): Promise<TokenStatsSession | null> {
+    try {
+        const rows = await window.usageboard.tokenStats.getSessions({
+            source: loc.source,
+            env: loc.env,
+            search: loc.session_id,
+            limit: 10,
+            offset: 0,
+        });
+        return rows.find((s) => s.id === loc.session_id && s.env === loc.env) ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -60,24 +77,51 @@ export function SessionShell() {
         set_page("compare");
     }, []);
 
-    const open_compare_from_loc = useCallback((loc: SessionHistoryLoc): void => {
-        set_compare_sessions((prev) => {
-            const stub = session_stub_from_loc(loc);
-            const k = key_of(stub);
-            if (prev.some((s) => key_of(s) === k)) return prev;
-            const next = [...prev, stub].slice(0, MAX_COMPARE);
-            return next;
-        });
-        set_page("compare");
+    const open_compare_from_loc = useCallback(
+        (loc: SessionHistoryLoc): void => {
+            const k = `${loc.source}|${loc.env}|${loc.session_id}`;
+            if (compare_sessions.some((s) => key_of(s) === k)) {
+                set_page("compare");
+                return;
+            }
+            if (compare_sessions.length >= MAX_COMPARE) {
+                show_toast("已达同屏上限 8 条");
+                set_page("compare");
+                return;
+            }
+            // 先挂桩即时进页，再异步补全元信息（头信息不再显示 Date.now 桩时间）。
+            set_compare_sessions((prev) =>
+                prev.some((s) => key_of(s) === k)
+                    ? prev
+                    : [...prev, session_stub_from_loc(loc)].slice(0, MAX_COMPARE),
+            );
+            set_page("compare");
+            void resolve_session_from_loc(loc).then((full) => {
+                if (full) {
+                    set_compare_sessions((prev) => prev.map((s) => (key_of(s) === k ? full : s)));
+                }
+            });
+        },
+        [compare_sessions, show_toast],
+    );
+
+    // P6：工作台已下线，清理残留的工作台持久化孤儿键（只执行一次）。
+    useEffect(() => {
+        clear_saved_workspace();
     }, []);
 
     // 外部打开会话 / URL loc → 同屏查看（替代原工作台装槽）。
+    // initial 只处理一次：回调随 compare_sessions 变化重建，effect 重跑时不再重复进入。
+    const initial_handled_ref = useRef(false);
     useEffect(() => {
         const off = window.usageboard.sessionHistory.onFocus((loc) => {
             open_compare_from_loc(loc);
         });
-        const initial = initial_loc();
-        if (initial) open_compare_from_loc(initial);
+        if (!initial_handled_ref.current) {
+            initial_handled_ref.current = true;
+            const initial = initial_loc();
+            if (initial) open_compare_from_loc(initial);
+        }
         return off;
     }, [open_compare_from_loc]);
 
