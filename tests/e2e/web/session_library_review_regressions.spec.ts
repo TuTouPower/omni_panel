@@ -38,7 +38,9 @@ test("新版侧边栏搜索/筛选/排序/预览/同屏查看闭环", async ({ w
     // 搜索：目录关键词过滤。
     await page.getByPlaceholder("标题 / 消息内容 / 会话 ID").fill("auth");
     await expect(page.locator('[data-testid="library-card"]')).toHaveCount(1);
-    await expect(page.getByText("登录页 bug 修复")).toBeVisible();
+    // P6 卡片无独立标题行；目录末级 + session id 标识命中会话。
+    await expect(page.locator('[data-testid="library-card-cwd"]')).toHaveText("auth");
+    await expect(page.locator('[data-testid="library-card"][data-session-id="s1"]')).toBeVisible();
     // 清空搜索。
     await page.getByPlaceholder("标题 / 消息内容 / 会话 ID").fill("");
     await expect(page.locator('[data-testid="library-card"]')).toHaveCount(9);

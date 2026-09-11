@@ -100,10 +100,9 @@ test.describe("session library mount refill (web, t334)", () => {
         const page = webPage;
         test.setTimeout(60_000);
         // 中视口 + 中数据：首屏不溢出 → 补满加载；第 2 页后溢出可滚动即停（不加载第 3 页）。
-        // 50 条 sh≈1860，视口高 2100 下不溢出；100 条 sh≈3700 溢出 → 补满至第 2 页停。
-        // t458: 筛栏新增标题/工作目录输入后栏高 +44px（grid ch 1900→1856），视口
-        // 相应 +100 保持「50 条不溢出」前提。
-        await page.setViewportSize({ width: 1280, height: 2200 });
+        // P6 卡片三行结构后 50 条 sh≈2700（原≈1860）；视口需 ch>sh 才触发补满第 2 页。
+        // 实测 height=2200 → ch≈2155 < sh≈2698（误触 AC-002 不预取）；抬到 3000 保持前提。
+        await page.setViewportSize({ width: 1280, height: 3000 });
         const offsets: number[] = [];
         await route_sessions(page, 200, (offset) => offsets.push(offset));
         await open_library(page);

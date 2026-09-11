@@ -102,8 +102,8 @@ test.describe("session library grid card height (web, t327)", () => {
         }
         expect(new Set(heights.map((h) => Math.round(h))).size).toBe(1);
 
-        // 标题可见（压扁时标题 0 高不可见）。
-        await expect(page.locator('[data-testid="library-card-title"]').first()).toBeVisible();
+        // 时间区间可见（压扁时行内容 0 高不可见；P6 卡片已无独立标题行）。
+        await expect(page.locator('[data-testid="library-card-time-range"]').first()).toBeVisible();
 
         // AC-001：卡片不重叠（仅 items-start 时行压缩致跨行重叠，auto-rows-max 修复）。
         // 逐卡取 boundingBox，按垂直区间断言无覆盖：每张卡 top ≥ 已见最大 bottom（同列下行）
