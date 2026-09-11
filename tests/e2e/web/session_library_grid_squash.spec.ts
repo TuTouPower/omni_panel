@@ -61,7 +61,6 @@ async function scroll_grid_to_bottom(page: Page): Promise<void> {
 async function open_library_grid(page: Page): Promise<void> {
     await page.goto("/#session");
     await page.locator('[data-testid="session-shell"]').first().waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "会话库", exact: true }).click();
     await expect(page.locator('[data-testid="library-grid"]').first()).toBeVisible();
 }
 

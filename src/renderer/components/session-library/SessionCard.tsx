@@ -36,7 +36,7 @@ function short_id(id: string): string {
  * 会话 ID chip（对齐 demo IdChip）：显示短 id，点击复制完整 id，
  * 成功后短暂变「已复制」。阻止冒泡，避免触发卡片勾选。
  */
-function IdChip({
+export function IdChip({
     id,
     on_copied,
 }: {

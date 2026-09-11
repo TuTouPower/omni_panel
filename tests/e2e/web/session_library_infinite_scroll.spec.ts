@@ -54,7 +54,6 @@ async function route_many_sessions(
 async function open_library(page: Page): Promise<void> {
     await page.goto("/#session");
     await page.locator('[data-testid="session-shell"]').first().waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "会话库", exact: true }).click();
     await expect(page.locator('[data-testid="library-grid"]').first()).toBeVisible();
 }
 

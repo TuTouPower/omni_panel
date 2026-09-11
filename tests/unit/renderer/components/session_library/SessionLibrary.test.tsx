@@ -10,7 +10,7 @@ import { install_history_usageboard } from "../../views/session_history_test_uti
 /**
  * t227 会话库视图测试。
  * 覆盖：页头统计行、agent 多选/排序/视图切换、卡片信息、勾选上限、预览抽屉、
- * SelectionDock 并排打开、空态、加载更多（t328 起改无限滚动）。
+ * SelectionBar 同屏查看、空态、加载更多（t328 起改无限滚动）。
  */
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -42,13 +42,10 @@ function usageboard(): MockBoard {
 }
 
 async function renderLibrary(
-    props: { on_switch_workspace?: () => void; on_clear_workspace?: () => void } = {},
+    props: { on_open_compare?: (sessions: readonly TokenStatsSession[]) => void } = {},
 ) {
     const result = render(
-        <SessionLibrary
-            on_switch_workspace={props.on_switch_workspace ?? (() => undefined)}
-            on_clear_workspace={props.on_clear_workspace ?? (() => undefined)}
-        />,
+        <SessionLibrary on_open_compare={props.on_open_compare ?? (() => undefined)} />,
     );
     await act(async () => {
         // 冲刷 getSessions/query resolve 等微任务，避免 act 警告。
@@ -631,7 +628,8 @@ describe("SessionLibrary (t227)", () => {
         });
         const cards = screen.getAllByRole("button", { name: /会话 s\d/ });
         for (const c of cards) fireEvent.click(c);
-        expect(screen.getByText(/8\/8/)).toBeTruthy();
+        expect(screen.getByText("已选 8 条")).toBeTruthy();
+        expect(screen.getByText("最多选择 8 个会话")).toBeTruthy();
     });
 
     it("预览抽屉显示前 5 条消息，Esc 关闭", async () => {
@@ -667,11 +665,11 @@ describe("SessionLibrary (t227)", () => {
         expect(document.querySelector('[data-testid="preview-panel"]')).toBeNull();
     });
 
-    it("SelectionDock 并排打开写入工作台槽位并切页签", async () => {
+    it("SelectionBar 同屏查看回调所选会话", async () => {
         const ub = usageboard();
-        const switch_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        await renderLibrary({ on_switch_workspace: switch_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
         await waitFor(() => {
             expect(card_with_id("a")).toBeTruthy();
         });
@@ -681,10 +679,12 @@ describe("SessionLibrary (t227)", () => {
         if (!card0 || !card1) throw new Error("card missing");
         fireEvent.click(card0);
         fireEvent.click(card1);
-        expect(screen.getByText("2/8")).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: /并排打开/ }));
-        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(2);
-        expect(switch_fn).toHaveBeenCalled();
+        expect(screen.getByText("已选 2 条")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /同屏查看/ }));
+        expect(ub.sessionHistory.open).not.toHaveBeenCalled();
+        expect(compare_fn).toHaveBeenCalledTimes(1);
+        const arg = compare_fn.mock.calls[0]?.[0] as TokenStatsSession[];
+        expect(arg.map((s) => s.id)).toEqual(["a", "b"]);
     });
 
     it("无匹配结果显示清空全部条件空态", async () => {
@@ -1451,15 +1451,15 @@ describe("SessionLibrary (t227)", () => {
         );
     });
 
-    it("预览抽屉「单独打开」装入并切页签，Esc 关闭", async () => {
+    it("预览抽屉「单独打开」进入 compare，Esc 关闭", async () => {
         const ub = usageboard();
-        const switch_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
         ub.sessionHistory.query.mockResolvedValue({
             messages: [msg("m1", "user", "消息一", 1)],
             next_cursor: null,
         });
-        await renderLibrary({ on_switch_workspace: switch_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
         await waitFor(() => {
             expect(card_with_id("a")).toBeTruthy();
         });
@@ -1474,8 +1474,10 @@ describe("SessionLibrary (t227)", () => {
         const open_btn = preview_foot?.querySelector<HTMLButtonElement>("button");
         if (!open_btn) throw new Error("preview open button missing");
         fireEvent.click(open_btn);
-        expect(ub.sessionHistory.open).toHaveBeenCalled();
-        expect(switch_fn).toHaveBeenCalled();
+        expect(ub.sessionHistory.open).not.toHaveBeenCalled();
+        expect(compare_fn).toHaveBeenCalledTimes(1);
+        fireEvent.keyDown(window, { key: "Escape" });
+        expect(document.querySelector('[data-testid="preview-panel"]')).toBeNull();
     });
 
     it("预览抽屉「加入选择」勾选/取消勾选会话（f005）", async () => {
@@ -1498,9 +1500,9 @@ describe("SessionLibrary (t227)", () => {
         });
         const add_btn = screen.getByRole("button", { name: "加入选择" });
         fireEvent.click(add_btn);
-        expect(screen.getByText("1/8")).toBeTruthy();
+        expect(screen.getByText("已选 1 条")).toBeTruthy();
         fireEvent.click(add_btn);
-        expect(screen.queryByText("1/8")).toBeNull();
+        expect(screen.queryByText("已选 1 条")).toBeNull();
     });
 
     it("更新一张卡片选中态时，其余已渲染卡片不重渲染（t237）", () => {
@@ -1587,40 +1589,33 @@ describe("SessionLibrary (t227)", () => {
     });
 });
 
-describe("SessionLibrary (t439 并排打开替换语义)", () => {
-    it("AC-001/AC-002：并排打开先清空工作台，再按勾选顺序 open 并切页签", async () => {
+describe("SessionLibrary (P6 同屏查看)", () => {
+    it("AC-001/AC-002：同屏查看按勾选顺序回调 compare，不经工作台 open", async () => {
         const ub = usageboard();
-        const switch_fn = vi.fn();
-        const clear_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
         await waitFor(() => {
             expect(card_with_id("a")).toBeTruthy();
         });
 
-        // 逆列表序勾选 c、a：open 必须按勾选顺序，而非列表顺序。
+        // 逆列表序勾选 c、a：compare 必须按勾选顺序，而非列表顺序。
         fireEvent.click(screen.getByRole("button", { name: "会话 c" }));
         fireEvent.click(screen.getByRole("button", { name: "会话 a" }));
-        expect(screen.getByText("2/8")).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: /并排打开/ }));
+        expect(screen.getByText("已选 2 条")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /同屏查看/ }));
 
-        expect(clear_fn).toHaveBeenCalledTimes(1);
-        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(2);
-        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "grok", "linux", "c");
-        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(2, "claude_code", "linux", "a");
-        // clear 必须同步先于任何 open（与 WorkspaceView.confirm_recent 同序）。
-        const clear_order = clear_fn.mock.invocationCallOrder[0];
-        const open_orders = ub.sessionHistory.open.mock.invocationCallOrder;
-        expect(clear_order).toBeLessThan(open_orders[0] ?? 0);
-        expect(switch_fn).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.open).not.toHaveBeenCalled();
+        expect(compare_fn).toHaveBeenCalledTimes(1);
+        const arg = compare_fn.mock.calls[0]?.[0] as TokenStatsSession[];
+        expect(arg.map((s) => s.id)).toEqual(["c", "a"]);
     });
 
-    it("AC-003：单独打开只装入该会话，不调用清空工作台", async () => {
+    it("AC-003：单独打开进入 compare，仅传该会话", async () => {
         const ub = usageboard();
-        const switch_fn = vi.fn();
-        const clear_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
         await waitFor(() => {
             expect(card_with_id("a")).toBeTruthy();
         });
@@ -1630,10 +1625,10 @@ describe("SessionLibrary (t439 并排打开替换语义)", () => {
         if (!open_btn) throw new Error("单独打开按钮缺失");
         fireEvent.click(open_btn);
 
-        expect(clear_fn).not.toHaveBeenCalled();
-        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(1);
-        expect(ub.sessionHistory.open).toHaveBeenNthCalledWith(1, "claude_code", "linux", "a");
-        expect(switch_fn).toHaveBeenCalledTimes(1);
+        expect(ub.sessionHistory.open).not.toHaveBeenCalled();
+        expect(compare_fn).toHaveBeenCalledTimes(1);
+        const arg = compare_fn.mock.calls[0]?.[0] as TokenStatsSession[];
+        expect(arg.map((s) => s.id)).toEqual(["a"]);
     });
 
     it("t458 AC-003：搜索+日期+Agent+排序同时设置，加载更多分页不丢条件", async () => {
@@ -1962,28 +1957,22 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         expect(request["filters"]).toMatchObject({ directories: ["/proj/a"] });
     });
 
-    it("同屏最近 4：按 ended_at desc 拉取后先清空再逐个打开并切工作台", async () => {
+    it("同屏最近 4：按 ended_at desc 拉取后回调 compare", async () => {
         const ub = usageboard();
-        const switch_fn = vi.fn();
-        const clear_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue(SESSIONS);
-        await renderLibrary({ on_switch_workspace: switch_fn, on_clear_workspace: clear_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
         await waitFor(() => {
             expect(card_with_id("a")).toBeTruthy();
         });
 
         fireEvent.click(screen.getByTestId("open-recent-4"));
         await waitFor(() => {
-            expect(switch_fn).toHaveBeenCalledTimes(1);
+            expect(compare_fn).toHaveBeenCalledTimes(1);
         });
-        expect(clear_fn).toHaveBeenCalledTimes(1);
-        expect(ub.sessionHistory.open).toHaveBeenCalledTimes(3);
-        const clear_order = clear_fn.mock.invocationCallOrder[0];
-        const first_open_order = ub.sessionHistory.open.mock.invocationCallOrder[0];
-        if (clear_order === undefined || first_open_order === undefined) {
-            throw new Error("调用序缺失");
-        }
-        expect(clear_order).toBeLessThan(first_open_order);
+        expect(ub.sessionHistory.open).not.toHaveBeenCalled();
+        const arg = compare_fn.mock.calls[0]?.[0] as TokenStatsSession[];
+        expect(arg.length).toBe(3);
         expect(ub.tokenStats.getSessions).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 order_by: "ended_at",
@@ -1994,17 +1983,32 @@ describe("SessionLibrary 侧边栏（数轴筛选/同屏最近/重置）", () =>
         );
     });
 
-    it("同屏最近结果为空：toast 提示且不清空工作台", async () => {
+    it("同屏最近结果为空：toast 提示且不进入 compare", async () => {
         const ub = usageboard();
-        const clear_fn = vi.fn();
+        const compare_fn = vi.fn();
         ub.tokenStats.getSessions.mockResolvedValue([]);
-        await renderLibrary({ on_clear_workspace: clear_fn });
+        await renderLibrary({ on_open_compare: compare_fn });
 
         fireEvent.click(screen.getByTestId("open-recent-2"));
         await waitFor(() => {
             expect(screen.getByText("没有可同屏打开的会话")).toBeTruthy();
         });
-        expect(clear_fn).not.toHaveBeenCalled();
+        expect(compare_fn).not.toHaveBeenCalled();
+    });
+
+    it("全选结果超过 8 条时截断并 toast 已达同屏上限", async () => {
+        const ub = usageboard();
+        const many = Array.from({ length: 10 }, (_, i) => sess(`m${String(i)}`, "claude_code"));
+        ub.tokenStats.getSessions.mockResolvedValue(many);
+        await renderLibrary();
+        await waitFor(() => {
+            expect(card_with_id("m0")).toBeTruthy();
+        });
+        fireEvent.click(screen.getByRole("button", { name: "会话 m0" }));
+        expect(screen.getByText("已选 1 条")).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: /全选结果/ }));
+        expect(screen.getByText("已选 8 条")).toBeTruthy();
+        expect(screen.getByText("已达同屏上限 8 条")).toBeTruthy();
     });
 
     it("重置：清空搜索/预设/agent/数轴并恢复排序为时间降序", async () => {

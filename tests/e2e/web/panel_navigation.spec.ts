@@ -78,7 +78,7 @@ test.describe("web panel navigation (t259/t311)", () => {
         const page = webPage;
         await page.goto("/#session");
         await expect(page.locator('[data-testid="session-shell"]').first()).toBeVisible();
-        await expect(page.getByRole("button", { name: "工作台", exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "会话库", exact: true })).toBeVisible();
+        await expect(page.getByTestId("library-view")).toBeVisible();
+        await expect(page.getByRole("button", { name: "工作台", exact: true })).toHaveCount(0);
     });
 });

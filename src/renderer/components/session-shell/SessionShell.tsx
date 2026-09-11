@@ -1,46 +1,106 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { SessionHistoryLoc } from "../../../shared/types/ipc";
+import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { PanelTitleBar } from "../ui/PanelTitleBar";
+import { Toast } from "../ui/Toast";
 import { useTheme } from "../../lib/theme";
 import { use_panel_navigation } from "../../lib/panel-navigation";
 import { cn } from "../../lib/utils";
-import { WorkspaceView } from "../workspace/WorkspaceView";
-import { WorkspaceToolbar } from "../workspace/WorkspaceToolbar";
 import { SessionLibrary } from "../session-library/SessionLibrary";
-import type { LayoutCount } from "../../lib/workspace/slots";
-import { load_saved_layout, save_layout } from "../../lib/workspace/workspace-storage";
-import type { PaneView } from "../workspace/SessionPane";
+import { CompareView } from "../session-compare/CompareView";
+import { key_of } from "../session-library/session-library-utils";
+import { initial_loc } from "../workspace/workspace-view-helpers";
 
-type ShellTab = "workspace" | "library";
+type ShellPage = "library" | "compare";
 
-/** 会话窗口单壳双页签外壳：顶栏承载页签/面板跳转。 */
+const MAX_COMPARE = 8;
+
+/** 从外部 open/focus 定位构造最小会话桩，Compare 面板会再补消息。 */
+function session_stub_from_loc(loc: SessionHistoryLoc): TokenStatsSession {
+    return {
+        id: loc.session_id,
+        source: loc.source as TokenStatsSession["source"],
+        env: loc.env as TokenStatsSession["env"],
+        model: "",
+        title: null,
+        directory: null,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        calls: 0,
+        started_at: Date.now(),
+        ended_at: Date.now(),
+    };
+}
+
+/**
+ * 会话窗口外壳（P6）：默认会话库；同屏查看进入 compare。
+ * 不再暴露「工作台」页签；外部 open/focus 亦进入同屏查看。
+ */
 export function SessionShell() {
-    const [tab, set_tab] = useState<ShellTab>("workspace");
-    // 标题栏刷新按钮递增 token，触发工作台槽位消息立即重拉。
+    const [page, set_page] = useState<ShellPage>("library");
+    const [compare_sessions, set_compare_sessions] = useState<TokenStatsSession[]>([]);
     const [refresh_token, set_refresh_token] = useState(0);
-    // t323：三按钮状态提升到外壳，WorkspaceView 受控；rail-toggle 折叠状态同步上移。
-    // t329：布局/视图开关持久化——首次渲染从 localStorage 恢复。
-    const saved_layout = useMemo(() => load_saved_layout(), []);
-    const [layout, set_layout] = useState<LayoutCount>(saved_layout?.layout ?? 3);
-    const [view, set_view] = useState<PaneView>(
-        saved_layout?.view ?? { show_time: false, compact: false },
-    );
-    const [recent_open, set_recent_open] = useState(false);
-    const [rail_collapsed, set_rail_collapsed] = useState(false);
-    // WorkspaceView 经 on_count_change 上报占用槽位数，供视图下拉排布。
-    const [count, set_count] = useState(0);
-    // 清空动作作用于槽位模型，状态在 WorkspaceView 内部，由其上抛注册。
-    const clear_workspace_ref = useRef<(() => void) | null>(null);
-    const register_clear = useCallback((fn: (() => void) | null): void => {
-        clear_workspace_ref.current = fn;
-    }, []);
-
-    // t329: 布局/视图变化即持久化（重开恢复）。
-    useEffect(() => {
-        save_layout(layout, view);
-    }, [layout, view]);
+    const [toast, set_toast] = useState<string | null>(null);
 
     useTheme();
     const navigate = use_panel_navigation();
+
+    const show_toast = useCallback((message: string): void => {
+        set_toast(message);
+        window.setTimeout(() => {
+            set_toast(null);
+        }, 2500);
+    }, []);
+
+    const open_compare = useCallback((sessions: readonly TokenStatsSession[]): void => {
+        const capped = sessions.slice(0, MAX_COMPARE);
+        set_compare_sessions([...capped]);
+        set_page("compare");
+    }, []);
+
+    const open_compare_from_loc = useCallback((loc: SessionHistoryLoc): void => {
+        set_compare_sessions((prev) => {
+            const stub = session_stub_from_loc(loc);
+            const k = key_of(stub);
+            if (prev.some((s) => key_of(s) === k)) return prev;
+            const next = [...prev, stub].slice(0, MAX_COMPARE);
+            return next;
+        });
+        set_page("compare");
+    }, []);
+
+    // 外部打开会话 / URL loc → 同屏查看（替代原工作台装槽）。
+    useEffect(() => {
+        const off = window.usageboard.sessionHistory.onFocus((loc) => {
+            open_compare_from_loc(loc);
+        });
+        const initial = initial_loc();
+        if (initial) open_compare_from_loc(initial);
+        return off;
+    }, [open_compare_from_loc]);
+
+    const open_recent_global = useCallback(
+        async (n: number): Promise<void> => {
+            try {
+                const recent = await window.usageboard.tokenStats.getSessions({
+                    order_by: "ended_at",
+                    direction: "desc",
+                    limit: n,
+                    offset: 0,
+                });
+                if (recent.length === 0) {
+                    show_toast("没有可同屏打开的会话");
+                    return;
+                }
+                open_compare(recent);
+            } catch {
+                show_toast("会话列表加载失败");
+            }
+        },
+        [open_compare, show_toast],
+    );
 
     return (
         <div
@@ -56,106 +116,45 @@ export function SessionShell() {
                     className="min-w-0 flex-1"
                     onNavigate={navigate}
                     onRefresh={() => {
-                        // t434: 刷新 = 触发一轮 token-stats 采集（重置自动采集
-                        // 计时）+ 递增 token 触发工作台槽位消息重拉（既有行为）。
                         void window.usageboard.tokenStats.forceCollect().catch(() => undefined);
                         set_refresh_token((k) => k + 1);
                     }}
-                    before_actions={
-                        <WorkspaceToolbar
-                            layout={layout}
-                            count={count}
-                            view={view}
-                            on_view_change={set_view}
-                            on_layout_change={set_layout}
-                            on_recent={() => {
-                                set_recent_open(true);
-                            }}
-                            on_clear={() => {
-                                clear_workspace_ref.current?.();
-                            }}
-                        />
-                    }
-                    center={
-                        <nav className="flex h-full items-stretch gap-1" aria-label="面板页签">
-                            <button
-                                type="button"
-                                className={cn(
-                                    "border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                                    tab === "workspace" &&
-                                        "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
-                                )}
-                                data-active={tab === "workspace"}
-                                aria-selected={tab === "workspace"}
-                                onClick={() => {
-                                    set_tab("workspace");
-                                }}
-                            >
-                                工作台
-                            </button>
-                            <button
-                                type="button"
-                                className={cn(
-                                    "border-b-2 border-transparent px-4 text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)] transition-colors hover:text-[var(--color-on-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-ring)]",
-                                    tab === "library" &&
-                                        "active border-[var(--color-primary)] text-[var(--color-on-surface)]",
-                                )}
-                                data-active={tab === "library"}
-                                aria-selected={tab === "library"}
-                                onClick={() => {
-                                    set_tab("library");
-                                }}
-                            >
-                                会话库
-                            </button>
-                        </nav>
-                    }
                 />
             </header>
             <main className="flex min-h-0 flex-1" data-testid="session-body">
                 <section
-                    className={cn("min-w-0 flex-1", tab !== "workspace" && "hidden")}
-                    data-pane="workspace"
-                    data-active={tab === "workspace"}
-                    aria-hidden={tab !== "workspace"}
+                    className={cn("min-w-0 flex-1", page !== "library" && "hidden")}
+                    data-pane="library"
+                    data-active={page === "library"}
+                    aria-hidden={page !== "library"}
                 >
-                    <WorkspaceView
-                        refresh_token={refresh_token}
-                        layout={layout}
-                        view={view}
-                        recent_open={recent_open}
-                        rail_collapsed={rail_collapsed}
-                        on_rail_toggle={() => {
-                            set_rail_collapsed((v) => !v);
-                        }}
-                        on_layout_change={set_layout}
-                        on_recent={() => {
-                            set_recent_open(true);
-                        }}
-                        on_recent_close={() => {
-                            set_recent_open(false);
-                        }}
-                        on_count_change={set_count}
-                        on_register_clear={register_clear}
-                    />
+                    <SessionLibrary on_open_compare={open_compare} refresh_token={refresh_token} />
                 </section>
                 <section
-                    className={cn("min-w-0 flex-1", tab !== "library" && "hidden")}
-                    data-pane="library"
-                    data-active={tab === "library"}
-                    aria-hidden={tab !== "library"}
+                    className={cn("min-w-0 flex-1", page !== "compare" && "hidden")}
+                    data-pane="compare"
+                    data-active={page === "compare"}
+                    aria-hidden={page !== "compare"}
                 >
-                    <SessionLibrary
-                        on_switch_workspace={() => {
-                            set_tab("workspace");
-                        }}
-                        on_clear_workspace={() => {
-                            clear_workspace_ref.current?.();
-                        }}
+                    <CompareView
+                        sessions={compare_sessions}
                         refresh_token={refresh_token}
+                        on_back={() => {
+                            set_page("library");
+                        }}
+                        on_remove={(session) => {
+                            set_compare_sessions((prev) =>
+                                prev.filter((s) => key_of(s) !== key_of(session)),
+                            );
+                        }}
+                        on_open_recent={(n) => {
+                            void open_recent_global(n);
+                        }}
+                        on_show_toast={show_toast}
                     />
                 </section>
             </main>
+            {toast !== null && <Toast>{toast}</Toast>}
         </div>
     );
 }

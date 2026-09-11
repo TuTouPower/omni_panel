@@ -11,7 +11,7 @@ import {
 import { AgentLogoRow } from "./AgentLogoRow";
 import { DirectoryChipsFilter } from "./DirectoryChipsFilter";
 import { RangeFilterCard, type RangeValue } from "./RangeFilterCard";
-import { SelectionDock } from "./SelectionDock";
+import { SelectionBar } from "./SelectionBar";
 import { SessionList } from "./SessionList";
 import { SessionPreview } from "./SessionPreview";
 import { TimeRangeFilter } from "./TimeRangeFilter";
@@ -25,17 +25,15 @@ import { format_tokens, key_of } from "./session-library-utils";
 import { Icon } from "../Icon";
 
 interface SessionLibraryProps {
-    readonly on_switch_workspace: () => void;
-    /** t439: 并排打开 = 替换语义——先清空工作台全部槽位再装入所选。
-     *  回调由 SessionShell 接线到 WorkspaceView 注册的 clear_all。 */
-    readonly on_clear_workspace: () => void;
+    /** P6: 单独打开 / 同屏查看 / 同屏最近 → 进入 compare。 */
+    readonly on_open_compare: (sessions: readonly TokenStatsSession[]) => void;
     /** t434: 顶栏刷新递增 token，触发按当前筛选/排序重拉列表。 */
     readonly refresh_token?: number | undefined;
 }
 
 const PAGE_SIZE = 50;
 const MAX_SELECT = 8;
-/** 同屏最近并排打开的档位数。 */
+/** 同屏最近档位数。 */
 const RECENT_CO_OPEN_OPTIONS = [2, 4, 6, 8] as const;
 const PREVIEW_MESSAGES = 5;
 /** t404: 内容搜索每批扫描候选数；首批结果可先展示，后续批次合并。 */
@@ -43,11 +41,7 @@ const CONTENT_SCAN_BATCH_SIZE = 64;
 
 type SessionStatsStatus = "loading" | "ready" | "error";
 
-export function SessionLibrary({
-    on_switch_workspace,
-    on_clear_workspace,
-    refresh_token,
-}: SessionLibraryProps) {
+export function SessionLibrary({ on_open_compare, refresh_token }: SessionLibraryProps) {
     const [all, set_all] = useState<TokenStatsSession[]>([]);
     const [search, set_search] = useState("");
     const [title, set_title] = useState("");
@@ -507,11 +501,10 @@ export function SessionLibrary({
     }
 
     function open_session(s: TokenStatsSession): void {
-        void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
-        on_switch_workspace();
+        on_open_compare([s]);
     }
 
-    /** 同屏最近：按当前筛选取最近 N 条，清空工作台后并排打开（替换语义，同 SelectionDock）。 */
+    /** 同屏最近：按当前筛选取最近 N 条，进入同屏查看。 */
     async function open_recent(count: number): Promise<void> {
         try {
             const recent =
@@ -528,14 +521,21 @@ export function SessionLibrary({
                 show_toast("没有可同屏打开的会话");
                 return;
             }
-            on_clear_workspace();
-            for (const s of recent) {
-                void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
-            }
-            on_switch_workspace();
+            on_open_compare(recent.slice(0, MAX_SELECT));
         } catch {
             show_toast("会话列表加载失败");
         }
+    }
+
+    /** 全选当前筛选结果，最多 8 条；超出截断并 toast。 */
+    function select_all_filtered(): void {
+        const pool = content_filtered;
+        if (pool.length > MAX_SELECT) {
+            set_selected(pool.slice(0, MAX_SELECT));
+            show_toast("已达同屏上限 8 条");
+            return;
+        }
+        set_selected([...pool]);
     }
 
     /** 重置全部筛选与排序回默认（数轴滑杆立即清零，applied 同步清）。 */
@@ -873,21 +873,15 @@ export function SessionLibrary({
                 />
             )}
 
-            <SelectionDock
-                selected={selected}
-                max_select={MAX_SELECT}
-                on_remove={toggle_select}
+            <SelectionBar
+                count={selected.length}
+                total_filtered={content_filtered.length}
+                on_select_all={select_all_filtered}
                 on_clear={() => {
                     set_selected([]);
                 }}
-                on_open_all={(sessions) => {
-                    // t439: 替换语义——先同步清空工作台（clear_all 退订+清槽），
-                    // 再逐个 open；顺序与 WorkspaceView.confirm_recent 一致。
-                    on_clear_workspace();
-                    for (const s of sessions) {
-                        void window.usageboard.sessionHistory.open(s.source, s.env, s.id);
-                    }
-                    on_switch_workspace();
+                on_compare={() => {
+                    on_open_compare(selected);
                 }}
             />
             {toast !== null && <Toast>{toast}</Toast>}
