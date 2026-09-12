@@ -10,7 +10,7 @@ import { cn } from "../../lib/utils";
 import { Icon, VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { IdChip } from "../session-library/SessionCard";
-import { format_tokens, key_of, session_tokens } from "../session-library/session-library-utils";
+import { format_session_tokens, key_of } from "../session-library/session-library-utils";
 import { MarkdownMessage } from "../workspace/MarkdownMessage";
 import { Skeleton } from "../ui/Skeleton";
 
@@ -230,7 +230,7 @@ function ComparePanel({
             });
     }
 
-    const tokens = session_tokens(session);
+    const tokens_label = format_session_tokens(session);
     const time_range = `${format_compact_datetime(session.started_at)} → ${format_compact_datetime(session.ended_at)}`;
 
     return (
@@ -276,7 +276,7 @@ function ComparePanel({
 
                 <div className="mt-2 flex min-w-0 items-center gap-2 text-[length:var(--text-label-md)]">
                     <span className="shrink-0 font-semibold tabular-nums text-[var(--color-on-surface)]">
-                        {format_tokens(tokens)} tokens
+                        {tokens_label}
                     </span>
                     <span className="shrink-0 tabular-nums text-[var(--color-on-surface-variant)]">
                         {session.calls} 轮

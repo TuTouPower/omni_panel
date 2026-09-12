@@ -22,6 +22,8 @@ import { scan_grok_updates, create_grok_scan_state } from "./grok-reader";
 import type { GrokScanState } from "./grok-reader";
 import { scan_codex_rollouts, create_codex_scan_state } from "./codex-reader";
 import type { CodexScanState } from "./codex-reader";
+import { scan_antigravity_sessions, create_antigravity_scan_state } from "./antigravity-reader";
+import type { AntigravityScanState } from "./antigravity-reader";
 import {
     serialize_state as scan_serialize,
     save_state as scan_save,
@@ -43,7 +45,14 @@ interface CostsState {
 interface SourceDef {
     key: string;
     source: TokenStatsSource;
-    kind: "costs" | "session_jsonl" | "opencode_db" | "kimi_jsonl" | "grok_jsonl" | "codex_jsonl";
+    kind:
+        | "costs"
+        | "session_jsonl"
+        | "opencode_db"
+        | "kimi_jsonl"
+        | "grok_jsonl"
+        | "codex_jsonl"
+        | "antigravity_index";
     env: TokenStatsEnv;
     /**
      * Hosts that can host this source (t309). The collector filters the
@@ -110,6 +119,7 @@ const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
 const codex_states = new Map<string, CodexScanState>();
+const antigravity_states = new Map<string, AntigravityScanState>();
 // t345 AC-003 + t385 AC-001/002: 超上限截断游标——该 source 已发出的
 // session/daily **身份键**集合（非排序位置计数，防新会话排序在游标前被误跳）。
 // 入 scan-state 持久化，跨重启保留推进进度。回滚 state 下轮全量重扫，按
@@ -204,6 +214,7 @@ export function serialize_state(): SerializedScanState {
         kimi_states,
         grok_states,
         codex_states,
+        antigravity_states,
         source_cursors,
     });
 }
@@ -217,6 +228,7 @@ export async function save_state(state_path: string): Promise<void> {
             kimi_states,
             grok_states,
             codex_states,
+            antigravity_states,
             source_cursors,
         },
         state_path,
@@ -235,6 +247,7 @@ export async function load_state(state_path: string): Promise<void> {
             kimi_states,
             grok_states,
             codex_states,
+            antigravity_states,
             source_cursors,
         },
         state_path,
@@ -278,6 +291,15 @@ function platform_source_defs(host: Host): SourceDef[] {
         { key: `grok_${env}`, source: "grok", kind: "grok_jsonl", env, hosts: [host] },
         // t445: codex 数据仅本机 ~/.codex（无 wsl 对侧），随宿主平台源采集。
         { key: `codex_${env}`, source: "codex", kind: "codex_jsonl", env, hosts: [host] },
+        // t470: antigravity 会话发现仅本机索引（无用量 records；代理面板不接，
+        // AC-004）。随宿主平台源采集，与 codex 同形。
+        {
+            key: `antigravity_${env}`,
+            source: "antigravity",
+            kind: "antigravity_index",
+            env,
+            hosts: [host],
+        },
     ];
 }
 
@@ -520,6 +542,24 @@ function grok_sessions_path(
     return paths.grok_sessions_path(path_input(cfg, host, homedir), env);
 }
 
+function antigravity_conversations_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.antigravity_conversations_path(path_input(cfg, host, homedir), env);
+}
+
+function antigravity_summaries_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.antigravity_summaries_path(path_input(cfg, host, homedir), env);
+}
+
 // --- Source readers ---
 
 /** Result of one source's collection round, extended with its status (t309). */
@@ -661,6 +701,48 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
                 status: "ok",
             };
         }
+        if (src.kind === "antigravity_index") {
+            // t470: 会话发现索引（无用量 records）。summaries 缺失仍可回退扫
+            // 目录；会话根目录缺失才报 missing。
+            const conversations_path = antigravity_conversations_path(cfg, src.env);
+            const summaries_path = antigravity_summaries_path(cfg, src.env);
+            if (conversations_path === null || summaries_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
+            const state = antigravity_states.get(src.key) ?? create_antigravity_scan_state();
+            const result = scan_antigravity_sessions(
+                conversations_path,
+                summaries_path,
+                src.env,
+                state,
+            );
+            antigravity_states.set(src.key, result.new_state);
+            if (result.missing) {
+                const lastError = `sessions dir missing: ${conversations_path}`;
+                return {
+                    ...EMPTY_READ,
+                    status: "unavailable",
+                    lastError,
+                    logMessage: `${src.key} ${lastError}`,
+                };
+            }
+            if (result.file_unreadable) {
+                return {
+                    sessions: result.sessions,
+                    daily: result.daily,
+                    records: result.records,
+                    status: "failed",
+                    lastError: "some antigravity index files unreadable",
+                    logMessage: `${src.key} partially unreadable: some index files unreadable`,
+                };
+            }
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
+        }
         const opencode_db_path = opencode_path(cfg, src.env);
         if (opencode_db_path === null) {
             return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
@@ -726,6 +808,7 @@ function collect(): void {
         kimi: KimiScanState | undefined;
         grok: GrokScanState | undefined;
         codex: CodexScanState | undefined;
+        antigravity: AntigravityScanState | undefined;
         cursor: { sessions: Set<string>; daily: Set<string> } | undefined;
     }[] = [];
     // 超上限触发截断的 source（不 break 饿死后续 source）。
@@ -759,6 +842,7 @@ function collect(): void {
             kimi: kimi_states.get(src.key),
             grok: grok_states.get(src.key),
             codex: codex_states.get(src.key),
+            antigravity: antigravity_states.get(src.key),
             cursor: cursor_snap
                 ? { sessions: new Set(cursor_snap.sessions), daily: new Set(cursor_snap.daily) }
                 : undefined,
@@ -836,6 +920,7 @@ function collect(): void {
                 kimi_states,
                 grok_states,
                 codex_states,
+                antigravity_states,
             ] as const) {
                 map.delete(src.key);
             }
@@ -884,6 +969,7 @@ function collect(): void {
             set_or_delete(kimi_states, snap.kimi);
             set_or_delete(grok_states, snap.grok);
             set_or_delete(codex_states, snap.codex);
+            set_or_delete(antigravity_states, snap.antigravity);
             set_or_delete(source_cursors, snap.cursor);
         }
     }
@@ -924,6 +1010,8 @@ function reset_config(): void {
     jsonl_states.clear();
     kimi_states.clear();
     grok_states.clear();
+    codex_states.clear();
+    antigravity_states.clear();
     source_warned.clear();
     emitted_record_keys.clear();
     source_cursors.clear();

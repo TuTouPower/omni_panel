@@ -214,4 +214,18 @@ describe("SessionCard（demo 对齐）", () => {
         fireEvent.click(screen.getByRole("button", { name: "会话 sess_a" }));
         expect(on_toggle).toHaveBeenCalledWith(expect.objectContaining({ id: "sess_a" }));
     });
+
+    it("t470 AC-003: antigravity 卡片 tokens 显示未知而非 0", () => {
+        const agy = sess("agy-1", "antigravity", { calls: 42, directory: null });
+        agy.input_tokens = 0;
+        agy.output_tokens = 0;
+        agy.cache_read_tokens = 0;
+        agy.cache_write_tokens = 0;
+        render_card({ s: agy });
+        const meta = document.querySelector('[data-testid="library-card-meta"]');
+        if (!meta) throw new Error("library-card-meta missing");
+        expect(meta.textContent).toContain("42 轮");
+        expect(meta.textContent).toContain("未知");
+        expect(meta.textContent).not.toContain("0 tokens");
+    });
 });

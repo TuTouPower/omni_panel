@@ -11,7 +11,7 @@ import { Icon, VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Checkbox } from "../ui/Checkbox";
-import { format_tokens, session_tokens } from "./session-library-utils";
+import { format_session_tokens } from "./session-library-utils";
 
 interface CardProps {
     readonly s: TokenStatsSession;
@@ -163,7 +163,7 @@ export const SessionCard = memo(function SessionCard({
                         </span>
                     ) : null}
                     <span className="shrink-0 font-semibold tabular-nums text-[var(--color-on-surface)]">
-                        {format_tokens(session_tokens(s))} tokens
+                        {format_session_tokens(s)}
                     </span>
                     <span className="shrink-0 tabular-nums text-[var(--color-on-surface-variant)]">
                         {String(s.calls)} 轮

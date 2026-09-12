@@ -231,3 +231,11 @@
 - 结论：选 B。五层语义与数值不变（见 DESIGN.md 层级节）；源码一律 `z-[var(--z-*)]`；`tests/unit/renderer/styles/layer_class_gate.test.ts` 正向门禁（字符串字面量扫裸类 + 四位点 pin + token 存在 + 检测器自检）。
 - 落地：t452。
 - 替代：无
+
+## 025 antigravity 会话进列表但用量记 0＋标未知、代理面板不接（2026-09-11）
+
+- 背景：s035 硬结论——antigravity 本地明文层无 token 计数，会话面板列表又复用 `token_stats_sessions` 做发现，导致 agy 会话不可见（p226）；直接填 0 会造假（t448 前车之鉴）。
+- 选项：A) 会话发现进库 + tokens 记 0 + UI 标未知；B) 反推 protobuf usageMetadata 做真用量；C) 独立发现通道不进 sessions 表。
+- 结论：选 A。collector `antigravity_index` 只产 sessions（`calls`=索引 `step_count`、tokens 全 0）；会话库卡片/列表/预览/同屏统一显示“未知”；dashboard 全域派生自 records（agy 无 records）故代理面板天然无泄漏，`AgentFilter`/agent 枚举一律不动。B 脆弱另起 spike，C 双源合并成本更高。
+- 落地：t470；规格见 `docs/specs/antigravity-session-history-extractor.md`「会话发现进列表」。
+- 替代：无

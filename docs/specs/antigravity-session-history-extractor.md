@@ -25,3 +25,10 @@
 - 非范围：代理面板/token-stats、用量面板连接器、GUI state.vscdb、macOS/Windows fixture（只覆盖 linux）。
 - 风险：protobuf field 号随 CLI 版本漂移，漂移回 d054 修订。
 - 测试：`tests/unit/main/core/session-history/antigravity-extractor.test.ts`（手造最小 sqlite + 手工 protobuf 编码 fixture）。
+
+## 会话发现进列表（t470，来源 p226）
+
+- 需求：会话库列表此前无 antigravity（`token_stats_sessions` 仅 5 源；直查链 t455 已通）。补 collector `antigravity_index` reader：`conversation_summaries.db` 为主（`title/directory/started_at/ended_at` 取索引行，`calls` 取 `step_count`，零日期回退会话库 mtime），索引缺行回退扫 `conversations/*.db` 文件名（`calls` 取 steps 行数）；tokens 四项记 0（无用量源，s035 硬结论）。
+- 不造假：agy 行卡片/列表/预览/同屏统一显示“未知”而非 0；header 总量口径不变（0 不污染求和）；按 tokens 排序时 agy 与 0 同序。
+- 代理面板排除：`AgentFilter`/`AGENT_OPTIONS`/dashboard 与 records/heatmap/rollup 的 agent 枚举查询一律不动；dashboard 全域派生自 records（agy 无 records）故天然无泄漏。
+- 测试：`tests/unit/main/core/token-stats/antigravity-reader.test.ts`（最小 summaries.db + steps 库 fixture，含缺行/零日期/损坏/增量）；collector 平台源 6→7（t445 先例随盘点注释更新）；`token-stats-store.test.ts` sources 过滤与 `source_counts`；卡片未知标注；视图无 Antigravity 选项。

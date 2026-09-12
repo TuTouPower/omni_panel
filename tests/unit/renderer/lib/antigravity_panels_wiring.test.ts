@@ -3,6 +3,11 @@ import { vendor_id_for_source } from "../../../../src/renderer/lib/workspace/slo
 import { agent_friendly, agent_slug } from "../../../../src/renderer/lib/session-history/markdown";
 import { resume_command } from "../../../../src/renderer/lib/session-resume";
 import type { AgentFilter } from "../../../../src/renderer/lib/token-stats/types";
+import {
+    agentSessionUsageSchema,
+    tokenStatsDashboardAgentSchema,
+    tokenStatsSourceSchema,
+} from "../../../../src/shared/types/token-stats";
 
 /**
  * t456 会话面板 antigravity 接线（只做会话面板；代理面板过滤选项不得出现 antigravity）。
@@ -29,5 +34,14 @@ describe("antigravity panels wiring (t456)", () => {
 
     it("AC-003: 代理面板过滤选项不出现 antigravity", () => {
         expect(NO_ANTIGRAVITY_IN_AGENT_FILTER).toBe(true);
+    });
+
+    it("t470 AC-001: 会话 source 契约接纳 antigravity", () => {
+        expect(tokenStatsSourceSchema.safeParse("antigravity").success).toBe(true);
+    });
+
+    it("t470 AC-004: records/dashboard agent 契约拒绝 antigravity", () => {
+        expect(agentSessionUsageSchema.shape.agent.safeParse("antigravity").success).toBe(false);
+        expect(tokenStatsDashboardAgentSchema.safeParse("antigravity").success).toBe(false);
     });
 });

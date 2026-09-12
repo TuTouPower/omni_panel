@@ -1,5 +1,6 @@
 import { agent_friendly, format_date } from "../../lib/session-history/markdown";
 import { session_tokens } from "../../lib/session-library/filter";
+import type { TokenStatsSession } from "../../../shared/types/token-stats";
 
 export { agent_friendly, format_date, session_tokens };
 
@@ -29,4 +30,13 @@ export function format_tokens(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 10_000) return `${String(Math.round(n / 1000))}k`;
     return n.toLocaleString("en-US");
+}
+
+/**
+ * t470 AC-003：会话 tokens 展示。antigravity 无用量源（s035），存量记 0
+ * 但展示为“未知”，不把 0 当真实用量；其余来源沿用 `N tokens`。
+ */
+export function format_session_tokens(s: TokenStatsSession): string {
+    if (s.source === "antigravity") return "未知";
+    return `${format_tokens(session_tokens(s))} tokens`;
 }

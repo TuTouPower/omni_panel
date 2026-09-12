@@ -19,6 +19,7 @@ interface SessionStats {
     sessions: number;
     agents: number;
     tokens: number;
+    source_counts?: Record<string, number>;
 }
 type SessionStatsStore = TokenStatsStore & {
     query_session_stats: () => SessionStats;
@@ -3354,5 +3355,105 @@ describe("token-stats-store", () => {
                 expect(via_b.current.calls).toBe(1);
             });
         });
+    });
+});
+
+describe("antigravity sessions (t470 AC-001)", () => {
+    let agy_store: TokenStatsStore;
+
+    beforeEach(() => {
+        agy_store = create_token_stats_store(":memory:");
+    });
+
+    afterEach(() => {
+        agy_store.close();
+    });
+
+    it("sources 过滤与 source_counts 可见 antigravity 行", () => {
+        agy_store.upsert_sessions(
+            [
+                delta({
+                    id: "agy-1",
+                    source: "antigravity",
+                    model: null,
+                    title: "agy 会话",
+                    directory: "/home/u/proj",
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 42,
+                }),
+            ],
+            [],
+        );
+        const rows = agy_store.query_sessions({ sources: ["antigravity"] });
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({ id: "agy-1", source: "antigravity", calls: 42 });
+        // tokens 记 0：header 总量口径不变（AC-003 后端侧）。
+        expect(rows[0]!.input_tokens + rows[0]!.output_tokens).toBe(0);
+        const stats = (agy_store as SessionStatsStore).query_session_stats();
+        expect(stats.sessions).toBe(1);
+        // logo 行数据源：按 source 聚合含 antigravity。
+        expect(stats.source_counts?.["antigravity"]).toBe(1);
+    });
+
+    it("t470_test_f001 AC-003: agy 与 0 同序，tokens 区间过滤行为有定义", () => {
+        agy_store.upsert_sessions(
+            [
+                delta({
+                    id: "agy-1",
+                    source: "antigravity",
+                    model: null,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 42,
+                    started_at: T0,
+                    ended_at: T1,
+                }),
+                delta({
+                    id: "zero",
+                    source: "claude_code",
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 1,
+                    started_at: T0,
+                    ended_at: T1,
+                }),
+                delta({
+                    id: "big",
+                    source: "codex",
+                    input_tokens: 900,
+                    output_tokens: 0,
+                    cache_read_tokens: 0,
+                    cache_write_tokens: 0,
+                    calls: 2,
+                    started_at: T0,
+                    ended_at: T1,
+                }),
+            ],
+            [],
+        );
+        // 按 tokens 升序不抛错；agy 与 0 同序且沉底（非零在后）。
+        const ordered = agy_store.query_sessions({ order_by: "tokens", direction: "asc" });
+        expect(ordered.map((r) => r.id).sort()).toEqual(["agy-1", "big", "zero"]);
+        expect(ordered[ordered.length - 1]!.id).toBe("big");
+        expect(
+            ordered
+                .slice(0, 2)
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["agy-1", "zero"]);
+        // min_tokens: 1 排除 agy；max_tokens: 0 命中 agy。
+        expect(agy_store.query_sessions({ min_tokens: 1 }).some((r) => r.id === "agy-1")).toBe(
+            false,
+        );
+        expect(agy_store.query_sessions({ max_tokens: 0 }).some((r) => r.id === "agy-1")).toBe(
+            true,
+        );
     });
 });

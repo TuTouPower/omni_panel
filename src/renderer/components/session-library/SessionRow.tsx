@@ -4,12 +4,7 @@ import { agent_accent } from "../../lib/workspace/slots";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
-import {
-    agent_abbrev,
-    format_tokens,
-    relative_date,
-    session_tokens,
-} from "./session-library-utils";
+import { agent_abbrev, format_session_tokens, relative_date } from "./session-library-utils";
 
 interface RowProps {
     readonly s: TokenStatsSession;
@@ -70,8 +65,7 @@ export const SessionRow = memo(function SessionRow({
                 className="shrink-0 whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]"
                 data-testid="library-row-meta"
             >
-                {String(s.calls)} 轮 · {format_tokens(session_tokens(s))} tokens ·{" "}
-                {relative_date(s.ended_at)}
+                {String(s.calls)} 轮 · {format_session_tokens(s)} · {relative_date(s.ended_at)}
             </span>
             <span
                 className="max-w-[160px] min-w-0 shrink truncate text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"

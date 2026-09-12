@@ -7506,6 +7506,22 @@
             "conflicts_with": "",
             "note": "修复 wildcard cookie 静默刷新误判，并保留 Kimi Bearer/session/device 凭据；来源：2026-09-09 代码核查。",
             "dir": "docs/archive/tasks/t469_kimi_web_session_refresh_no_popup"
+        },
+        {
+            "tid": "t470",
+            "slug": "antigravity_session_discovery_list",
+            "title": "antigravity会话发现进列表（tokens记0+标注未知）",
+            "status": "done",
+            "branch": "t470_antigravity_session_discovery_list",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "d25451d57a5e90e8a42e9dff23d8edc1bca33444",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源p226；发现优先tokens记0+标注，代理面板仍排除",
+            "dir": "docs/archive/tasks/t470_antigravity_session_discovery_list"
         }
     ]
 }
