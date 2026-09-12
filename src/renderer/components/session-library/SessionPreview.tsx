@@ -3,10 +3,9 @@ import type { HistoryMessageLike } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { agent_slug } from "../../lib/session-history/markdown";
 import { agent_accent } from "../../lib/workspace/slots";
-import { session_tokens } from "../../lib/session-library/filter";
 import { Button } from "../ui/Button";
 import { MarkdownMessage } from "../workspace/MarkdownMessage";
-import { agent_abbrev, format_tokens, relative_date } from "./session-library-utils";
+import { agent_abbrev, format_session_tokens, relative_date } from "./session-library-utils";
 
 interface SessionPreviewProps {
     readonly preview: TokenStatsSession;
@@ -48,8 +47,7 @@ export function SessionPreview({
                         </span>
                         <span className="truncate whitespace-nowrap font-code-md text-[length:var(--text-label-md)] tabular-nums text-[var(--color-on-surface-muted)]">
                             {agent_slug(preview.source)} · {String(preview.calls)} 轮 ·{" "}
-                            {format_tokens(session_tokens(preview))} tokens ·{" "}
-                            {relative_date(preview.ended_at)}
+                            {format_session_tokens(preview)} · {relative_date(preview.ended_at)}
                         </span>
                     </div>
                     <Button

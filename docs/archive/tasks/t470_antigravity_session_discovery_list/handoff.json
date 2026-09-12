@@ -1,0 +1,33 @@
+{
+    "tid": "t470",
+    "attempt": 1,
+    "execution_id": "eb3706c1d2644588a78a8cd8ebddef51",
+    "status": "done",
+    "branch": "t470_antigravity_session_discovery_list",
+    "base_sha": "d25451d57a5e90e8a42e9dff23d8edc1bca33444",
+    "tests": "pnpm test：291 文件 3652 passed（红→绿实证：reader 缺模块、schema 拒值、卡片 0 tokens、平台计数 6；Round2 后 prettier 空格重排 2 测试文件并重绿）；pnpm check（typecheck＋lint＋format＋deadcode＋arch）绿；pnpm build 绿",
+    "blackbox": "web e2e session_panel.spec.ts 6 passed；真机 conversation_summaries.db 只读核对（51 行：agent 全空→model null、35 空标题→null、4 零日期→回退 mtime、workspace_uris file:// 数组；78 库 27＋ 无索引行走回退）",
+    "review": "full 第 1 轮 code FAIL（f001 important 增量降级＋f002 minor 空表误报）＋test PASS（f001 minor 排序锁定缺失）；修复后第 2 轮 code/test 双 PASS，finding 3/3 已修，无新增",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/core/token-stats/antigravity-reader.test.ts::索引行映射/缺行回退/增量/损坏 11 用例（真实 sqlite fixture）",
+            "tests/unit/main/core/token-stats/collector.test.ts::t470 AC-001 平台源透传会话且无 records＋平台源 7 个",
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::sources 过滤＋source_counts 含 antigravity",
+            "tests/unit/renderer/lib/antigravity_panels_wiring.test.ts::tokenStatsSourceSchema 接纳 antigravity"
+        ],
+        "AC-002": [
+            "t455 extractor＋locator 既有覆盖（定位/正文）；tests/unit/renderer/lib/antigravity_panels_wiring.test.ts::resume agy --conversation（t456 既有）",
+            "tests/e2e/web/session_panel.spec.ts::会话库打开会话进入同屏并渲染消息 6 passed"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/session_library/SessionCard.test.tsx::agy 卡片显示未知而非 0 tokens",
+            "tests/unit/main/core/token-stats/token-stats-store.test.ts::t470_test_f001 order_by tokens 同序＋min/max_tokens 行为锁定"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/lib/antigravity_panels_wiring.test.ts::records/dashboard agent 契约拒绝 antigravity",
+            "tests/unit/renderer/views/token_stats_view.test.tsx::工具筛选无 Antigravity 选项"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -9,6 +9,7 @@ const mock_read_opencode_sessions = vi.fn();
 const mock_scan_kimi = vi.fn();
 const mock_scan_grok = vi.fn();
 const mock_scan_codex = vi.fn();
+const mock_scan_antigravity = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
     read_costs_jsonl: (...args: unknown[]) => mock_read_costs(...args),
@@ -29,6 +30,10 @@ vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
 vi.mock("../../../../../src/main/core/token-stats/codex-reader", () => ({
     scan_codex_rollouts: (...args: unknown[]) => mock_scan_codex(...args),
     create_codex_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
+}));
+vi.mock("../../../../../src/main/core/token-stats/antigravity-reader", () => ({
+    scan_antigravity_sessions: (...args: unknown[]) => mock_scan_antigravity(...args),
+    create_antigravity_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 
 const mock_scan_save = vi.fn();
@@ -185,6 +190,12 @@ describe("collector", () => {
             new_state: { mtimes: new Map(), files: new Map() },
         });
         mock_scan_codex.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
+        mock_scan_antigravity.mockReturnValue({
             sessions: [],
             daily: [],
             records: [],
@@ -1151,9 +1162,9 @@ describe("collector", () => {
             configure(wsl_config);
 
             const update = posted_updates()[0]!;
-            // 平台六源（t445 +codex）env=mac、全部 ok；reader 收到 env=mac。
+            // 平台七源（t445 +codex；t470 +antigravity）env=mac、全部 ok；reader 收到 env=mac。
             const mac_statuses = update.sources_status.filter((s) => s.env === "mac");
-            expect(mac_statuses).toHaveLength(6);
+            expect(mac_statuses).toHaveLength(7);
             expect(mac_statuses.every((s) => s.status === "ok")).toBe(true);
             expect(mock_scan_grok.mock.calls[0]![1]).toBe("mac");
             expect(mock_read_costs.mock.calls[0]![1]).toBe("mac");
@@ -1186,9 +1197,9 @@ describe("collector", () => {
                 expect(s.status).toBe("unavailable");
                 expect(s.lastError).toContain("windows host");
             }
-            // 平台源 stay healthy（linux 宿主 → 6 个 linux 平台源，t445 +codex）。
+            // 平台源 stay healthy（linux 宿主 → 7 个 linux 平台源，t445 +codex，t470 +antigravity）。
             const platform_statuses = update.sources_status.filter((s) => s.env === "linux");
-            expect(platform_statuses).toHaveLength(6);
+            expect(platform_statuses).toHaveLength(7);
             expect(platform_statuses.every((s) => s.status === "ok")).toBe(true);
 
             // AC-003: one warn per unavailable source, keyed with source/env + reason.
@@ -1272,9 +1283,43 @@ describe("collector", () => {
 
             expect(posted_logs()).toHaveLength(0);
             const update = posted_updates()[0]!;
-            // t426/t437/t445: 6 个平台源（claude_costs/claude_jsonl/opencode/kimi/grok/codex，env=win）。
-            expect(update.sources_status).toHaveLength(6);
+            // t426/t437/t445/t470: 7 个平台源（claude_costs/claude_jsonl/opencode/kimi/grok/codex/antigravity，env=win）。
+            expect(update.sources_status).toHaveLength(7);
             expect(update.sources_status.every((s) => s.status === "ok")).toBe(true);
+        });
+
+        it("t470 AC-001: antigravity 平台源参与采集，会话透传且无 records", () => {
+            set_collector_host("windows");
+            mock_scan_antigravity.mockReturnValue({
+                sessions: [
+                    upsert({
+                        id: "agy-1",
+                        source: "antigravity",
+                        model: null,
+                        input_tokens: 0,
+                        output_tokens: 0,
+                        cache_read_tokens: 0,
+                        cache_write_tokens: 0,
+                        calls: 42,
+                    }),
+                ],
+                daily: [],
+                records: [],
+                new_state: { mtimes: new Map(), files: new Map() },
+            });
+            configure(base_config);
+
+            const update = posted_updates()[0]!;
+            const agy_status = update.sources_status.find((s) => s.source === "antigravity");
+            expect(agy_status).toMatchObject({ source: "antigravity", env: "win", status: "ok" });
+            expect(update.sessions.some((s) => s.id === "agy-1")).toBe(true);
+            const posted = update as unknown as { records: unknown[] };
+            expect(posted.records).toHaveLength(0);
+            // reader 收到平台 env 与会话目录/索引库两条路径。
+            const args = mock_scan_antigravity.mock.calls[0]!;
+            expect(args[2]).toBe("win");
+            expect(String(args[0])).toContain(".gemini");
+            expect(String(args[1])).toContain("conversation_summaries.db");
         });
     });
 

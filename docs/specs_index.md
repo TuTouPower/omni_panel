@@ -78,7 +78,7 @@
 |unify_account_auth_forms|Web|t157|2026-07-27|
 |session-history-window|Desktop|t211，t212，t213，t436|2026-08-23|
 |kimi-session-history-extractor|Desktop|t425，t436|2026-08-23|
-|antigravity-session-history-extractor|Desktop|t455|2026-09-06|
+|antigravity-session-history-extractor|Desktop|t455，t470|2026-09-11|
 |session_query_title_directory_filters|API|t457|2026-09-08|
 |session_content_search_cold_perf|Web+Desktop|t404|2026-08-16|
 |session_library_agent_search|API|t460|2026-09-08|

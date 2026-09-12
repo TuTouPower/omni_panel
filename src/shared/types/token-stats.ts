@@ -8,6 +8,9 @@ export const tokenStatsSourceSchema = z.enum([
     "kimi_code",
     "grok",
     "codex",
+    // t470: antigravity 会话发现进 token_stats_sessions（仅列表/预览/续接；
+    // 无用量 records，代理面板 agent 枚举一律不动，见 AC-004）。
+    "antigravity",
 ]);
 /**
  * t437: 会话数据所在平台标签（替代 t308 的 `local`）。`win` = Windows 用户目录

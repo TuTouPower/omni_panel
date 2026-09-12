@@ -353,6 +353,16 @@ describe("TokenStatsView dashboard query", () => {
         expect(request.agent).toBe("codex");
     });
 
+    it("t470 AC-004: 代理面板工具筛选无 Antigravity 选项", async () => {
+        render(<TokenStatsView />);
+        await screen.findByTestId("session-records");
+
+        const agentSelect = screen.getByLabelText<HTMLSelectElement>("工具筛选");
+        const labels = [...agentSelect.options].map((option) => option.textContent);
+        expect(labels).not.toContain("Antigravity");
+        expect([...agentSelect.options].map((option) => option.value)).not.toContain("antigravity");
+    });
+
     it("AC4: renders without error after selecting grok when no grok data exists", async () => {
         render(<TokenStatsView />);
         const user = userEvent.setup();
