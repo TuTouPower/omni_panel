@@ -1,4 +1,5 @@
 import { execSync, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { platform } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -91,16 +92,46 @@ function clear_runtime_state(): void {
     log("clear_runtime_state: skipped (states/ preserved to avoid instanceId orphan)");
 }
 
+/**
+ * electron-builder --dir 在 macOS 下按架构输出到 artifacts/mac-arm64 或
+ * artifacts/mac；旧实现硬编码 artifacts/mac，arm64 机器上 spawn ENOENT。
+ */
+export function mac_app_rel_path(arch: string = process.arch): string {
+    const dir = arch === "arm64" ? "artifacts/mac-arm64" : "artifacts/mac";
+    return `${dir}/OmniPanel.app`;
+}
+
+/**
+ * 无 Developer ID 时 electron-builder 跳过签名，但 electronFuses 的
+ * enableEmbeddedAsarIntegrityValidation + hardenedRuntime 要求有效签名，
+ * 未重签会在启动瞬间 SIGKILL (Code Signature Invalid)。这里做 ad-hoc 重签。
+ * 注意：重签会改动 asar 完整性哈希，fuse 校验以重签后的 seal 为准。
+ */
+function adhoc_sign_mac(app_dir: string): void {
+    const app = resolve(ROOT, app_dir);
+    log(`ad-hoc signing: ${app}`);
+    execSync(`codesign --force --deep --sign - ${JSON.stringify(app)}`, {
+        cwd: ROOT,
+        stdio: "inherit",
+    });
+}
+
 function run_packaged(): void {
     let rel_path: string;
     if (platform() === "win32") {
         rel_path = "artifacts/win-unpacked/OmniPanel.exe";
     } else if (platform() === "darwin") {
-        rel_path = "artifacts/mac/OmniPanel.app/Contents/MacOS/OmniPanel";
+        const app_dir = mac_app_rel_path();
+        adhoc_sign_mac(app_dir);
+        rel_path = `${app_dir}/Contents/MacOS/OmniPanel`;
     } else {
         rel_path = "artifacts/linux-unpacked/omni_panel";
     }
     const exe = resolve(ROOT, rel_path);
+
+    if (!existsSync(exe)) {
+        throw new Error(`packaged binary not found: ${exe}`);
+    }
 
     log(`starting: ${exe}`);
 
