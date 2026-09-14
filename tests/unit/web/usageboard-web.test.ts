@@ -70,6 +70,76 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/records"));
     });
 
+    it("t480 AC-005: tokenStats.getBuckets forwards all bucket filters", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getBuckets({
+            source: "claude_code",
+            env: "linux",
+            from_date: "2026-09-01",
+            to_date: "2026-09-14",
+        });
+
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/buckets?source=claude_code&env=linux&from_date=2026-09-01&to_date=2026-09-14",
+        );
+    });
+
+    it("t480 AC-005: tokenStats.getRecords forwards source/session/window/limit", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getRecords({
+            agent: "codex",
+            source: "codex",
+            session_id: "session/1",
+            env: "linux",
+            start: 100,
+            end: 200,
+            limit: 25,
+        });
+
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/records?agent=codex&source=codex&session_id=session%2F1&env=linux&start=100&end=200&limit=25",
+        );
+    });
+
+    it("t480 AC-004: tokenStats.forceCollect calls the host endpoint", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response(null));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.tokenStats.forceCollect()).resolves.toBeNull();
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/tokenStats/forceCollect",
+            expect.objectContaining({ method: "POST", body: "{}" }),
+        );
+    });
+
+    it("t480 AC-003: connector.snapshot reads the host snapshot endpoint", async () => {
+        const snapshot = { "inst-1": { status: "idle" as const } };
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response(snapshot));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.connector.snapshot()).resolves.toEqual(snapshot);
+        expect(fetch_mock).toHaveBeenCalledWith("/v1/connectors/snapshot");
+    });
+
+    it("t480 AC-002: sessionHistory.recent forwards source/env/limit", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.recent("claude_code", "win", 37);
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/recent?source=claude_code&env=win&limit=37",
+        );
+    });
+
     it("t457 AC-007: web getSessions 透传 title/directory，空串省略", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
         vi.stubGlobal("fetch", fetch_mock);
@@ -458,11 +528,11 @@ describe("web usageboard bridge", () => {
         expect(revoke_url).toHaveBeenNthCalledWith(2, "blob:2");
     });
 
-    it("settings.openConnectorsDir is a no-op", () => {
+    it("settings.openConnectorsDir reports unsupported browser capability", () => {
         const api = create_web_usageboard();
         expect(() => {
             api.settings.openConnectorsDir();
-        }).not.toThrow();
+        }).toThrow("Web bridge capability unavailable: settings.openConnectorsDir");
     });
 
     it("grok and kimi OAuth surfaces call the local-api endpoints", async () => {
@@ -523,17 +593,36 @@ describe("web usageboard bridge", () => {
         });
     });
 
-    it("native surfaces are no-ops", () => {
+    it("unsupported native presentation surfaces fail explicitly", () => {
         const api = create_web_usageboard();
         expect(() => {
             api.window.close();
-        }).not.toThrow();
+        }).toThrow("Web bridge capability unavailable: window.close");
+        expect(() => {
+            api.tray.hide();
+        }).toThrow("Web bridge capability unavailable: tray.hide");
         expect(() => {
             api.tray.open_panel();
         }).not.toThrow();
-        expect(() => {
-            api.theme.set("dark");
-        }).not.toThrow();
+    });
+
+    it("tray.toggle_autostart forwards the host state to subscribers", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(
+                mock_response({ status: "ok", autostart: { available: true, enabled: true } }),
+            );
+        vi.stubGlobal("fetch", fetch_mock);
+        const api = create_web_usageboard();
+        const states: boolean[] = [];
+        api.tray.on_autostart_state((enabled) => states.push(enabled));
+
+        api.tray.toggle_autostart();
+        await vi.waitFor(() => expect(states).toContain(true));
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/control/autostart",
+            expect.objectContaining({ method: "POST", body: "{}" }),
+        );
     });
 
     it("onStateChange relays /v1/events SSE messages", () => {
@@ -725,6 +814,8 @@ describe("web usageboard bridge", () => {
     });
 
     it("theme.set('dark')/'light' 更新 data-theme 并通知 onThemeChange (t274)", () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" }));
+        vi.stubGlobal("fetch", fetch_mock);
         const api = create_web_usageboard();
         const received: boolean[] = [];
         api.event.onThemeChange((dark) => received.push(dark));
@@ -736,9 +827,18 @@ describe("web usageboard bridge", () => {
         api.theme.set("light");
         expect(document.documentElement.getAttribute("data-theme")).toBe("light");
         expect(received).toEqual([true, false]);
+        expect(fetch_mock).toHaveBeenNthCalledWith(
+            1,
+            "/v1/theme",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ mode: "dark" }) }),
+        );
     });
 
     it("theme.set('system') 按 matchMedia 解析 data-theme (t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
 
         stub_match_media(true);
@@ -751,6 +851,10 @@ describe("web usageboard bridge", () => {
     });
 
     it("theme.set 相同值不重复通知（对齐 nativeTheme updated 语义）(t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
         api.theme.set("dark");
         const received: boolean[] = [];
@@ -764,6 +868,10 @@ describe("web usageboard bridge", () => {
     });
 
     it("onThemeChange 返回可退订函数 (t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
         const received: boolean[] = [];
         const unsubscribe = api.event.onThemeChange((dark) => received.push(dark));

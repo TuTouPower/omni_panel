@@ -60,7 +60,7 @@ import { build_csp_header } from "./security/csp";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { set_renderer_index_path } from "./ipc/helpers";
-import { registerEventIpc } from "./ipc/event-ipc";
+import { registerEventIpc, sync_native_theme } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
@@ -593,6 +593,9 @@ void app.whenReady().then(async () => {
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;
+            if (previousConfig.theme !== updatedConfig.theme) {
+                sync_native_theme(updatedConfig.theme);
+            }
             if (previousConfig.launchAtLogin !== updatedConfig.launchAtLogin) {
                 apply_configured_launch_at_login(updatedConfig.launchAtLogin);
             }
@@ -734,6 +737,10 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
+            token_stats_force_collect: () => {
+                tokenStatsManager.force_collect();
+            },
+            theme_set: sync_native_theme,
             // serve --port 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
             ...(cliMode &&
             cli_args.command?.type === "serve" &&

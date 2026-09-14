@@ -1589,6 +1589,14 @@ export function create_token_stats_store(
                 conditions.push("agent = @agent");
                 params["agent"] = filters.agent;
             }
+            if (filters.source) {
+                conditions.push("source = @source");
+                params["source"] = filters.source;
+            }
+            if (filters.session_id) {
+                conditions.push("session_id = @session_id");
+                params["session_id"] = filters.session_id;
+            }
             if (filters.env) {
                 conditions.push("env = @env");
                 params["env"] = filters.env;

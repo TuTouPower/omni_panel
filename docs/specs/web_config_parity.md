@@ -47,3 +47,19 @@ Web 导入在保存配置或密钥前拒绝未知 connector 路径和非空 `end
 - 不含密钥的导出和配置 SSE 不包含 secret 参数。
 - 服务端日志、规范 `config.json`、vault 以外的持久化副本和默认 CLI 输出均不得包含明文 secret。
 - 未在受信任 connector definitions 中的 executable path 在导入时拒绝，启动或导入后的健康清理也会移除不在 allowlist 中的插件。
+
+## 6. Web bridge 能力对齐（t480）
+
+Web bridge 的业务能力与桌面 IPC 使用同一宿主实现；Web 端只负责把调用映射到 LocalAPI，不得用成功的空值或 no-op 伪造能力。
+
+|桌面能力|Web bridge|LocalAPI / 宿主行为|
+|---|---|---|
+|`SESSION_HISTORY_RECENT`|`sessionHistory.recent(source, env, limit)`|`GET /v1/sessionHistory/recent`，保留 `source`、`env`、`limit`，使用 t476 的 `[1,10000]` 校验|
+|`CONNECTOR_SNAPSHOT`|`connector.snapshot()`|`GET /v1/connectors/snapshot`，返回运行时快照|
+|`TOKEN_STATS_FORCE_COLLECT`|`tokenStats.forceCollect()`|`POST /v1/tokenStats/forceCollect`，由主进程采集器执行并返回 `null`|
+|`TOKEN_STATS_BUCKETS`|`tokenStats.getBuckets(filters)`|`GET /v1/buckets`，透传 `source`、`env`、`from_date`、`to_date`|
+|`TOKEN_STATS_RECORDS`|`tokenStats.getRecords(filters)`|`GET /v1/records`，透传 `agent`、`source`、`session_id`、`env`、`start`、`end`、`limit`|
+|日志导出|`logs.export()`|缺失日志返回 `LOG_NOT_FOUND`，不返回成功的空文件|
+|主题设置|`theme.set(mode)`|Web 立即复用 renderer 的 `apply_theme`；LocalAPI 调用主进程 `nativeTheme`，配置保存也同步该主题源|
+
+窗口尺寸、BrowserWindow 和系统托盘等浏览器无法直接执行的呈现能力返回明确错误；能够由宿主执行的控制操作经 LocalAPI 调用宿主，权限不因入口是 Web 而降低。

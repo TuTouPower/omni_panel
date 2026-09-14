@@ -366,6 +366,11 @@ export function validate_token_stats_session_filters(filters: unknown): QueryVal
 export function validate_token_stats_record_filters(filters: unknown): QueryValidation<null> {
     if (filters === undefined || filters === null) return ok(null);
     if (!is_record(filters)) return fail("Invalid token stats record filters");
+    for (const key of ["source", "session_id"] as const) {
+        if (filters[key] !== undefined && !is_non_empty_string(filters[key])) {
+            return fail(`${key} must be a non-empty string`);
+        }
+    }
     const limit = valid_token_stats_limit(filters["limit"]);
     if (!limit.ok) return limit;
     return ok(null);

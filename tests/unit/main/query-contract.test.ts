@@ -116,6 +116,14 @@ describe("shared query contract (t476)", () => {
     it("shares token-stat limit/range validation and trend defaults", () => {
         expect(validate_token_stats_session_filters({ limit: 0 }).ok).toBe(false);
         expect(validate_token_stats_record_filters({ limit: QUERY_LIMIT_MAX + 1 }).ok).toBe(false);
+        expect(
+            validate_token_stats_record_filters({
+                source: "codex",
+                session_id: "session-1",
+                limit: 10,
+            }).ok,
+        ).toBe(true);
+        expect(validate_token_stats_record_filters({ session_id: "" }).ok).toBe(false);
         expect(validate_token_stats_session_filters({ limit: 10, offset: 0 }).ok).toBe(true);
         expect(
             normalize_trend_query({

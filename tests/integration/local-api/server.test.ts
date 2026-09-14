@@ -1882,6 +1882,100 @@ describe("local-api web read endpoints", () => {
         expect(Array.isArray(data)).toBe(true);
     });
 
+    it("GET /v1/connectors/snapshot returns the runtime snapshot", async () => {
+        runtime_store.updateState("inst-1", { status: "idle" });
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/connectors/snapshot`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual({ "inst-1": { status: "idle" } });
+    });
+
+    it("GET /v1/buckets and /v1/records preserve Web bridge filters", async () => {
+        const buckets_spy = vi.spyOn(token_stats_store, "query_buckets");
+        const records_spy = vi.spyOn(token_stats_store, "query_records");
+        await api.start();
+        try {
+            const base = `http://127.0.0.1:${String(api.get_port())}`;
+            expect(
+                (
+                    await fetch(
+                        `${base}/v1/buckets?source=claude_code&env=linux&from_date=2026-09-01&to_date=2026-09-14`,
+                    )
+                ).status,
+            ).toBe(200);
+            expect(
+                (
+                    await fetch(
+                        `${base}/v1/records?agent=codex&source=codex&session_id=session%2F1&env=linux&start=100&end=200&limit=25`,
+                    )
+                ).status,
+            ).toBe(200);
+            expect(buckets_spy).toHaveBeenCalledWith({
+                source: "claude_code",
+                env: "linux",
+                from_date: "2026-09-01",
+                to_date: "2026-09-14",
+            });
+            expect(records_spy).toHaveBeenCalledWith({
+                agent: "codex",
+                source: "codex",
+                session_id: "session/1",
+                env: "linux",
+                start: 100,
+                end: 200,
+                limit: 25,
+            });
+        } finally {
+            buckets_spy.mockRestore();
+            records_spy.mockRestore();
+        }
+    });
+
+    it("POST /v1/tokenStats/forceCollect delegates to the host collector", async () => {
+        const force_collect = vi.fn();
+        const force_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            token_stats_force_collect: force_collect,
+        });
+        await force_api.start();
+        try {
+            const res = await fetch(
+                `http://127.0.0.1:${String(force_api.get_port())}/v1/tokenStats/forceCollect`,
+                { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } },
+            );
+            expect(res.status).toBe(200);
+            await expect(res.json()).resolves.toBeNull();
+            expect(force_collect).toHaveBeenCalledOnce();
+        } finally {
+            await force_api.stop();
+        }
+    });
+
+    it("POST /v1/theme delegates theme changes to the host", async () => {
+        const theme_set = vi.fn();
+        const theme_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            theme_set,
+        });
+        await theme_api.start();
+        try {
+            const res = await fetch(`http://127.0.0.1:${String(theme_api.get_port())}/v1/theme`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: "dark" }),
+            });
+            expect(res.status).toBe(200);
+            await expect(res.json()).resolves.toEqual({ status: "ok" });
+            expect(theme_set).toHaveBeenCalledWith("dark");
+        } finally {
+            await theme_api.stop();
+        }
+    });
+
     it("GET /v1/trend requires sourceInstanceId (t214)", async () => {
         await api.start();
         const url = `http://127.0.0.1:${String(api.get_port())}/v1/trend?provider=tavily&accountId=tavily&metricId=tavily:total-month`;
@@ -3350,7 +3444,7 @@ describe("local-api logs export (t279)", () => {
         }
     });
 
-    it("GET /v1/logs/export 日志文件缺失时返回 200 空下载", async () => {
+    it("GET /v1/logs/export 日志文件缺失时返回 LOG_NOT_FOUND", async () => {
         const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-missing-"));
         try {
             const export_api = create_local_api_server(store, {
@@ -3364,9 +3458,11 @@ describe("local-api logs export (t279)", () => {
                 const res = await fetch(
                     `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
                 );
-                expect(res.status).toBe(200);
-                expect(res.headers.get("content-disposition")).toContain(".log");
-                expect(await res.text()).toBe("");
+                expect(res.status).toBe(404);
+                await expect(res.json()).resolves.toEqual({
+                    error: "日志文件不存在",
+                    code: "LOG_NOT_FOUND",
+                });
             } finally {
                 await export_api.stop();
             }

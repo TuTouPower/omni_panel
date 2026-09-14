@@ -225,6 +225,8 @@ export interface TokenStatsSessionFilters {
 
 export interface TokenStatsRecordFilters {
     agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex";
+    source?: string;
+    session_id?: string;
     env?: TokenStatsEnv;
     start?: number;
     end?: number;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notify_chart_palette_change } from "./echarts_token_resolver";
 
-function apply_theme(is_dark: boolean) {
+export function apply_theme(is_dark: boolean): void {
     const root = document.documentElement;
     const next_theme = is_dark ? "dark" : "light";
     if (root.getAttribute("data-theme") === next_theme) return;

@@ -51,6 +51,14 @@ function good_event(): Electron.IpcMainInvokeEvent {
 }
 
 describe("event-ipc THEME_SET sender validation", () => {
+    it("sync_native_theme applies explicit and system theme modes", async () => {
+        const { sync_native_theme } = await import("../../../src/main/ipc/event-ipc");
+        sync_native_theme("dark");
+        expect(native_theme_mock.themeSource).toBe("dark");
+        sync_native_theme(undefined);
+        expect(native_theme_mock.themeSource).toBe("system");
+    });
+
     it("THEME_SET rejects unknown sender", async () => {
         const { registerEventIpc } = await import("../../../src/main/ipc/event-ipc");
         registerEventIpc(createMockDeps());

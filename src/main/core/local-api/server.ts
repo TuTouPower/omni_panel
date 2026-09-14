@@ -59,6 +59,7 @@ import {
     handleConnectorList,
     handleConnectorRefresh,
     handleConnectorRefreshAll,
+    handleConnectorSnapshot,
 } from "../../ipc/connector-ipc";
 import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
@@ -759,6 +760,10 @@ export function create_local_api_server(
         port?: number;
         token_stats_store?: TokenStatsStore;
         token_stats_running?: () => boolean;
+        /** Host-side collector action exposed to the same web bridge permission. */
+        token_stats_force_collect?: () => void;
+        /** Apply a theme source in the host process for Web bridge callers. */
+        theme_set?: (mode: "light" | "dark" | "system") => void;
         /** t193: optional isolated dashboard query dispatcher; when present the
          *  web dashboard endpoint reads through the worker instead of the main
          *  process store (keeps the sync store path as a fallback). */
@@ -776,6 +781,8 @@ export function create_local_api_server(
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
     const token_stats_running = options?.token_stats_running ?? (() => true);
+    const token_stats_force_collect = options?.token_stats_force_collect;
+    const theme_set = options?.theme_set;
     const token_stats_query_dispatcher = options?.token_stats_query_dispatcher;
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
@@ -986,8 +993,7 @@ export function create_local_api_server(
     /**
      * t279: GET /v1/logs/export —— web 日志导出。流式输出当前活跃日志段
      * （对齐桌面 handleLogExport 的 exportCurrentLog：只导出当天 app-<date>.log），
-     * Content-Disposition 触发浏览器下载；文件不存在输出空文件（桌面复制失败同样
-     * 不改变导出语义，返回 200 空档）。
+     * Content-Disposition 触发浏览器下载；文件不存在时与桌面导出返回明确错误。
      */
     function handle_logs_export(res: ServerResponse): void {
         if (!user_data_path) {
@@ -1000,14 +1006,10 @@ export function create_local_api_server(
         const download_name = `omni-panel-log-${date}.log`;
         fs.stat(log_file, (stat_err, s) => {
             if (stat_err || !s.isFile()) {
-                // 桌面语义：日志文件不存在也给出空导出（copyFile 会抛错，但此处
-                // web 下载保持 200 空档，浏览器得到空文件不弹错误）。
-                res.writeHead(200, {
-                    "Content-Type": "text/plain; charset=utf-8",
-                    "Content-Disposition": `attachment; filename="${download_name}"`,
-                    "Content-Length": "0",
+                json_response(res, 404, {
+                    error: "日志文件不存在",
+                    code: "LOG_NOT_FOUND",
                 });
-                res.end();
                 return;
             }
             // t279 f006：活跃日志段边写边增长，stat 时刻长度不可靠；用 chunked
@@ -1086,6 +1088,25 @@ export function create_local_api_server(
             if (control_deps && (await handle_web_control(req, res, url, control_deps))) {
                 return;
             }
+            if (url.pathname === "/v1/theme" && req.method === "POST") {
+                if (!theme_set) {
+                    json_response(res, 503, { error: "theme control unavailable" });
+                    return;
+                }
+                const body = await read_json_body(req, res);
+                if (!body.ok) return;
+                const mode =
+                    typeof body.value === "object" && body.value !== null
+                        ? (body.value as Record<string, unknown>)["mode"]
+                        : undefined;
+                if (mode !== "light" && mode !== "dark" && mode !== "system") {
+                    json_response(res, 400, { error: "Invalid theme mode" });
+                    return;
+                }
+                theme_set(mode);
+                json_response(res, 200, { status: "ok" });
+                return;
+            }
             if (auth_deps && (await handle_web_auth(req, res, url, auth_deps))) {
                 return;
             }
@@ -1103,6 +1124,16 @@ export function create_local_api_server(
             // t325: web renderer 无 token，日志接收放 check_auth 之前（与 /v1/events、/v1/logs/export 同层）。
             if (url.pathname === "/v1/logs/renderer" && req.method === "POST") {
                 await handle_renderer_log(req, res);
+                return;
+            }
+
+            if (url.pathname === "/v1/tokenStats/forceCollect" && req.method === "POST") {
+                if (!token_stats_force_collect) {
+                    json_response(res, 503, { error: "token stats collect unavailable" });
+                    return;
+                }
+                token_stats_force_collect();
+                json_response(res, 200, null);
                 return;
             }
 
@@ -1259,12 +1290,16 @@ export function create_local_api_server(
             case "/v1/records": {
                 const rec_start = parse_int_param(params, "start");
                 const rec_end = parse_int_param(params, "end");
+                const record_source = params.get("source");
+                const record_session_id = params.get("session_id");
                 let record_limit: number | undefined;
                 if (params.has("limit")) {
                     const raw_limit = params.get("limit") ?? "";
                     const parsed_limit = raw_limit.trim() === "" ? Number.NaN : Number(raw_limit);
                     const validated_limit = validate_token_stats_record_filters({
                         limit: parsed_limit,
+                        ...(params.has("source") ? { source: record_source } : {}),
+                        ...(params.has("session_id") ? { session_id: record_session_id } : {}),
                     });
                     if (!validated_limit.ok) {
                         json_response(res, 400, {
@@ -1274,6 +1309,18 @@ export function create_local_api_server(
                         return true;
                     }
                     record_limit = parsed_limit;
+                } else {
+                    const validated_filters = validate_token_stats_record_filters({
+                        ...(params.has("source") ? { source: record_source } : {}),
+                        ...(params.has("session_id") ? { session_id: record_session_id } : {}),
+                    });
+                    if (!validated_filters.ok) {
+                        json_response(res, 400, {
+                            error: validated_filters.message,
+                            code: validated_filters.code,
+                        });
+                        return true;
+                    }
                 }
                 json_response(
                     res,
@@ -1290,6 +1337,8 @@ export function create_local_api_server(
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
+                        ...(record_source ? { source: record_source } : {}),
+                        ...(record_session_id ? { session_id: record_session_id } : {}),
                         ...(rec_start !== null ? { start: rec_start } : {}),
                         ...(rec_end !== null ? { end: rec_end } : {}),
                         ...(record_limit !== undefined ? { limit: record_limit } : {}),
@@ -1452,15 +1501,22 @@ export function create_local_api_server(
             case "/v1/sessionStats":
                 json_response(res, 200, store.query_session_stats());
                 return true;
-            case "/v1/buckets":
+            case "/v1/buckets": {
+                const bucket_source = params.get("source");
+                const from_date = params.get("from_date");
+                const to_date = params.get("to_date");
                 json_response(
                     res,
                     200,
                     store.query_buckets({
+                        ...(bucket_source ? { source: bucket_source } : {}),
                         ...(env ? { env } : {}),
+                        ...(from_date ? { from_date } : {}),
+                        ...(to_date ? { to_date } : {}),
                     }),
                 );
                 return true;
+            }
             case "/v1/status":
                 json_response(res, 200, {
                     running: token_stats_running(),
@@ -1598,6 +1654,10 @@ export function create_local_api_server(
                 return true;
             }
             return false;
+        }
+        if (url.pathname === "/v1/connectors/snapshot" && req.method === "GET") {
+            send_result(res, handleConnectorSnapshot(deps));
+            return true;
         }
         const match = /^\/v1\/connectors\/([^/]+)\/(state|refresh)$/.exec(url.pathname);
         if (match) {

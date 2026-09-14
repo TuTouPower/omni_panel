@@ -7,6 +7,12 @@ import type { ConnectorSnapshotState } from "../core/scheduler/types";
 import { createLogger } from "../../shared/lib/logger";
 
 const themeSchema = z.enum(["light", "dark", "system"]);
+export type ThemeMode = z.infer<typeof themeSchema>;
+
+/** Apply the persisted theme source from any config write path. */
+export function sync_native_theme(mode: ThemeMode | undefined): void {
+    nativeTheme.themeSource = mode ?? "system";
+}
 
 export interface EventIpcDeps {
     runtimeStore: RuntimeStore;
@@ -88,7 +94,7 @@ export function registerEventIpc(deps: EventIpcDeps): () => void {
                 if (is_development) log.debug("ipc response raw", { channel, result: undefined });
                 return;
             }
-            nativeTheme.themeSource = parsed.data;
+            sync_native_theme(parsed.data);
             if (is_development) log.debug("ipc response raw", { channel, result: undefined });
         } catch (error: unknown) {
             // catch-log-rethrow: ensure errors are observed even if callers don't handle them

@@ -56,6 +56,9 @@ export async function handleLogExport(
         return ok({ saved: true });
     } catch (err: unknown) {
         log.error("导出日志失败", err);
+        if (typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT") {
+            return fail("LOG_NOT_FOUND", "日志文件不存在");
+        }
         return fail("INTERNAL_ERROR", "导出运行日志失败");
     }
 }
