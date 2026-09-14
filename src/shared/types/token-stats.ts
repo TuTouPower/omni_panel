@@ -500,9 +500,9 @@ export const tokenStatsDashboardDtoSchema = z.object({
         running: z.boolean(),
         last_updated: z.number().nullable(),
         /**
-         * Per-source status from the latest collection round (t309); absent
-         * until the first collection reports it. The renderer treats absence
-         * as "no source status yet".
+         * Per-source status from the latest collection round (t309/t476).
+         * Public IPC/HTTP adapters always emit an array; optional remains for
+         * legacy in-process mocks and persisted DTO compatibility.
          */
         sources_status: z.array(tokenStatsSourceStatusSchema).optional(),
     }),

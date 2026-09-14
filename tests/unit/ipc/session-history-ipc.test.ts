@@ -354,6 +354,26 @@ describe("session-history-ipc (t210)", () => {
         expect(result.error.code).toBe("SESSION_NOT_FOUND");
     });
 
+    it("t476 AC-002/009: QUERY 的缺参、limit 和 cursor 在 IPC 边界统一拒绝", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:query");
+        for (const args of [
+            ["", "win", "s1"],
+            ["claude_code", "", "s1"],
+            ["claude_code", "win", "s1", { limit: 0 }],
+            ["claude_code", "win", "s1", { limit: 1.5 }],
+            ["claude_code", "win", "s1", { before_cursor: Number.NaN }],
+        ]) {
+            const result = handler(valid_sender, ...args) as {
+                ok: boolean;
+                error?: { code: string };
+            };
+            expect(result.ok, JSON.stringify(args)).toBe(false);
+            expect(result.error?.code).toBe("VALIDATION_ERROR");
+        }
+        expect(locator_mock.resolve_session_file).not.toHaveBeenCalled();
+    });
+
     it("RECENT 调 service.recent_sessions 并返回 ok", async () => {
         locator_mock.resolve_session_file.mockReturnValue(null);
         await register();
@@ -387,6 +407,27 @@ describe("session-history-ipc (t210)", () => {
             expect(result.ok, `limit=${String(bad)}`).toBe(false);
         }
         expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
+    it("t476 AC-009: SEARCH_CONTENT 与 SUMMARIES 畸形输入不抛异常", async () => {
+        await register();
+        const search_handler = get_handler("sessionHistory:searchContent");
+        const search_result = (await search_handler(valid_sender, {
+            filters: { sources: 123 },
+            keyword: "hello",
+        })) as { ok: boolean; error?: { code: string } };
+        expect(search_result).toEqual({
+            ok: false,
+            error: { code: "VALIDATION_ERROR", message: "Invalid searchContent request" },
+        });
+
+        const summaries_handler = get_handler("sessionHistory:summaries");
+        const summaries_result = (await summaries_handler(valid_sender, { locs: "nope" })) as {
+            ok: boolean;
+            error?: { code: string };
+        };
+        expect(summaries_result.ok).toBe(false);
+        expect(summaries_result.error?.code).toBe("VALIDATION_ERROR");
     });
 
     it("SEARCH_CONTENT resolve 后调 service.searchContent 并返回命中数组", async () => {

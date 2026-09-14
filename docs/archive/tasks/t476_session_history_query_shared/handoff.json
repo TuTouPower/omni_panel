@@ -1,0 +1,52 @@
+{
+  "tid": "t476",
+  "attempt": 1,
+  "execution_id": "482c1a19997d499b94b344ee12bfe650",
+  "status": "done",
+  "branch": "t476_session_history_query_shared",
+  "base_sha": "f87825dd5d5baf58d7d19a886d28ebcc1c883b1e",
+  "tests": "定向 vitest 4 files / 73 tests passed；ESLint、Prettier、Knip、dependency-cruiser 通过；tsc 仅受缺失 src/main/generated/build-info 阻塞；生产构建在 Electron SQLite binding 编译验证后被 tsx IPC 管道沙箱 EPERM 阻塞",
+  "blackbox": "LocalAPI 集成测试 setup 阶段因缺失 Node better-sqlite3 native binding（node-v137-linux-x64/better_sqlite3.node）阻塞，重建时 Node headers 解包又遇沙箱 fchown/ EINVAL，未进入业务断言；HTTP 测试与共享入口代码已完成审查",
+  "review": "full Round 1 code/test 双 PASS，零 finding；reviewed_scope=a486db99a86ade0c",
+  "ac_evidence": {
+    "AC-001": [
+      "src/main/core/query-contract.ts::normalize_session_history_query；tests/unit/ipc/session-history-ipc.test.ts::query 结果与边界",
+      "tests/integration/local-api/server.test.ts::GET /v1/sessionHistory/query 与 IPC 同一 service 参数"
+    ],
+    "AC-002": [
+      "tests/unit/main/query-contract.test.ts::query/search/token-trend 错误边界",
+      "tests/unit/ipc/session-history-ipc.test.ts::畸形 query/search/summaries 返回 VALIDATION_ERROR",
+      "src/main/core/local-api/server.ts::HTTP 校验失败统一 400 + code"
+    ],
+    "AC-003": [
+      "src/main/core/query-contract.ts::CONTENT_SEARCH_PAGE_SIZE/SEARCH_ENUM_CAP 与 content_search_range",
+      "tests/unit/main/query-contract.test.ts::provider 分页调用和共享搜索过滤"
+    ],
+    "AC-004": [
+      "src/main/core/query-contract.ts::normalize_summary_locs 逐条跳过无效 loc",
+      "tests/unit/main/query-contract.test.ts::混合有效/无效 loc；tests/integration/local-api/server.test.ts::summaries"
+    ],
+    "AC-005": [
+      "src/main/core/query-contract.ts::validate_token_stats_session_filters/record_filters",
+      "tests/unit/ipc/token-stats-ipc.test.ts::IPC limit/range；tests/integration/local-api/server.test.ts::sessions/records 0/10001/非整数"
+    ],
+    "AC-006": [
+      "src/main/ipc/token-stats-ipc.ts 与 src/main/core/local-api/server.ts::sources_status 快照及空数组补全",
+      "tests/unit/ipc/token-stats-ipc.test.ts 与 tests/integration/local-api/server.test.ts::dashboard status.sources_status"
+    ],
+    "AC-007": [
+      "src/main/core/query-contract.ts::normalize_trend_query/normalize_trend_bulk_query",
+      "tests/unit/ipc/trend-ipc.test.ts 与 tests/integration/local-api/server.test.ts::trend 必填/默认/实例过滤"
+    ],
+    "AC-008": [
+      "src/main/core/query-contract.ts::共享常量、校验、枚举分页和 DTO 补全；两适配器仅调用共享函数",
+      "pnpm exec knip 与 pnpm exec depcruise src --validate .dependency-cruiser.cjs 通过"
+    ],
+    "AC-009": [
+      "tests/unit/main/query-contract.test.ts::query/recent/searchContent 参数边界",
+      "tests/unit/ipc/session-history-ipc.test.ts 与 tests/integration/local-api/server.test.ts::双入口边界/错误分类"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

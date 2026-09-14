@@ -117,7 +117,7 @@ export interface SessionQueryFilters {
     readonly directory?: string;
     readonly start_at?: number;
     readonly end_at?: number;
-    readonly order_by?: "ended_at" | "tokens" | "calls" | "started_at";
+    readonly order_by?: "ended_at" | "tokens" | "calls" | "started_at" | "title";
     readonly direction?: "asc" | "desc";
     readonly limit?: number;
     readonly offset?: number;

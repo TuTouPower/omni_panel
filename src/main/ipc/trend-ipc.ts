@@ -7,8 +7,9 @@ import {
     type TrendBulkResponse,
 } from "../../shared/types/ipc";
 import { build_trend_series } from "../../shared/lib/trend";
-import { ok, assert_valid_sender, type IpcResult } from "./helpers";
+import { ok, fail, assert_valid_sender, type IpcResult } from "./helpers";
 import type { ObservationStore } from "../core/observation/observation-store";
+import { normalize_trend_bulk_query, normalize_trend_query } from "../core/query-contract";
 
 export interface TrendIpcDeps {
     store: ObservationStore;
@@ -26,15 +27,20 @@ export function registerTrendIpc(ipc: IpcMain, deps: TrendIpcDeps): void {
             days?: number,
         ): IpcResult<(TrendPoint | null)[]> => {
             assert_valid_sender(event);
-            // Math.floor for parity with /v1/trend in local-api/server.ts (fractional
-            // days must be truncated, not passed through, so both paths agree).
-            const effective_days = typeof days === "number" && days > 0 ? Math.floor(days) : 7;
-            const records = deps.store.query_trend_series(
+            const normalized = normalize_trend_query({
                 provider,
-                accountId,
-                metricId,
-                sourceInstanceId,
-                effective_days,
+                account_id: accountId,
+                metric_id: metricId,
+                source_instance_id: sourceInstanceId,
+                days,
+            });
+            if (!normalized.ok) return fail(normalized.code, normalized.message);
+            const records = deps.store.query_trend_series(
+                normalized.value.provider,
+                normalized.value.account_id,
+                normalized.value.metric_id,
+                normalized.value.source_instance_id,
+                normalized.value.days,
             );
             return ok(build_trend_series(records));
         },
@@ -43,17 +49,15 @@ export function registerTrendIpc(ipc: IpcMain, deps: TrendIpcDeps): void {
         IPC_CHANNELS.TREND_GET_BULK,
         (event: IpcMainInvokeEvent, payload: TrendBulkRequest): IpcResult<TrendBulkResponse> => {
             assert_valid_sender(event);
-            const series = payload.periods.map((period) => {
-                const effective_days =
-                    typeof period.days === "number" && period.days > 0
-                        ? Math.floor(period.days)
-                        : 7;
+            const normalized = normalize_trend_bulk_query(payload);
+            if (!normalized.ok) return fail(normalized.code, normalized.message);
+            const series = normalized.value.periods.map((period) => {
                 const records = deps.store.query_trend_series(
-                    payload.provider,
-                    payload.account_id,
+                    normalized.value.provider,
+                    normalized.value.account_id,
                     period.metric_id,
-                    payload.source_instance_id,
-                    effective_days,
+                    normalized.value.source_instance_id,
+                    period.days,
                 );
                 return {
                     metric_id: period.metric_id,

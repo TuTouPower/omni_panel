@@ -1148,6 +1148,7 @@ describe("local-api web read endpoints", () => {
         await expect(res.json()).resolves.toMatchObject({
             current: { tokens: 11, sessions: 1, calls: 1 },
             sessions: { total: 1, has_more: false },
+            status: { sources_status: [] },
             freshness: { stale: false },
         });
     });
@@ -1223,7 +1224,7 @@ describe("local-api web read endpoints", () => {
             heatmap: [],
             models: [],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
             data_version: 0,
         };
@@ -1273,12 +1274,26 @@ describe("local-api web read endpoints", () => {
         },
     );
 
-    it("GET /v1/sessions accepts valid numeric params (t353 AC-001 happy path)", async () => {
+    it("GET /v1/sessions rejects zero and oversized limits (t476 AC-005)", async () => {
         await api.start();
-        const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=0&offset=5`,
-        );
-        expect(res.status).toBe(200);
+        for (const limit of ["0", "10001", "1.5"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=${limit}&offset=5`,
+            );
+            expect(res.status, `limit=${limit}`).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({ code: "INVALID_LIMIT" });
+        }
+    });
+
+    it("GET /v1/records applies the same explicit limit boundary (t476 AC-005)", async () => {
+        await api.start();
+        for (const limit of ["0", "10001", "1.5"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/records?limit=${limit}`,
+            );
+            expect(res.status, `limit=${limit}`).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({ code: "INVALID_LIMIT" });
+        }
     });
 
     it("t457 AC-007: GET /v1/sessions?title=&directory= 独立过滤生效（真实 store）", async () => {
@@ -1472,7 +1487,7 @@ describe("local-api web read endpoints", () => {
             heatmap: [],
             models: ["sonnet"],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
             data_version: 0,
         };
@@ -1949,6 +1964,15 @@ describe("local-api session history endpoints (t259)", () => {
                     next_cursor: null,
                 }),
             ),
+            recent_sessions: vi.fn(() => [
+                {
+                    source: "claude_code",
+                    env: "linux",
+                    session_id: "sess-1",
+                    title: "Test Session",
+                    agent: "claude-code",
+                },
+            ]),
             searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|linux|sess-1"]))),
             searchContentWithAbort: vi.fn<
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
@@ -2045,6 +2069,38 @@ describe("local-api session history endpoints (t259)", () => {
         // id-only 不再触发 sessions_provider 全量枚举反查。
         expect(provider).not.toHaveBeenCalled();
         expect(service.query).not.toHaveBeenCalled();
+    });
+
+    it("GET /v1/sessionHistory/query 与 recent 使用共享入口契约 (t476 AC-001/009)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+
+        const query = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/query?id=sess-1&source=claude_code&env=linux&limit=1`,
+        );
+        expect(query.status).toBe(200);
+        expect(service.query).toHaveBeenCalledWith(
+            expect.objectContaining({ source: "claude_code", env: "linux" }),
+            { limit: 1 },
+        );
+
+        const recent = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/recent?source=claude_code&env=linux&limit=1`,
+        );
+        expect(recent.status).toBe(200);
+        await expect(recent.json()).resolves.toEqual([
+            expect.objectContaining({ session_id: "sess-1" }),
+        ]);
+        expect(service.recent_sessions).toHaveBeenCalledWith(
+            "claude_code",
+            "linux",
+            1,
+            expect.any(Function),
+        );
     });
 
     it("GET /v1/sessionHistory maps string before_cursor to a pagination cursor", async () => {

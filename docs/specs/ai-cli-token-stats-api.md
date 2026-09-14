@@ -366,6 +366,9 @@ interface TokenStatsUpdate {
 - 时间参数 `from` / `to`：ISO date（`YYYY-MM-DD`）或 epoch ms，按 `bucket_date` / `started_at` 过滤。
 - `start` / `end`（`/v1/records`）：epoch ms，按 `timestamp` 过滤，与 `from`/`to`（日期）区分。
 - `/v1/records` 的 `limit`：最大返回行数，缺省走 `DEFAULT_RECORDS_LIMIT`（5000）。records 表可累积至数十万行，无 limit 的全量查询会把整表物化进主进程内存并经 IPC 传输，渲染端按时间窗分页消费，故查询必须带 limit 兜底。`ORDER BY timestamp DESC` 保证超限时保留最新 N 条。
+- `/v1/sessions` 与 `/v1/records` 的显式 `limit` 必须为 [1, 10000] 整数；缺省分别保留 store 的 100 / 5000 默认值，非法值统一返回 `INVALID_LIMIT`。桌面 IPC 与 HTTP 使用同一共享校验。
+- dashboard 的 `status.sources_status` 来自 `TokenStatsStore.sources_status()`，携带采集器最近一轮的逐来源状态；启动后尚无报告时固定为 `[]`。
+- `/v1/trend` 与 trend IPC 要求 `provider`、`accountId`、`metricId`、`sourceInstanceId` 非空；`days` 缺省或无效时为 7，正数小数按 `Math.floor` 处理。
 - `last_updated` 取相关表 `MAX(updated_at)`，UI 据此标注新鲜度。
 
 ## 8. 涉及文件清单（数据采集层）

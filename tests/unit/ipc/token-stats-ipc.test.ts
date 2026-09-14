@@ -106,7 +106,7 @@ function make_dashboard(): TokenStatsDashboardDto {
         heatmap: [],
         models: [],
         sessions: { items: [], total: 0, has_more: false },
-        status: { running: false, last_updated: null },
+        status: { running: false, last_updated: null, sources_status: [] },
         freshness: { queried_at: 3, stale: false },
         data_version: 0,
     };
@@ -427,6 +427,7 @@ describe("token-stats-ipc sender validation", () => {
         expect(vi.mocked(deps.dispatcher.request_dashboard)).toHaveBeenCalledWith(request, {
             running: true,
             last_updated: 42,
+            sources_status: [],
         });
         expect(result).toEqual({ ok: true, data: dashboard });
     });
@@ -473,7 +474,7 @@ describe("token-stats-ipc sender validation", () => {
         });
     });
 
-    it("TOKEN_STATS_DASHBOARD omits sources_status when the store has no reports (t309)", async () => {
+    it("TOKEN_STATS_DASHBOARD returns an empty sources_status when the store has no reports (t476)", async () => {
         const deps = createMockDeps();
         // createMockDeps 默认 sources_status 返回 []（39 行）。
         const dashboard = make_dashboard();
@@ -496,6 +497,7 @@ describe("token-stats-ipc sender validation", () => {
         expect(vi.mocked(deps.dispatcher.request_dashboard)).toHaveBeenCalledWith(request, {
             running: false,
             last_updated: null,
+            sources_status: [],
         });
     });
 
@@ -547,7 +549,7 @@ describe("token-stats-ipc sender validation", () => {
             heatmap: [],
             models: [],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
         } as unknown as TokenStatsDashboardDto);
         const result = await pick_handler("tokenStats:dashboard")(good_event(), {
@@ -640,7 +642,7 @@ describe("token-stats-ipc sender validation", () => {
             heatmap: [],
             models: [],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
             data_version: 0,
         };

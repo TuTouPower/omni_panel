@@ -28,20 +28,28 @@ import type {
     ResolvedSessionLoc,
     SessionHistorySubscriptionService,
     SessionLoc,
-    SessionQueryFilters,
     SessionRow,
     SessionsProvider,
 } from "../core/session-history/subscription-service";
 import type { TokenStatsSession } from "../../shared/types/token-stats";
 import type { HistoryMessage } from "../core/session-history/types";
 import type {
-    SessionHistorySearchContentLegacyRequest,
-    SessionHistorySearchContentRequest,
     SessionHistorySearchContentResponse,
     SessionHistorySummariesRequest,
     SessionHistorySummariesResponse,
 } from "../../shared/types/ipc";
-import { clamp_search_content_range } from "../core/session-history/search_content_range";
+import {
+    content_search_candidates,
+    content_search_range,
+    is_legacy_search_request,
+    normalize_recent_query,
+    normalize_session_history_query,
+    normalize_summary_locs,
+    query_all_sessions,
+    search_content_filters,
+    validate_search_content_request,
+    type SessionHistorySearchRequest,
+} from "../core/query-contract";
 
 export interface SessionHistoryIpcDeps {
     readonly service: SessionHistorySubscriptionService;
@@ -53,88 +61,14 @@ export interface SessionHistoryIpcDeps {
 
 type AnyResult = IpcResult<unknown>;
 
-type SearchContentRequest =
-    | SessionHistorySearchContentRequest
-    | SessionHistorySearchContentLegacyRequest;
-
-function is_legacy_search_request(
-    request: SearchContentRequest,
-): request is SessionHistorySearchContentLegacyRequest {
-    return "locs" in request;
-}
-
-function search_request_offset(request: SearchContentRequest): number | undefined {
-    return typeof request.offset === "number" ? request.offset : undefined;
-}
-
-function search_request_limit(request: SearchContentRequest): number | undefined {
-    return typeof request.limit === "number" ? request.limit : undefined;
-}
+type SearchContentRequest = SessionHistorySearchRequest;
 
 function loc_of(source: string, env: string, session_id: string): SessionLoc {
     return { source, env: env as Env, session_id };
 }
 
-const CONTENT_SEARCH_PAGE_SIZE = 100;
-/** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
-const SEARCH_ENUM_CAP = 100_000;
-/** t389 AC-001: RECENT limit 上界——超限拒绝，防 SQLite LIMIT 巨大值全量拉取。 */
-const RECENT_LIMIT_MAX = 10_000;
-
 function key_of(row: SessionRow): string {
     return `${row.source}|${row.env}|${row.id}`;
-}
-
-function legacy_row_of(loc: { source: string; env: string; session_id: string }): SessionRow {
-    return {
-        id: loc.session_id,
-        source: loc.source,
-        env: loc.env as Env,
-        title: null,
-        model: null,
-        started_at: 0,
-        ended_at: 0,
-    };
-}
-
-function query_all_sessions(
-    deps: SessionHistoryIpcDeps,
-    filters: SessionQueryFilters,
-): { rows: SessionRow[]; truncated: boolean } {
-    const rows: SessionRow[] = [];
-    let offset = 0;
-    let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
-    rows.push(...page);
-    while (page.length === CONTENT_SEARCH_PAGE_SIZE && rows.length < SEARCH_ENUM_CAP) {
-        offset += CONTENT_SEARCH_PAGE_SIZE;
-        page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
-        rows.push(...page);
-    }
-    // t388 AC-001: 达 SEARCH_ENUM_CAP 截断（仍可能有更多页）→ truncated=true。
-    // 边界：总数恰等于 CAP 且最后页满时误报 true（循环因 rows.length<CAP 失配
-    // 退出、cap 之后那页未 fetch 无法区分）——仅误报、无数据丢失、极罕见。
-    return {
-        rows,
-        truncated: rows.length >= SEARCH_ENUM_CAP && page.length === CONTENT_SEARCH_PAGE_SIZE,
-    };
-}
-
-function content_search_candidates(
-    deps: SessionHistoryIpcDeps,
-    request: SearchContentRequest,
-): { rows: SessionRow[]; truncated: boolean } {
-    if (is_legacy_search_request(request)) {
-        return { rows: request.locs.map(legacy_row_of), truncated: false };
-    }
-
-    const filters: SessionQueryFilters = {
-        ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
-        ...(request.filters.title ? { title: request.filters.title } : {}),
-        ...(request.filters.directory ? { directory: request.filters.directory } : {}),
-        ...(request.filters.start_at !== undefined ? { start_at: request.filters.start_at } : {}),
-        ...(request.filters.end_at !== undefined ? { end_at: request.filters.end_at } : {}),
-    };
-    return query_all_sessions(deps, filters);
 }
 
 export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcDeps): void {
@@ -202,10 +136,17 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             options?: QueryOptions,
         ): IpcResult<QueryResult> => {
             assert_valid_sender(event);
+            const normalized = normalize_session_history_query({
+                id: session_id,
+                source,
+                env,
+                options,
+            });
+            if (!normalized.ok) return fail(normalized.code, normalized.message);
             const resolved = resolve_session_file(
-                source as HistorySource,
-                env as Env,
-                session_id,
+                normalized.value.source as HistorySource,
+                normalized.value.env,
+                normalized.value.session_id,
                 deps.locator_paths,
             );
             if (!resolved) {
@@ -213,13 +154,13 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             }
             const result = deps.service.query(
                 {
-                    source,
-                    env: env as Env,
-                    session_id,
+                    source: normalized.value.source,
+                    env: normalized.value.env,
+                    session_id: normalized.value.session_id,
                     file_path: resolved.file_path,
                     extractor_kind: resolved.extractor_kind,
                 },
-                options,
+                normalized.value.options,
             );
             return ok(result);
         },
@@ -234,22 +175,12 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             limit: number,
         ): IpcResult<RecentSession[]> => {
             assert_valid_sender(event);
-            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
-            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
-            // t389 AC-001/004: limit 校验——非有限正整数或超上界拒绝，防 SQLite
-            // LIMIT 巨大值等价不设限（t354 移除隐式 100 cap 后无校验直传）。
-            // 与 token-stats-ipc 的 valid_limit/TOKEN_STATS_LIMIT_MAX 同语义；
-            // 两处上界常量若调整需同步。
-            if (!Number.isInteger(limit) || limit <= 0 || limit > RECENT_LIMIT_MAX) {
-                return fail(
-                    "INVALID_LIMIT",
-                    `limit must be an integer in [1, ${String(RECENT_LIMIT_MAX)}]`,
-                );
-            }
+            const normalized = normalize_recent_query({ source, env, limit });
+            if (!normalized.ok) return fail(normalized.code, normalized.message);
             const recent = deps.service.recent_sessions(
-                source,
-                env as Env,
-                limit,
+                normalized.value.source,
+                normalized.value.env,
+                normalized.value.limit,
                 deps.sessions_provider,
             );
             return ok(recent);
@@ -263,40 +194,30 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             request: SearchContentRequest,
         ): Promise<IpcResult<SessionHistorySearchContentResponse>> => {
             assert_valid_sender(event);
+            const validated = validate_search_content_request(request);
+            if (!validated.ok) return fail(validated.code, validated.message);
+            const normalized_request = validated.value;
             const previous = content_search_controllers.get(event.sender.id);
             previous?.abort();
             const controller = new AbortController();
             content_search_controllers.set(event.sender.id, controller);
 
             try {
-                const candidates = content_search_candidates(deps, request);
+                const candidates = content_search_candidates(
+                    deps.sessions_provider,
+                    normalized_request,
+                );
                 const candidate_rows = candidates.rows;
                 // t404: 仅 resolve/extract 本批候选 slice；省略 limit 时 end=total（全量兼容）。
-                const range = clamp_search_content_range(
-                    candidate_rows.length,
-                    search_request_offset(request),
-                    search_request_limit(request),
-                );
+                const range = content_search_range(candidate_rows.length, normalized_request);
                 const batch_rows = candidate_rows.slice(range.offset, range.end);
+                const metadata_filters = search_content_filters(normalized_request, true);
                 const metadata =
-                    range.offset > 0 || is_legacy_search_request(request) || !request.filters.search
+                    range.offset > 0 ||
+                    is_legacy_search_request(normalized_request) ||
+                    !metadata_filters.search
                         ? { rows: [] as SessionRow[], truncated: false }
-                        : query_all_sessions(deps, {
-                              ...(request.filters.sources
-                                  ? { sources: [...request.filters.sources] }
-                                  : {}),
-                              search: request.filters.search,
-                              ...(request.filters.title ? { title: request.filters.title } : {}),
-                              ...(request.filters.directory
-                                  ? { directory: request.filters.directory }
-                                  : {}),
-                              ...(request.filters.start_at !== undefined
-                                  ? { start_at: request.filters.start_at }
-                                  : {}),
-                              ...(request.filters.end_at !== undefined
-                                  ? { end_at: request.filters.end_at }
-                                  : {}),
-                          });
+                        : query_all_sessions(deps.sessions_provider, metadata_filters);
                 const metadata_rows = metadata.rows;
                 const resolved_locs: ResolvedSessionLoc[] = [];
                 for (const row of batch_rows) {
@@ -327,10 +248,10 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
                 const hits = service_with_abort.searchContentWithAbort
                     ? await service_with_abort.searchContentWithAbort(
                           resolved_locs,
-                          request.keyword,
+                          normalized_request.keyword,
                           controller.signal,
                       )
-                    : await deps.service.searchContent(resolved_locs, request.keyword);
+                    : await deps.service.searchContent(resolved_locs, normalized_request.keyword);
                 if (controller.signal.aborted)
                     return ok({
                         hits: [],
@@ -385,8 +306,10 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             request: SessionHistorySummariesRequest,
         ): Promise<IpcResult<SessionHistorySummariesResponse>> => {
             assert_valid_sender(event);
+            const normalized = normalize_summary_locs(request);
+            if (!normalized.ok) return fail(normalized.code, normalized.message);
             const resolved_locs: ResolvedSessionLoc[] = [];
-            for (const loc of request.locs) {
+            for (const loc of normalized.value) {
                 const resolved = resolve_session_file(
                     loc.source as HistorySource,
                     loc.env as Env,
