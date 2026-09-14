@@ -249,6 +249,6 @@
     - **配置写入选 b**：普通 save 保持 `saveIfBaseMatches`（base 不匹配报 `CONFLICT`）；导入/复制/新建/CLI import 为用户显式整体操作，允许覆盖但必须串行且排队覆盖「读最新→计算→提交」（禁止基于临界区外旧快照覆盖）；auto-seed/prune 基于最新状态增量应用。单次导入内部 `config↔vault` 一致性归 t472，跨入口并发交错归 t479。
     - **模型路由选 b**：多渠道保存部分失败时停止后续写入，逐渠道报告成功/失败/未执行，保留修改前 `models`/`model_mapping`/`priority` 快照，不自动回滚；`HTTP 200 + success:false` 判失败；两端一致。
     - **导入 secret 选 b**：文件无 `secrets` 字段→保留仍存活实例的原密钥并清理悬空密钥；有非空 `secrets`→整体替换；`secrets: {}`→清空。被过滤的未知 manifest 实例其密钥随清理删除。
-- 影响：t472/t473/t474/t476/t478/t479/t480/t481/t482 的 spec 据此修订基线（见各 `docs/tasks/*/spec.md` 背景节）。已验证的技术事实仍走 findings（如 d059 Command Code 字段语义在证据不足处降级为 `UNVERIFIED-SPIKE`，不凭假设固定口径）。
+- 影响：t472/t473/t474/t476/t478/t479/t480/t481/t482 的 spec 据此修订基线（见各 `docs/tasks/*/spec.md` 背景节）。Command Code 上游 token 语义经 2026-09-14 复核修正 d059（`usage` 为每轮用量、非累计，逐轮相加归因），t483 据此实现。
 - 落地：t471-t484 批次（文档修订，2026-09-14）。
 - 替代：无

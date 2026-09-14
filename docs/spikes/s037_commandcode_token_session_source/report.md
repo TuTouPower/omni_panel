@@ -29,9 +29,10 @@
 
 ### token 语义（关键坑）
 
-- `usage` 是**累计值**：逐行 `inputTokens` 单调递增，中位首轮 21.5k → 末轮 196k，峰值 709k。直接对 7713 行求和得 `inputTokens` 1.24e9（虚高约 39 倍），差分后 fresh(input-cacheRead) 约 31.7M、output 11.4M、cost $15.24。
-- 字段：`inputTokens`（含 `cacheReadTokens`）、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`（实测恒 0）、`costUsd`。`cacheReadTokens <= inputTokens` 恒成立（0 例外），符合 OpenAI 「input 含 cached」语义，可直接套项目现有 `inp - cache_read` 归一化。
-- 边界：全库 4 次 `inputTokens` 回落（0.05%），差分基准需按文件分段 + `delta<=0 视为零增量`（同 codex-reader 处理）。
+- **修正（2026-09-14 复核）**：`usage` 是**每轮单次请求用量（非累计）**。原报「累计值」结论错误。判据：逐行 `outputTokens` 在 193/202 会话回落、`costUsd` 在 199/202 会话回落——累计量不可能下降，故这些字段必为每轮值；`inputTokens` 虽在 198/202 会话递增，但增长的是**每轮上下文窗口大小**（≈上一轮 output + 本轮输入），是 prompt 规模而非会话累计消耗。
+- 因此正确口径为**逐行相加**（每轮都是独立一次请求计费），**不做累计差分**。全库 202 会话合计：`inputTokens` 1.243e9、`outputTokens` 11.41M、`costUsd` $15.24；项目 `tokens=input+output` 口径约 1.255e9。原「差分后 fresh 31.7M/output 11.4M」为累计假设下的错误结果。
+- 字段：`inputTokens`（含 `cacheReadTokens`）、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`（实测恒 0）、`costUsd`。`cacheReadTokens <= inputTokens` 恒成立（202/202），符合 OpenAI「input 含 cached」语义，`inp - cache_read` 可用于缓存率归一（不改变每轮相加的归因方式）。
+- 边界：`inputTokens` 全库 4 次回落（每例 ≤10%，如 71461→69593），为每轮上下文窗口的小幅缩减；按每轮原值直接计入，不做归零/分段基准。
 
 ### 会话历史与恢复
 
@@ -41,7 +42,7 @@
 
 ### 与基线对照的接入点
 
-- token-stats：新增 `commandcode-reader.ts`（累计差分，仿 `codex-reader.ts`）+ `collector.ts` 源/kind + `paths.ts` 路径 + `scan-state.ts` + `shared/types/token-stats.ts` 的 source/agent 枚举 + store agent 断言 + renderer AgentFilter/标签/色。
+- token-stats：新增 `commandcode-reader.ts`（**每轮 usage 直接相加**，不做累计差分；`input` 归一 `inp-cacheRead` 仅用于缓存率，见上「修正」）+ `collector.ts` 源/kind + `paths.ts` 路径 + `scan-state.ts` + `shared/types/token-stats.ts` 的 source/agent 枚举 + store agent 断言 + renderer AgentFilter/标签/色。
 - session-history：新增 `commandcode-extractor.ts`（全量 + 增量 + first/last user，仿 `codex-extractor.ts`）+ `session-locator.ts`（HistorySource/`locator_source_path`/`resolve_*`）+ `subscription-service.ts` 三处 switch + renderer（agent 标签/abbrev/颜色/resume 模板）。
 - 无 blocker；与 antigravity（s035 因无 token 而代理面板受阻）相反，Command Code 单文件同时满足两面板。
 
@@ -49,7 +50,7 @@
 
 Command Code 本地源**同时满足 token 统计与会话历史**，可直接按 codex 三件套接入。可信度高（202 会话全量实测，非抽样）。
 
-限制：① 采样仅本机单环境（macOS，cmd v1.53.1），`~/.commandcode` 是否跨平台同路径未验证（Windows/WSL 待查，参考其他 agent 的平台路径层）。② 累计差分对 4 次回落需专门处理，否则口径虚高。③ `cacheWriteTokens` 恒 0，缓存写入信息缺失（不影响 token 总数，影响写缓存指标）。④ 会话 title 在 `.meta.json`，不在主 jsonl，标题来源需额外读取。
+限制：① 采样仅本机单环境（macOS，cmd v1.53.1），`~/.commandcode` 是否跨平台同路径未验证（Windows/WSL 待查，参考其他 agent 的平台路径层）。② 原「累计差分」口径错误，已修正为每轮相加（见「token 语义」）。③ `cacheWriteTokens` 恒 0，缓存写入信息缺失（不影响 token 总数，影响写缓存指标）。④ 会话 title 在 `.meta.json`，不在主 jsonl，标题来源需额外读取。
 
 ## 是否采纳
 
