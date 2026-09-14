@@ -15,27 +15,46 @@
 
 ### ConnectorConfiguration
 
-`instanceId`、`stateId`、`name`、`displayName?`、`enabled`、`executablePath`、`refreshIntervalSeconds`、`manualRefreshOnly?`、`parameterValues`（record\<string, string|number>，非 secret）、`endpointOverrides`（record\<string,string>，默认 `{}`）。
+`instanceId`、`stateId`、`manifestId`、`name`、`displayName?`、`enabled`、`executablePath`、`refreshIntervalSeconds`、`manualRefreshOnly?`、`parameterValues`（record\<string, string|number>，非 secret）、`endpointOverrides`（record\<string,string>，默认 `{}`）。`manifestId` 是平台无关的连接器定义身份；`executablePath` 仅是当前机器上的路径缓存，不参与身份匹配。
 
 ## 接口
 
-- `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）/ `saveIfBaseMatches(base, config)`（t293）。
+- `load()` / `run_serialized(readComputeCommit)`（t479）/ `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）/ `saveIfBaseMatches(base, config)`（t293）。
 - `refreshIntervalSecondsSchema`：`0` = 跟随全局哨兵；非零 clamp `[60, 172800]`。
+
+## canonical 配置导入导出（t472）
+
+桌面 IPC、LocalAPI/Web 与 CLI 共用同一份 v2 传输文件和同一条导入路径：
+
+```json
+{
+    "formatVersion": 2,
+    "exportedAt": "2026-09-14T00:00:00.000Z",
+    "appVersion": "1.0.0",
+    "config": { "schemaVersion": 1, "language": "zh-Hans", "plugins": [], "launchAtLogin": false }
+}
+```
+
+导出默认省略 `secrets`；只有显式启用 `includeSecrets` 才写入顶层密钥集合，密钥值保持明文以便用户自行保管。导入只接受 `formatVersion: 2`，裸 `AppConfiguration` 与 v1 wrapper 均明确拒绝，并在解析、schema、密钥形状及 manifest 过滤全部完成前不写入存储。
+
+导入按 `manifestId` 过滤本机不存在的连接器并报告跳过项，同时用本机 definition 重算 `executablePath`。vault 语义按 `secrets` 字段三态处理：字段缺失时保留仍在新配置中的实例密钥并清理悬空实例；字段存在时以其为唯一集合整体替换；空对象清空 vault。配置和 vault 写入前分别生成 config `.bak` 与加密 vault 快照，任一写入失败恢复到导入前的一致状态。
 
 ## 内存缓存与健康检查抽离（t195）
 
 - **内存缓存**：`load()` 首次读盘 + zod parse 后缓存，后续命中缓存不重读磁盘。`save` / `scheduleSave` / `flushPendingSave` 是唯一写入口，均经 `enqueueSave → doSave`，写盘成功后刷新缓存——读到的始终是最新已保存配置（AC1/AC2）。
-- **健康检查抽离**：`prune_invalid_plugins`（孤儿插件、非法 provider 清理并持久化）从 load 抽出为 `prune_unhealthy_plugins()`，启动期（auto_seed 前）与 config 导入后各执行一次；运行期 load 不再做逐插件 manifest stat（AC1）。
+- **健康检查抽离**：`prune_invalid_plugins`（孤儿插件、非法 provider 清理并持久化）从 load 抽出为 `prune_unhealthy_plugins(allowed_manifest_ids?)`，启动期（auto_seed 前）与 config 导入后各执行一次；运行期 load 不再做逐插件 manifest stat（AC1）。
+- **manifest 身份迁移（t471）**：读取旧配置时，缺少 `manifestId` 的条目用 `executablePath` 的跨平台尾段匹配本机 `manifest.id`，回填 `manifestId` 并刷新本机 `executablePath`；同一 manifest 下的多个 `instanceId` 独立保留。已有未知 manifest 且路径尾段也无法匹配的条目被移除，逐条记录 `instanceId`、manifestId（若有）、原路径和原因，并在摘要记录移除数量；迁移前原文件写入 `.bak`。桌面、LocalAPI/Web 与 CLI 导入在校验 manifestId 后同样按本机 definition 重算 `executablePath`，不落地外部机器路径。
 
 ## 行为（现在是什么）
 
 - 文件 `{userData}/config.json`（`getConfigPath()`）。
 - **保存**：`scheduleSave` 防抖 500ms；所有写经串行 `saveTail` promise 链（并发写不交错，失败不毒化链）；`writeJsonAtomic` + `sortKeys` 稳定 diff。
 - **冲突检测（t293）**：`saveIfBaseMatches(base, config)` 把「与调用方 `load()` 快照比对」与写入放在同一 save 串行临界区内，以「仅成功 save 后更新」的 `cached_config` 为已提交状态作比较基准。并发写方（重叠 `CONFIG_SAVE` / web `POST /v1/config`）基于同一旧快照时，先提交者写入，后提交者返回 `"conflict"` 且不落盘（映射 `CONFLICT`），避免内存缓存使冲突检测失效导致后写静默覆盖先写（lost update）。
+- **读-算-提交事务（t479）**：`run_serialized` 把「读取最新已提交配置 → 计算增量 → `commit`」整体放入 `saveTail` 临界区；`commit` 在临界区内直达同一个原子写入口。设置页普通保存保留 base-match 冲突拒绝；导入、复制、新建和 CLI import 是用户显式整体操作，允许覆盖但必须等待同一事务队列，不基于队列外旧快照写回；auto-seed/prune 同样在最新状态上增量应用。桌面 IPC、LocalAPI/Web 与 CLI 通过共享 transfer/transaction 路径保持一致。这样复制/新建与另一字段保存等非重叠并发修改不会出现双方成功但一方被覆盖的情况。
 - **防抖 payload 用 thunk（t105）**：`scheduleSave` 接受 `AppConfiguration` 或返回它的 thunk，thunk 在防抖触发（及 `flushPendingSave`）时才求值。只改单个字段的调用方（`src/main/index.ts` 的 `save_settings_bounds`、main-panel `save_config` 窗口 bounds）必须传 thunk：窗口 resize/move 在事件发生时抓 `currentConfigSnapshot`，500ms 后落盘会把这期间 renderer 已保存的 `providerOrder` / `expandedProviders` 回滚（既有数据丢失 bug，t105 修）。
 - **载入加固（t111）**：schema 不匹配、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不返回 `DEFAULT_CONFIGURATION`（防止 auto_seed 覆盖用户数据）；schema 不匹配时先试 `.bak` 恢复，否则把损坏文件备份为 `.bak` 并抛错。ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed；目录存在但 `config.json` 缺失视为异常抛错。
 - **零散迁移（非版本引擎）**：`instanceId ?? stateId` 回填；`stripRemovedConfigFields` 删已移除的 `overviewDisplayMode`；`prune_invalid_plugins` 删 manifest 缺失或 provider 不在白名单的插件并回写（t195 起仅在启动/导入时经 `prune_unhealthy_plugins()` 执行，load 不再触发）。
-- **auto-seed（`auto_seed_connectors`）**：把发现的连接器定义并入 config。新连接器 `randomUUID` 的 instanceId/stateId、`name = manifest.id.toUpperCase()`、`enabled:true`、`refreshIntervalSeconds:0`（跟随全局）、`manualRefreshOnly` 若 `manifest.manualDefault`、种非 secret 参数默认、`endpointOverrides:{}`。已存在项按 id 匹配，仅更新 executablePath。**tombstone（t038）**：第 3 参 `removed_ids: ReadonlySet<string>`（来自 `config.removedConnectorIds`），manifest id 命中则跳过 seed，删除的内置连接器重启不复活。
+- **auto-seed（`auto_seed_connectors`）**：把发现的连接器定义并入 config。新连接器 `randomUUID` 的 instanceId/stateId、`manifestId = manifest.id`、`name = manifest.id.toUpperCase()`、`enabled:true`、`refreshIntervalSeconds:0`（跟随全局）、`manualRefreshOnly` 若 `manifest.manualDefault`、种非 secret 参数默认、`endpointOverrides:{}`。已存在项按 `manifestId` 匹配，并为同一 manifest 的每个实例只更新本机 `executablePath` 缓存，不合并或覆盖实例字段。**tombstone（t038）**：第 3 参 `removed_ids: ReadonlySet<string>`（来自 `config.removedConnectorIds`），manifest id 命中则跳过 seed，删除的内置连接器重启不复活。
 - **`removedConnectorIds`（t038）**：`AppConfiguration` 可选字段，manifest id 数组。删除/移除连接器时（SettingsView `with_removed_connector`）把 manifest id（`info.metadata.name`）去重写入。旧 config 无此字段 = 空集合，向后兼容。
 - **`upcomingResetThresholdPercent`（t041）**：`AppConfiguration` 可选字段，`number | null`（zod `int().min(0).max(100).nullable().optional()`）。剩余时间占周期百分比 ≤ 此值时账号进「即将重置」面板；null/undefined = 不展示面板。设置页常规段阈值 input 控制（留空存 null）。
 - **`accountOverrides.upcomingResetWatched`（t043/t104）**：`Partial<Record<UsageProvider, Partial<Record<string, readonly string[]>>>>`（provider → accountKey → `raw_label[]`）。显式开启「即将重置」监控的数据标签；缺省/空 = 全关。用量面板 period 行与 CPA 标签映射弹窗的 bell 均写入此字段（t043 取代 t041 account 级 `upcomingResetOff`，旧字段 zod 默认 strip 迁移）。
@@ -43,4 +62,4 @@
 ## 边界
 
 - `schemaVersion` 字段存在但**无版本分支迁移引擎**（`architecture.md` §6）。
-- 导入导出见 `ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。
+- 导入导出见本节、`ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。

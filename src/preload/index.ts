@@ -31,6 +31,11 @@ import type {
     TrendBulkResponse,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
+import type { DevPanelConfiguration } from "../shared/types/dev-panel";
+import type {
+    DevPanelModelRoutingSaveRequest,
+    DevPanelModelRoutingTestRequest,
+} from "../shared/types/dev-panel-model-routing";
 import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
@@ -227,6 +232,13 @@ const session_history_full_methods = {
             env,
             limit,
         ),
+    resume: (source: string, env: string, session_id: string) =>
+        invoke<{ command: string; started: boolean }>(
+            IPC_CHANNELS.SESSION_HISTORY_RESUME,
+            source,
+            env,
+            session_id,
+        ),
     searchContent: (
         request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
         keyword?: string | AbortSignal,
@@ -287,6 +299,8 @@ const session_history_disabled_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    resume: (): Promise<{ command: string; started: boolean }> =>
+        Promise.resolve({ command: "", started: false }),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
         Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
@@ -310,6 +324,8 @@ const session_history_open_only_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    resume: (): Promise<{ command: string; started: boolean }> =>
+        Promise.resolve({ command: "", started: false }),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
         Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
@@ -418,6 +434,48 @@ const settings_methods = {
     },
     openConnectorsDir: () => {
         void ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_OPEN_CONNECTORS_DIR);
+    },
+};
+
+const dev_panel_methods = {
+    open: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.DEV_PANEL_OPEN);
+    },
+    scan: (configuration: DevPanelConfiguration) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["scan"]>>>(
+            IPC_CHANNELS.DEV_PANEL_SCAN,
+            configuration,
+        ),
+    getStatus: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["getStatus"]>>>(
+            IPC_CHANNELS.DEV_PANEL_STATUS,
+        ),
+    cancel: async () => {
+        await invoke<null>(IPC_CHANNELS.DEV_PANEL_CANCEL);
+    },
+    modelRouting: {
+        getConfig: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getConfig"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_CONFIG),
+        getChannels: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getChannels"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_CHANNELS),
+        save: (request: DevPanelModelRoutingSaveRequest) =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["save"]>>>(
+                IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_SAVE,
+                request,
+            ),
+        test: (request: DevPanelModelRoutingTestRequest) =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["test"]>>>(
+                IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_TEST,
+                request,
+            ),
+        getSnapshot: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getSnapshot"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_SNAPSHOT),
     },
 };
 
@@ -558,6 +616,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -597,6 +656,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -635,6 +695,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -670,6 +731,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,

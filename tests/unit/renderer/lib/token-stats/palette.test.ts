@@ -34,6 +34,7 @@ const css_tokens: Record<string, string> = {
     "--color-agent-opencode": "#c3c3c3",
     "--color-agent-kimi": "#c4c4c4",
     "--color-agent-codex": "#c5c5c5",
+    "--color-agent-commandcode": "#c6c6c6",
     "--color-warning": "#ff9900",
     "--color-on-surface-variant": "#909090",
     "--color-outline": "#303030",
@@ -84,6 +85,7 @@ describe("echarts token resolver", () => {
             opencode: "#c3c3c3",
             kimi: "#c4c4c4",
             codex: "#c5c5c5",
+            commandcode: "#c6c6c6",
         });
         expect(palette.composition).toEqual({
             cache_read: "#333333",

@@ -81,6 +81,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "a",
                 stateId: "a",
+                manifestId: "a",
                 name: "A",
                 enabled: true,
                 executablePath: "/a",
@@ -91,6 +92,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "b",
                 stateId: "b",
+                manifestId: "b",
                 name: "B",
                 enabled: false,
                 executablePath: "/b",
@@ -101,6 +103,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "c",
                 stateId: "c",
+                manifestId: "c",
                 name: "C",
                 enabled: true,
                 executablePath: "/c",
@@ -137,6 +140,38 @@ describe("scheduler-orchestrator", () => {
     it("suspend stops all", () => {
         orchestrator.suspend("system");
         expect(scheduler.calls).toContain("stopAll");
+    });
+
+    it("exposes one pause state with all active reasons", () => {
+        expect(orchestrator.get_pause_state()).toEqual({ paused: false, reasons: [] });
+
+        orchestrator.suspend("user");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: true, reasons: ["user"] });
+
+        orchestrator.suspend("system");
+        expect(orchestrator.get_pause_state()).toEqual({
+            paused: true,
+            reasons: ["system", "user"],
+        });
+
+        orchestrator.resume("user");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: true, reasons: ["system"] });
+        orchestrator.resume("system");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: false, reasons: [] });
+    });
+
+    it("notifies subscribers when pause reasons change", () => {
+        const states: boolean[] = [];
+        const unsubscribe = orchestrator.on_pause_state((state) => {
+            states.push(state.paused);
+        });
+
+        orchestrator.suspend("user");
+        orchestrator.resume("user");
+        unsubscribe();
+        orchestrator.suspend("system");
+
+        expect(states).toEqual([false, true, false]);
     });
 
     it("resume reloads config and restarts enabled", async () => {
@@ -350,6 +385,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",
@@ -377,6 +413,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",
@@ -413,6 +450,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",

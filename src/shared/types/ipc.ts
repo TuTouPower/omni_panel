@@ -1,8 +1,19 @@
 import type { MetricRecord, PluginChart, UsageSource } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
+import type { CookieLoginErrorCode, CookieLoginLifecycle } from "../lib/cookie-login";
 import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type { TokenStatsSourceStatus } from "./token-stats";
+import type { DevPanelConfiguration, DevPanelScanStart, DevPanelState } from "./dev-panel";
+import type {
+    DevPanelModelRoutingChannels,
+    DevPanelModelRoutingConfig,
+    DevPanelModelRoutingSaveRequest,
+    DevPanelModelRoutingSaveResult,
+    DevPanelModelRoutingSnapshotInfo,
+    DevPanelModelRoutingTestRequest,
+    DevPanelModelRoutingTestResult,
+} from "./dev-panel-model-routing";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
@@ -137,12 +148,24 @@ export const IPC_CHANNELS = {
     /** t434: 立即触发一轮 token-stats 采集并重置自动采集计时。 */
     TOKEN_STATS_FORCE_COLLECT: "tokenStats:forceCollect",
 
+    /** t481: read-only Git history development panel. */
+    DEV_PANEL_OPEN: "devPanel:open",
+    DEV_PANEL_SCAN: "devPanel:scan",
+    DEV_PANEL_STATUS: "devPanel:status",
+    DEV_PANEL_CANCEL: "devPanel:cancel",
+    DEV_PANEL_MODEL_ROUTING_CONFIG: "devPanel:modelRoutingConfig",
+    DEV_PANEL_MODEL_ROUTING_CHANNELS: "devPanel:modelRoutingChannels",
+    DEV_PANEL_MODEL_ROUTING_SAVE: "devPanel:modelRoutingSave",
+    DEV_PANEL_MODEL_ROUTING_TEST: "devPanel:modelRoutingTest",
+    DEV_PANEL_MODEL_ROUTING_SNAPSHOT: "devPanel:modelRoutingSnapshot",
+
     /** t210: 会话历史 IPC 通道组（决策 15）。 */
     SESSION_HISTORY_OPEN: "sessionHistory:open",
     SESSION_HISTORY_SUBSCRIBE: "sessionHistory:subscribe",
     SESSION_HISTORY_UNSUBSCRIBE: "sessionHistory:unsubscribe",
     SESSION_HISTORY_QUERY: "sessionHistory:query",
     SESSION_HISTORY_RECENT: "sessionHistory:recent",
+    SESSION_HISTORY_RESUME: "sessionHistory:resume",
     /** t239: 批量内容搜索，一次调用返回全部候选会话的命中键集合。 */
     SESSION_HISTORY_SEARCH_CONTENT: "sessionHistory:searchContent",
     /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
@@ -250,11 +273,11 @@ export interface ConfigExportOptions {
 }
 
 export interface ConfigExportData {
-    readonly formatVersion: 1;
+    readonly formatVersion: 2;
     readonly exportedAt: string;
     readonly appVersion: string;
     readonly config: AppConfiguration;
-    readonly secrets: Record<string, string>;
+    readonly secrets?: Record<string, string>;
 }
 
 export interface IpcError {
@@ -278,15 +301,21 @@ export interface SessionLoginResult {
     readonly reason?: "invalid_cookie" | "no_cookie";
 }
 
-export interface CookieLoginResult {
-    readonly saved?: boolean;
-    readonly started?: boolean;
-}
+export type CookieLoginResult =
+    | { readonly started: true }
+    | {
+          readonly started: false;
+          readonly conflict: true;
+          readonly error_code: "CONFLICT";
+          readonly error: string;
+      };
 
 export interface CookieLoginStatus {
     readonly in_progress: boolean;
     readonly saved: boolean;
+    readonly state: CookieLoginLifecycle;
     readonly error?: string;
+    readonly error_code?: CookieLoginErrorCode;
 }
 
 export interface GrokDeviceCodeStart {
@@ -412,6 +441,12 @@ export interface SessionHistoryApi {
         env: string,
         limit: number,
     ): Promise<readonly SessionHistoryRecentItem[]>;
+    /** Host-side fixed Command Code resume; absent on legacy route mocks. */
+    resume?(
+        source: string,
+        env: string,
+        session_id: string,
+    ): Promise<{ command: string; started: boolean }>;
     /** t248: 批量内容搜索，返回命中键及其会话元信息。t263: 可选 AbortSignal 支持客户端取消（web shim 透传 fetch）。 */
     searchContent(
         request: SessionHistorySearchContentRequest,
@@ -617,6 +652,19 @@ export interface UsageboardApi {
         open(context?: SettingsOpenContext): void;
         /** Open the user connectors script directory in the OS file explorer. */
         openConnectorsDir(): void;
+    };
+    devPanel: {
+        open(): void;
+        scan(configuration: DevPanelConfiguration): Promise<DevPanelScanStart>;
+        getStatus(): Promise<DevPanelState>;
+        cancel(): Promise<void>;
+        modelRouting: {
+            getConfig(): Promise<DevPanelModelRoutingConfig>;
+            getChannels(): Promise<DevPanelModelRoutingChannels>;
+            save(request: DevPanelModelRoutingSaveRequest): Promise<DevPanelModelRoutingSaveResult>;
+            test(request: DevPanelModelRoutingTestRequest): Promise<DevPanelModelRoutingTestResult>;
+            getSnapshot(): Promise<DevPanelModelRoutingSnapshotInfo | null>;
+        };
     };
     /** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
     window: {

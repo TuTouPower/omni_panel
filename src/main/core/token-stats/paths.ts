@@ -105,6 +105,7 @@ function resolve(
 const CLAUDE_SEGMENTS = [".claude"];
 const OPENCODE_SEGMENTS = [".local", "share", "opencode", "opencode.db"];
 const KIMI_SEGMENTS = [".kimi-code"];
+const COMMANDCODE_SEGMENTS = [".commandcode", "projects"];
 
 /** ~/.claude/metrics/costs.jsonl (or the win_home / UNC equivalent). */
 export function claude_costs_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
@@ -133,6 +134,15 @@ export function kimi_sessions_path(input: TokenStatsPathInput, env: TokenStatsEn
  * ~/.codex（无 wsl 对侧）；archived_sessions 不存在按 missing 处理（reader 侧）。 */
 export function codex_sessions_path(input: TokenStatsPathInput, env: TokenStatsEnv): string | null {
     return resolve(input, env, [".codex", "sessions"]);
+}
+
+/** ~/.commandcode/projects (local linux/mac source; t483). */
+export function commandcode_projects_path(
+    input: TokenStatsPathInput,
+    env: TokenStatsEnv,
+): string | null {
+    if (env !== "linux" && env !== "mac") return null;
+    return resolve(input, env, COMMANDCODE_SEGMENTS);
 }
 
 /** ~/.kimi-code/session_index.jsonl (or the win_home / UNC equivalent). */

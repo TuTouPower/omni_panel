@@ -15,6 +15,7 @@ const AGENT_FRIENDLY: Record<string, string> = {
     grok: "Grok",
     codex: "Codex",
     antigravity: "Antigravity",
+    commandcode: "Command Code",
 };
 
 /** source → 展示名（栏头 / Markdown 角色）。未知 source 原样返回。 */

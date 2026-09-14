@@ -34,7 +34,7 @@ interface PanelTitleBarProps {
     refreshing?: boolean;
     /** 面板形态：刷新当前面板。 */
     onRefresh?: () => void;
-    /** 面板形态：面板切换（四面板恒定显示，含当前面板）。 */
+    /** 面板形态：面板切换（五面板恒定显示，含当前面板）。 */
     onNavigate?: (panel: PanelName) => void;
     /** 面板形态：刷新按钮仅 live 模式可用。 */
     is_live?: boolean;
@@ -114,7 +114,7 @@ export function WindowControls({
 /**
  * t269 统一 PanelTitleBar（DESIGN.md panel-titlebar，高 44px）。
  * 通用形态 = title/actions；t252 面板形态 = panel/onNavigate/onRefresh（品牌区 + 面板切换 +
- * 窗口控制），四面板（Settings/Session/Agent）共用，避免重复实现。
+ * 窗口控制），五面板（Settings/Session/Agent/Dev）共用，避免重复实现。
  */
 export function PanelTitleBar({
     title,
@@ -134,7 +134,7 @@ export function PanelTitleBar({
     onNavigate,
     is_live = true,
 }: PanelTitleBarProps) {
-    const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session"];
+    const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session", "Dev"];
     // t311：web 端互跳入口为原生 `<a href="#{route}">`（中键/Ctrl+Click 由浏览器新开标签页），
     // 桌面端保持 Button + onNavigate。路由名映射与 use-route.ts VALID_ROUTES / App.tsx 挂载一致。
     const panel_routes: Record<PanelName, string> = {
@@ -142,6 +142,7 @@ export function PanelTitleBar({
         Usage: "usage",
         Agent: "agent",
         Session: "session",
+        Dev: "dev",
     };
     const base = cn(
         "flex h-11 shrink-0 items-center justify-between gap-2 border-b " +
@@ -200,6 +201,7 @@ export function PanelTitleBar({
                                 {p === "Agent" && <Icon name="chart" size={16} />}
                                 {p === "Session" && <Icon name="chat_square" size={16} />}
                                 {p === "Settings" && <Icon name="gear" size={16} />}
+                                {p === "Dev" && <Icon name="code" size={16} />}
                             </>
                         );
                         if (is_web()) {

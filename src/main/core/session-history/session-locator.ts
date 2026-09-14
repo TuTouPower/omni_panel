@@ -107,14 +107,15 @@ export function clear_resolution_cache(): void {
     }
 }
 
-/** locator 支持的 source 集合（t446 +codex；t455 +antigravity）。 */
+/** locator 支持的 source 集合（t446 +codex；t455 +antigravity；t484 +commandcode）。 */
 export type HistorySource =
     | "claude_code"
     | "opencode"
     | "kimi_code"
     | "grok"
     | "codex"
-    | "antigravity";
+    | "antigravity"
+    | "commandcode";
 
 export interface ResolvedSession {
     /** 提取器要读的源文件 / db 完整路径。 */
@@ -319,6 +320,8 @@ export function locator_source_path(
             return path_layer.codex_sessions_path(input, env);
         case "antigravity":
             return path_layer.antigravity_conversations_path(input, env);
+        case "commandcode":
+            return path_layer.commandcode_projects_path(input, env);
     }
 }
 
@@ -488,6 +491,31 @@ function resolve_antigravity(
     return null;
 }
 
+function resolve_commandcode(
+    paths: LocatorPaths,
+    env: Env,
+    session_id: string,
+): ResolvedSession | null {
+    const root = locator_source_path("commandcode", env, paths);
+    if (root === null) return null;
+    // Only a basename may identify a session file; never allow a caller-provided
+    // path fragment to escape the project directory scan.
+    if (session_id === "" || session_id !== session_id.replace(/[\\/]/g, "")) return null;
+    const expected_name = `${session_id}.jsonl`;
+    for (const project of safe_readdir(root)) {
+        if (!project.isDirectory()) continue;
+        for (const entry of safe_readdir(join(root, project.name))) {
+            if (entry.isFile() && entry.name === expected_name) {
+                return {
+                    file_path: join(root, project.name, entry.name),
+                    extractor_kind: "commandcode",
+                };
+            }
+        }
+    }
+    return null;
+}
+
 function resolve_index_dir(paths: LocatorPaths): string | undefined {
     if (paths.index_dir) return paths.index_dir;
     try {
@@ -637,6 +665,8 @@ export function resolve_session_file(
                 return resolve_codex(paths, env, session_id);
             case "antigravity":
                 return resolve_antigravity(paths, env, session_id);
+            case "commandcode":
+                return resolve_commandcode(paths, env, session_id);
         }
     })();
 

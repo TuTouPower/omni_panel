@@ -161,6 +161,7 @@ export function vendor_id_for_source(source: string): string {
     if (source === "grok") return "grok";
     if (source === "codex") return "codex";
     if (source === "antigravity") return "antigravity";
+    if (source === "commandcode") return "commandcode";
     if (source === "opencode") return "opencode_go";
     return "overview";
 }
@@ -171,6 +172,7 @@ const AGENT_COLOR_VAR: Record<string, string> = {
     kimi_code: "--color-agent-kimi",
     grok: "--color-agent-grok",
     codex: "--color-agent-codex",
+    commandcode: "--color-agent-commandcode",
 };
 
 /** 返回当前主题下 agent 识别色；未知来源回退到全局 primary。 */

@@ -36,6 +36,7 @@ const refreshIntervalSecondsSchema = z.preprocess(
 const connectorConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
+    manifestId: z.string().min(1),
     name: z.string().min(1),
     displayName: z.string().optional(),
     enabled: z.boolean(),
@@ -67,6 +68,12 @@ const floatingBoundsSchema = z.object({
 const accountOverridesSchema = z.object({
     hidden: z.record(z.array(z.string())).optional(),
     upcomingResetWatched: z.record(z.record(z.array(z.string()))).optional(),
+});
+
+export const devPanelConfigurationSchema = z.object({
+    scanRoots: z.array(z.string().min(1).max(4096)).max(64),
+    commitCutoff: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "commitCutoff must be YYYY-MM-DD"),
+    currentUserOnly: z.boolean(),
 });
 
 export const appConfigurationSchema = z.object({
@@ -104,6 +111,10 @@ export const appConfigurationSchema = z.object({
     settingsBounds: floatingBoundsSchema.optional(),
     agentWindowBounds: floatingBoundsSchema.optional(),
     historyWindowBounds: floatingBoundsSchema.optional(),
+    devPanelWindowBounds: floatingBoundsSchema.optional(),
+    // t481: explicit fields keep old configs compatible without silently
+    // accepting an opaque/stripped development-panel object.
+    devPanel: devPanelConfigurationSchema.optional(),
     accountOverrides: accountOverridesSchema.optional(),
     accountLabels: z.record(z.record(z.string())).optional(),
     collapsedAccounts: z.record(z.boolean()).optional(),
@@ -142,4 +153,9 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     language: "zh-Hans",
     plugins: [],
     launchAtLogin: false,
+    devPanel: {
+        scanRoots: ["~/kar/code"],
+        commitCutoff: "2026-03-20",
+        currentUserOnly: true,
+    },
 };

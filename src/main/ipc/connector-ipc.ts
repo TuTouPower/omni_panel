@@ -116,9 +116,7 @@ export async function handleConnectorList(
     try {
         const config = await deps.configStore.load();
         const plugins: ConnectorInfo[] = config.plugins.map((plugin) => {
-            const definition = deps.definitions.find(
-                (d) => d.executablePath === plugin.executablePath,
-            );
+            const definition = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
             const snapshot = state_to_snapshot_dto(
                 deps.runtimeStore.getSnapshot(plugin.instanceId),
             );

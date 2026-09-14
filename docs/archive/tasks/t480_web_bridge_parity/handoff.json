@@ -1,0 +1,42 @@
+{
+    "tid": "t480",
+    "attempt": 1,
+    "execution_id": "31779289caad4434a760c08c826a71fc",
+    "status": "done",
+    "branch": "t480_web_bridge_parity",
+    "base_sha": "6df9760d289824218961de0461482600055926b5",
+    "tests": "定向 vitest 5 files / 101 tests passed；tsc、ESLint（提高 Node 堆上限）、Prettier、Knip、dependency-cruiser 通过；直接 Electron/Web 构建通过",
+    "blackbox": "LocalAPI 集成 116 tests 在 better-sqlite3 Node ABI 加载阶段阻塞，Node headers 解包遇环境 fchown/EINVAL，未进入业务断言；完整 pnpm build 的 tsx IPC 管道遇 EPERM，绕过启动器的 Electron/Web 构建通过",
+    "review": "single Round 1 PASS，0 finding，reviewed_scope=8f4cc2cd44c40566，review scope bd9fa65176acaa71",
+    "ac_evidence": {
+        "AC-001": [
+            "src/web/usageboard-web.ts：宿主业务调用经 LocalAPI，不支持浏览器呈现能力显式抛错；tests/unit/web/usageboard-web.test.ts：unsupported capability 回归"
+        ],
+        "AC-002": [
+            "src/web/usageboard-web.ts::sessionHistory.recent 透传 source/env/limit；tests/unit/web/usageboard-web.test.ts：URL 参数断言；t476 LocalAPI recent 共享校验"
+        ],
+        "AC-003": [
+            "src/main/core/local-api/server.ts::/v1/connectors/snapshot 调用 handleConnectorSnapshot；tests/unit/web/usageboard-web.test.ts：snapshot endpoint 断言；集成用例已加入但受 native binding 阻塞"
+        ],
+        "AC-004": [
+            "src/main/index.ts::token_stats_force_collect 调用 tokenStatsManager.force_collect；tests/unit/web/usageboard-web.test.ts 与 LocalAPI 集成用例覆盖 POST 接线"
+        ],
+        "AC-005": [
+            "usageboard-web.ts、local-api/server.ts、token-stats-store.ts 完整透传并执行 source/session_id/window/limit；unit/integration 参数断言已加入"
+        ],
+        "AC-006": [
+            "src/main/ipc/log-ipc.ts 与 src/main/core/local-api/server.ts 均返回 LOG_NOT_FOUND；tests/integration/local-api/server.test.ts 更新缺失日志断言"
+        ],
+        "AC-007": [
+            "src/renderer/lib/theme.ts::apply_theme 导出并由 src/web/usageboard-web.ts 复用；tsc 与 Web 构建通过"
+        ],
+        "AC-008": [
+            "src/main/index.ts::onConfigSaved 与 src/main/ipc/event-ipc.ts::sync_native_theme 覆盖配置保存/导入和 THEME_SET；event-ipc 单测覆盖 explicit/system"
+        ],
+        "AC-009": [
+            "Web tray control 经 /v1/control/* 调用宿主；autostart 响应状态回调有 65-test Web bridge 回归；主题/forceCollect LocalAPI 宿主 delegate 集成用例已加入"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -1,7 +1,3 @@
-import {
-    valid_directories,
-    INVALID_DIRECTORIES_MESSAGE,
-} from "../../shared/lib/session_directories";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { TokenStatsStatus } from "../../shared/types/ipc";
@@ -28,24 +24,11 @@ import { ok, fail, assert_valid_sender, type IpcResult } from "./helpers";
 import type { TokenStatsStore } from "../core/token-stats/token-stats-store";
 import type { TokenStatsManager } from "../core/token-stats/manager";
 import type { TokenStatsQueryDispatcher } from "../core/token-stats/query-dispatcher";
-
-/** t389 AC-002/003: TOKEN_STATS_SESSIONS/RECORDS limit 上界——超限拒绝，防
- *  SQLite LIMIT 巨大值全量拉取。缺省（undefined）走 store 默认语义不变。 */
-const TOKEN_STATS_LIMIT_MAX = 10_000;
-
-function valid_limit(limit: number | undefined): limit is number {
-    return (
-        limit !== undefined &&
-        Number.isInteger(limit) &&
-        limit > 0 &&
-        limit <= TOKEN_STATS_LIMIT_MAX
-    );
-}
-
-/** 区间筛选边界须为非负整数；缺省（undefined）合法——不做该维过滤。 */
-function valid_range_bound(value: number | undefined): boolean {
-    return value === undefined || (Number.isInteger(value) && value >= 0);
-}
+import {
+    ensure_dashboard_sources_status,
+    validate_token_stats_record_filters,
+    validate_token_stats_session_filters,
+} from "../core/query-contract";
 
 export function registerTokenStatsIpc(
     ipc: IpcMain,
@@ -78,27 +61,8 @@ export function registerTokenStatsIpc(
             filters?: TokenStatsSessionFilters,
         ): IpcResult<TokenStatsSession[]> => {
             assert_valid_sender(event);
-            // t389 AC-002/004: limit 校验——非有限正整数或超上界拒绝。
-            if (filters?.limit !== undefined && !valid_limit(filters.limit)) {
-                return fail(
-                    "INVALID_LIMIT",
-                    `limit must be an integer in [1, ${String(TOKEN_STATS_LIMIT_MAX)}]`,
-                );
-            }
-            if (
-                !valid_range_bound(filters?.min_tokens) ||
-                !valid_range_bound(filters?.max_tokens) ||
-                !valid_range_bound(filters?.min_calls) ||
-                !valid_range_bound(filters?.max_calls)
-            ) {
-                return fail(
-                    "INVALID_RANGE",
-                    "min_tokens/max_tokens/min_calls/max_calls must be non-negative integers",
-                );
-            }
-            if (!valid_directories(filters?.directories)) {
-                return fail("INVALID_DIRECTORIES", INVALID_DIRECTORIES_MESSAGE);
-            }
+            const validation = validate_token_stats_session_filters(filters);
+            if (!validation.ok) return fail(validation.code, validation.message);
             return ok(deps.store.query_sessions(filters ?? {}));
         },
     );
@@ -118,13 +82,8 @@ export function registerTokenStatsIpc(
             filters?: TokenStatsRecordFilters,
         ): IpcResult<AgentSessionUsage[]> => {
             assert_valid_sender(event);
-            // t389 AC-003/004: limit 校验——非有限正整数或超上界拒绝。
-            if (filters?.limit !== undefined && !valid_limit(filters.limit)) {
-                return fail(
-                    "INVALID_LIMIT",
-                    `limit must be an integer in [1, ${String(TOKEN_STATS_LIMIT_MAX)}]`,
-                );
-            }
+            const validation = validate_token_stats_record_filters(filters);
+            if (!validation.ok) return fail(validation.code, validation.message);
             return ok(deps.store.query_records(filters ?? {}));
         },
     );
@@ -180,17 +139,19 @@ export function registerTokenStatsIpc(
                     running: deps.manager.is_running(),
                     last_updated: deps.store.last_updated(),
                 };
-                // t309: 把最新一轮源级采集状态并入 status 快照透传给 query worker
-                // 与面板。采集开始前 store 无报告，省略字段（面板按空处理）。
+                // t309/t476: 把最新一轮源级采集状态并入 status 快照透传给
+                // query worker 与面板；没有采集报告时也固定返回空数组。
                 const source_statuses = deps.store.sources_status();
-                const status_snapshot = source_statuses.length
-                    ? { ...status, sources_status: source_statuses }
-                    : status;
+                const status_snapshot = { ...status, sources_status: source_statuses };
                 const dto = await deps.dispatcher.request_dashboard(
                     parsed_query.data,
                     status_snapshot,
                 );
-                const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
+                const dto_with_status = ensure_dashboard_sources_status(
+                    dto,
+                    status_snapshot.sources_status,
+                );
+                const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto_with_status);
                 if (!parsed_dto.success) {
                     return fail("INVALID_RESPONSE", "Invalid token stats dashboard response");
                 }

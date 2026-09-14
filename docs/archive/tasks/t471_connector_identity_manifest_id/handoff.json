@@ -1,0 +1,50 @@
+{
+    "tid": "t471",
+    "attempt": 1,
+    "execution_id": "169aa5000fc64d0bb5765665e4640b2c",
+    "status": "done",
+    "branch": "t471_connector_identity_manifest_id",
+    "base_sha": "702dfdb0d780cffecd3fc8b6e5e4315430148676",
+    "tests": "定向 6 files / 113 tests PASS；pnpm typecheck、lint、format:check、deadcode、arch PASS；electron-vite build 与 vite build:web PASS；pnpm test 被 better-sqlite3 Node 24 headers 解压 EINVAL/fchown 环境错误阻塞",
+    "blackbox": "config-store 迁移/备份/逐条孤儿日志/数量摘要集成测试、IPC 导入路径重映射和 CLI 导入路径重映射均 PASS；全量 pnpm test 未进入 Vitest，原因是环境 native ABI 构建失败",
+    "review": "Round 1 code + test PASS，0 finding，review scope 0ab89937b276e6e7",
+    "ac_evidence": {
+        "AC-001": [
+            "ConnectorConfiguration 与 appConfigurationSchema 将 manifestId 设为必填",
+            "config-store 迁移旧配置后 schema 可加载并持久化"
+        ],
+        "AC-002": [
+            "auto_seed_connectors 按 manifestId 更新移动后的 executablePath",
+            "auto-seed 回归保留原 instanceId、间隔和字段"
+        ],
+        "AC-003": [
+            "启动迁移与导入 remap 均以本机 definition 的 manifestId 重算 executablePath",
+            "manifest identity、IPC import、CLI import 回归覆盖 stale 外部路径"
+        ],
+        "AC-004": [
+            "异平台尾段旧 config 回填 manifestId 并刷新本机路径",
+            "config-store 集成测试断言连接器数量、实例、enabled、参数和间隔保持"
+        ],
+        "AC-005": [
+            "auto_seed_connectors 的唯一匹配键为 manifestId",
+            "同 manifest 多实例回归断言不重复 seed 且逐实例更新"
+        ],
+        "AC-006": [
+            "生产 identity lookup 已切换到 manifestId；executablePath 仅保留路径缓存、健康检查、重映射和日志用途",
+            "src/main 与 src/shared 的 executablePath identity 扫描无残留"
+        ],
+        "AC-007": [
+            "固定 fixture 覆盖 Windows、POSIX、UNC、混合分隔符、结尾分隔符和盘符"
+        ],
+        "AC-008": [
+            "迁移和 auto-seed 回归保留同一 manifest 的两个 instanceId/stateId 及 enabled、参数、endpoint、间隔",
+            "secret key lookup 继续以 instanceId 生成 keyFor(instanceId, name)"
+        ],
+        "AC-009": [
+            "未知 manifest 与无尾段匹配项按原因逐条记录 instanceId、manifestId、原路径",
+            "config-store 集成测试断言日志与 1 connector(s) removed 摘要"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -86,6 +86,19 @@ export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
         minWidth: PANEL_MIN_WIDTH,
         minHeight: PANEL_MIN_HEIGHT,
     },
+    dev: {
+        route: "dev",
+        width: 1100,
+        height: 760,
+        frame: false,
+        show: false,
+        showWhenReady: true,
+        titleBarStyle: "hidden",
+        titleBarOverlay: false,
+        roundedCorners: true,
+        minWidth: PANEL_MIN_WIDTH,
+        minHeight: PANEL_MIN_HEIGHT,
+    },
 };
 
 /** t252 AC9: 各窗口系统标题（任务栏/Alt-Tab）与面板标题一致。 */
@@ -94,6 +107,7 @@ const PANEL_TITLES: Record<string, string> = {
     setting: "Omni Panel - Settings",
     agent: "Omni Panel - Agent",
     session: "Omni Panel - Session",
+    dev: "Omni Panel - Dev",
 };
 
 export interface WindowManager {

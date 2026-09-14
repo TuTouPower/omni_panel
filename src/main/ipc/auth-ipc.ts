@@ -1,6 +1,6 @@
 import { ipcMain, session } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { CookieLoginStatus } from "../../shared/types/ipc";
+import type { CookieLoginResult, CookieLoginStatus } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
@@ -9,6 +9,11 @@ import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { get_session_login_partition, type SessionManager } from "../core/session/session-manager";
 import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
+import {
+    COOKIE_LOGIN_MESSAGES,
+    type CookieLoginErrorCode,
+    type CookieLoginLifecycle,
+} from "../../shared/lib/cookie-login";
 
 const log = createLogger("ipc:auth");
 
@@ -21,6 +26,8 @@ export interface AuthIpcDeps {
 
 interface CookieLoginState {
     in_progress: boolean;
+    state: CookieLoginLifecycle;
+    error_code?: CookieLoginErrorCode;
     error?: string;
 }
 
@@ -34,12 +41,47 @@ function get_cookie_login_states(deps: AuthIpcDeps): Map<string, CookieLoginStat
     return created;
 }
 
-function safe_cookie_login_error(message: string): string {
-    if (message.includes("graphical display")) return message;
-    if (/timed out/i.test(message)) return "网页登录超时，请重试";
-    if (/already in progress/i.test(message)) return "已有登录正在进行中，请等待当前登录完成";
-    if (message.includes("未捕获到 Cookie")) return message;
-    return "网页登录失败，请重试";
+function classify_cookie_login_error(
+    message: string,
+    fallback_code: CookieLoginErrorCode = "INTERNAL_ERROR",
+): { code: CookieLoginErrorCode; message: string; state: CookieLoginLifecycle } {
+    if (/timed out/i.test(message)) {
+        return { code: "TIMEOUT", message: COOKIE_LOGIN_MESSAGES.timeout, state: "timeout" };
+    }
+    if (/already in progress/i.test(message)) {
+        return { code: "CONFLICT", message: COOKIE_LOGIN_MESSAGES.conflict, state: "failed" };
+    }
+    if (message.includes("未捕获到 Cookie")) {
+        return { code: "NO_COOKIE", message: COOKIE_LOGIN_MESSAGES.no_cookie, state: "canceled" };
+    }
+    if (message.includes("登录态无效") || /invalid cookie/i.test(message)) {
+        return {
+            code: "INVALID_COOKIE",
+            message: COOKIE_LOGIN_MESSAGES.invalid_cookie,
+            state: "failed",
+        };
+    }
+    return { code: fallback_code, message, state: "failed" };
+}
+
+function update_cookie_login_state(
+    state: CookieLoginState,
+    failure?: { code: CookieLoginErrorCode; message: string; state: CookieLoginLifecycle },
+): void {
+    state.in_progress = false;
+    if (failure) {
+        state.state = failure.state;
+        state.error_code = failure.code;
+        if (failure.state === "failed") {
+            state.error = failure.message;
+        } else {
+            delete state.error;
+        }
+        return;
+    }
+    state.state = "succeeded";
+    delete state.error_code;
+    delete state.error;
 }
 
 export async function handleCookieLogin(
@@ -50,7 +92,7 @@ export async function handleCookieLogin(
     const plugin = config.plugins.find((p) => p.instanceId === instanceId);
     if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
-    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    const def = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
     if (!def) return fail("VALIDATION_ERROR", "插件定义不存在");
     const endpoints = def.manifest.endpoints;
     const loginUrl = endpoints?.["login"] ?? endpoints?.["default"];
@@ -92,34 +134,56 @@ export async function handleCookieLogin(
 export function startCookieLogin(
     deps: AuthIpcDeps,
     instanceId: string,
-): IpcResult<{ started: true }> {
+): IpcResult<CookieLoginResult> {
     const states = get_cookie_login_states(deps);
     const current = states.get(instanceId);
     if (current?.in_progress || deps.sessionManager.is_login_in_progress?.(instanceId)) {
-        return fail("CONFLICT", "已有登录正在进行中，请等待当前登录完成");
+        return ok({
+            started: false,
+            conflict: true,
+            error_code: "CONFLICT",
+            error: COOKIE_LOGIN_MESSAGES.conflict,
+        });
     }
 
-    const state: CookieLoginState = { in_progress: true };
+    const state: CookieLoginState = { in_progress: true, state: "running" };
     states.set(instanceId, state);
     void handleCookieLogin(deps, instanceId).then(
         (result) => {
-            state.in_progress = false;
             if (result.ok && result.data.saved) {
-                delete state.error;
+                update_cookie_login_state(state);
             } else if (result.ok) {
                 // t337: 区分「未捕获到 Cookie」与「登录态无效」。
-                state.error =
+                update_cookie_login_state(
+                    state,
                     result.data.reason === "invalid_cookie"
-                        ? "登录态无效，请重新登录或手动粘贴 Cookie"
-                        : "未捕获到 Cookie，请完成登录后再关闭窗口";
+                        ? {
+                              code: "INVALID_COOKIE",
+                              message: COOKIE_LOGIN_MESSAGES.invalid_cookie,
+                              state: "failed",
+                          }
+                        : {
+                              code: "NO_COOKIE",
+                              message: COOKIE_LOGIN_MESSAGES.no_cookie,
+                              state: "canceled",
+                          },
+                );
             } else {
-                state.error = safe_cookie_login_error(result.error.message);
+                update_cookie_login_state(
+                    state,
+                    classify_cookie_login_error(
+                        result.error.message,
+                        result.error.code === "VALIDATION_ERROR"
+                            ? "VALIDATION_ERROR"
+                            : "INTERNAL_ERROR",
+                    ),
+                );
             }
         },
         (error: unknown) => {
-            state.in_progress = false;
-            state.error = safe_cookie_login_error(
-                error instanceof Error ? error.message : String(error),
+            update_cookie_login_state(
+                state,
+                classify_cookie_login_error(error instanceof Error ? error.message : String(error)),
             );
         },
     );
@@ -134,9 +198,15 @@ export async function handleCookieLoginStatus(
         const saved = (await deps.secretsStore.get(keyFor(instanceId, "SESSION_COOKIE"))) !== null;
         const state = get_cookie_login_states(deps).get(instanceId);
         const manager_in_progress = deps.sessionManager.is_login_in_progress?.(instanceId) ?? false;
+        const in_progress = state?.in_progress === true ? true : manager_in_progress;
+        const lifecycle = in_progress
+            ? "running"
+            : (state?.state ?? (saved ? "succeeded" : "canceled"));
         return ok({
-            in_progress: state?.in_progress ?? manager_in_progress,
+            in_progress,
             saved,
+            state: lifecycle,
+            ...(state?.error_code ? { error_code: state.error_code } : {}),
             ...(state?.error ? { error: state.error } : {}),
         });
     } catch {
@@ -161,7 +231,7 @@ export async function trySilentCookieRefresh(
         log.warn(`Silent refresh: instance ${instanceId} not found in config`);
         return false;
     }
-    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    const def = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
     if (!def) {
         log.warn(`Silent refresh: definition not found for ${instanceId}`);
         return false;
@@ -230,9 +300,9 @@ export async function trySilentCookieRefresh(
 export function registerAuthIpc(deps: AuthIpcDeps): void {
     ipcMain.handle(
         IPC_CHANNELS.AUTH_COOKIE_LOGIN,
-        (e, instanceId: string): Promise<IpcResult<{ saved: boolean }>> => {
+        (e, instanceId: string): IpcResult<CookieLoginResult> => {
             assert_valid_sender(e);
-            return handleCookieLogin(deps, instanceId);
+            return startCookieLogin(deps, instanceId);
         },
     );
     ipcMain.handle(

@@ -18,24 +18,22 @@ interface AutoSeedResult {
  * Merge discovered connector definitions into existing config. New connectors
  * are seeded with `refreshIntervalSeconds: 0` (follow-global sentinel) so the
  * global interval setting actually controls them. Existing entries keep their
- * configured interval; only their executablePath is updated if it moved.
+ * configured interval; only their local executablePath cache is updated if it
+ * moved.
  */
 export function auto_seed_connectors(
     existing: readonly ConnectorConfiguration[],
     definitions: readonly ConnectorDefinition[],
     removed_ids?: ReadonlySet<string>,
 ): AutoSeedResult {
-    const existing_by_id = new Map<string, ConnectorConfiguration>();
+    const existing_by_id = new Map<string, ConnectorConfiguration[]>();
     for (const connector of existing) {
-        const base_name = connector.executablePath.split(/[/\\]/).pop() ?? connector.name;
-        for (const def of definitions) {
-            // Exact match only - substring includes() misclassified connectors
-            // whose dir name merely contained another id (cpa vs cpadapter),
-            // resurrecting deleted instances on next seed (A10).
-            if (base_name === def.manifest.id || connector.name.toLowerCase() === def.manifest.id) {
-                existing_by_id.set(def.manifest.id, connector);
-            }
-        }
+        // manifestId is the only identity key. Paths and display names are
+        // platform-local/user-editable and must never resurrect or merge an
+        // instance after a move.
+        const matches = existing_by_id.get(connector.manifestId) ?? [];
+        matches.push(connector);
+        existing_by_id.set(connector.manifestId, matches);
     }
 
     const seeded: ConnectorConfiguration[] = [];
@@ -45,10 +43,15 @@ export function auto_seed_connectors(
         // t038：tombstone 内的 manifest id 不复活。删除内置连接器后记 id 到
         // config.removedConnectorIds，重启 auto-seed 跳过，避免账号"复活"。
         if (removed_ids?.has(def.manifest.id)) continue;
-        const existing_match = existing_by_id.get(def.manifest.id);
-        if (existing_match) {
-            if (existing_match.executablePath !== def.executablePath) {
-                updatedExisting.push({ ...existing_match, executablePath: def.executablePath });
+        const existing_matches = existing_by_id.get(def.manifest.id);
+        if (existing_matches && existing_matches.length > 0) {
+            for (const existing_match of existing_matches) {
+                if (existing_match.executablePath === def.executablePath) continue;
+                updatedExisting.push({
+                    ...existing_match,
+                    manifestId: def.manifest.id,
+                    executablePath: def.executablePath,
+                });
                 changed = true;
             }
             continue;
@@ -56,6 +59,7 @@ export function auto_seed_connectors(
         seeded.push({
             instanceId: randomUUID(),
             stateId: randomUUID(),
+            manifestId: def.manifest.id,
             name: def.manifest.id.toUpperCase(),
             enabled: true,
             executablePath: def.executablePath,

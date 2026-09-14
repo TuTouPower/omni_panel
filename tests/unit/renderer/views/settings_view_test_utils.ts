@@ -27,6 +27,7 @@ export const base_config: AppConfiguration = {
         {
             instanceId: "deepseek-1",
             stateId: "deepseek-1",
+            manifestId: "deepseek",
             name: "deepseek",
             enabled: true,
             executablePath: "plugins/deepseek.ts",
@@ -37,6 +38,7 @@ export const base_config: AppConfiguration = {
         {
             instanceId: "cpa-1",
             stateId: "cpa-1",
+            manifestId: "cpa",
             name: "cpa",
             enabled: true,
             executablePath: "plugins/cpa.ts",
@@ -200,6 +202,25 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
         settings: {
             open: vi.fn(),
             openConnectorsDir: vi.fn(),
+        },
+        devPanel: {
+            open: vi.fn(),
+            scan: vi.fn().mockResolvedValue({ scan_id: "test", status: "running", reused: false }),
+            getStatus: vi.fn().mockResolvedValue({
+                status: "idle",
+                scan_id: null,
+                started_at: null,
+                result: null,
+                error: null,
+            }),
+            cancel: vi.fn().mockResolvedValue(undefined),
+            modelRouting: {
+                getConfig: vi.fn(),
+                getChannels: vi.fn(),
+                save: vi.fn(),
+                test: vi.fn(),
+                getSnapshot: vi.fn(),
+            },
         },
         theme: { set: vi.fn() },
         tray: {

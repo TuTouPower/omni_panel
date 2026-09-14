@@ -15,7 +15,7 @@
 
 ### scheduler-orchestrator.ts — 全集生命周期
 
-- 接口：`startAll` / `rebuild` / `reconcile` / `suspend(reason)` / `resume(reason)` / `shutdown`；暂停原因是 `user | system`。
+- 接口：`startAll` / `rebuild` / `reconcile` / `suspend(reason)` / `resume(reason)` / `get_pause_state()` / `on_pause_state(listener)` / `shutdown`；暂停原因是 `user | system`。
 - 有效调度计划仅含 `enabled && !manualRefreshOnly` 实例，使用 `resolve_refresh_interval` 解析最终间隔，并按 `instanceId` 排序。
 - `startAll` 以 `immediate:true` 应用计划；`rebuild` = `stopAll()` + 以 `immediate:false` 应用计划。
 - `reconcile(previous, next)` 只比较有效调度计划；备注、endpoint、secret、参数及插件数组顺序等非调度变化不重建，实例启停、增删或有效间隔变化才重建。
@@ -23,6 +23,7 @@
 - `suspend(reason)` = 记录原因 + `stopAll()` + 递增 `generation`；仅 system suspend 安装 **4 小时安全网定时器**，且安全网只解除 system 原因。
 - `resume(reason)` 移除对应原因；全部原因解除后异步重载最新 config，仅当 `generation` 未变时 `startAll`（防陈旧 resume 抢跑新 suspend）。
 - 暂停期间计划变化只延迟应用，不恢复周期调度；真正恢复时以最新 config 建立计划。
+- `get_pause_state()` 是暂停态唯一只读来源，返回 `paused` 与当前原因集合；`on_pause_state` 在原因变化时通知 tray/LocalAPI，禁止入口维护影子布尔值。
 - `shutdown` = 递增 generation + 清 system 安全网 + `stopAll()`。
 - `manualRefreshOnly` 连接器永不自动调度。
 
@@ -31,7 +32,7 @@
 - 接口：`refresh(instanceId, {force?})` / `refreshAll()`。
 - **单实例锁**：内存 `Map<instanceId, lockedAt>`；锁定且未超 `LOCK_TIMEOUT_MS=5min` 则跳过（即使 `force` 也查锁）；陈旧锁 warn 后强清。
 - **并发上限**：`refreshAll` 经 `with_concurrency(limit=5)`。
-- 流程：载 config → 按 instanceId 找 config → 按 executablePath 找 definition → 置 `loading`（带 prior lastSuccess）→ 执行最多 3 次采集尝试（每次含 `execute_connector`、逐条 `ObservationStore.insert`、映射）→ 任一次成功即置 `ready`；三次均失败才置 `failed`（保留 prior lastSuccess 和最后一次错误）。相邻尝试固定等待 1s。
+- 流程：载 config → 按 instanceId 找 config → 按 manifestId 找 definition → 置 `loading`（带 prior lastSuccess）→ 执行最多 3 次采集尝试（每次含 `execute_connector`、逐条 `ObservationStore.insert`、映射）→ 任一次成功即置 `ready`；三次均失败才置 `failed`（保留 prior lastSuccess 和最后一次错误）。相邻尝试固定等待 1s。
 - **认证类错误不重试（t155）**：`is_auth_error` 命中 `401`/`403`/`unauthorized`/`forbidden`/`invalid_token`/`invalid_grant`/`invalid ... key`（词边界）/`ip banned`/`credential` 时，立即退出本次刷新的重试循环，只发 1 次请求即置 `failed`，避免错 key/过期凭据高频重试触发服务端 IP 封禁。
 - **零观测不写 ready+空（不变量 2 / t039）**：脚本成功返回但映射后 `items` 为空时（生产契约如 Grok billing 200 但零有效 usage 字段，connector `return [] + report_failed_account(...)`），不得写 `ready + items:[]` 清空历史。有 prior lastSuccess → 保留 prior items（仍 `ready`）；无 prior → 置 `failed`，`error` 取 `failed_accounts[0]?.error`（有 failed_account 时）或 `"connector returned no observations"`。
 - **per-account 错误（不变量 5 / P0-2）**：脚本整体成功但返回 `failed_accounts` 时，对每个失败账号从 `observationStore.list_by_source_instance_id(instanceId)` 取上次成功观测，复制为 stale 副本重插（`stale:true` + `last_error=failed.error` + 当前时间戳 `observed_at`）。成功账号正常插入不受影响；失败账号无上次观测则跳过（UI 显示「无数据」而非「stale」）。stale 副本并入 `observations_to_ready_state` 一起映射为 `ready` items。
@@ -49,5 +50,5 @@
 - `resolve_refresh_interval`：`refreshIntervalSeconds` 哨兵 `0` → 跟随 `globalRefreshIntervalSeconds` → `DEFAULT_FALLBACK_REFRESH_SECONDS=300`。
 - 启动交错 `STAGGER_MAX_MS=3000` 仅作用于 `immediate:true` 的首次刷新；后续周期调度无额外抖动（各实例间隔天然错开）。
 - 托盘 refresh-all 经 `refreshService.refreshAll()` 复用 5 并发闸门（不逐个 `refresh`）。
-- 暂停/恢复经托盘 `TRAY_TOGGLE_PAUSE` → orchestrator `suspend/resume`。
+- 暂停/恢复经托盘 `TRAY_TOGGLE_PAUSE`、LocalAPI `/v1/control/pause|resume` → orchestrator `suspend/resume`；LocalAPI `/v1/control/status` 读取同一暂停态。
 - `endpoint-resolver.ts` 是独立子进程 env 路径（`OMNI_PLUGIN_ENDPOINTS`/`OMNI_PLUGIN_PROXY`），**refresh-service 不用它**（override 直接经 `create_connector_context` 传）。

@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect, useRef } from "react";
+import { is_web } from "../lib/is-web";
 
 /**
  * Reports popup content height to the main process via the preload bridge.
@@ -26,6 +27,10 @@ export function use_popup_height_report(
     const last_collapsed_ref = useRef<number | null>(null);
 
     useEffect(() => {
+        // Browser pages have no Electron BrowserWindow to resize. The Web
+        // bridge reports this host-only capability explicitly; skip the
+        // desktop-only measurement path instead of invoking it on every paint.
+        if (is_web()) return;
         const content_el = contentMirrorRef.current;
         if (!content_el) return;
 

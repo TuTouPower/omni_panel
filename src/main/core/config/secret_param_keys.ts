@@ -10,7 +10,7 @@ export function build_secret_param_keys(
 
     for (const plugin of config.plugins) {
         const definition = definitions.find(
-            (candidate) => candidate.executablePath === plugin.executablePath,
+            (candidate) => candidate.manifest.id === plugin.manifestId,
         );
         const keys = new Set(
             definition?.manifest.parameters
@@ -29,16 +29,16 @@ export function build_secret_param_keys(
     return keys_by_instance;
 }
 
-export function find_unknown_executable_paths(
+export function find_unknown_manifest_ids(
     config: AppConfiguration,
     definitions: readonly ConnectorDefinition[],
 ): string[] {
-    const known_paths = new Set(definitions.map((definition) => definition.executablePath));
+    const known_manifest_ids = new Set(definitions.map((definition) => definition.manifest.id));
     return [
         ...new Set(
             config.plugins
-                .map((plugin) => plugin.executablePath)
-                .filter((executable_path) => !known_paths.has(executable_path)),
+                .map((plugin) => plugin.manifestId)
+                .filter((manifest_id) => !known_manifest_ids.has(manifest_id)),
         ),
     ];
 }

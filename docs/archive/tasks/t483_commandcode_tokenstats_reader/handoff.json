@@ -1,0 +1,44 @@
+{
+    "tid": "t483",
+    "attempt": 1,
+    "execution_id": "5d28a267e3974d8a97004d6a57c1da3f",
+    "status": "done",
+    "branch": "t483_commandcode_tokenstats_reader",
+    "base_sha": "d1e55a55de216183b7dc7b18dd119902be7a49c7",
+    "tests": "定向 4 files / 83 tests PASS；直接 tsc、ESLint、Prettier、git diff --check PASS；完整直接 Vitest 3718 tests 中 3343 PASS、9 skipped、366 failures，失败集中于 better-sqlite3 native binding 缺失",
+    "blackbox": "pnpm test 因 non-TTY/native 依赖状态门禁阻塞；生产构建沿用 t482 已通过的门禁证据，t483 新增 reader 定向路径无构建错误",
+    "review": "Round 1 code + test PASS，0 finding，reviewed_scope=35fd7b5a8c049164，review scope 8edf0f9a1d1564ba",
+    "ac_evidence": {
+        "AC-001": [
+            "commandcode-reader fixture 含 session id/cwd、model 和多条 assistant usage；测试断言 session、model、directory、title 与逐轮 token 汇总。"
+        ],
+        "AC-002": [
+            "fixture 覆盖 input/output/cost 相邻轮回落，session 汇总按每轮原值相加，追加 turn 后仍按全量逐轮重算。"
+        ],
+        "AC-003": [
+            "records 保留 message.timestamp，定向测试按 token-stats UTC+8 hour_start 公式断言跨小时记录分桶。"
+        ],
+        "AC-004": [
+            "真实临时 projects fixture 含 user、无 usage assistant、checkpoints、meta 和根 history；只有有效 assistant 主文件进入结果。"
+        ],
+        "AC-005": [
+            "reader 将 cacheRead 从 raw input 拆为独立字段；record token 总量断言不重复计算缓存。"
+        ],
+        "AC-006": [
+            "公共 commandcode source/agent union、dashboard agent_totals 与 AgentFilter 按 spec 由 t484 承接；t483 collector 已注册 runtime source/agent 采集入口。"
+        ],
+        "AC-007": [
+            "d059 复核证据通过 ADR 032 固定每轮 output/cost 回落与 input 直接相加口径，实施笔记记录来源和边界。"
+        ],
+        "AC-008": [
+            "定向测试覆盖重复扫描空 delta、mtime 变更追加重算、序列化 scan-state 重启续扫及与 fresh full scan 收敛。"
+        ],
+        "AC-009": [
+            "facts cost 断言 0.4+0.1+0.3=0.8，追加 0.05 后结果按逐轮和重算且无负差分。"
+        ]
+    },
+    "pending": [
+        "AC-006 的公共类型、dashboard 汇总和 AgentFilter 接线由链式 t484 完成；环境仍缺 better-sqlite3 native binding，完整集成测试需在依赖可构建环境复跑。"
+    ],
+    "findings": []
+}

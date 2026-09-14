@@ -57,6 +57,7 @@ function createMockDeps() {
             {
                 instanceId: "claude",
                 stateId: "claude",
+                manifestId: "claude",
                 name: "Claude",
                 enabled: true,
                 executablePath: "/plugins/claude.py",
@@ -256,12 +257,9 @@ describe("config-ipc", () => {
 
         const result = await handleConfigSave(deps, modified);
         expect(result.ok).toBe(true);
-        const savedArgs = deps.configStore.saveIfBaseMatches.mock.calls as [
-            AppConfiguration,
-            AppConfiguration,
-        ][];
+        const savedArgs = deps.configStore.save.mock.calls as [AppConfiguration][];
         expect(savedArgs.length).toBeGreaterThan(0);
-        const savedPlugin = savedArgs[0]?.[1]?.plugins.find((p) => p.stateId === "claude");
+        const savedPlugin = savedArgs[0]?.[0]?.plugins.find((p) => p.stateId === "claude");
         expect(savedPlugin?.parameterValues["API_KEY"]).toBeUndefined();
         expect(savedPlugin?.parameterValues["MODEL"]).toBe("gpt-4o");
     });
@@ -281,11 +279,8 @@ describe("config-ipc", () => {
         const result = await handleConfigSave(deps, modified);
 
         expect(result.ok).toBe(true);
-        const savedArgs = deps.configStore.saveIfBaseMatches.mock.calls as [
-            Record<string, unknown>,
-            Record<string, unknown>,
-        ][];
-        expect(savedArgs[0]?.[1]["accountOrders"]).toEqual({
+        const savedArgs = deps.configStore.save.mock.calls as [Record<string, unknown>][];
+        expect(savedArgs[0]?.[0]["accountOrders"]).toEqual({
             claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
         });
     });
@@ -298,6 +293,7 @@ describe("config-ipc", () => {
         const fakePlugin: AppConfiguration["plugins"][number] = {
             instanceId: "unknown-id",
             stateId: "unknown-id",
+            manifestId: "unknown",
             name: "Fake",
             enabled: true,
             executablePath: "/plugins/fake.py",
@@ -398,6 +394,7 @@ describe("config-ipc", () => {
                 {
                     instanceId: "new-instance",
                     stateId: "new-instance",
+                    manifestId: "new",
                     name: "New",
                     enabled: true,
                     executablePath: "/plugins/new.py",
@@ -451,6 +448,7 @@ describe("config-ipc", () => {
                 {
                     instanceId: "claude",
                     stateId: "claude",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",
@@ -494,7 +492,7 @@ describe("config-ipc", () => {
         expect(added?.stateId).not.toBe("claude");
     });
 
-    it("handleConfigExport writes JSON file via dialog with plaintext secrets", async () => {
+    it("handleConfigExport writes canonical v2 JSON with plaintext secrets", async () => {
         const { dialog } = await import("electron");
         const exportPath = await tempFile("export.json");
         vi.mocked(dialog).showSaveDialog.mockResolvedValue({
@@ -511,10 +509,8 @@ describe("config-ipc", () => {
         expect(result.data.saved).toBe(true);
         expect(deps.secretsStore.exportAll).toHaveBeenCalled();
         const parsed = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
-        expect(parsed["formatVersion"]).toBe(1);
+        expect(parsed["formatVersion"]).toBe(2);
         expect(parsed["config"]).toBeDefined();
-        // 待澄清-1：明文导出密钥，权限完全开放给用户，不脱敏、不加密。
-        // 用户自己负责导出文件的安全（spec: secret-vault.md）。
         expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "sk-real" });
     });
 
@@ -534,46 +530,91 @@ describe("config-ipc", () => {
         expect(result.data.saved).toBe(false);
     });
 
-    it("handleConfigImportData rejects unknown executable paths before writes", async () => {
+    it("handleConfigImportData skips unknown manifest ids and reports them", async () => {
         const deps = {
             ...createMockDeps(),
             definitions: [
                 {
                     directory: "/plugins/known",
                     executablePath: "/plugins/known",
-                    manifest: {},
+                    manifest: { id: "known" },
                 } as ConnectorDefinition,
             ],
         };
         const raw = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [
-                {
-                    instanceId: "unknown",
-                    stateId: "unknown",
-                    name: "Unknown",
-                    enabled: true,
-                    executablePath: "/plugins/unknown",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-unknown" },
-                    endpointOverrides: {},
-                },
-            ],
-            launchAtLogin: false,
+            formatVersion: 2,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
+            config: {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "unknown",
+                        stateId: "unknown",
+                        manifestId: "unknown",
+                        name: "Unknown",
+                        enabled: true,
+                        executablePath: "/plugins/unknown",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            },
+            secrets: { "unknown:API_KEY": "sk-unknown" },
         };
         const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
 
         const result = await handleConfigImportData(deps, raw);
 
-        expect(result.ok).toBe(false);
-        if (!result.ok) {
-            expect(result.error.code).toBe("VALIDATION_ERROR");
-            expect(result.error.message).toContain("未知连接器路径");
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.data.skipped).toEqual([
+                { instanceId: "unknown", manifestId: "unknown", reason: "unknown-manifest" },
+            ]);
         }
-        expect(deps.configStore.save).not.toHaveBeenCalled();
-        expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
-        expect(deps.configStore.prune_unhealthy_plugins).not.toHaveBeenCalled();
+        expect(deps.configStore.save).toHaveBeenCalledTimes(1);
+        expect(deps.secretsStore.importAll).toHaveBeenCalledWith({});
+    });
+
+    it("handleConfigImportData remaps executablePath from manifestId", async () => {
+        const definition: ConnectorDefinition = {
+            directory: "/local/connectors/claude",
+            executablePath: "/local/connectors/claude",
+            manifest: {
+                id: "claude",
+                provider: "claude",
+                capabilities: ["poll"],
+                parameters: [],
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
+                },
+            },
+        };
+        const deps = { ...createMockDeps(), definitions: [definition] };
+        const loaded = (await deps.configStore.load()) as AppConfiguration;
+        const source = loaded.plugins[0];
+        if (!source) throw new Error("missing test connector");
+        const incoming: AppConfiguration = {
+            ...loaded,
+            plugins: [{ ...source, executablePath: "/linux/connectors/claude" }],
+        };
+        const transfer = {
+            formatVersion: 2 as const,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
+            config: incoming,
+        };
+        const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigImportData(deps, transfer);
+
+        expect(result.ok).toBe(true);
+        const saved = deps.configStore.save.mock.calls[0]?.[0] as AppConfiguration | undefined;
+        expect(saved?.plugins[0]?.executablePath).toBe("/local/connectors/claude");
     });
 
     it("handleConfigImport reads and applies config + secrets", async () => {
@@ -585,16 +626,28 @@ describe("config-ipc", () => {
         });
 
         const importData = {
-            formatVersion: 1,
+            formatVersion: 2,
             exportedAt: "2026-05-31T00:00:00Z",
             appVersion: "1.0.0",
             config: {
                 schemaVersion: 1,
                 language: "zh-Hans",
-                plugins: [],
+                plugins: [
+                    {
+                        instanceId: "claude",
+                        stateId: "claude",
+                        manifestId: "claude",
+                        name: "Claude",
+                        enabled: true,
+                        executablePath: "/plugins/claude.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
                 launchAtLogin: false,
             },
-            secrets: { "new:key": "new-val" },
+            secrets: { "claude:API_KEY": "new-val" },
         };
         await writeFile(importPath, JSON.stringify(importData), "utf8");
 
@@ -606,7 +659,7 @@ describe("config-ipc", () => {
         if (!result.ok) return;
         expect(result.data.imported).toBe(true);
         expect(deps.configStore.save).toHaveBeenCalled();
-        expect(deps.secretsStore.importAll).toHaveBeenCalledWith({ "new:key": "new-val" });
+        expect(deps.secretsStore.importAll).toHaveBeenCalledWith({ "claude:API_KEY": "new-val" });
     });
 
     it("handleConfigImport invokes onConfigImported once on success", async () => {
@@ -617,7 +670,7 @@ describe("config-ipc", () => {
             filePaths: [importPath],
         });
         const importData = {
-            formatVersion: 1,
+            formatVersion: 2,
             exportedAt: "2026-05-31T00:00:00Z",
             appVersion: "1.0.0",
             config: {
@@ -695,7 +748,9 @@ describe("config-ipc", () => {
             filePaths: [importPath],
         });
         const importData = {
-            formatVersion: 1,
+            formatVersion: 2,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
             config: {
                 schemaVersion: 1,
                 language: "zh-Hans",
@@ -732,7 +787,9 @@ describe("config-ipc", () => {
         });
 
         const importData = {
-            formatVersion: 1,
+            formatVersion: 2,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
             config: {
                 schemaVersion: 1,
                 language: "zh-Hans",
@@ -740,6 +797,7 @@ describe("config-ipc", () => {
                     {
                         instanceId: "grok-1",
                         stateId: "grok-1",
+                        manifestId: "grok",
                         name: "Grok",
                         enabled: true,
                         executablePath: "/connectors/grok",
@@ -779,7 +837,9 @@ describe("config-ipc", () => {
         });
 
         const importData = {
-            formatVersion: 1,
+            formatVersion: 2,
+            exportedAt: "2026-05-31T00:00:00Z",
+            appVersion: "1.0.0",
             config: {
                 schemaVersion: 1,
                 language: "zh-Hans",
@@ -787,6 +847,7 @@ describe("config-ipc", () => {
                     {
                         instanceId: "grok-1",
                         stateId: "grok-1",
+                        manifestId: "grok",
                         name: "Grok",
                         enabled: true,
                         executablePath: "/connectors/grok",
@@ -869,10 +930,7 @@ describe("config-ipc", () => {
         const result = await handleConfigSave(deps, incoming);
         expect(result.ok).toBe(true);
 
-        const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as Record<
-            string,
-            unknown
-        >;
+        const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
         expect(saved).toBeDefined();
         // collapsedAccounts must be preserved from disk, not wiped
         expect(saved["collapsedAccounts"]).toEqual({
@@ -885,10 +943,13 @@ describe("config-ipc", () => {
     it("handleConfigSave returns CONFLICT when a concurrent save committed (lost update guard)", async () => {
         const deps = createMockDeps();
         const originalConfig = structuredClone(await deps.configStore.load()) as AppConfiguration;
-        // The store's compare-and-save reports a concurrent writer committed
-        // between our load and save; the renderer write must be rejected, not
-        // silently overwrite the other window's changes.
-        deps.configStore.saveIfBaseMatches = vi.fn().mockResolvedValue("conflict");
+        // A concurrent writer commits after the renderer captured its base;
+        // the queued transaction must reject the stale renderer write rather
+        // than silently overwriting the other window's changes.
+        deps.configStore.load.mockResolvedValueOnce(originalConfig).mockResolvedValueOnce({
+            ...originalConfig,
+            launchAtLogin: !originalConfig.launchAtLogin,
+        });
 
         const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
 
@@ -897,10 +958,6 @@ describe("config-ipc", () => {
         if (!result.ok) {
             expect(result.error.code).toBe("CONFLICT");
         }
-        expect(deps.configStore.saveIfBaseMatches).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.anything(),
-        );
         expect(deps.configStore.save).not.toHaveBeenCalled();
     });
 
@@ -917,7 +974,7 @@ describe("config-ipc", () => {
         ).toThrow("IPC not allowed from unknown origin");
     });
 
-    it("rejects CONFIG_GET_SECRETS from non-setting route (I14)", async () => {
+    it("allows CONFIG_GET_SECRETS from any valid renderer route (t473)", async () => {
         const deps = createMockDeps();
         const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
         await registerConfigIpc(deps);
@@ -925,18 +982,16 @@ describe("config-ipc", () => {
             ([channel]) => channel === "config:getSecrets",
         )?.[1];
         if (!handler) throw new Error("missing config:getSecrets handler");
-        // #usage route 不应拉明文密钥
-        expect(() =>
-            handler(
-                {
-                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
-                } as Electron.IpcMainInvokeEvent,
-                "instance-1",
-            ),
-        ).toThrow("only allowed from setting route");
+        const result = await handler(
+            {
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
+            } as Electron.IpcMainInvokeEvent,
+            "claude",
+        );
+        expect(result).toEqual({ ok: true, data: { API_KEY: "sk-real" } });
     });
 
-    it("rejects CONFIG_SAVE_SECRETS from non-setting route (p120)", async () => {
+    it("allows CONFIG_SAVE_SECRETS from any valid renderer route (t473)", async () => {
         const deps = createMockDeps();
         const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
         await registerConfigIpc(deps);
@@ -944,15 +999,40 @@ describe("config-ipc", () => {
             ([channel]) => channel === "config:saveSecrets",
         )?.[1];
         if (!handler) throw new Error("missing config:saveSecrets handler");
-        // 非设置路由（如 #usage）不应写 vault 密钥（防御纵深，与 GET_SECRETS 对齐）
+        const result = await handler(
+            {
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
+            } as Electron.IpcMainInvokeEvent,
+            { instanceId: "claude", secrets: { API_KEY: "new-key" } },
+        );
+        expect(result).toEqual({ ok: true, data: undefined });
+        expect(deps.secretsStore.set).toHaveBeenCalledWith("claude:API_KEY", "new-key");
+    });
+
+    it("keeps sender validation on secret IPC channels (t473)", async () => {
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+        const get_handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:getSecrets",
+        )?.[1];
+        const save_handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:saveSecrets",
+        )?.[1];
+        if (!get_handler || !save_handler) throw new Error("missing secret handlers");
+        const invalid_event = {
+            senderFrame: { url: "about:blank" },
+        } as Electron.IpcMainInvokeEvent;
+        expect(() => get_handler(invalid_event, "claude")).toThrow(
+            "IPC not allowed from unknown origin",
+        );
         expect(() =>
-            handler(
-                {
-                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
-                } as Electron.IpcMainInvokeEvent,
-                {},
-            ),
-        ).toThrow("only allowed from setting route");
+            save_handler(invalid_event, {
+                instanceId: "claude",
+                secrets: { API_KEY: "new-key" },
+            }),
+        ).toThrow("IPC not allowed from unknown origin");
+        expect(deps.secretsStore.set).not.toHaveBeenCalled();
     });
 
     // P1-3: 用户可见文案统一用「连接器」而非「插件」（domain.md §5）
@@ -964,6 +1044,7 @@ describe("config-ipc", () => {
             const fakePlugin: AppConfiguration["plugins"][number] = {
                 instanceId: "unknown-id",
                 stateId: "unknown-id",
+                manifestId: "unknown",
                 name: "Fake",
                 enabled: true,
                 executablePath: "/plugins/fake.py",
@@ -1073,10 +1154,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as Record<
-                string,
-                unknown
-            >;
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
             expect(saved).toBeDefined();
             // After fix: post-merge schema validation strips unknown fields.
             expect(saved).not.toHaveProperty("extraDangerousField");
@@ -1094,6 +1172,7 @@ describe("config-ipc", () => {
             const protectedPlugin = {
                 instanceId: "firecrawl",
                 stateId: "firecrawl",
+                manifestId: "firecrawl",
                 name: "FIRECRAWL",
                 enabled: true,
                 executablePath: "/plugins/firecrawl.py",
@@ -1128,7 +1207,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as {
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
                 plugins: { instanceId: string }[];
             };
             expect(saved).toBeDefined();
@@ -1143,6 +1222,7 @@ describe("config-ipc", () => {
             const deletedPlugin = {
                 instanceId: "firecrawl",
                 stateId: "firecrawl",
+                manifestId: "firecrawl",
                 name: "FIRECRAWL",
                 enabled: true,
                 executablePath: "/plugins/firecrawl.py",
@@ -1172,7 +1252,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as {
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
                 plugins: { instanceId: string }[];
             };
             expect(saved).toBeDefined();
@@ -1350,7 +1430,7 @@ describe("config-ipc", () => {
         });
     });
 
-    describe("原生 CLI 配置导出/导入数据", () => {
+    describe("canonical v2 配置导出/导入数据", () => {
         it("默认导出剥离 secret 且不读取 vault", async () => {
             const { handleConfigExportData } = await import("../../../src/main/ipc/config-ipc");
             const deps = createMockDeps();
@@ -1358,23 +1438,25 @@ describe("config-ipc", () => {
 
             expect(result.ok).toBe(true);
             if (!result.ok) return;
-            expect(result.data.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+            expect(result.data.formatVersion).toBe(2);
+            expect(result.data.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+            expect(result.data).not.toHaveProperty("secrets");
             expect(deps.secretsStore.exportAll).not.toHaveBeenCalled();
         });
 
-        it("显式包含 secret 时注入原生 config.json 格式", async () => {
+        it("显式包含 secret 时写入 canonical 顶层 secrets", async () => {
             const { handleConfigExportData } = await import("../../../src/main/ipc/config-ipc");
             const deps = createMockDeps();
             const result = await handleConfigExportData(deps, { includeSecrets: true });
 
             expect(result.ok).toBe(true);
             if (!result.ok) return;
-            expect(result.data.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-real");
+            expect(result.data.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+            expect(result.data.secrets).toEqual({ "claude:API_KEY": "sk-real" });
             expect(deps.secretsStore.exportAll).toHaveBeenCalledTimes(1);
-            expect(result.data).not.toHaveProperty("formatVersion");
         });
 
-        it("导入 t275 原生 config 时抽取 secret 并持久化剥离后的配置", async () => {
+        it("导入 canonical 文件时持久化剥离后的配置和顶层 secret", async () => {
             const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
             const deps = createMockDeps();
             const loaded = (await deps.configStore.load()) as AppConfiguration;
@@ -1386,7 +1468,13 @@ describe("config-ipc", () => {
                 })),
             };
 
-            const result = await handleConfigImportData(deps, incoming);
+            const result = await handleConfigImportData(deps, {
+                formatVersion: 2,
+                exportedAt: "2026-05-31T00:00:00Z",
+                appVersion: "1.0.0",
+                config: incoming,
+                secrets: { "claude:API_KEY": "sk-imported" },
+            });
 
             expect(result.ok).toBe(true);
             if (!result.ok) return;
@@ -1399,7 +1487,7 @@ describe("config-ipc", () => {
             });
         });
 
-        it("导入不含 secret 的原生 config 不清空现有 vault", async () => {
+        it("导入不含 secrets 字段时保留活动实例的现有 vault", async () => {
             const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
             const deps = createMockDeps();
             const loaded = (await deps.configStore.load()) as AppConfiguration;
@@ -1411,11 +1499,18 @@ describe("config-ipc", () => {
                 })),
             };
 
-            const result = await handleConfigImportData(deps, incoming);
+            const result = await handleConfigImportData(deps, {
+                formatVersion: 2,
+                exportedAt: "2026-05-31T00:00:00Z",
+                appVersion: "1.0.0",
+                config: incoming,
+            });
 
             expect(result.ok).toBe(true);
             expect(deps.configStore.save).toHaveBeenCalledTimes(1);
-            expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
+            expect(deps.secretsStore.importAll).toHaveBeenCalledWith({
+                "claude:API_KEY": "sk-real",
+            });
         });
 
         it("Web 导入拒绝自定义端点覆盖", async () => {

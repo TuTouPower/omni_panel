@@ -16,12 +16,13 @@ describe("PanelTitleBar (t252)", () => {
         expect(screen.getByAltText("OmniPanel")).toBeInTheDocument();
     });
 
-    it("面板形态恒定渲染四个切换按钮，含当前面板（AC-001）", () => {
+    it("面板形态恒定渲染五个切换按钮，含当前面板（AC-001）", () => {
         render(<PanelTitleBar panel="Session" />);
         expect(screen.getByRole("button", { name: "Session面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Usage面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Agent面板" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Settings面板" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Dev面板" })).toBeInTheDocument();
     });
 
     it("点击当前面板自身按钮调用 onNavigate 不抛错（AC-003）", () => {
@@ -98,22 +99,34 @@ describe("PanelTitleBar (t252)", () => {
         expect(screen.queryByTitle("刷新当前面板")).toBeNull();
     });
 
-    it("切换按钮固定序「设置 用量 代理 会话」，含当前面板（AC-001）", () => {
+    it("切换按钮固定序「设置 用量 代理 会话 开发」，含当前面板（AC-001）", () => {
         render(<PanelTitleBar panel="Usage" onRefresh={vi.fn()} />);
         const panel_buttons = screen
             .getAllByRole("button")
             .map((b) => b.getAttribute("aria-label"))
             .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
-        expect(panel_buttons).toEqual(["Settings面板", "Usage面板", "Agent面板", "Session面板"]);
+        expect(panel_buttons).toEqual([
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+            "Dev面板",
+        ]);
     });
 
-    it("设置面板切换按钮恒定四枚「设置 用量 代理 会话」且刷新按钮恒不渲染（AC-001）", () => {
+    it("设置面板切换按钮恒定五枚「设置 用量 代理 会话 开发」且刷新按钮恒不渲染（AC-001）", () => {
         render(<PanelTitleBar panel="Settings" onRefresh={vi.fn()} />);
         const panel_buttons = screen
             .getAllByRole("button")
             .map((b) => b.getAttribute("aria-label"))
             .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
-        expect(panel_buttons).toEqual(["Settings面板", "Usage面板", "Agent面板", "Session面板"]);
+        expect(panel_buttons).toEqual([
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+            "Dev面板",
+        ]);
         expect(screen.queryByTitle("刷新当前面板")).toBeNull();
     });
 

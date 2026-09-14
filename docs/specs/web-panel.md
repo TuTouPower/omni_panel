@@ -14,7 +14,7 @@
 - **局域网使用，不考虑安全**：server 绑 `0.0.0.0`，web 路由免 Bearer 认证。
 - **secrets 明文返回**：`GET /v1/secrets` 返回 API key/cookie 明文。局域网任意设备可读。
 - **ingest 保留 token**：`POST /v1/ingest` 仍需 Bearer（不破坏现有采集客户端）。
-- **native 操作隐藏**：Electron-only 控件（隐藏到托盘、窗口 min/max/close、重启、开机自启、托盘菜单）在 web 隐藏或 no-op。判定依据 `src/renderer/lib/is-web.ts`（`<html data-web>` 由 `install_web_usageboard` 设置）。
+- **native 操作由宿主执行**：Electron-only 控件（隐藏到托盘、窗口 min/max/close、重启、托盘菜单）在 web 隐藏或 no-op；开机自启由宿主 LocalAPI `/v1/control/autostart` 执行，配置与 OS 登录项仍由主进程统一维护（Web bridge 接线见 t480）。判定依据 `src/renderer/lib/is-web.ts`（`<html data-web>` 由 `install_web_usageboard` 设置）。
 
 ### 2.1 风险接受说明（review_20260723_opus C1 评估，2026-07-23）
 

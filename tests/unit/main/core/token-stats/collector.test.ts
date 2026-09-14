@@ -9,6 +9,7 @@ const mock_read_opencode_sessions = vi.fn();
 const mock_scan_kimi = vi.fn();
 const mock_scan_grok = vi.fn();
 const mock_scan_codex = vi.fn();
+const mock_scan_commandcode = vi.fn();
 const mock_scan_antigravity = vi.fn();
 
 vi.mock("../../../../../src/main/core/token-stats/claude-reader", () => ({
@@ -30,6 +31,10 @@ vi.mock("../../../../../src/main/core/token-stats/grok-reader", () => ({
 vi.mock("../../../../../src/main/core/token-stats/codex-reader", () => ({
     scan_codex_rollouts: (...args: unknown[]) => mock_scan_codex(...args),
     create_codex_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
+}));
+vi.mock("../../../../../src/main/core/token-stats/commandcode-reader", () => ({
+    scan_commandcode_jsonls: (...args: unknown[]) => mock_scan_commandcode(...args),
+    create_commandcode_scan_state: () => ({ mtimes: new Map(), files: new Map() }),
 }));
 vi.mock("../../../../../src/main/core/token-stats/antigravity-reader", () => ({
     scan_antigravity_sessions: (...args: unknown[]) => mock_scan_antigravity(...args),
@@ -190,6 +195,12 @@ describe("collector", () => {
             new_state: { mtimes: new Map(), files: new Map() },
         });
         mock_scan_codex.mockReturnValue({
+            sessions: [],
+            daily: [],
+            records: [],
+            new_state: { mtimes: new Map(), files: new Map() },
+        });
+        mock_scan_commandcode.mockReturnValue({
             sessions: [],
             daily: [],
             records: [],
@@ -1162,9 +1173,9 @@ describe("collector", () => {
             configure(wsl_config);
 
             const update = posted_updates()[0]!;
-            // 平台七源（t445 +codex；t470 +antigravity）env=mac、全部 ok；reader 收到 env=mac。
+            // 平台八源（t445 +codex；t470 +antigravity；t483 +commandcode）env=mac、全部 ok；reader 收到 env=mac。
             const mac_statuses = update.sources_status.filter((s) => s.env === "mac");
-            expect(mac_statuses).toHaveLength(7);
+            expect(mac_statuses).toHaveLength(8);
             expect(mac_statuses.every((s) => s.status === "ok")).toBe(true);
             expect(mock_scan_grok.mock.calls[0]![1]).toBe("mac");
             expect(mock_read_costs.mock.calls[0]![1]).toBe("mac");
@@ -1197,9 +1208,9 @@ describe("collector", () => {
                 expect(s.status).toBe("unavailable");
                 expect(s.lastError).toContain("windows host");
             }
-            // 平台源 stay healthy（linux 宿主 → 7 个 linux 平台源，t445 +codex，t470 +antigravity）。
+            // 平台源 stay healthy（linux 宿主 → 8 个 linux 平台源，t445 +codex，t470 +antigravity，t483 +commandcode）。
             const platform_statuses = update.sources_status.filter((s) => s.env === "linux");
-            expect(platform_statuses).toHaveLength(7);
+            expect(platform_statuses).toHaveLength(8);
             expect(platform_statuses.every((s) => s.status === "ok")).toBe(true);
 
             // AC-003: one warn per unavailable source, keyed with source/env + reason.

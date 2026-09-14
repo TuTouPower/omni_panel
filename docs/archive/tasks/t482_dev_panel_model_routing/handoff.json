@@ -1,0 +1,56 @@
+{
+    "tid": "t482",
+    "attempt": 1,
+    "execution_id": "bab1410b087948ba8917e3616051926f",
+    "status": "done",
+    "branch": "t482_dev_panel_model_routing",
+    "base_sha": "0b7679a2de57f946a4bb575f00519d22455e5ed7",
+    "tests": "定向 5 files / 81 tests PASS；完整直接 Vitest 3716 tests 中 3348 PASS、2 skipped、366 failures，失败集中于 better-sqlite3 native binding 缺失和既有 refresh-service 集成用例；tsc、ESLint、Prettier、dependency-cruiser PASS",
+    "blackbox": "Electron/Web 生产构建 PASS（仅既有 CSS 优化 warning）；s038 本地 HTTP spike PASS；pnpm test 因无 TTY 的依赖状态检查 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY 中止；Knip 仅报告仓库既有 unlisted binaries/unused exports 基线项",
+    "review": "Round 1 code + test PASS，0 finding，reviewed_scope=af2c0e3bc18f89f2，review scope 57c252fd79078061",
+    "ac_evidence": {
+        "AC-001": [
+            "ModelRoutingPanel 渲染五个 slot Select；配置 models、渠道真实 mapping 与当前值合并为 options；renderer 回归断言五个 combobox 和非预设当前值。"
+        ],
+        "AC-002": [
+            "DevPanelModelRoutingManager 仅处理启用 default 渠道，按实际模型增补或移除 slot；manager 回归覆盖支持与不支持渠道。"
+        ],
+        "AC-003": [
+            "canonical_model 统一 alias 比较并写回渠道实际模型名；回归覆盖 sonnet-latest、真实模型保留和非 slot mapping 保留。"
+        ],
+        "AC-004": [
+            "resolve_priorities 对同一目标模型保证 priority 唯一；manager 回归断言冲突被分配为 1/2、无冲突值保持。"
+        ],
+        "AC-005": [
+            "save result 返回逐渠道 added/removed/mapping/priority 明细，ModelRoutingPanel 以表格展示；renderer 回归断言摘要与快照提示。"
+        ],
+        "AC-006": [
+            "host self-check 解析 model、id、choice 和 reasoning_content.model 并返回可读错误；manager/renderer 回归通过。"
+        ],
+        "AC-007": [
+            "配置缺少 models 时错误包含外部配置路径；transport/LocalAPI/renderer 均有错误处理路径。"
+        ],
+        "AC-008": [
+            "新增 renderer 仅使用既有 ui 组件和 DESIGN token；ESLint、Prettier、renderer tests、Electron/Web build PASS。"
+        ],
+        "AC-009": [
+            "公开配置和 snapshot info 类型不含 session；session 仅 host transport Authorization 使用，manager 回归断言公开 JSON 与快照不含凭证。"
+        ],
+        "AC-010": [
+            "桌面 IPC、LocalAPI 五条 route 与 Web bridge 调用同一 manager；LocalAPI/Web bridge 回归覆盖 config/channels/save/test/snapshot。"
+        ],
+        "AC-011": [
+            "首个 PUT 前以 0600 原子文件保留 models/model_mapping/priority 快照；失败后停止并返回 success/failed/skipped，manager 回归覆盖完整快照。"
+        ],
+        "AC-012": [
+            "transport 与 save 检查 HTTP 200 + top-level success:false；manager 回归覆盖 self-check 和 channel PUT false。"
+        ],
+        "AC-013": [
+            "IPC schema、LocalAPI schema 和 renderer window.confirm 均要求 confirmed=true；IPC、LocalAPI 400、renderer declined-confirmation 回归通过。"
+        ]
+    },
+    "pending": [
+        "真实 New API 目标版本字段与真实模型回复需部署环境人工复核；不读取真实 token、不实际访问真实服务。"
+    ],
+    "findings": []
+}

@@ -70,6 +70,183 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/records"));
     });
 
+    it("t484 AC-009/010: web Command Code resume delegates to the host endpoint", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ command: "cmd --resume sid-1", started: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.sessionHistory.resume?.("commandcode", "linux", "sid-1")).resolves.toEqual(
+            { command: "cmd --resume sid-1", started: true },
+        );
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/resume",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({
+                    source: "commandcode",
+                    env: "linux",
+                    session_id: "sid-1",
+                }),
+            }),
+        );
+    });
+
+    it("t481 AC-003/010: devPanel opens hash and delegates scan state to the host", async () => {
+        const state = {
+            status: "completed" as const,
+            scan_id: "scan-1",
+            started_at: null,
+            result: null,
+            error: null,
+        };
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(
+                mock_response({ scan_id: "scan-1", status: "running", reused: false }),
+            )
+            .mockResolvedValueOnce(mock_response(state))
+            .mockResolvedValueOnce(mock_response(null));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        api.devPanel.open();
+        expect(window.location.hash).toBe("#dev");
+        await expect(
+            api.devPanel.scan({
+                scanRoots: ["/tmp/repos"],
+                commitCutoff: "2026-03-20",
+                currentUserOnly: false,
+            }),
+        ).resolves.toEqual({ scan_id: "scan-1", status: "running", reused: false });
+        await expect(api.devPanel.getStatus()).resolves.toEqual(state);
+        await expect(api.devPanel.cancel()).resolves.toBeUndefined();
+        expect(fetch_mock.mock.calls.map((call) => call[0])).toEqual([
+            "/v1/devPanel/scan",
+            "/v1/devPanel/status",
+            "/v1/devPanel/cancel",
+        ]);
+    });
+
+    it("t482 AC-010: devPanel model routing exposes config, channels, save, test, and snapshot", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(mock_response({ models: ["claude-sonnet"] }))
+            .mockResolvedValueOnce(mock_response({ fetched_at: "now", channels: [] }))
+            .mockResolvedValueOnce(mock_response({ success: true, snapshot: {}, changes: [] }))
+            .mockResolvedValueOnce(
+                mock_response({ success: true, model_name: "claude-sonnet", error: null }),
+            )
+            .mockResolvedValueOnce(mock_response({ snapshot_id: "snapshot-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.devPanel.modelRouting.getConfig()).resolves.toEqual({
+            models: ["claude-sonnet"],
+        });
+        await expect(api.devPanel.modelRouting.getChannels()).resolves.toEqual({
+            fetched_at: "now",
+            channels: [],
+        });
+        await expect(
+            api.devPanel.modelRouting.save({
+                selections: { default_model: "claude-sonnet" },
+                confirmed: true,
+            }),
+        ).resolves.toEqual({ success: true, snapshot: {}, changes: [] });
+        await expect(
+            api.devPanel.modelRouting.test({ slot: "default_model", model: "claude-sonnet" }),
+        ).resolves.toEqual({ success: true, model_name: "claude-sonnet", error: null });
+        await expect(api.devPanel.modelRouting.getSnapshot()).resolves.toEqual({
+            snapshot_id: "snapshot-1",
+        });
+        expect(fetch_mock.mock.calls.map((call) => call[0])).toEqual([
+            "/v1/devPanel/modelRouting/config",
+            "/v1/devPanel/modelRouting/channels",
+            "/v1/devPanel/modelRouting/save",
+            "/v1/devPanel/modelRouting/test",
+            "/v1/devPanel/modelRouting/snapshot",
+        ]);
+        expect(fetch_mock.mock.calls[2]?.[1]).toMatchObject({
+            method: "POST",
+            body: JSON.stringify({
+                selections: { default_model: "claude-sonnet" },
+                confirmed: true,
+            }),
+        });
+    });
+
+    it("t480 AC-005: tokenStats.getBuckets forwards all bucket filters", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getBuckets({
+            source: "claude_code",
+            env: "linux",
+            from_date: "2026-09-01",
+            to_date: "2026-09-14",
+        });
+
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/buckets?source=claude_code&env=linux&from_date=2026-09-01&to_date=2026-09-14",
+        );
+    });
+
+    it("t480 AC-005: tokenStats.getRecords forwards source/session/window/limit", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.tokenStats.getRecords({
+            agent: "codex",
+            source: "codex",
+            session_id: "session/1",
+            env: "linux",
+            start: 100,
+            end: 200,
+            limit: 25,
+        });
+
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/records?agent=codex&source=codex&session_id=session%2F1&env=linux&start=100&end=200&limit=25",
+        );
+    });
+
+    it("t480 AC-004: tokenStats.forceCollect calls the host endpoint", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response(null));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.tokenStats.forceCollect()).resolves.toBeNull();
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/tokenStats/forceCollect",
+            expect.objectContaining({ method: "POST", body: "{}" }),
+        );
+    });
+
+    it("t480 AC-003: connector.snapshot reads the host snapshot endpoint", async () => {
+        const snapshot = { "inst-1": { status: "idle" as const } };
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response(snapshot));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.connector.snapshot()).resolves.toEqual(snapshot);
+        expect(fetch_mock).toHaveBeenCalledWith("/v1/connectors/snapshot");
+    });
+
+    it("t480 AC-002: sessionHistory.recent forwards source/env/limit", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.recent("claude_code", "win", 37);
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/recent?source=claude_code&env=win&limit=37",
+        );
+    });
+
     it("t457 AC-007: web getSessions 透传 title/directory，空串省略", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
         vi.stubGlobal("fetch", fetch_mock);
@@ -299,13 +476,16 @@ describe("web usageboard bridge", () => {
     it("auth.cookieLoginStatus GETs the local-api status endpoint", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()
-            .mockResolvedValue(mock_response({ in_progress: false, saved: true }));
+            .mockResolvedValue(
+                mock_response({ in_progress: false, saved: true, state: "succeeded" }),
+            );
         vi.stubGlobal("fetch", fetch_mock);
 
         const api = create_web_usageboard();
         await expect(api.auth.cookieLoginStatus("mimo/1")).resolves.toEqual({
             in_progress: false,
             saved: true,
+            state: "succeeded",
         });
         expect(fetch_mock).toHaveBeenCalledWith("/v1/auth/cookieLogin/status?instanceId=mimo%2F1");
     });
@@ -455,11 +635,11 @@ describe("web usageboard bridge", () => {
         expect(revoke_url).toHaveBeenNthCalledWith(2, "blob:2");
     });
 
-    it("settings.openConnectorsDir is a no-op", () => {
+    it("settings.openConnectorsDir reports unsupported browser capability", () => {
         const api = create_web_usageboard();
         expect(() => {
             api.settings.openConnectorsDir();
-        }).not.toThrow();
+        }).toThrow("Web bridge capability unavailable: settings.openConnectorsDir");
     });
 
     it("grok and kimi OAuth surfaces call the local-api endpoints", async () => {
@@ -520,17 +700,38 @@ describe("web usageboard bridge", () => {
         });
     });
 
-    it("native surfaces are no-ops", () => {
+    it("unsupported native presentation surfaces fail explicitly", () => {
         const api = create_web_usageboard();
         expect(() => {
             api.window.close();
-        }).not.toThrow();
+        }).toThrow("Web bridge capability unavailable: window.close");
+        expect(() => {
+            api.tray.hide();
+        }).toThrow("Web bridge capability unavailable: tray.hide");
         expect(() => {
             api.tray.open_panel();
         }).not.toThrow();
-        expect(() => {
-            api.theme.set("dark");
-        }).not.toThrow();
+    });
+
+    it("tray.toggle_autostart forwards the host state to subscribers", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(
+                mock_response({ status: "ok", autostart: { available: true, enabled: true } }),
+            );
+        vi.stubGlobal("fetch", fetch_mock);
+        const api = create_web_usageboard();
+        const states: boolean[] = [];
+        api.tray.on_autostart_state((enabled) => states.push(enabled));
+
+        api.tray.toggle_autostart();
+        await vi.waitFor(() => {
+            expect(states).toContain(true);
+        });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/control/autostart",
+            expect.objectContaining({ method: "POST", body: "{}" }),
+        );
     });
 
     it("onStateChange relays /v1/events SSE messages", () => {
@@ -722,6 +923,8 @@ describe("web usageboard bridge", () => {
     });
 
     it("theme.set('dark')/'light' 更新 data-theme 并通知 onThemeChange (t274)", () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" }));
+        vi.stubGlobal("fetch", fetch_mock);
         const api = create_web_usageboard();
         const received: boolean[] = [];
         api.event.onThemeChange((dark) => received.push(dark));
@@ -733,9 +936,18 @@ describe("web usageboard bridge", () => {
         api.theme.set("light");
         expect(document.documentElement.getAttribute("data-theme")).toBe("light");
         expect(received).toEqual([true, false]);
+        expect(fetch_mock).toHaveBeenNthCalledWith(
+            1,
+            "/v1/theme",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ mode: "dark" }) }),
+        );
     });
 
     it("theme.set('system') 按 matchMedia 解析 data-theme (t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
 
         stub_match_media(true);
@@ -748,6 +960,10 @@ describe("web usageboard bridge", () => {
     });
 
     it("theme.set 相同值不重复通知（对齐 nativeTheme updated 语义）(t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
         api.theme.set("dark");
         const received: boolean[] = [];
@@ -761,6 +977,10 @@ describe("web usageboard bridge", () => {
     });
 
     it("onThemeChange 返回可退订函数 (t274)", () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn<typeof fetch>().mockResolvedValue(mock_response({ status: "ok" })),
+        );
         const api = create_web_usageboard();
         const received: boolean[] = [];
         const unsubscribe = api.event.onThemeChange((dark) => received.push(dark));
@@ -955,6 +1175,30 @@ describe("web usageboard bridge", () => {
             subscriber_id: "web-1",
         });
         expect(body["connection_id"]).toMatch(/^web-conn-/);
+    });
+
+    it("t484 AC-010: web 可打开 Command Code 订阅查询", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ subscribed: true, subscriber_id: "web-cc-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.subscribe("commandcode", "linux", "cc-sid");
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        source.simulate_open();
+        await Promise.resolve();
+
+        const init = fetch_mock.mock.calls[0]?.[1];
+        const raw_body = typeof init?.body === "string" ? init.body : "";
+        expect(JSON.parse(raw_body)).toMatchObject({
+            source: "commandcode",
+            env: "linux",
+            session_id: "cc-sid",
+        });
     });
 
     it("messagesUpdated 按 loc 分发且不串会话 (t414 AC-003)", async () => {

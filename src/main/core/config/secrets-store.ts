@@ -9,6 +9,9 @@ export interface SecretsStore {
     delete(key: string): Promise<void>;
     exportAll(): Promise<Record<string, string>>;
     importAll(decrypted: Record<string, string>): Promise<void>;
+    /** Encrypted pre-import snapshot hooks implemented by the file vault. */
+    writeImportSnapshot?(snapshotPath: string): Promise<void>;
+    restoreImportSnapshot?(snapshotPath: string): Promise<void>;
 }
 
 export function createSecretsStore(vault: VaultBackend): SecretsStore {
@@ -45,6 +48,20 @@ export function createSecretsStore(vault: VaultBackend): SecretsStore {
             // 失败时 vault 保持旧态，天然回滚（无需快照）。
             await vault.replaceAll(decrypted);
             log.info(`importAll: imported ${String(Object.keys(decrypted).length)} keys`);
+        },
+
+        async writeImportSnapshot(snapshotPath: string): Promise<void> {
+            if (!vault.write_snapshot) {
+                throw new Error("Vault backend does not support encrypted snapshots");
+            }
+            await vault.write_snapshot(snapshotPath);
+        },
+
+        async restoreImportSnapshot(snapshotPath: string): Promise<void> {
+            if (!vault.restore_snapshot) {
+                throw new Error("Vault backend does not support encrypted snapshots");
+            }
+            await vault.restore_snapshot(snapshotPath);
         },
     };
 }

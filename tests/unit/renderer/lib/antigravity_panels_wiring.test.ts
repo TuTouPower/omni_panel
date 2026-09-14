@@ -16,7 +16,7 @@ import {
 type NoAntigravityInAgentFilter =
     Exclude<
         AgentFilter,
-        "all" | "claude-code" | "opencode" | "kimi-code" | "grok" | "codex"
+        "all" | "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" | "commandcode"
     > extends never
         ? true
         : false;

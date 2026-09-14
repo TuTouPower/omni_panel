@@ -246,7 +246,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 return;
             }
             const definition = deps.definitions.find(
-                (item) => item.executablePath === connector_config.executablePath,
+                (item) => item.manifest.id === connector_config.manifestId,
             );
             if (!definition) {
                 trace_log.warn(`Refresh requested for connector without definition: ${instanceId}`);

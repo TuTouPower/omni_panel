@@ -189,6 +189,41 @@ describe("run_control_command", () => {
         }
     });
 
+    it("supported-platform autostart delegates to the host control endpoint", async () => {
+        if (process.platform === "linux") return;
+        const dir = makeDir();
+        const server = createServer((req, res) => {
+            expect(req.url).toBe("/v1/control/autostart");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+                JSON.stringify({
+                    status: "ok",
+                    autostart: { available: true, enabled: true },
+                }),
+            );
+        });
+        await new Promise<void>((r) => server.listen(0, r));
+        const port = (server.address() as { port: number }).port;
+        writeCliJson(dir, port);
+        try {
+            const writes: string[] = [];
+            const code = await run_control_command(
+                "autostart",
+                {},
+                {
+                    dataRoot: dir,
+                    write: (text) => {
+                        writes.push(text);
+                    },
+                },
+            );
+            expect(code).toBe(0);
+            expect(writes.join("")).toContain("autostart 已开启");
+        } finally {
+            server.close();
+        }
+    });
+
     it("autostart 在 Linux 返回 unsupported 且无副作用", async () => {
         const dir = makeDir();
         const writes: string[] = [];

@@ -8,7 +8,7 @@ import { create_observation_store } from "../../../src/main/core/observation/obs
 import { create_token_stats_store } from "../../../src/main/core/token-stats/token-stats-store";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
-import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
+import type { ControlState, LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
@@ -59,6 +59,16 @@ function valid_ingest_body() {
         reset_at: null,
         status: "normal",
         source: "wrapper",
+    };
+}
+
+function canonical_config_transfer(config: unknown, secrets?: Record<string, string>) {
+    return {
+        formatVersion: 2,
+        exportedAt: "2026-05-31T00:00:00Z",
+        appVersion: "1.0.0-test",
+        config,
+        ...(secrets === undefined ? {} : { secrets }),
     };
 }
 
@@ -437,9 +447,27 @@ describe("local-api", () => {
         const cookie_status_body = (await cookie_status.json()) as {
             in_progress: boolean;
             saved: boolean;
+            state: string;
         };
-        expect(cookie_status_body).toEqual({ in_progress: true, saved: true });
+        expect(cookie_status_body).toEqual({
+            in_progress: true,
+            saved: true,
+            state: "running",
+        });
         expect(JSON.stringify(cookie_status_body)).not.toContain("secret-cookie");
+
+        const conflict = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instanceId: "mimo-1" }),
+        });
+        expect(conflict.status).toBe(200);
+        await expect(conflict.json()).resolves.toEqual({
+            started: false,
+            conflict: true,
+            error_code: "CONFLICT",
+            error: "已有登录正在进行中，请等待当前登录完成",
+        });
         resolve_cookie_login({ saved: true });
 
         for (const namespace of ["grok", "kimi"] as const) {
@@ -699,7 +727,11 @@ describe("local-api", () => {
                 );
             });
             const status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-real`);
-            expect(await status.json()).toEqual({ in_progress: false, saved: true });
+            expect(await status.json()).toEqual({
+                in_progress: false,
+                saved: true,
+                state: "succeeded",
+            });
             expect(log_lines.join("\n")).not.toContain("local-cookie-sentinel");
 
             await api.stop();
@@ -735,10 +767,14 @@ describe("local-api", () => {
                 const body = (await response.json()) as {
                     in_progress: boolean;
                     saved: boolean;
+                    state: string;
+                    error_code?: string;
                     error?: string;
                 };
                 expect(body.in_progress).toBe(false);
                 expect(body.saved).toBe(false);
+                expect(body.state).toBe("failed");
+                expect(body.error_code).toBe("INTERNAL_ERROR");
                 expect(body.error).toContain("graphical display");
             });
             expect(no_display_window).not.toHaveBeenCalled();
@@ -803,6 +839,7 @@ describe("local-api config management", () => {
                 {
                     instanceId: "managed-1",
                     stateId: "managed-1",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",
@@ -886,34 +923,76 @@ describe("local-api config management", () => {
         );
     });
 
-    it("export returns native config without secrets by default and with secrets explicitly", async () => {
+    it("shared config and secret routes accept requests without credentials (t473)", async () => {
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const config_read = await fetch(`${base}/v1/config`);
+        expect(config_read.status).toBe(200);
+
+        const config_write = await fetch(`${base}/v1/config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...managed_config, launchAtLogin: true }),
+        });
+        expect(config_write.status).toBe(200);
+
+        const secrets_write = await fetch(`${base}/v1/secrets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                instanceId: "managed-1",
+                secrets: { API_KEY: "sk-from-http" },
+            }),
+        });
+        expect(secrets_write.status).toBe(200);
+        expect(
+            (managed_deps.secretsStore.set as unknown as { mock: { calls: unknown[][] } }).mock
+                .calls,
+        ).toContainEqual(["managed-1:API_KEY", "sk-from-http"]);
+
+        const secrets_read = await fetch(`${base}/v1/secrets?instanceId=managed-1`);
+        expect(secrets_read.status).toBe(200);
+        await expect(secrets_read.json()).resolves.toEqual({ API_KEY: "sk-managed" });
+    });
+
+    it("export returns canonical config without secrets by default and with secrets explicitly", async () => {
         await api.start();
         const plain = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config/export`);
         expect(plain.status).toBe(200);
         const plain_body = (await plain.json()) as {
-            plugins: { parameterValues: Record<string, unknown> }[];
+            formatVersion: number;
+            config: { plugins: { parameterValues: Record<string, unknown> }[] };
+            secrets?: Record<string, string>;
         };
-        expect(plain_body.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(plain_body.formatVersion).toBe(2);
+        expect(plain_body.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(plain_body).not.toHaveProperty("secrets");
 
         const with_secrets = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/export?includeSecrets=true`,
         );
         expect(with_secrets.status).toBe(200);
         const with_secrets_body = (await with_secrets.json()) as {
-            plugins: { parameterValues: Record<string, unknown> }[];
+            config: { plugins: { parameterValues: Record<string, unknown> }[] };
+            secrets?: Record<string, string>;
         };
-        expect(with_secrets_body.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-managed");
+        expect(with_secrets_body.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(with_secrets_body.secrets).toEqual({ "managed-1:API_KEY": "sk-managed" });
     });
 
     it("import validates malformed/schema-invalid JSON without changing config", async () => {
         await api.start();
-        const incoming = {
-            ...structuredClone(managed_config),
-            plugins: managed_config.plugins.map((plugin) => ({
-                ...plugin,
-                parameterValues: { API_KEY: "sk-from-http" },
-            })),
-        };
+        const incoming = canonical_config_transfer(
+            {
+                ...structuredClone(managed_config),
+                plugins: managed_config.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: {},
+                })),
+            },
+            { "managed-1:API_KEY": "sk-from-http" },
+        );
         const imported = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {
@@ -950,7 +1029,7 @@ describe("local-api config management", () => {
         );
         expect(null_body.status).toBe(400);
         const null_response = (await null_body.json()) as { message: string };
-        expect(null_response.message).toContain("导入的配置格式无效");
+        expect(null_response.message).toContain("导入文件格式无效");
         expect(managed_config).toEqual(after_valid_import);
 
         const schema_invalid = await fetch(
@@ -958,7 +1037,13 @@ describe("local-api config management", () => {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...incoming, launchAtLogin: "not-a-boolean" }),
+                body: JSON.stringify({
+                    ...incoming,
+                    config: {
+                        ...(incoming.config as Record<string, unknown>),
+                        launchAtLogin: "not-a-boolean",
+                    },
+                }),
             },
         );
         expect(schema_invalid.status).toBe(400);
@@ -969,7 +1054,7 @@ describe("local-api config management", () => {
 
     it("importing a redacted config preserves the existing secret vault", async () => {
         await api.start();
-        const redacted = structuredClone(managed_config);
+        const redacted = canonical_config_transfer(structuredClone(managed_config));
         const imported = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {
@@ -982,21 +1067,24 @@ describe("local-api config management", () => {
         expect(
             (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
                 .mock.calls,
-        ).toHaveLength(0);
+        ).toHaveLength(1);
         expect(managed_config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
     });
 
     it("web import rejects endpoint overrides before persisting config or secrets", async () => {
         await api.start();
         const before = structuredClone(managed_config);
-        const incoming = {
-            ...structuredClone(managed_config),
-            plugins: managed_config.plugins.map((plugin) => ({
-                ...plugin,
-                parameterValues: { API_KEY: "sk-untrusted" },
-                endpointOverrides: { default: "https://untrusted.example" },
-            })),
-        };
+        const incoming = canonical_config_transfer(
+            {
+                ...structuredClone(managed_config),
+                plugins: managed_config.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: {},
+                    endpointOverrides: { default: "https://untrusted.example" },
+                })),
+            },
+            { "managed-1:API_KEY": "sk-untrusted" },
+        );
         const response = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {
@@ -1086,6 +1174,7 @@ describe("local-api web read endpoints", () => {
         await expect(res.json()).resolves.toMatchObject({
             current: { tokens: 11, sessions: 1, calls: 1 },
             sessions: { total: 1, has_more: false },
+            status: { sources_status: [] },
             freshness: { stale: false },
         });
     });
@@ -1161,7 +1250,7 @@ describe("local-api web read endpoints", () => {
             heatmap: [],
             models: [],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
             data_version: 0,
         };
@@ -1211,12 +1300,26 @@ describe("local-api web read endpoints", () => {
         },
     );
 
-    it("GET /v1/sessions accepts valid numeric params (t353 AC-001 happy path)", async () => {
+    it("GET /v1/sessions rejects zero and oversized limits (t476 AC-005)", async () => {
         await api.start();
-        const res = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=0&offset=5`,
-        );
-        expect(res.status).toBe(200);
+        for (const limit of ["0", "10001", "1.5"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/sessions?start_at=0&end_at=9999999999999&limit=${limit}&offset=5`,
+            );
+            expect(res.status, `limit=${limit}`).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({ code: "INVALID_LIMIT" });
+        }
+    });
+
+    it("GET /v1/records applies the same explicit limit boundary (t476 AC-005)", async () => {
+        await api.start();
+        for (const limit of ["0", "10001", "1.5"]) {
+            const res = await fetch(
+                `http://127.0.0.1:${String(api.get_port())}/v1/records?limit=${limit}`,
+            );
+            expect(res.status, `limit=${limit}`).toBe(400);
+            await expect(res.json()).resolves.toMatchObject({ code: "INVALID_LIMIT" });
+        }
     });
 
     it("t457 AC-007: GET /v1/sessions?title=&directory= 独立过滤生效（真实 store）", async () => {
@@ -1410,7 +1513,7 @@ describe("local-api web read endpoints", () => {
             heatmap: [],
             models: ["sonnet"],
             sessions: { items: [], total: 0, has_more: false },
-            status: { running: false, last_updated: null },
+            status: { running: false, last_updated: null, sources_status: [] },
             freshness: { queried_at: 3, stale: false },
             data_version: 0,
         };
@@ -1779,6 +1882,100 @@ describe("local-api web read endpoints", () => {
         expect(Array.isArray(data)).toBe(true);
     });
 
+    it("GET /v1/connectors/snapshot returns the runtime snapshot", async () => {
+        runtime_store.updateState("inst-1", { status: "idle" });
+        await api.start();
+        const res = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/connectors/snapshot`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual({ "inst-1": { status: "idle" } });
+    });
+
+    it("GET /v1/buckets and /v1/records preserve Web bridge filters", async () => {
+        const buckets_spy = vi.spyOn(token_stats_store, "query_buckets");
+        const records_spy = vi.spyOn(token_stats_store, "query_records");
+        await api.start();
+        try {
+            const base = `http://127.0.0.1:${String(api.get_port())}`;
+            expect(
+                (
+                    await fetch(
+                        `${base}/v1/buckets?source=claude_code&env=linux&from_date=2026-09-01&to_date=2026-09-14`,
+                    )
+                ).status,
+            ).toBe(200);
+            expect(
+                (
+                    await fetch(
+                        `${base}/v1/records?agent=codex&source=codex&session_id=session%2F1&env=linux&start=100&end=200&limit=25`,
+                    )
+                ).status,
+            ).toBe(200);
+            expect(buckets_spy).toHaveBeenCalledWith({
+                source: "claude_code",
+                env: "linux",
+                from_date: "2026-09-01",
+                to_date: "2026-09-14",
+            });
+            expect(records_spy).toHaveBeenCalledWith({
+                agent: "codex",
+                source: "codex",
+                session_id: "session/1",
+                env: "linux",
+                start: 100,
+                end: 200,
+                limit: 25,
+            });
+        } finally {
+            buckets_spy.mockRestore();
+            records_spy.mockRestore();
+        }
+    });
+
+    it("POST /v1/tokenStats/forceCollect delegates to the host collector", async () => {
+        const force_collect = vi.fn();
+        const force_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            token_stats_force_collect: force_collect,
+        });
+        await force_api.start();
+        try {
+            const res = await fetch(
+                `http://127.0.0.1:${String(force_api.get_port())}/v1/tokenStats/forceCollect`,
+                { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } },
+            );
+            expect(res.status).toBe(200);
+            await expect(res.json()).resolves.toBeNull();
+            expect(force_collect).toHaveBeenCalledOnce();
+        } finally {
+            await force_api.stop();
+        }
+    });
+
+    it("POST /v1/theme delegates theme changes to the host", async () => {
+        const theme_set = vi.fn();
+        const theme_api = create_local_api_server(store, {
+            port: 0,
+            token_stats_store,
+            theme_set,
+        });
+        await theme_api.start();
+        try {
+            const res = await fetch(`http://127.0.0.1:${String(theme_api.get_port())}/v1/theme`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: "dark" }),
+            });
+            expect(res.status).toBe(200);
+            await expect(res.json()).resolves.toEqual({ status: "ok" });
+            expect(theme_set).toHaveBeenCalledWith("dark");
+        } finally {
+            await theme_api.stop();
+        }
+    });
+
     it("GET /v1/trend requires sourceInstanceId (t214)", async () => {
         await api.start();
         const url = `http://127.0.0.1:${String(api.get_port())}/v1/trend?provider=tavily&accountId=tavily&metricId=tavily:total-month`;
@@ -1887,6 +2084,15 @@ describe("local-api session history endpoints (t259)", () => {
                     next_cursor: null,
                 }),
             ),
+            recent_sessions: vi.fn(() => [
+                {
+                    source: "claude_code",
+                    env: "linux",
+                    session_id: "sess-1",
+                    title: "Test Session",
+                    agent: "claude-code",
+                },
+            ]),
             searchContent: vi.fn(() => Promise.resolve(new Set(["claude_code|linux|sess-1"]))),
             searchContentWithAbort: vi.fn<
                 (locs: unknown[], keyword: string, abortSignal: AbortSignal) => Promise<Set<string>>
@@ -1919,6 +2125,13 @@ describe("local-api session history endpoints (t259)", () => {
         await writeFile(
             join(session_home, ".claude", "projects", "sess-1.jsonl"),
             '{"sessionId":"sess-1"}\n',
+        );
+        await mkdir(join(session_home, ".commandcode", "projects", "encoded-cwd"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(session_home, ".commandcode", "projects", "encoded-cwd", "cc-sess.jsonl"),
+            "{}\n",
         );
     });
 
@@ -1971,6 +2184,37 @@ describe("local-api session history endpoints (t259)", () => {
         );
     });
 
+    it("POST /v1/sessionHistory/resume 执行固定 Command Code 模板 (t484 AC-009)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+        const result = await fetch(`${base}/v1/sessionHistory/resume`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                source: "commandcode",
+                env: "linux",
+                session_id: "cc-sess",
+            }),
+        });
+        expect(result.status).toBe(200);
+        await expect(result.json()).resolves.toEqual({
+            command: "cmd --resume cc-sess",
+            started: true,
+        });
+
+        const rejected = await fetch(`${base}/v1/sessionHistory/resume`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ source: "commandcode", env: "win", session_id: "cc-sess" }),
+        });
+        expect(rejected.status).toBe(400);
+    });
+
     it("GET /v1/sessionHistory 缺 source/env 返回 400，不再全量枚举 (t263)", async () => {
         const service = base_session_service();
         const provider: SessionsProvider = vi.fn(() => [make_session_row()]);
@@ -1983,6 +2227,38 @@ describe("local-api session history endpoints (t259)", () => {
         // id-only 不再触发 sessions_provider 全量枚举反查。
         expect(provider).not.toHaveBeenCalled();
         expect(service.query).not.toHaveBeenCalled();
+    });
+
+    it("GET /v1/sessionHistory/query 与 recent 使用共享入口契约 (t476 AC-001/009)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => [make_session_row()]),
+        );
+        await api.start();
+
+        const query = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/query?id=sess-1&source=claude_code&env=linux&limit=1`,
+        );
+        expect(query.status).toBe(200);
+        expect(service.query).toHaveBeenCalledWith(
+            expect.objectContaining({ source: "claude_code", env: "linux" }),
+            { limit: 1 },
+        );
+
+        const recent = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/sessionHistory/recent?source=claude_code&env=linux&limit=1`,
+        );
+        expect(recent.status).toBe(200);
+        await expect(recent.json()).resolves.toEqual([
+            expect.objectContaining({ session_id: "sess-1" }),
+        ]);
+        expect(service.recent_sessions).toHaveBeenCalledWith(
+            "claude_code",
+            "linux",
+            1,
+            expect.any(Function),
+        );
     });
 
     it("GET /v1/sessionHistory maps string before_cursor to a pagination cursor", async () => {
@@ -3206,7 +3482,7 @@ describe("local-api logs export (t279)", () => {
         }
     });
 
-    it("GET /v1/logs/export 日志文件缺失时返回 200 空下载", async () => {
+    it("GET /v1/logs/export 日志文件缺失时返回 LOG_NOT_FOUND", async () => {
         const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-missing-"));
         try {
             const export_api = create_local_api_server(store, {
@@ -3220,9 +3496,11 @@ describe("local-api logs export (t279)", () => {
                 const res = await fetch(
                     `http://127.0.0.1:${String(export_api.get_port())}/v1/logs/export`,
                 );
-                expect(res.status).toBe(200);
-                expect(res.headers.get("content-disposition")).toContain(".log");
-                expect(await res.text()).toBe("");
+                expect(res.status).toBe(404);
+                await expect(res.json()).resolves.toEqual({
+                    error: "日志文件不存在",
+                    code: "LOG_NOT_FOUND",
+                });
             } finally {
                 await export_api.stop();
             }
@@ -3424,6 +3702,7 @@ describe("local-api 控制端点（t276）", () => {
     let control_calls: string[];
     let control_obs: ObservationStore;
     let control_ts: TokenStatsStore;
+    let control_state: ControlState;
 
     beforeEach(async () => {
         temp_dir = await mkdtemp(join(tmpdir(), "omni-control-"));
@@ -3435,6 +3714,10 @@ describe("local-api 控制端点（t276）", () => {
         token_stats_store = create_token_stats_store(join(temp_dir, "token.sqlite"));
         control_ts = token_stats_store;
         control_calls = [];
+        control_state = {
+            pause: { paused: false, reasons: [] },
+            autostart: { available: true, enabled: false },
+        };
         control_api = create_local_api_server(control_obs, {
             port: 0,
             token_stats_store: control_ts,
@@ -3454,6 +3737,15 @@ describe("local-api 控制端点（t276）", () => {
                 quit: () => {
                     control_calls.push("quit");
                 },
+                autostart: () => {
+                    control_calls.push("autostart");
+                    control_state = {
+                        ...control_state,
+                        autostart: { available: true, enabled: true },
+                    };
+                    return control_state.autostart;
+                },
+                get_state: () => control_state,
             },
             web_root,
         });
@@ -3483,6 +3775,27 @@ describe("local-api 控制端点（t276）", () => {
             expect(res.status).toBe(200);
         }
         expect(control_calls).toEqual(["pause", "resume", "restart", "quit"]);
+    });
+
+    it("GET status returns the orchestrator and login-item state without credentials", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/status`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual(control_state);
+    });
+
+    it("POST autostart delegates to the host and returns the resulting state", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/autostart`,
+            { method: "POST" },
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual({
+            status: "ok",
+            autostart: { available: true, enabled: true },
+        });
+        expect(control_calls).toContain("autostart");
     });
 
     it("GET 控制端点返回 405", async () => {

@@ -30,6 +30,7 @@ function loadECharts(): Promise<EChartsModule> {
                     charts.HeatmapChart,
                     charts.PieChart,
                     components.GridComponent,
+                    components.CalendarComponent,
                     components.TooltipComponent,
                     components.DataZoomComponent,
                     components.VisualMapComponent,

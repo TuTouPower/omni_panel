@@ -22,7 +22,7 @@ export function hydrate_runtime_store(deps: HydrateDeps): void {
     for (const config of deps.connectorConfigs) {
         if (!config.manualRefreshOnly) continue;
 
-        const definition = deps.definitions.find((d) => d.executablePath === config.executablePath);
+        const definition = deps.definitions.find((d) => d.manifest.id === config.manifestId);
         if (!definition) continue;
 
         const observations = deps.observationStore.list_by_source_instance_id(config.instanceId);

@@ -54,8 +54,8 @@ describe("WebLoginSection cookie login parity (t282)", () => {
         document.documentElement.dataset["web"] = "";
         cookie_login.mockResolvedValue({ started: true });
         cookie_login_status
-            .mockResolvedValueOnce({ in_progress: true, saved: false })
-            .mockResolvedValueOnce({ in_progress: false, saved: true });
+            .mockResolvedValueOnce({ in_progress: true, saved: false, state: "running" })
+            .mockResolvedValueOnce({ in_progress: false, saved: true, state: "succeeded" });
         const { onSaved, onSecrets } = render_section({ instance_id: "opencode-go-1" });
         const user = userEvent.setup();
 
@@ -92,7 +92,11 @@ describe("WebLoginSection cookie login parity (t282)", () => {
         document.documentElement.dataset["web"] = "";
         vi.useFakeTimers();
         cookie_login.mockResolvedValue({ started: true });
-        cookie_login_status.mockResolvedValue({ in_progress: true, saved: false });
+        cookie_login_status.mockResolvedValue({
+            in_progress: true,
+            saved: false,
+            state: "running",
+        });
         render_section({ instance_id: "opencode-go-1" });
 
         fireEvent.click(screen.getByText("网页登录"));

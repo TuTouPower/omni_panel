@@ -3,15 +3,13 @@
  * Web edit-instance path uses auth.cookieLogin / cookieLoginStatus (vault-backed).
  */
 
+import { COOKIE_LOGIN_MESSAGES as SHARED_COOKIE_LOGIN_MESSAGES } from "../../shared/lib/cookie-login";
+
 export const COOKIE_LOGIN_POLL_INTERVAL_MS = 250;
 export const COOKIE_LOGIN_POLL_TIMEOUT_MS = 120_000;
 
 export const COOKIE_LOGIN_MESSAGES = {
-    timeout: "网页登录超时，请重试",
-    conflict: "已有登录正在进行中，请等待当前登录完成",
-    no_cookie: "未捕获到 Cookie，请完成登录后再关闭窗口",
-    invalid_cookie: "登录态无效，请重新登录或手动粘贴 Cookie",
-    failed: "网页登录失败，请重试",
+    ...SHARED_COOKIE_LOGIN_MESSAGES,
     /** Web add-account (no instance_id): capture is response-only; refresh loses result. */
     anon_web_guide: "登录期间请勿刷新页面；若中断或超时，请手动粘贴 Cookie 后保存",
 } as const;
@@ -91,35 +89,43 @@ export function format_cookie_login_error(error: unknown): string {
  * Throws Error with Chinese message on timeout / conflict / missing cookie / status error.
  */
 export async function poll_cookie_login(instance_id: string): Promise<void> {
-    let result;
+    let start_result;
     try {
-        result = await window.usageboard.auth.cookieLogin(instance_id);
+        start_result = await window.usageboard.auth.cookieLogin(instance_id);
     } catch (error: unknown) {
         throw new Error(format_cookie_login_error(error));
     }
 
-    if (result.started) {
-        const deadline = Date.now() + COOKIE_LOGIN_POLL_TIMEOUT_MS;
-        let status = await window.usageboard.auth.cookieLoginStatus(instance_id);
-        while (status.in_progress) {
-            if (Date.now() >= deadline) {
-                throw new Error(COOKIE_LOGIN_MESSAGES.timeout);
-            }
-            await new Promise<void>((resolve) => {
-                setTimeout(resolve, COOKIE_LOGIN_POLL_INTERVAL_MS);
-            });
-            status = await window.usageboard.auth.cookieLoginStatus(instance_id);
-        }
-        if (status.error) {
-            throw new Error(format_cookie_login_error(new Error(status.error)));
-        }
-        if (!status.saved) {
-            throw new Error(COOKIE_LOGIN_MESSAGES.no_cookie);
-        }
-        return;
+    if ("conflict" in start_result) {
+        throw new Error(
+            format_cookie_login_error(
+                new Error(`[${start_result.error_code}] ${start_result.error}`),
+            ),
+        );
     }
 
-    if (!result.saved) {
+    const deadline = Date.now() + COOKIE_LOGIN_POLL_TIMEOUT_MS;
+    let status = await window.usageboard.auth.cookieLoginStatus(instance_id);
+    while (status.in_progress) {
+        if (Date.now() >= deadline) {
+            throw new Error(COOKIE_LOGIN_MESSAGES.timeout);
+        }
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, COOKIE_LOGIN_POLL_INTERVAL_MS);
+        });
+        status = await window.usageboard.auth.cookieLoginStatus(instance_id);
+    }
+
+    if (status.error) {
+        throw new Error(format_cookie_login_error(new Error(status.error)));
+    }
+    if (status.state === "timeout") {
+        throw new Error(COOKIE_LOGIN_MESSAGES.timeout);
+    }
+    if (status.state === "canceled" || !status.saved) {
         throw new Error(COOKIE_LOGIN_MESSAGES.no_cookie);
+    }
+    if (status.state !== "succeeded") {
+        throw new Error(COOKIE_LOGIN_MESSAGES.failed);
     }
 }

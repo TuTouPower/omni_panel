@@ -44,6 +44,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "grok-1",
                     stateId: "grok-1",
+                    manifestId: "grok",
                     name: "grok",
                     enabled: true,
                     executablePath: "plugins/grok.ts",
@@ -214,6 +215,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
+                    manifestId: "opencode_go",
                     name: "opencode_go",
                     enabled: true,
                     executablePath: "connectors/opencode_go/connector.ts",
@@ -282,6 +284,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
+                    manifestId: "opencode_go",
                     name: "opencode_go",
                     enabled: true,
                     executablePath: "connectors/opencode_go/connector.ts",

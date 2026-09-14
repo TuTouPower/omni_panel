@@ -5,6 +5,8 @@ import { createLogger } from "../../../shared/lib/logger";
 import { redact_config_json, redact_config_raw } from "../../../shared/lib/config_redaction";
 import { writeJsonAtomic, writeFileAtomic } from "../storage/write-json";
 import { connectorProviderSchema, manifest_schema } from "../../../shared/schemas/manifest";
+import type { ConnectorDefinition } from "../connector/manifest-loader";
+import { migrate_connector_plugins, type ManifestMigrationDrop } from "./manifest-identity";
 
 /**
  * 原子写 bak 文件：先写 tmp 再 fsync 再 rename，防强杀中断致 bak 损坏。
@@ -61,6 +63,17 @@ async function has_previous_user_data(configDir: string, configPath: string): Pr
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
+    /**
+     * Run a read/compute/commit transaction behind the same queue as saves.
+     * The callback receives the latest committed config and a commit function
+     * that must be used for every config write in the transaction.
+     */
+    run_serialized?<T>(
+        task: (
+            latest: AppConfiguration,
+            commit: (config: AppConfiguration) => Promise<void>,
+        ) => Promise<T>,
+    ): Promise<T>;
     save(config: AppConfiguration): Promise<void>;
     /**
      * Serialized compare-and-save. Returns `"conflict"` (without writing) when
@@ -87,9 +100,24 @@ export interface AppConfigStore {
      * config and return it. Called at startup and after structural changes
      * (import), NOT on every load — load() is a memory-cache hit.
      */
-    prune_unhealthy_plugins(
-        allowed_executable_paths?: ReadonlySet<string>,
-    ): Promise<AppConfiguration>;
+    prune_unhealthy_plugins(allowed_manifest_ids?: ReadonlySet<string>): Promise<AppConfiguration>;
+}
+
+/**
+ * Compatibility wrapper for light-weight test doubles and older embedders.
+ * Production stores expose run_serialized; the fallback preserves the old
+ * behavior only where no transactional store is available.
+ */
+export async function run_config_transaction<T>(
+    store: AppConfigStore,
+    task: (
+        latest: AppConfiguration,
+        commit: (config: AppConfiguration) => Promise<void>,
+    ) => Promise<T>,
+): Promise<T> {
+    if (store.run_serialized) return store.run_serialized(task);
+    const latest = await store.load();
+    return task(latest, (config) => store.save(config));
 }
 
 const log = createLogger("config-store");
@@ -124,33 +152,61 @@ function stripRemovedConfigFields(config: Record<string, unknown>): Record<strin
  * a one-shot startup/structural-change pass via `prune_unhealthy_plugins`
  * (t195), so hot-path loads skip per-plugin manifest stat.
  */
-function parse_config(raw: string): AppConfiguration | null {
+interface ParseConfigResult {
+    readonly config: AppConfiguration;
+    readonly migrated: boolean;
+    readonly dropped: readonly ManifestMigrationDrop[];
+}
+
+function parse_config(
+    raw: string,
+    definitions?: readonly ConnectorDefinition[],
+): ParseConfigResult | null {
     const parsed = raw.trim().length === 0 ? null : (JSON.parse(raw) as unknown);
     const normalized =
         parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
             ? stripRemovedConfigFields(parsed as Record<string, unknown>)
             : parsed;
-    const result = appConfigurationSchema.safeParse(normalized);
+    const migration =
+        normalized !== null && typeof normalized === "object" && !Array.isArray(normalized)
+            ? migrate_connector_plugins(
+                  (normalized as Record<string, unknown>)["plugins"],
+                  definitions,
+              )
+            : { plugins: [], changed: false, dropped: [] };
+    const migrated_normalized =
+        normalized !== null && typeof normalized === "object" && !Array.isArray(normalized)
+            ? { ...(normalized as Record<string, unknown>), plugins: migration.plugins }
+            : normalized;
+    const result = appConfigurationSchema.safeParse(migrated_normalized);
     if (!result.success) {
         return null;
     }
-    return {
+    const config = {
         ...result.data,
         plugins: result.data.plugins.map((p) => ({
             ...p,
             instanceId: p.instanceId ?? p.stateId,
         })),
     } as AppConfiguration;
+    return {
+        config,
+        migrated: migration.changed,
+        dropped: migration.dropped,
+    };
 }
 
 /**
  * Try to load a valid config from a backup file. Returns null if unavailable or
  * invalid.
  */
-async function try_load_backup(backupPath: string): Promise<AppConfiguration | null> {
+async function try_load_backup(
+    backupPath: string,
+    definitions?: readonly ConnectorDefinition[],
+): Promise<ParseConfigResult | null> {
     try {
         const raw = await readFile(backupPath, "utf8");
-        const parsed = parse_config(raw);
+        const parsed = parse_config(raw, definitions);
         if (parsed) {
             log.warn(`Recovered config from backup ${backupPath}`);
         }
@@ -179,8 +235,8 @@ async function is_plugin_healthy(executable_path: string): Promise<boolean> {
 }
 
 async function prune_invalid_plugins(
-    plugins: readonly { executablePath: string }[],
-    allowed_executable_paths?: ReadonlySet<string>,
+    plugins: readonly { manifestId: string; executablePath: string }[],
+    allowed_manifest_ids?: ReadonlySet<string>,
 ): Promise<number[]> {
     const keep_indices: number[] = [];
     // Health checks run in parallel via Promise.all. With a very large plugin
@@ -190,8 +246,8 @@ async function prune_invalid_plugins(
     const verdicts = await Promise.all(
         plugins.map(async (plugin) => {
             if (
-                allowed_executable_paths !== undefined &&
-                !allowed_executable_paths.has(plugin.executablePath)
+                allowed_manifest_ids !== undefined &&
+                !allowed_manifest_ids.has(plugin.manifestId)
             ) {
                 return false;
             }
@@ -204,7 +260,10 @@ async function prune_invalid_plugins(
     return keep_indices;
 }
 
-export function createConfigStore(configPath: string): AppConfigStore {
+export function createConfigStore(
+    configPath: string,
+    definitions?: readonly ConnectorDefinition[],
+): AppConfigStore {
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingConfig: AppConfiguration | (() => AppConfiguration) | null = null;
     // t195: in-memory cache. load() hits it instead of re-reading + re-parsing
@@ -260,6 +319,19 @@ export function createConfigStore(configPath: string): AppConfigStore {
         return enqueue(() => doSave(config));
     }
 
+    async function run_serialized<T>(
+        task: (
+            latest: AppConfiguration,
+            commit: (config: AppConfiguration) => Promise<void>,
+        ) => Promise<T>,
+    ): Promise<T> {
+        return enqueue(async () => {
+            const latest = cached_config ?? (await load_uncached());
+            cached_config = latest;
+            return task(latest, doSave);
+        });
+    }
+
     /**
      * Compare-and-save: serialized with every other save. The conflict check
      * runs inside the queue rather than on a stale `load()` snapshot, so an
@@ -295,23 +367,52 @@ export function createConfigStore(configPath: string): AppConfigStore {
                     raw: redact_config_json(raw),
                 });
             }
-            const parsed = parse_config(raw);
+            const parsed = parse_config(raw, definitions);
             if (parsed) {
+                for (const dropped of parsed.dropped) {
+                    log.warn(
+                        "Removed orphan connector during manifest identity migration",
+                        dropped,
+                    );
+                }
+                if (parsed.migrated) {
+                    if (raw.trim().length > 0) {
+                        await writeBakAtomic(`${configPath}.bak`, raw);
+                    }
+                    await writeJsonAtomic(configPath, sortKeys(parsed.config));
+                    log.info(
+                        `Manifest identity migration completed for ${configPath}: ` +
+                            `${String(parsed.dropped.length)} connector(s) removed`,
+                    );
+                }
                 if (shouldLogRawStorage()) {
                     log.debug("config parsed raw", {
                         filePath: configPath,
-                        config: redact_config_raw(parsed),
+                        config: redact_config_raw(parsed.config),
                     });
                 }
-                return parsed;
+                return parsed.config;
             }
             // Main config is empty/corrupt: try backups before backing up the bad file.
             const recovered =
-                (await try_load_backup(`${configPath}.bak`)) ??
-                (await try_load_backup(`${configPath}.before_restore`));
+                (await try_load_backup(`${configPath}.bak`, definitions)) ??
+                (await try_load_backup(`${configPath}.before_restore`, definitions));
             if (recovered) {
+                for (const dropped of recovered.dropped) {
+                    log.warn(
+                        "Removed orphan connector during manifest identity migration",
+                        dropped,
+                    );
+                }
+                if (recovered.migrated) {
+                    await writeJsonAtomic(configPath, sortKeys(recovered.config));
+                    log.info(
+                        `Manifest identity migration completed for ${configPath}: ` +
+                            `${String(recovered.dropped.length)} connector(s) removed`,
+                    );
+                }
                 log.warn(`Config schema mismatch at ${configPath}, recovered from backup`);
-                return recovered;
+                return recovered.config;
             }
             // Main is corrupt AND no valid .bak to recover - back up the
             // corrupted main content before throwing, so there's still
@@ -364,14 +465,27 @@ export function createConfigStore(configPath: string): AppConfigStore {
                 // 目录存在且有此前成功运行留下的用户数据文件，但 config.json 缺失：
                 // 先尝试从备份恢复，避免一次误删/写坏就拒绝启动。
                 const recovered =
-                    (await try_load_backup(`${configPath}.bak`)) ??
-                    (await try_load_backup(`${configPath}.before_restore`));
+                    (await try_load_backup(`${configPath}.bak`, definitions)) ??
+                    (await try_load_backup(`${configPath}.before_restore`, definitions));
                 if (recovered) {
+                    for (const dropped of recovered.dropped) {
+                        log.warn(
+                            "Removed orphan connector during manifest identity migration",
+                            dropped,
+                        );
+                    }
+                    if (recovered.migrated) {
+                        await writeJsonAtomic(configPath, sortKeys(recovered.config));
+                        log.info(
+                            `Manifest identity migration completed for ${configPath}: ` +
+                                `${String(recovered.dropped.length)} connector(s) removed`,
+                        );
+                    }
                     log.warn(
                         `Config file missing at ${configPath} but directory exists. ` +
                             `Recovered from backup; a manual check is still recommended.`,
                     );
-                    return recovered;
+                    return recovered.config;
                 }
                 // 无可用备份时才拒绝启动，防止 auto_seed 覆盖已有数据。
                 log.error(
@@ -408,19 +522,20 @@ export function createConfigStore(configPath: string): AppConfigStore {
     }
 
     async function prune_unhealthy_plugins(
-        allowed_executable_paths?: ReadonlySet<string>,
+        allowed_manifest_ids?: ReadonlySet<string>,
     ): Promise<AppConfiguration> {
-        const config = cached_config ?? (await load_uncached());
-        const keep_indices = await prune_invalid_plugins(config.plugins, allowed_executable_paths);
-        if (keep_indices.length === config.plugins.length) return config;
-        const dropped = config.plugins.length - keep_indices.length;
-        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
-        const pruned_plugins = keep_indices
-            .map((i) => config.plugins[i])
-            .filter((p): p is NonNullable<typeof p> => p !== undefined);
-        const pruned: AppConfiguration = { ...config, plugins: pruned_plugins };
-        await enqueueSave(pruned);
-        return pruned;
+        return run_serialized(async (config, commit) => {
+            const keep_indices = await prune_invalid_plugins(config.plugins, allowed_manifest_ids);
+            if (keep_indices.length === config.plugins.length) return config;
+            const dropped = config.plugins.length - keep_indices.length;
+            log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
+            const pruned_plugins = keep_indices
+                .map((i) => config.plugins[i])
+                .filter((p): p is NonNullable<typeof p> => p !== undefined);
+            const pruned: AppConfiguration = { ...config, plugins: pruned_plugins };
+            await commit(pruned);
+            return pruned;
+        });
     }
 
     return {
@@ -430,6 +545,8 @@ export function createConfigStore(configPath: string): AppConfigStore {
             cached_config = config;
             return config;
         },
+
+        run_serialized,
 
         async save(config: AppConfiguration): Promise<void> {
             await enqueueSave(config);
@@ -481,9 +598,9 @@ export function createConfigStore(configPath: string): AppConfigStore {
         },
 
         async prune_unhealthy_plugins(
-            allowed_executable_paths?: ReadonlySet<string>,
+            allowed_manifest_ids?: ReadonlySet<string>,
         ): Promise<AppConfiguration> {
-            return prune_unhealthy_plugins(allowed_executable_paths);
+            return prune_unhealthy_plugins(allowed_manifest_ids);
         },
     };
 }

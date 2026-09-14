@@ -5,6 +5,7 @@ import type {
     UsageBarColorScheme,
     UsageBarStyle,
 } from "../../shared/types/config";
+import { is_web } from "../lib/is-web";
 
 export interface PopupUiConfig {
     main_panel_mode: "popup" | "floating";
@@ -64,6 +65,7 @@ export function usePopupUiConfig(): PopupUiConfig {
     const [token_panel_collapsed, set_token_panel_collapsed] = useState(false);
 
     useEffect(() => {
+        if (is_web()) return;
         let cancelled = false;
         window.usageboard.main_panel
             .get_mode()

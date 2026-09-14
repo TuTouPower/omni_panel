@@ -19,13 +19,14 @@
 |add-account-auto-refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
+|session-library|API / Web / Desktop|t476，t484：会话历史查询契约、Command Code 提取与宿主 resume|2026-09-14|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|
 |ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321，t437，t451，t453，t454|2026-09-06|
 |tokenstats-performance-baseline|API|t189|2026-08-02|
-|config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401|2026-08-16|
-|resume_command_template|API / Web|t401, t402, t403|2026-08-16|
+|config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401，t471，t472，t479|2026-09-14|
+|resume_command_template|API / Web / Desktop|t401, t402, t403, t484|2026-09-14|
 |config_fallback_p0_protection|API|t111|2026-07-25|
-|connector-auth|API|t107, t112, t159|2026-07-28|
+|connector-auth|API + Desktop + Web|t107, t112, t159, t478|2026-09-14|
 |connector-cpa-runtime|API|拆自 connector-cpa（t037）|2026-07-21|
 |connector-cpa-ui|Web|拆自 connector-cpa（t037）|2026-07-21|
 |connector-direct|API|迁移自 omni_powers，t039, t159, t160|2026-07-29|
@@ -38,9 +39,9 @@
 |log_rotation|Desktop|t154|2026-07-27|
 |observation-store|API|迁移自 omni_powers，t096，t174，t207，t214，t208|2026-08-05|
 |opencode_go_html_scrape|API|t115|2026-07-26|
-|platform-services-api|API|拆自 platform-services（t037）；t414 页级共享 SSE 连接模型|2026-08-16|
+|platform-services-api|API|拆自 platform-services（t037）；t414 页级共享 SSE 连接模型；t473 Web/桌面同权限无认证基线；t474 主进程自启/暂停状态控制面|2026-09-14|
 |platform-services-electron|Desktop|拆自 platform-services（t037）|2026-07-21|
-|scheduler|API|迁移自 omni_powers，t039，t155|2026-07-27|
+|scheduler|API|迁移自 omni_powers，t039，t155，t474 暂停态单一来源查询|2026-09-14|
 |secret-vault|API|迁移自 omni_powers，t045，t195，t296|2026-08-11|
 |settings_design_migration|Web+Desktop|设置窗口统一设计系统、组件与语义状态，t406|2026-08-16|
 |agent_window_design_migration|Web+Desktop|Agent 统计窗口统一设计系统、组件与语义 token|2026-08-09|
@@ -64,8 +65,9 @@
 |cli-import-config|API|t285|2026-08-10|
 |vendor-forms-oauth-weblogin|Web|t109|2026-07-25|
 |fix_add_account_wiring|Desktop|t110|2026-07-25|
-|web-panel|Web|迁移自 omni_powers，无，t325；t414 一页一条 EventSource|2026-08-16|
-|web_config_parity|API + Web + Desktop|t277|2026-08-10|
+|web-panel|Web|迁移自 omni_powers，无，t325；t414 一页一条 EventSource；t474 宿主自启控制端点|2026-09-14|
+|web_config_parity|API + Web + Desktop|t277，t480|2026-09-14|
+|dev-panel|API + Web + Desktop|t481/t482：开发面板 Git 扫描、热力图、New API 模型路由与 Web/桌面同权限通路|2026-09-15|
 |window-management|Desktop|迁移自 omni_powers，t099，t194，t297|2026-08-11|
 |device_login_full_url|Desktop|t156|2026-07-27|
 |move_session_meta_to_lib|Web|t124|2026-07-26|
@@ -76,7 +78,7 @@
 |classify_collect_failure|API|t172|2026-07-31|
 |kimi_oauth_concurrency|API|t150|2026-07-26|
 |unify_account_auth_forms|Web|t157|2026-07-27|
-|session-history-window|Desktop|t211，t212，t213，t436|2026-08-23|
+|session-history-window|Web + Desktop|t211，t212，t213，t436，t484|2026-09-14|
 |kimi-session-history-extractor|Desktop|t425，t436|2026-08-23|
 |antigravity-session-history-extractor|Desktop|t455，t470|2026-09-11|
 |session_query_title_directory_filters|API|t457|2026-09-08|

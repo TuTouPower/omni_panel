@@ -11,6 +11,8 @@ export const tokenStatsSourceSchema = z.enum([
     // t470: antigravity 会话发现进 token_stats_sessions（仅列表/预览/续接；
     // 无用量 records，代理面板 agent 枚举一律不动，见 AC-004）。
     "antigravity",
+    // t484: Command Code 会话与每轮用量。
+    "commandcode",
 ]);
 /**
  * t437: 会话数据所在平台标签（替代 t308 的 `local`）。`win` = Windows 用户目录
@@ -95,7 +97,7 @@ export const agentSessionUsageSchema = z.object({
     output_tokens: z.number().int().nonnegative().default(0),
     cache_read_tokens: z.number().int().nonnegative().default(0),
     cache_write_tokens: z.number().int().nonnegative().default(0),
-    agent: z.enum(["claude-code", "opencode", "kimi-code", "grok", "codex"]),
+    agent: z.enum(["claude-code", "opencode", "kimi-code", "grok", "codex", "commandcode"]),
 });
 
 export type AgentSessionUsage = z.infer<typeof agentSessionUsageSchema>;
@@ -224,7 +226,9 @@ export interface TokenStatsSessionFilters {
 }
 
 export interface TokenStatsRecordFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" | "commandcode";
+    source?: string;
+    session_id?: string;
     env?: TokenStatsEnv;
     start?: number;
     end?: number;
@@ -247,7 +251,7 @@ export const tokenStatsHeatmapCellSchema = z.object({
 export type TokenStatsHeatmapCell = z.infer<typeof tokenStatsHeatmapCellSchema>;
 
 export interface TokenStatsHeatmapFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" | "commandcode";
     env?: TokenStatsEnv;
     model?: string;
     start?: number;
@@ -270,7 +274,7 @@ export const tokenStatsHourBucketSchema = z.object({
 export type TokenStatsHourBucket = z.infer<typeof tokenStatsHourBucketSchema>;
 
 export interface TokenStatsHourFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" | "commandcode";
     env?: TokenStatsEnv;
     model?: string;
     start?: number;
@@ -301,7 +305,7 @@ export const tokenStatsRollupRowSchema = z.object({
 export type TokenStatsRollupRow = z.infer<typeof tokenStatsRollupRowSchema>;
 
 export interface TokenStatsRollupFilters {
-    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex";
+    agent?: "claude-code" | "opencode" | "kimi-code" | "grok" | "codex" | "commandcode";
     env?: TokenStatsEnv;
     model?: string;
     start?: number;
@@ -318,6 +322,7 @@ export const tokenStatsDashboardAgentSchema = z.enum([
     "grok",
     // t445: codex reader 落明细后查询层接纳 agent='codex'（UI 下拉接线归 t447）。
     "codex",
+    "commandcode",
 ]);
 export const tokenStatsDashboardPlatformSchema = z.enum(["all", "win", "wsl", "linux", "mac"]);
 export const tokenStatsDashboardMetricSchema = z.enum(["tokens", "sessions", "calls"]);
@@ -500,9 +505,9 @@ export const tokenStatsDashboardDtoSchema = z.object({
         running: z.boolean(),
         last_updated: z.number().nullable(),
         /**
-         * Per-source status from the latest collection round (t309); absent
-         * until the first collection reports it. The renderer treats absence
-         * as "no source status yet".
+         * Per-source status from the latest collection round (t309/t476).
+         * Public IPC/HTTP adapters always emit an array; optional remains for
+         * legacy in-process mocks and persisted DTO compatibility.
          */
         sources_status: z.array(tokenStatsSourceStatusSchema).optional(),
     }),

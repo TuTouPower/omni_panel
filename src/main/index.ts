@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { CLI_HELP_TEXT } from "./cli/help-text";
 import { open_connectors_dir } from "./core/open-connectors-dir";
-import { createConfigStore } from "./core/config/config-store";
+import { createConfigStore, run_config_transaction } from "./core/config/config-store";
 import { build_secret_param_keys } from "./core/config/secret_param_keys";
 import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
@@ -50,6 +50,8 @@ import {
     createSchedulerOrchestrator,
     to_connector_list_config,
 } from "./core/scheduler/scheduler-orchestrator";
+import { apply_launch_at_login, read_launch_at_login } from "./core/launch-at-login";
+import type { LoginItemApi, LaunchAtLoginState } from "./core/launch-at-login";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import type { ConnectorDefinition } from "./core/connector/manifest-loader";
@@ -58,11 +60,12 @@ import { build_csp_header } from "./security/csp";
 import { registerConnectorIpc } from "./ipc/connector-ipc";
 import { registerConfigIpc } from "./ipc/config-ipc";
 import { set_renderer_index_path } from "./ipc/helpers";
-import { registerEventIpc } from "./ipc/event-ipc";
+import { registerEventIpc, sync_native_theme } from "./ipc/event-ipc";
 import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ipc/auth-ipc";
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
+import { registerDevPanelIpc } from "./ipc/dev-panel-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
 import { registerSessionHistoryIpc } from "./ipc/session-history-ipc";
 import { flush_session_index } from "./core/session-history/session-locator";
@@ -78,6 +81,8 @@ import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
 import { host_from_platform } from "./core/token-stats/paths";
 import { build_token_stats_config } from "./core/token-stats/build-config";
+import { create_dev_panel_scan_manager } from "./core/dev-panel/scan-manager";
+import { create_dev_panel_model_routing_manager } from "./core/dev-panel/model-routing";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
@@ -171,7 +176,7 @@ function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
-/** t360: 取某 provider 的所有启用实例 id（enabled && executablePath 匹配该 def）。 */
+/** t360: 取某 provider 的所有启用实例 id（enabled && manifestId 匹配该 def）。 */
 function active_instance_ids_for_provider(
     allDefinitions: ConnectorDefinition[],
     plugins: AppConfiguration["plugins"],
@@ -180,7 +185,7 @@ function active_instance_ids_for_provider(
     const def = allDefinitions.find((d) => d.manifest.provider === provider);
     if (!def) return [];
     return plugins
-        .filter((plugin) => plugin.enabled && plugin.executablePath === def.executablePath)
+        .filter((plugin) => plugin.enabled && plugin.manifestId === def.manifest.id)
         .map((plugin) => plugin.instanceId);
 }
 
@@ -233,35 +238,35 @@ void app.whenReady().then(async () => {
         // user data directory. Otherwise initLogging/vault/observation-store
         // create the directory first, and config-store mistakes a fresh start
         // for a "config.json missing but directory exists" data-loss scenario.
-        const configPath = getConfigPath();
-        const configStore = createConfigStore(configPath);
-
         const bundledDir = getBundledConnectorsDir();
         const userDir = getUserConnectorsDir();
         const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
+        const configPath = getConfigPath();
+        const configStore = createConfigStore(configPath, allDefinitions);
 
         let currentConfig = await configStore.load();
         // t195: manifest 健康检查从 load 抽出，启动期一次性执行（孤儿/非法
         // provider 插件清理并持久化）；运行期 load 走内存缓存。
         currentConfig = await configStore.prune_unhealthy_plugins(
-            new Set(allDefinitions.map((definition) => definition.executablePath)),
+            new Set(allDefinitions.map((definition) => definition.manifest.id)),
         );
-        const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
-            currentConfig.plugins,
-            allDefinitions,
-            new Set(currentConfig.removedConnectorIds ?? []),
-        );
-        if (seededPlugins.length > 0 || updatedExisting.length > 0) {
-            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
-            const mergedPlugins = currentConfig.plugins.map(
-                (p) => updatedById.get(p.instanceId) ?? p,
+        const seed_result = await run_config_transaction(configStore, async (latest, commit) => {
+            const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
+                latest.plugins,
+                allDefinitions,
+                new Set(latest.removedConnectorIds ?? []),
             );
-            await configStore.save({
-                ...currentConfig,
-                plugins: [...mergedPlugins, ...seededPlugins],
-            });
-            currentConfig = await configStore.load();
-        }
+            if (seededPlugins.length === 0 && updatedExisting.length === 0) {
+                return { config: latest, seededPlugins };
+            }
+            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
+            const mergedPlugins = latest.plugins.map((p) => updatedById.get(p.instanceId) ?? p);
+            const updated = { ...latest, plugins: [...mergedPlugins, ...seededPlugins] };
+            await commit(updated);
+            return { config: updated, seededPlugins };
+        });
+        const { config: seededConfig, seededPlugins } = seed_result;
+        currentConfig = seededConfig;
 
         const cleanupLogging = await initLogging(dataRoot, {
             logLevel: currentConfig.logLevel ?? defaultLogLevelForEnv(),
@@ -308,11 +313,14 @@ void app.whenReady().then(async () => {
         // 后续 build_secret_param_keys / orchestrator 用导入结果。
         if (cliMode && cli_args.command?.type === "serve" && cli_args.command.options.configPath) {
             currentConfig = await import_config_file(
-                { configPath, configStore, secretsStore, definitions: allDefinitions },
+                {
+                    configPath,
+                    configStore,
+                    secretsStore,
+                    definitions: allDefinitions,
+                    vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+                },
                 cli_args.command.options.configPath,
-            );
-            currentConfig = await configStore.prune_unhealthy_plugins(
-                new Set(allDefinitions.map((definition) => definition.executablePath)),
             );
         }
 
@@ -337,6 +345,17 @@ void app.whenReady().then(async () => {
         };
         let detected_system_proxy = await detect_system_proxy();
         let currentConfigSnapshot = currentConfig;
+
+        const login_item_api: LoginItemApi | undefined =
+            typeof app.getLoginItemSettings === "function" &&
+            typeof app.setLoginItemSettings === "function"
+                ? {
+                      getLoginItemSettings: () => app.getLoginItemSettings(),
+                      setLoginItemSettings: (settings) => {
+                          app.setLoginItemSettings(settings);
+                      },
+                  }
+                : undefined;
 
         const secretParamKeys = build_secret_param_keys(currentConfig, allDefinitions);
 
@@ -409,6 +428,38 @@ void app.whenReady().then(async () => {
         });
         const orchestrator = createSchedulerOrchestrator({ scheduler, configStore });
 
+        const apply_configured_launch_at_login = (enabled: boolean): LaunchAtLoginState => {
+            const state = apply_launch_at_login(login_item_api, enabled);
+            if (!state.available) {
+                log.info("Launch at login is unavailable on this platform");
+            }
+            return state;
+        };
+
+        // Config is the single source of truth: reconcile the OS login item in
+        // both directions on every real application start.
+        apply_configured_launch_at_login(currentConfig.launchAtLogin);
+
+        function noop_send_tray_state(): void {
+            // The tray window is created after the LocalAPI and orchestrator.
+        }
+
+        let send_tray_state: () => void = noop_send_tray_state;
+
+        async function set_launch_at_login_from_control(
+            enabled: boolean,
+        ): Promise<LaunchAtLoginState> {
+            const current = read_launch_at_login(login_item_api);
+            if (!current.available) return current;
+            if (currentConfigSnapshot.launchAtLogin === enabled) {
+                return apply_configured_launch_at_login(enabled);
+            }
+            const updated = { ...currentConfigSnapshot, launchAtLogin: enabled };
+            await configStore.save(updated);
+            onConfigSaved(updated);
+            return read_launch_at_login(login_item_api);
+        }
+
         let main_panel_controller: MainPanelController | null = null;
         let tray_ref: Tray | null = null;
 
@@ -432,6 +483,10 @@ void app.whenReady().then(async () => {
             },
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
+        const dev_panel_manager = create_dev_panel_scan_manager();
+        const dev_panel_model_routing = create_dev_panel_model_routing_manager({
+            snapshot_path: join(getDataRoot(), "dev-panel-model-routing.snapshot.json"),
+        });
 
         // Register IPC handlers
         await registerConnectorIpc({
@@ -448,10 +503,15 @@ void app.whenReady().then(async () => {
         // t251: 会话/代理面板窗口 bounds 保存与恢复（复用设置窗口先例）。
         // createWindowFor 后应用保存的 bounds + 注册 move/resize 保存。
         const create_panel_window = (
-            key: "agent" | "session",
+            key: "agent" | "session" | "dev",
             route_query?: Record<string, string>,
         ) => {
-            const bounds_key = key === "agent" ? "agentWindowBounds" : "historyWindowBounds";
+            const bounds_key =
+                key === "agent"
+                    ? "agentWindowBounds"
+                    : key === "session"
+                      ? "historyWindowBounds"
+                      : "devPanelWindowBounds";
             const win = windowManager.createWindowFor(key, route_query ? { route_query } : {});
             const saved = get_saved_bounds(currentConfigSnapshot, bounds_key);
             if (!apply_window_bounds(win, saved)) {
@@ -545,6 +605,12 @@ void app.whenReady().then(async () => {
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;
+            if (previousConfig.theme !== updatedConfig.theme) {
+                sync_native_theme(updatedConfig.theme);
+            }
+            if (previousConfig.launchAtLogin !== updatedConfig.launchAtLogin) {
+                apply_configured_launch_at_login(updatedConfig.launchAtLogin);
+            }
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — reconciling scheduler and secret keys");
             const newKeys = build_secret_param_keys(updatedConfig, allDefinitions);
@@ -584,6 +650,7 @@ void app.whenReady().then(async () => {
             }
             local_api?.publish_config_change(updatedConfig);
             main_panel_controller?.apply_config_change();
+            send_tray_state();
         };
         const onConfigImported = createOnConfigImported(refreshService, log);
 
@@ -594,6 +661,9 @@ void app.whenReady().then(async () => {
             onConfigSaved,
             onConfigImported,
             definitions: allDefinitions,
+            configPath,
+            vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+            appVersion: app.getVersion(),
         });
 
         // Session manager — controlled login window + credential capture
@@ -679,6 +749,11 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
+            dev_panel_deps: { manager: dev_panel_manager, model_routing: dev_panel_model_routing },
+            token_stats_force_collect: () => {
+                tokenStatsManager.force_collect();
+            },
+            theme_set: sync_native_theme,
             // serve --port 覆盖监听端口，优先级高于 OMNI_PANEL_PORT。
             ...(cliMode &&
             cli_args.command?.type === "serve" &&
@@ -692,6 +767,9 @@ void app.whenReady().then(async () => {
                 onConfigSaved,
                 onConfigImported,
                 definitions: allDefinitions,
+                configPath,
+                vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+                appVersion: app.getVersion(),
             },
             auth_deps: {
                 cookie: {
@@ -728,6 +806,12 @@ void app.whenReady().then(async () => {
                 quit: () => {
                     app.quit();
                 },
+                autostart: () =>
+                    set_launch_at_login_from_control(!currentConfigSnapshot.launchAtLogin),
+                get_state: () => ({
+                    pause: orchestrator.get_pause_state(),
+                    autostart: read_launch_at_login(login_item_api),
+                }),
             },
             connector_deps: {
                 configStore,
@@ -742,6 +826,13 @@ void app.whenReady().then(async () => {
                 locator_paths: session_history_locator_paths,
             },
             ...(existsSync(web_root_path) ? { web_root: web_root_path } : {}),
+        });
+        orchestrator.on_pause_state((pause) => {
+            send_tray_state();
+            local_api?.publish_control_state({
+                pause,
+                autostart: read_launch_at_login(login_item_api),
+            });
         });
         await local_api.start();
         log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
@@ -980,6 +1071,14 @@ void app.whenReady().then(async () => {
         const agent_window_controller = create_agent_window_controller({
             create_window: () => create_panel_window("agent"),
         });
+        const dev_panel_window_controller = create_agent_window_controller({
+            create_window: () => create_panel_window("dev"),
+        });
+        registerDevPanelIpc(ipcMain, {
+            manager: dev_panel_manager,
+            model_routing: dev_panel_model_routing,
+            open: () => dev_panel_window_controller.open_or_focus(),
+        });
 
         cleanupPopupIpc = registerPopupIpc({
             report_content_height: (report) =>
@@ -1073,9 +1172,8 @@ void app.whenReady().then(async () => {
                 });
             }
 
-            // Tray menu state
-            let is_paused = false;
-            const hasLoginItemApi = typeof app.setLoginItemSettings === "function";
+            // Tray menu state is projected from the orchestrator/config single sources.
+            const hasLoginItemApi = login_item_api !== undefined;
 
             // Custom tray menu window setup
 
@@ -1114,13 +1212,16 @@ void app.whenReady().then(async () => {
             });
 
             // Forward pause/autostart state to tray menu renderer
-            const send_tray_state = (): void => {
+            send_tray_state = (): void => {
                 if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                     try {
-                        trayMenuWin.webContents.send(IPC_CHANNELS.TRAY_PAUSE_STATE, is_paused);
+                        trayMenuWin.webContents.send(
+                            IPC_CHANNELS.TRAY_PAUSE_STATE,
+                            orchestrator.get_pause_state().paused,
+                        );
                         trayMenuWin.webContents.send(
                             IPC_CHANNELS.TRAY_AUTOSTART_STATE,
-                            hasLoginItemApi ? app.getLoginItemSettings().openAtLogin : false,
+                            hasLoginItemApi ? read_launch_at_login(login_item_api).enabled : false,
                         );
                     } catch {
                         // window may be destroyed mid-send
@@ -1147,8 +1248,7 @@ void app.whenReady().then(async () => {
                 });
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
-                is_paused = !is_paused;
-                if (is_paused) {
+                if (!orchestrator.get_pause_state().paused) {
                     orchestrator.suspend("user");
                 } else {
                     // resume() reloads config and startAll()s (which refreshes
@@ -1159,11 +1259,12 @@ void app.whenReady().then(async () => {
                 }
                 send_tray_state();
             });
-            ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART, () => {
-                if (!hasLoginItemApi) return;
-                const current = app.getLoginItemSettings().openAtLogin;
-                app.setLoginItemSettings({ openAtLogin: !current });
+            ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART, async () => {
+                const state = await set_launch_at_login_from_control(
+                    !currentConfigSnapshot.launchAtLogin,
+                );
                 send_tray_state();
+                return state;
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_SETTINGS, () => {
                 hideTrayMenu();
@@ -1303,6 +1404,8 @@ void app.whenReady().then(async () => {
                 settingsWin = null;
             }
             agent_window_controller.shutdown();
+            dev_panel_manager.cancel();
+            dev_panel_window_controller.shutdown();
             history_window_controller.shutdown();
             session_history_service.unsubscribe_all();
             main_panel_controller?.close_for_mode_switch();

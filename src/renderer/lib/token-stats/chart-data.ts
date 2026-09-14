@@ -39,13 +39,14 @@ export function build_resolver(
     return (key) => map[key] ?? key;
 }
 
-/** Fixed display labels for the five agents (matches SessionTable chips). */
+/** Fixed display labels for the six agents (matches SessionTable chips). */
 const AGENT_LABELS: Record<string, string> = {
     "claude-code": "Claude Code",
     "kimi-code": "Kimi Code",
     opencode: "OpenCode",
     grok: "Grok",
     codex: "Codex",
+    commandcode: "Command Code",
 };
 
 /** Agent（dash 键）→ 展示名单一来源（t448：会话表 Badge 与 donut 共用，防再次分叉）。 */
@@ -53,7 +54,7 @@ export function agentDisplayLabel(agent: string): string {
     return AGENT_LABELS[agent] ?? agent;
 }
 
-/** Donut segments comparing token usage across the four agents. */
+/** Donut segments comparing token usage across the six agents. */
 export function agentSegments(
     records: AgentSessionUsage[],
     theme: ChartTheme = "dark",
@@ -64,7 +65,7 @@ export function agentSegments(
     }
     return agent_segments(
         totals,
-        ["claude-code", "kimi-code", "opencode", "grok", "codex"],
+        ["claude-code", "kimi-code", "opencode", "grok", "codex", "commandcode"],
         AGENT_LABELS,
         theme,
     );
@@ -608,6 +609,7 @@ const BUCKET_AGENT_LABELS: Record<string, string> = {
     kimi_code: "Kimi Code",
     grok: "Grok",
     codex: "Codex",
+    commandcode: "Command Code",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -621,7 +623,7 @@ export function agentSegmentsFromBuckets(
     }
     return agent_segments(
         totals,
-        ["claude_code", "opencode", "kimi_code", "grok", "codex"],
+        ["claude_code", "opencode", "kimi_code", "grok", "codex", "commandcode"],
         BUCKET_AGENT_LABELS,
         theme,
     );
@@ -769,6 +771,7 @@ const ROLLUP_AGENT_LABELS: Record<string, string> = {
     kimi_code: "Kimi Code",
     grok: "Grok",
     codex: "Codex",
+    commandcode: "Command Code",
 };
 
 /** Donut segments comparing token usage across agents (source → agent). */
@@ -782,7 +785,7 @@ export function agentSegmentsFromRollup(
     }
     return agent_segments(
         totals,
-        ["claude_code", "opencode", "kimi_code", "grok", "codex"],
+        ["claude_code", "opencode", "kimi_code", "grok", "codex", "commandcode"],
         ROLLUP_AGENT_LABELS,
         theme,
     );

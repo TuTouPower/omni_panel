@@ -1,0 +1,27 @@
+{
+    "tid": "t472",
+    "attempt": 1,
+    "execution_id": "3e5795df0f564343b268671988930ecd",
+    "status": "done",
+    "branch": "t472_config_import_export_unify",
+    "base_sha": "614dea2e447f6d3214595ed8d2129d03e2c132aa",
+    "tests": "定向 IPC 50 + CLI 9 + file-vault 34 = 93 tests PASS；changed-file ESLint、Prettier、git diff --check PASS；全仓 tsc 被缺失生成 build-info 阻塞",
+    "blackbox": "IPC/CLI/file-vault canonical v2、三态 secrets、manifest skip/remap、备份失败与 vault 失败恢复回归 PASS；LocalAPI 全集成在 better-sqlite3 native binding 加载阶段阻塞",
+    "review": "Round 1 code + test PASS，0 finding，review scope c4ce0beb01ee3de6",
+    "ac_evidence": {
+        "AC-001": ["桌面 IPC、LocalAPI/Web、CLI 均调用共享 config-transfer；入口回归通过"],
+        "AC-002": ["export_config 固定 v2；默认省略 secrets，显式 includeSecrets 才导出顶层集合"],
+        "AC-003": ["v1、裸 config 和其他版本拒绝并报告实际版本，校验失败零写入"],
+        "AC-004": ["manifestId 导入按本机 definition 重算 executablePath"],
+        "AC-005": ["unknown manifest 进入 skipped 并跳过，不整单失败"],
+        "AC-006": ["显式 secrets 过滤后整体 replaceAll，旧实例密钥不残留"],
+        "AC-007": ["无 secrets 字段保留活动实例密钥并清理悬空实例"],
+        "AC-008": ["secrets: {} 清空 vault"],
+        "AC-009": ["未知 manifest 对应显式 secrets 被过滤"],
+        "AC-010": ["schema/secrets/envelope 错误在任何写入前返回"],
+        "AC-011": ["config/vault 写失败恢复导入前一致状态"],
+        "AC-012": ["config .bak 与加密 vault snapshot 在写入前生成，备份失败中止"]
+    },
+    "pending": [],
+    "findings": []
+}

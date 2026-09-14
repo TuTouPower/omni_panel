@@ -35,6 +35,9 @@ export type ExtractCursor =
           /** t366 AC-001: 该 offset 前已提取的合法消息数，供增量延续 id 命名空间，
            *  避免每轮重 parse 前缀。缺失（旧 cursor）时增量回退重计。 */
           readonly valid_count?: number;
+          /** 可选文件快照元数据；commandcode 用于识别同尺寸重写。 */
+          readonly size?: number;
+          readonly mtime_ms?: number;
       }
     | { readonly kind: "sqlite_rowid"; readonly max_rowid: number }
     | { readonly kind: "pagination"; readonly end_index: number };
@@ -42,4 +45,6 @@ export type ExtractCursor =
 export interface ExtractResult {
     readonly messages: readonly HistoryMessage[];
     readonly cursor: ExtractCursor | null;
+    /** 增量检测到截断/重写时，订阅 cache 必须替换而不是追加。 */
+    readonly replace_cache?: boolean;
 }

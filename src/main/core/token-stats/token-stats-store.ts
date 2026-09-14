@@ -345,7 +345,13 @@ function row_to_record(row: Record<string, unknown>): AgentSessionUsage {
         output_tokens: row["output_tokens"] as number,
         cache_read_tokens: row["cache_read_tokens"] as number,
         cache_write_tokens: row["cache_write_tokens"] as number,
-        agent: row["agent"] as "claude-code" | "opencode" | "kimi-code" | "grok" | "codex",
+        agent: row["agent"] as
+            | "claude-code"
+            | "opencode"
+            | "kimi-code"
+            | "grok"
+            | "codex"
+            | "commandcode",
     };
 }
 
@@ -1588,6 +1594,14 @@ export function create_token_stats_store(
             if (filters.agent) {
                 conditions.push("agent = @agent");
                 params["agent"] = filters.agent;
+            }
+            if (filters.source) {
+                conditions.push("source = @source");
+                params["source"] = filters.source;
+            }
+            if (filters.session_id) {
+                conditions.push("session_id = @session_id");
+                params["session_id"] = filters.session_id;
             }
             if (filters.env) {
                 conditions.push("env = @env");

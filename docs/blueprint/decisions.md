@@ -246,9 +246,71 @@
 - 选项：权限 A) Web 敏感接口纳入 token 认证、Web 降只读；B) Web 与桌面完全同权限、均不认证，宿主能力由宿主执行。配置写入 a) 仅 save 串行；b) 排队覆盖「读最新→计算→提交」+ 逐入口冲突策略。模型路由失败 a) 写失败即中止不改动；b) 部分成功 + 分类报告 + 快照 + 不自动回滚。导入 secret a) 一律 replace-all；b) 按 `secrets` 字段三态处理。
 - 结论：
     - **权限选 B**：本应用为受信内网自用工具，Web 与桌面同权限、都不需要认证；无认证不等于取消入参校验、进程隔离、日志脱敏与破坏性操作二次确认。t473 由「敏感接口鉴权」改造为「两端同权限、无认证契约对齐」；若新增鉴权将被视为违背本决策。
-    - **配置写入选 b**：普通 save 保持 `saveIfBaseMatches`（base 不匹配报 `CONFLICT`）；导入/复制/新建/CLI import 为用户显式整体操作，允许覆盖但必须串行且排队覆盖「读最新→计算→提交」（禁止基于临界区外旧快照覆盖）；auto-seed/prune 基于最新状态增量应用。单次导入内部 `config↔vault` 一致性归 t472，跨入口并发交错归 t479。
+    - **配置写入选 b**：普通 save 保持 `saveIfBaseMatches`（base 不匹配报 `CONFLICT`）；导入/复制/新建/CLI import 为用户显式整体操作，允许覆盖但必须串行且排队覆盖「读最新→计算→提交」（禁止基于临界区外旧快照覆盖）；auto-seed/prune 基于最新状态增量应用。实现由 config store 的 `run_serialized` 统一承载。单次导入内部 `config↔vault` 一致性归 t472，跨入口并发交错归 t479。
     - **模型路由选 b**：多渠道保存部分失败时停止后续写入，逐渠道报告成功/失败/未执行，保留修改前 `models`/`model_mapping`/`priority` 快照，不自动回滚；`HTTP 200 + success:false` 判失败；两端一致。
     - **导入 secret 选 b**：文件无 `secrets` 字段→保留仍存活实例的原密钥并清理悬空密钥；有非空 `secrets`→整体替换；`secrets: {}`→清空。被过滤的未知 manifest 实例其密钥随清理删除。
 - 影响：t472/t473/t474/t476/t478/t479/t480/t481/t482 的 spec 据此修订基线（见各 `docs/tasks/*/spec.md` 背景节）。Command Code 上游 token 语义经 2026-09-14 复核修正 d059（`usage` 为每轮用量、非累计，逐轮相加归因），t483 据此实现。
 - 落地：t471-t484 批次（文档修订，2026-09-14）。
+- t473 落地：桌面 `CONFIG_GET_SECRETS` / `CONFIG_SAVE_SECRETS` 删除 `#setting` 路由限制，仅保留合法 renderer sender 校验；LocalAPI 的用户业务端点继续位于 ingest token 门禁之前。
 - 替代：无
+
+## 027 连接器身份与本机路径分离（2026-09-14）
+
+- 背景：连接器配置原以 `executablePath` 同时承担本机文件定位和连接器身份，移动安装目录或跨平台导入会导致实例失配；同一 manifest 的多实例还可能被错误合并。
+- 结论：`ConnectorConfiguration.manifestId` 是必填的平台无关定义身份；`executablePath` 只保存当前机器的解析缓存。迁移仅回填/刷新这两个字段，`instanceId`、`stateId`、启用态、参数、端点、刷新间隔和 vault 归属保持不变。auto-seed 按 manifestId 匹配并逐实例更新路径；无法解析的孤儿按逐条脱敏日志加摘要清理。
+- 落地：t471。
+- 替代：无
+
+## 028 配置传输 canonical v2 与 secret 三态（2026-09-14）
+
+- 背景：桌面 IPC、LocalAPI/Web 与 CLI 各自实现配置导入导出，桌面 wrapper、Web 裸配置与 CLI 逐 key merge 互不兼容；导入失败还可能留下 config 与 vault 不一致状态。
+- 选项：格式 A) 保留三套 wrapper/裸配置兼容路径；B) 统一 `{formatVersion:2, exportedAt, appVersion, config, secrets?}`，入口只做文件/HTTP 外壳。secret 导入 A) 一律 replace-all；B) 按 `secrets` 字段三态处理。
+- 结论：选 B。所有入口走共享 transfer 模块；只接受 canonical v2，校验失败零副作用；`secrets` 缺失=保留活动实例并清理悬空密钥，存在=整体替换，`{}`=清空。未知 manifest 跳过并报告，路径按本机 definition 重算。写入前生成 config `.bak` 与加密 vault 快照，失败恢复一致前态。
+- 落地：t472（`config-transfer.ts`、IPC/LocalAPI/CLI 接线与回归测试）。
+- 替代：桌面 v1 wrapper、LocalAPI/CLI 裸 config 导入路径。
+
+## 030 开发面板 Git 扫描由宿主统一执行（2026-09-15）
+
+- 背景：开发面板需要把桌面与 Web 的 commit 历史统计统一起来，同时避免浏览器自行读取本机仓库或各入口结果漂移。
+- 结论：`AppConfiguration.devPanel` 保存扫描根、cutoff 和 author 过滤；桌面 IPC 与 LocalAPI/Web bridge 共享主进程 `DevPanelScanManager`。Git 只读命令使用无 shell `execFile`，按真实 `git-common-dir` 去重，结果携带 `scanned_at` 与单调 `data_version`。全局 Git 身份缺失时显示 warning 并降级为全部作者；committer 仅展示，不参与 author 过滤。
+- 替代：浏览器直接扫描、每个入口各自实现 Git 聚合、以及依赖外部迁移仓的静态热力图。
+
+## 031 开发面板模型路由由宿主统一执行（2026-09-15）
+
+- 背景：New API 模型路由需要读取用户外部 YAML、持有 session 凭证并同时服务桌面与 Web；将逻辑放入 renderer 会泄漏凭证并造成入口语义漂移。
+- 结论：由 `DevPanelModelRoutingManager` 在主进程统一解析配置、拉取渠道、计算 slot 映射、串行写入和模型自检。IPC 与 LocalAPI/bridge 只传公开模型、渠道变更和快照标识；session 只留在宿主。保存先保留 `models`/`model_mapping`/`priority` 快照，遇到首个失败停止后续写入、返回 success/failed/skipped，不自动回滚；两端统一要求显式确认。
+- 限制：New API 真实版本和真实模型回复保留 `[deploy]` 人工复核；s038 只验证无凭证本地适配边界。
+- 落地：t482。
+- 替代：renderer/browser 直接读取 YAML 或持有 token；桌面/Web 各自维护一套路由算法。
+
+## 032 Command Code 用量按每轮独立值归因（2026-09-15）
+
+- 背景：Command Code 的 `projects/<encoded-cwd>/<session-id>.jsonl` 同时包含会话与 assistant 用量；上游样本曾被误判为累计值，直接做相邻行差分会把 output/cost 回落误归零。
+- 结论：reader 只消费 `type:"message"` 且 `message.role=="assistant"` 的 usage；`inputTokens`、`outputTokens`、`cacheWriteTokens` 与 `costUsd` 按每轮原值直接相加，不做累计差分。`cacheReadTokens` 按每轮拆为独立 `cache_read_tokens`，`input_tokens=inputTokens-cacheReadTokens`，由总 token 表达式恢复原始 input，避免缓存双计。每条明细保留 message 时间戳，dashboard 小时聚合据此分桶。
+- 证据：d059/s037 的 2026-09-14 复核中，output 在 193/202、cost 在 199/202 会话出现回落；input 的少量小幅回落按每轮原值计入。版本或字段语义变化时重新复核 d059。
+- 落地：t483 reader/collector/scan-state；t484 负责共享 public source/agent 枚举、历史提取与两面板接线。
+- 替代：按累计值做相邻行差分。
+
+## 029 自启与暂停态由主进程单一来源维护（2026-09-14）
+
+- 背景：设置页只写 `launchAtLogin`，tray/CLI 各自直接改 OS 登录项；tray 另存本地暂停布尔值，无法反映 CLI/Web 的暂停。
+- 结论：`launchAtLogin` 是唯一配置真相，主进程启动和配置保存都按该值双向应用 OS 登录项；tray/CLI/Web 自启操作经主进程更新 config 与 OS。暂停原因集合归 orchestrator，入口只调用 `suspend/resume` 并读取 `get_pause_state()`；LocalAPI 通过 `/v1/control/status` 与 SSE 广播同一状态。
+- 平台：Linux 或无 `setLoginItemSettings` 的环境明确返回能力不可用，不引入新的 Linux 自启动实现。
+- 落地：t474。
+- 替代：tray 本地 `is_paused`、CLI 独立 `setLoginItemSettings`、仅开启不关闭 OS 登录项的回退逻辑。
+
+## 033 Command Code 会话历史由宿主固定 resume（2026-09-14）
+
+- 背景：Command Code 会话 JSONL 需要进入统一 session-history；桌面 renderer 与 Web
+    renderer 目前只能复制续接命令，Web 在非安全上下文还可能没有 clipboard。任意模板
+    直接交给 shell 又会把 session id 变成命令注入边界。
+- 结论：`commandcode` 作为独立 `HistorySource`/`ExtractorKind`，复用 locator、query、
+    watcher 和两端事件桥。面板 resume 只接受已定位的 linux/mac Command Code session，
+    由宿主无 shell 地 `spawn("cmd", ["--resume", session_id])`；IPC/LocalAPI 不接受
+    任意命令字符串，Web 不降级为 clipboard。
+- 边界：Command Code JSONL 的增量游标记录文件快照，截断或同尺寸重写触发全量 cache
+    替换；user 仅接受 `message.meta.source === "user"`，工具与 thinking 内容永不展示。
+- 落地：t484；规格见 `docs/specs/session-library.md` 与
+    `docs/specs/resume_command_template.md`。
+- 替代：renderer/browser 直接执行模板、Web 禁用 resume、或把 Command Code 混入
+    其他 agent 的默认映射。

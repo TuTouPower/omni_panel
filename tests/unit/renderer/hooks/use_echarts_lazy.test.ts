@@ -16,6 +16,7 @@ vi.mock("echarts/core", () => ({ init: mocks.init, use: mocks.use }));
 vi.mock("echarts/charts", () => ({ BarChart: {}, HeatmapChart: {}, PieChart: {} }));
 vi.mock("echarts/components", () => ({
     GridComponent: {},
+    CalendarComponent: {},
     TooltipComponent: {},
     DataZoomComponent: {},
     VisualMapComponent: {},

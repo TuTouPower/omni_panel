@@ -1,0 +1,34 @@
+{
+    "tid": "t473",
+    "attempt": 1,
+    "execution_id": "efefa912f484496b9f15ca71447c0d63",
+    "status": "done",
+    "branch": "t473_local_api_secrets_auth",
+    "base_sha": "a064a7a06f0c8f1f98dfa624fa8f16436de005e2",
+    "tests": "定向 IPC 68 tests PASS；changed-file ESLint、全仓 Prettier、Knip、dependency-cruiser、git diff --check PASS；LocalAPI 108 tests 在 better-sqlite3 native binding setup 阶段阻塞；tsc 报既有缺失 generated build-info",
+    "blackbox": "无凭据 HTTP config/secrets 回归已补；既有 duplicate/create/export/import、输入校验、控制保护回归保持；LocalAPI 集成未进入业务断言",
+    "review": "Round 1 code + test PASS，0 finding，review scope 578117479a56791e",
+    "ac_evidence": {
+        "AC-006": [
+            "LocalAPI 无 Authorization 的 config GET/POST 与 secrets GET/POST 回归已写入；既有 duplicate/create/export/import 测试均无 Authorization；桌面 secret IPC 合法 renderer 成功。LocalAPI 集成执行被 native binding setup 阻塞。"
+        ],
+        "AC-007": [
+            "LocalAPI 与桌面复用既有业务 handler/同一错误分类边界，平台服务规范已记录共享权限基线。"
+        ],
+        "AC-008": [
+            "删除两个 secret IPC handler 的 assert_setting_route；#usage 合法 renderer GET/SAVE 回归通过。"
+        ],
+        "AC-009": [
+            "两个 secret IPC handler 继续调用 assert_valid_sender；about:blank sender 回归均拒绝且无 vault 写入。"
+        ],
+        "AC-010": ["既有输入校验、错误分类与 config redaction/IPC trace 脱敏保留；定向回归通过。"],
+        "AC-011": [
+            "既有 import endpoint override 拒绝、control action 和实例操作保护回归保持；文档记录显式用户动作/可观察确认。"
+        ],
+        "AC-012": [
+            "本 diff 未新增 token/bearer/check_auth 分支；/v1/ingest 现有 Bearer token 门禁保持不变。"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

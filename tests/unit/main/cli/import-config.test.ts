@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { AppConfiguration } from "../../../../src/shared/types/config";
@@ -22,11 +22,10 @@ function makeDir(): string {
     return tmp;
 }
 
-/** 含一个 secret 参数 API_KEY 的 connector definition。 */
-function makeDefinition(): ConnectorDefinition {
+function makeDefinition(path = "/plugins/claude.py"): ConnectorDefinition {
     return {
-        executablePath: "/plugins/claude.py",
-        directory: "/plugins/claude.py",
+        executablePath: path,
+        directory: path,
         manifest: {
             id: "claude",
             name: "Claude",
@@ -42,287 +41,333 @@ function makeDefinition(): ConnectorDefinition {
     } as ConnectorDefinition;
 }
 
-function makeDeps() {
+function makeConfig(path = "/plugins/claude.py"): AppConfiguration {
+    return {
+        schemaVersion: 1,
+        language: "zh-Hans",
+        plugins: [
+            {
+                instanceId: "claude-1",
+                stateId: "claude-1",
+                manifestId: "claude",
+                name: "Claude",
+                enabled: true,
+                executablePath: path,
+                refreshIntervalSeconds: 300,
+                parameterValues: { MODEL: "gpt-4" },
+                endpointOverrides: {},
+            },
+        ],
+        launchAtLogin: false,
+    };
+}
+
+function transfer(config: unknown, secrets?: Record<string, string>): Record<string, unknown> {
+    return {
+        formatVersion: 2,
+        exportedAt: "2026-05-31T00:00:00Z",
+        appVersion: "1.0.0",
+        config,
+        ...(secrets === undefined ? {} : { secrets }),
+    };
+}
+
+function makeDeps(initialConfig = makeConfig(), initialSecrets: Record<string, string> = {}) {
+    let config = structuredClone(initialConfig);
     const savedConfigs: AppConfiguration[] = [];
-    const secrets: Record<string, string> = {};
+    const secrets = { ...initialSecrets };
+    let snapshot = { ...secrets };
     const configStore: AppConfigStore = {
-        load: vi.fn().mockResolvedValue(undefined),
-        save: vi.fn().mockImplementation((cfg: AppConfiguration) => {
-            savedConfigs.push(cfg);
+        load: vi.fn().mockImplementation(() => Promise.resolve(structuredClone(config))),
+        save: vi.fn().mockImplementation((next: AppConfiguration) => {
+            config = structuredClone(next);
+            savedConfigs.push(structuredClone(next));
             return Promise.resolve();
         }),
-        saveIfBaseMatches: vi.fn().mockImplementation((_base, cfg: AppConfiguration) => {
-            savedConfigs.push(cfg);
-            return Promise.resolve("saved");
-        }),
+        saveIfBaseMatches: vi.fn().mockResolvedValue("saved"),
         scheduleSave: vi.fn(),
         flushPendingSave: vi.fn().mockResolvedValue(undefined),
         hasPendingSave: vi.fn(() => false),
-        prune_unhealthy_plugins: vi.fn().mockResolvedValue(undefined),
+        prune_unhealthy_plugins: vi.fn().mockResolvedValue(config),
     };
-    const deleteMock = vi.fn().mockImplementation((k: string) => {
-        Reflect.deleteProperty(secrets, k);
-        return Promise.resolve();
-    });
     const secretsStore: SecretsStore = {
-        get: vi.fn().mockImplementation((k: string) => Promise.resolve(secrets[k] ?? null)),
-        set: vi.fn().mockImplementation((k: string, v: string) => {
-            secrets[k] = v;
+        get: vi.fn().mockImplementation((key: string) => Promise.resolve(secrets[key] ?? null)),
+        set: vi.fn().mockImplementation((key: string, value: string) => {
+            secrets[key] = value;
             return Promise.resolve();
         }),
-        delete: deleteMock,
-        exportAll: vi.fn().mockResolvedValue({}),
-        importAll: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockImplementation((key: string) => {
+            Reflect.deleteProperty(secrets, key);
+            return Promise.resolve();
+        }),
+        exportAll: vi.fn().mockImplementation(() => Promise.resolve({ ...secrets })),
+        importAll: vi.fn().mockImplementation((next: Record<string, string>) => {
+            for (const key of Object.keys(secrets)) Reflect.deleteProperty(secrets, key);
+            Object.assign(secrets, next);
+            return Promise.resolve();
+        }),
+        writeImportSnapshot: vi.fn().mockImplementation(() => {
+            snapshot = { ...secrets };
+        }),
+        restoreImportSnapshot: vi.fn().mockImplementation(() => {
+            for (const key of Object.keys(secrets)) Reflect.deleteProperty(secrets, key);
+            Object.assign(secrets, snapshot);
+        }),
     };
-    return { configStore, secretsStore, savedConfigs, secrets, deleteMock };
+    return { configStore, secretsStore, savedConfigs, secrets };
 }
 
 describe("import_config_file", () => {
-    it("明文 secret 抽出转存 vault，落盘配置不保留明文", async () => {
+    it("使用 canonical v2 导入并把顶层 secret 写入 vault", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");
         const importFile = join(dir, "import.json");
-        const config = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [
-                {
-                    instanceId: "claude-1",
-                    stateId: "claude-1",
-                    name: "Claude",
-                    enabled: true,
-                    executablePath: "/plugins/claude.py",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-live-secret", MODEL: "gpt-4" },
-                    endpointOverrides: {},
-                },
-            ],
-            launchAtLogin: false,
-        };
-        writeFileSync(importFile, JSON.stringify(config));
-        const { configStore, secretsStore, savedConfigs, secrets } = makeDeps();
+        writeFileSync(
+            importFile,
+            JSON.stringify(transfer(makeConfig(), { "claude-1:API_KEY": "sk-live-secret" })),
+        );
+        const deps = makeDeps();
 
         const result = await import_config_file(
-            { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition()],
+            },
             importFile,
         );
 
-        // secret 转存 vault
-        expect(secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
-        // 落盘配置剥离明文 secret，保留非 secret 参数
+        expect(deps.secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
         expect(result.plugins[0]?.parameterValues).toEqual({ MODEL: "gpt-4" });
-        expect(savedConfigs[0]?.plugins[0]?.parameterValues).toEqual({ MODEL: "gpt-4" });
-        // 非 secret 参数不入 vault
-        expect(secrets["claude-1:MODEL"]).toBeUndefined();
+        expect(deps.savedConfigs[0]?.plugins[0]?.parameterValues).toEqual({ MODEL: "gpt-4" });
     });
 
-    it("拒绝未知 connector 路径并在转存 secret 前失败", async () => {
+    it("按 manifestId 将导入路径重映射为本机 definition 路径", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "moved.json");
+        writeFileSync(importFile, JSON.stringify(transfer(makeConfig("/linux/connectors/claude"))));
+        const deps = makeDeps();
+
+        const result = await import_config_file(
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition("/mac/connectors/claude")],
+            },
+            importFile,
+        );
+
+        expect(result.plugins[0]?.executablePath).toBe("/mac/connectors/claude");
+    });
+
+    it("未知 manifest 被跳过且其显式 secret 不进入 vault", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");
         const importFile = join(dir, "unknown.json");
+        const unknown = {
+            ...makeConfig(),
+            plugins: [
+                { ...makeConfig().plugins[0], manifestId: "unknown", instanceId: "unknown-1" },
+            ],
+        };
         writeFileSync(
             importFile,
-            JSON.stringify({
-                schemaVersion: 1,
-                language: "zh-Hans",
-                plugins: [
-                    {
-                        instanceId: "unknown-1",
-                        stateId: "unknown-1",
-                        name: "Unknown",
-                        enabled: true,
-                        executablePath: "/plugins/unknown.py",
-                        refreshIntervalSeconds: 300,
-                        parameterValues: { API_KEY: "sk-unknown" },
-                        endpointOverrides: {},
-                    },
-                ],
-                launchAtLogin: false,
-            }),
+            JSON.stringify(transfer(unknown, { "unknown-1:API_KEY": "sk-unknown" })),
         );
-        const { configStore, secretsStore } = makeDeps();
-
-        await expect(
-            import_config_file(
-                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
-                importFile,
-            ),
-        ).rejects.toThrow(/未知连接器路径/);
-        expect(Reflect.get(secretsStore, "set")).not.toHaveBeenCalled();
-        expect(Reflect.get(configStore, "save")).not.toHaveBeenCalled();
-    });
-
-    it("非 JSON 文件抛错", async () => {
-        const dir = makeDir();
-        const configPath = join(dir, "config.json");
-        const importFile = join(dir, "bad.json");
-        writeFileSync(importFile, "not json at all");
-        const { configStore, secretsStore } = makeDeps();
-
-        await expect(
-            import_config_file(
-                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
-                importFile,
-            ),
-        ).rejects.toThrow(/不是合法 JSON/);
-    });
-
-    it("schema 不合法抛错（缺必填字段）", async () => {
-        const dir = makeDir();
-        const configPath = join(dir, "config.json");
-        const importFile = join(dir, "schema-bad.json");
-        // 缺 plugins / launchAtLogin
-        writeFileSync(importFile, JSON.stringify({ schemaVersion: 1, language: "zh-Hans" }));
-        const { configStore, secretsStore } = makeDeps();
-
-        await expect(
-            import_config_file(
-                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
-                importFile,
-            ),
-        ).rejects.toThrow(/schema 校验失败/);
-    });
-
-    it("无现有 config.json 时跳过备份，正常导入", async () => {
-        const dir = makeDir();
-        const configPath = join(dir, "config.json");
-        const importFile = join(dir, "import.json");
-        const config = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [],
-            launchAtLogin: false,
-        };
-        writeFileSync(importFile, JSON.stringify(config));
-        const { configStore, secretsStore, savedConfigs } = makeDeps();
+        const deps = makeDeps();
 
         const result = await import_config_file(
-            { configPath, configStore, secretsStore, definitions: [] },
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition()],
+            },
             importFile,
         );
+
         expect(result.plugins).toEqual([]);
-        expect(savedConfigs).toHaveLength(1);
-        // 无 .bak（无现有配置可备份）
-        expect(existsSync(`${configPath}.bak`)).toBe(false);
+        expect(deps.secrets["unknown-1:API_KEY"]).toBeUndefined();
+        expect(deps.savedConfigs).toHaveLength(1);
     });
 
-    it("已有 config.json 时先备份到 .bak 再覆盖写", async () => {
+    it("拒绝 v1 和裸 config 文件，并报告实际版本", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");
-        writeFileSync(configPath, JSON.stringify({ old: true }));
-        const importFile = join(dir, "import.json");
-        const config = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [],
-            launchAtLogin: false,
-        };
-        writeFileSync(importFile, JSON.stringify(config));
-        const { configStore, secretsStore, savedConfigs } = makeDeps();
-
-        await import_config_file(
-            { configPath, configStore, secretsStore, definitions: [] },
-            importFile,
-        );
-        // .bak 保留旧配置
-        expect(JSON.parse(readFileSync(`${configPath}.bak`, "utf8"))).toEqual({ old: true });
-        expect(savedConfigs).toHaveLength(1);
-    });
-
-    it("config save 失败时回滚已转存的 vault secret（AC8 无半初始化残留）", async () => {
-        const dir = makeDir();
-        const configPath = join(dir, "config.json");
-        const importFile = join(dir, "import.json");
-        const config = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [
-                {
-                    instanceId: "claude-1",
-                    stateId: "claude-1",
-                    name: "Claude",
-                    enabled: true,
-                    executablePath: "/plugins/claude.py",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-live-secret" },
-                    endpointOverrides: {},
-                },
-            ],
-            launchAtLogin: false,
-        };
-        writeFileSync(importFile, JSON.stringify(config));
-        const { configStore, secretsStore, secrets, deleteMock } = makeDeps();
-        // save 抛错模拟磁盘写失败
-        (configStore.save as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-            new Error("disk full"),
-        );
+        const importFile = join(dir, "old.json");
+        writeFileSync(importFile, JSON.stringify({ formatVersion: 1 }));
+        const deps = makeDeps();
 
         await expect(
             import_config_file(
-                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+                {
+                    configPath,
+                    configStore: deps.configStore,
+                    secretsStore: deps.secretsStore,
+                    definitions: [makeDefinition()],
+                },
                 importFile,
             ),
-        ).rejects.toThrow("disk full");
+        ).rejects.toThrow(/版本.*1/);
+        expect((deps.configStore.save as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+        expect((deps.secretsStore.importAll as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+            0,
+        );
 
-        // 本次转存的 secret 已回滚删除，vault 无残留
-        expect(secrets["claude-1:API_KEY"]).toBeUndefined();
-        expect(deleteMock).toHaveBeenCalledWith("claude-1:API_KEY");
+        writeFileSync(importFile, JSON.stringify(makeConfig()));
+        await expect(
+            import_config_file(
+                {
+                    configPath,
+                    configStore: deps.configStore,
+                    secretsStore: deps.secretsStore,
+                    definitions: [makeDefinition()],
+                },
+                importFile,
+            ),
+        ).rejects.toThrow(/版本.*缺失/);
     });
 
-    it("重复导入且 save 失败时回滚保留导入前已存在的 vault 值（p094 回滚边界）", async () => {
+    it("schema 校验失败时不写 config 或 vault", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "bad-schema.json");
+        writeFileSync(
+            importFile,
+            JSON.stringify(transfer({ schemaVersion: 1, language: "zh-Hans" })),
+        );
+        const deps = makeDeps();
+
+        await expect(
+            import_config_file(
+                {
+                    configPath,
+                    configStore: deps.configStore,
+                    secretsStore: deps.secretsStore,
+                    definitions: [makeDefinition()],
+                },
+                importFile,
+            ),
+        ).rejects.toThrow(/配置格式无效/);
+        expect((deps.configStore.save as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+        expect((deps.secretsStore.importAll as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+            0,
+        );
+    });
+
+    it("导入前先生成 config 与加密 vault 快照", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");
         const importFile = join(dir, "import.json");
-        const config = {
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [
-                {
-                    instanceId: "claude-1",
-                    stateId: "claude-1",
-                    name: "Claude",
-                    enabled: true,
-                    executablePath: "/plugins/claude.py",
-                    refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-live-secret" },
-                    endpointOverrides: {},
-                },
-            ],
-            launchAtLogin: false,
-        };
-        writeFileSync(importFile, JSON.stringify(config));
-        const { configStore, secretsStore, secrets, deleteMock } = makeDeps();
+        writeFileSync(configPath, JSON.stringify(makeConfig()));
+        writeFileSync(importFile, JSON.stringify(transfer(makeConfig())));
+        const deps = makeDeps();
 
-        // 首轮成功导入：vault 写入 claude-1:API_KEY = sk-live-secret
         await import_config_file(
-            { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition()],
+            },
             importFile,
         );
-        expect(secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
 
-        // 二轮重复导入同一 key、不同值，config save 失败 → 回滚须恢复首轮旧值
-        const importFile2 = join(dir, "import2.json");
-        const plugin0 = config.plugins[0];
-        if (!plugin0) throw new Error("fixture 缺 plugin");
-        writeFileSync(
-            importFile2,
-            JSON.stringify({
-                ...config,
-                plugins: [{ ...plugin0, parameterValues: { API_KEY: "sk-second-secret" } }],
-            }),
-        );
-        (configStore.save as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-            new Error("disk full"),
-        );
+        expect(JSON.parse(readFileSync(`${configPath}.bak`, "utf8"))).toEqual(makeConfig());
+        const write_snapshot = Reflect.get(deps.secretsStore, "writeImportSnapshot") as ReturnType<
+            typeof vi.fn
+        >;
+        expect(write_snapshot.mock.calls).toEqual([[join(dir, "secrets.vault.import.bak")]]);
+    });
+
+    it("备份失败时中止且不进入写入阶段", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "import.json");
+        mkdirSync(configPath);
+        writeFileSync(importFile, JSON.stringify(transfer(makeConfig())));
+        const deps = makeDeps();
+
         await expect(
             import_config_file(
-                { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
-                importFile2,
+                {
+                    configPath,
+                    configStore: deps.configStore,
+                    secretsStore: deps.secretsStore,
+                    definitions: [makeDefinition()],
+                },
+                importFile,
             ),
-        ).rejects.toThrow("disk full");
+        ).rejects.toThrow();
+        expect((deps.configStore.save as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+        expect((deps.secretsStore.importAll as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+            0,
+        );
+    });
 
-        // 回滚只撤销本次覆盖：vault 恢复首轮旧值，不误删也不残留二轮新值
-        expect(secrets["claude-1:API_KEY"]).toBe("sk-live-secret");
-        expect(deleteMock).not.toHaveBeenCalledWith("claude-1:API_KEY");
+    it("vault 写入失败时恢复 config 与 vault 前态", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "import.json");
+        const deps = makeDeps(makeConfig(), { "claude-1:API_KEY": "old" });
+        writeFileSync(
+            importFile,
+            JSON.stringify(transfer(makeConfig(), { "claude-1:API_KEY": "new" })),
+        );
+        deps.secretsStore.importAll = vi.fn().mockImplementation((next: Record<string, string>) => {
+            for (const key of Object.keys(deps.secrets)) Reflect.deleteProperty(deps.secrets, key);
+            Object.assign(deps.secrets, next);
+            return Promise.reject(new Error("vault write failed"));
+        });
+
+        await expect(
+            import_config_file(
+                {
+                    configPath,
+                    configStore: deps.configStore,
+                    secretsStore: deps.secretsStore,
+                    definitions: [makeDefinition()],
+                },
+                importFile,
+            ),
+        ).rejects.toThrow("vault write failed");
+        expect(deps.secrets).toEqual({ "claude-1:API_KEY": "old" });
+        expect(await deps.configStore.load()).toEqual(makeConfig());
+    });
+
+    it("无 secrets 字段保留活动实例密钥并清理悬空密钥，空对象则清空", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "import.json");
+        const deps = makeDeps(makeConfig(), {
+            "claude-1:API_KEY": "keep",
+            "removed:API_KEY": "drop",
+        });
+        writeFileSync(importFile, JSON.stringify(transfer(makeConfig())));
+        await import_config_file(
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition()],
+            },
+            importFile,
+        );
+        expect(deps.secrets).toEqual({ "claude-1:API_KEY": "keep" });
+
+        writeFileSync(importFile, JSON.stringify(transfer(makeConfig(), {})));
+        await import_config_file(
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [makeDefinition()],
+            },
+            importFile,
+        );
+        expect(deps.secrets).toEqual({});
     });
 });

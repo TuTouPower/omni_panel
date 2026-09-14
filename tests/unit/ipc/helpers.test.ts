@@ -6,7 +6,6 @@ import {
     fail,
     state_to_snapshot_dto,
     assert_valid_sender,
-    assert_setting_route,
     set_renderer_index_path,
 } from "../../../src/main/ipc/helpers";
 
@@ -220,43 +219,5 @@ describe("assert_valid_sender", () => {
         expect(() => {
             assert_valid_sender(event);
         }).toThrow("Invalid sender protocol");
-    });
-});
-
-describe("assert_setting_route", () => {
-    it("allows #setting hash", () => {
-        const event = {
-            senderFrame: { url: "file:///index.html#setting" },
-        } as unknown as Electron.IpcMainInvokeEvent;
-        expect(() => {
-            assert_setting_route(event);
-        }).not.toThrow();
-    });
-
-    it("rejects non-setting hash", () => {
-        const event = {
-            senderFrame: { url: "file:///index.html#usage" },
-        } as unknown as Electron.IpcMainInvokeEvent;
-        expect(() => {
-            assert_setting_route(event);
-        }).toThrow("only allowed from setting route");
-    });
-
-    it("rejects hash that merely contains setting substring", () => {
-        const event = {
-            senderFrame: { url: "file:///index.html#not-setting" },
-        } as unknown as Electron.IpcMainInvokeEvent;
-        expect(() => {
-            assert_setting_route(event);
-        }).toThrow("only allowed from setting route");
-    });
-
-    it("rejects empty hash", () => {
-        const event = {
-            senderFrame: { url: "file:///index.html" },
-        } as unknown as Electron.IpcMainInvokeEvent;
-        expect(() => {
-            assert_setting_route(event);
-        }).toThrow("only allowed from setting route");
     });
 });

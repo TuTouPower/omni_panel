@@ -59,6 +59,7 @@ import {
     handleConnectorList,
     handleConnectorRefresh,
     handleConnectorRefreshAll,
+    handleConnectorSnapshot,
 } from "../../ipc/connector-ipc";
 import type { ConnectorIpcDeps } from "../../ipc/connector-ipc";
 import { state_to_snapshot_dto } from "../../ipc/helpers";
@@ -68,24 +69,44 @@ import { handleRendererLog } from "../../ipc/log-ipc";
 import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
+import { execute_commandcode_resume } from "../session-history/resume";
 import type {
     Env,
-    QueryOptions,
     ResolvedSessionLoc,
     SessionHistorySubscriptionService,
-    SessionQueryFilters,
     SessionRow,
     SessionsProvider,
 } from "../session-history/subscription-service";
 import type {
-    SessionHistorySearchContentLegacyRequest,
-    SessionHistorySearchContentRequest,
     SessionHistorySearchContentResponse,
     SessionHistorySummariesRequest,
     SessionHistorySummariesResponse,
 } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
-import { clamp_search_content_range } from "../session-history/search_content_range";
+import {
+    content_search_candidates,
+    content_search_range,
+    ensure_dashboard_sources_status,
+    is_legacy_search_request,
+    normalize_recent_query,
+    normalize_session_history_query,
+    normalize_summary_locs,
+    normalize_trend_query,
+    query_all_sessions,
+    search_content_filters,
+    validate_search_content_request,
+    validate_token_stats_record_filters,
+    validate_token_stats_session_filters,
+} from "../query-contract";
+import type { PauseState } from "../scheduler/scheduler-orchestrator";
+import type { LaunchAtLoginState } from "../launch-at-login";
+import { devPanelConfigurationSchema } from "../config/types";
+import type { DevPanelScanManager } from "../dev-panel/scan-manager";
+import type { DevPanelModelRoutingManager } from "../dev-panel/model-routing";
+import {
+    devPanelModelRoutingSaveRequestSchema,
+    devPanelModelRoutingTestRequestSchema,
+} from "../../../shared/schemas/dev-panel-model-routing";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -117,6 +138,12 @@ export interface LocalAPIServer {
     get_token(): string;
     publish_config_change(config: AppConfiguration): void;
     publish_theme_change(is_dark: boolean): void;
+    publish_control_state(state: ControlState): void;
+}
+
+export interface ControlState {
+    readonly pause: PauseState;
+    readonly autostart: LaunchAtLoginState;
 }
 
 /** t259: 会话历史 HTTP 桥依赖（映射桌面 session-history-ipc 的 deps）。 */
@@ -168,6 +195,16 @@ export interface ControlDeps {
     readonly resume: () => void;
     readonly restart: () => void;
     readonly quit: () => void;
+    /** Toggle the config-backed OS login item from the host process. */
+    readonly autostart?: () => Promise<LaunchAtLoginState> | LaunchAtLoginState;
+    /** Read the actual orchestrator/login-item state for Web/CLI consumers. */
+    readonly get_state?: () => Promise<ControlState> | ControlState;
+}
+
+/** t481: Web and desktop share the same host-side read-only Git scan manager. */
+export interface DevPanelDeps {
+    readonly manager: DevPanelScanManager;
+    readonly model_routing: DevPanelModelRoutingManager;
 }
 
 /** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
@@ -177,15 +214,6 @@ export interface AuthDeps {
     readonly grok: GrokAuthIpcDeps;
     readonly kimi: KimiAuthIpcDeps;
 }
-
-/** 会话历史批量内容搜索请求（新 `{filters,keyword}` + legacy `{locs,keyword}`）。 */
-type SessionHistorySearchRequest =
-    | SessionHistorySearchContentRequest
-    | SessionHistorySearchContentLegacyRequest;
-
-const CONTENT_SEARCH_PAGE_SIZE = 100;
-/** t354 AC-003: 搜索分页枚举总量上限，超出即停（避免会话库无界时全量枚举）。 */
-const SEARCH_ENUM_CAP = 100_000;
 
 function generate_token(): string {
     return randomBytes(32).toString("hex");
@@ -246,70 +274,6 @@ function session_history_key_of(row: SessionRow): string {
     return `${row.source}|${row.env}|${row.id}`;
 }
 
-function session_history_legacy_row_of(loc: {
-    readonly source: string;
-    readonly env: string;
-    readonly session_id: string;
-}): SessionRow {
-    return {
-        id: loc.session_id,
-        source: loc.source,
-        env: loc.env as Env,
-        title: null,
-        model: null,
-        started_at: 0,
-        ended_at: 0,
-    };
-}
-
-/** 逐页取全量会话行（与 IPC 层 CONTENT_SEARCH_PAGE_SIZE 分页一致）。
- *  t354 AC-003: 总量上限 SEARCH_ENUM_CAP，避免会话库无界时搜索全量枚举。
- *  t388 AC-001: 达上限截断时 truncated=true。 */
-function session_history_query_all_sessions(
-    deps: SessionHistoryDeps,
-    filters: SessionQueryFilters,
-): { rows: SessionRow[]; truncated: boolean } {
-    const rows: SessionRow[] = [];
-    let offset = 0;
-    let page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
-    rows.push(...page);
-    while (page.length === CONTENT_SEARCH_PAGE_SIZE && rows.length < SEARCH_ENUM_CAP) {
-        offset += CONTENT_SEARCH_PAGE_SIZE;
-        page = deps.sessions_provider({ ...filters, limit: CONTENT_SEARCH_PAGE_SIZE, offset });
-        rows.push(...page);
-    }
-    // t388 AC-001: 达 SEARCH_ENUM_CAP 截断（仍可能有更多页）→ truncated=true。
-    // 边界：总数恰等于 CAP 且最后页满时误报 true（循环因 rows.length<CAP 失配
-    // 退出、cap 之后那页未 fetch 无法区分）——仅误报、无数据丢失、极罕见。
-    return {
-        rows,
-        truncated: rows.length >= SEARCH_ENUM_CAP && page.length === CONTENT_SEARCH_PAGE_SIZE,
-    };
-}
-
-function is_legacy_search_request(
-    request: SessionHistorySearchRequest,
-): request is SessionHistorySearchContentLegacyRequest {
-    return "locs" in request;
-}
-
-function content_search_candidates(
-    deps: SessionHistoryDeps,
-    request: SessionHistorySearchRequest,
-): { rows: SessionRow[]; truncated: boolean } {
-    if (is_legacy_search_request(request)) {
-        return { rows: request.locs.map(session_history_legacy_row_of), truncated: false };
-    }
-    const filters: SessionQueryFilters = {
-        ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
-        ...(request.filters.title ? { title: request.filters.title } : {}),
-        ...(request.filters.directory ? { directory: request.filters.directory } : {}),
-        ...(request.filters.start_at !== undefined ? { start_at: request.filters.start_at } : {}),
-        ...(request.filters.end_at !== undefined ? { end_at: request.filters.end_at } : {}),
-    };
-    return session_history_query_all_sessions(deps, filters);
-}
-
 /** 解析候选行到 ResolvedSessionLoc，跳过定位失败的会话（对齐 IPC 层）。 */
 function resolve_session_rows(
     deps: SessionHistoryDeps,
@@ -345,66 +309,104 @@ function handle_session_history_query(
     deps: SessionHistoryDeps,
     params: URLSearchParams,
 ): void {
-    const session_id = params.get("id");
-    if (!session_id) {
-        json_response(res, 400, { error: "id required" });
-        return;
+    const options: Record<string, unknown> = {};
+    if (params.has("limit")) {
+        const raw = params.get("limit") ?? "";
+        options["limit"] = raw.trim() === "" ? Number.NaN : Number(raw);
     }
-    const source = params.get("source");
-    const env = params.get("env");
-    if (!source || !env) {
-        json_response(res, 400, { error: "source and env required" });
+    if (params.has("before_cursor")) {
+        const raw = params.get("before_cursor") ?? "";
+        options["before_cursor"] = raw.trim() === "" ? Number.NaN : Number(raw);
+    }
+    const normalized = normalize_session_history_query({
+        id: params.get("id"),
+        source: params.get("source"),
+        env: params.get("env"),
+        options: Object.keys(options).length > 0 ? options : undefined,
+    });
+    if (!normalized.ok) {
+        json_response(res, 400, { error: normalized.message, code: normalized.code });
         return;
     }
     const resolved = resolve_session_file(
-        source as HistorySource,
-        env as Env,
-        session_id,
+        normalized.value.source as HistorySource,
+        normalized.value.env,
+        normalized.value.session_id,
         deps.locator_paths,
     );
     if (!resolved) {
         json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
         return;
     }
-    const options: QueryOptions = {};
-    // t353 AC-002: limit 必须为正整数（0/负/非数字统一 400），不再静默忽略或传 0。
-    // InvalidParamError 在此捕获（本函数非 handle_web_read 路径，无外层 400 catch）。
-    try {
-        const limit_raw = params.get("limit");
-        if (limit_raw !== null) {
-            const limit = parse_int_param(params, "limit", { min: 1 });
-            if (limit !== null) Object.assign(options, { limit });
-        }
-        const before_raw = params.get("before_cursor");
-        if (before_raw !== null && before_raw !== "") {
-            const end_index = Number(before_raw);
-            if (Number.isFinite(end_index)) {
-                Object.assign(options, { before_cursor: { kind: "pagination", end_index } });
-            }
-        }
-    } catch (err) {
-        if (
-            err instanceof InvalidParamError ||
-            (err instanceof Error && err.name === "InvalidParamError")
-        ) {
-            json_response(res, 400, { error: err.message });
-            return;
-        }
-        throw err;
-    }
     const result = deps.service.query(
         {
-            source,
-            env: env as Env,
-            session_id,
+            source: normalized.value.source,
+            env: normalized.value.env,
+            session_id: normalized.value.session_id,
             file_path: resolved.file_path,
             extractor_kind: resolved.extractor_kind,
         },
-        options,
+        normalized.value.options,
     );
     const next_cursor =
         result.next_cursor?.kind === "pagination" ? String(result.next_cursor.end_index) : null;
     json_response(res, 200, { messages: result.messages, next_cursor });
+}
+
+function handle_session_history_recent(
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+    params: URLSearchParams,
+): void {
+    const raw_limit = params.get("limit");
+    const normalized = normalize_recent_query({
+        source: params.get("source"),
+        env: params.get("env"),
+        limit: raw_limit === null || raw_limit.trim() === "" ? Number.NaN : Number(raw_limit),
+    });
+    if (!normalized.ok) {
+        json_response(res, 400, { error: normalized.message, code: normalized.code });
+        return;
+    }
+    const recent = deps.service.recent_sessions(
+        normalized.value.source,
+        normalized.value.env,
+        normalized.value.limit,
+        deps.sessions_provider,
+    );
+    json_response(res, 200, recent);
+}
+
+async function handle_session_history_resume(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const source = body["source"];
+    const env = body["env"];
+    const session_id = body["session_id"];
+    if (
+        source !== "commandcode" ||
+        (env !== "linux" && env !== "mac") ||
+        typeof session_id !== "string" ||
+        session_id === ""
+    ) {
+        json_response(res, 400, { error: "Command Code resume requires a local platform" });
+        return;
+    }
+    const resolved = resolve_session_file("commandcode", env, session_id, deps.locator_paths);
+    if (!resolved) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    try {
+        json_response(res, 200, execute_commandcode_resume(session_id));
+    } catch {
+        json_response(res, 500, { error: "RESUME_FAILED", code: "RESUME_FAILED" });
+    }
 }
 
 function is_record(value: unknown): value is Record<string, unknown> {
@@ -416,75 +418,22 @@ async function handle_session_history_search_content(
     deps: SessionHistoryDeps,
     body: unknown,
 ): Promise<void> {
-    // t259 f001: 无 auth 端点须对畸形入参回 400（非 500）。
-    if (!is_record(body) || typeof body["keyword"] !== "string") {
-        json_response(res, 400, { error: "Invalid searchContent request" });
+    const validated = validate_search_content_request(body);
+    if (!validated.ok) {
+        json_response(res, 400, { error: validated.message, code: validated.code });
         return;
     }
-    const legacy = "locs" in body;
-    if (legacy) {
-        if (
-            !Array.isArray(body["locs"]) ||
-            !body["locs"].every(
-                (loc) =>
-                    is_record(loc) &&
-                    typeof loc["source"] === "string" &&
-                    typeof loc["env"] === "string" &&
-                    typeof loc["session_id"] === "string",
-            )
-        ) {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-    } else {
-        const filters = body["filters"];
-        if (!is_record(filters)) {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-        if (filters["sources"] !== undefined && !Array.isArray(filters["sources"])) {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-        if (filters["search"] !== undefined && typeof filters["search"] !== "string") {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-        // t457: 独立 title/directory 过滤；类型校验与 search 同级。
-        if (filters["title"] !== undefined && typeof filters["title"] !== "string") {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-        if (filters["directory"] !== undefined && typeof filters["directory"] !== "string") {
-            json_response(res, 400, { error: "Invalid searchContent request" });
-            return;
-        }
-    }
-    const request = body as unknown as SessionHistorySearchRequest;
-    const candidates = content_search_candidates(deps, request);
+    const request = validated.value;
+    const candidates = content_search_candidates(deps.sessions_provider, request);
     const candidate_rows = candidates.rows;
     // t404: 仅 resolve/extract 本批候选 slice；省略 limit 时 end=total（全量兼容）。
-    const range = clamp_search_content_range(
-        candidate_rows.length,
-        typeof request.offset === "number" ? request.offset : undefined,
-        typeof request.limit === "number" ? request.limit : undefined,
-    );
+    const range = content_search_range(candidate_rows.length, request);
     const batch_rows = candidate_rows.slice(range.offset, range.end);
+    const metadata_filters = search_content_filters(request, true);
     const metadata =
-        range.offset > 0 || is_legacy_search_request(request) || !request.filters.search
+        range.offset > 0 || is_legacy_search_request(request) || !metadata_filters.search
             ? { rows: [] as SessionRow[], truncated: false }
-            : session_history_query_all_sessions(deps, {
-                  ...(request.filters.sources ? { sources: [...request.filters.sources] } : {}),
-                  search: request.filters.search,
-                  ...(request.filters.title ? { title: request.filters.title } : {}),
-                  ...(request.filters.directory ? { directory: request.filters.directory } : {}),
-                  ...(request.filters.start_at !== undefined
-                      ? { start_at: request.filters.start_at }
-                      : {}),
-                  ...(request.filters.end_at !== undefined
-                      ? { end_at: request.filters.end_at }
-                      : {}),
-              });
+            : query_all_sessions(deps.sessions_provider, metadata_filters);
     const metadata_rows = metadata.rows;
     const resolved_locs = resolve_session_rows(deps, batch_rows);
     // t263: 客户端断连（fetch abort / 页面关闭）时中止底层搜索扫描，避免连续搜索
@@ -533,22 +482,14 @@ async function handle_session_history_summaries(
     deps: SessionHistoryDeps,
     body: unknown,
 ): Promise<void> {
-    if (!is_record(body) || !Array.isArray(body["locs"])) {
-        json_response(res, 400, { error: "Invalid summaries request" });
+    const normalized = normalize_summary_locs(body);
+    if (!normalized.ok) {
+        json_response(res, 400, { error: normalized.message, code: normalized.code });
         return;
     }
-    // t259 f001: 逐条校验 loc 形态，空/畸形条目跳过（与桌面 resolve 语义一致）。
-    const request = body as unknown as SessionHistorySummariesRequest;
+    const request = body as SessionHistorySummariesRequest;
     const resolved_locs: ResolvedSessionLoc[] = [];
-    for (const loc of request.locs) {
-        if (
-            !is_record(loc) ||
-            typeof loc.source !== "string" ||
-            typeof loc.env !== "string" ||
-            typeof loc.session_id !== "string"
-        ) {
-            continue;
-        }
+    for (const loc of normalized.value) {
         const resolved = resolve_session_file(
             loc.source as HistorySource,
             loc.env as Env,
@@ -705,11 +646,22 @@ async function handle_web_session_history(
         ) => void;
     },
 ): Promise<boolean> {
-    if (url.pathname === "/v1/sessionHistory" && req.method === "GET") {
+    if (
+        (url.pathname === "/v1/sessionHistory" || url.pathname === "/v1/sessionHistory/query") &&
+        req.method === "GET"
+    ) {
         handle_session_history_query(res, deps, url.searchParams);
         return true;
     }
+    if (url.pathname === "/v1/sessionHistory/recent" && req.method === "GET") {
+        handle_session_history_recent(res, deps, url.searchParams);
+        return true;
+    }
     if (req.method !== "POST") return false;
+    if (url.pathname === "/v1/sessionHistory/resume") {
+        await handle_session_history_resume(req, res, deps);
+        return true;
+    }
     if (url.pathname === "/v1/sessionHistory/subscribe") {
         await handle_web_session_history_subscribe(req, res, deps, ctx);
         return true;
@@ -858,6 +810,10 @@ export function create_local_api_server(
         port?: number;
         token_stats_store?: TokenStatsStore;
         token_stats_running?: () => boolean;
+        /** Host-side collector action exposed to the same web bridge permission. */
+        token_stats_force_collect?: () => void;
+        /** Apply a theme source in the host process for Web bridge callers. */
+        theme_set?: (mode: "light" | "dark" | "system") => void;
         /** t193: optional isolated dashboard query dispatcher; when present the
          *  web dashboard endpoint reads through the worker instead of the main
          *  process store (keeps the sync store path as a fallback). */
@@ -866,6 +822,7 @@ export function create_local_api_server(
         connector_deps?: ConnectorIpcDeps;
         session_history_deps?: SessionHistoryDeps;
         control_deps?: ControlDeps;
+        dev_panel_deps?: DevPanelDeps;
         auth_deps?: AuthDeps;
         web_root?: string;
         /** t279: web 日志导出取当前活跃日志段（对齐桌面 exportCurrentLog 的 userDataPath）。 */
@@ -875,11 +832,14 @@ export function create_local_api_server(
     const token = generate_token();
     const token_stats_store = options?.token_stats_store;
     const token_stats_running = options?.token_stats_running ?? (() => true);
+    const token_stats_force_collect = options?.token_stats_force_collect;
+    const theme_set = options?.theme_set;
     const token_stats_query_dispatcher = options?.token_stats_query_dispatcher;
     const config_deps = options?.config_deps;
     const connector_deps = options?.connector_deps;
     const session_history_deps = options?.session_history_deps;
     const control_deps = options?.control_deps;
+    const dev_panel_deps = options?.dev_panel_deps;
     const auth_deps = options?.auth_deps;
     const web_root = options?.web_root;
     const user_data_path = options?.user_data_path;
@@ -1085,8 +1045,7 @@ export function create_local_api_server(
     /**
      * t279: GET /v1/logs/export —— web 日志导出。流式输出当前活跃日志段
      * （对齐桌面 handleLogExport 的 exportCurrentLog：只导出当天 app-<date>.log），
-     * Content-Disposition 触发浏览器下载；文件不存在输出空文件（桌面复制失败同样
-     * 不改变导出语义，返回 200 空档）。
+     * Content-Disposition 触发浏览器下载；文件不存在时与桌面导出返回明确错误。
      */
     function handle_logs_export(res: ServerResponse): void {
         if (!user_data_path) {
@@ -1099,14 +1058,10 @@ export function create_local_api_server(
         const download_name = `omni-panel-log-${date}.log`;
         fs.stat(log_file, (stat_err, s) => {
             if (stat_err || !s.isFile()) {
-                // 桌面语义：日志文件不存在也给出空导出（copyFile 会抛错，但此处
-                // web 下载保持 200 空档，浏览器得到空文件不弹错误）。
-                res.writeHead(200, {
-                    "Content-Type": "text/plain; charset=utf-8",
-                    "Content-Disposition": `attachment; filename="${download_name}"`,
-                    "Content-Length": "0",
+                json_response(res, 404, {
+                    error: "日志文件不存在",
+                    code: "LOG_NOT_FOUND",
                 });
-                res.end();
                 return;
             }
             // t279 f006：活跃日志段边写边增长，stat 时刻长度不可靠；用 chunked
@@ -1133,6 +1088,93 @@ export function create_local_api_server(
         const parsed = await read_json_body(req, res);
         if (!parsed.ok) return;
         send_result(res, handleRendererLog(parsed.value));
+    }
+
+    async function handle_web_dev_panel(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: DevPanelDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/devPanel/status" && req.method === "GET") {
+            json_response(res, 200, deps.manager.get_status());
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/scan" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelConfigurationSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "Invalid dev panel configuration" });
+                return true;
+            }
+            json_response(res, 200, deps.manager.start(parsed.data));
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/cancel" && req.method === "POST") {
+            deps.manager.cancel();
+            json_response(res, 200, null);
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/config" && req.method === "GET") {
+            try {
+                json_response(res, 200, await deps.model_routing.get_config());
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "读取模型路由配置失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/channels" && req.method === "GET") {
+            try {
+                json_response(res, 200, await deps.model_routing.get_channels());
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "读取渠道列表失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/save" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelModelRoutingSaveRequestSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "模型路由保存请求无效或未确认" });
+                return true;
+            }
+            try {
+                json_response(res, 200, await deps.model_routing.save(parsed.data));
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "保存模型路由失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/test" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelModelRoutingTestRequestSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "模型自检请求无效" });
+                return true;
+            }
+            try {
+                json_response(res, 200, await deps.model_routing.test(parsed.data));
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "模型自检失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/snapshot" && req.method === "GET") {
+            json_response(res, 200, await deps.model_routing.get_snapshot_info());
+            return true;
+        }
+        return false;
     }
 
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
@@ -1182,7 +1224,29 @@ export function create_local_api_server(
             ) {
                 return;
             }
-            if (control_deps && handle_web_control(req, res, url, control_deps)) {
+            if (control_deps && (await handle_web_control(req, res, url, control_deps))) {
+                return;
+            }
+            if (dev_panel_deps && (await handle_web_dev_panel(req, res, url, dev_panel_deps))) {
+                return;
+            }
+            if (url.pathname === "/v1/theme" && req.method === "POST") {
+                if (!theme_set) {
+                    json_response(res, 503, { error: "theme control unavailable" });
+                    return;
+                }
+                const body = await read_json_body(req, res);
+                if (!body.ok) return;
+                const mode =
+                    typeof body.value === "object" && body.value !== null
+                        ? (body.value as Record<string, unknown>)["mode"]
+                        : undefined;
+                if (mode !== "light" && mode !== "dark" && mode !== "system") {
+                    json_response(res, 400, { error: "Invalid theme mode" });
+                    return;
+                }
+                theme_set(mode);
+                json_response(res, 200, { status: "ok" });
                 return;
             }
             if (auth_deps && (await handle_web_auth(req, res, url, auth_deps))) {
@@ -1202,6 +1266,16 @@ export function create_local_api_server(
             // t325: web renderer 无 token，日志接收放 check_auth 之前（与 /v1/events、/v1/logs/export 同层）。
             if (url.pathname === "/v1/logs/renderer" && req.method === "POST") {
                 await handle_renderer_log(req, res);
+                return;
+            }
+
+            if (url.pathname === "/v1/tokenStats/forceCollect" && req.method === "POST") {
+                if (!token_stats_force_collect) {
+                    json_response(res, 503, { error: "token stats collect unavailable" });
+                    return;
+                }
+                token_stats_force_collect();
+                json_response(res, 200, null);
                 return;
             }
 
@@ -1304,11 +1378,16 @@ export function create_local_api_server(
                     const status = {
                         running: token_stats_running(),
                         last_updated: store.last_updated(),
+                        sources_status: store.sources_status(),
                     };
                     const dto = token_stats_query_dispatcher
                         ? await token_stats_query_dispatcher.request_dashboard(query, status)
                         : store.query_dashboard(query, status);
-                    const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto);
+                    const dto_with_status = ensure_dashboard_sources_status(
+                        dto,
+                        status.sources_status,
+                    );
+                    const parsed_dto = tokenStatsDashboardDtoSchema.safeParse(dto_with_status);
                     if (!parsed_dto.success) {
                         json_response(res, 500, { error: "Invalid dashboard response" });
                         return true;
@@ -1353,6 +1432,38 @@ export function create_local_api_server(
             case "/v1/records": {
                 const rec_start = parse_int_param(params, "start");
                 const rec_end = parse_int_param(params, "end");
+                const record_source = params.get("source");
+                const record_session_id = params.get("session_id");
+                let record_limit: number | undefined;
+                if (params.has("limit")) {
+                    const raw_limit = params.get("limit") ?? "";
+                    const parsed_limit = raw_limit.trim() === "" ? Number.NaN : Number(raw_limit);
+                    const validated_limit = validate_token_stats_record_filters({
+                        limit: parsed_limit,
+                        ...(params.has("source") ? { source: record_source } : {}),
+                        ...(params.has("session_id") ? { session_id: record_session_id } : {}),
+                    });
+                    if (!validated_limit.ok) {
+                        json_response(res, 400, {
+                            error: validated_limit.message,
+                            code: validated_limit.code,
+                        });
+                        return true;
+                    }
+                    record_limit = parsed_limit;
+                } else {
+                    const validated_filters = validate_token_stats_record_filters({
+                        ...(params.has("source") ? { source: record_source } : {}),
+                        ...(params.has("session_id") ? { session_id: record_session_id } : {}),
+                    });
+                    if (!validated_filters.ok) {
+                        json_response(res, 400, {
+                            error: validated_filters.message,
+                            code: validated_filters.code,
+                        });
+                        return true;
+                    }
+                }
                 json_response(
                     res,
                     200,
@@ -1364,12 +1475,16 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
+                        ...(record_source ? { source: record_source } : {}),
+                        ...(record_session_id ? { session_id: record_session_id } : {}),
                         ...(rec_start !== null ? { start: rec_start } : {}),
                         ...(rec_end !== null ? { end: rec_end } : {}),
+                        ...(record_limit !== undefined ? { limit: record_limit } : {}),
                     }),
                 );
                 return true;
@@ -1388,7 +1503,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1413,7 +1529,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1438,7 +1555,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1508,15 +1626,20 @@ export function create_local_api_server(
                 }
                 if (direction === "asc" || direction === "desc") filters.direction = direction;
                 if (params.has("limit")) {
-                    const limit = parse_int_param(params, "limit", {
-                        require_present: true,
-                        min: 0,
-                    });
+                    const limit = parse_int_param(params, "limit", { require_present: true });
                     if (limit !== null) filters.limit = limit;
                 }
                 if (params.has("offset")) {
                     const offset = parse_int_param(params, "offset", { require_present: true });
                     if (offset !== null) filters.offset = offset;
+                }
+                const validated_filters = validate_token_stats_session_filters(filters);
+                if (!validated_filters.ok) {
+                    json_response(res, 400, {
+                        error: validated_filters.message,
+                        code: validated_filters.code,
+                    });
+                    return true;
                 }
                 json_response(res, 200, store.query_sessions(filters));
                 return true;
@@ -1524,15 +1647,22 @@ export function create_local_api_server(
             case "/v1/sessionStats":
                 json_response(res, 200, store.query_session_stats());
                 return true;
-            case "/v1/buckets":
+            case "/v1/buckets": {
+                const bucket_source = params.get("source");
+                const from_date = params.get("from_date");
+                const to_date = params.get("to_date");
                 json_response(
                     res,
                     200,
                     store.query_buckets({
+                        ...(bucket_source ? { source: bucket_source } : {}),
                         ...(env ? { env } : {}),
+                        ...(from_date ? { from_date } : {}),
+                        ...(to_date ? { to_date } : {}),
                     }),
                 );
                 return true;
+            }
             case "/v1/status":
                 json_response(res, 200, {
                     running: token_stats_running(),
@@ -1546,27 +1676,23 @@ export function create_local_api_server(
 
     function handle_web_trend(url: URL, res: ServerResponse, store: ObservationStore): boolean {
         if (url.pathname !== "/v1/trend") return false;
-        const provider = url.searchParams.get("provider");
-        const accountId = url.searchParams.get("accountId");
-        const metricId = url.searchParams.get("metricId");
-        const sourceInstanceId = url.searchParams.get("sourceInstanceId");
-        const days_raw = url.searchParams.get("days");
-        if (!provider || !accountId || !metricId || !sourceInstanceId) {
-            json_response(res, 400, {
-                error: "provider, accountId, metricId, sourceInstanceId are required",
-            });
+        const normalized = normalize_trend_query({
+            provider: url.searchParams.get("provider"),
+            account_id: url.searchParams.get("accountId"),
+            metric_id: url.searchParams.get("metricId"),
+            source_instance_id: url.searchParams.get("sourceInstanceId"),
+            days: url.searchParams.get("days") ?? undefined,
+        });
+        if (!normalized.ok) {
+            json_response(res, 400, { error: normalized.message, code: normalized.code });
             return true;
         }
-        const days =
-            days_raw !== null && Number.isFinite(Number(days_raw)) && Number(days_raw) > 0
-                ? Math.floor(Number(days_raw))
-                : 7;
         const records = store.query_trend_series(
-            provider,
-            accountId,
-            metricId,
-            sourceInstanceId,
-            days,
+            normalized.value.provider,
+            normalized.value.account_id,
+            normalized.value.metric_id,
+            normalized.value.source_instance_id,
+            normalized.value.days,
         );
         const series: (TrendPoint | null)[] = build_trend_series(records);
         json_response(res, 200, series);
@@ -1675,6 +1801,10 @@ export function create_local_api_server(
             }
             return false;
         }
+        if (url.pathname === "/v1/connectors/snapshot" && req.method === "GET") {
+            send_result(res, handleConnectorSnapshot(deps));
+            return true;
+        }
         const match = /^\/v1\/connectors\/([^/]+)\/(state|refresh)$/.exec(url.pathname);
         if (match) {
             const instance_id = decodeURIComponent(match[1] ?? "");
@@ -1700,13 +1830,18 @@ export function create_local_api_server(
         return false;
     }
 
-    function handle_web_control(
+    async function handle_web_control(
         req: IncomingMessage,
         res: ServerResponse,
         url: URL,
         deps: ControlDeps,
-    ): boolean {
+    ): Promise<boolean> {
         if (!url.pathname.startsWith("/v1/control/")) return false;
+        if (url.pathname === "/v1/control/status" && req.method === "GET") {
+            if (!deps.get_state) return false;
+            json_response(res, 200, await deps.get_state());
+            return true;
+        }
         if (req.method !== "POST") {
             json_response(res, 405, { error: "Method not allowed" });
             return true;
@@ -1737,6 +1872,13 @@ export function create_local_api_server(
                 json_response(res, 200, { status: "ok" });
                 setImmediate(() => {
                     deps.quit();
+                });
+                return true;
+            case "/v1/control/autostart":
+                if (!deps.autostart) return false;
+                json_response(res, 200, {
+                    status: "ok",
+                    autostart: await deps.autostart(),
                 });
                 return true;
             default:
@@ -1903,6 +2045,10 @@ export function create_local_api_server(
 
         publish_theme_change(is_dark) {
             publish_sse_event("theme", is_dark);
+        },
+
+        publish_control_state(state) {
+            publish_sse_event("control", state);
         },
     };
 }

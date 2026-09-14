@@ -12,6 +12,9 @@ const TrayMenu = lazy(() => import("./views/TrayMenu").then((m) => ({ default: m
 const TokenStatsView = lazy(() =>
     import("./views/TokenStatsView").then((m) => ({ default: m.TokenStatsView })),
 );
+const DevPanelView = lazy(() =>
+    import("./views/DevPanelView").then((m) => ({ default: m.DevPanelView })),
+);
 
 export function App() {
     const route = use_route();
@@ -28,6 +31,9 @@ export function App() {
             break;
         case "session":
             view = <SessionShell />;
+            break;
+        case "dev":
+            view = <DevPanelView />;
             break;
         default:
             view = <PopupView />;

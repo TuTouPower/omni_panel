@@ -32,6 +32,7 @@ function make_existing(
     return {
         instanceId: `${id}-inst`,
         stateId: `${id}-state`,
+        manifestId: id,
         name: id.toUpperCase(),
         enabled: true,
         executablePath: `/old/${id}`,
@@ -74,6 +75,38 @@ describe("auto_seed_connectors", () => {
         // Other fields preserved from original
         expect(result.updatedExisting[0]?.instanceId).toBe("claude-inst");
         expect(result.updatedExisting[0]?.refreshIntervalSeconds).toBe(600);
+    });
+
+    it("updates every existing instance without collapsing same-manifest instances", () => {
+        const existing = [
+            make_existing("claude", {
+                instanceId: "claude-primary",
+                stateId: "claude-primary",
+                executablePath: "/old/claude",
+            }),
+            make_existing("claude", {
+                instanceId: "claude-secondary",
+                stateId: "claude-secondary",
+                executablePath: "/another/old/claude",
+                enabled: false,
+                parameterValues: { MODEL: "custom" },
+            }),
+        ];
+
+        const result = auto_seed_connectors(existing, [make_definition("claude")]);
+
+        expect(result.seeded).toHaveLength(0);
+        expect(result.updatedExisting).toHaveLength(2);
+        expect(result.updatedExisting.map((plugin) => plugin.instanceId)).toEqual([
+            "claude-primary",
+            "claude-secondary",
+        ]);
+        expect(result.updatedExisting[1]).toMatchObject({
+            manifestId: "claude",
+            executablePath: "/connectors/claude",
+            enabled: false,
+            parameterValues: { MODEL: "custom" },
+        });
     });
 
     it("sets manualRefreshOnly when manifest declares manualDefault", () => {

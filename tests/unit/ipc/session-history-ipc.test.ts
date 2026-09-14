@@ -21,6 +21,15 @@ vi.mock("../../../src/main/core/session-history/session-locator", () => ({
     resolve_session_file: locator_mock.resolve_session_file,
 }));
 
+const resume_mock = vi.hoisted(() => ({
+    execute_commandcode_resume: vi.fn().mockReturnValue({
+        command: "cmd --resume sid-1",
+        started: true,
+    }),
+}));
+
+vi.mock("../../../src/main/core/session-history/resume", () => resume_mock);
+
 set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
 const valid_sender = {
@@ -65,6 +74,7 @@ describe("session-history-ipc (t210)", () => {
         set_renderer_index_path(fileURLToPath("file:///D:/app/out/renderer/index.html"));
 
         locator_mock.resolve_session_file.mockReturnValue(null);
+        resume_mock.execute_commandcode_resume.mockClear();
 
         service = {
             subscribe: vi.fn().mockReturnValue("claude_code|win|s1"),
@@ -116,7 +126,7 @@ describe("session-history-ipc (t210)", () => {
         return call[1] as (...args: unknown[]) => unknown;
     }
 
-    it("注册 SUBSCRIBE/UNSUBSCRIBE/QUERY/RECENT/SEARCH_CONTENT/SUMMARIES 通道", async () => {
+    it("注册 SUBSCRIBE/UNSUBSCRIBE/QUERY/RECENT/RESUME/SEARCH_CONTENT/SUMMARIES 通道", async () => {
         await register();
 
         const channels = ipc_main_mock.handle.mock.calls.map((c: unknown[]) => c[0]);
@@ -124,10 +134,38 @@ describe("session-history-ipc (t210)", () => {
         expect(channels).toContain("sessionHistory:unsubscribe");
         expect(channels).toContain("sessionHistory:query");
         expect(channels).toContain("sessionHistory:recent");
+        expect(channels).toContain("sessionHistory:resume");
         expect(channels).toContain("sessionHistory:searchContent");
         expect(channels).toContain("sessionHistory:summaries");
         // SESSION_HISTORY_OPEN 不在本模块注册（由 main/index.ts 单点注册）
         expect(channels).not.toContain("sessionHistory:open");
+    });
+
+    it("RESUME 只接受 Command Code 本地会话并调用固定宿主执行器", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/cc-session.jsonl",
+            extractor_kind: "commandcode",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:resume");
+        const result = handler(valid_sender, "commandcode", "linux", "sid-1") as {
+            ok: boolean;
+            data: { command: string; started: boolean };
+        };
+        expect(result).toEqual({
+            ok: true,
+            data: { command: "cmd --resume sid-1", started: true },
+        });
+        expect(resume_mock.execute_commandcode_resume).toHaveBeenCalledWith("sid-1");
+
+        const rejected = handler(valid_sender, "commandcode", "win", "sid-1") as {
+            ok: boolean;
+            error: { code: string };
+        };
+        expect(rejected.ok).toBe(false);
+        expect(rejected.error.code).toBe("INVALID_REQUEST");
+        expect(resume_mock.execute_commandcode_resume).toHaveBeenCalledTimes(1);
     });
 
     it("SUBSCRIBE resolve 成功时调 service.subscribe 并返回 ok", async () => {
@@ -157,6 +195,31 @@ describe("session-history-ipc (t210)", () => {
         // t219：订阅携带发起窗口身份（event.sender.id）。
         expect(params.subscriber_id).toBe("1");
         expect(typeof params.on_update).toBe("function");
+    });
+
+    it("SUBSCRIBE 接受 Command Code locator 并保留 commandcode extractor", async () => {
+        locator_mock.resolve_session_file.mockReturnValue({
+            file_path: "/x/cc-session.jsonl",
+            extractor_kind: "commandcode",
+        });
+        await register();
+
+        const handler = get_handler("sessionHistory:subscribe");
+        const result = handler(valid_sender, "commandcode", "linux", "cc-sid") as {
+            ok: boolean;
+            data: { subscribed: boolean };
+        };
+
+        expect(result).toEqual({ ok: true, data: { subscribed: true } });
+        expect(service.subscribe).toHaveBeenCalledWith(
+            expect.objectContaining({
+                source: "commandcode",
+                env: "linux",
+                session_id: "cc-sid",
+                file_path: "/x/cc-session.jsonl",
+                extractor_kind: "commandcode",
+            }),
+        );
     });
 
     it("SUBSCRIBE resolve 失败时返回 fail SESSION_NOT_FOUND", async () => {
@@ -354,6 +417,26 @@ describe("session-history-ipc (t210)", () => {
         expect(result.error.code).toBe("SESSION_NOT_FOUND");
     });
 
+    it("t476 AC-002/009: QUERY 的缺参、limit 和 cursor 在 IPC 边界统一拒绝", async () => {
+        await register();
+        const handler = get_handler("sessionHistory:query");
+        for (const args of [
+            ["", "win", "s1"],
+            ["claude_code", "", "s1"],
+            ["claude_code", "win", "s1", { limit: 0 }],
+            ["claude_code", "win", "s1", { limit: 1.5 }],
+            ["claude_code", "win", "s1", { before_cursor: Number.NaN }],
+        ]) {
+            const result = handler(valid_sender, ...args) as {
+                ok: boolean;
+                error?: { code: string };
+            };
+            expect(result.ok, JSON.stringify(args)).toBe(false);
+            expect(result.error?.code).toBe("VALIDATION_ERROR");
+        }
+        expect(locator_mock.resolve_session_file).not.toHaveBeenCalled();
+    });
+
     it("RECENT 调 service.recent_sessions 并返回 ok", async () => {
         locator_mock.resolve_session_file.mockReturnValue(null);
         await register();
@@ -387,6 +470,27 @@ describe("session-history-ipc (t210)", () => {
             expect(result.ok, `limit=${String(bad)}`).toBe(false);
         }
         expect(service.recent_sessions).not.toHaveBeenCalled();
+    });
+
+    it("t476 AC-009: SEARCH_CONTENT 与 SUMMARIES 畸形输入不抛异常", async () => {
+        await register();
+        const search_handler = get_handler("sessionHistory:searchContent");
+        const search_result = (await search_handler(valid_sender, {
+            filters: { sources: 123 },
+            keyword: "hello",
+        })) as { ok: boolean; error?: { code: string } };
+        expect(search_result).toEqual({
+            ok: false,
+            error: { code: "VALIDATION_ERROR", message: "Invalid searchContent request" },
+        });
+
+        const summaries_handler = get_handler("sessionHistory:summaries");
+        const summaries_result = (await summaries_handler(valid_sender, { locs: "nope" })) as {
+            ok: boolean;
+            error?: { code: string };
+        };
+        expect(summaries_result.ok).toBe(false);
+        expect(summaries_result.error?.code).toBe("VALIDATION_ERROR");
     });
 
     it("SEARCH_CONTENT resolve 后调 service.searchContent 并返回命中数组", async () => {

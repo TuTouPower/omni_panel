@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
 import {
     SessionHistorySubscriptionService,
+    pick_strategy,
     type SessionRow,
     type SessionQueryFilters,
     type SessionsProvider,
@@ -182,6 +183,48 @@ describe("SessionHistorySubscriptionService (t210)", () => {
         expect(last).toHaveLength(1);
         expect(last?.[0]?.role).toBe("assistant");
         expect(last?.[0]?.text).toBe("好的");
+    });
+
+    it("t484 AC-007/010：Command Code 本机 watcher 追加后推送增量", async () => {
+        const file = join(tmp_dir, "commandcode.jsonl");
+        writeFileSync(
+            file,
+            JSON.stringify({
+                type: "message",
+                timestamp: "2026-09-14T10:00:00.000Z",
+                message: {
+                    role: "user",
+                    meta: { source: "user" },
+                    content: [{ type: "text", text: "问题" }],
+                },
+            }) + "\n",
+        );
+        expect(pick_strategy("linux", "commandcode", "linux")).toBe("watch");
+
+        const received: HistoryMessage[][] = [];
+        service.subscribe({
+            source: "commandcode",
+            env: "linux",
+            session_id: "commandcode-s1",
+            file_path: file,
+            extractor_kind: "commandcode",
+            on_update: (msgs) => received.push([...msgs]),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        appendFileSync(
+            file,
+            JSON.stringify({
+                type: "message",
+                timestamp: "2026-09-14T10:00:01.000Z",
+                message: {
+                    role: "assistant",
+                    meta: { source: "assistant" },
+                    content: [{ type: "text", text: "回答" }],
+                },
+            }) + "\n",
+        );
+        await wait_for(() => received.length >= 1);
+        expect(received.flat().map((item) => item.text)).toEqual(["回答"]);
     });
 
     it("文件被截断重写时游标重置走全量，不丢新内容（t367 AC-002）", async () => {

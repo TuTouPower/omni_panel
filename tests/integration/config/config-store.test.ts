@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createConfigStore } from "../../../src/main/core/config/config-store";
 import type { AppConfiguration } from "../../../src/main/core/config/types";
+import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import { writeJsonAtomic } from "../../../src/main/core/storage/write-json";
+import { addTransport } from "../../../src/shared/lib/logger";
 
 let tempDir: string;
 
@@ -102,6 +104,122 @@ describe("config-store", () => {
         expect(raw).not.toHaveProperty("overviewDisplayMode");
     });
 
+    it("migrates legacy connector identities and logs every removed orphan", async () => {
+        const configPath = join(tempDir, "config.json");
+        const definition: ConnectorDefinition = {
+            directory: "/local/connectors/cpa",
+            executablePath: "/local/connectors/cpa",
+            manifest: {
+                id: "cpa",
+                provider: "cpa",
+                capabilities: ["poll"],
+                parameters: [],
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
+                },
+            },
+        };
+        const legacy = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            plugins: [
+                {
+                    instanceId: "cpa-primary",
+                    stateId: "state-primary",
+                    name: "CPA",
+                    enabled: true,
+                    executablePath: "C:\\Users\\x\\connectors\\cpa\\",
+                    refreshIntervalSeconds: 120,
+                    parameterValues: { MODEL: "primary" },
+                    endpointOverrides: {},
+                },
+                {
+                    instanceId: "cpa-secondary",
+                    stateId: "state-secondary",
+                    name: "CPA second",
+                    enabled: false,
+                    manifestId: "cpa",
+                    executablePath: "/old/connectors/cpa",
+                    refreshIntervalSeconds: 900,
+                    parameterValues: { MODEL: "secondary" },
+                    endpointOverrides: {},
+                },
+                {
+                    instanceId: "orphan-1",
+                    stateId: "orphan-1",
+                    name: "Orphan",
+                    enabled: true,
+                    manifestId: "removed",
+                    executablePath: "/old/connectors/missing",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+            launchAtLogin: false,
+        };
+        await writeFile(configPath, JSON.stringify(legacy), "utf8");
+
+        const logs: string[] = [];
+        const removeTransport = addTransport({
+            write(_level, module, message, meta) {
+                logs.push(`${module}:${message}:${JSON.stringify(meta)}`);
+            },
+        });
+        try {
+            const store = createConfigStore(configPath, [definition]);
+            const loaded = await store.load();
+
+            expect(loaded.plugins).toHaveLength(2);
+            expect(loaded.plugins.map((plugin) => plugin.instanceId)).toEqual([
+                "cpa-primary",
+                "cpa-secondary",
+            ]);
+            expect(loaded.plugins.every((plugin) => plugin.manifestId === "cpa")).toBe(true);
+            expect(
+                loaded.plugins.every(
+                    (plugin) => plugin.executablePath === definition.executablePath,
+                ),
+            ).toBe(true);
+            expect(loaded.plugins[1]).toMatchObject({
+                enabled: false,
+                refreshIntervalSeconds: 900,
+                parameterValues: { MODEL: "secondary" },
+            });
+
+            const persisted = JSON.parse(await readFile(configPath, "utf8")) as {
+                plugins: { instanceId: string; manifestId: string }[];
+            };
+            expect(
+                persisted.plugins.map(({ instanceId, manifestId }) => ({ instanceId, manifestId })),
+            ).toEqual([
+                { instanceId: "cpa-primary", manifestId: "cpa" },
+                { instanceId: "cpa-secondary", manifestId: "cpa" },
+            ]);
+            expect(JSON.parse(await readFile(`${configPath}.bak`, "utf8"))).toEqual(legacy);
+            expect(
+                logs.some(
+                    (line) =>
+                        line.includes("config-store:Removed orphan connector") &&
+                        line.includes('"instanceId":"orphan-1"') &&
+                        line.includes('"manifestId":"removed"') &&
+                        line.includes('"executablePath":"/old/connectors/missing"') &&
+                        line.includes('"reason":"unknown-manifest"'),
+                ),
+            ).toBe(true);
+            expect(
+                logs.some(
+                    (line) =>
+                        line.includes("Manifest identity migration completed") &&
+                        line.includes("1 connector(s) removed"),
+                ),
+            ).toBe(true);
+        } finally {
+            removeTransport();
+        }
+    });
+
     it("throws on corrupt JSON (no silent fallback to defaults, prevents auto_seed overwrite)", async () => {
         await writeFile(join(tempDir, "config.json"), "not json!!!");
         const store = createConfigStore(join(tempDir, "config.json"));
@@ -117,6 +235,7 @@ describe("config-store", () => {
                 {
                     instanceId: "abc-123",
                     stateId: "abc-123",
+                    manifestId: "test",
                     name: "test",
                     enabled: true,
                     executablePath: "/path",
@@ -557,7 +676,7 @@ describe("config-store", () => {
             );
 
             const store = createConfigStore(config_path);
-            const pruned = await store.prune_unhealthy_plugins(new Set([claude_dir]));
+            const pruned = await store.prune_unhealthy_plugins(new Set(["claude"]));
 
             expect(pruned.plugins.map((plugin) => plugin.instanceId)).toEqual(["claude-1"]);
         } finally {
@@ -816,6 +935,7 @@ describe("config-store", () => {
                     {
                         instanceId: "claude",
                         stateId: "claude",
+                        manifestId: "claude",
                         name: "Claude",
                         enabled: true,
                         executablePath: "/plugins/claude.py",
@@ -869,6 +989,156 @@ describe("config-store", () => {
             });
             expect(outcome).toBe("saved");
             expect((await store.load()).language).toBe("zh-Hans");
+        });
+
+        it("serializes read-compute-commit transactions and preserves non-overlapping changes", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            const initial: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            };
+            await store.save(initial);
+            if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+            await Promise.all([
+                store.run_serialized(async (latest, commit) => {
+                    await Promise.resolve();
+                    await commit({ ...latest, language: "zh-Hans" });
+                }),
+                store.run_serialized(async (latest, commit) => {
+                    await Promise.resolve();
+                    await commit({ ...latest, launchAtLogin: true });
+                }),
+            ]);
+
+            await expect(store.load()).resolves.toMatchObject({
+                language: "zh-Hans",
+                launchAtLogin: true,
+            });
+        });
+
+        it("keeps instance and tombstone updates from concurrent serialized transactions", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            const initial: AppConfiguration = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "claude",
+                        stateId: "claude",
+                        manifestId: "claude",
+                        name: "Claude",
+                        enabled: true,
+                        executablePath: "/plugins/claude.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                    {
+                        instanceId: "cpa",
+                        stateId: "cpa",
+                        manifestId: "cpa",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "/plugins/cpa.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+                removedConnectorIds: ["stale"],
+            };
+            await store.save(initial);
+            if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+            await Promise.all([
+                store.run_serialized(async (latest, commit) => {
+                    await commit({
+                        ...latest,
+                        plugins: [
+                            ...latest.plugins,
+                            {
+                                instanceId: "new-cpa",
+                                stateId: "new-cpa",
+                                manifestId: "cpa",
+                                name: "CPA",
+                                enabled: true,
+                                executablePath: "/plugins/cpa.py",
+                                refreshIntervalSeconds: 0,
+                                parameterValues: {},
+                                endpointOverrides: {},
+                            },
+                        ],
+                    });
+                }),
+                store.run_serialized(async (latest, commit) => {
+                    await commit({
+                        ...latest,
+                        plugins: latest.plugins.filter((plugin) => plugin.instanceId !== "claude"),
+                        removedConnectorIds: [
+                            ...new Set([...(latest.removedConnectorIds ?? []), "claude"]),
+                        ],
+                    });
+                }),
+            ]);
+
+            const final = await store.load();
+            expect(final.plugins.map((plugin) => plugin.instanceId)).toEqual(["cpa", "new-cpa"]);
+            expect(final.removedConnectorIds).toEqual(["stale", "claude"]);
+        });
+
+        it("applies prune from the latest state without dropping a concurrent user change", async () => {
+            const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-concurrent-"));
+            try {
+                const healthy_dir = await write_connector_dir(connector_root, "claude", "claude");
+                const store = createConfigStore(join(tempDir, "config.json"));
+                await store.save({
+                    schemaVersion: 1,
+                    language: "en",
+                    plugins: [
+                        {
+                            instanceId: "healthy",
+                            stateId: "healthy",
+                            manifestId: "claude",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: healthy_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "orphan",
+                            stateId: "orphan",
+                            manifestId: "missing",
+                            name: "Missing",
+                            enabled: true,
+                            executablePath: join(connector_root, "missing"),
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                });
+                if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+                await Promise.all([
+                    store.prune_unhealthy_plugins(),
+                    store.run_serialized(async (latest, commit) => {
+                        await commit({ ...latest, language: "zh-Hans" });
+                    }),
+                ]);
+
+                const final = await store.load();
+                expect(final.language).toBe("zh-Hans");
+                expect(final.plugins.map((plugin) => plugin.instanceId)).toEqual(["healthy"]);
+            } finally {
+                await rm(connector_root, { recursive: true, force: true });
+            }
         });
 
         it("prune_unhealthy_plugins keeps all plugins when healthy and updates cache", async () => {

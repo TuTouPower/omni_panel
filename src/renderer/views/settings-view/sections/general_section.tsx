@@ -33,6 +33,7 @@ const RESUME_SOURCE_TITLES: Record<ResumeCommandSource, string> = {
     opencode: "OpenCode",
     codex: "Codex",
     antigravity: "Antigravity",
+    commandcode: "Command Code",
 };
 
 function save_resume_template(

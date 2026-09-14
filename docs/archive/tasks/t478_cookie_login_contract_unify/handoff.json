@@ -1,0 +1,40 @@
+{
+    "tid": "t478",
+    "attempt": 1,
+    "execution_id": "197696ecd3b2481fa469a099de425b18",
+    "status": "done",
+    "branch": "t478_cookie_login_contract_unify",
+    "base_sha": "4046fc765cc2a2445bcf3df449d6ba1b88b9d431",
+    "tests": "定向 IPC/renderer/Web/Settings/WebLoginSection 回归 135 passed；LocalAPI 107 tests 因 better-sqlite3 Node v24 native binding 缺失在启动阶段阻塞",
+    "blackbox": "typecheck、eslint、prettier、knip、dependency-cruiser 通过；Electron native ABI 直接编译验证通过；electron-vite 与 Vite Web bundler 直接构建通过；pnpm build 脚本另受 tsx /tmp/tsx-*.pipe EPERM 阻塞",
+    "review": "full；Round 1 code PASS + test PASS；reviewed_scope=27733d5c9d7d0a62，review scope 13619bf592846590",
+    "ac_evidence": {
+        "AC-006": [
+            "src/main/ipc/auth-ipc.ts::registerAuthIpc 与 src/main/core/local-api/server.ts::handle_web_auth 均返回统一非阻塞 CookieLoginResult",
+            "tests/unit/ipc/auth-ipc.test.ts 与 tests/unit/renderer/lib/cookie_login_poll.test.ts 覆盖 started:true 与 started:false conflict 形状"
+        ],
+        "AC-007": [
+            "startCookieLogin 对 manager/进程内并发均返回 error_code=CONFLICT 与统一中文文案",
+            "tests/integration/local-api/server.test.ts 补充同一 LocalAPI 入口的并发冲突断言；IPC 单测覆盖 manager 与本地状态冲突"
+        ],
+        "AC-008": [
+            "CookieLoginStatus 增加 state/error_code，主进程状态迁移覆盖 running/succeeded/canceled/failed/timeout",
+            "tests/unit/ipc/auth-ipc.test.ts、renderer poll 单测与 LocalAPI fixture 断言统一生命周期结构"
+        ],
+        "AC-009": [
+            "src/renderer/lib/cookie_login_poll.ts 删除旧 saved 返回兼容路径，统一处理启动冲突后轮询 status 终态",
+            "SettingsForm、WebLoginSection 与 renderer poll 回归均使用 state 字段"
+        ],
+        "AC-010": [
+            "Web bridge 仍只调用 /v1/auth/cookieLogin 与 status，登录窗口继续由主进程 sessionManager 创建；未增加认证字段",
+            "src/web/usageboard-web.ts、src/preload/index.ts 与类型检查验证两端接口边界"
+        ],
+        "AC-011": [
+            "[deploy] 未在当前无真实第三方登录窗口的环境执行；需要部署后人工验证成功、超时和取消"
+        ]
+    },
+    "pending": [
+        "[deploy] AC-011：真实桌面与 Web 登录窗口、超时、取消人工验收"
+    ],
+    "findings": []
+}

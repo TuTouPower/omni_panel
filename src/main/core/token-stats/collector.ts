@@ -22,6 +22,8 @@ import { scan_grok_updates, create_grok_scan_state } from "./grok-reader";
 import type { GrokScanState } from "./grok-reader";
 import { scan_codex_rollouts, create_codex_scan_state } from "./codex-reader";
 import type { CodexScanState } from "./codex-reader";
+import { scan_commandcode_jsonls, create_commandcode_scan_state } from "./commandcode-reader";
+import type { CommandCodeScanState } from "./commandcode-reader";
 import { scan_antigravity_sessions, create_antigravity_scan_state } from "./antigravity-reader";
 import type { AntigravityScanState } from "./antigravity-reader";
 import {
@@ -52,6 +54,7 @@ interface SourceDef {
         | "kimi_jsonl"
         | "grok_jsonl"
         | "codex_jsonl"
+        | "commandcode_jsonl"
         | "antigravity_index";
     env: TokenStatsEnv;
     /**
@@ -119,6 +122,7 @@ const jsonl_states = new Map<string, SessionScanState>();
 const kimi_states = new Map<string, KimiScanState>();
 const grok_states = new Map<string, GrokScanState>();
 const codex_states = new Map<string, CodexScanState>();
+const commandcode_states = new Map<string, CommandCodeScanState>();
 const antigravity_states = new Map<string, AntigravityScanState>();
 // t345 AC-003 + t385 AC-001/002: 超上限截断游标——该 source 已发出的
 // session/daily **身份键**集合（非排序位置计数，防新会话排序在游标前被误跳）。
@@ -214,6 +218,7 @@ export function serialize_state(): SerializedScanState {
         kimi_states,
         grok_states,
         codex_states,
+        commandcode_states,
         antigravity_states,
         source_cursors,
     });
@@ -228,6 +233,7 @@ export async function save_state(state_path: string): Promise<void> {
             kimi_states,
             grok_states,
             codex_states,
+            commandcode_states,
             antigravity_states,
             source_cursors,
         },
@@ -247,6 +253,7 @@ export async function load_state(state_path: string): Promise<void> {
             kimi_states,
             grok_states,
             codex_states,
+            commandcode_states,
             antigravity_states,
             source_cursors,
         },
@@ -269,8 +276,8 @@ const PLATFORM_ENV_BY_HOST: Record<Host, "win" | "linux" | "mac"> = {
 /**
  * t437: 平台源定义按当前宿主生成——每宿主只存在一个平台变体，key 与平台
  * 标签一致（windows 宿主 `claude_costs_win`，linux `claude_costs_linux`，
- * macos `claude_costs_mac`），env=对应平台值。替代 pre-t437 的 `*_local`
- * 静态五源（`local` 语义 = 「进程所在 OS」已废止）。
+ * macos `claude_costs_mac`），env=对应平台值。替代 pre-t437 的静态平台源
+ *（`local` 语义 = 「进程所在 OS」已废止）。
  */
 function platform_source_defs(host: Host): SourceDef[] {
     const env = PLATFORM_ENV_BY_HOST[host];
@@ -291,6 +298,19 @@ function platform_source_defs(host: Host): SourceDef[] {
         { key: `grok_${env}`, source: "grok", kind: "grok_jsonl", env, hosts: [host] },
         // t445: codex 数据仅本机 ~/.codex（无 wsl 对侧），随宿主平台源采集。
         { key: `codex_${env}`, source: "codex", kind: "codex_jsonl", env, hosts: [host] },
+        // t483: Command Code is local linux/mac only. Windows and WSL path
+        // shapes remain outside this task's contract.
+        ...(host === "windows"
+            ? []
+            : [
+                  {
+                      key: `commandcode_${env}`,
+                      source: "commandcode" as TokenStatsSource,
+                      kind: "commandcode_jsonl" as const,
+                      env,
+                      hosts: [host],
+                  },
+              ]),
         // t470: antigravity 会话发现仅本机索引（无用量 records；代理面板不接，
         // AC-004）。随宿主平台源采集，与 codex 同形。
         {
@@ -533,6 +553,15 @@ function codex_sessions_path(
     return paths.codex_sessions_path(path_input(cfg, host, homedir), env);
 }
 
+function commandcode_projects_path(
+    cfg: TokenStatsConfig,
+    env: TokenStatsEnv,
+    host: Host = collector_host,
+    homedir: string = os.homedir(),
+): string | null {
+    return paths.commandcode_projects_path(path_input(cfg, host, homedir), env);
+}
+
 function grok_sessions_path(
     cfg: TokenStatsConfig,
     env: TokenStatsEnv,
@@ -701,6 +730,40 @@ function read_source(src: SourceDef, cfg: TokenStatsConfig): SourceOutcome {
                 status: "ok",
             };
         }
+        if (src.kind === "commandcode_jsonl") {
+            const projects_path = commandcode_projects_path(cfg, src.env);
+            if (projects_path === null) {
+                return { ...EMPTY_READ, status: "unavailable", lastError: "path unavailable" };
+            }
+            const state = commandcode_states.get(src.key) ?? create_commandcode_scan_state();
+            const result = scan_commandcode_jsonls(projects_path, src.env, state);
+            commandcode_states.set(src.key, result.new_state);
+            if (result.missing) {
+                const lastError = `projects dir missing: ${projects_path}`;
+                return {
+                    ...EMPTY_READ,
+                    status: "unavailable",
+                    lastError,
+                    logMessage: `${src.key} ${lastError}`,
+                };
+            }
+            if (result.file_unreadable) {
+                return {
+                    sessions: result.sessions,
+                    daily: result.daily,
+                    records: result.records,
+                    status: "failed",
+                    lastError: "some commandcode project files unreadable",
+                    logMessage: `${src.key} partially unreadable: some project files unreadable`,
+                };
+            }
+            return {
+                sessions: result.sessions,
+                daily: result.daily,
+                records: result.records,
+                status: "ok",
+            };
+        }
         if (src.kind === "antigravity_index") {
             // t470: 会话发现索引（无用量 records）。summaries 缺失仍可回退扫
             // 目录；会话根目录缺失才报 missing。
@@ -808,6 +871,7 @@ function collect(): void {
         kimi: KimiScanState | undefined;
         grok: GrokScanState | undefined;
         codex: CodexScanState | undefined;
+        commandcode: CommandCodeScanState | undefined;
         antigravity: AntigravityScanState | undefined;
         cursor: { sessions: Set<string>; daily: Set<string> } | undefined;
     }[] = [];
@@ -842,6 +906,7 @@ function collect(): void {
             kimi: kimi_states.get(src.key),
             grok: grok_states.get(src.key),
             codex: codex_states.get(src.key),
+            commandcode: commandcode_states.get(src.key),
             antigravity: antigravity_states.get(src.key),
             cursor: cursor_snap
                 ? { sessions: new Set(cursor_snap.sessions), daily: new Set(cursor_snap.daily) }
@@ -920,6 +985,7 @@ function collect(): void {
                 kimi_states,
                 grok_states,
                 codex_states,
+                commandcode_states,
                 antigravity_states,
             ] as const) {
                 map.delete(src.key);
@@ -969,6 +1035,7 @@ function collect(): void {
             set_or_delete(kimi_states, snap.kimi);
             set_or_delete(grok_states, snap.grok);
             set_or_delete(codex_states, snap.codex);
+            set_or_delete(commandcode_states, snap.commandcode);
             set_or_delete(antigravity_states, snap.antigravity);
             set_or_delete(source_cursors, snap.cursor);
         }
@@ -1011,6 +1078,7 @@ function reset_config(): void {
     kimi_states.clear();
     grok_states.clear();
     codex_states.clear();
+    commandcode_states.clear();
     antigravity_states.clear();
     source_warned.clear();
     emitted_record_keys.clear();
@@ -1062,6 +1130,7 @@ export {
     jsonl_states,
     kimi_states,
     grok_states,
+    commandcode_states,
     source_cursors,
     emitted_record_keys,
     session_touch_ts,
@@ -1071,6 +1140,7 @@ export {
     opencode_path,
     kimi_sessions_path,
     kimi_index_path,
+    commandcode_projects_path,
     grok_sessions_path,
     effective_wsl_user,
     set_win_home_wsl_probe,

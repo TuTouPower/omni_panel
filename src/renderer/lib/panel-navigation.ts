@@ -1,7 +1,7 @@
-/** t252: 四面板名（用量/代理/会话/设置）。 */
-export type PanelName = "Usage" | "Agent" | "Session" | "Settings";
+/** t252/t481: 五面板名（用量/代理/会话/设置/开发）。 */
+export type PanelName = "Usage" | "Agent" | "Session" | "Settings" | "Dev";
 
-/** t252: 四面板互跳。桌面走各窗口 open（开/聚焦目标面板窗口）；
+/** t252/t481: 五面板互跳。桌面走各窗口 open（开/聚焦目标面板窗口）；
  *  web 端对应 open 方法内部已 hash 切页（usageboard-web）。 */
 export function use_panel_navigation(): (panel: PanelName) => void {
     return (panel: PanelName) => {
@@ -17,6 +17,9 @@ export function use_panel_navigation(): (panel: PanelName) => void {
                 break;
             case "Session":
                 void window.usageboard.sessionHistory.open("", "", "");
+                break;
+            case "Dev":
+                window.usageboard.devPanel.open();
                 break;
         }
     };

@@ -215,6 +215,26 @@ describe("file-vault-backend", () => {
         expect(bak).toBe(main);
     });
 
+    it("writes an encrypted import snapshot and restores it atomically", async () => {
+        const snapshot_path = join(temp_dir, "secrets.vault.import.bak");
+        await vault.set("snapshot-key", "snapshot-secret");
+        if (!vault.write_snapshot || !vault.restore_snapshot) {
+            throw new Error("missing vault snapshot support");
+        }
+        await vault.write_snapshot(snapshot_path);
+        const { readFile, stat } = await import("node:fs/promises");
+        const snapshot_raw = await readFile(snapshot_path, "utf8");
+        expect(snapshot_raw).not.toContain("snapshot-secret");
+        if (process.platform !== "win32") {
+            expect((await stat(snapshot_path)).mode & 0o777).toBe(0o600);
+        }
+
+        await vault.replaceAll({ "new-key": "new-value" });
+        await vault.restore_snapshot(snapshot_path);
+        expect(await vault.get("snapshot-key")).toBe("snapshot-secret");
+        expect(await vault.get("new-key")).toBeNull();
+    });
+
     it("throws when vault.key file exists but has wrong length (corrupted, not overwritten)", async () => {
         const { writeFile } = await import("node:fs/promises");
         // vault 已生成 32 字节 key；覆写为异常长度

@@ -49,6 +49,17 @@ interface AuthDescriptor {
 
 其余 11 个内置连接器暂不补 `auth` 块，由 capabilities（`session` / `local` / 默认 `apikey`）回退推导。
 
+## Cookie 登录契约（t478）
+
+已有实例的 Cookie 登录在桌面 IPC 与 LocalAPI/Web 之间使用同一条非阻塞契约：
+
+- `auth.cookieLogin(instanceId)` 立即返回 `{ started: true }`；已有登录进行中时返回 `{ started: false, conflict: true, error_code: "CONFLICT", error }`。
+- 登录结果只通过 `auth.cookieLoginStatus(instanceId)` 获取，返回 `{ in_progress, saved, state, error_code?, error? }`。
+- `state` 为 `running`、`succeeded`、`canceled`、`failed` 或 `timeout`。`running` 必须配合 `in_progress: true`；其他状态表示终态。
+- `succeeded` 表示目标 Cookie 已落库；`canceled` 表示窗口关闭但未捕获 Cookie；`failed` 表示登录态无效或内部错误；`timeout` 表示登录窗口等待超时。
+- `error` 只在 `failed` 终态出现，用户可见文案由主进程统一生成；`error_code` 用于稳定识别冲突、超时、无 Cookie、无效登录态和内部错误。
+- Web 端只调用 LocalAPI，登录窗口由宿主主进程创建；两端沿用既有 t473 权限边界，不新增凭据或认证步骤。
+
 ## oauth_device device-code 流程（grok / kimi）
 
 - device-code 登录在 temp instance id 下完成（`AddAccountDialog.oauth_instance_id_ref`）；`OAuthDeviceForm.on_save` 必须透传该 id 为 `oauth_source_instance_id`，再创建 real connector instance。
