@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     claude_costs_path,
     claude_projects_path,
+    commandcode_projects_path,
     grok_sessions_path,
     host_from_platform,
     kimi_index_path,
@@ -44,12 +45,16 @@ describe("platform sources: linux/mac resolve under homedir (t437)", () => {
         expect(opencode_path(ctx, "linux")).toBe("/home/test/.local/share/opencode/opencode.db");
         expect(kimi_sessions_path(ctx, "linux")).toBe("/home/test/.kimi-code/sessions");
         expect(kimi_index_path(ctx, "linux")).toBe("/home/test/.kimi-code/session_index.jsonl");
+        expect(commandcode_projects_path(ctx, "linux")).toBe("/home/test/.commandcode/projects");
     });
 
     it("builds POSIX paths from homedir for env=mac", () => {
         const ctx = input({ host: "macos", homedir: "/Users/test" });
         expect(claude_costs_path(ctx, "mac")).toBe("/Users/test/.claude/metrics/costs.jsonl");
         expect(opencode_path(ctx, "mac")).toBe("/Users/test/.local/share/opencode/opencode.db");
+        expect(commandcode_projects_path(ctx, "mac")).toBe("/Users/test/.commandcode/projects");
+        expect(commandcode_projects_path(input({ host: "windows" }), "win")).toBeNull();
+        expect(commandcode_projects_path(input({ host: "windows" }), "wsl")).toBeNull();
     });
 
     it("returns null for wsl sources on non-Windows hosts", () => {

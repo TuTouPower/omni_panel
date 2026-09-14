@@ -3,6 +3,7 @@ import type { SessionScanState } from "./claude-reader";
 import type { KimiScanState } from "./kimi-reader";
 import type { GrokScanState } from "./grok-reader";
 import type { CodexScanState } from "./codex-reader";
+import type { CommandCodeScanState } from "./commandcode-reader";
 import type { AntigravityScanState } from "./antigravity-reader";
 import { writeJsonAtomic } from "../storage/write-json";
 
@@ -20,6 +21,7 @@ export interface SerializedScanState {
     kimi_states?: Record<string, SerializedScanBucket>;
     grok_states?: Record<string, SerializedScanBucket>;
     codex_states?: Record<string, SerializedScanBucket>;
+    commandcode_states?: Record<string, SerializedScanBucket>;
     antigravity_states?: Record<string, SerializedScanBucket>;
     /** t385 AC-001: 跨轮截断游标（按已入列身份键记账），跨重启保留推进进度。 */
     source_cursors?: Record<string, SerializedSourceCursor>;
@@ -53,6 +55,7 @@ export interface ScanStateMaps {
     readonly kimi_states: Map<string, KimiScanState>;
     readonly grok_states: Map<string, GrokScanState>;
     readonly codex_states: Map<string, CodexScanState>;
+    readonly commandcode_states: Map<string, CommandCodeScanState>;
     readonly antigravity_states: Map<string, AntigravityScanState>;
     /** t385 AC-001: 截断游标（source → 已入列身份键集合）。 */
     readonly source_cursors: Map<string, SourceCursorMaps>;
@@ -61,7 +64,13 @@ export interface ScanStateMaps {
 export type ScanStateWarn = (message: string) => void;
 
 function serialize_bucket(
-    state: SessionScanState | KimiScanState | GrokScanState | CodexScanState | AntigravityScanState,
+    state:
+        | SessionScanState
+        | KimiScanState
+        | GrokScanState
+        | CodexScanState
+        | CommandCodeScanState
+        | AntigravityScanState,
 ): SerializedScanBucket {
     const mtimes: Record<string, number> = {};
     // mtimeMs preserved as float so reader's strict === comparison still
@@ -122,6 +131,10 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
     for (const [key, state] of maps.grok_states) grok[key] = serialize_bucket(state);
     const codex: Record<string, SerializedScanBucket> = {};
     for (const [key, state] of maps.codex_states) codex[key] = serialize_bucket(state);
+    const commandcode: Record<string, SerializedScanBucket> = {};
+    for (const [key, state] of maps.commandcode_states) {
+        commandcode[key] = serialize_bucket(state);
+    }
     const antigravity: Record<string, SerializedScanBucket> = {};
     for (const [key, state] of maps.antigravity_states) antigravity[key] = serialize_bucket(state);
     const costs: Record<string, { offset: number; size: number }> = {};
@@ -139,6 +152,7 @@ export function serialize_state(maps: ScanStateMaps): SerializedScanState {
         kimi_states: kimi,
         grok_states: grok,
         codex_states: codex,
+        commandcode_states: commandcode,
         antigravity_states: antigravity,
         source_cursors: cursors,
     };
@@ -179,6 +193,7 @@ export async function load_state(
     maps.kimi_states.clear();
     maps.grok_states.clear();
     maps.codex_states.clear();
+    maps.commandcode_states.clear();
     maps.antigravity_states.clear();
     maps.source_cursors.clear();
     let parsed: unknown;
@@ -223,6 +238,14 @@ export async function load_state(
                 maps.codex_states.set(k, deserialize_bucket(bucket) as unknown as CodexScanState);
             }
         }
+        if (s.commandcode_states) {
+            for (const [k, bucket] of Object.entries(s.commandcode_states)) {
+                maps.commandcode_states.set(
+                    k,
+                    deserialize_bucket(bucket) as unknown as CommandCodeScanState,
+                );
+            }
+        }
         if (s.antigravity_states) {
             for (const [k, bucket] of Object.entries(s.antigravity_states)) {
                 maps.antigravity_states.set(
@@ -249,6 +272,7 @@ export async function load_state(
         maps.kimi_states.clear();
         maps.grok_states.clear();
         maps.codex_states.clear();
+        maps.commandcode_states.clear();
         maps.antigravity_states.clear();
         maps.source_cursors.clear();
     }

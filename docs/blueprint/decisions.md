@@ -283,6 +283,14 @@
 - 落地：t482。
 - 替代：renderer/browser 直接读取 YAML 或持有 token；桌面/Web 各自维护一套路由算法。
 
+## 032 Command Code 用量按每轮独立值归因（2026-09-15）
+
+- 背景：Command Code 的 `projects/<encoded-cwd>/<session-id>.jsonl` 同时包含会话与 assistant 用量；上游样本曾被误判为累计值，直接做相邻行差分会把 output/cost 回落误归零。
+- 结论：reader 只消费 `type:"message"` 且 `message.role=="assistant"` 的 usage；`inputTokens`、`outputTokens`、`cacheWriteTokens` 与 `costUsd` 按每轮原值直接相加，不做累计差分。`cacheReadTokens` 按每轮拆为独立 `cache_read_tokens`，`input_tokens=inputTokens-cacheReadTokens`，由总 token 表达式恢复原始 input，避免缓存双计。每条明细保留 message 时间戳，dashboard 小时聚合据此分桶。
+- 证据：d059/s037 的 2026-09-14 复核中，output 在 193/202、cost 在 199/202 会话出现回落；input 的少量小幅回落按每轮原值计入。版本或字段语义变化时重新复核 d059。
+- 落地：t483 reader/collector/scan-state；t484 负责共享 public source/agent 枚举、历史提取与两面板接线。
+- 替代：按累计值做相邻行差分。
+
 ## 029 自启与暂停态由主进程单一来源维护（2026-09-14）
 
 - 背景：设置页只写 `launchAtLogin`，tray/CLI 各自直接改 OS 登录项；tray 另存本地暂停布尔值，无法反映 CLI/Web 的暂停。
