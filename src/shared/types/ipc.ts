@@ -1,6 +1,7 @@
 import type { MetricRecord, PluginChart, UsageSource } from "../schemas/plugin-output";
 import type { PluginMetadata } from "../schemas/plugin-metadata";
 import type { AppConfiguration } from "./config";
+import type { CookieLoginErrorCode, CookieLoginLifecycle } from "../lib/cookie-login";
 import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type { TokenStatsSourceStatus } from "./token-stats";
 import type {
@@ -278,15 +279,21 @@ export interface SessionLoginResult {
     readonly reason?: "invalid_cookie" | "no_cookie";
 }
 
-export interface CookieLoginResult {
-    readonly saved?: boolean;
-    readonly started?: boolean;
-}
+export type CookieLoginResult =
+    | { readonly started: true }
+    | {
+          readonly started: false;
+          readonly conflict: true;
+          readonly error_code: "CONFLICT";
+          readonly error: string;
+      };
 
 export interface CookieLoginStatus {
     readonly in_progress: boolean;
     readonly saved: boolean;
+    readonly state: CookieLoginLifecycle;
     readonly error?: string;
+    readonly error_code?: CookieLoginErrorCode;
 }
 
 export interface GrokDeviceCodeStart {

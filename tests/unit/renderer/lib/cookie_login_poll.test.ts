@@ -56,8 +56,8 @@ describe("poll_cookie_login", () => {
         const cookie_login = vi.fn().mockResolvedValue({ started: true });
         const cookie_login_status = vi
             .fn()
-            .mockResolvedValueOnce({ in_progress: true, saved: false })
-            .mockResolvedValueOnce({ in_progress: false, saved: true });
+            .mockResolvedValueOnce({ in_progress: true, saved: false, state: "running" })
+            .mockResolvedValueOnce({ in_progress: false, saved: true, state: "succeeded" });
         window.usageboard.auth.cookieLogin = cookie_login;
         window.usageboard.auth.cookieLoginStatus = cookie_login_status;
 
@@ -71,7 +71,9 @@ describe("poll_cookie_login", () => {
 
     it("throws Chinese timeout when status stays in_progress past 120s", async () => {
         const cookie_login = vi.fn().mockResolvedValue({ started: true });
-        const cookie_login_status = vi.fn().mockResolvedValue({ in_progress: true, saved: false });
+        const cookie_login_status = vi
+            .fn()
+            .mockResolvedValue({ in_progress: true, saved: false, state: "running" });
         window.usageboard.auth.cookieLogin = cookie_login;
         window.usageboard.auth.cookieLoginStatus = cookie_login_status;
 
@@ -82,11 +84,27 @@ describe("poll_cookie_login", () => {
         expect(cookie_login_status).toHaveBeenCalled();
     });
 
+    it("formats the unified conflict result without polling", async () => {
+        const cookie_login = vi.fn().mockResolvedValue({
+            started: false,
+            conflict: true,
+            error_code: "CONFLICT",
+            error: COOKIE_LOGIN_MESSAGES.conflict,
+        });
+        const cookie_login_status = vi.fn();
+        window.usageboard.auth.cookieLogin = cookie_login;
+        window.usageboard.auth.cookieLoginStatus = cookie_login_status;
+
+        await expect(poll_cookie_login("mimo-1")).rejects.toThrow(COOKIE_LOGIN_MESSAGES.conflict);
+        expect(cookie_login_status).not.toHaveBeenCalled();
+    });
+
     it("rethrows status error through Chinese conflict formatter", async () => {
         window.usageboard.auth.cookieLogin = vi.fn().mockResolvedValue({ started: true });
         window.usageboard.auth.cookieLoginStatus = vi.fn().mockResolvedValue({
             in_progress: false,
             saved: false,
+            state: "failed",
             error: "Login already in progress for instance: mimo-1",
         });
 
@@ -98,6 +116,7 @@ describe("poll_cookie_login", () => {
         window.usageboard.auth.cookieLoginStatus = vi.fn().mockResolvedValue({
             in_progress: false,
             saved: false,
+            state: "failed",
             error: COOKIE_LOGIN_MESSAGES.invalid_cookie,
         });
 
@@ -111,7 +130,7 @@ describe("poll_cookie_login", () => {
         window.usageboard.auth.cookieLoginStatus = vi.fn().mockResolvedValue({
             in_progress: false,
             saved: false,
-            error: COOKIE_LOGIN_MESSAGES.no_cookie,
+            state: "canceled",
         });
 
         await expect(poll_cookie_login("mimo-1")).rejects.toThrow(COOKIE_LOGIN_MESSAGES.no_cookie);

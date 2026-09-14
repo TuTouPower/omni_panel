@@ -26,7 +26,7 @@
 |config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401，t471，t472|2026-09-14|
 |resume_command_template|API / Web|t401, t402, t403|2026-08-16|
 |config_fallback_p0_protection|API|t111|2026-07-25|
-|connector-auth|API|t107, t112, t159|2026-07-28|
+|connector-auth|API + Desktop + Web|t107, t112, t159, t478|2026-09-14|
 |connector-cpa-runtime|API|拆自 connector-cpa（t037）|2026-07-21|
 |connector-cpa-ui|Web|拆自 connector-cpa（t037）|2026-07-21|
 |connector-direct|API|迁移自 omni_powers，t039, t159, t160|2026-07-29|

@@ -299,13 +299,16 @@ describe("web usageboard bridge", () => {
     it("auth.cookieLoginStatus GETs the local-api status endpoint", async () => {
         const fetch_mock = vi
             .fn<typeof fetch>()
-            .mockResolvedValue(mock_response({ in_progress: false, saved: true }));
+            .mockResolvedValue(
+                mock_response({ in_progress: false, saved: true, state: "succeeded" }),
+            );
         vi.stubGlobal("fetch", fetch_mock);
 
         const api = create_web_usageboard();
         await expect(api.auth.cookieLoginStatus("mimo/1")).resolves.toEqual({
             in_progress: false,
             saved: true,
+            state: "succeeded",
         });
         expect(fetch_mock).toHaveBeenCalledWith("/v1/auth/cookieLogin/status?instanceId=mimo%2F1");
     });

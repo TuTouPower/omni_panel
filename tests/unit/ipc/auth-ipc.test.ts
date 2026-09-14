@@ -346,7 +346,7 @@ describe("handleCookieLogin", () => {
 
         expect(result).toEqual({
             ok: true,
-            data: { in_progress: true, saved: true },
+            data: { in_progress: true, saved: true, state: "running" },
         });
         expect(JSON.stringify(result)).not.toContain("secret-cookie");
         expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1");
@@ -362,7 +362,7 @@ describe("handleCookieLogin", () => {
 
         await expect(mod.handleCookieLoginStatus(deps, "mimo-test-1")).resolves.toEqual({
             ok: true,
-            data: { in_progress: false, saved: false },
+            data: { in_progress: false, saved: false, state: "canceled" },
         });
     });
 });
@@ -439,10 +439,12 @@ describe("startCookieLogin", () => {
         const result = mod.startCookieLogin(deps, "mimo-test-1");
 
         expect(result).toEqual({
-            ok: false,
-            error: {
-                code: "CONFLICT",
-                message: "已有登录正在进行中，请等待当前登录完成",
+            ok: true,
+            data: {
+                started: false,
+                conflict: true,
+                error_code: "CONFLICT",
+                error: "已有登录正在进行中，请等待当前登录完成",
             },
         });
         expect(start_login).not.toHaveBeenCalled();
@@ -470,10 +472,12 @@ describe("startCookieLogin", () => {
         // Concurrent start must see state.in_progress before the async start_login settles.
         const second = mod.startCookieLogin(deps, "mimo-test-1");
         expect(second).toEqual({
-            ok: false,
-            error: {
-                code: "CONFLICT",
-                message: "已有登录正在进行中，请等待当前登录完成",
+            ok: true,
+            data: {
+                started: false,
+                conflict: true,
+                error_code: "CONFLICT",
+                error: "已有登录正在进行中，请等待当前登录完成",
             },
         });
 

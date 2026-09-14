@@ -623,8 +623,8 @@ describe("SettingsForm web_login editing (t157)", () => {
             const cookie_login = vi.fn().mockResolvedValue({ started: true });
             const cookie_login_status = vi
                 .fn()
-                .mockResolvedValueOnce({ in_progress: true, saved: false })
-                .mockResolvedValueOnce({ in_progress: false, saved: true });
+                .mockResolvedValueOnce({ in_progress: true, saved: false, state: "running" })
+                .mockResolvedValueOnce({ in_progress: false, saved: true, state: "succeeded" });
             window.usageboard.auth = {
                 cookieLogin: cookie_login,
                 cookieLoginStatus: cookie_login_status,
@@ -720,8 +720,8 @@ describe("SettingsForm session editing (t157)", () => {
         const cookie_login = vi.fn().mockResolvedValue({ started: true });
         const cookie_login_status = vi
             .fn()
-            .mockResolvedValueOnce({ in_progress: true, saved: false })
-            .mockResolvedValueOnce({ in_progress: false, saved: true });
+            .mockResolvedValueOnce({ in_progress: true, saved: false, state: "running" })
+            .mockResolvedValueOnce({ in_progress: false, saved: true, state: "succeeded" });
         const get_secrets = vi
             .fn()
             .mockResolvedValueOnce({})
@@ -801,6 +801,7 @@ describe("SettingsForm session editing (t157)", () => {
         const cookie_login_status = vi.fn().mockResolvedValue({
             in_progress: false,
             saved: false,
+            state: "failed",
             error: "Interactive login requires a graphical display",
         });
         window.usageboard.auth = {
@@ -836,7 +837,7 @@ describe("SettingsForm session editing (t157)", () => {
             const cookie_login = vi.fn().mockResolvedValue({ started: true });
             const cookie_login_status = vi
                 .fn()
-                .mockResolvedValue({ in_progress: true, saved: false });
+                .mockResolvedValue({ in_progress: true, saved: false, state: "running" });
             window.usageboard.auth = {
                 cookieLogin: cookie_login,
                 cookieLoginStatus: cookie_login_status,

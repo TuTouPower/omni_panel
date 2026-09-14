@@ -447,9 +447,27 @@ describe("local-api", () => {
         const cookie_status_body = (await cookie_status.json()) as {
             in_progress: boolean;
             saved: boolean;
+            state: string;
         };
-        expect(cookie_status_body).toEqual({ in_progress: true, saved: true });
+        expect(cookie_status_body).toEqual({
+            in_progress: true,
+            saved: true,
+            state: "running",
+        });
         expect(JSON.stringify(cookie_status_body)).not.toContain("secret-cookie");
+
+        const conflict = await fetch(`${base}/v1/auth/cookieLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instanceId: "mimo-1" }),
+        });
+        expect(conflict.status).toBe(200);
+        await expect(conflict.json()).resolves.toEqual({
+            started: false,
+            conflict: true,
+            error_code: "CONFLICT",
+            error: "已有登录正在进行中，请等待当前登录完成",
+        });
         resolve_cookie_login({ saved: true });
 
         for (const namespace of ["grok", "kimi"] as const) {
@@ -709,7 +727,11 @@ describe("local-api", () => {
                 );
             });
             const status = await fetch(`${base}/v1/auth/cookieLogin/status?instanceId=mimo-real`);
-            expect(await status.json()).toEqual({ in_progress: false, saved: true });
+            expect(await status.json()).toEqual({
+                in_progress: false,
+                saved: true,
+                state: "succeeded",
+            });
             expect(log_lines.join("\n")).not.toContain("local-cookie-sentinel");
 
             await api.stop();
@@ -745,10 +767,14 @@ describe("local-api", () => {
                 const body = (await response.json()) as {
                     in_progress: boolean;
                     saved: boolean;
+                    state: string;
+                    error_code?: string;
                     error?: string;
                 };
                 expect(body.in_progress).toBe(false);
                 expect(body.saved).toBe(false);
+                expect(body.state).toBe("failed");
+                expect(body.error_code).toBe("INTERNAL_ERROR");
                 expect(body.error).toContain("graphical display");
             });
             expect(no_display_window).not.toHaveBeenCalled();
