@@ -225,20 +225,25 @@ describe("run_control_command", () => {
     });
 
     it("autostart 在 Linux 返回 unsupported 且无副作用", async () => {
-        const dir = makeDir();
-        const writes: string[] = [];
-        const code = await run_control_command(
-            "autostart",
-            {},
-            {
-                dataRoot: dir,
-                write: (t) => {
-                    writes.push(t);
+        const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+        try {
+            const dir = makeDir();
+            const writes: string[] = [];
+            const code = await run_control_command(
+                "autostart",
+                {},
+                {
+                    dataRoot: dir,
+                    write: (t) => {
+                        writes.push(t);
+                    },
                 },
-            },
-        );
-        expect(code).toBe(0);
-        expect(writes.join("")).toContain("autostart 在 Linux 上不受支持");
+            );
+            expect(code).toBe(0);
+            expect(writes.join("")).toContain("autostart 在 Linux 上不受支持");
+        } finally {
+            platformSpy.mockRestore();
+        }
     });
 
     it("实例未运行时控制命令返回非零退出码", async () => {

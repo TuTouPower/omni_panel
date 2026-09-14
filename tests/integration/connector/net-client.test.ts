@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { symlinkSync, existsSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -73,7 +73,7 @@ function read_request_body(req: IncomingMessage): Promise<unknown> {
 }
 
 beforeAll(async () => {
-    temp_dir = await mkdtemp(join(tmpdir(), "net-client-test-"));
+    temp_dir = await realpath(await mkdtemp(join(tmpdir(), "net-client-test-")));
     vault = await create_file_vault_backend(temp_dir);
     await vault.set("test-1:api_key", "sk-test-secret");
 

@@ -77,6 +77,7 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
     // the silence expectation is superseded — the session-posting core is kept
     // below with the new source-status semantics. t437: linux host → env=linux.
     it("t309: posts local claude jsonl sessions and reports the missing costs source failed", () => {
+        set_collector_host("linux");
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
@@ -193,6 +194,7 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
     // test expected a single silent message; the empty-update core is kept below
     // with the new source-status semantics (missing data → failed status + warn).
     it("t309: an empty home collects without crashing and reports the missing source failed", () => {
+        set_collector_host("linux");
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
