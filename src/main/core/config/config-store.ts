@@ -63,6 +63,17 @@ async function has_previous_user_data(configDir: string, configPath: string): Pr
 
 export interface AppConfigStore {
     load(): Promise<AppConfiguration>;
+    /**
+     * Run a read/compute/commit transaction behind the same queue as saves.
+     * The callback receives the latest committed config and a commit function
+     * that must be used for every config write in the transaction.
+     */
+    run_serialized?<T>(
+        task: (
+            latest: AppConfiguration,
+            commit: (config: AppConfiguration) => Promise<void>,
+        ) => Promise<T>,
+    ): Promise<T>;
     save(config: AppConfiguration): Promise<void>;
     /**
      * Serialized compare-and-save. Returns `"conflict"` (without writing) when
@@ -90,6 +101,23 @@ export interface AppConfigStore {
      * (import), NOT on every load — load() is a memory-cache hit.
      */
     prune_unhealthy_plugins(allowed_manifest_ids?: ReadonlySet<string>): Promise<AppConfiguration>;
+}
+
+/**
+ * Compatibility wrapper for light-weight test doubles and older embedders.
+ * Production stores expose run_serialized; the fallback preserves the old
+ * behavior only where no transactional store is available.
+ */
+export async function run_config_transaction<T>(
+    store: AppConfigStore,
+    task: (
+        latest: AppConfiguration,
+        commit: (config: AppConfiguration) => Promise<void>,
+    ) => Promise<T>,
+): Promise<T> {
+    if (store.run_serialized) return store.run_serialized(task);
+    const latest = await store.load();
+    return task(latest, (config) => store.save(config));
 }
 
 const log = createLogger("config-store");
@@ -291,6 +319,19 @@ export function createConfigStore(
         return enqueue(() => doSave(config));
     }
 
+    async function run_serialized<T>(
+        task: (
+            latest: AppConfiguration,
+            commit: (config: AppConfiguration) => Promise<void>,
+        ) => Promise<T>,
+    ): Promise<T> {
+        return enqueue(async () => {
+            const latest = cached_config ?? (await load_uncached());
+            cached_config = latest;
+            return task(latest, doSave);
+        });
+    }
+
     /**
      * Compare-and-save: serialized with every other save. The conflict check
      * runs inside the queue rather than on a stale `load()` snapshot, so an
@@ -483,17 +524,18 @@ export function createConfigStore(
     async function prune_unhealthy_plugins(
         allowed_manifest_ids?: ReadonlySet<string>,
     ): Promise<AppConfiguration> {
-        const config = cached_config ?? (await load_uncached());
-        const keep_indices = await prune_invalid_plugins(config.plugins, allowed_manifest_ids);
-        if (keep_indices.length === config.plugins.length) return config;
-        const dropped = config.plugins.length - keep_indices.length;
-        log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
-        const pruned_plugins = keep_indices
-            .map((i) => config.plugins[i])
-            .filter((p): p is NonNullable<typeof p> => p !== undefined);
-        const pruned: AppConfiguration = { ...config, plugins: pruned_plugins };
-        await enqueueSave(pruned);
-        return pruned;
+        return run_serialized(async (config, commit) => {
+            const keep_indices = await prune_invalid_plugins(config.plugins, allowed_manifest_ids);
+            if (keep_indices.length === config.plugins.length) return config;
+            const dropped = config.plugins.length - keep_indices.length;
+            log.warn(`Pruning ${String(dropped)} invalid plugin(s) from ${configPath}`);
+            const pruned_plugins = keep_indices
+                .map((i) => config.plugins[i])
+                .filter((p): p is NonNullable<typeof p> => p !== undefined);
+            const pruned: AppConfiguration = { ...config, plugins: pruned_plugins };
+            await commit(pruned);
+            return pruned;
+        });
     }
 
     return {
@@ -503,6 +545,8 @@ export function createConfigStore(
             cached_config = config;
             return config;
         },
+
+        run_serialized,
 
         async save(config: AppConfiguration): Promise<void> {
             await enqueueSave(config);

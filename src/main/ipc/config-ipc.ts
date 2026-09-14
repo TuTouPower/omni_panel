@@ -5,7 +5,7 @@ import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { ConfigExportData } from "../../shared/types/ipc";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
-import type { AppConfigStore } from "../core/config/config-store";
+import { run_config_transaction, type AppConfigStore } from "../core/config/config-store";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
@@ -120,93 +120,93 @@ export async function handleConfigSave(
         const parsed = appConfigurationSchema.safeParse(config);
         if (!parsed.success) return fail("VALIDATION_ERROR", "配置格式无效");
 
-        const current = await deps.configStore.load();
         const incoming = parsed.data as AppConfiguration;
-        // Validate: every incoming plugin instanceId must already exist
-        const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
-        for (const plugin of incoming.plugins) {
-            const existing = currentByInstanceId.get(plugin.instanceId);
-            if (!existing) {
-                return fail("VALIDATION_ERROR", `未知的连接器实例: ${plugin.instanceId}`);
+        // Capture the renderer's base before entering the queue. The transaction
+        // then rejects if another writer committed while this request waited.
+        const base = await deps.configStore.load();
+        const result = await run_config_transaction(deps.configStore, async (current, commit) => {
+            if (JSON.stringify(current) !== JSON.stringify(base)) {
+                return { outcome: "conflict" as const };
             }
-            if (existing.manifestId !== plugin.manifestId) {
-                return fail("VALIDATION_ERROR", `不允许修改连接器身份: ${plugin.name}`);
-            }
-            if (existing.executablePath !== plugin.executablePath) {
-                return fail("VALIDATION_ERROR", `不允许修改连接器路径: ${plugin.name}`);
-            }
-        }
 
-        // Merge: incoming fields override current; fields absent from incoming
-        // are preserved from disk. This prevents one renderer window from
-        // accidentally overwriting another window's fields (e.g. popup's
-        // collapsedAccounts wiped by settings save).
-        const incomingKeys = new Set(Object.keys(incoming));
-        const merged = { ...current } as unknown as Record<string, unknown>;
-        for (const key of incomingKeys) {
-            merged[key] = (incoming as unknown as Record<string, unknown>)[key];
-        }
-
-        // Protect against stale renderer windows overwriting the entire plugins
-        // array. A settings window preloaded before the latest config change may
-        // save an outdated plugin list; without this guard, the merge above would
-        // drop every plugin added after the window loaded. Deletions are still
-        // honoured when the removed manifest id is recorded in removedConnectorIds
-        // (the path used by SettingsView's delete/confirm handlers).
-        const incomingPluginIds = new Set(incoming.plugins.map((p) => p.instanceId));
-        const removedManifestIds = new Set(incoming.removedConnectorIds ?? []);
-        const protectedPlugins: ConnectorConfiguration[] = [];
-        for (const plugin of current.plugins) {
-            if (incomingPluginIds.has(plugin.instanceId)) continue;
-            const definition = deps.definitions?.find((d) => d.manifest.id === plugin.manifestId);
-            const manifestId = definition?.manifest.id;
-            if (manifestId && removedManifestIds.has(manifestId)) {
-                // Legitimate deletion via settings UI.
-                continue;
+            // Validate: every incoming plugin instanceId must already exist.
+            const currentByInstanceId = new Map(current.plugins.map((p) => [p.instanceId, p]));
+            for (const plugin of incoming.plugins) {
+                const existing = currentByInstanceId.get(plugin.instanceId);
+                if (!existing) {
+                    return {
+                        outcome: "validation" as const,
+                        message: `未知的连接器实例: ${plugin.instanceId}`,
+                    };
+                }
+                if (existing.manifestId !== plugin.manifestId) {
+                    return {
+                        outcome: "validation" as const,
+                        message: `不允许修改连接器身份: ${plugin.name}`,
+                    };
+                }
+                if (existing.executablePath !== plugin.executablePath) {
+                    return {
+                        outcome: "validation" as const,
+                        message: `不允许修改连接器路径: ${plugin.name}`,
+                    };
+                }
             }
-            protectedPlugins.push(plugin);
-            if (manifestId) {
+
+            // Merge: incoming fields override current; fields absent from incoming
+            // are preserved from the latest committed config.
+            const incomingKeys = new Set(Object.keys(incoming));
+            const merged = { ...current } as unknown as Record<string, unknown>;
+            for (const key of incomingKeys) {
+                merged[key] = (incoming as unknown as Record<string, unknown>)[key];
+            }
+
+            // Protect against stale renderer windows dropping newer instances.
+            const incomingPluginIds = new Set(incoming.plugins.map((p) => p.instanceId));
+            const removedManifestIds = new Set(incoming.removedConnectorIds ?? []);
+            const protectedPlugins: ConnectorConfiguration[] = [];
+            for (const plugin of current.plugins) {
+                if (incomingPluginIds.has(plugin.instanceId)) continue;
+                const definition = deps.definitions?.find(
+                    (d) => d.manifest.id === plugin.manifestId,
+                );
+                const manifestId = definition?.manifest.id;
+                if (manifestId && removedManifestIds.has(manifestId)) continue;
+                protectedPlugins.push(plugin);
                 log.warn(
                     `Protected plugin ${plugin.instanceId} (${plugin.name}) from stale save; ` +
-                        `manifest id ${manifestId} not in removedConnectorIds`,
-                );
-            } else {
-                log.warn(
-                    `Protected plugin ${plugin.instanceId} (${plugin.name}) from stale save; ` +
-                        `no manifest definition found`,
+                        (manifestId
+                            ? `manifest id ${manifestId} not in removedConnectorIds`
+                            : "no manifest definition found"),
                 );
             }
-        }
-        if (protectedPlugins.length > 0) {
-            merged["plugins"] = [...incoming.plugins, ...protectedPlugins];
-            log.warn(
-                `Config save would have dropped ${String(protectedPlugins.length)} plugin(s); ` +
-                    `restored them to the merged config`,
+            if (protectedPlugins.length > 0) {
+                merged["plugins"] = [...incoming.plugins, ...protectedPlugins];
+                log.warn(
+                    `Config save would have dropped ${String(protectedPlugins.length)} plugin(s); ` +
+                        `restored them to the merged config`,
+                );
+            }
+
+            const mergedValidated = appConfigurationSchema.safeParse(merged);
+            if (!mergedValidated.success) {
+                return { outcome: "validation" as const, message: "合并后配置格式无效" };
+            }
+            const stripped = stripSecrets(
+                mergedValidated.data as AppConfiguration,
+                deps.secretParamKeys,
             );
+            await commit(stripped);
+            return { outcome: "saved" as const, config: stripped };
+        });
+        if (result.outcome === "validation") {
+            return fail("VALIDATION_ERROR", result.message);
         }
-
-        // Post-merge validation: the merged result may carry extra fields from
-        // current that aren't in the schema (e.g. leftover from a bug or manual
-        // edit). Validate against schema to strip unknown keys and ensure the
-        // merged result is safe to persist.
-        const mergedValidated = appConfigurationSchema.safeParse(merged);
-        if (!mergedValidated.success) {
-            return fail("VALIDATION_ERROR", "合并后配置格式无效");
-        }
-        const validated = mergedValidated.data as AppConfiguration;
-
-        // Conflict check runs inside the store's save serialization, so an
-        // overlapping CONFIG_SAVE / POST /v1/config that committed between our
-        // load and here is observed via the committed state — the memory cache
-        // can no longer hide it. A stale writer is rejected instead of silently
-        // overwriting the earlier writer's changes.
-        const stripped = stripSecrets(validated, deps.secretParamKeys);
-        const outcome = await deps.configStore.saveIfBaseMatches(current, stripped);
-        if (outcome === "conflict") {
+        if (result.outcome === "conflict") {
             log.warn("Config changed by a concurrent save — aborting to avoid lost update");
             return fail("CONFLICT", "配置已被其他窗口修改，请重试");
         }
-        deps.onConfigSaved?.(stripped);
+        deps.onConfigSaved?.(result.config);
         return ok(undefined);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -300,34 +300,36 @@ export async function handleConfigDuplicate(
         }
         const sourceInstanceId = payload;
 
-        const config = await deps.configStore.load();
-        const source = config.plugins.find(
-            (p: ConnectorConfiguration) => p.instanceId === sourceInstanceId,
-        );
-        if (!source) return fail("VALIDATION_ERROR", "源连接器不存在");
+        const result = await run_config_transaction(deps.configStore, async (config, commit) => {
+            const source = config.plugins.find(
+                (p: ConnectorConfiguration) => p.instanceId === sourceInstanceId,
+            );
+            if (!source) return { outcome: "missing" as const };
 
-        const newInstanceId = randomUUID();
-        // 不复制 source.displayName：新账号回退连接器名，避免克隆出带别名的副本
-        const newInstance: ConnectorConfiguration = {
-            instanceId: newInstanceId,
-            stateId: randomUUID(),
-            manifestId: source.manifestId,
-            name: source.name,
-            enabled: true,
-            executablePath: source.executablePath,
-            refreshIntervalSeconds: source.refreshIntervalSeconds,
-            parameterValues: {},
-            endpointOverrides: {},
-            ...(source.manualRefreshOnly ? { manualRefreshOnly: true } : {}),
-        };
-
-        const updated: AppConfiguration = {
-            ...config,
-            plugins: [...config.plugins, newInstance],
-        };
-        await deps.configStore.save(updated);
-        deps.onConfigSaved?.(updated);
-        return ok({ instanceId: newInstanceId });
+            const newInstanceId = randomUUID();
+            // 不复制 source.displayName：新账号回退连接器名，避免克隆出带别名的副本
+            const newInstance: ConnectorConfiguration = {
+                instanceId: newInstanceId,
+                stateId: randomUUID(),
+                manifestId: source.manifestId,
+                name: source.name,
+                enabled: true,
+                executablePath: source.executablePath,
+                refreshIntervalSeconds: source.refreshIntervalSeconds,
+                parameterValues: {},
+                endpointOverrides: {},
+                ...(source.manualRefreshOnly ? { manualRefreshOnly: true } : {}),
+            };
+            const updated: AppConfiguration = {
+                ...config,
+                plugins: [...config.plugins, newInstance],
+            };
+            await commit(updated);
+            return { outcome: "saved" as const, instanceId: newInstanceId, config: updated };
+        });
+        if (result.outcome === "missing") return fail("VALIDATION_ERROR", "源连接器不存在");
+        deps.onConfigSaved?.(result.config);
+        return ok({ instanceId: result.instanceId });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `复制连接器失败: ${msg}`);
@@ -373,19 +375,21 @@ export async function handleConfigCreateInstance(
             ),
             endpointOverrides: {},
         };
-        const config = await deps.configStore.load();
-        const remaining_removed = (config.removedConnectorIds ?? []).filter(
-            (id) => id !== manifestId,
-        );
-        const updated: AppConfiguration = {
-            ...config,
-            plugins: [...config.plugins, newInstance],
-            removedConnectorIds: remaining_removed,
-        };
-        await deps.configStore.save(updated);
-        deps.onConfigSaved?.(updated);
+        const result = await run_config_transaction(deps.configStore, async (config, commit) => {
+            const remaining_removed = (config.removedConnectorIds ?? []).filter(
+                (id) => id !== manifestId,
+            );
+            const updated: AppConfiguration = {
+                ...config,
+                plugins: [...config.plugins, newInstance],
+                removedConnectorIds: remaining_removed,
+            };
+            await commit(updated);
+            return { instanceId: newInstance.instanceId, config: updated };
+        });
+        deps.onConfigSaved?.(result.config);
         log.info(`Created instance for manifest ${manifestId}: ${newInstance.instanceId}`);
-        return ok({ instanceId: newInstance.instanceId });
+        return ok({ instanceId: result.instanceId });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `创建连接器失败: ${msg}`);

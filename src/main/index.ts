@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { CLI_HELP_TEXT } from "./cli/help-text";
 import { open_connectors_dir } from "./core/open-connectors-dir";
-import { createConfigStore } from "./core/config/config-store";
+import { createConfigStore, run_config_transaction } from "./core/config/config-store";
 import { build_secret_param_keys } from "./core/config/secret_param_keys";
 import { auto_seed_connectors } from "./core/config/auto-seed";
 import {
@@ -247,22 +247,23 @@ void app.whenReady().then(async () => {
         currentConfig = await configStore.prune_unhealthy_plugins(
             new Set(allDefinitions.map((definition) => definition.manifest.id)),
         );
-        const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
-            currentConfig.plugins,
-            allDefinitions,
-            new Set(currentConfig.removedConnectorIds ?? []),
-        );
-        if (seededPlugins.length > 0 || updatedExisting.length > 0) {
-            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
-            const mergedPlugins = currentConfig.plugins.map(
-                (p) => updatedById.get(p.instanceId) ?? p,
+        const seed_result = await run_config_transaction(configStore, async (latest, commit) => {
+            const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
+                latest.plugins,
+                allDefinitions,
+                new Set(latest.removedConnectorIds ?? []),
             );
-            await configStore.save({
-                ...currentConfig,
-                plugins: [...mergedPlugins, ...seededPlugins],
-            });
-            currentConfig = await configStore.load();
-        }
+            if (seededPlugins.length === 0 && updatedExisting.length === 0) {
+                return { config: latest, seededPlugins };
+            }
+            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
+            const mergedPlugins = latest.plugins.map((p) => updatedById.get(p.instanceId) ?? p);
+            const updated = { ...latest, plugins: [...mergedPlugins, ...seededPlugins] };
+            await commit(updated);
+            return { config: updated, seededPlugins };
+        });
+        const { config: seededConfig, seededPlugins } = seed_result;
+        currentConfig = seededConfig;
 
         const cleanupLogging = await initLogging(dataRoot, {
             logLevel: currentConfig.logLevel ?? defaultLogLevelForEnv(),

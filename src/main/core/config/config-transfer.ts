@@ -4,7 +4,7 @@ import { z } from "zod/v3";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../shared/types/config";
 import type { ConfigExportData } from "../../../shared/types/ipc";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
-import type { AppConfigStore } from "./config-store";
+import { run_config_transaction, type AppConfigStore } from "./config-store";
 import { appConfigurationSchema } from "./types";
 import { build_secret_param_keys } from "./secret_param_keys";
 import { type SecretsStore } from "./secrets-store";
@@ -243,41 +243,47 @@ export async function import_config(
     const normalized = normalize_plugins(parsed.config, deps.definitions);
     const secret_keys = secret_keys_for(deps, normalized.config);
     const stripped = strip_secrets(normalized.config, secret_keys);
-    const previous_config = await deps.configStore.load();
-    const previous_secrets = await deps.secretsStore.exportAll();
-    const active_instance_ids = new Set(stripped.plugins.map((plugin) => plugin.instanceId));
-    const target_secrets =
-        parsed.secrets === undefined
-            ? filter_secrets_to_active_instances(previous_secrets, active_instance_ids)
-            : filter_secrets_to_active_instances(parsed.secrets, active_instance_ids);
+    return run_config_transaction(deps.configStore, async (previous_config, commit) => {
+        const previous_secrets = await deps.secretsStore.exportAll();
+        const active_instance_ids = new Set(stripped.plugins.map((plugin) => plugin.instanceId));
+        const target_secrets =
+            parsed.secrets === undefined
+                ? filter_secrets_to_active_instances(previous_secrets, active_instance_ids)
+                : filter_secrets_to_active_instances(parsed.secrets, active_instance_ids);
 
-    // Both snapshots must complete before either config or vault is changed.
-    await backup_config(deps.configPath);
-    const snapshot_created = await create_vault_snapshot(deps);
+        // Both snapshots must complete before either config or vault is changed.
+        // This is inside the config transaction so no other config writer can
+        // commit between the latest read, the vault snapshot, and the import.
+        await backup_config(deps.configPath);
+        const snapshot_created = await create_vault_snapshot(deps);
 
-    try {
-        await deps.configStore.save(stripped);
-        await deps.secretsStore.importAll(target_secrets);
-    } catch (error: unknown) {
-        // Restore both sides even though the file-vault implementation is
-        // atomic; test doubles and alternate vaults may fail after a partial
-        // in-memory mutation. The real config store save is also serialized,
-        // so restoring it here returns the committed state to the pre-import
-        // snapshot.
         try {
-            await deps.configStore.save(previous_config);
-        } catch (restore_config_error: unknown) {
-            log.error("Config rollback after failed transfer import failed", restore_config_error);
+            await commit(stripped);
+            await deps.secretsStore.importAll(target_secrets);
+        } catch (error: unknown) {
+            // Restore both sides while still holding the config transaction. Test
+            // doubles and alternate vaults may fail after a partial mutation.
+            try {
+                await commit(previous_config);
+            } catch (restore_config_error: unknown) {
+                log.error(
+                    "Config rollback after failed transfer import failed",
+                    restore_config_error,
+                );
+            }
+            try {
+                await restore_vault(deps, previous_secrets, snapshot_created);
+            } catch (restore_vault_error: unknown) {
+                log.error(
+                    "Vault rollback after failed transfer import failed",
+                    restore_vault_error,
+                );
+            }
+            throw error;
         }
-        try {
-            await restore_vault(deps, previous_secrets, snapshot_created);
-        } catch (restore_vault_error: unknown) {
-            log.error("Vault rollback after failed transfer import failed", restore_vault_error);
-        }
-        throw error;
-    }
 
-    return { config: stripped, skipped: normalized.skipped };
+        return { config: stripped, skipped: normalized.skipped };
+    });
 }
 
 /** Default snapshot location for CLI callers that only know config.json. */

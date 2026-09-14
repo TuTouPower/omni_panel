@@ -19,7 +19,7 @@
 
 ## 接口
 
-- `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）/ `saveIfBaseMatches(base, config)`（t293）。
+- `load()` / `run_serialized(readComputeCommit)`（t479）/ `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）/ `saveIfBaseMatches(base, config)`（t293）。
 - `refreshIntervalSecondsSchema`：`0` = 跟随全局哨兵；非零 clamp `[60, 172800]`。
 
 ## canonical 配置导入导出（t472）
@@ -50,6 +50,7 @@
 - 文件 `{userData}/config.json`（`getConfigPath()`）。
 - **保存**：`scheduleSave` 防抖 500ms；所有写经串行 `saveTail` promise 链（并发写不交错，失败不毒化链）；`writeJsonAtomic` + `sortKeys` 稳定 diff。
 - **冲突检测（t293）**：`saveIfBaseMatches(base, config)` 把「与调用方 `load()` 快照比对」与写入放在同一 save 串行临界区内，以「仅成功 save 后更新」的 `cached_config` 为已提交状态作比较基准。并发写方（重叠 `CONFIG_SAVE` / web `POST /v1/config`）基于同一旧快照时，先提交者写入，后提交者返回 `"conflict"` 且不落盘（映射 `CONFLICT`），避免内存缓存使冲突检测失效导致后写静默覆盖先写（lost update）。
+- **读-算-提交事务（t479）**：`run_serialized` 把「读取最新已提交配置 → 计算增量 → `commit`」整体放入 `saveTail` 临界区；`commit` 在临界区内直达同一个原子写入口。设置页普通保存保留 base-match 冲突拒绝；导入、复制、新建和 CLI import 是用户显式整体操作，允许覆盖但必须等待同一事务队列，不基于队列外旧快照写回；auto-seed/prune 同样在最新状态上增量应用。桌面 IPC、LocalAPI/Web 与 CLI 通过共享 transfer/transaction 路径保持一致。这样复制/新建与另一字段保存等非重叠并发修改不会出现双方成功但一方被覆盖的情况。
 - **防抖 payload 用 thunk（t105）**：`scheduleSave` 接受 `AppConfiguration` 或返回它的 thunk，thunk 在防抖触发（及 `flushPendingSave`）时才求值。只改单个字段的调用方（`src/main/index.ts` 的 `save_settings_bounds`、main-panel `save_config` 窗口 bounds）必须传 thunk：窗口 resize/move 在事件发生时抓 `currentConfigSnapshot`，500ms 后落盘会把这期间 renderer 已保存的 `providerOrder` / `expandedProviders` 回滚（既有数据丢失 bug，t105 修）。
 - **载入加固（t111）**：schema 不匹配、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不返回 `DEFAULT_CONFIGURATION`（防止 auto_seed 覆盖用户数据）；schema 不匹配时先试 `.bak` 恢复，否则把损坏文件备份为 `.bak` 并抛错。ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed；目录存在但 `config.json` 缺失视为异常抛错。
 - **零散迁移（非版本引擎）**：`instanceId ?? stateId` 回填；`stripRemovedConfigFields` 删已移除的 `overviewDisplayMode`；`prune_invalid_plugins` 删 manifest 缺失或 provider 不在白名单的插件并回写（t195 起仅在启动/导入时经 `prune_unhealthy_plugins()` 执行，load 不再触发）。

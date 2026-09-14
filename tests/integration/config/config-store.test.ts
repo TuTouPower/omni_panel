@@ -991,6 +991,156 @@ describe("config-store", () => {
             expect((await store.load()).language).toBe("zh-Hans");
         });
 
+        it("serializes read-compute-commit transactions and preserves non-overlapping changes", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            const initial: AppConfiguration = {
+                schemaVersion: 1,
+                language: "en",
+                plugins: [],
+                launchAtLogin: false,
+            };
+            await store.save(initial);
+            if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+            await Promise.all([
+                store.run_serialized(async (latest, commit) => {
+                    await Promise.resolve();
+                    await commit({ ...latest, language: "zh-Hans" });
+                }),
+                store.run_serialized(async (latest, commit) => {
+                    await Promise.resolve();
+                    await commit({ ...latest, launchAtLogin: true });
+                }),
+            ]);
+
+            await expect(store.load()).resolves.toMatchObject({
+                language: "zh-Hans",
+                launchAtLogin: true,
+            });
+        });
+
+        it("keeps instance and tombstone updates from concurrent serialized transactions", async () => {
+            const store = createConfigStore(join(tempDir, "config.json"));
+            const initial: AppConfiguration = {
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "claude",
+                        stateId: "claude",
+                        manifestId: "claude",
+                        name: "Claude",
+                        enabled: true,
+                        executablePath: "/plugins/claude.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                    {
+                        instanceId: "cpa",
+                        stateId: "cpa",
+                        manifestId: "cpa",
+                        name: "CPA",
+                        enabled: true,
+                        executablePath: "/plugins/cpa.py",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+                removedConnectorIds: ["stale"],
+            };
+            await store.save(initial);
+            if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+            await Promise.all([
+                store.run_serialized(async (latest, commit) => {
+                    await commit({
+                        ...latest,
+                        plugins: [
+                            ...latest.plugins,
+                            {
+                                instanceId: "new-cpa",
+                                stateId: "new-cpa",
+                                manifestId: "cpa",
+                                name: "CPA",
+                                enabled: true,
+                                executablePath: "/plugins/cpa.py",
+                                refreshIntervalSeconds: 0,
+                                parameterValues: {},
+                                endpointOverrides: {},
+                            },
+                        ],
+                    });
+                }),
+                store.run_serialized(async (latest, commit) => {
+                    await commit({
+                        ...latest,
+                        plugins: latest.plugins.filter((plugin) => plugin.instanceId !== "claude"),
+                        removedConnectorIds: [
+                            ...new Set([...(latest.removedConnectorIds ?? []), "claude"]),
+                        ],
+                    });
+                }),
+            ]);
+
+            const final = await store.load();
+            expect(final.plugins.map((plugin) => plugin.instanceId)).toEqual(["cpa", "new-cpa"]);
+            expect(final.removedConnectorIds).toEqual(["stale", "claude"]);
+        });
+
+        it("applies prune from the latest state without dropping a concurrent user change", async () => {
+            const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-concurrent-"));
+            try {
+                const healthy_dir = await write_connector_dir(connector_root, "claude", "claude");
+                const store = createConfigStore(join(tempDir, "config.json"));
+                await store.save({
+                    schemaVersion: 1,
+                    language: "en",
+                    plugins: [
+                        {
+                            instanceId: "healthy",
+                            stateId: "healthy",
+                            manifestId: "claude",
+                            name: "Claude",
+                            enabled: true,
+                            executablePath: healthy_dir,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                        {
+                            instanceId: "orphan",
+                            stateId: "orphan",
+                            manifestId: "missing",
+                            name: "Missing",
+                            enabled: true,
+                            executablePath: join(connector_root, "missing"),
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                });
+                if (!store.run_serialized) throw new Error("missing serialized transaction API");
+
+                await Promise.all([
+                    store.prune_unhealthy_plugins(),
+                    store.run_serialized(async (latest, commit) => {
+                        await commit({ ...latest, language: "zh-Hans" });
+                    }),
+                ]);
+
+                const final = await store.load();
+                expect(final.language).toBe("zh-Hans");
+                expect(final.plugins.map((plugin) => plugin.instanceId)).toEqual(["healthy"]);
+            } finally {
+                await rm(connector_root, { recursive: true, force: true });
+            }
+        });
+
         it("prune_unhealthy_plugins keeps all plugins when healthy and updates cache", async () => {
             const connector_root = await mkdtemp(join(tmpdir(), "cfg-prune-healthy-"));
             try {

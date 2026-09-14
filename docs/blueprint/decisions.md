@@ -246,7 +246,7 @@
 - 选项：权限 A) Web 敏感接口纳入 token 认证、Web 降只读；B) Web 与桌面完全同权限、均不认证，宿主能力由宿主执行。配置写入 a) 仅 save 串行；b) 排队覆盖「读最新→计算→提交」+ 逐入口冲突策略。模型路由失败 a) 写失败即中止不改动；b) 部分成功 + 分类报告 + 快照 + 不自动回滚。导入 secret a) 一律 replace-all；b) 按 `secrets` 字段三态处理。
 - 结论：
     - **权限选 B**：本应用为受信内网自用工具，Web 与桌面同权限、都不需要认证；无认证不等于取消入参校验、进程隔离、日志脱敏与破坏性操作二次确认。t473 由「敏感接口鉴权」改造为「两端同权限、无认证契约对齐」；若新增鉴权将被视为违背本决策。
-    - **配置写入选 b**：普通 save 保持 `saveIfBaseMatches`（base 不匹配报 `CONFLICT`）；导入/复制/新建/CLI import 为用户显式整体操作，允许覆盖但必须串行且排队覆盖「读最新→计算→提交」（禁止基于临界区外旧快照覆盖）；auto-seed/prune 基于最新状态增量应用。单次导入内部 `config↔vault` 一致性归 t472，跨入口并发交错归 t479。
+    - **配置写入选 b**：普通 save 保持 `saveIfBaseMatches`（base 不匹配报 `CONFLICT`）；导入/复制/新建/CLI import 为用户显式整体操作，允许覆盖但必须串行且排队覆盖「读最新→计算→提交」（禁止基于临界区外旧快照覆盖）；auto-seed/prune 基于最新状态增量应用。实现由 config store 的 `run_serialized` 统一承载。单次导入内部 `config↔vault` 一致性归 t472，跨入口并发交错归 t479。
     - **模型路由选 b**：多渠道保存部分失败时停止后续写入，逐渠道报告成功/失败/未执行，保留修改前 `models`/`model_mapping`/`priority` 快照，不自动回滚；`HTTP 200 + success:false` 判失败；两端一致。
     - **导入 secret 选 b**：文件无 `secrets` 字段→保留仍存活实例的原密钥并清理悬空密钥；有非空 `secrets`→整体替换；`secrets: {}`→清空。被过滤的未知 manifest 实例其密钥随清理删除。
 - 影响：t472/t473/t474/t476/t478/t479/t480/t481/t482 的 spec 据此修订基线（见各 `docs/tasks/*/spec.md` 背景节）。Command Code 上游 token 语义经 2026-09-14 复核修正 d059（`usage` 为每轮用量、非累计，逐轮相加归因），t483 据此实现。

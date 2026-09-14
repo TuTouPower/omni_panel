@@ -1,0 +1,50 @@
+{
+    "tid": "t479",
+    "attempt": 1,
+    "execution_id": "052ae703db534a0c978e6c4480d36557",
+    "status": "done",
+    "branch": "t479_config_write_concurrency",
+    "base_sha": "ee55be3127fe95c8c99479468cd0990cc23faba7",
+    "tests": "定向配置/IPC/CLI 回归 94 passed；tsc --noEmit、lint、format、deadcode、arch 通过；全量 Vitest 3300 passed / 9 skipped / 357 failures，失败集中于 Node 24 better-sqlite3 native binding 与 t478 未合并的基线 cookie-login 测试。",
+    "blackbox": "electron-vite build 与 vite web build 通过（仅既有 CSS 优化 warning）；pnpm test 在 Vitest 前的 Node 24 ABI 重建阶段因 node-gyp 头文件解包 TAR_ENTRY_ERROR EINVAL fchown 阻塞。",
+    "review": "Round 1 code PASS / test PASS，零 blocking finding；review_scope=ed548fa518184248。，review scope 06c9c9f88453fb94",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/ipc/config-ipc.ts::handleConfigSave 在 run_config_transaction 临界区内做 base match 与提交；src/main/core/config/config-transfer.ts::import_config 在同一临界区内完成 config/vault 事务。",
+            "定向 IPC/transfer 回归 94 passed；t472 导入一致性回归继续通过。"
+        ],
+        "AC-002": [
+            "src/main/ipc/config-ipc.ts::handleConfigDuplicate/handleConfigCreateInstance 在队列内读取最新配置、计算并提交。",
+            "tests/integration/config/config-store.test.ts::concurrent serialized instance append + hide/delete/tombstone 回归通过。"
+        ],
+        "AC-003": [
+            "src/main/cli/import-config.ts 与桌面 IPC 共同调用 src/main/core/config/config-transfer.ts::import_config。",
+            "CLI import 与 IPC/transfer 定向回归通过，二者共享 canonical v2 导入路径。"
+        ],
+        "AC-004": [
+            "src/main/core/config/config-store.ts::run_serialized 是生产统一临界区；入口代码搜索未发现绕过队列的直接 configStore.save。",
+            "auto-seed、prune、save、import、duplicate、createInstance 均已接入该路径。"
+        ],
+        "AC-005": [
+            "tests/integration/config/config-store.test.ts::concurrent serialized read/compute/commit preserves non-overlapping language and launchAtLogin。",
+            "测试断言复制结果与另一字段修改同时存在，避免两者都成功但丢失非重叠修改。"
+        ],
+        "AC-006": [
+            "tests/integration/config/config-store.test.ts::keeps instance and tombstone updates from concurrent serialized transactions。",
+            "测试断言新实例与另一实例的 removedConnectorIds/tombstone 同时保留。"
+        ],
+        "AC-007": [
+            "src/main/ipc/config-ipc.ts::handleConfigSave 在最新状态变化时返回 CONFLICT；import/duplicate/create 在串行临界区完成显式操作。",
+            "tests/unit/ipc/config-ipc.test.ts::handleConfigSave returns CONFLICT when a concurrent save committed 通过。"
+        ],
+        "AC-008": [
+            "src/main/index.ts::auto-seed 与 src/main/core/config/config-store.ts::prune_unhealthy_plugins 均在 run_serialized 内基于 latest 计算。",
+            "tests/integration/config/config-store.test.ts::applies prune from the latest state without dropping a concurrent user change 通过。"
+        ]
+    },
+    "pending": [
+        "环境：Node 24 下 better-sqlite3 native binding 无法完成 ABI 重建；pnpm test 在 node-gyp 头文件解包时 TAR_ENTRY_ERROR EINVAL fchown 退出。",
+        "基线分支：t479 按工作流基于 t472，t478 未合并，因此全量 cookie-login 测试出现存量失败；不属于 t479 改动。"
+    ],
+    "findings": []
+}

@@ -257,12 +257,9 @@ describe("config-ipc", () => {
 
         const result = await handleConfigSave(deps, modified);
         expect(result.ok).toBe(true);
-        const savedArgs = deps.configStore.saveIfBaseMatches.mock.calls as [
-            AppConfiguration,
-            AppConfiguration,
-        ][];
+        const savedArgs = deps.configStore.save.mock.calls as [AppConfiguration][];
         expect(savedArgs.length).toBeGreaterThan(0);
-        const savedPlugin = savedArgs[0]?.[1]?.plugins.find((p) => p.stateId === "claude");
+        const savedPlugin = savedArgs[0]?.[0]?.plugins.find((p) => p.stateId === "claude");
         expect(savedPlugin?.parameterValues["API_KEY"]).toBeUndefined();
         expect(savedPlugin?.parameterValues["MODEL"]).toBe("gpt-4o");
     });
@@ -282,11 +279,8 @@ describe("config-ipc", () => {
         const result = await handleConfigSave(deps, modified);
 
         expect(result.ok).toBe(true);
-        const savedArgs = deps.configStore.saveIfBaseMatches.mock.calls as [
-            Record<string, unknown>,
-            Record<string, unknown>,
-        ][];
-        expect(savedArgs[0]?.[1]["accountOrders"]).toEqual({
+        const savedArgs = deps.configStore.save.mock.calls as [Record<string, unknown>][];
+        expect(savedArgs[0]?.[0]["accountOrders"]).toEqual({
             claude: ["cpa-main|label|Account B", "cpa-main|label|Account A"],
         });
     });
@@ -936,10 +930,7 @@ describe("config-ipc", () => {
         const result = await handleConfigSave(deps, incoming);
         expect(result.ok).toBe(true);
 
-        const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as Record<
-            string,
-            unknown
-        >;
+        const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
         expect(saved).toBeDefined();
         // collapsedAccounts must be preserved from disk, not wiped
         expect(saved["collapsedAccounts"]).toEqual({
@@ -952,10 +943,13 @@ describe("config-ipc", () => {
     it("handleConfigSave returns CONFLICT when a concurrent save committed (lost update guard)", async () => {
         const deps = createMockDeps();
         const originalConfig = structuredClone(await deps.configStore.load()) as AppConfiguration;
-        // The store's compare-and-save reports a concurrent writer committed
-        // between our load and save; the renderer write must be rejected, not
-        // silently overwrite the other window's changes.
-        deps.configStore.saveIfBaseMatches = vi.fn().mockResolvedValue("conflict");
+        // A concurrent writer commits after the renderer captured its base;
+        // the queued transaction must reject the stale renderer write rather
+        // than silently overwriting the other window's changes.
+        deps.configStore.load.mockResolvedValueOnce(originalConfig).mockResolvedValueOnce({
+            ...originalConfig,
+            launchAtLogin: !originalConfig.launchAtLogin,
+        });
 
         const { handleConfigSave } = await import("../../../src/main/ipc/config-ipc");
 
@@ -964,10 +958,6 @@ describe("config-ipc", () => {
         if (!result.ok) {
             expect(result.error.code).toBe("CONFLICT");
         }
-        expect(deps.configStore.saveIfBaseMatches).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.anything(),
-        );
         expect(deps.configStore.save).not.toHaveBeenCalled();
     });
 
@@ -1164,10 +1154,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as Record<
-                string,
-                unknown
-            >;
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
             expect(saved).toBeDefined();
             // After fix: post-merge schema validation strips unknown fields.
             expect(saved).not.toHaveProperty("extraDangerousField");
@@ -1220,7 +1207,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as {
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
                 plugins: { instanceId: string }[];
             };
             expect(saved).toBeDefined();
@@ -1265,7 +1252,7 @@ describe("config-ipc", () => {
             const result = await handleConfigSave(deps, incoming);
             expect(result.ok).toBe(true);
 
-            const saved = deps.configStore.saveIfBaseMatches.mock.calls[0]?.[1] as {
+            const saved = deps.configStore.save.mock.calls[0]?.[0] as {
                 plugins: { instanceId: string }[];
             };
             expect(saved).toBeDefined();
