@@ -214,6 +214,13 @@ export function install_settings_usageboard(get_config: () => AppConfiguration):
                 error: null,
             }),
             cancel: vi.fn().mockResolvedValue(undefined),
+            modelRouting: {
+                getConfig: vi.fn(),
+                getChannels: vi.fn(),
+                save: vi.fn(),
+                test: vi.fn(),
+                getSnapshot: vi.fn(),
+            },
         },
         theme: { set: vi.fn() },
         tray: {

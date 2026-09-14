@@ -6,6 +6,15 @@ import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type { TokenStatsSourceStatus } from "./token-stats";
 import type { DevPanelConfiguration, DevPanelScanStart, DevPanelState } from "./dev-panel";
 import type {
+    DevPanelModelRoutingChannels,
+    DevPanelModelRoutingConfig,
+    DevPanelModelRoutingSaveRequest,
+    DevPanelModelRoutingSaveResult,
+    DevPanelModelRoutingSnapshotInfo,
+    DevPanelModelRoutingTestRequest,
+    DevPanelModelRoutingTestResult,
+} from "./dev-panel-model-routing";
+import type {
     AgentSessionUsage,
     TokenStatsBucket,
     TokenStatsHeatmapCell,
@@ -144,6 +153,11 @@ export const IPC_CHANNELS = {
     DEV_PANEL_SCAN: "devPanel:scan",
     DEV_PANEL_STATUS: "devPanel:status",
     DEV_PANEL_CANCEL: "devPanel:cancel",
+    DEV_PANEL_MODEL_ROUTING_CONFIG: "devPanel:modelRoutingConfig",
+    DEV_PANEL_MODEL_ROUTING_CHANNELS: "devPanel:modelRoutingChannels",
+    DEV_PANEL_MODEL_ROUTING_SAVE: "devPanel:modelRoutingSave",
+    DEV_PANEL_MODEL_ROUTING_TEST: "devPanel:modelRoutingTest",
+    DEV_PANEL_MODEL_ROUTING_SNAPSHOT: "devPanel:modelRoutingSnapshot",
 
     /** t210: 会话历史 IPC 通道组（决策 15）。 */
     SESSION_HISTORY_OPEN: "sessionHistory:open",
@@ -637,6 +651,13 @@ export interface UsageboardApi {
         scan(configuration: DevPanelConfiguration): Promise<DevPanelScanStart>;
         getStatus(): Promise<DevPanelState>;
         cancel(): Promise<void>;
+        modelRouting: {
+            getConfig(): Promise<DevPanelModelRoutingConfig>;
+            getChannels(): Promise<DevPanelModelRoutingChannels>;
+            save(request: DevPanelModelRoutingSaveRequest): Promise<DevPanelModelRoutingSaveResult>;
+            test(request: DevPanelModelRoutingTestRequest): Promise<DevPanelModelRoutingTestResult>;
+            getSnapshot(): Promise<DevPanelModelRoutingSnapshotInfo | null>;
+        };
     };
     /** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
     window: {

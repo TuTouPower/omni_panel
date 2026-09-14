@@ -5,6 +5,7 @@ import type {
     DevPanelState,
 } from "../../shared/types/dev-panel";
 import { CommitHeatmap } from "../components/dev-panel/CommitHeatmap";
+import { ModelRoutingPanel } from "../components/dev-panel/ModelRoutingPanel";
 import {
     Alert,
     Badge,
@@ -206,6 +207,8 @@ export function DevPanelView() {
                         {form_error && <Alert className="mt-3">{form_error}</Alert>}
                         {error && <Alert className="mt-3">{error}</Alert>}
                     </Card>
+
+                    <ModelRoutingPanel />
 
                     {result && (
                         <>

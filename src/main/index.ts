@@ -82,6 +82,7 @@ import { create_token_stats_query_dispatcher } from "./core/token-stats/query-di
 import { host_from_platform } from "./core/token-stats/paths";
 import { build_token_stats_config } from "./core/token-stats/build-config";
 import { create_dev_panel_scan_manager } from "./core/dev-panel/scan-manager";
+import { create_dev_panel_model_routing_manager } from "./core/dev-panel/model-routing";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
@@ -483,6 +484,9 @@ void app.whenReady().then(async () => {
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
         const dev_panel_manager = create_dev_panel_scan_manager();
+        const dev_panel_model_routing = create_dev_panel_model_routing_manager({
+            snapshot_path: join(getDataRoot(), "dev-panel-model-routing.snapshot.json"),
+        });
 
         // Register IPC handlers
         await registerConnectorIpc({
@@ -745,7 +749,7 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
-            dev_panel_deps: { manager: dev_panel_manager },
+            dev_panel_deps: { manager: dev_panel_manager, model_routing: dev_panel_model_routing },
             token_stats_force_collect: () => {
                 tokenStatsManager.force_collect();
             },
@@ -1072,6 +1076,7 @@ void app.whenReady().then(async () => {
         });
         registerDevPanelIpc(ipcMain, {
             manager: dev_panel_manager,
+            model_routing: dev_panel_model_routing,
             open: () => dev_panel_window_controller.open_or_focus(),
         });
 

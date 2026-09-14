@@ -275,6 +275,14 @@
 - 结论：`AppConfiguration.devPanel` 保存扫描根、cutoff 和 author 过滤；桌面 IPC 与 LocalAPI/Web bridge 共享主进程 `DevPanelScanManager`。Git 只读命令使用无 shell `execFile`，按真实 `git-common-dir` 去重，结果携带 `scanned_at` 与单调 `data_version`。全局 Git 身份缺失时显示 warning 并降级为全部作者；committer 仅展示，不参与 author 过滤。
 - 替代：浏览器直接扫描、每个入口各自实现 Git 聚合、以及依赖外部迁移仓的静态热力图。
 
+## 031 开发面板模型路由由宿主统一执行（2026-09-15）
+
+- 背景：New API 模型路由需要读取用户外部 YAML、持有 session 凭证并同时服务桌面与 Web；将逻辑放入 renderer 会泄漏凭证并造成入口语义漂移。
+- 结论：由 `DevPanelModelRoutingManager` 在主进程统一解析配置、拉取渠道、计算 slot 映射、串行写入和模型自检。IPC 与 LocalAPI/bridge 只传公开模型、渠道变更和快照标识；session 只留在宿主。保存先保留 `models`/`model_mapping`/`priority` 快照，遇到首个失败停止后续写入、返回 success/failed/skipped，不自动回滚；两端统一要求显式确认。
+- 限制：New API 真实版本和真实模型回复保留 `[deploy]` 人工复核；s038 只验证无凭证本地适配边界。
+- 落地：t482。
+- 替代：renderer/browser 直接读取 YAML 或持有 token；桌面/Web 各自维护一套路由算法。
+
 ## 029 自启与暂停态由主进程单一来源维护（2026-09-14）
 
 - 背景：设置页只写 `launchAtLogin`，tray/CLI 各自直接改 OS 登录项；tray 另存本地暂停布尔值，无法反映 CLI/Web 的暂停。

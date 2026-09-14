@@ -106,6 +106,54 @@ describe("web usageboard bridge", () => {
         ]);
     });
 
+    it("t482 AC-010: devPanel model routing exposes config, channels, save, test, and snapshot", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(mock_response({ models: ["claude-sonnet"] }))
+            .mockResolvedValueOnce(mock_response({ fetched_at: "now", channels: [] }))
+            .mockResolvedValueOnce(mock_response({ success: true, snapshot: {}, changes: [] }))
+            .mockResolvedValueOnce(
+                mock_response({ success: true, model_name: "claude-sonnet", error: null }),
+            )
+            .mockResolvedValueOnce(mock_response({ snapshot_id: "snapshot-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.devPanel.modelRouting.getConfig()).resolves.toEqual({
+            models: ["claude-sonnet"],
+        });
+        await expect(api.devPanel.modelRouting.getChannels()).resolves.toEqual({
+            fetched_at: "now",
+            channels: [],
+        });
+        await expect(
+            api.devPanel.modelRouting.save({
+                selections: { default_model: "claude-sonnet" },
+                confirmed: true,
+            }),
+        ).resolves.toEqual({ success: true, snapshot: {}, changes: [] });
+        await expect(
+            api.devPanel.modelRouting.test({ slot: "default_model", model: "claude-sonnet" }),
+        ).resolves.toEqual({ success: true, model_name: "claude-sonnet", error: null });
+        await expect(api.devPanel.modelRouting.getSnapshot()).resolves.toEqual({
+            snapshot_id: "snapshot-1",
+        });
+        expect(fetch_mock.mock.calls.map((call) => call[0])).toEqual([
+            "/v1/devPanel/modelRouting/config",
+            "/v1/devPanel/modelRouting/channels",
+            "/v1/devPanel/modelRouting/save",
+            "/v1/devPanel/modelRouting/test",
+            "/v1/devPanel/modelRouting/snapshot",
+        ]);
+        expect(fetch_mock.mock.calls[2]?.[1]).toMatchObject({
+            method: "POST",
+            body: JSON.stringify({
+                selections: { default_model: "claude-sonnet" },
+                confirmed: true,
+            }),
+        });
+    });
+
     it("t480 AC-005: tokenStats.getBuckets forwards all bucket filters", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
         vi.stubGlobal("fetch", fetch_mock);

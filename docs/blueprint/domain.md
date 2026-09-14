@@ -121,6 +121,14 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 - 每个扫描根独立收集错误；根不存在、不可读、Git 命令失败或超时不会阻断其他根。重复在途请求复用同一 scan id，结果用 `scanned_at` 与单调 `data_version` 标记新鲜度。
 - 桌面 IPC 与 Web LocalAPI 共享同一扫描管理器，因此 Web 发起的扫描与桌面查询看到同一结果。
 
+## 开发面板模型路由（t482）
+
+模型路由只读用户指定的外部 `new_api.yaml` 与 Claude settings，不把凭证或预设模型列表迁入 OmniPanel 配置。主进程解析五个固定 slot 及 `[1m]` 变体，向 New API 拉取分页渠道并把公开的模型/映射字段归一后提供给桌面和 Web。
+
+- 保存只处理 `default` 且启用的渠道：支持目标模型的渠道增加 slot 映射，不支持的渠道移除 slot，但保留真实模型和非 slot 映射。
+- 保存前产生宿主本地快照，写入按渠道串行进行；`HTTP 200 + success:false` 计为失败，首次失败后后续渠道标记为未执行，不自动回滚。
+- UI 展示逐渠道结果和快照标识；桌面与 Web 都必须显式确认，token/session 不出现在响应、日志或页面。
+
 ## 会话历史消息提取（t209 / t436）
 
 四端（claude_code/opencode/kimi_code/grok）会话历史窗口的消息正文提取，来源与裁剪规则（需求决策 2/13，spike s015、finding d017；user 信封归一 t436 / p203）：

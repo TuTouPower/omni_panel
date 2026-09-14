@@ -101,6 +101,11 @@ import type { PauseState } from "../scheduler/scheduler-orchestrator";
 import type { LaunchAtLoginState } from "../launch-at-login";
 import { devPanelConfigurationSchema } from "../config/types";
 import type { DevPanelScanManager } from "../dev-panel/scan-manager";
+import type { DevPanelModelRoutingManager } from "../dev-panel/model-routing";
+import {
+    devPanelModelRoutingSaveRequestSchema,
+    devPanelModelRoutingTestRequestSchema,
+} from "../../../shared/schemas/dev-panel-model-routing";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -198,6 +203,7 @@ export interface ControlDeps {
 /** t481: Web and desktop share the same host-side read-only Git scan manager. */
 export interface DevPanelDeps {
     readonly manager: DevPanelScanManager;
+    readonly model_routing: DevPanelModelRoutingManager;
 }
 
 /** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
@@ -1071,6 +1077,64 @@ export function create_local_api_server(
         if (url.pathname === "/v1/devPanel/cancel" && req.method === "POST") {
             deps.manager.cancel();
             json_response(res, 200, null);
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/config" && req.method === "GET") {
+            try {
+                json_response(res, 200, await deps.model_routing.get_config());
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "读取模型路由配置失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/channels" && req.method === "GET") {
+            try {
+                json_response(res, 200, await deps.model_routing.get_channels());
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "读取渠道列表失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/save" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelModelRoutingSaveRequestSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "模型路由保存请求无效或未确认" });
+                return true;
+            }
+            try {
+                json_response(res, 200, await deps.model_routing.save(parsed.data));
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "保存模型路由失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/test" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelModelRoutingTestRequestSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "模型自检请求无效" });
+                return true;
+            }
+            try {
+                json_response(res, 200, await deps.model_routing.test(parsed.data));
+            } catch (error: unknown) {
+                json_response(res, 502, {
+                    error: error instanceof Error ? error.message : "模型自检失败",
+                });
+            }
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/modelRouting/snapshot" && req.method === "GET") {
+            json_response(res, 200, await deps.model_routing.get_snapshot_info());
             return true;
         }
         return false;

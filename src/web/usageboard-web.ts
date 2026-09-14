@@ -32,6 +32,10 @@ import type {
 import type { AppConfiguration } from "../shared/types/config";
 import type { DevPanelConfiguration } from "../shared/types/dev-panel";
 import type {
+    DevPanelModelRoutingSaveRequest,
+    DevPanelModelRoutingTestRequest,
+} from "../shared/types/dev-panel-model-routing";
+import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRollupFilters,
@@ -510,6 +514,32 @@ export function create_web_usageboard(): UsageboardApi {
                 ),
             cancel: async () => {
                 await post_json("/v1/devPanel/cancel", {});
+            },
+            modelRouting: {
+                getConfig: () =>
+                    get_json<
+                        Awaited<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getConfig"]>>
+                    >("/v1/devPanel/modelRouting/config"),
+                getChannels: () =>
+                    get_json<
+                        Awaited<
+                            ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getChannels"]>
+                        >
+                    >("/v1/devPanel/modelRouting/channels"),
+                save: (request: DevPanelModelRoutingSaveRequest) =>
+                    post_json("/v1/devPanel/modelRouting/save", request) as ReturnType<
+                        UsageboardApi["devPanel"]["modelRouting"]["save"]
+                    >,
+                test: (request: DevPanelModelRoutingTestRequest) =>
+                    post_json("/v1/devPanel/modelRouting/test", request) as ReturnType<
+                        UsageboardApi["devPanel"]["modelRouting"]["test"]
+                    >,
+                getSnapshot: () =>
+                    get_json<
+                        Awaited<
+                            ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getSnapshot"]>
+                        >
+                    >("/v1/devPanel/modelRouting/snapshot"),
             },
         },
         tray: {

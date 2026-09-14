@@ -114,6 +114,13 @@ describe("PopupView mirror isolation", () => {
                     error: null,
                 }),
                 cancel: vi.fn().mockResolvedValue(undefined),
+                modelRouting: {
+                    getConfig: vi.fn(),
+                    getChannels: vi.fn(),
+                    save: vi.fn(),
+                    test: vi.fn(),
+                    getSnapshot: vi.fn(),
+                },
             },
             theme: { set: vi.fn() },
             tray: {

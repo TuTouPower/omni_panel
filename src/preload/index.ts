@@ -33,6 +33,10 @@ import type {
 import type { AppConfiguration } from "../shared/types/config";
 import type { DevPanelConfiguration } from "../shared/types/dev-panel";
 import type {
+    DevPanelModelRoutingSaveRequest,
+    DevPanelModelRoutingTestRequest,
+} from "../shared/types/dev-panel-model-routing";
+import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
     TokenStatsRecordFilters,
@@ -437,6 +441,30 @@ const dev_panel_methods = {
         ),
     cancel: async () => {
         await invoke<null>(IPC_CHANNELS.DEV_PANEL_CANCEL);
+    },
+    modelRouting: {
+        getConfig: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getConfig"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_CONFIG),
+        getChannels: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getChannels"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_CHANNELS),
+        save: (request: DevPanelModelRoutingSaveRequest) =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["save"]>>>(
+                IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_SAVE,
+                request,
+            ),
+        test: (request: DevPanelModelRoutingTestRequest) =>
+            invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["test"]>>>(
+                IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_TEST,
+                request,
+            ),
+        getSnapshot: () =>
+            invoke<
+                UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["modelRouting"]["getSnapshot"]>>
+            >(IPC_CHANNELS.DEV_PANEL_MODEL_ROUTING_SNAPSHOT),
     },
 };
 

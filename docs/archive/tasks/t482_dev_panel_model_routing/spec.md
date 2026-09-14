@@ -102,8 +102,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- New API 渠道接口在目标版本的字段与分页形态（`data.items`、`p` 参数、`status` / `group` 字段、PUT 拒绝 `status` 字段）：`UNVERIFIED-SPIKE`，实施时以本地 mock 对齐旧实现契约，并在**不读取真实 token、不实际访问服务**的前提下按用户提供的记录核对；真实实例复核属 `[deploy]` 人工项，mock 通过不记为已核实。
-- 回复名解析对新型推理模型（`reasoning_content` 字段）的覆盖：`UNVERIFIED-SPIKE`，实施时以 fixture 覆盖已知形态；真实模型实测属 `[deploy]`，未做不伪 PASS。
+- New API 适配边界已由 s038 本地受控 HTTP spike 固定：渠道列表按 `data.items` 读取并使用 `p` 分页，`status` / `group` 为读取字段，PUT 不发送只读 `status`；真实目标版本字段差异仍属 `[deploy]` 人工复核项（不读取真实 token、不实际访问服务）。
+- 自检回复名解析已由 s038 fixture 覆盖普通 `model` 与嵌套 `reasoning_content.model`；未覆盖的真实模型回复仍属 `[deploy]` 人工复核项，不将 mock 结果表述为真实服务核实。
 
 ### 风险与回退
 
