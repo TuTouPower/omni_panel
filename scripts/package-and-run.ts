@@ -19,27 +19,29 @@ export function linux_proc_match_pattern(): string {
     return "linux-unpacked/omni_panel";
 }
 
+export function omni_proc_match_pattern(): string {
+    if (platform() === "win32") return "OmniPanel.exe";
+    if (platform() === "darwin") return "OmniPanel.app/Contents/MacOS/OmniPanel";
+    return linux_proc_match_pattern();
+}
+
 function kill_omni(): void {
     const is_win = platform() === "win32";
-    // t369 AC-001: 产物名 Linux 为 omni_panel（小写），pkill 大小写不匹配杀不掉旧实例。
-    const procs = is_win ? ["OmniPanel.exe"] : [linux_proc_match_pattern()];
-
-    for (const proc of procs) {
-        try {
-            if (is_win) {
-                execSync(`taskkill /f /t /im ${proc} 2>nul`, { stdio: "pipe" });
-            } else {
-                execSync(`pkill -f ${proc}`, { stdio: "pipe" });
-            }
-        } catch {
-            // process not running
+    const proc = omni_proc_match_pattern();
+    try {
+        if (is_win) {
+            execSync(`taskkill /f /t /im ${proc} 2>nul`, { stdio: "pipe" });
+        } else {
+            execSync(`pkill -f ${proc}`, { stdio: "pipe" });
         }
+    } catch {
+        // process not running
     }
 }
 
 function wait_for_exit(max_ms = 5000): void {
     const is_win = platform() === "win32";
-    const procs = is_win ? ["OmniPanel.exe"] : [linux_proc_match_pattern()];
+    const proc = omni_proc_match_pattern();
     const deadline = Date.now() + max_ms;
     while (Date.now() < deadline) {
         let running = false;
@@ -51,7 +53,7 @@ function wait_for_exit(max_ms = 5000): void {
                     .toString()
                     .includes("OmniPanel.exe");
             } else {
-                execSync(`pgrep -f ${procs[0] ?? linux_proc_match_pattern()}`, { stdio: "pipe" });
+                execSync(`pgrep -f ${proc}`, { stdio: "pipe" });
                 running = true;
             }
         } catch {
@@ -70,15 +72,10 @@ function wait_for_exit(max_ms = 5000): void {
     log("warning: OmniPanel still running after timeout, forcing kill");
     try {
         // t369 AC-002: Linux 分支用 pkill 小写名，不执行 win 的 >nul 串。
-        execSync(
-            is_win
-                ? "taskkill /f /t /im OmniPanel.exe 2>nul"
-                : `pkill -9 -f ${procs[0] ?? linux_proc_match_pattern()}`,
-            {
-                shell: is_win ? "cmd.exe" : "/bin/sh",
-                stdio: "pipe",
-            },
-        );
+        execSync(is_win ? "taskkill /f /t /im OmniPanel.exe 2>nul" : `pkill -9 -f ${proc}`, {
+            shell: is_win ? "cmd.exe" : "/bin/sh",
+            stdio: "pipe",
+        });
     } catch {
         // best effort
     }
@@ -117,13 +114,22 @@ function adhoc_sign_mac(app_dir: string): void {
 }
 
 function run_packaged(): void {
+    if (platform() === "darwin") {
+        const app_dir = mac_app_rel_path();
+        adhoc_sign_mac(app_dir);
+        const app_path = resolve(ROOT, app_dir);
+        if (!existsSync(app_path)) {
+            throw new Error(`packaged app not found: ${app_path}`);
+        }
+        log(`starting: ${app_path}`);
+        execSync(`open ${JSON.stringify(app_path)}`);
+        log("packaged app started");
+        return;
+    }
+
     let rel_path: string;
     if (platform() === "win32") {
         rel_path = "artifacts/win-unpacked/OmniPanel.exe";
-    } else if (platform() === "darwin") {
-        const app_dir = mac_app_rel_path();
-        adhoc_sign_mac(app_dir);
-        rel_path = `${app_dir}/Contents/MacOS/OmniPanel`;
     } else {
         rel_path = "artifacts/linux-unpacked/omni_panel";
     }
@@ -135,7 +141,7 @@ function run_packaged(): void {
 
     log(`starting: ${exe}`);
 
-    const child = spawn(exe, [], {
+    const child = spawn(exe, ["--gui"], {
         detached: true,
         stdio: "ignore",
     });

@@ -6,7 +6,11 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { execSync } from "node:child_process";
-import { linux_proc_match_pattern, run_package_build } from "../../../../scripts/package-and-run";
+import {
+    linux_proc_match_pattern,
+    omni_proc_match_pattern,
+    run_package_build,
+} from "../../../../scripts/package-and-run";
 
 const exec_mock = vi.mocked(execSync);
 
@@ -44,7 +48,7 @@ describe("package-and-run run_package_build", () => {
     });
 });
 
-describe("package-and-run linux proc match (p223)", () => {
+describe("package-and-run proc match patterns (p223)", () => {
     it("pattern 命中打包产物，不命中自身 tsx 命令行", () => {
         const pattern = linux_proc_match_pattern();
         const packaged =
@@ -52,5 +56,16 @@ describe("package-and-run linux proc match (p223)", () => {
         const self_cmdline = "node /home/testuser/testuser_ubuntu/omni_panel/scripts/package-and-run.ts";
         expect(packaged.includes(pattern)).toBe(true);
         expect(self_cmdline.includes(pattern)).toBe(false);
+    });
+
+    it("omni_proc_match_pattern 返回当前平台对应 pattern", () => {
+        const pattern = omni_proc_match_pattern();
+        if (process.platform === "darwin") {
+            expect(pattern).toBe("OmniPanel.app/Contents/MacOS/OmniPanel");
+        } else if (process.platform === "win32") {
+            expect(pattern).toBe("OmniPanel.exe");
+        } else {
+            expect(pattern).toBe("linux-unpacked/omni_panel");
+        }
     });
 });
