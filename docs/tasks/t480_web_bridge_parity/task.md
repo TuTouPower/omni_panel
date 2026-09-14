@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 删除「实现或者禁用或者移除」的随意降级分支：改为 Web 等价实现，逐项行为 AC（`recent`/`snapshot`/`forceCollect`/`getBuckets`/`getRecords`），filters 与 limit 不丢；宿主能力由宿主实现，呈现可异但不区权限。
+- 调用图已查（2026-09-14）：`snapshot`/`getBuckets`/`getRecords`/`recent` 当前无 renderer 调用点，`forceCollect` 仅 `SessionShell.tsx:163`；据此**只用于确定实现方式，不砍功能**。原 `UNVERIFIED-BLOCKING` 解除。
+- 保留日志导出错误语义统一、主题去重与 `config.save({theme})` 同步主进程 `nativeTheme`（`event-ipc.ts:78` 现状仅 THEME_SET 更新）。
+- 新增 AC-009（宿主能力经 bridge 执行、权限一致）；原 AC-001..008 编号保持不动。
+- 与 t476 协调：t476 定共享查询契约与校验，本 task 只做 bridge/HTTP 接线。
+
+调查路径：读 `usageboard-web.ts`（snapshot/recent/forceCollect/getBuckets/getRecords/logs/theme）、`preload/index.ts`、`server.ts:1091`、`log-ipc.ts`、`renderer/lib/theme.ts`、`event-ipc.ts`、d058。
 
 ## Review 处置
 

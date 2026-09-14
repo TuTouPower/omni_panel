@@ -24,7 +24,16 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 按用户已裁定的并发策略列出**逐入口表**（save 冲突拒绝；导入/复制/新建/CLI import 允许覆盖但串行；auto-seed/prune 增量应用），并据此新增 AC-005..008（丢失非重叠修改、tombstone 与实例列表不互覆、逐入口策略一致、auto-seed/prune 基于最新状态）。
+- 关键修正：排队必须覆盖「读最新状态 → 计算 → 提交」整段，不能只排 `save`。依据现状 `config-ipc.ts:294-318`（duplicate 先 `load` 再追加再 `save`）、`:337-374`（createInstance 同）、`config-store.ts:270-287`（compare-and-save 只保护单次写）。测试须断言「两入口都成功但丢掉非重叠修改」的场景，不只断言 JSON 完整。
+- 原 `UNVERIFIED-BLOCKING`（冲突策略需产品裁定）已由用户裁定解除，写入决策表。
+- 依赖 t472 保留；与 t472 分界写明（单次导入内部一致性 vs 跨入口并发）。
+
+调查路径：读 `config-ipc.ts`（save/duplicate/createInstance/importData）、`config-store.ts`（enqueue/compare-and-save/prune）、`auto-seed.ts`、`cli/import-config.ts`、d058。
 
 ## Review 处置
 

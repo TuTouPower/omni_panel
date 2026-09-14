@@ -24,7 +24,16 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 固定非阻塞启动 + 轮询契约与状态生命周期（`running/succeeded/canceled/failed/timeout`，`in_progress=false` 时必为终态）；旧 AC-001..005 语义变化，退役编号，新增 AC-006..011。
+- 查全部调用方：`poll_cookie_login`（`cookie_login_poll.ts:93-124`）是 `auth.cookieLogin`/`cookieLoginStatus` 唯一调用方，仅 `SettingsForm.tsx:245` 与 `WebLoginSection.tsx:48` 调用；无依赖阻塞返回 `saved` 的调用方。原 `UNVERIFIED-BLOCKING` 解除。
+- 两端无新增认证（t473 基线）；Web 触发登录窗口属宿主执行。删除违背统一非阻塞的「桌面内部等待可选」回退表述。
+- 真实网页登录/超时/取消属 `[deploy]`，不冒充已验证。
+
+调查路径：读 `auth-ipc.ts:45-146,230-243`、`server.ts:927-970`、`cookie_login_poll.ts`、`SettingsForm.tsx`、`WebLoginSection.tsx`、`preload/index.ts`、d058。
 
 ## Review 处置
 

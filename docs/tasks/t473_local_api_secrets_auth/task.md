@@ -1,7 +1,7 @@
 ---
 tid: "t473"
 slug: "local_api_secrets_auth"
-title: "密钥接口鉴权对齐：/v1/secrets 等纳入认证"
+title: "Web/桌面同权限无认证基线：共享业务操作对齐（原敏感鉴权方向废止）"
 status: "backlog"
 branch: ""
 worktree: ""
@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（方向反转为同权限无认证，未实施）
+
+用户裁定反转原安全方向，本轮据此重写 `spec.md` 并改标题（slug 仍为 `local_api_secrets_auth`，未改目录）：
+
+- 原「把 `/v1/secrets`、`/v1/config` 移入 `check_auth` 后（需 token）」的方案与「token 阻塞」全部删除；改为 Web 与桌面**同权限、都不需要认证**的产品边界。
+- 删除桌面侧 `assert_setting_route` 路由限制（`config-ipc.ts:680/686`），保留 `assert_valid_sender` 进程隔离。
+- 列出共享能力清单：配置、secret、登录、控制、刷新采集；核对两端现状（`server.ts:1582-1740`、`config-ipc.ts`、`auth-ipc.ts`、`index.ts:708-731`、`connector-ipc.ts`）。
+- 旧 AC-001..005 语义反转，**不复用编号**，退役后新增 AC-006..012（无凭据成功、两端一致、sender 防线、脱敏、破坏性确认、无新增 token）。
+- 明确本 task 只定共享权限基线；新增能力由 t480/t481/t482 实现，避免重复实现。保留合法输入校验/隔离，不新增 token 登录。
+
+调查路径：读 `server.ts`（handle_request 顺序、handle_web_config、handle_web_auth、handle_web_control、handle_web_connector）、`ipc/helpers.ts`、`config-ipc.ts`、`auth-ipc.ts`、d058。
 
 ## Review 处置
 

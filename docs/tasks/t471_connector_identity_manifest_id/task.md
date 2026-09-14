@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现。要点与依据：
+
+- 补全行为 AC：新增 AC-007（异平台/混合路径分隔符的尾段提取）、AC-008（manifest 身份与实例身份分离、多实例参数/启用态/secret 归属保留）、AC-009（未知 manifest 孤儿清理的脱敏日志与结果摘要）。原 AC-001..006 编号保持不动。
+- manifest 身份与实例身份分离：`manifestId` 只定位定义，`instanceId`/`stateId` 仍是实例身份与 `keyFor(instanceId, name)` 的 secret 归属键；迁移与 auto-seed 不得合并或改写实例身份。依据：本仓 `config/types.ts:36-47`（现无 manifestId）、`auto-seed.ts:23-74`（现按目录名/id 匹配）、`secret_param_keys.ts`（按实例取 secret keys）。
+- 异平台分隔符：现 `auto-seed.ts:30` 只用 `split(/[/\\]/)` 取尾段，未覆盖 UNC/盘符/结尾分隔符等；本 task 要求尾段提取覆盖这些形态（AC-007）。
+- 孤儿清理决策由用户确认（确实移除），本 task 不改决策，只补可观察性与脱敏日志要求（AC-009）。
+- 未知契约清单无阻塞项；`auto-seed` 的 `name.toLowerCase()===id` 兼容分支明确在迁移后删除。
+
+调查路径：读 `AGENTS.md`、`docs/blueprint/conventions.md`、`docs/findings/d058_multi_entry_impl_audit.md`；本仓源码 `src/shared/types/config.ts`、`src/main/core/config/{types,auto-seed,secret_param_keys,config-store}.ts`、`src/main/ipc/config-ipc.ts`、`src/main/core/connector/manifest-loader.ts`。
 
 ## Review 处置
 

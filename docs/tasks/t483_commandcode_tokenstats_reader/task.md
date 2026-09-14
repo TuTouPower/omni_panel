@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 采纳证据边界：s037 探针只统计 `inputTokens` 首末/递增，**不能证明** output/cache/cost 是累计，也不能排除 context 增长解释。原 spec 直接断言「usage 是累计值」「`fresh = inputTokens - cacheReadTokens`」已降级为待验证项，不当作已核实事实。
+- 未知契约清单新增 `UNVERIFIED-SPIKE`：各字段数值语义、包含关系、context 增长替代解释，由受控只读探针在用户放行轮次复核后再固定口径；无法安全取得明确期望则保持 `UNVERIFIED-BLOCKING`，不杜撰。
+- AC-005 加前置条件「仅当 AC-007 实验确认子集/同口径时成立」；新增 AC-007（先实验后固定口径）、AC-008（幂等/增量/重启）、AC-009（回落数值可复算）。原 AC-001..006 编号保持不动。
+- 明确公共类型/筛选接线归 t484，本 task 只负责 reader/collector/口径与采集侧，避免重复。
+- 本轮不读真实用户会话、不做上游实验。
+
+调查路径：读 `docs/spikes/s037_commandcode_token_session_source/report.md`、`docs/findings/d059_commandcode_session_jsonl_format.md`、`src/main/core/token-stats/codex-reader.ts`（累计差分/回落/幂等对齐基准）。
 
 ## Review 处置
 

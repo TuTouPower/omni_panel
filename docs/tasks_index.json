@@ -38,7 +38,7 @@
         {
             "tid": "t473",
             "slug": "local_api_secrets_auth",
-            "title": "密钥接口鉴权对齐：/v1/secrets 等纳入认证",
+            "title": "Web/桌面同权限无认证基线：共享业务操作对齐（原敏感鉴权方向废止）",
             "status": "backlog",
             "branch": "",
             "worktree": "",
@@ -158,7 +158,7 @@
             "review_limit": "5",
             "verify_limit": "5",
             "diff_anchor": "",
-            "depends_on": "",
+            "depends_on": "t481",
             "conflicts_with": "",
             "note": "读外部 new_api.yaml，渠道映射读写 UI + 自检；来源 project_manager model_routing.py 迁移",
             "dir": "docs/tasks/t482_dev_panel_model_routing"
@@ -191,7 +191,7 @@
             "verify_limit": "5",
             "diff_anchor": "",
             "depends_on": "",
-            "conflicts_with": "",
+            "conflicts_with": "t483",
             "note": "来源 s037/d059；commandcode-extractor.ts + locator + HistorySource + 两面板接线（AgentFilter/resume/logo/色）；拆分见 t483",
             "dir": "docs/tasks/t484_commandcode_session_history"
         }

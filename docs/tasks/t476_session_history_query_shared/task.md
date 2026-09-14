@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 固定每类查询的参数契约（必填/默认/整数上下界/非法值错误/排序分页过滤），逐参数正反用例；不再允许「同为接受或拒绝皆可」。依据本仓现状：`session-history-ipc.ts:78-82,243-248`（[1,10000] `INVALID_LIMIT`）、`server.ts:348-377`（query 必填 id/source/env，limit `min:1`）、`server.ts:420-462`（searchContent 逐字段校验）、`server.ts:540-551`（summaries 跳过畸形 loc）、`token-stats-ipc.ts:32-43`（[1,10000]）、`server.ts:1510-1516`（`min:0` 无上界）、`token-stats-store.ts:39,1532,1606`（默认 100/5000）、`trend-ipc.ts:31` 与 `server.ts:1549-1563`（days 回退 7）。
+- `sources_status`：确认来源为 `collector.ts:944` 写入 → `token-stats-store.ts:1953-1958` 读取 → IPC `token-stats-ipc.ts:185-188`；LocalAPI `/v1/dashboard` 现状缺该字段（`server.ts:1304-1307`），本 task 补齐。原 `UNVERIFIED-BLOCKING` 两项已由仓内调查解除。
+- summaries 畸形项统一策略定为「逐条跳过无效项、保留有效项」（对齐 LocalAPI 现状）。
+- 新增 AC-009（逐参数边界正反对用例）；原 AC-001..008 编号保持不动。
+- 分界：本 task 负责共享业务层契约；Web bridge 接线归 t480。
+
+调查路径：读 `session-history-ipc.ts`、`server.ts`（session history + token-stats + trend + dashboard）、`token-stats-ipc.ts`、`trend-ipc.ts`、`token-stats-store.ts`、`collector.ts`、`search_content_range.ts`、d058。
 
 ## Review 处置
 

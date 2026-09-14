@@ -24,7 +24,17 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 创建期不预测实施步骤。只记有追溯价值的内容；无事项时写“无”。
 
-无
+### 2026-09-14 文档修订（review 意见落地，未实施）
+
+本轮按已批准审阅意见修订 `spec.md`，未开始实现：
+
+- 自启改为「以 config 为准、双向应用」：删除原「只补开启、不做反向关闭」的回退矛盾；config 为假时也关闭 OS 登录项（AC-004 重写）。依据 `index.ts:1162-1167` 与 `client.ts:230-240` 现状均不回写 config。
+- Linux 本批能力明确不可用（`index.ts:1078` `hasLoginItemApi`、`client.ts:230-240`），不再作为未定产品问题留在未知契约清单。
+- orchestrator 暂停态查询：查实**当前无**只读查询 API（`scheduler-orchestrator.ts:41-48` 只公开 `startAll/rebuild/reconcile/suspend/resume/shutdown`，`pauseReasons` 私有），明确为本 task 新增实现，不再标 `UNVERIFIED-BLOCKING`。
+- 新增 AC-008（Web 自启由宿主执行、两端一致）、AC-009（无 API 平台返回能力不可用）；原 AC-001..007 编号保持不动，AC-008 由原 `[deploy]` 条目顺延为 AC-010。
+- Web/CLI/tray 同一实际调度状态（AC-005/007 保留）。
+
+调查路径：读 `index.ts:700-731,1047-1167`、`scheduler-orchestrator.ts`、`cli/client.ts:230-252`、d058。
 
 ## Review 处置
 
