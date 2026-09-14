@@ -28,25 +28,27 @@ describe("route values unified usage/setting/tray/agent", () => {
         expect(src).not.toContain('get_renderer_url("popup")');
     });
 
-    it("window-manager WINDOW_CONFIGS exposes four routes", () => {
+    it("window-manager WINDOW_CONFIGS exposes the dev route", () => {
         const src = read_source("src/main/window/window-manager.ts");
         expect(src).toContain('route: "usage"');
         expect(src).toContain('route: "setting"');
         expect(src).toContain('route: "tray"');
         expect(src).toContain('route: "agent"');
+        expect(src).toContain('route: "dev"');
     });
 
-    it("renderer use-route VALID_ROUTES is a closed set over the five routes", () => {
+    it("renderer use-route VALID_ROUTES is a closed set over the six routes", () => {
         const src = read_source("src/renderer/hooks/use-route.ts");
-        expect(src).toContain('new Set(["usage", "setting", "agent", "tray", "session"])');
+        expect(src).toContain('new Set(["usage", "setting", "agent", "tray", "session", "dev"])');
     });
 
-    it("App.tsx route->view switch consumes the five routes", () => {
+    it("App.tsx route->view switch consumes the six routes", () => {
         const src = read_source("src/renderer/App.tsx");
         expect(src).toContain('case "setting":');
         expect(src).toContain('case "tray":');
         expect(src).toContain('case "agent":');
         expect(src).toContain('case "session":');
+        expect(src).toContain('case "dev":');
         expect(src).toContain("default:");
         expect(src).not.toContain('case "settings":');
         expect(src).not.toContain('case "popup":');

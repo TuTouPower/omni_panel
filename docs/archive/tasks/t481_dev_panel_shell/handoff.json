@@ -1,0 +1,54 @@
+{
+    "tid": "t481",
+    "attempt": 1,
+    "execution_id": "d2af208481944a0084ffa0432bce275a",
+    "status": "done",
+    "branch": "t481_dev_panel_shell",
+    "base_sha": "35d8c0152c7c1ab6091736dfe675fb6a1519463c",
+    "tests": "定向 6 files / 116 tests 与 CommitHeatmap 1 test PASS；全量 Vitest 3704 tests 中 3336 PASS、2 skipped，366 个失败集中于 better-sqlite3 native binding 缺失和未修改 refresh-service 用例；tsc、ESLint、Prettier、dependency-cruiser PASS",
+    "blackbox": "Electron/Web 生产构建 PASS（仅既有 CSS 优化 warning）；真实临时 Git 仓库覆盖 cutoff、author/committer、身份过滤/降级、重叠根去重、缺失根继续和并发合并；直接 Knip 仅报告仓库既有 unlisted binaries/unused exports 基线项",
+    "review": "Round 1 code + test PASS，0 finding，reviewed_scope=57d4242ef0b93440，review scope c600292679f83668",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/index.ts::dev_panel_window_controller 与 TrayMenu 的开发面板入口使用 singleton open_or_focus；真实托盘弹出留部署态签收"
+        ],
+        "AC-002": [
+            "PanelTitleBar 的五面板 PanelName/panel_routes 与 tests/unit/renderer/components/PanelTitleBar.test.tsx 19 tests；WINDOW_CONFIGS.dev 与 dev route 接线"
+        ],
+        "AC-003": [
+            "src/web/usageboard-web.ts::devPanel 与 tests/unit/web/usageboard-web.test.ts t481 用例覆盖 #dev、scan/status/cancel；DevPanelView 提供配置与操作"
+        ],
+        "AC-004": [
+            "src/main/core/dev-panel/git-scanner.ts 返回命中计数、scanned_at、状态和逐根错误；tests/unit/main/dev-panel-git-scanner.test.ts 真实 Git fixture 通过"
+        ],
+        "AC-005": [
+            "scanner 在 author-date 本地日桶后按 commitCutoff 过滤，并按 author identity 过滤；current-user/global identity 回归通过"
+        ],
+        "AC-006": [
+            "src/renderer/components/dev-panel/CommitHeatmap.tsx 使用 ECharts calendar/visualMap/tooltip；CommitHeatmap.test.ts 断言日数据、色阶和仓库明细"
+        ],
+        "AC-007": [
+            "DevPanelView 保存 AppConfiguration.devPanel；appConfigurationSchema 显式声明 devPanel 与 devPanelWindowBounds；config-schema.test.ts 断言保留"
+        ],
+        "AC-008": [
+            "DevPanelView/CommitHeatmap 使用既有 UI 组件与 DESIGN token；type_space_token_unify、ESLint、Prettier 和 Electron/Web build 通过"
+        ],
+        "AC-009": [
+            "git-scanner 只使用 shell:false 的 git rev-parse/log；missing root + valid root 测试断言错误可见且有效根继续"
+        ],
+        "AC-010": [
+            "main/index.ts 将 LocalAPI 与 IPC 注册到同一 DevPanelScanManager；LocalAPI真实端口测试和 Web bridge endpoint 测试通过，结果含 scanned_at/data_version"
+        ],
+        "AC-011": [
+            "scanner 解析 %an/%ae 与 %cn/%ce 分离；global user identity 缺失时返回 identity_warning 并 effective_current_user_only=false，真实 fixture 通过"
+        ],
+        "AC-012": [
+            "scanner 按 canonical git-common-dir 去重；scanRoots 同时传 root 与 repo 的真实 Git 测试只得到一个 repository summary"
+        ],
+        "AC-013": [
+            "DevPanelScanManager 对 running start 返回同一 scan_id/reused=true；逐根错误、AbortController 取消和 30 秒 root boundary 已接线并经测试/代码复核"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

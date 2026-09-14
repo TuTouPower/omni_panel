@@ -70,6 +70,42 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/records"));
     });
 
+    it("t481 AC-003/010: devPanel opens hash and delegates scan state to the host", async () => {
+        const state = {
+            status: "completed" as const,
+            scan_id: "scan-1",
+            started_at: null,
+            result: null,
+            error: null,
+        };
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(
+                mock_response({ scan_id: "scan-1", status: "running", reused: false }),
+            )
+            .mockResolvedValueOnce(mock_response(state))
+            .mockResolvedValueOnce(mock_response(null));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        api.devPanel.open();
+        expect(window.location.hash).toBe("#dev");
+        await expect(
+            api.devPanel.scan({
+                scanRoots: ["/tmp/repos"],
+                commitCutoff: "2026-03-20",
+                currentUserOnly: false,
+            }),
+        ).resolves.toEqual({ scan_id: "scan-1", status: "running", reused: false });
+        await expect(api.devPanel.getStatus()).resolves.toEqual(state);
+        await expect(api.devPanel.cancel()).resolves.toBeUndefined();
+        expect(fetch_mock.mock.calls.map((call) => call[0])).toEqual([
+            "/v1/devPanel/scan",
+            "/v1/devPanel/status",
+            "/v1/devPanel/cancel",
+        ]);
+    });
+
     it("t480 AC-005: tokenStats.getBuckets forwards all bucket filters", async () => {
         const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(mock_response([]));
         vi.stubGlobal("fetch", fetch_mock);
@@ -618,7 +654,9 @@ describe("web usageboard bridge", () => {
         api.tray.on_autostart_state((enabled) => states.push(enabled));
 
         api.tray.toggle_autostart();
-        await vi.waitFor(() => expect(states).toContain(true));
+        await vi.waitFor(() => {
+            expect(states).toContain(true);
+        });
         expect(fetch_mock).toHaveBeenCalledWith(
             "/v1/control/autostart",
             expect.objectContaining({ method: "POST", body: "{}" }),

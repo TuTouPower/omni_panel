@@ -31,6 +31,7 @@ import type {
     TrendBulkResponse,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
+import type { DevPanelConfiguration } from "../shared/types/dev-panel";
 import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
@@ -421,6 +422,24 @@ const settings_methods = {
     },
 };
 
+const dev_panel_methods = {
+    open: () => {
+        void ipcRenderer.invoke(IPC_CHANNELS.DEV_PANEL_OPEN);
+    },
+    scan: (configuration: DevPanelConfiguration) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["scan"]>>>(
+            IPC_CHANNELS.DEV_PANEL_SCAN,
+            configuration,
+        ),
+    getStatus: () =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["devPanel"]["getStatus"]>>>(
+            IPC_CHANNELS.DEV_PANEL_STATUS,
+        ),
+    cancel: async () => {
+        await invoke<null>(IPC_CHANNELS.DEV_PANEL_CANCEL);
+    },
+};
+
 /** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
 const window_methods = {
     minimize: () => {
@@ -558,6 +577,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -597,6 +617,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -635,6 +656,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,
@@ -670,6 +692,7 @@ const api: UsageboardApi = (() => {
                 main_panel: main_panel_methods,
                 theme: theme_methods,
                 settings: settings_methods,
+                devPanel: dev_panel_methods,
                 window: window_methods,
                 tray: tray_methods,
                 auth: auth_methods,

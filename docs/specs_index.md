@@ -67,6 +67,7 @@
 |fix_add_account_wiring|Desktop|t110|2026-07-25|
 |web-panel|Web|迁移自 omni_powers，无，t325；t414 一页一条 EventSource；t474 宿主自启控制端点|2026-09-14|
 |web_config_parity|API + Web + Desktop|t277，t480|2026-09-14|
+|dev-panel|API + Web + Desktop|t481：开发面板 Git 扫描、热力图与 Web/桌面同权限通路|2026-09-15|
 |window-management|Desktop|迁移自 omni_powers，t099，t194，t297|2026-08-11|
 |device_login_full_url|Desktop|t156|2026-07-27|
 |move_session_meta_to_lib|Web|t124|2026-07-26|

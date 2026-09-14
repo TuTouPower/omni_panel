@@ -112,6 +112,15 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 - 用户自定义连接器在 `node:vm` 沙箱执行（t095 开放 `userData/connectors` 自定义脚本），`node:vm` 非真隔离，见 `architecture.md` §6 已知限制；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
 - 界面语言切换、检查更新、问卷、赞助入口当前为占位，未落地实现。
 
+## 开发面板 Git 活动（t481）
+
+开发面板只读扫描本机配置中的目录。目录发现与日志读取均经主进程无 shell `execFile("git", ...)` 完成，不写仓库文件；相互包含的目录、普通仓库和 worktree 按 `git rev-parse --git-common-dir` 去重。
+
+- commit 日桶使用 author date 的本机时区；统计字段来自 `%an/%ae`，committer `%cn/%ce` 只作为独立展示字段。
+- `currentUserOnly` 匹配全局 `user.name` + `user.email` 的 author；任一缺失时降级为全部作者并返回可读 warning。
+- 每个扫描根独立收集错误；根不存在、不可读、Git 命令失败或超时不会阻断其他根。重复在途请求复用同一 scan id，结果用 `scanned_at` 与单调 `data_version` 标记新鲜度。
+- 桌面 IPC 与 Web LocalAPI 共享同一扫描管理器，因此 Web 发起的扫描与桌面查询看到同一结果。
+
 ## 会话历史消息提取（t209 / t436）
 
 四端（claude_code/opencode/kimi_code/grok）会话历史窗口的消息正文提取，来源与裁剪规则（需求决策 2/13，spike s015、finding d017；user 信封归一 t436 / p203）：

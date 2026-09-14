@@ -80,4 +80,56 @@ describe("LocalAPI control state", () => {
             autostart: { available: false, enabled: false },
         });
     });
+
+    it("t481 exposes the host-owned dev panel scan state and actions", async () => {
+        const calls: string[] = [];
+        const state = {
+            status: "idle" as const,
+            scan_id: null,
+            started_at: null,
+            result: null,
+            error: null,
+        };
+        api = create_local_api_server({} as ObservationStore, {
+            port: 0,
+            dev_panel_deps: {
+                manager: {
+                    start: (configuration) => {
+                        calls.push(`scan:${configuration.commitCutoff}`);
+                        return { scan_id: "scan-1", status: "running", reused: false };
+                    },
+                    get_status: () => state,
+                    cancel: () => {
+                        calls.push("cancel");
+                    },
+                },
+            },
+        });
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const status = await fetch(`${base}/v1/devPanel/status`);
+        expect(status.status).toBe(200);
+        await expect(status.json()).resolves.toEqual(state);
+
+        const scan = await fetch(`${base}/v1/devPanel/scan`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                scanRoots: ["/tmp/repos"],
+                commitCutoff: "2026-03-20",
+                currentUserOnly: false,
+            }),
+        });
+        expect(scan.status).toBe(200);
+        await expect(scan.json()).resolves.toEqual({
+            scan_id: "scan-1",
+            status: "running",
+            reused: false,
+        });
+
+        const cancel = await fetch(`${base}/v1/devPanel/cancel`, { method: "POST" });
+        expect(cancel.status).toBe(200);
+        expect(calls).toEqual(["scan:2026-03-20", "cancel"]);
+    });
 });

@@ -258,4 +258,20 @@ describe("appConfigurationSchema", () => {
         expect(() => appConfigurationSchema.parse({ ...base, cacheMaxMb: 10001 })).toThrow();
         expect(() => appConfigurationSchema.parse({ ...base, cacheMaxMb: 0.5 })).toThrow();
     });
+
+    it("t481: preserves the explicit devPanel namespace", () => {
+        const dev_panel = {
+            scanRoots: ["~/kar/code", "/tmp/repos"],
+            commitCutoff: "2026-03-20",
+            currentUserOnly: true,
+        };
+        const parsed = appConfigurationSchema.parse({
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+            devPanel: dev_panel,
+        });
+        expect(parsed.devPanel).toEqual(dev_panel);
+    });
 });

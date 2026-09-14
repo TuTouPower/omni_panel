@@ -182,6 +182,18 @@ export function install_popup_usageboard() {
             open: vi.fn(),
             openConnectorsDir: vi.fn(),
         },
+        devPanel: {
+            open: vi.fn(),
+            scan: vi.fn().mockResolvedValue({ scan_id: "test", status: "running", reused: false }),
+            getStatus: vi.fn().mockResolvedValue({
+                status: "idle",
+                scan_id: null,
+                started_at: null,
+                result: null,
+                error: null,
+            }),
+            cancel: vi.fn().mockResolvedValue(undefined),
+        },
         theme: { set: vi.fn() },
         tray: {
             open_panel: vi.fn(),

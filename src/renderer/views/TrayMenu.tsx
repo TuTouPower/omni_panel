@@ -80,6 +80,14 @@ export function TrayMenu() {
                 },
             },
             {
+                icon: "code",
+                label_zh: "开发面板",
+                label_en: "Dev Panel",
+                action: () => {
+                    window.usageboard.devPanel.open();
+                },
+            },
+            {
                 icon: "open",
                 label_zh: "网页访问",
                 label_en: "Web Panel",

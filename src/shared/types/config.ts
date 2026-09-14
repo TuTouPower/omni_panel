@@ -1,4 +1,5 @@
 import type { AppLanguage } from "./plugin";
+import type { DevPanelConfiguration } from "./dev-panel";
 
 export interface ProxyConfiguration {
     readonly url: string;
@@ -67,6 +68,10 @@ export interface AppConfiguration {
     readonly agentWindowBounds?: FloatingBoundsConfiguration;
     /** t251: 会话面板窗口 bounds（保存/恢复）。 */
     readonly historyWindowBounds?: FloatingBoundsConfiguration;
+    /** t481: 开发面板窗口 bounds（保存/恢复）。 */
+    readonly devPanelWindowBounds?: FloatingBoundsConfiguration;
+    /** t481: persisted development panel scan settings. */
+    readonly devPanel?: DevPanelConfiguration;
     readonly accountOverrides?: AccountOverrides;
     readonly accountLabels?: AccountLabels;
     readonly collapsedAccounts?: Readonly<Record<string, boolean>>;

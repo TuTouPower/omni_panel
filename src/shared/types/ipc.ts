@@ -4,6 +4,7 @@ import type { AppConfiguration } from "./config";
 import type { CookieLoginErrorCode, CookieLoginLifecycle } from "../lib/cookie-login";
 import type { GrokLoginResult, KimiLoginResult } from "./oauth";
 import type { TokenStatsSourceStatus } from "./token-stats";
+import type { DevPanelConfiguration, DevPanelScanStart, DevPanelState } from "./dev-panel";
 import type {
     AgentSessionUsage,
     TokenStatsBucket,
@@ -137,6 +138,12 @@ export const IPC_CHANNELS = {
     TOKEN_STATS_OPEN: "tokenStats:open",
     /** t434: 立即触发一轮 token-stats 采集并重置自动采集计时。 */
     TOKEN_STATS_FORCE_COLLECT: "tokenStats:forceCollect",
+
+    /** t481: read-only Git history development panel. */
+    DEV_PANEL_OPEN: "devPanel:open",
+    DEV_PANEL_SCAN: "devPanel:scan",
+    DEV_PANEL_STATUS: "devPanel:status",
+    DEV_PANEL_CANCEL: "devPanel:cancel",
 
     /** t210: 会话历史 IPC 通道组（决策 15）。 */
     SESSION_HISTORY_OPEN: "sessionHistory:open",
@@ -624,6 +631,12 @@ export interface UsageboardApi {
         open(context?: SettingsOpenContext): void;
         /** Open the user connectors script directory in the OS file explorer. */
         openConnectorsDir(): void;
+    };
+    devPanel: {
+        open(): void;
+        scan(configuration: DevPanelConfiguration): Promise<DevPanelScanStart>;
+        getStatus(): Promise<DevPanelState>;
+        cancel(): Promise<void>;
     };
     /** t252: 通用窗口控制（四面板自绘控制区复用，按 sender 路由）。 */
     window: {

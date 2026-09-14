@@ -65,6 +65,7 @@ import { registerAuthIpc, handleCookieLogin, trySilentCookieRefresh } from "./ip
 import { registerGrokAuthIpc } from "./ipc/grok_auth_ipc";
 import { registerKimiAuthIpc } from "./ipc/kimi_auth_ipc";
 import { registerTokenStatsIpc } from "./ipc/token-stats-ipc";
+import { registerDevPanelIpc } from "./ipc/dev-panel-ipc";
 import { registerTrendIpc } from "./ipc/trend-ipc";
 import { registerSessionHistoryIpc } from "./ipc/session-history-ipc";
 import { flush_session_index } from "./core/session-history/session-locator";
@@ -80,6 +81,7 @@ import { create_token_stats_manager } from "./core/token-stats/manager";
 import { create_token_stats_query_dispatcher } from "./core/token-stats/query-dispatcher";
 import { host_from_platform } from "./core/token-stats/paths";
 import { build_token_stats_config } from "./core/token-stats/build-config";
+import { create_dev_panel_scan_manager } from "./core/dev-panel/scan-manager";
 import { create_local_api_server } from "./core/local-api/server";
 import type { LocalAPIServer } from "./core/local-api/server";
 import type { AppConfiguration } from "../shared/types/config";
@@ -480,6 +482,7 @@ void app.whenReady().then(async () => {
             },
         });
         tokenStatsManager.start(build_token_stats_config(currentConfigSnapshot));
+        const dev_panel_manager = create_dev_panel_scan_manager();
 
         // Register IPC handlers
         await registerConnectorIpc({
@@ -496,10 +499,15 @@ void app.whenReady().then(async () => {
         // t251: 会话/代理面板窗口 bounds 保存与恢复（复用设置窗口先例）。
         // createWindowFor 后应用保存的 bounds + 注册 move/resize 保存。
         const create_panel_window = (
-            key: "agent" | "session",
+            key: "agent" | "session" | "dev",
             route_query?: Record<string, string>,
         ) => {
-            const bounds_key = key === "agent" ? "agentWindowBounds" : "historyWindowBounds";
+            const bounds_key =
+                key === "agent"
+                    ? "agentWindowBounds"
+                    : key === "session"
+                      ? "historyWindowBounds"
+                      : "devPanelWindowBounds";
             const win = windowManager.createWindowFor(key, route_query ? { route_query } : {});
             const saved = get_saved_bounds(currentConfigSnapshot, bounds_key);
             if (!apply_window_bounds(win, saved)) {
@@ -737,6 +745,7 @@ void app.whenReady().then(async () => {
             token_stats_store: tokenStatsStore,
             token_stats_running: () => tokenStatsManager.is_running(),
             token_stats_query_dispatcher: tokenStatsQueryDispatcher,
+            dev_panel_deps: { manager: dev_panel_manager },
             token_stats_force_collect: () => {
                 tokenStatsManager.force_collect();
             },
@@ -1057,6 +1066,13 @@ void app.whenReady().then(async () => {
         // existing window instead of stacking multiple agent BrowserWindows.
         const agent_window_controller = create_agent_window_controller({
             create_window: () => create_panel_window("agent"),
+        });
+        const dev_panel_window_controller = create_agent_window_controller({
+            create_window: () => create_panel_window("dev"),
+        });
+        registerDevPanelIpc(ipcMain, {
+            manager: dev_panel_manager,
+            open: () => dev_panel_window_controller.open_or_focus(),
         });
 
         cleanupPopupIpc = registerPopupIpc({
@@ -1383,6 +1399,8 @@ void app.whenReady().then(async () => {
                 settingsWin = null;
             }
             agent_window_controller.shutdown();
+            dev_panel_manager.cancel();
+            dev_panel_window_controller.shutdown();
             history_window_controller.shutdown();
             session_history_service.unsubscribe_all();
             main_panel_controller?.close_for_mode_switch();

@@ -30,6 +30,7 @@ import type {
     SettingsOpenContext,
 } from "../shared/types/ipc";
 import type { AppConfiguration } from "../shared/types/config";
+import type { DevPanelConfiguration } from "../shared/types/dev-panel";
 import type {
     TokenStatsHeatmapFilters,
     TokenStatsHourFilters,
@@ -493,6 +494,22 @@ export function create_web_usageboard(): UsageboardApi {
             },
             openConnectorsDir: () => {
                 unsupported_web_capability("settings.openConnectorsDir");
+            },
+        },
+        devPanel: {
+            open: () => {
+                window.location.hash = "dev";
+            },
+            scan: (configuration: DevPanelConfiguration) =>
+                post_json("/v1/devPanel/scan", configuration) as ReturnType<
+                    UsageboardApi["devPanel"]["scan"]
+                >,
+            getStatus: () =>
+                get_json<Awaited<ReturnType<UsageboardApi["devPanel"]["getStatus"]>>>(
+                    "/v1/devPanel/status",
+                ),
+            cancel: async () => {
+                await post_json("/v1/devPanel/cancel", {});
             },
         },
         tray: {

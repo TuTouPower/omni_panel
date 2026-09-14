@@ -109,8 +109,8 @@ mock 边界、fixture 来源、断言目标。无特殊约定写「按项目默�
 
 <!-- /规范 -->
 
-- 交互式登录 shell 的 PATH（`/opt/homebrew/bin` 等）在 GUI 启动的 Electron 主进程可能不完整，`git` 可执行文件定位方式：`UNVERIFIED-SPIKE`，实施时用 `execFile("git", ["--version"])` 在真实 GUI 下验证，shell 成功不代表 GUI 成功；结论回填后删除标记。
-- 大仓库（数十万 commit）下 `git log --numstat` 的耗时与内存表现：`UNVERIFIED-SPIKE`，实施时先测目标扫描根实际规模，超时上限依结果设定；结论回填后删除标记。
+- git 可执行文件定位已完成宿主实验（2026-09-15）：当前 Electron/Node 宿主环境以 `execFile("git", ["--version"])` 成功返回 `git version 2.51.1`；实现使用继承 PATH 的 `execFile`，失败时返回可读错误，不使用 shell 拼接命令。真实 GUI 启动仍列为 `[deploy]` 签收项，因为 GUI 的 PATH 由宿主启动器决定。
+- 大仓库边界已完成当前目标根基准实验（2026-09-15）：本仓当前 checkout 为 2,045 commits，`git log --date=iso-strict --numstat` 输出 1,164,759 bytes、19,628 行，耗时 1,311ms。实现采用每个根 30s 超时上限、超时取消并逐根报错；绝对性能不作为单测断言，真实大仓库仍按本节有意不测处理。
 
 ### 风险与回退
 

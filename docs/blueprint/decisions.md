@@ -269,6 +269,12 @@
 - 落地：t472（`config-transfer.ts`、IPC/LocalAPI/CLI 接线与回归测试）。
 - 替代：桌面 v1 wrapper、LocalAPI/CLI 裸 config 导入路径。
 
+## 030 开发面板 Git 扫描由宿主统一执行（2026-09-15）
+
+- 背景：开发面板需要把桌面与 Web 的 commit 历史统计统一起来，同时避免浏览器自行读取本机仓库或各入口结果漂移。
+- 结论：`AppConfiguration.devPanel` 保存扫描根、cutoff 和 author 过滤；桌面 IPC 与 LocalAPI/Web bridge 共享主进程 `DevPanelScanManager`。Git 只读命令使用无 shell `execFile`，按真实 `git-common-dir` 去重，结果携带 `scanned_at` 与单调 `data_version`。全局 Git 身份缺失时显示 warning 并降级为全部作者；committer 仅展示，不参与 author 过滤。
+- 替代：浏览器直接扫描、每个入口各自实现 Git 聚合、以及依赖外部迁移仓的静态热力图。
+
 ## 029 自启与暂停态由主进程单一来源维护（2026-09-14）
 
 - 背景：设置页只写 `launchAtLogin`，tray/CLI 各自直接改 OS 登录项；tray 另存本地暂停布尔值，无法反映 CLI/Web 的暂停。

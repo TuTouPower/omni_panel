@@ -99,6 +99,8 @@ import {
 } from "../query-contract";
 import type { PauseState } from "../scheduler/scheduler-orchestrator";
 import type { LaunchAtLoginState } from "../launch-at-login";
+import { devPanelConfigurationSchema } from "../config/types";
+import type { DevPanelScanManager } from "../dev-panel/scan-manager";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -191,6 +193,11 @@ export interface ControlDeps {
     readonly autostart?: () => Promise<LaunchAtLoginState> | LaunchAtLoginState;
     /** Read the actual orchestrator/login-item state for Web/CLI consumers. */
     readonly get_state?: () => Promise<ControlState> | ControlState;
+}
+
+/** t481: Web and desktop share the same host-side read-only Git scan manager. */
+export interface DevPanelDeps {
+    readonly manager: DevPanelScanManager;
 }
 
 /** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
@@ -772,6 +779,7 @@ export function create_local_api_server(
         connector_deps?: ConnectorIpcDeps;
         session_history_deps?: SessionHistoryDeps;
         control_deps?: ControlDeps;
+        dev_panel_deps?: DevPanelDeps;
         auth_deps?: AuthDeps;
         web_root?: string;
         /** t279: web 日志导出取当前活跃日志段（对齐桌面 exportCurrentLog 的 userDataPath）。 */
@@ -788,6 +796,7 @@ export function create_local_api_server(
     const connector_deps = options?.connector_deps;
     const session_history_deps = options?.session_history_deps;
     const control_deps = options?.control_deps;
+    const dev_panel_deps = options?.dev_panel_deps;
     const auth_deps = options?.auth_deps;
     const web_root = options?.web_root;
     const user_data_path = options?.user_data_path;
@@ -1038,6 +1047,35 @@ export function create_local_api_server(
         send_result(res, handleRendererLog(parsed.value));
     }
 
+    async function handle_web_dev_panel(
+        req: IncomingMessage,
+        res: ServerResponse,
+        url: URL,
+        deps: DevPanelDeps,
+    ): Promise<boolean> {
+        if (url.pathname === "/v1/devPanel/status" && req.method === "GET") {
+            json_response(res, 200, deps.manager.get_status());
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/scan" && req.method === "POST") {
+            const body = await read_json_body(req, res);
+            if (!body.ok) return true;
+            const parsed = devPanelConfigurationSchema.safeParse(body.value);
+            if (!parsed.success) {
+                json_response(res, 400, { error: "Invalid dev panel configuration" });
+                return true;
+            }
+            json_response(res, 200, deps.manager.start(parsed.data));
+            return true;
+        }
+        if (url.pathname === "/v1/devPanel/cancel" && req.method === "POST") {
+            deps.manager.cancel();
+            json_response(res, 200, null);
+            return true;
+        }
+        return false;
+    }
+
     function handle_request(req: IncomingMessage, res: ServerResponse): void {
         void (async () => {
             const url = new URL(req.url ?? "/", "http://local");
@@ -1086,6 +1124,9 @@ export function create_local_api_server(
                 return;
             }
             if (control_deps && (await handle_web_control(req, res, url, control_deps))) {
+                return;
+            }
+            if (dev_panel_deps && (await handle_web_dev_panel(req, res, url, dev_panel_deps))) {
                 return;
             }
             if (url.pathname === "/v1/theme" && req.method === "POST") {
