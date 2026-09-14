@@ -171,7 +171,7 @@ function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
 }
 
-/** t360: 取某 provider 的所有启用实例 id（enabled && executablePath 匹配该 def）。 */
+/** t360: 取某 provider 的所有启用实例 id（enabled && manifestId 匹配该 def）。 */
 function active_instance_ids_for_provider(
     allDefinitions: ConnectorDefinition[],
     plugins: AppConfiguration["plugins"],
@@ -180,7 +180,7 @@ function active_instance_ids_for_provider(
     const def = allDefinitions.find((d) => d.manifest.provider === provider);
     if (!def) return [];
     return plugins
-        .filter((plugin) => plugin.enabled && plugin.executablePath === def.executablePath)
+        .filter((plugin) => plugin.enabled && plugin.manifestId === def.manifest.id)
         .map((plugin) => plugin.instanceId);
 }
 
@@ -233,18 +233,17 @@ void app.whenReady().then(async () => {
         // user data directory. Otherwise initLogging/vault/observation-store
         // create the directory first, and config-store mistakes a fresh start
         // for a "config.json missing but directory exists" data-loss scenario.
-        const configPath = getConfigPath();
-        const configStore = createConfigStore(configPath);
-
         const bundledDir = getBundledConnectorsDir();
         const userDir = getUserConnectorsDir();
         const allDefinitions = await discover_connector_definitions(bundledDir, userDir);
+        const configPath = getConfigPath();
+        const configStore = createConfigStore(configPath, allDefinitions);
 
         let currentConfig = await configStore.load();
         // t195: manifest 健康检查从 load 抽出，启动期一次性执行（孤儿/非法
         // provider 插件清理并持久化）；运行期 load 走内存缓存。
         currentConfig = await configStore.prune_unhealthy_plugins(
-            new Set(allDefinitions.map((definition) => definition.executablePath)),
+            new Set(allDefinitions.map((definition) => definition.manifest.id)),
         );
         const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
             currentConfig.plugins,
@@ -312,7 +311,7 @@ void app.whenReady().then(async () => {
                 cli_args.command.options.configPath,
             );
             currentConfig = await configStore.prune_unhealthy_plugins(
-                new Set(allDefinitions.map((definition) => definition.executablePath)),
+                new Set(allDefinitions.map((definition) => definition.manifest.id)),
             );
         }
 

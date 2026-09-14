@@ -83,6 +83,7 @@ function createMockDeps() {
         {
             instanceId: "claude",
             stateId: "claude",
+            manifestId: "claude",
             name: "Claude",
             enabled: true,
             executablePath: claude_definition.executablePath,
@@ -251,6 +252,7 @@ describe("connector-ipc", () => {
             {
                 instanceId: "deepseek-1",
                 stateId: "deepseek-1",
+                manifestId: "deepseek",
                 name: "DeepSeek",
                 enabled: true,
                 executablePath: "connectors\\deepseek",
@@ -307,6 +309,7 @@ describe("connector-ipc", () => {
             {
                 instanceId: "cpa-1",
                 stateId: "cpa-1",
+                manifestId: "cpa",
                 name: "CPA",
                 enabled: true,
                 executablePath: "/connectors/cpa",
@@ -317,6 +320,7 @@ describe("connector-ipc", () => {
             {
                 instanceId: "cpa-2",
                 stateId: "cpa-2",
+                manifestId: "cpa",
                 name: "CPA",
                 enabled: true,
                 executablePath: "/connectors/cpa",
@@ -367,6 +371,7 @@ describe("connector-ipc", () => {
                 {
                     instanceId: "grok-1",
                     stateId: "grok-1",
+                    manifestId: "grok",
                     name: "Grok",
                     enabled: true,
                     executablePath: "/connectors/grok",
@@ -408,6 +413,7 @@ describe("connector-ipc", () => {
                 {
                     instanceId: "exa-1",
                     stateId: "exa-1",
+                    manifestId: "exa",
                     name: "Exa",
                     enabled: true,
                     executablePath: "/connectors/exa",
@@ -455,6 +461,7 @@ describe("connector-ipc", () => {
                 {
                     instanceId: "cpa-1",
                     stateId: "cpa-1",
+                    manifestId: "cpa",
                     name: "CPA",
                     enabled: true,
                     executablePath: "/connectors/cpa",
@@ -497,6 +504,7 @@ describe("connector-ipc", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
+                    manifestId: "opencode_go",
                     name: "OpenCode Go",
                     enabled: true,
                     executablePath: "/connectors/opencode_go",
@@ -537,6 +545,7 @@ describe("connector-ipc", () => {
                 {
                     instanceId: "mimo-1",
                     stateId: "mimo-1",
+                    manifestId: "mimo",
                     name: "MiMo",
                     enabled: true,
                     executablePath: "/connectors/mimo",
@@ -711,6 +720,7 @@ describe("connector-ipc", () => {
                         {
                             instanceId: "claude-1",
                             stateId: "claude-1",
+                            manifestId: "claude",
                             name: "Claude",
                             enabled: true,
                             executablePath: "/connectors/claude",

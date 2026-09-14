@@ -97,6 +97,7 @@ describe("use_config", () => {
                 {
                     instanceId: "ext-1",
                     stateId: "ext-1",
+                    manifestId: "external",
                     name: "External",
                     enabled: false,
                     executablePath: "",
@@ -188,6 +189,7 @@ describe("use_config", () => {
                 {
                     instanceId: "local-1",
                     stateId: "local-1",
+                    manifestId: "local",
                     name: "Local",
                     enabled: true,
                     executablePath: "",

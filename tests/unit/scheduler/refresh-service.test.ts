@@ -11,6 +11,7 @@ function plugin_config(instance_id = "deepseek-1"): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: instance_id,
+        manifestId: "deepseek",
         name: "DeepSeek",
         enabled: true,
         executablePath: "/connectors/deepseek",
@@ -218,6 +219,7 @@ function oauth_config(instance_id = "grok-1"): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: instance_id,
+        manifestId: "grok",
         name: "Grok",
         enabled: true,
         executablePath: "/connectors/grok",

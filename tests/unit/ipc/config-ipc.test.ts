@@ -57,6 +57,7 @@ function createMockDeps() {
             {
                 instanceId: "claude",
                 stateId: "claude",
+                manifestId: "claude",
                 name: "Claude",
                 enabled: true,
                 executablePath: "/plugins/claude.py",
@@ -298,6 +299,7 @@ describe("config-ipc", () => {
         const fakePlugin: AppConfiguration["plugins"][number] = {
             instanceId: "unknown-id",
             stateId: "unknown-id",
+            manifestId: "unknown",
             name: "Fake",
             enabled: true,
             executablePath: "/plugins/fake.py",
@@ -398,6 +400,7 @@ describe("config-ipc", () => {
                 {
                     instanceId: "new-instance",
                     stateId: "new-instance",
+                    manifestId: "new",
                     name: "New",
                     enabled: true,
                     executablePath: "/plugins/new.py",
@@ -451,6 +454,7 @@ describe("config-ipc", () => {
                 {
                     instanceId: "claude",
                     stateId: "claude",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",
@@ -534,7 +538,7 @@ describe("config-ipc", () => {
         expect(result.data.saved).toBe(false);
     });
 
-    it("handleConfigImportData rejects unknown executable paths before writes", async () => {
+    it("handleConfigImportData rejects unknown manifest ids before writes", async () => {
         const deps = {
             ...createMockDeps(),
             definitions: [
@@ -552,6 +556,7 @@ describe("config-ipc", () => {
                 {
                     instanceId: "unknown",
                     stateId: "unknown",
+                    manifestId: "unknown",
                     name: "Unknown",
                     enabled: true,
                     executablePath: "/plugins/unknown",
@@ -569,11 +574,43 @@ describe("config-ipc", () => {
         expect(result.ok).toBe(false);
         if (!result.ok) {
             expect(result.error.code).toBe("VALIDATION_ERROR");
-            expect(result.error.message).toContain("未知连接器路径");
+            expect(result.error.message).toContain("未知连接器 manifest id");
         }
         expect(deps.configStore.save).not.toHaveBeenCalled();
         expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
         expect(deps.configStore.prune_unhealthy_plugins).not.toHaveBeenCalled();
+    });
+
+    it("handleConfigImportData remaps executablePath from manifestId", async () => {
+        const definition: ConnectorDefinition = {
+            directory: "/local/connectors/claude",
+            executablePath: "/local/connectors/claude",
+            manifest: {
+                id: "claude",
+                provider: "claude",
+                capabilities: ["poll"],
+                parameters: [],
+                poll: {
+                    request: { endpoint: "default", path: "/usage", method: "GET" },
+                    map: {},
+                },
+            },
+        };
+        const deps = { ...createMockDeps(), definitions: [definition] };
+        const loaded = (await deps.configStore.load()) as AppConfiguration;
+        const source = loaded.plugins[0];
+        if (!source) throw new Error("missing test connector");
+        const incoming: AppConfiguration = {
+            ...loaded,
+            plugins: [{ ...source, executablePath: "/linux/connectors/claude" }],
+        };
+        const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
+
+        const result = await handleConfigImportData(deps, incoming);
+
+        expect(result.ok).toBe(true);
+        const saved = deps.configStore.save.mock.calls[0]?.[0] as AppConfiguration | undefined;
+        expect(saved?.plugins[0]?.executablePath).toBe("/local/connectors/claude");
     });
 
     it("handleConfigImport reads and applies config + secrets", async () => {
@@ -740,6 +777,7 @@ describe("config-ipc", () => {
                     {
                         instanceId: "grok-1",
                         stateId: "grok-1",
+                        manifestId: "grok",
                         name: "Grok",
                         enabled: true,
                         executablePath: "/connectors/grok",
@@ -787,6 +825,7 @@ describe("config-ipc", () => {
                     {
                         instanceId: "grok-1",
                         stateId: "grok-1",
+                        manifestId: "grok",
                         name: "Grok",
                         enabled: true,
                         executablePath: "/connectors/grok",
@@ -964,6 +1003,7 @@ describe("config-ipc", () => {
             const fakePlugin: AppConfiguration["plugins"][number] = {
                 instanceId: "unknown-id",
                 stateId: "unknown-id",
+                manifestId: "unknown",
                 name: "Fake",
                 enabled: true,
                 executablePath: "/plugins/fake.py",
@@ -1094,6 +1134,7 @@ describe("config-ipc", () => {
             const protectedPlugin = {
                 instanceId: "firecrawl",
                 stateId: "firecrawl",
+                manifestId: "firecrawl",
                 name: "FIRECRAWL",
                 enabled: true,
                 executablePath: "/plugins/firecrawl.py",
@@ -1143,6 +1184,7 @@ describe("config-ipc", () => {
             const deletedPlugin = {
                 instanceId: "firecrawl",
                 stateId: "firecrawl",
+                manifestId: "firecrawl",
                 name: "FIRECRAWL",
                 enabled: true,
                 executablePath: "/plugins/firecrawl.py",

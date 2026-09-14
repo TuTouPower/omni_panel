@@ -112,6 +112,8 @@ export interface AppConfiguration {
 export interface ConnectorConfiguration {
     readonly instanceId: string;
     readonly stateId: string;
+    /** Stable connector identity; executablePath is only a local cache. */
+    readonly manifestId: string;
     readonly name: string;
     readonly displayName?: string;
     readonly enabled: boolean;

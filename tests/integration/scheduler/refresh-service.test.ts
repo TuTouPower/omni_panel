@@ -59,6 +59,7 @@ function plugin_config(instance_id = "deepseek-1", enabled = true): ConnectorCon
     return {
         instanceId: instance_id,
         stateId: instance_id,
+        manifestId: "deepseek",
         name: "DeepSeek",
         enabled,
         executablePath: "/connectors/deepseek",
@@ -464,6 +465,7 @@ return [{
         const connector_config: ConnectorConfiguration = {
             instanceId: "grok-1",
             stateId: "grok-1",
+            manifestId: "grok",
             name: "Grok",
             enabled: true,
             executablePath: temp_dir,
@@ -1349,6 +1351,7 @@ function firecrawl_plugin_config(instance_id: string): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: instance_id,
+        manifestId: "firecrawl",
         name: `Firecrawl ${instance_id}`,
         enabled: true,
         executablePath: "/connectors/firecrawl",

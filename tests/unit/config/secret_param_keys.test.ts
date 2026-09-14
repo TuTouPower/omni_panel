@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
     build_secret_param_keys,
-    find_unknown_executable_paths,
+    find_unknown_manifest_ids,
 } from "../../../src/main/core/config/secret_param_keys";
 import type { ConnectorDefinition } from "../../../src/main/core/connector/manifest-loader";
 import type { AppConfiguration, ConnectorConfiguration } from "../../../src/shared/types/config";
 import { manifest_schema } from "../../../src/shared/schemas/manifest";
 
-function make_plugin(instance_id: string, executable_path: string): ConnectorConfiguration {
+function make_plugin(
+    instance_id: string,
+    executable_path: string,
+    manifest_id = executable_path.split(/[\\/]/).pop() ?? instance_id,
+): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: `${instance_id}-state`,
+        manifestId: manifest_id,
         name: instance_id,
         enabled: true,
         executablePath: executable_path,
@@ -105,7 +110,7 @@ describe("build_secret_param_keys", () => {
     });
 
     it("does not expand non-OAuth auth descriptors", () => {
-        const plugin = make_plugin("api-instance", "connectors/api");
+        const plugin = make_plugin("api-instance", "connectors/api", "api_connector");
         const definitions = [
             make_definition("connectors/api", {
                 id: "api_connector",
@@ -120,16 +125,16 @@ describe("build_secret_param_keys", () => {
         expect([...(keys.get("api-instance") ?? [])]).toEqual(["API_KEY"]);
     });
 
-    it("reports unknown executable paths once", () => {
+    it("reports unknown manifest ids once", () => {
         const config = make_config([
             make_plugin("known-instance", "connectors/known"),
             make_plugin("missing-instance", "connectors/missing"),
             make_plugin("missing-instance-2", "connectors/missing"),
         ]);
-        const unknown = find_unknown_executable_paths(config, [
+        const unknown = find_unknown_manifest_ids(config, [
             make_definition("connectors/known", { id: "known" }),
         ]);
 
-        expect(unknown).toEqual(["connectors/missing"]);
+        expect(unknown).toEqual(["missing"]);
     });
 });

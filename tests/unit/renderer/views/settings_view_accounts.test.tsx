@@ -141,6 +141,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "opencode-go-1",
                     stateId: "opencode-go-1",
+                    manifestId: "opencode_go",
                     name: "opencode_go",
                     enabled: true,
                     executablePath: "connectors/opencode_go/connector.ts",
@@ -191,6 +192,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "deepseek-2",
                     stateId: "deepseek-2",
+                    manifestId: "deepseek",
                     name: "deepseek",
                     enabled: true,
                     executablePath: "plugins/deepseek.ts",
@@ -246,6 +248,7 @@ describe("SettingsView", () => {
                 {
                     instanceId: "deepseek-2",
                     stateId: "deepseek-2",
+                    manifestId: "cpa",
                     name: "cpa",
                     enabled: true,
                     executablePath: "plugins/cpa.ts",

@@ -31,7 +31,7 @@
 - 接口：`refresh(instanceId, {force?})` / `refreshAll()`。
 - **单实例锁**：内存 `Map<instanceId, lockedAt>`；锁定且未超 `LOCK_TIMEOUT_MS=5min` 则跳过（即使 `force` 也查锁）；陈旧锁 warn 后强清。
 - **并发上限**：`refreshAll` 经 `with_concurrency(limit=5)`。
-- 流程：载 config → 按 instanceId 找 config → 按 executablePath 找 definition → 置 `loading`（带 prior lastSuccess）→ 执行最多 3 次采集尝试（每次含 `execute_connector`、逐条 `ObservationStore.insert`、映射）→ 任一次成功即置 `ready`；三次均失败才置 `failed`（保留 prior lastSuccess 和最后一次错误）。相邻尝试固定等待 1s。
+- 流程：载 config → 按 instanceId 找 config → 按 manifestId 找 definition → 置 `loading`（带 prior lastSuccess）→ 执行最多 3 次采集尝试（每次含 `execute_connector`、逐条 `ObservationStore.insert`、映射）→ 任一次成功即置 `ready`；三次均失败才置 `failed`（保留 prior lastSuccess 和最后一次错误）。相邻尝试固定等待 1s。
 - **认证类错误不重试（t155）**：`is_auth_error` 命中 `401`/`403`/`unauthorized`/`forbidden`/`invalid_token`/`invalid_grant`/`invalid ... key`（词边界）/`ip banned`/`credential` 时，立即退出本次刷新的重试循环，只发 1 次请求即置 `failed`，避免错 key/过期凭据高频重试触发服务端 IP 封禁。
 - **零观测不写 ready+空（不变量 2 / t039）**：脚本成功返回但映射后 `items` 为空时（生产契约如 Grok billing 200 但零有效 usage 字段，connector `return [] + report_failed_account(...)`），不得写 `ready + items:[]` 清空历史。有 prior lastSuccess → 保留 prior items（仍 `ready`）；无 prior → 置 `failed`，`error` 取 `failed_accounts[0]?.error`（有 failed_account 时）或 `"connector returned no observations"`。
 - **per-account 错误（不变量 5 / P0-2）**：脚本整体成功但返回 `failed_accounts` 时，对每个失败账号从 `observationStore.list_by_source_instance_id(instanceId)` 取上次成功观测，复制为 stale 副本重插（`stale:true` + `last_error=failed.error` + 当前时间戳 `observed_at`）。成功账号正常插入不受影响；失败账号无上次观测则跳过（UI 显示「无数据」而非「stale」）。stale 副本并入 `observations_to_ready_state` 一起映射为 `ready` items。

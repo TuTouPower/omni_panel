@@ -50,7 +50,7 @@ export async function handleCookieLogin(
     const plugin = config.plugins.find((p) => p.instanceId === instanceId);
     if (!plugin) return fail("VALIDATION_ERROR", "插件不存在");
 
-    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    const def = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
     if (!def) return fail("VALIDATION_ERROR", "插件定义不存在");
     const endpoints = def.manifest.endpoints;
     const loginUrl = endpoints?.["login"] ?? endpoints?.["default"];
@@ -161,7 +161,7 @@ export async function trySilentCookieRefresh(
         log.warn(`Silent refresh: instance ${instanceId} not found in config`);
         return false;
     }
-    const def = deps.definitions.find((d) => d.executablePath === plugin.executablePath);
+    const def = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
     if (!def) {
         log.warn(`Silent refresh: definition not found for ${instanceId}`);
         return false;

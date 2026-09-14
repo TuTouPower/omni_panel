@@ -12,8 +12,9 @@ import { appConfigurationSchema } from "../core/config/types";
 import type { AppConfiguration } from "../../shared/types/config";
 import {
     build_secret_param_keys,
-    find_unknown_executable_paths,
+    find_unknown_manifest_ids,
 } from "../core/config/secret_param_keys";
+import { remap_connector_paths } from "../core/config/manifest-identity";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
@@ -57,10 +58,13 @@ export async function import_config_file(
     if (!result.success) {
         throw new Error(`配置文件 schema 校验失败: ${result.error.message}`);
     }
-    const config = result.data as AppConfiguration;
-    const unknown_paths = find_unknown_executable_paths(config, deps.definitions);
-    if (unknown_paths.length > 0) {
-        throw new Error(`配置文件包含未知连接器路径: ${unknown_paths.join(", ")}`);
+    const config = {
+        ...(result.data as AppConfiguration),
+        plugins: remap_connector_paths((result.data as AppConfiguration).plugins, deps.definitions),
+    } as AppConfiguration;
+    const unknown_manifest_ids = find_unknown_manifest_ids(config, deps.definitions);
+    if (unknown_manifest_ids.length > 0) {
+        throw new Error(`配置文件包含未知连接器 manifest id: ${unknown_manifest_ids.join(", ")}`);
     }
 
     const secretKeys = build_secret_param_keys(config, deps.definitions);

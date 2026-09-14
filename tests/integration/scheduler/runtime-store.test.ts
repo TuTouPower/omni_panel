@@ -140,6 +140,7 @@ function make_connector_config(
     return {
         instanceId: "claude-1",
         stateId: "claude-1",
+        manifestId: "claude",
         name: "Claude",
         enabled: true,
         executablePath: "/connectors/claude",

@@ -26,6 +26,7 @@ function createMockDeps() {
             {
                 instanceId: "claude",
                 stateId: "claude",
+                manifestId: "claude",
                 name: "Claude",
                 enabled: true,
                 executablePath: "/plugins/claude.py",

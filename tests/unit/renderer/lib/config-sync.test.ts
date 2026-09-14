@@ -8,6 +8,7 @@ function make_plugin(overrides: Partial<PluginEntry> = {}): PluginEntry {
     return {
         instanceId: "inst-1",
         stateId: "inst-1",
+        manifestId: "deepseek",
         name: "deepseek",
         enabled: true,
         executablePath: "connectors/deepseek/connector.ts",

@@ -81,6 +81,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "a",
                 stateId: "a",
+                manifestId: "a",
                 name: "A",
                 enabled: true,
                 executablePath: "/a",
@@ -91,6 +92,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "b",
                 stateId: "b",
+                manifestId: "b",
                 name: "B",
                 enabled: false,
                 executablePath: "/b",
@@ -101,6 +103,7 @@ describe("scheduler-orchestrator", () => {
             {
                 instanceId: "c",
                 stateId: "c",
+                manifestId: "c",
                 name: "C",
                 enabled: true,
                 executablePath: "/c",
@@ -350,6 +353,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",
@@ -377,6 +381,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",
@@ -413,6 +418,7 @@ describe("scheduler-orchestrator", () => {
                     {
                         instanceId: "follow",
                         stateId: "follow",
+                        manifestId: "follow",
                         name: "Follow",
                         enabled: true,
                         executablePath: "/f",

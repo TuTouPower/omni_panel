@@ -2,13 +2,13 @@
 tid: "t471"
 slug: "connector_identity_manifest_id"
 title: "连接器身份改 manifestId：平台无关标识 + 存量迁移"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t471_connector_identity_manifest_id"
 worktree: ""
 review_level: "full"
 review_limit: "5"
 verify_limit: "5"
-diff_anchor: ""
+diff_anchor: "702dfdb0d780cffecd3fc8b6e5e4315430148676"
 depends_on: ""
 conflicts_with: ""
 note: ""
@@ -36,29 +36,35 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 调查路径：读 `AGENTS.md`、`docs/blueprint/conventions.md`、`docs/findings/d058_multi_entry_impl_audit.md`；本仓源码 `src/shared/types/config.ts`、`src/main/core/config/{types,auto-seed,secret_param_keys,config-store}.ts`、`src/main/ipc/config-ipc.ts`、`src/main/core/connector/manifest-loader.ts`。
 
+### 2026-09-14 实施与验证（attempt 1，execution_id `169aa5000fc64d0bb5765665e4640b2c`）
+
+- 将连接器 schema、共享类型、auto-seed、调度、认证、连接器 IPC、secret key、配置 IPC/CLI 全部切换到 `manifestId`；`executablePath` 只作为本机缓存、健康检查和日志路径。
+- 新增跨平台尾段解析与存量迁移：按本机 definition 刷新路径，保留同 manifest 的每个 instanceId/stateId 及其配置字段；未知项逐条记录 instanceId、manifestId、原路径和原因，并写迁移前 `.bak` 与移除数量摘要。
+- 导入入口在 manifest 校验后按 manifestId 重算本机 executablePath；renderer 保存拒绝直接修改派生路径。补充 Windows/POSIX/UNC/混合路径、多实例、孤儿日志、IPC/CLI 导入重映射回归。
+- 定向回归：6 个测试文件、113 tests PASS；`CI=true pnpm typecheck`、`NODE_OPTIONS=--max-old-space-size=4096 CI=true pnpm lint`、`CI=true pnpm format:check`、`pnpm deadcode`、`pnpm arch`、`electron-vite build`、`pnpm run build:web` 均 PASS。构建仅有仓库既有 CSS 优化 warning。
+- 黑盒/全量门禁：`CI=true pnpm test` 在 `ensure_sqlite_abi.mjs node` 的 Node 24 headers 解压阶段被环境 `TAR_ENTRY_ERROR EINVAL: invalid argument, fchown` 阻塞，未进入 Vitest；此前直接 Vitest 全量的失败均集中在同一 `better-sqlite3` native binding 缺失，t471 定向回归全绿。`md_format.py --changed` 因环境缺少 `md_kx` 阻塞；Prettier format check 与 `git diff --check` 已通过。
+
 ## Review 处置
 
 每个结构化 finding 一行。`已修` 表示本 task 已修复；`遗留` 必须指向 `pNNN` 或 follow-up tid；`撤回` 必须写清理由。critical/important 未解决时不得 PASS。
 
-### Round N (YYYY-MM-DD HH:MM UTC+8)
+### Round 1 (2026-09-14 14:21 UTC+8)
 
-|finding_id|severity|status|rationale|fix_ref|
-|---|---|---|---|---|
-|t000_code_f001|critical/important/minor|已修/遗留/撤回|一句话|文件:行 / pNNN / tid|
+Round 1 零 finding。
 
-无 finding 时写“Round N 零 finding”。
+独立 code/test review 均 PASS，review scope 指纹为 `0ab89937b276e6e7`，无 finding。
 
 ## 收尾报告
 
 ### 验收与验证
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 测试：待执行时填写
-- 黑盒：待执行时填写
-- review：待执行时填写
+- 结果：全部满足；全量 `pnpm test` 与 md_kx 仅受环境阻塞，见实施笔记
+- 测试：定向 113 tests PASS；typecheck/lint/format/deadcode/arch PASS；两套生产构建 PASS
+- 黑盒：config-store 集成迁移/日志、IPC 与 CLI 导入重映射回归 PASS；全量入口在 better-sqlite3 Node ABI 构建阶段阻塞
+- review：Round 1 code + test PASS，0 finding
 - AC 证据：见 `handoff.json`
 
 ### 结果摘要
 
-- 待执行时填写；遗留只写引用，不复制正文
+- `manifestId` 成为唯一连接器定义身份，迁移、auto-seed、导入与运行时 lookup 均不再以 executablePath 判等；实例身份和 secret 归属保持不变。环境阻塞无代码遗留，不新增 pending/finding。

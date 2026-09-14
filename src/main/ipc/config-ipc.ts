@@ -12,8 +12,9 @@ import { appConfigurationSchema } from "../core/config/types";
 import { FOLLOW_GLOBAL_REFRESH_SENTINEL } from "../core/config/auto-seed";
 import {
     build_secret_param_keys,
-    find_unknown_executable_paths,
+    find_unknown_manifest_ids,
 } from "../core/config/secret_param_keys";
+import { remap_connector_paths } from "../core/config/manifest-identity";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
@@ -121,8 +122,11 @@ export async function handleConfigSave(
             if (!existing) {
                 return fail("VALIDATION_ERROR", `未知的连接器实例: ${plugin.instanceId}`);
             }
+            if (existing.manifestId !== plugin.manifestId) {
+                return fail("VALIDATION_ERROR", `不允许修改连接器身份: ${plugin.name}`);
+            }
             if (existing.executablePath !== plugin.executablePath) {
-                return fail("VALIDATION_ERROR", `不允许修改插件的可执行路径: ${plugin.name}`);
+                return fail("VALIDATION_ERROR", `不允许修改连接器路径: ${plugin.name}`);
             }
         }
 
@@ -147,9 +151,7 @@ export async function handleConfigSave(
         const protectedPlugins: ConnectorConfiguration[] = [];
         for (const plugin of current.plugins) {
             if (incomingPluginIds.has(plugin.instanceId)) continue;
-            const definition = deps.definitions?.find(
-                (d) => d.executablePath === plugin.executablePath,
-            );
+            const definition = deps.definitions?.find((d) => d.manifest.id === plugin.manifestId);
             const manifestId = definition?.manifest.id;
             if (manifestId && removedManifestIds.has(manifestId)) {
                 // Legitimate deletion via settings UI.
@@ -302,6 +304,7 @@ export async function handleConfigDuplicate(
         const newInstance: ConnectorConfiguration = {
             instanceId: newInstanceId,
             stateId: randomUUID(),
+            manifestId: source.manifestId,
             name: source.name,
             enabled: true,
             executablePath: source.executablePath,
@@ -350,6 +353,7 @@ export async function handleConfigCreateInstance(
         const newInstance: ConnectorConfiguration = {
             instanceId: randomUUID(),
             stateId: randomUUID(),
+            manifestId: definition.manifest.id,
             name: definition.manifest.id.toUpperCase(),
             enabled: true,
             executablePath: definition.executablePath,
@@ -390,16 +394,16 @@ function secret_keys_for(
         : deps.secretParamKeys;
 }
 
-function allowed_executable_paths_for(deps: ConfigIpcDeps): ReadonlySet<string> | undefined {
+function allowed_manifest_ids_for(deps: ConfigIpcDeps): ReadonlySet<string> | undefined {
     return deps.definitions === undefined
         ? undefined
-        : new Set(deps.definitions.map((definition) => definition.executablePath));
+        : new Set(deps.definitions.map((definition) => definition.manifest.id));
 }
 
-function unknown_paths_for(deps: ConfigIpcDeps, config: AppConfiguration): string[] {
+function unknown_manifest_ids_for(deps: ConfigIpcDeps, config: AppConfiguration): string[] {
     return deps.definitions === undefined
         ? []
-        : find_unknown_executable_paths(config, deps.definitions);
+        : find_unknown_manifest_ids(config, deps.definitions);
 }
 
 function inject_secrets(
@@ -484,12 +488,21 @@ export async function handleConfigImportData(
 
         const parsed = appConfigurationSchema.safeParse(config_input);
         if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
-        const incoming = parsed.data as AppConfiguration;
-        const unknown_paths = unknown_paths_for(deps, incoming);
-        if (unknown_paths.length > 0) {
+        const incoming = {
+            ...(parsed.data as AppConfiguration),
+            plugins:
+                deps.definitions === undefined
+                    ? (parsed.data as AppConfiguration).plugins
+                    : remap_connector_paths(
+                          (parsed.data as AppConfiguration).plugins,
+                          deps.definitions,
+                      ),
+        } as AppConfiguration;
+        const unknown_manifest_ids = unknown_manifest_ids_for(deps, incoming);
+        if (unknown_manifest_ids.length > 0) {
             return fail(
                 "VALIDATION_ERROR",
-                `导入配置包含未知连接器路径: ${unknown_paths.join(", ")}`,
+                `导入配置包含未知连接器 manifest id: ${unknown_manifest_ids.join(", ")}`,
             );
         }
         if (
@@ -530,7 +543,7 @@ export async function handleConfigImportData(
         let saved_config = stripped;
         try {
             saved_config = await deps.configStore.prune_unhealthy_plugins(
-                allowed_executable_paths_for(deps),
+                allowed_manifest_ids_for(deps),
             );
         } catch (err) {
             log.warn("Post-import health prune failed", err);

@@ -89,6 +89,7 @@ describe("import_config_file", () => {
                 {
                     instanceId: "claude-1",
                     stateId: "claude-1",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",
@@ -116,6 +117,47 @@ describe("import_config_file", () => {
         expect(secrets["claude-1:MODEL"]).toBeUndefined();
     });
 
+    it("按 manifestId 将导入路径重映射为本机 definition 路径", async () => {
+        const dir = makeDir();
+        const configPath = join(dir, "config.json");
+        const importFile = join(dir, "moved.json");
+        writeFileSync(
+            importFile,
+            JSON.stringify({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [
+                    {
+                        instanceId: "claude-1",
+                        stateId: "claude-1",
+                        manifestId: "claude",
+                        name: "Claude",
+                        enabled: true,
+                        executablePath: "/linux/connectors/claude",
+                        refreshIntervalSeconds: 300,
+                        parameterValues: {},
+                        endpointOverrides: {},
+                    },
+                ],
+                launchAtLogin: false,
+            }),
+        );
+        const deps = makeDeps();
+        const local_definition = { ...makeDefinition(), executablePath: "/mac/connectors/claude" };
+        const result = await import_config_file(
+            {
+                configPath,
+                configStore: deps.configStore,
+                secretsStore: deps.secretsStore,
+                definitions: [local_definition],
+            },
+            importFile,
+        );
+
+        expect(result.plugins[0]?.executablePath).toBe("/mac/connectors/claude");
+        expect(deps.savedConfigs[0]?.plugins[0]?.executablePath).toBe("/mac/connectors/claude");
+    });
+
     it("拒绝未知 connector 路径并在转存 secret 前失败", async () => {
         const dir = makeDir();
         const configPath = join(dir, "config.json");
@@ -129,6 +171,7 @@ describe("import_config_file", () => {
                     {
                         instanceId: "unknown-1",
                         stateId: "unknown-1",
+                        manifestId: "unknown",
                         name: "Unknown",
                         enabled: true,
                         executablePath: "/plugins/unknown.py",
@@ -147,7 +190,7 @@ describe("import_config_file", () => {
                 { configPath, configStore, secretsStore, definitions: [makeDefinition()] },
                 importFile,
             ),
-        ).rejects.toThrow(/未知连接器路径/);
+        ).rejects.toThrow(/未知连接器 manifest id/);
         expect(Reflect.get(secretsStore, "set")).not.toHaveBeenCalled();
         expect(Reflect.get(configStore, "save")).not.toHaveBeenCalled();
     });
@@ -240,6 +283,7 @@ describe("import_config_file", () => {
                 {
                     instanceId: "claude-1",
                     stateId: "claude-1",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",
@@ -280,6 +324,7 @@ describe("import_config_file", () => {
                 {
                     instanceId: "claude-1",
                     stateId: "claude-1",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",

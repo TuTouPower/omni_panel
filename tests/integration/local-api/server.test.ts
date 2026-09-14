@@ -803,6 +803,7 @@ describe("local-api config management", () => {
                 {
                     instanceId: "managed-1",
                     stateId: "managed-1",
+                    manifestId: "claude",
                     name: "Claude",
                     enabled: true,
                     executablePath: "/plugins/claude.py",

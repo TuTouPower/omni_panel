@@ -27,6 +27,7 @@ export const base_config: AppConfiguration = {
         {
             instanceId: "deepseek-1",
             stateId: "deepseek-1",
+            manifestId: "deepseek",
             name: "deepseek",
             enabled: true,
             executablePath: "plugins/deepseek.ts",
@@ -37,6 +38,7 @@ export const base_config: AppConfiguration = {
         {
             instanceId: "cpa-1",
             stateId: "cpa-1",
+            manifestId: "cpa",
             name: "cpa",
             enabled: true,
             executablePath: "plugins/cpa.ts",

@@ -92,6 +92,7 @@ function createMockApi() {
             {
                 instanceId: "deepseek",
                 stateId: "deepseek",
+                manifestId: "deepseek",
                 name: "DeepSeek",
                 enabled: true,
                 executablePath: "/plugins/deepseek-usage-plugin.ts",
@@ -102,6 +103,7 @@ function createMockApi() {
             {
                 instanceId: "claude",
                 stateId: "claude",
+                manifestId: "claude",
                 name: "Claude",
                 enabled: true,
                 executablePath: "/plugins/claude-usage-plugin.ts",

@@ -95,6 +95,7 @@ describe("PopupView t153", () => {
                     {
                         instanceId: "p1",
                         stateId: "p1",
+                        manifestId: "deepseek",
                         name: "deepseek",
                         enabled: true,
                         executablePath: "connectors/deepseek/connector.ts",

@@ -36,6 +36,7 @@ const refreshIntervalSecondsSchema = z.preprocess(
 const connectorConfigurationSchema = z.object({
     instanceId: z.string().min(1).optional(),
     stateId: z.string().min(1),
+    manifestId: z.string().min(1),
     name: z.string().min(1),
     displayName: z.string().optional(),
     enabled: z.boolean(),
