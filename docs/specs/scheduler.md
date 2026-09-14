@@ -15,7 +15,7 @@
 
 ### scheduler-orchestrator.ts — 全集生命周期
 
-- 接口：`startAll` / `rebuild` / `reconcile` / `suspend(reason)` / `resume(reason)` / `shutdown`；暂停原因是 `user | system`。
+- 接口：`startAll` / `rebuild` / `reconcile` / `suspend(reason)` / `resume(reason)` / `get_pause_state()` / `on_pause_state(listener)` / `shutdown`；暂停原因是 `user | system`。
 - 有效调度计划仅含 `enabled && !manualRefreshOnly` 实例，使用 `resolve_refresh_interval` 解析最终间隔，并按 `instanceId` 排序。
 - `startAll` 以 `immediate:true` 应用计划；`rebuild` = `stopAll()` + 以 `immediate:false` 应用计划。
 - `reconcile(previous, next)` 只比较有效调度计划；备注、endpoint、secret、参数及插件数组顺序等非调度变化不重建，实例启停、增删或有效间隔变化才重建。
@@ -23,6 +23,7 @@
 - `suspend(reason)` = 记录原因 + `stopAll()` + 递增 `generation`；仅 system suspend 安装 **4 小时安全网定时器**，且安全网只解除 system 原因。
 - `resume(reason)` 移除对应原因；全部原因解除后异步重载最新 config，仅当 `generation` 未变时 `startAll`（防陈旧 resume 抢跑新 suspend）。
 - 暂停期间计划变化只延迟应用，不恢复周期调度；真正恢复时以最新 config 建立计划。
+- `get_pause_state()` 是暂停态唯一只读来源，返回 `paused` 与当前原因集合；`on_pause_state` 在原因变化时通知 tray/LocalAPI，禁止入口维护影子布尔值。
 - `shutdown` = 递增 generation + 清 system 安全网 + `stopAll()`。
 - `manualRefreshOnly` 连接器永不自动调度。
 
@@ -49,5 +50,5 @@
 - `resolve_refresh_interval`：`refreshIntervalSeconds` 哨兵 `0` → 跟随 `globalRefreshIntervalSeconds` → `DEFAULT_FALLBACK_REFRESH_SECONDS=300`。
 - 启动交错 `STAGGER_MAX_MS=3000` 仅作用于 `immediate:true` 的首次刷新；后续周期调度无额外抖动（各实例间隔天然错开）。
 - 托盘 refresh-all 经 `refreshService.refreshAll()` 复用 5 并发闸门（不逐个 `refresh`）。
-- 暂停/恢复经托盘 `TRAY_TOGGLE_PAUSE` → orchestrator `suspend/resume`。
+- 暂停/恢复经托盘 `TRAY_TOGGLE_PAUSE`、LocalAPI `/v1/control/pause|resume` → orchestrator `suspend/resume`；LocalAPI `/v1/control/status` 读取同一暂停态。
 - `endpoint-resolver.ts` 是独立子进程 env 路径（`OMNI_PLUGIN_ENDPOINTS`/`OMNI_PLUGIN_PROXY`），**refresh-service 不用它**（override 直接经 `create_connector_context` 传）。

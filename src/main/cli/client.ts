@@ -10,6 +10,7 @@ import { get as httpGet, request as httpRequest } from "node:http";
 import { cli_json_path, type CliInstanceInfo } from "./cli-json";
 import { getDataRoot } from "../core/paths";
 import type { CliExportOptions } from "./args";
+import type { LaunchAtLoginState } from "../core/launch-at-login";
 
 function write_stdout(text: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -98,6 +99,22 @@ export function post_control(port: number, action: string): Promise<string> {
         });
         req.end();
     });
+}
+
+function parse_autostart_response(raw: string): LaunchAtLoginState {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) {
+        throw new Error("自启动端点返回格式无效");
+    }
+    const autostart = (parsed as { autostart?: unknown }).autostart;
+    if (typeof autostart !== "object" || autostart === null) {
+        throw new Error("自启动端点缺少状态");
+    }
+    const state = autostart as Partial<LaunchAtLoginState>;
+    if (typeof state.available !== "boolean" || typeof state.enabled !== "boolean") {
+        throw new Error("自启动端点返回状态无效");
+    }
+    return { available: state.available, enabled: state.enabled };
 }
 
 /** GET /v1/health；可达（收到任何响应）返回 true，连接失败/超时返回 false。 */
@@ -228,16 +245,19 @@ export async function run_control_command(
     try {
         switch (command) {
             case "autostart": {
-                // Linux 无自启动集成（systemd 文档引导）；Windows 走 loginItem。
+                // Linux 无自启动集成（systemd 文档引导）。其它平台经宿主
+                // LocalAPI 执行，确保 config 与 OS 登录项由同一主进程更新。
                 if (process.platform === "linux") {
                     await write("autostart 在 Linux 上不受支持（可手动配置 systemd 自启动）\n");
                     return 0;
                 }
-                // Windows 桌面沿用 setLoginItemSettings（与 tray toggle 一致）。
-                const { app } = await import("electron");
-                const current = app.getLoginItemSettings().openAtLogin;
-                app.setLoginItemSettings({ openAtLogin: !current });
-                await write(`autostart 已${current ? "关闭" : "开启"}\n`);
+                const inst = resolve_instance(deps, options.port);
+                const state = parse_autostart_response(await post_control(inst.port, "autostart"));
+                await write(
+                    state.available
+                        ? `autostart 已${state.enabled ? "开启" : "关闭"}\n`
+                        : "autostart 当前平台不可用\n",
+                );
                 return 0;
             }
             case "open": {

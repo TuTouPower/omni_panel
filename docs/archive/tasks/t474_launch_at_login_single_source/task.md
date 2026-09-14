@@ -2,13 +2,13 @@
 tid: "t474"
 slug: "launch_at_login_single_source"
 title: "主进程状态单一来源：自启与暂停态（tray/CLI/control 同步）"
-status: "backlog"
-branch: ""
+status: "done"
+branch: "t474_launch_at_login_single_source"
 worktree: ""
 review_level: "full"
 review_limit: "5"
 verify_limit: "5"
-diff_anchor: ""
+diff_anchor: "64dc717caf5be8630c1c5dd3516461f68b60140a"
 depends_on: ""
 conflicts_with: ""
 note: "合并原 t475（暂停态单一来源）"
@@ -36,6 +36,13 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 调查路径：读 `index.ts:700-731,1047-1167`、`scheduler-orchestrator.ts`、`cli/client.ts:230-252`、d058。
 
+### 2026-09-14 实施与验证（attempt 1，execution_id `862db22827f44d69834e4fb181cfc3d0`）
+
+- 新增 `launch-at-login` 主进程适配层：启动按 config `launchAtLogin` 双向应用 OS 登录项；配置保存、导入、tray 与宿主控制端点均复用该路径。Linux/无 Electron 登录项 API 返回 `available:false`，不写 OS 状态。
+- scheduler orchestrator 暴露 `get_pause_state()` 与 `on_pause_state()`；tray 删除主进程本地 `is_paused`，LocalAPI 新增 `/v1/control/status`、`/v1/control/autostart`，CLI 在支持平台经宿主端点切换，所有入口读取同一实际状态。
+- 定向回归：launch-at-login 2、orchestrator 26、CLI 22、LocalAPI control 2，共 52 tests PASS；changed-file ESLint、全仓 Prettier、Knip、dependency-cruiser、`git diff --check` PASS。
+- LocalAPI 完整控制集成在 `better-sqlite3` 原生绑定 setup 阶段阻塞，未进入业务断言；全仓 `tsc --noEmit` 仅报既有缺失的 `src/main/generated/build-info`。生成脚本又被受限环境的 `tsx` IPC `listen EPERM` 阻塞，生产构建无法在本环境启动。
+
 ## Review 处置
 
 每个结构化 finding 一行。`已修` 表示本 task 已修复；`遗留` 必须指向 `pNNN` 或 follow-up tid；`撤回` 必须写清理由。critical/important 未解决时不得 PASS。
@@ -48,17 +55,25 @@ front matter 只经 `task.py` 修改；reviewer 只写对应 `review_*.md`。
 
 无 finding 时写“Round N 零 finding”。
 
+### Round 1 (2026-09-14 08:05 UTC)
+
+Round 1 零 finding。
+
+实现侧复核确认 OS 登录项只有主进程适配层写入，config 保存与启动均走同一双向应用路径；暂停原因集合仍只在 orchestrator 内维护，tray/CLI/LocalAPI 通过查询与订阅读取。
+
+测试侧复核确认 config/OS 双向应用、Linux 不可用、暂停原因组合与通知、LocalAPI 状态/自启端点、CLI 宿主转发均有回归；SQLite 原生绑定与 generated build-info 阻塞均按环境证据记录。
+
 ## 收尾报告
 
 ### 验收与验证
 
 - spec：[`spec.md`](spec.md)
-- 结果：全部满足 / 未满足
-- 测试：待执行时填写
-- 黑盒：待执行时填写
-- review：待执行时填写
+- 结果：AC-001..009 全部满足；[deploy] AC-010 保留真实 macOS/Windows 重启签收，Linux 能力不可用已自动验证
+- 测试：定向 52 tests PASS；全仓 Prettier、changed-file ESLint、Knip、dependency-cruiser、diff-check PASS
+- 黑盒：LocalAPI control 单元 HTTP 回归 PASS；完整 LocalAPI 集成被 better-sqlite3 native binding 阻塞；生产构建被生成脚本 IPC 权限阻塞
+- review：Round 1 code + test PASS，0 finding
 - AC 证据：见 `handoff.json`
 
 ### 结果摘要
 
-- 待执行时填写；遗留只写引用，不复制正文
+- 自启由 config 双向驱动 OS 登录项，暂停态由 orchestrator 单一来源驱动；无 pending/finding。[deploy] AC-010 需在支持平台实际重启签收。

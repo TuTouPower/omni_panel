@@ -5,7 +5,12 @@ import type { AppConfigStore } from "../config/config-store";
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
-type PauseReason = "user" | "system";
+export type PauseReason = "user" | "system";
+
+export interface PauseState {
+    readonly paused: boolean;
+    readonly reasons: readonly PauseReason[];
+}
 
 interface ConnectorListEntry {
     enabled: boolean;
@@ -44,6 +49,8 @@ interface SchedulerOrchestrator {
     reconcile(previousConfig: ConnectorListConfig, nextConfig: ConnectorListConfig): void;
     suspend(reason: PauseReason): void;
     resume(reason: PauseReason): void;
+    get_pause_state(): PauseState;
+    on_pause_state(listener: (state: PauseState) => void): () => void;
     shutdown(): void;
 }
 
@@ -84,9 +91,30 @@ export function createSchedulerOrchestrator(
 ): SchedulerOrchestrator {
     const log = createLogger("orchestrator");
     const pauseReasons = new Set<PauseReason>();
+    const pause_state_listeners = new Set<(state: PauseState) => void>();
     let safetyNetTimer: ReturnType<typeof setTimeout> | null = null;
     let generation = 0;
     let shutdownStarted = false;
+
+    function get_pause_state(): PauseState {
+        return {
+            paused: pauseReasons.size > 0,
+            reasons: [...pauseReasons].sort(),
+        };
+    }
+
+    function notify_pause_state(): void {
+        const state = get_pause_state();
+        for (const listener of pause_state_listeners) listener(state);
+    }
+
+    function on_pause_state(listener: (state: PauseState) => void): () => void {
+        pause_state_listeners.add(listener);
+        listener(get_pause_state());
+        return () => {
+            pause_state_listeners.delete(listener);
+        };
+    }
 
     function apply_schedule(schedule: readonly ScheduleEntry[], immediate: boolean): number {
         for (const entry of schedule) {
@@ -128,6 +156,7 @@ export function createSchedulerOrchestrator(
         pauseReasons.add(reason);
         deps.scheduler.stopAll();
         generation++;
+        notify_pause_state();
         if (reason !== "system") return;
         clear_system_safety_net();
         safetyNetTimer = setTimeout(() => {
@@ -138,6 +167,7 @@ export function createSchedulerOrchestrator(
     function resume(reason: PauseReason): void {
         if (reason === "system") clear_system_safety_net();
         pauseReasons.delete(reason);
+        notify_pause_state();
         if (shutdownStarted || pauseReasons.size > 0) return;
 
         const resumeGen = generation;
@@ -164,5 +194,14 @@ export function createSchedulerOrchestrator(
         deps.scheduler.stopAll();
     }
 
-    return { startAll, rebuild, reconcile, suspend, resume, shutdown };
+    return {
+        startAll,
+        rebuild,
+        reconcile,
+        suspend,
+        resume,
+        get_pause_state,
+        on_pause_state,
+        shutdown,
+    };
 }

@@ -268,3 +268,11 @@
 - 结论：选 B。所有入口走共享 transfer 模块；只接受 canonical v2，校验失败零副作用；`secrets` 缺失=保留活动实例并清理悬空密钥，存在=整体替换，`{}`=清空。未知 manifest 跳过并报告，路径按本机 definition 重算。写入前生成 config `.bak` 与加密 vault 快照，失败恢复一致前态。
 - 落地：t472（`config-transfer.ts`、IPC/LocalAPI/CLI 接线与回归测试）。
 - 替代：桌面 v1 wrapper、LocalAPI/CLI 裸 config 导入路径。
+
+## 029 自启与暂停态由主进程单一来源维护（2026-09-14）
+
+- 背景：设置页只写 `launchAtLogin`，tray/CLI 各自直接改 OS 登录项；tray 另存本地暂停布尔值，无法反映 CLI/Web 的暂停。
+- 结论：`launchAtLogin` 是唯一配置真相，主进程启动和配置保存都按该值双向应用 OS 登录项；tray/CLI/Web 自启操作经主进程更新 config 与 OS。暂停原因集合归 orchestrator，入口只调用 `suspend/resume` 并读取 `get_pause_state()`；LocalAPI 通过 `/v1/control/status` 与 SSE 广播同一状态。
+- 平台：Linux 或无 `setLoginItemSettings` 的环境明确返回能力不可用，不引入新的 Linux 自启动实现。
+- 落地：t474。
+- 替代：tray 本地 `is_paused`、CLI 独立 `setLoginItemSettings`、仅开启不关闭 OS 登录项的回退逻辑。

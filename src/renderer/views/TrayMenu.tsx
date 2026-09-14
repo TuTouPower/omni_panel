@@ -29,7 +29,7 @@ export function TrayMenu() {
 
     const { config } = use_config();
     const menu_ref = useRef<HTMLDivElement | null>(null);
-    const [is_paused, set_is_paused] = useState(false);
+    const [paused, set_paused] = useState(false);
     const [is_autostart, set_is_autostart] = useState(false);
     const app_version = useMemo(() => get_app_version(), []);
 
@@ -37,7 +37,7 @@ export function TrayMenu() {
 
     useEffect(() => {
         const cleanup_pause = window.usageboard.tray.on_pause_state((paused) => {
-            set_is_paused(paused);
+            set_paused(paused);
         });
         const cleanup_autostart = window.usageboard.tray.on_autostart_state((enabled) => {
             set_is_autostart(enabled);
@@ -97,9 +97,9 @@ export function TrayMenu() {
             },
             {
                 icon: "pause",
-                label_zh: is_paused ? "恢复自动刷新" : "暂停自动刷新",
-                label_en: is_paused ? "Resume Auto-Refresh" : "Pause Auto-Refresh",
-                checked: is_paused,
+                label_zh: paused ? "恢复自动刷新" : "暂停自动刷新",
+                label_en: paused ? "Resume Auto-Refresh" : "Pause Auto-Refresh",
+                checked: paused,
                 separator_before: true,
                 action: () => {
                     window.usageboard.tray.toggle_pause();
@@ -167,7 +167,7 @@ export function TrayMenu() {
                 },
             },
         ],
-        [is_paused, is_autostart, app_version],
+        [paused, is_autostart, app_version],
     );
 
     useEffect(() => {

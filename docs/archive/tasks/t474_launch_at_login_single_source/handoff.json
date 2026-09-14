@@ -1,0 +1,45 @@
+{
+    "tid": "t474",
+    "attempt": 1,
+    "execution_id": "862db22827f44d69834e4fb181cfc3d0",
+    "status": "done",
+    "branch": "t474_launch_at_login_single_source",
+    "base_sha": "64dc717caf5be8630c1c5dd3516461f68b60140a",
+    "tests": "launch-at-login 2 + orchestrator 26 + CLI 22 + LocalAPI control 2 = 52 tests PASS；changed-file ESLint、Prettier、Knip、dependency-cruiser、git diff --check PASS；LocalAPI 完整集成受 better-sqlite3 native binding 阻塞；tsc 报既有 generated build-info",
+    "blackbox": "LocalAPI status/autostart HTTP control 单测 PASS；Linux unavailable 分支 PASS；真实 macOS/Windows 重启部署验证不在当前环境",
+    "review": "Round 1 code + test PASS，0 finding，review scope 3350cf2e0045031f",
+    "ac_evidence": {
+        "AC-001": [
+            "config save/import callback 与启动路径均调用主进程 launch-at-login 适配层；适配层 true/false 回读单测通过，真实重启属 AC-010。"
+        ],
+        "AC-002": [
+            "tray state 从 read_launch_at_login 的实际 OS 值投影，config callback 与控制广播路径已接线。"
+        ],
+        "AC-003": [
+            "支持平台 CLI autostart POST 宿主 control endpoint，Linux 返回明确 unsupported；CLI 回归通过。"
+        ],
+        "AC-004": [
+            "应用启动调用 apply_configured_launch_at_login(currentConfig.launchAtLogin)，适配层覆盖 true/false 双向写入。"
+        ],
+        "AC-005": [
+            "orchestrator get_pause_state 是 LocalAPI status 与 tray projection 的共同来源；status HTTP 与 orchestrator 回归通过。"
+        ],
+        "AC-006": [
+            "删除主进程 tray is_paused，新增 orchestrator pause state 查询/订阅；源码检索无 main tray 影子布尔。"
+        ],
+        "AC-007": [
+            "tray、LocalAPI control、CLI 均调用 orchestrator suspend/resume，reason-set/交替转换测试通过。"
+        ],
+        "AC-008": [
+            "/v1/control/autostart 由主进程 set_launch_at_login_from_control 更新 config 与 OS 并返回状态；HTTP handler 单测通过。"
+        ],
+        "AC-009": [
+            "Linux/无 OS API 返回 available:false 且不调用 OS API；launch-at-login 与 LocalAPI control 单测通过。"
+        ],
+        "AC-010": [
+            "当前环境完成 Linux unavailable 自动验证；macOS/Windows 真实重启需部署环境签收，未将其误报为已执行。"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

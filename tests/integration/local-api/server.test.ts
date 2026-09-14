@@ -8,7 +8,7 @@ import { create_observation_store } from "../../../src/main/core/observation/obs
 import { create_token_stats_store } from "../../../src/main/core/token-stats/token-stats-store";
 import { createRuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
 import type { RuntimeStore } from "../../../src/main/core/scheduler/runtime-store";
-import type { LocalAPIServer } from "../../../src/main/core/local-api/server";
+import type { ControlState, LocalAPIServer } from "../../../src/main/core/local-api/server";
 import type { ObservationStore } from "../../../src/main/core/observation/observation-store";
 import type { TokenStatsStore } from "../../../src/main/core/token-stats/token-stats-store";
 import type { ConfigIpcDeps } from "../../../src/main/ipc/config-ipc";
@@ -3486,6 +3486,7 @@ describe("local-api 控制端点（t276）", () => {
     let control_calls: string[];
     let control_obs: ObservationStore;
     let control_ts: TokenStatsStore;
+    let control_state: ControlState;
 
     beforeEach(async () => {
         temp_dir = await mkdtemp(join(tmpdir(), "omni-control-"));
@@ -3497,6 +3498,10 @@ describe("local-api 控制端点（t276）", () => {
         token_stats_store = create_token_stats_store(join(temp_dir, "token.sqlite"));
         control_ts = token_stats_store;
         control_calls = [];
+        control_state = {
+            pause: { paused: false, reasons: [] },
+            autostart: { available: true, enabled: false },
+        };
         control_api = create_local_api_server(control_obs, {
             port: 0,
             token_stats_store: control_ts,
@@ -3516,6 +3521,15 @@ describe("local-api 控制端点（t276）", () => {
                 quit: () => {
                     control_calls.push("quit");
                 },
+                autostart: () => {
+                    control_calls.push("autostart");
+                    control_state = {
+                        ...control_state,
+                        autostart: { available: true, enabled: true },
+                    };
+                    return control_state.autostart;
+                },
+                get_state: () => control_state,
             },
             web_root,
         });
@@ -3545,6 +3559,27 @@ describe("local-api 控制端点（t276）", () => {
             expect(res.status).toBe(200);
         }
         expect(control_calls).toEqual(["pause", "resume", "restart", "quit"]);
+    });
+
+    it("GET status returns the orchestrator and login-item state without credentials", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/status`,
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual(control_state);
+    });
+
+    it("POST autostart delegates to the host and returns the resulting state", async () => {
+        const res = await fetch(
+            `http://127.0.0.1:${String(control_api.get_port())}/v1/control/autostart`,
+            { method: "POST" },
+        );
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toEqual({
+            status: "ok",
+            autostart: { available: true, enabled: true },
+        });
+        expect(control_calls).toContain("autostart");
     });
 
     it("GET 控制端点返回 405", async () => {

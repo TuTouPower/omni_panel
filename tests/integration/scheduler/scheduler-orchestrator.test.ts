@@ -142,6 +142,38 @@ describe("scheduler-orchestrator", () => {
         expect(scheduler.calls).toContain("stopAll");
     });
 
+    it("exposes one pause state with all active reasons", () => {
+        expect(orchestrator.get_pause_state()).toEqual({ paused: false, reasons: [] });
+
+        orchestrator.suspend("user");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: true, reasons: ["user"] });
+
+        orchestrator.suspend("system");
+        expect(orchestrator.get_pause_state()).toEqual({
+            paused: true,
+            reasons: ["system", "user"],
+        });
+
+        orchestrator.resume("user");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: true, reasons: ["system"] });
+        orchestrator.resume("system");
+        expect(orchestrator.get_pause_state()).toEqual({ paused: false, reasons: [] });
+    });
+
+    it("notifies subscribers when pause reasons change", () => {
+        const states: boolean[] = [];
+        const unsubscribe = orchestrator.on_pause_state((state) => {
+            states.push(state.paused);
+        });
+
+        orchestrator.suspend("user");
+        orchestrator.resume("user");
+        unsubscribe();
+        orchestrator.suspend("system");
+
+        expect(states).toEqual([false, true, false]);
+    });
+
     it("resume reloads config and restarts enabled", async () => {
         orchestrator.resume("system");
         await vi.advanceTimersByTimeAsync(0);

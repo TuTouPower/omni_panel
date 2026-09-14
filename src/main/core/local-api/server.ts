@@ -86,6 +86,8 @@ import type {
 } from "../../../shared/types/ipc";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import { clamp_search_content_range } from "../session-history/search_content_range";
+import type { PauseState } from "../scheduler/scheduler-orchestrator";
+import type { LaunchAtLoginState } from "../launch-at-login";
 
 const log = createLogger("local-api");
 // 不得使用 17863：那是 CPA（CLIProxyAPI）本机管理 API 的知名端口，
@@ -117,6 +119,12 @@ export interface LocalAPIServer {
     get_token(): string;
     publish_config_change(config: AppConfiguration): void;
     publish_theme_change(is_dark: boolean): void;
+    publish_control_state(state: ControlState): void;
+}
+
+export interface ControlState {
+    readonly pause: PauseState;
+    readonly autostart: LaunchAtLoginState;
 }
 
 /** t259: 会话历史 HTTP 桥依赖（映射桌面 session-history-ipc 的 deps）。 */
@@ -168,6 +176,10 @@ export interface ControlDeps {
     readonly resume: () => void;
     readonly restart: () => void;
     readonly quit: () => void;
+    /** Toggle the config-backed OS login item from the host process. */
+    readonly autostart?: () => Promise<LaunchAtLoginState> | LaunchAtLoginState;
+    /** Read the actual orchestrator/login-item state for Web/CLI consumers. */
+    readonly get_state?: () => Promise<ControlState> | ControlState;
 }
 
 /** t278: web 认证 HTTP 桥复用桌面 IPC handler 与 main 侧 manager。 */
@@ -1182,7 +1194,7 @@ export function create_local_api_server(
             ) {
                 return;
             }
-            if (control_deps && handle_web_control(req, res, url, control_deps)) {
+            if (control_deps && (await handle_web_control(req, res, url, control_deps))) {
                 return;
             }
             if (auth_deps && (await handle_web_auth(req, res, url, auth_deps))) {
@@ -1700,13 +1712,18 @@ export function create_local_api_server(
         return false;
     }
 
-    function handle_web_control(
+    async function handle_web_control(
         req: IncomingMessage,
         res: ServerResponse,
         url: URL,
         deps: ControlDeps,
-    ): boolean {
+    ): Promise<boolean> {
         if (!url.pathname.startsWith("/v1/control/")) return false;
+        if (url.pathname === "/v1/control/status" && req.method === "GET") {
+            if (!deps.get_state) return false;
+            json_response(res, 200, await deps.get_state());
+            return true;
+        }
         if (req.method !== "POST") {
             json_response(res, 405, { error: "Method not allowed" });
             return true;
@@ -1737,6 +1754,13 @@ export function create_local_api_server(
                 json_response(res, 200, { status: "ok" });
                 setImmediate(() => {
                     deps.quit();
+                });
+                return true;
+            case "/v1/control/autostart":
+                if (!deps.autostart) return false;
+                json_response(res, 200, {
+                    status: "ok",
+                    autostart: await deps.autostart(),
                 });
                 return true;
             default:
@@ -1903,6 +1927,10 @@ export function create_local_api_server(
 
         publish_theme_change(is_dark) {
             publish_sse_event("theme", is_dark);
+        },
+
+        publish_control_state(state) {
+            publish_sse_event("control", state);
         },
     };
 }

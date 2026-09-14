@@ -50,6 +50,8 @@ import {
     createSchedulerOrchestrator,
     to_connector_list_config,
 } from "./core/scheduler/scheduler-orchestrator";
+import { apply_launch_at_login, read_launch_at_login } from "./core/launch-at-login";
+import type { LoginItemApi, LaunchAtLoginState } from "./core/launch-at-login";
 import { hydrate_runtime_store } from "./core/scheduler/hydrate-runtime-store";
 import { discover_connector_definitions } from "./core/connector/manifest-loader";
 import type { ConnectorDefinition } from "./core/connector/manifest-loader";
@@ -340,6 +342,17 @@ void app.whenReady().then(async () => {
         let detected_system_proxy = await detect_system_proxy();
         let currentConfigSnapshot = currentConfig;
 
+        const login_item_api: LoginItemApi | undefined =
+            typeof app.getLoginItemSettings === "function" &&
+            typeof app.setLoginItemSettings === "function"
+                ? {
+                      getLoginItemSettings: () => app.getLoginItemSettings(),
+                      setLoginItemSettings: (settings) => {
+                          app.setLoginItemSettings(settings);
+                      },
+                  }
+                : undefined;
+
         const secretParamKeys = build_secret_param_keys(currentConfig, allDefinitions);
 
         nativeTheme.themeSource = currentConfig.theme ?? "system";
@@ -410,6 +423,38 @@ void app.whenReady().then(async () => {
             refresh: (instanceId: string) => refreshService.refresh(instanceId),
         });
         const orchestrator = createSchedulerOrchestrator({ scheduler, configStore });
+
+        const apply_configured_launch_at_login = (enabled: boolean): LaunchAtLoginState => {
+            const state = apply_launch_at_login(login_item_api, enabled);
+            if (!state.available) {
+                log.info("Launch at login is unavailable on this platform");
+            }
+            return state;
+        };
+
+        // Config is the single source of truth: reconcile the OS login item in
+        // both directions on every real application start.
+        apply_configured_launch_at_login(currentConfig.launchAtLogin);
+
+        function noop_send_tray_state(): void {
+            // The tray window is created after the LocalAPI and orchestrator.
+        }
+
+        let send_tray_state: () => void = noop_send_tray_state;
+
+        async function set_launch_at_login_from_control(
+            enabled: boolean,
+        ): Promise<LaunchAtLoginState> {
+            const current = read_launch_at_login(login_item_api);
+            if (!current.available) return current;
+            if (currentConfigSnapshot.launchAtLogin === enabled) {
+                return apply_configured_launch_at_login(enabled);
+            }
+            const updated = { ...currentConfigSnapshot, launchAtLogin: enabled };
+            await configStore.save(updated);
+            onConfigSaved(updated);
+            return read_launch_at_login(login_item_api);
+        }
 
         let main_panel_controller: MainPanelController | null = null;
         let tray_ref: Tray | null = null;
@@ -547,6 +592,9 @@ void app.whenReady().then(async () => {
         const onConfigSaved = (updatedConfig: AppConfiguration): void => {
             const previousConfig = currentConfigSnapshot;
             currentConfigSnapshot = updatedConfig;
+            if (previousConfig.launchAtLogin !== updatedConfig.launchAtLogin) {
+                apply_configured_launch_at_login(updatedConfig.launchAtLogin);
+            }
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — reconciling scheduler and secret keys");
             const newKeys = build_secret_param_keys(updatedConfig, allDefinitions);
@@ -586,6 +634,7 @@ void app.whenReady().then(async () => {
             }
             local_api?.publish_config_change(updatedConfig);
             main_panel_controller?.apply_config_change();
+            send_tray_state();
         };
         const onConfigImported = createOnConfigImported(refreshService, log);
 
@@ -736,6 +785,12 @@ void app.whenReady().then(async () => {
                 quit: () => {
                     app.quit();
                 },
+                autostart: () =>
+                    set_launch_at_login_from_control(!currentConfigSnapshot.launchAtLogin),
+                get_state: () => ({
+                    pause: orchestrator.get_pause_state(),
+                    autostart: read_launch_at_login(login_item_api),
+                }),
             },
             connector_deps: {
                 configStore,
@@ -750,6 +805,13 @@ void app.whenReady().then(async () => {
                 locator_paths: session_history_locator_paths,
             },
             ...(existsSync(web_root_path) ? { web_root: web_root_path } : {}),
+        });
+        orchestrator.on_pause_state((pause) => {
+            send_tray_state();
+            local_api?.publish_control_state({
+                pause,
+                autostart: read_launch_at_login(login_item_api),
+            });
         });
         await local_api.start();
         log.info(`Web panel: http://localhost:${String(local_api.get_port())}/v1/health`);
@@ -1081,9 +1143,8 @@ void app.whenReady().then(async () => {
                 });
             }
 
-            // Tray menu state
-            let is_paused = false;
-            const hasLoginItemApi = typeof app.setLoginItemSettings === "function";
+            // Tray menu state is projected from the orchestrator/config single sources.
+            const hasLoginItemApi = login_item_api !== undefined;
 
             // Custom tray menu window setup
 
@@ -1122,13 +1183,16 @@ void app.whenReady().then(async () => {
             });
 
             // Forward pause/autostart state to tray menu renderer
-            const send_tray_state = (): void => {
+            send_tray_state = (): void => {
                 if (trayMenuWin && !trayMenuWin.isDestroyed()) {
                     try {
-                        trayMenuWin.webContents.send(IPC_CHANNELS.TRAY_PAUSE_STATE, is_paused);
+                        trayMenuWin.webContents.send(
+                            IPC_CHANNELS.TRAY_PAUSE_STATE,
+                            orchestrator.get_pause_state().paused,
+                        );
                         trayMenuWin.webContents.send(
                             IPC_CHANNELS.TRAY_AUTOSTART_STATE,
-                            hasLoginItemApi ? app.getLoginItemSettings().openAtLogin : false,
+                            hasLoginItemApi ? read_launch_at_login(login_item_api).enabled : false,
                         );
                     } catch {
                         // window may be destroyed mid-send
@@ -1155,8 +1219,7 @@ void app.whenReady().then(async () => {
                 });
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_PAUSE, () => {
-                is_paused = !is_paused;
-                if (is_paused) {
+                if (!orchestrator.get_pause_state().paused) {
                     orchestrator.suspend("user");
                 } else {
                     // resume() reloads config and startAll()s (which refreshes
@@ -1167,11 +1230,12 @@ void app.whenReady().then(async () => {
                 }
                 send_tray_state();
             });
-            ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART, () => {
-                if (!hasLoginItemApi) return;
-                const current = app.getLoginItemSettings().openAtLogin;
-                app.setLoginItemSettings({ openAtLogin: !current });
+            ipcMain.handle(IPC_CHANNELS.TRAY_TOGGLE_AUTOSTART, async () => {
+                const state = await set_launch_at_login_from_control(
+                    !currentConfigSnapshot.launchAtLogin,
+                );
                 send_tray_state();
+                return state;
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_OPEN_SETTINGS, () => {
                 hideTrayMenu();
