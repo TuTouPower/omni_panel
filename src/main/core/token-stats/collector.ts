@@ -305,7 +305,7 @@ function platform_source_defs(host: Host): SourceDef[] {
             : [
                   {
                       key: `commandcode_${env}`,
-                      source: "commandcode" as unknown as TokenStatsSource,
+                      source: "commandcode" as TokenStatsSource,
                       kind: "commandcode_jsonl" as const,
                       env,
                       hosts: [host],

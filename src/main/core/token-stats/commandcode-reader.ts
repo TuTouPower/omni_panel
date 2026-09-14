@@ -13,8 +13,8 @@ import type {
 // Command Code is being added to the shared public source/agent unions by t484.
 // Keep this reader source-compatible with the t483 base while preserving the
 // runtime values that the chained t484 collector/store will validate.
-const COMMANDCODE_SOURCE = "commandcode" as unknown as TokenStatsSource;
-const COMMANDCODE_AGENT = "commandcode" as unknown as AgentSessionUsageRecord["agent"];
+const COMMANDCODE_SOURCE: TokenStatsSource = "commandcode";
+const COMMANDCODE_AGENT: AgentSessionUsageRecord["agent"] = "commandcode";
 
 interface UsageSums {
     input_tokens: number;
@@ -160,7 +160,9 @@ function parse_commandcode_file(
     const lines = content.split(/\r?\n/);
     const header_index = lines.findIndex((line) => line.trim() !== "");
     if (header_index < 0) return null;
-    const header = session_header_of(lines[header_index]!.trim());
+    const header_line = lines[header_index];
+    if (header_line === undefined) return null;
+    const header = session_header_of(header_line.trim());
     if (header === null) return null;
 
     const title = title_from_meta(project_dir, header.id);

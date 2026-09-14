@@ -232,6 +232,13 @@ const session_history_full_methods = {
             env,
             limit,
         ),
+    resume: (source: string, env: string, session_id: string) =>
+        invoke<{ command: string; started: boolean }>(
+            IPC_CHANNELS.SESSION_HISTORY_RESUME,
+            source,
+            env,
+            session_id,
+        ),
     searchContent: (
         request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
         keyword?: string | AbortSignal,
@@ -292,6 +299,8 @@ const session_history_disabled_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    resume: (): Promise<{ command: string; started: boolean }> =>
+        Promise.resolve({ command: "", started: false }),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
         Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
@@ -315,6 +324,8 @@ const session_history_open_only_methods = {
     query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
         Promise.resolve({ messages: [], next_cursor: null }),
     recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
+    resume: (): Promise<{ command: string; started: boolean }> =>
+        Promise.resolve({ command: "", started: false }),
     searchContent: (): Promise<SessionHistorySearchContentResponse> =>
         Promise.resolve({ hits: [], sessions: [], truncated: false }),
     summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),

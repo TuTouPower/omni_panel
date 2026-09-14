@@ -136,6 +136,28 @@ export function SessionPane({
             });
     }
 
+    async function run_session_command(): Promise<void> {
+        if (column.loc.source !== "commandcode") {
+            copy_session_command();
+            return;
+        }
+        const session_history_api = window.usageboard.sessionHistory;
+        if (!session_history_api.resume) {
+            show_toast?.("当前端不支持启动 Command Code");
+            return;
+        }
+        try {
+            const result = await session_history_api.resume(
+                column.loc.source,
+                column.loc.env,
+                column.loc.session_id,
+            );
+            show_toast?.(result.started ? "已启动 Command Code" : "启动 Command Code 失败");
+        } catch {
+            show_toast?.("启动 Command Code 失败");
+        }
+    }
+
     return (
         <section
             className={cn(
@@ -201,8 +223,14 @@ export function SessionPane({
                             variant="text"
                             className="min-w-0 truncate p-0 font-code-md text-[length:var(--text-label-md)] font-[450] tabular-nums text-[var(--color-on-surface-muted)] hover:bg-transparent hover:text-[var(--color-on-surface-variant)] focus-visible:ring-[var(--color-accent-ring)]"
                             data-testid="conversation-session-id"
-                            title={session_command ?? undefined}
-                            onClick={copy_session_command}
+                            title={
+                                column.loc.source === "commandcode"
+                                    ? "启动 Command Code 会话"
+                                    : (session_command ?? undefined)
+                            }
+                            onClick={() => {
+                                void run_session_command();
+                            }}
                         >
                             {column.loc.session_id}
                         </Button>

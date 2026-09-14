@@ -49,6 +49,7 @@
     --color-agent-opencode: #1f9d66;
     --color-agent-kimi: #4f6fe0;
     --color-agent-codex: #d6336c;
+    --color-agent-commandcode: #7c3aed;
     --color-heat-1: #e8f0ff;
     --color-heat-2: #cfe0ff;
     --color-heat-3: #b6d0f8;
@@ -99,6 +100,7 @@
     --color-agent-opencode-dark: #3ecf8e;
     --color-agent-kimi-dark: #7f9cff;
     --color-agent-codex-dark: #f06595;
+    --color-agent-commandcode-dark: #a78bfa;
     --color-scrollbar-thumb: rgba(120, 130, 150, 0.35);
     --color-scrollbar-thumb-hover: rgba(120, 130, 150, 0.55);
     --color-scrollbar-thumb-dark: #2c3746;
@@ -246,6 +248,7 @@
     --color-agent-opencode: var(--color-agent-opencode-dark);
     --color-agent-kimi: var(--color-agent-kimi-dark);
     --color-agent-codex: var(--color-agent-codex-dark);
+    --color-agent-commandcode: var(--color-agent-commandcode-dark);
     --color-heat-1: var(--color-heat-1-dark);
     --color-heat-2: var(--color-heat-2-dark);
     --color-heat-3: var(--color-heat-3-dark);

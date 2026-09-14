@@ -2126,6 +2126,13 @@ describe("local-api session history endpoints (t259)", () => {
             join(session_home, ".claude", "projects", "sess-1.jsonl"),
             '{"sessionId":"sess-1"}\n',
         );
+        await mkdir(join(session_home, ".commandcode", "projects", "encoded-cwd"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(session_home, ".commandcode", "projects", "encoded-cwd", "cc-sess.jsonl"),
+            "{}\n",
+        );
     });
 
     afterEach(async () => {
@@ -2175,6 +2182,37 @@ describe("local-api session history endpoints (t259)", () => {
             expect.objectContaining({ source: "claude_code", env: "linux", session_id: "sess-1" }),
             expect.objectContaining({ limit: 10 }),
         );
+    });
+
+    it("POST /v1/sessionHistory/resume 执行固定 Command Code 模板 (t484 AC-009)", async () => {
+        const service = base_session_service();
+        setup_session_api(
+            service,
+            vi.fn(() => []),
+        );
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+        const result = await fetch(`${base}/v1/sessionHistory/resume`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                source: "commandcode",
+                env: "linux",
+                session_id: "cc-sess",
+            }),
+        });
+        expect(result.status).toBe(200);
+        await expect(result.json()).resolves.toEqual({
+            command: "cmd --resume cc-sess",
+            started: true,
+        });
+
+        const rejected = await fetch(`${base}/v1/sessionHistory/resume`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ source: "commandcode", env: "win", session_id: "cc-sess" }),
+        });
+        expect(rejected.status).toBe(400);
     });
 
     it("GET /v1/sessionHistory 缺 source/env 返回 400，不再全量枚举 (t263)", async () => {

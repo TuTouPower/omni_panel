@@ -255,7 +255,8 @@ describe("commandcode token reader", () => {
         });
         const bucket = serialized.commandcode_states?.["commandcode_linux"];
         expect(bucket).toBeDefined();
-        const restored = deserialize_bucket(bucket!);
+        if (bucket === undefined) throw new Error("commandcode state was not serialized");
+        const restored = deserialize_bucket(bucket);
 
         const unchanged = scan_commandcode_jsonls(
             fixture.root,

@@ -525,6 +525,30 @@ describe("SessionPane 头部两行重排与会话 id 复制 (t324)", () => {
         delete (navigator as { clipboard?: unknown }).clipboard;
     });
 
+    it("t484 AC-009：Command Code 点击 session id 调宿主 resume，不依赖 clipboard", async () => {
+        const usageboard = install_history_usageboard();
+        const toast_spy = vi.fn();
+        Object.assign(navigator, { clipboard: undefined });
+        render(
+            <SessionPane
+                {...PROPS}
+                show_toast={toast_spy}
+                column={column({
+                    loc: { source: "commandcode", env: "linux", session_id: "cc-sid" },
+                })}
+            />,
+        );
+        fireEvent.click(screen.getByText("cc-sid"));
+        await waitFor(() => {
+            expect(usageboard.sessionHistory.resume).toHaveBeenCalledWith(
+                "commandcode",
+                "linux",
+                "cc-sid",
+            );
+        });
+        expect(toast_spy).toHaveBeenCalledWith("已启动 Command Code");
+    });
+
     it("会话标题在第二行可见，头部保留大纲/关闭（t324 标题可见 + t409 动作保留）", () => {
         render(<SessionPane {...PROPS} show_toast={() => undefined} />);
         expect(screen.getByText("会话标题")).toBeTruthy();

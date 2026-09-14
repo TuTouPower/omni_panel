@@ -160,6 +160,20 @@ describe("session-locator (t210)", () => {
         });
     });
 
+    describe("commandcode", () => {
+        it("按 projects/<encoded-cwd>/<session_id>.jsonl 精确命中", () => {
+            const project_dir = join(tmp_root, ".commandcode", "projects", "encoded-cwd");
+            mkdirSync(project_dir, { recursive: true });
+            const file = join(project_dir, "cc-session.jsonl");
+            writeFileSync(file, "{}\n");
+
+            const result = resolve_session_file("commandcode", "linux", "cc-session", paths);
+            expect(result).toEqual({ file_path: file, extractor_kind: "commandcode" });
+            expect(resolve_session_file("commandcode", "linux", "missing", paths)).toBeNull();
+            expect(resolve_session_file("commandcode", "linux", "../cc-session", paths)).toBeNull();
+        });
+    });
+
     it("重复 resolve 命中缓存；源文件删除后缓存失效并返回 null", () => {
         const proj_dir = join(tmp_root, ".claude", "projects", "cache_proj");
         mkdirSync(proj_dir, { recursive: true });

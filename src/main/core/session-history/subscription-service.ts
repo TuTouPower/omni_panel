@@ -52,6 +52,12 @@ import {
     extract_opencode_last_user,
     extract_opencode_incremental,
 } from "./opencode-extractor";
+import {
+    extract_commandcode,
+    extract_commandcode_first_user,
+    extract_commandcode_last_user,
+    extract_commandcode_incremental,
+} from "./commandcode-extractor";
 import type { ExtractCursor, ExtractResult, HistoryMessage } from "./types";
 import type { TokenStatsSession } from "../../../shared/types/token-stats";
 import type { Host } from "../token-stats/paths";
@@ -60,8 +66,15 @@ import { createLogger } from "../../../shared/lib/logger";
 
 const log = createLogger("session-history-subscription");
 
-/** 端类型，与 t209 四端提取器一一对应（t446 +codex；t455 +antigravity）。 */
-export type ExtractorKind = "claude_code" | "opencode" | "kimi" | "grok" | "codex" | "antigravity";
+/** 端类型，与 t209 四端提取器一一对应（t446 +codex；t455 +antigravity；t484 +commandcode）。 */
+export type ExtractorKind =
+    | "claude_code"
+    | "opencode"
+    | "kimi"
+    | "grok"
+    | "codex"
+    | "antigravity"
+    | "commandcode";
 
 /** 运行环境，与 t437 的 TokenStatsEnv 对齐（win/wsl/linux/mac 四值，无 `local`）。 */
 export type Env = "win" | "wsl" | "linux" | "mac";
@@ -200,7 +213,7 @@ function loc_key(loc: SessionLoc): string {
 
 /**
  * 选择监听策略。决策 5：
- * - win/linux/mac + claude_code（本机 JSONL）→ fs.watch；
+ * - win/linux/mac + claude_code/commandcode（本机 JSONL）→ fs.watch；
  * - 其余（wsl UNC 9P 任意 / opencode sqlite / kimi / grok）→ 2s 轮询 mtime。
  * t438: env=win 在非 Windows 宿主（WSL 读 /mnt/c，drvfs）上 fs.watch 收不到
  * Windows 侧变更事件（d049）——一律 poll；Windows 宿主本机 win 源仍 watch。
@@ -211,7 +224,7 @@ export function pick_strategy(
     extractor_kind: ExtractorKind,
     host: Host = "windows",
 ): "watch" | "poll" {
-    if (env !== "wsl" && extractor_kind === "claude_code") {
+    if (env !== "wsl" && (extractor_kind === "claude_code" || extractor_kind === "commandcode")) {
         if (env === "win" && host !== "windows") return "poll";
         return "watch";
     }
@@ -416,6 +429,8 @@ export class SessionHistorySubscriptionService {
                 return extract_codex(file_path);
             case "antigravity":
                 return extract_antigravity(file_path);
+            case "commandcode":
+                return extract_commandcode(file_path);
         }
     }
 
@@ -450,6 +465,10 @@ export class SessionHistorySubscriptionService {
                 return cursor
                     ? extract_antigravity_incremental(file_path, cursor)
                     : extract_antigravity(file_path);
+            case "commandcode":
+                return cursor
+                    ? extract_commandcode_incremental(file_path, cursor)
+                    : extract_commandcode(file_path);
         }
     }
 
@@ -472,6 +491,8 @@ export class SessionHistorySubscriptionService {
                 return extract_codex_first_user(file_path);
             case "antigravity":
                 return extract_antigravity_first_user(file_path);
+            case "commandcode":
+                return extract_commandcode_first_user(file_path);
         }
     }
 
@@ -494,6 +515,8 @@ export class SessionHistorySubscriptionService {
                 return extract_codex_last_user(file_path);
             case "antigravity":
                 return extract_antigravity_last_user(file_path);
+            case "commandcode":
+                return extract_commandcode_last_user(file_path);
         }
     }
 
@@ -599,12 +622,18 @@ export class SessionHistorySubscriptionService {
     /** watcher 触发：增量提取并推新增。失败不向外抛，记日志。 */
     private handle_change(sub: Subscription): void {
         let messages: readonly HistoryMessage[] = [];
+        let replace_cache = false;
         try {
             // t367 AC-002: 文件被截断/重写时（size 回退），字节游标指向旧 offset 会
             // 错位——重置 cursor 走全量，不丢新内容。
             const st = safe_stat(sub.file_path);
             let cursor = sub.cursor;
-            if (cursor?.kind === "byte_offset" && st !== null && cursor.offset > st.size) {
+            if (
+                sub.extractor_kind !== "commandcode" &&
+                cursor?.kind === "byte_offset" &&
+                st !== null &&
+                cursor.offset > st.size
+            ) {
                 cursor = null;
             }
             const result = this.extract_incremental(
@@ -615,12 +644,18 @@ export class SessionHistorySubscriptionService {
             );
             sub.cursor = result.cursor;
             messages = result.messages;
+            replace_cache = result.replace_cache === true;
+            if (replace_cache) {
+                this.set_extract_cache(loc_key(sub.loc), sub.file_path, sub.extractor_kind, result);
+            }
         } catch (err) {
             log.warn(`extract failed for ${sub.file_path} (${sub.extractor_kind}): ${String(err)}`);
             return;
         }
         if (messages.length === 0) return;
-        this.refresh_cache_after_change(sub, [...messages]);
+        if (!replace_cache) {
+            this.refresh_cache_after_change(sub, [...messages]);
+        }
         // t219 多订阅方：逐订阅方隔离，单个 on_update 抛错不剥夺其余订阅方推送。
         for (const entry of sub.subscribers.values()) {
             try {

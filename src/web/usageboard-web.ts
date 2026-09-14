@@ -949,6 +949,11 @@ export function create_web_usageboard(): UsageboardApi {
                 get_json(
                     `/v1/sessionHistory/recent?source=${encodeURIComponent(source)}&env=${encodeURIComponent(env)}&limit=${String(limit)}`,
                 ),
+            resume: (source: string, env: string, session_id: string) =>
+                post_json("/v1/sessionHistory/resume", { source, env, session_id }) as Promise<{
+                    command: string;
+                    started: boolean;
+                }>,
             searchContent: (
                 request_or_locs: SessionHistorySearchContentRequest | readonly SessionHistoryLoc[],
                 keyword_or_signal?: string | AbortSignal,

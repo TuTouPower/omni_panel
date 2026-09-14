@@ -298,3 +298,19 @@
 - 平台：Linux 或无 `setLoginItemSettings` 的环境明确返回能力不可用，不引入新的 Linux 自启动实现。
 - 落地：t474。
 - 替代：tray 本地 `is_paused`、CLI 独立 `setLoginItemSettings`、仅开启不关闭 OS 登录项的回退逻辑。
+
+## 033 Command Code 会话历史由宿主固定 resume（2026-09-14）
+
+- 背景：Command Code 会话 JSONL 需要进入统一 session-history；桌面 renderer 与 Web
+  renderer 目前只能复制续接命令，Web 在非安全上下文还可能没有 clipboard。任意模板
+  直接交给 shell 又会把 session id 变成命令注入边界。
+- 结论：`commandcode` 作为独立 `HistorySource`/`ExtractorKind`，复用 locator、query、
+  watcher 和两端事件桥。面板 resume 只接受已定位的 linux/mac Command Code session，
+  由宿主无 shell 地 `spawn("cmd", ["--resume", session_id])`；IPC/LocalAPI 不接受
+  任意命令字符串，Web 不降级为 clipboard。
+- 边界：Command Code JSONL 的增量游标记录文件快照，截断或同尺寸重写触发全量 cache
+  替换；user 仅接受 `message.meta.source === "user"`，工具与 thinking 内容永不展示。
+- 落地：t484；规格见 `docs/specs/session-library.md` 与
+  `docs/specs/resume_command_template.md`。
+- 替代：renderer/browser 直接执行模板、Web 禁用 resume、或把 Command Code 混入
+  其他 agent 的默认映射。

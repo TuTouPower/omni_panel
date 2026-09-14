@@ -13,6 +13,7 @@ export const DEFAULT_RESUME_COMMAND_TEMPLATES = {
     opencode: "opencode -s {session_id}",
     codex: "codex resume {session_id}",
     antigravity: "agy --conversation {session_id}",
+    commandcode: "cmd --resume {session_id}",
 } as const;
 
 export type ResumeCommandSource = keyof typeof DEFAULT_RESUME_COMMAND_TEMPLATES;
@@ -26,6 +27,11 @@ export function resume_command(
     session_id: string,
     templates?: Readonly<Partial<Record<string, string>>>,
 ): string | null {
+    // Command Code is launched by the host through a fixed argv pair; a user
+    // setting must never turn this path back into configurable command text.
+    if (source === "commandcode") {
+        return DEFAULT_RESUME_COMMAND_TEMPLATES.commandcode.replaceAll("{session_id}", session_id);
+    }
     const custom = templates?.[source];
     if (typeof custom === "string" && custom.length > 0) {
         return custom.replaceAll("{session_id}", session_id);

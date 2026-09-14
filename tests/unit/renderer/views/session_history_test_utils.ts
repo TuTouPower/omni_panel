@@ -79,6 +79,7 @@ export function install_history_usageboard(get_config?: () => AppConfiguration) 
             unsubscribe: vi.fn().mockResolvedValue({ unsubscribed: true }),
             query: vi.fn().mockResolvedValue({ messages: [], next_cursor: null }),
             recent: vi.fn().mockResolvedValue([]),
+            resume: vi.fn().mockResolvedValue({ command: "cmd --resume sid", started: true }),
             searchContent: vi.fn().mockResolvedValue([]),
             summaries: vi.fn().mockResolvedValue({}),
             onMessagesUpdated: vi.fn(() => () => undefined),

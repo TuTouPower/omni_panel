@@ -70,6 +70,29 @@ describe("web usageboard bridge", () => {
         expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/records"));
     });
 
+    it("t484 AC-009/010: web Command Code resume delegates to the host endpoint", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ command: "cmd --resume sid-1", started: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        await expect(api.sessionHistory.resume?.("commandcode", "linux", "sid-1")).resolves.toEqual(
+            { command: "cmd --resume sid-1", started: true },
+        );
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/sessionHistory/resume",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({
+                    source: "commandcode",
+                    env: "linux",
+                    session_id: "sid-1",
+                }),
+            }),
+        );
+    });
+
     it("t481 AC-003/010: devPanel opens hash and delegates scan state to the host", async () => {
         const state = {
             status: "completed" as const,
@@ -1152,6 +1175,30 @@ describe("web usageboard bridge", () => {
             subscriber_id: "web-1",
         });
         expect(body["connection_id"]).toMatch(/^web-conn-/);
+    });
+
+    it("t484 AC-010: web 可打开 Command Code 订阅查询", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ subscribed: true, subscriber_id: "web-cc-1" }));
+        vi.stubGlobal("fetch", fetch_mock);
+        FakeEventSource.instances = [];
+        vi.stubGlobal("EventSource", FakeEventSource);
+
+        const api = create_web_usageboard();
+        await api.sessionHistory.subscribe("commandcode", "linux", "cc-sid");
+        const source = FakeEventSource.instances[0];
+        if (!source) throw new Error("no EventSource opened");
+        source.simulate_open();
+        await Promise.resolve();
+
+        const init = fetch_mock.mock.calls[0]?.[1];
+        const raw_body = typeof init?.body === "string" ? init.body : "";
+        expect(JSON.parse(raw_body)).toMatchObject({
+            source: "commandcode",
+            env: "linux",
+            session_id: "cc-sid",
+        });
     });
 
     it("messagesUpdated 按 loc 分发且不串会话 (t414 AC-003)", async () => {

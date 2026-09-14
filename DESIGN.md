@@ -43,6 +43,7 @@ colors:
     agent-opencode: "#1f9d66"
     agent-kimi: "#4f6fe0"
     agent-codex: "#d6336c"
+    agent-commandcode: "#7c3aed"
     heat-1: "#e8f0ff"
     heat-2: "#cfe0ff"
     heat-3: "#b6d0f8"
@@ -93,6 +94,7 @@ colors:
     agent-opencode-dark: "#3ecf8e"
     agent-kimi-dark: "#7f9cff"
     agent-codex-dark: "#f06595"
+    agent-commandcode-dark: "#a78bfa"
     # 滚动条 thumb（t412 细规范：亮色冷灰半透明、暗色对齐 demo §7）
     scrollbar-thumb: "rgba(120, 130, 150, 0.35)"
     scrollbar-thumb-hover: "rgba(120, 130, 150, 0.55)"
@@ -392,7 +394,7 @@ OmniPanel 是一个常驻桌面的用量监控工具：它把多个 AI 服务商
 
 **用量条配色三方案全部保留**（设置中用户可选，一种不删）：`risk-current`（当前风险阶梯：绿 → 黄 >60% → 橙 >85% → 红 ≥95%）、`risk-projected`（带投影预测的同一阶梯）、`nine-cycle`（九色循环 `usage-1`～`usage-9`，只做视觉区分，不表达风险）。九色是数据分类色，属于语义色之外的独立例外，不参与强调色系统。
 
-**图表与 agent 识别色：** ECharts 等 canvas 图表不读 CSS 类，其配色经 token resolver 在渲染期从语义变量取实际值（轴、提示框、类目色、dataZoom 全套）；主题或 accent 变化使 palette revision 递增并触发 `setOption` 重绘。agent 识别色按当前可达数据源定义五家 + 未知源 fallback（回落 `primary`）：`agent-claude` / `agent-grok` / `agent-opencode` / `agent-kimi` / `agent-codex`，明暗成对。新增数据源时先扩展 token 再消费。
+**图表与 agent 识别色：** ECharts 等 canvas 图表不读 CSS 类，其配色经 token resolver 在渲染期从语义变量取实际值（轴、提示框、类目色、dataZoom 全套）；主题或 accent 变化使 palette revision 递增并触发 `setOption` 重绘。agent 识别色按当前可达数据源定义六家 + 未知源 fallback（回落 `primary`）：`agent-claude` / `agent-grok` / `agent-opencode` / `agent-kimi` / `agent-codex` / `agent-commandcode`，明暗成对。新增数据源时先扩展 token 再消费。
 
 暗色主题是完整的一等公民：所有颜色 token 的暗色值以 `-dark` 后缀定义在本文件 front matter 中，经 `@custom-variant dark` + 变量翻转统一切换。主题默认值跟随用户配置（light/dark/system），所有窗口行为一致——不存在「某窗口默认暗、某窗口默认亮」的例外。
 

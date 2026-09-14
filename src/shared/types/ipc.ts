@@ -165,6 +165,7 @@ export const IPC_CHANNELS = {
     SESSION_HISTORY_UNSUBSCRIBE: "sessionHistory:unsubscribe",
     SESSION_HISTORY_QUERY: "sessionHistory:query",
     SESSION_HISTORY_RECENT: "sessionHistory:recent",
+    SESSION_HISTORY_RESUME: "sessionHistory:resume",
     /** t239: 批量内容搜索，一次调用返回全部候选会话的命中键集合。 */
     SESSION_HISTORY_SEARCH_CONTENT: "sessionHistory:searchContent",
     /** t239: 批量首条用户消息摘要，返回 loc key → 摘要文本。 */
@@ -440,6 +441,12 @@ export interface SessionHistoryApi {
         env: string,
         limit: number,
     ): Promise<readonly SessionHistoryRecentItem[]>;
+    /** Host-side fixed Command Code resume; absent on legacy route mocks. */
+    resume?(
+        source: string,
+        env: string,
+        session_id: string,
+    ): Promise<{ command: string; started: boolean }>;
     /** t248: 批量内容搜索，返回命中键及其会话元信息。t263: 可选 AbortSignal 支持客户端取消（web shim 透传 fetch）。 */
     searchContent(
         request: SessionHistorySearchContentRequest,

@@ -69,6 +69,7 @@ import { handleRendererLog } from "../../ipc/log-ipc";
 import type { AppConfiguration } from "../../../shared/types/config";
 import { resolve_session_file } from "../session-history/session-locator";
 import type { HistorySource, LocatorPaths } from "../session-history/session-locator";
+import { execute_commandcode_resume } from "../session-history/resume";
 import type {
     Env,
     ResolvedSessionLoc,
@@ -376,6 +377,38 @@ function handle_session_history_recent(
     json_response(res, 200, recent);
 }
 
+async function handle_session_history_resume(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: SessionHistoryDeps,
+): Promise<void> {
+    const parsed = await read_json_body(req, res);
+    if (!parsed.ok) return;
+    const body = is_record(parsed.value) ? parsed.value : {};
+    const source = body["source"];
+    const env = body["env"];
+    const session_id = body["session_id"];
+    if (
+        source !== "commandcode" ||
+        (env !== "linux" && env !== "mac") ||
+        typeof session_id !== "string" ||
+        session_id === ""
+    ) {
+        json_response(res, 400, { error: "Command Code resume requires a local platform" });
+        return;
+    }
+    const resolved = resolve_session_file("commandcode", env, session_id, deps.locator_paths);
+    if (!resolved) {
+        json_response(res, 404, { error: "SESSION_NOT_FOUND", code: "SESSION_NOT_FOUND" });
+        return;
+    }
+    try {
+        json_response(res, 200, execute_commandcode_resume(session_id));
+    } catch {
+        json_response(res, 500, { error: "RESUME_FAILED", code: "RESUME_FAILED" });
+    }
+}
+
 function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
@@ -625,6 +658,10 @@ async function handle_web_session_history(
         return true;
     }
     if (req.method !== "POST") return false;
+    if (url.pathname === "/v1/sessionHistory/resume") {
+        await handle_session_history_resume(req, res, deps);
+        return true;
+    }
     if (url.pathname === "/v1/sessionHistory/subscribe") {
         await handle_web_session_history_subscribe(req, res, deps, ctx);
         return true;
@@ -1438,7 +1475,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1465,7 +1503,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1490,7 +1529,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),
@@ -1515,7 +1555,8 @@ export function create_local_api_server(
                                       | "opencode"
                                       | "kimi-code"
                                       | "grok"
-                                      | "codex",
+                                      | "codex"
+                                      | "commandcode",
                               }
                             : {}),
                         ...(env ? { env: env as TokenStatsEnv } : {}),

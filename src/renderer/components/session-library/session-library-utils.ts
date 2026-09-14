@@ -18,6 +18,7 @@ export function agent_abbrev(source: string): string {
     if (source === "opencode") return "OC";
     if (source === "kimi_code") return "K";
     if (source === "grok") return "G";
+    if (source === "commandcode") return "CC";
     return source.slice(0, 2).toUpperCase();
 }
 

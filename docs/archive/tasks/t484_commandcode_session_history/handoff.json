@@ -1,0 +1,49 @@
+{
+    "tid": "t484",
+    "slug": "commandcode_session_history",
+    "attempt": 1,
+    "execution_id": "ba83825e9e7b43ddaa354d6ab8237611",
+    "status": "done",
+    "branch": "t484_commandcode_session_history",
+    "base_sha": "b5d4949f6125fdeed0a789b217983a76b6ba2b54",
+    "tests": "受影响定向集合 225 passed、1 个既有 OpenCode SQLite 测试因 better-sqlite3 native binding 失败；最终全量直接 Vitest 3740 tests：3371 passed、2 skipped、367 failed，失败集中于同一 native SQLite 环境阻塞；最终 IPC/Web bridge 100 tests 全部通过",
+    "blackbox": "pnpm test 因无 TTY 的 pnpm 依赖状态门禁中止；Electron main/preload、renderer 与 Web 生产构建通过；Markdown formatter 因环境缺 md_kx 中止",
+    "review": "Round 1 code + test PASS，0 finding，reviewed_scope=5b8c0fb4427dd39b，review scope 606f3224c61cdee9",
+    "ac_evidence": {
+        "AC-001": [
+            "commandcode-extractor.test.ts 的 JSONL fixture 断言只保留 user/assistant text、行序与非空 timestamp。"
+        ],
+        "AC-002": [
+            "追加 message 行的增量测试只返回新增消息，并断言合法消息 id 延续。"
+        ],
+        "AC-003": [
+            "first_user/last_user 测试含 tool-source user 干扰，分别返回首末真人 user 文本。"
+        ],
+        "AC-004": [
+            "session-locator 临时 projects fixture 精确命中文件名；missing 与路径遍历 session id 返回 null。"
+        ],
+        "AC-005": [
+            "公共 schema、AgentFilter、dashboard chart/palette 与 commandcode 查询 union 接线均有 wiring/静态门禁证据。"
+        ],
+        "AC-006": [
+            "panels wiring 测试断言 Command Code friendly、slug、CC abbrev、vendor logo、accent 与固定 resume 模板。"
+        ],
+        "AC-007": [
+            "subscription-service 真实 commandcode watcher 追加 fixture 后触发 on_update，并验证增量消息。"
+        ],
+        "AC-008": [
+            "extractor 独立测试覆盖半行多字节、非法 JSON、未知 content block、同尺寸重写替换缓存和畸形 timestamp。"
+        ],
+        "AC-009": [
+            "resume executor、IPC、Web bridge、SessionPane 测试断言固定 cmd --resume argv、shell:false、host 调用和 Web 可用；真实终端启动为 deploy 人工项。"
+        ],
+        "AC-010": [
+            "IPC commandcode subscribe、Web commandcode subscribe、共享 messagesUpdated 路由和生产 watcher 测试通过；真实 LocalAPI SQLite 集成受 native binding 环境阻塞。"
+        ]
+    },
+    "pending": [
+        "在可构建 better-sqlite3 native binding 的环境复跑 pnpm test 与 LocalAPI SQLite 集成测试。",
+        "部署环境人工签收 cmd --resume 的真实终端启动。"
+    ],
+    "findings": []
+}

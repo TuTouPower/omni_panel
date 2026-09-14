@@ -50,6 +50,7 @@ import {
     validate_search_content_request,
     type SessionHistorySearchRequest,
 } from "../core/query-contract";
+import { execute_commandcode_resume } from "../core/session-history/resume";
 
 export interface SessionHistoryIpcDeps {
     readonly service: SessionHistorySubscriptionService;
@@ -123,6 +124,33 @@ export function registerSessionHistoryIpc(ipc: IpcMain, deps: SessionHistoryIpcD
             // 只注销调用方窗口的订阅，不误伤同会话其他订阅方。
             deps.service.unsubscribe(source, env as Env, session_id, String(event.sender.id));
             return ok({ unsubscribed: true });
+        },
+    );
+
+    ipc.handle(
+        IPC_CHANNELS.SESSION_HISTORY_RESUME,
+        (event: IpcMainInvokeEvent, source: string, env: string, session_id: string): AnyResult => {
+            assert_valid_sender(event);
+            if (
+                source !== "commandcode" ||
+                (env !== "linux" && env !== "mac") ||
+                typeof session_id !== "string" ||
+                session_id === ""
+            ) {
+                return fail("INVALID_REQUEST", "Command Code resume requires a local platform");
+            }
+            const resolved = resolve_session_file(
+                "commandcode",
+                env,
+                session_id,
+                deps.locator_paths,
+            );
+            if (!resolved) return fail("SESSION_NOT_FOUND", "session file not found");
+            try {
+                return ok(execute_commandcode_resume(session_id));
+            } catch {
+                return fail("RESUME_FAILED", "failed to start Command Code");
+            }
         },
     );
 

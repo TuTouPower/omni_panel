@@ -19,12 +19,12 @@
 |add-account-auto-refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
-|session-library|API|t476：会话历史 query/recent/searchContent/summaries 与 token-stats/trend/dashboard 查询契约共享化|2026-09-14|
+|session-library|API / Web / Desktop|t476，t484：会话历史查询契约、Command Code 提取与宿主 resume|2026-09-14|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|
 |ai-cli-token-stats-ui|Web|拆自 ai-cli-token-stats（t037），t103，t164，t168，t170，t190，t198，t200，t204，t205，t229，t230，t320，t321，t437，t451，t453，t454|2026-09-06|
 |tokenstats-performance-baseline|API|t189|2026-08-02|
 |config-store|API|迁移自 omni_powers，t038/t041/t105/t111，t195，t293，t401，t471，t472，t479|2026-09-14|
-|resume_command_template|API / Web|t401, t402, t403|2026-08-16|
+|resume_command_template|API / Web / Desktop|t401, t402, t403, t484|2026-09-14|
 |config_fallback_p0_protection|API|t111|2026-07-25|
 |connector-auth|API + Desktop + Web|t107, t112, t159, t478|2026-09-14|
 |connector-cpa-runtime|API|拆自 connector-cpa（t037）|2026-07-21|
@@ -78,7 +78,7 @@
 |classify_collect_failure|API|t172|2026-07-31|
 |kimi_oauth_concurrency|API|t150|2026-07-26|
 |unify_account_auth_forms|Web|t157|2026-07-27|
-|session-history-window|Desktop|t211，t212，t213，t436|2026-08-23|
+|session-history-window|Web + Desktop|t211，t212，t213，t436，t484|2026-09-14|
 |kimi-session-history-extractor|Desktop|t425，t436|2026-08-23|
 |antigravity-session-history-extractor|Desktop|t455，t470|2026-09-11|
 |session_query_title_directory_filters|API|t457|2026-09-08|
