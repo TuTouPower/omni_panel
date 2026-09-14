@@ -38,7 +38,7 @@
 |log_rotation|Desktop|t154|2026-07-27|
 |observation-store|API|迁移自 omni_powers，t096，t174，t207，t214，t208|2026-08-05|
 |opencode_go_html_scrape|API|t115|2026-07-26|
-|platform-services-api|API|拆自 platform-services（t037）；t414 页级共享 SSE 连接模型|2026-08-16|
+|platform-services-api|API|拆自 platform-services（t037）；t414 页级共享 SSE 连接模型；t473 Web/桌面同权限无认证基线|2026-09-14|
 |platform-services-electron|Desktop|拆自 platform-services（t037）|2026-07-21|
 |scheduler|API|迁移自 omni_powers，t039，t155|2026-07-27|
 |secret-vault|API|迁移自 omni_powers，t045，t195，t296|2026-08-11|

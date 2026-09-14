@@ -984,7 +984,7 @@ describe("config-ipc", () => {
         ).toThrow("IPC not allowed from unknown origin");
     });
 
-    it("rejects CONFIG_GET_SECRETS from non-setting route (I14)", async () => {
+    it("allows CONFIG_GET_SECRETS from any valid renderer route (t473)", async () => {
         const deps = createMockDeps();
         const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
         await registerConfigIpc(deps);
@@ -992,18 +992,16 @@ describe("config-ipc", () => {
             ([channel]) => channel === "config:getSecrets",
         )?.[1];
         if (!handler) throw new Error("missing config:getSecrets handler");
-        // #usage route 不应拉明文密钥
-        expect(() =>
-            handler(
-                {
-                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
-                } as Electron.IpcMainInvokeEvent,
-                "instance-1",
-            ),
-        ).toThrow("only allowed from setting route");
+        const result = await handler(
+            {
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
+            } as Electron.IpcMainInvokeEvent,
+            "claude",
+        );
+        expect(result).toEqual({ ok: true, data: { API_KEY: "sk-real" } });
     });
 
-    it("rejects CONFIG_SAVE_SECRETS from non-setting route (p120)", async () => {
+    it("allows CONFIG_SAVE_SECRETS from any valid renderer route (t473)", async () => {
         const deps = createMockDeps();
         const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
         await registerConfigIpc(deps);
@@ -1011,15 +1009,40 @@ describe("config-ipc", () => {
             ([channel]) => channel === "config:saveSecrets",
         )?.[1];
         if (!handler) throw new Error("missing config:saveSecrets handler");
-        // 非设置路由（如 #usage）不应写 vault 密钥（防御纵深，与 GET_SECRETS 对齐）
+        const result = await handler(
+            {
+                senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
+            } as Electron.IpcMainInvokeEvent,
+            { instanceId: "claude", secrets: { API_KEY: "new-key" } },
+        );
+        expect(result).toEqual({ ok: true, data: undefined });
+        expect(deps.secretsStore.set).toHaveBeenCalledWith("claude:API_KEY", "new-key");
+    });
+
+    it("keeps sender validation on secret IPC channels (t473)", async () => {
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+        const get_handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:getSecrets",
+        )?.[1];
+        const save_handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:saveSecrets",
+        )?.[1];
+        if (!get_handler || !save_handler) throw new Error("missing secret handlers");
+        const invalid_event = {
+            senderFrame: { url: "about:blank" },
+        } as Electron.IpcMainInvokeEvent;
+        expect(() => get_handler(invalid_event, "claude")).toThrow(
+            "IPC not allowed from unknown origin",
+        );
         expect(() =>
-            handler(
-                {
-                    senderFrame: { url: "file:///D:/app/out/renderer/index.html#usage" },
-                } as Electron.IpcMainInvokeEvent,
-                {},
-            ),
-        ).toThrow("only allowed from setting route");
+            save_handler(invalid_event, {
+                instanceId: "claude",
+                secrets: { API_KEY: "new-key" },
+            }),
+        ).toThrow("IPC not allowed from unknown origin");
+        expect(deps.secretsStore.set).not.toHaveBeenCalled();
     });
 
     // P1-3: 用户可见文案统一用「连接器」而非「插件」（domain.md §5）

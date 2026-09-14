@@ -59,23 +59,6 @@ export function assert_valid_sender(event: IpcMainInvokeEvent): void {
     throw new Error(`Invalid sender protocol: ${url}`);
 }
 
-/**
- * I14: 校验 IPC 调用来自 setting route（CONFIG_GET_SECRETS 等敏感通道）。
- * renderer URL `file://...index.html?...#setting`；web 同 `#setting`。
- */
-export function assert_setting_route(event: IpcMainInvokeEvent): void {
-    const url = event.senderFrame?.url ?? "";
-    let hash = "";
-    try {
-        hash = new URL(url).hash;
-    } catch {
-        // 空 hash 走拒绝分支
-    }
-    if (hash !== "#setting") {
-        throw new Error(`IPC only allowed from setting route, got hash=${hash || "(none)"}`);
-    }
-}
-
 export function state_to_snapshot_dto(state: ConnectorSnapshotState): ConnectorSnapshotDTO {
     switch (state.status) {
         case "idle":

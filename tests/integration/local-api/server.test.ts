@@ -897,6 +897,39 @@ describe("local-api config management", () => {
         );
     });
 
+    it("shared config and secret routes accept requests without credentials (t473)", async () => {
+        await api.start();
+        const base = `http://127.0.0.1:${String(api.get_port())}`;
+
+        const config_read = await fetch(`${base}/v1/config`);
+        expect(config_read.status).toBe(200);
+
+        const config_write = await fetch(`${base}/v1/config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...managed_config, launchAtLogin: true }),
+        });
+        expect(config_write.status).toBe(200);
+
+        const secrets_write = await fetch(`${base}/v1/secrets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                instanceId: "managed-1",
+                secrets: { API_KEY: "sk-from-http" },
+            }),
+        });
+        expect(secrets_write.status).toBe(200);
+        expect(
+            (managed_deps.secretsStore.set as unknown as { mock: { calls: unknown[][] } }).mock
+                .calls,
+        ).toContainEqual(["managed-1:API_KEY", "sk-from-http"]);
+
+        const secrets_read = await fetch(`${base}/v1/secrets?instanceId=managed-1`);
+        expect(secrets_read.status).toBe(200);
+        await expect(secrets_read.json()).resolves.toEqual({ API_KEY: "sk-managed" });
+    });
+
     it("export returns canonical config without secrets by default and with secrets explicitly", async () => {
         await api.start();
         const plain = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config/export`);

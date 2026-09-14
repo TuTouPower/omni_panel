@@ -251,6 +251,7 @@
     - **导入 secret 选 b**：文件无 `secrets` 字段→保留仍存活实例的原密钥并清理悬空密钥；有非空 `secrets`→整体替换；`secrets: {}`→清空。被过滤的未知 manifest 实例其密钥随清理删除。
 - 影响：t472/t473/t474/t476/t478/t479/t480/t481/t482 的 spec 据此修订基线（见各 `docs/tasks/*/spec.md` 背景节）。Command Code 上游 token 语义经 2026-09-14 复核修正 d059（`usage` 为每轮用量、非累计，逐轮相加归因），t483 据此实现。
 - 落地：t471-t484 批次（文档修订，2026-09-14）。
+- t473 落地：桌面 `CONFIG_GET_SECRETS` / `CONFIG_SAVE_SECRETS` 删除 `#setting` 路由限制，仅保留合法 renderer sender 校验；LocalAPI 的用户业务端点继续位于 ingest token 门禁之前。
 - 替代：无
 
 ## 027 连接器身份与本机路径分离（2026-09-14）
