@@ -62,6 +62,16 @@ function valid_ingest_body() {
     };
 }
 
+function canonical_config_transfer(config: unknown, secrets?: Record<string, string>) {
+    return {
+        formatVersion: 2,
+        exportedAt: "2026-05-31T00:00:00Z",
+        appVersion: "1.0.0-test",
+        config,
+        ...(secrets === undefined ? {} : { secrets }),
+    };
+}
+
 beforeEach(async () => {
     temp_dir = await mkdtemp(join(tmpdir(), "local-api-test-"));
     sync_store = create_observation_store(join(temp_dir, "test.db"));
@@ -887,34 +897,43 @@ describe("local-api config management", () => {
         );
     });
 
-    it("export returns native config without secrets by default and with secrets explicitly", async () => {
+    it("export returns canonical config without secrets by default and with secrets explicitly", async () => {
         await api.start();
         const plain = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/config/export`);
         expect(plain.status).toBe(200);
         const plain_body = (await plain.json()) as {
-            plugins: { parameterValues: Record<string, unknown> }[];
+            formatVersion: number;
+            config: { plugins: { parameterValues: Record<string, unknown> }[] };
+            secrets?: Record<string, string>;
         };
-        expect(plain_body.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(plain_body.formatVersion).toBe(2);
+        expect(plain_body.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(plain_body).not.toHaveProperty("secrets");
 
         const with_secrets = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/export?includeSecrets=true`,
         );
         expect(with_secrets.status).toBe(200);
         const with_secrets_body = (await with_secrets.json()) as {
-            plugins: { parameterValues: Record<string, unknown> }[];
+            config: { plugins: { parameterValues: Record<string, unknown> }[] };
+            secrets?: Record<string, string>;
         };
-        expect(with_secrets_body.plugins[0]?.parameterValues["API_KEY"]).toBe("sk-managed");
+        expect(with_secrets_body.config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
+        expect(with_secrets_body.secrets).toEqual({ "managed-1:API_KEY": "sk-managed" });
     });
 
     it("import validates malformed/schema-invalid JSON without changing config", async () => {
         await api.start();
-        const incoming = {
-            ...structuredClone(managed_config),
-            plugins: managed_config.plugins.map((plugin) => ({
-                ...plugin,
-                parameterValues: { API_KEY: "sk-from-http" },
-            })),
-        };
+        const incoming = canonical_config_transfer(
+            {
+                ...structuredClone(managed_config),
+                plugins: managed_config.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: {},
+                })),
+            },
+            { "managed-1:API_KEY": "sk-from-http" },
+        );
         const imported = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {
@@ -951,7 +970,7 @@ describe("local-api config management", () => {
         );
         expect(null_body.status).toBe(400);
         const null_response = (await null_body.json()) as { message: string };
-        expect(null_response.message).toContain("导入的配置格式无效");
+        expect(null_response.message).toContain("导入文件格式无效");
         expect(managed_config).toEqual(after_valid_import);
 
         const schema_invalid = await fetch(
@@ -959,7 +978,13 @@ describe("local-api config management", () => {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...incoming, launchAtLogin: "not-a-boolean" }),
+                body: JSON.stringify({
+                    ...incoming,
+                    config: {
+                        ...(incoming.config as Record<string, unknown>),
+                        launchAtLogin: "not-a-boolean",
+                    },
+                }),
             },
         );
         expect(schema_invalid.status).toBe(400);
@@ -970,7 +995,7 @@ describe("local-api config management", () => {
 
     it("importing a redacted config preserves the existing secret vault", async () => {
         await api.start();
-        const redacted = structuredClone(managed_config);
+        const redacted = canonical_config_transfer(structuredClone(managed_config));
         const imported = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {
@@ -983,21 +1008,24 @@ describe("local-api config management", () => {
         expect(
             (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
                 .mock.calls,
-        ).toHaveLength(0);
+        ).toHaveLength(1);
         expect(managed_config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
     });
 
     it("web import rejects endpoint overrides before persisting config or secrets", async () => {
         await api.start();
         const before = structuredClone(managed_config);
-        const incoming = {
-            ...structuredClone(managed_config),
-            plugins: managed_config.plugins.map((plugin) => ({
-                ...plugin,
-                parameterValues: { API_KEY: "sk-untrusted" },
-                endpointOverrides: { default: "https://untrusted.example" },
-            })),
-        };
+        const incoming = canonical_config_transfer(
+            {
+                ...structuredClone(managed_config),
+                plugins: managed_config.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: {},
+                    endpointOverrides: { default: "https://untrusted.example" },
+                })),
+            },
+            { "managed-1:API_KEY": "sk-untrusted" },
+        );
         const response = await fetch(
             `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
             {

@@ -250,11 +250,11 @@ export interface ConfigExportOptions {
 }
 
 export interface ConfigExportData {
-    readonly formatVersion: 1;
+    readonly formatVersion: 2;
     readonly exportedAt: string;
     readonly appVersion: string;
     readonly config: AppConfiguration;
-    readonly secrets: Record<string, string>;
+    readonly secrets?: Record<string, string>;
 }
 
 export interface IpcError {

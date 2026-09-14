@@ -22,6 +22,23 @@
 - `load()` / `scheduleSave(config | () => config, delayMs=500)` / `flushPendingSave` / `hasPendingSave` / `prune_unhealthy_plugins()`（t195）/ `saveIfBaseMatches(base, config)`（t293）。
 - `refreshIntervalSecondsSchema`：`0` = 跟随全局哨兵；非零 clamp `[60, 172800]`。
 
+## canonical 配置导入导出（t472）
+
+桌面 IPC、LocalAPI/Web 与 CLI 共用同一份 v2 传输文件和同一条导入路径：
+
+```json
+{
+    "formatVersion": 2,
+    "exportedAt": "2026-09-14T00:00:00.000Z",
+    "appVersion": "1.0.0",
+    "config": { "schemaVersion": 1, "language": "zh-Hans", "plugins": [], "launchAtLogin": false }
+}
+```
+
+导出默认省略 `secrets`；只有显式启用 `includeSecrets` 才写入顶层密钥集合，密钥值保持明文以便用户自行保管。导入只接受 `formatVersion: 2`，裸 `AppConfiguration` 与 v1 wrapper 均明确拒绝，并在解析、schema、密钥形状及 manifest 过滤全部完成前不写入存储。
+
+导入按 `manifestId` 过滤本机不存在的连接器并报告跳过项，同时用本机 definition 重算 `executablePath`。vault 语义按 `secrets` 字段三态处理：字段缺失时保留仍在新配置中的实例密钥并清理悬空实例；字段存在时以其为唯一集合整体替换；空对象清空 vault。配置和 vault 写入前分别生成 config `.bak` 与加密 vault 快照，任一写入失败恢复到导入前的一致状态。
+
 ## 内存缓存与健康检查抽离（t195）
 
 - **内存缓存**：`load()` 首次读盘 + zod parse 后缓存，后续命中缓存不重读磁盘。`save` / `scheduleSave` / `flushPendingSave` 是唯一写入口，均经 `enqueueSave → doSave`，写盘成功后刷新缓存——读到的始终是最新已保存配置（AC1/AC2）。
@@ -44,4 +61,4 @@
 ## 边界
 
 - `schemaVersion` 字段存在但**无版本分支迁移引擎**（`architecture.md` §6）。
-- 导入导出见 `ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。
+- 导入导出见本节、`ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。

@@ -10,15 +10,16 @@ import { keyFor, type SecretsStore } from "../core/config/secrets-store";
 import type { AppConfiguration, ConnectorConfiguration } from "../../shared/types/config";
 import { appConfigurationSchema } from "../core/config/types";
 import { FOLLOW_GLOBAL_REFRESH_SENTINEL } from "../core/config/auto-seed";
-import {
-    build_secret_param_keys,
-    find_unknown_manifest_ids,
-} from "../core/config/secret_param_keys";
-import { remap_connector_paths } from "../core/config/manifest-identity";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import { createLoggedIpcHandler } from "./logged";
+import {
+    default_vault_snapshot_path,
+    export_config,
+    import_config,
+    type ConfigTransferDeps,
+} from "../core/config/config-transfer";
 
 const MASK = "***";
 const MAX_IMPORT_BYTES = 1_000_000;
@@ -41,6 +42,12 @@ export interface ConfigIpcDeps {
     onConfigImported?: (config: AppConfiguration) => void;
     /** t121: discovered connector definitions, for createInstance from manifest id. */
     definitions?: readonly ConnectorDefinition[];
+    /** Existing config path for the pre-import backup. */
+    configPath?: string;
+    /** Encrypted vault snapshot path; defaults next to configPath. */
+    vaultSnapshotPath?: string;
+    /** Version of the running app, included in canonical exports. */
+    appVersion?: string;
 }
 
 function maskSecrets(
@@ -385,47 +392,6 @@ export async function handleConfigCreateInstance(
     }
 }
 
-function secret_keys_for(
-    deps: ConfigIpcDeps,
-    config: AppConfiguration,
-): ReadonlyMap<string, ReadonlySet<string>> {
-    return deps.definitions !== undefined
-        ? build_secret_param_keys(config, deps.definitions)
-        : deps.secretParamKeys;
-}
-
-function allowed_manifest_ids_for(deps: ConfigIpcDeps): ReadonlySet<string> | undefined {
-    return deps.definitions === undefined
-        ? undefined
-        : new Set(deps.definitions.map((definition) => definition.manifest.id));
-}
-
-function unknown_manifest_ids_for(deps: ConfigIpcDeps, config: AppConfiguration): string[] {
-    return deps.definitions === undefined
-        ? []
-        : find_unknown_manifest_ids(config, deps.definitions);
-}
-
-function inject_secrets(
-    config: AppConfiguration,
-    secret_keys: ReadonlyMap<string, ReadonlySet<string>>,
-    exported: Readonly<Record<string, string>>,
-): AppConfiguration {
-    return {
-        ...config,
-        plugins: config.plugins.map((plugin) => {
-            const keys = secret_keys.get(plugin.instanceId);
-            if (!keys || keys.size === 0) return plugin;
-            const parameterValues = { ...plugin.parameterValues };
-            for (const key of keys) {
-                const value = exported[keyFor(plugin.instanceId, key)];
-                if (value !== undefined) parameterValues[key] = value;
-            }
-            return { ...plugin, parameterValues };
-        }),
-    };
-}
-
 export interface ConfigExportOptions {
     readonly includeSecrets?: boolean;
 }
@@ -435,18 +401,40 @@ export interface ConfigImportOptions {
     readonly allowEndpointOverrides?: boolean;
 }
 
-/** Return native config.json-shaped data for LocalAPI and CLI callers. */
+function transfer_deps(deps: ConfigIpcDeps): ConfigTransferDeps {
+    const snapshot_path =
+        deps.vaultSnapshotPath ??
+        (deps.configPath ? default_vault_snapshot_path(deps.configPath) : undefined);
+    return {
+        configStore: deps.configStore,
+        secretsStore: deps.secretsStore,
+        ...(deps.definitions !== undefined ? { definitions: deps.definitions } : {}),
+        ...(deps.configPath !== undefined ? { configPath: deps.configPath } : {}),
+        ...(snapshot_path !== undefined ? { vaultSnapshotPath: snapshot_path } : {}),
+        secretParamKeys: deps.secretParamKeys,
+    };
+}
+
+async function app_version_for(deps: ConfigIpcDeps): Promise<string> {
+    if (deps.appVersion !== undefined) return deps.appVersion;
+    const { app } = await import("electron");
+    return app.getVersion();
+}
+
+/** Return the canonical v2 transfer document for LocalAPI and CLI callers. */
 export async function handleConfigExportData(
     deps: ConfigIpcDeps,
     options: ConfigExportOptions = {},
-): Promise<IpcResult<AppConfiguration>> {
+): Promise<IpcResult<ConfigExportData>> {
     try {
-        const config = await deps.configStore.load();
-        const secret_keys = secret_keys_for(deps, config);
-        const stripped = stripSecrets(config, secret_keys);
-        if (!options.includeSecrets) return ok(stripped);
-        const exported = await deps.secretsStore.exportAll();
-        return ok(inject_secrets(stripped, secret_keys, exported));
+        return ok(
+            await export_config(transfer_deps(deps), {
+                appVersion: await app_version_for(deps),
+                ...(options.includeSecrets !== undefined
+                    ? { includeSecrets: options.includeSecrets }
+                    : {}),
+            }),
+        );
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `导出配置失败: ${msg}`);
@@ -457,103 +445,51 @@ function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
-/** Apply a native config or the legacy desktop export wrapper. */
+/** Apply the canonical v2 document shared by desktop, LocalAPI and CLI. */
 export async function handleConfigImportData(
     deps: ConfigIpcDeps,
     raw: unknown,
     options: ConfigImportOptions = {},
-): Promise<IpcResult<{ imported: boolean }>> {
+): Promise<IpcResult<{ imported: boolean; skipped: readonly unknown[] }>> {
     try {
-        let config_input: unknown = raw;
-        let wrapper_secrets: Record<string, string> = {};
-        if (is_record(raw) && "formatVersion" in raw) {
-            if (raw["formatVersion"] !== 1) {
-                return fail("VALIDATION_ERROR", "不支持的导入文件版本");
+        if (
+            options.allowEndpointOverrides === false &&
+            is_record(raw) &&
+            raw["formatVersion"] === 2 &&
+            is_record(raw["config"])
+        ) {
+            const parsed = appConfigurationSchema.safeParse(raw["config"]);
+            if (
+                parsed.success &&
+                parsed.data.plugins.some(
+                    (plugin) => Object.keys(plugin.endpointOverrides).length > 0,
+                )
+            ) {
+                return fail(
+                    "VALIDATION_ERROR",
+                    "Web 导入不接受自定义端点覆盖，请在桌面版确认后导入",
+                );
             }
-            config_input = raw["config"];
-            if (!is_record(config_input)) {
-                return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
-            }
-            if (raw["secrets"] !== undefined) {
-                if (!is_record(raw["secrets"])) {
-                    return fail("VALIDATION_ERROR", "导入文件密钥格式无效");
-                }
-                const entries = Object.entries(raw["secrets"]);
-                if (entries.some(([, value]) => typeof value !== "string")) {
-                    return fail("VALIDATION_ERROR", "导入文件密钥格式无效");
-                }
-                wrapper_secrets = Object.fromEntries(entries) as Record<string, string>;
-            }
-        }
-
-        const parsed = appConfigurationSchema.safeParse(config_input);
-        if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
-        const incoming = {
-            ...(parsed.data as AppConfiguration),
-            plugins:
-                deps.definitions === undefined
-                    ? (parsed.data as AppConfiguration).plugins
-                    : remap_connector_paths(
-                          (parsed.data as AppConfiguration).plugins,
-                          deps.definitions,
-                      ),
-        } as AppConfiguration;
-        const unknown_manifest_ids = unknown_manifest_ids_for(deps, incoming);
-        if (unknown_manifest_ids.length > 0) {
-            return fail(
-                "VALIDATION_ERROR",
-                `导入配置包含未知连接器 manifest id: ${unknown_manifest_ids.join(", ")}`,
-            );
         }
         if (
             options.allowEndpointOverrides === false &&
-            incoming.plugins.some((plugin) => Object.keys(plugin.endpointOverrides).length > 0)
+            is_record(raw) &&
+            raw["formatVersion"] === 2 &&
+            !is_record(raw["config"])
         ) {
-            return fail("VALIDATION_ERROR", "Web 导入不接受自定义端点覆盖，请在桌面版确认后导入");
+            return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
         }
-        const secret_keys = secret_keys_for(deps, incoming);
-        const imported_secrets: Record<string, string> = { ...wrapper_secrets };
-        for (const plugin of incoming.plugins) {
-            const keys = secret_keys.get(plugin.instanceId);
-            if (!keys) continue;
-            for (const key of keys) {
-                const value = plugin.parameterValues[key];
-                if (typeof value === "string" && value !== "") {
-                    imported_secrets[keyFor(plugin.instanceId, key)] = value;
-                }
-            }
-        }
-
-        const stripped = stripSecrets(incoming, secret_keys);
-        const previous_config = await deps.configStore.load();
-        await deps.configStore.save(stripped);
-        if (Object.keys(imported_secrets).length > 0) {
-            try {
-                await deps.secretsStore.importAll(imported_secrets);
-            } catch (import_err: unknown) {
-                try {
-                    await deps.configStore.save(previous_config);
-                } catch (rollback_err: unknown) {
-                    log.error("Config rollback after failed secrets import failed", rollback_err);
-                }
-                throw import_err;
-            }
-        }
-
-        let saved_config = stripped;
-        try {
-            saved_config = await deps.configStore.prune_unhealthy_plugins(
-                allowed_manifest_ids_for(deps),
-            );
-        } catch (err) {
-            log.warn("Post-import health prune failed", err);
-        }
-        deps.onConfigSaved?.(saved_config);
-        deps.onConfigImported?.(saved_config);
-        return ok({ imported: true });
+        const result = await import_config(transfer_deps(deps), raw);
+        deps.onConfigSaved?.(result.config);
+        deps.onConfigImported?.(result.config);
+        return ok({ imported: true, skipped: result.skipped });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return fail("INTERNAL_ERROR", `导入设置失败: ${msg}`);
+        const code =
+            msg.startsWith("不支持的导入文件版本") || msg.startsWith("导入")
+                ? "VALIDATION_ERROR"
+                : "INTERNAL_ERROR";
+        return fail(code, `导入设置失败: ${msg}`);
     }
 }
 
@@ -562,18 +498,10 @@ export async function handleConfigExport(
 ): Promise<IpcResult<{ saved: boolean }>> {
     try {
         const { dialog, app } = await import("electron");
-        const config = await deps.configStore.load();
-        // 待澄清-1：明文导出密钥，权限完全开放给用户，不脱敏、不加密。
-        // 用户自己负责导出文件的安全（spec: secret-vault.md）。
-        const rawSecrets = await deps.secretsStore.exportAll();
-
-        const data: ConfigExportData = {
-            formatVersion: 1,
-            exportedAt: new Date().toISOString(),
+        const data = await export_config(transfer_deps(deps), {
             appVersion: app.getVersion(),
-            config,
-            secrets: rawSecrets,
-        };
+            includeSecrets: true,
+        });
 
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: "导出设置",
@@ -593,7 +521,7 @@ export async function handleConfigExport(
 
 export async function handleConfigImport(
     deps: ConfigIpcDeps,
-): Promise<IpcResult<{ imported: boolean }>> {
+): Promise<IpcResult<{ imported: boolean; skipped: readonly unknown[] }>> {
     try {
         const { dialog } = await import("electron");
 
@@ -604,35 +532,40 @@ export async function handleConfigImport(
         });
 
         const filePath = filePaths[0];
-        if (canceled || !filePath) return ok({ imported: false });
+        if (canceled || !filePath) return ok({ imported: false, skipped: [] });
         const file_info = await stat(filePath);
         if (file_info.size > MAX_IMPORT_BYTES) {
             return fail("VALIDATION_ERROR", "导入文件过大");
         }
 
-        const raw: unknown = JSON.parse(await readFile(filePath, "utf8"));
+        let raw: unknown;
+        try {
+            raw = JSON.parse(await readFile(filePath, "utf8"));
+        } catch {
+            return fail("VALIDATION_ERROR", "导入文件不是合法 JSON");
+        }
         if (!raw || typeof raw !== "object") {
             return fail("VALIDATION_ERROR", "导入文件格式无效");
         }
 
         const obj = raw as Record<string, unknown>;
-        if (obj["formatVersion"] !== 1) {
-            return fail("VALIDATION_ERROR", "不支持的导入文件版本");
-        }
-        if (!obj["config"] || typeof obj["config"] !== "object") {
+        if (obj["formatVersion"] === 2 && (!obj["config"] || typeof obj["config"] !== "object")) {
             return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
         }
 
         const parsed = appConfigurationSchema.safeParse(obj["config"]);
-        if (!parsed.success) return fail("VALIDATION_ERROR", "导入的配置格式无效");
+        if (obj["formatVersion"] === 2 && !parsed.success) {
+            return fail("VALIDATION_ERROR", "导入的配置格式无效");
+        }
 
         // D9: endpointOverrides can redirect a connector's authenticated requests
         // (API key, session cookie) to an attacker-controlled host. A malicious
         // CONFIG_IMPORT points the override at the attacker, then the next refresh
         // leaks the secret. Warn on any non-empty override before importing.
-        const has_overrides = parsed.data.plugins.some(
-            (p) => Object.keys(p.endpointOverrides).length > 0,
-        );
+        const has_overrides =
+            obj["formatVersion"] === 2 &&
+            parsed.success &&
+            parsed.data.plugins.some((p) => Object.keys(p.endpointOverrides).length > 0);
         if (has_overrides) {
             const confirm = await dialog.showMessageBox({
                 type: "warning",
@@ -644,20 +577,11 @@ export async function handleConfigImport(
                 detail: "自定义端点可能将连接器的请求（含 API key / Cookie）发送到第三方主机。\n仅当信任此配置来源时才继续。\n继续后请重新核对各连接器的 secret。",
             });
             if (confirm.response !== 1) {
-                return ok({ imported: false });
+                return ok({ imported: false, skipped: [] });
             }
         }
 
-        const secrets =
-            obj["secrets"] && typeof obj["secrets"] === "object"
-                ? (obj["secrets"] as Record<string, string>)
-                : {};
-
-        return await handleConfigImportData(deps, {
-            formatVersion: 1,
-            config: parsed.data,
-            secrets,
-        });
+        return await handleConfigImportData(deps, raw);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return fail("INTERNAL_ERROR", `导入设置失败: ${msg}`);

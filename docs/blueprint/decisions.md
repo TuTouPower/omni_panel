@@ -259,3 +259,11 @@
 - 结论：`ConnectorConfiguration.manifestId` 是必填的平台无关定义身份；`executablePath` 只保存当前机器的解析缓存。迁移仅回填/刷新这两个字段，`instanceId`、`stateId`、启用态、参数、端点、刷新间隔和 vault 归属保持不变。auto-seed 按 manifestId 匹配并逐实例更新路径；无法解析的孤儿按逐条脱敏日志加摘要清理。
 - 落地：t471。
 - 替代：无
+
+## 028 配置传输 canonical v2 与 secret 三态（2026-09-14）
+
+- 背景：桌面 IPC、LocalAPI/Web 与 CLI 各自实现配置导入导出，桌面 wrapper、Web 裸配置与 CLI 逐 key merge 互不兼容；导入失败还可能留下 config 与 vault 不一致状态。
+- 选项：格式 A) 保留三套 wrapper/裸配置兼容路径；B) 统一 `{formatVersion:2, exportedAt, appVersion, config, secrets?}`，入口只做文件/HTTP 外壳。secret 导入 A) 一律 replace-all；B) 按 `secrets` 字段三态处理。
+- 结论：选 B。所有入口走共享 transfer 模块；只接受 canonical v2，校验失败零副作用；`secrets` 缺失=保留活动实例并清理悬空密钥，存在=整体替换，`{}`=清空。未知 manifest 跳过并报告，路径按本机 definition 重算。写入前生成 config `.bak` 与加密 vault 快照，失败恢复一致前态。
+- 落地：t472（`config-transfer.ts`、IPC/LocalAPI/CLI 接线与回归测试）。
+- 替代：桌面 v1 wrapper、LocalAPI/CLI 裸 config 导入路径。

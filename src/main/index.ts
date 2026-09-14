@@ -307,11 +307,14 @@ void app.whenReady().then(async () => {
         // 后续 build_secret_param_keys / orchestrator 用导入结果。
         if (cliMode && cli_args.command?.type === "serve" && cli_args.command.options.configPath) {
             currentConfig = await import_config_file(
-                { configPath, configStore, secretsStore, definitions: allDefinitions },
+                {
+                    configPath,
+                    configStore,
+                    secretsStore,
+                    definitions: allDefinitions,
+                    vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+                },
                 cli_args.command.options.configPath,
-            );
-            currentConfig = await configStore.prune_unhealthy_plugins(
-                new Set(allDefinitions.map((definition) => definition.manifest.id)),
             );
         }
 
@@ -593,6 +596,9 @@ void app.whenReady().then(async () => {
             onConfigSaved,
             onConfigImported,
             definitions: allDefinitions,
+            configPath,
+            vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+            appVersion: app.getVersion(),
         });
 
         // Session manager — controlled login window + credential capture
@@ -691,6 +697,9 @@ void app.whenReady().then(async () => {
                 onConfigSaved,
                 onConfigImported,
                 definitions: allDefinitions,
+                configPath,
+                vaultSnapshotPath: join(dataRoot, "secrets.vault.import.bak"),
+                appVersion: app.getVersion(),
             },
             auth_deps: {
                 cookie: {

@@ -165,6 +165,19 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
         }
     }
 
+    function is_vault_data(value: unknown): value is Record<string, VaultEntry> {
+        if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+        return Object.values(value as Record<string, unknown>).every((entry) => {
+            if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return false;
+            const candidate = entry as Record<string, unknown>;
+            return (
+                typeof candidate["iv"] === "string" &&
+                typeof candidate["tag"] === "string" &&
+                typeof candidate["ciphertext"] === "string"
+            );
+        });
+    }
+
     return {
         async get(key: string): Promise<string | null> {
             return with_lock(async () => {
@@ -215,6 +228,33 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
                 }
                 await write_vault(next);
                 mirror = next;
+            });
+        },
+
+        async write_snapshot(snapshot_path: string): Promise<void> {
+            await with_lock(async () => {
+                const data = await ensure_mirror();
+                // The snapshot contains ciphertext entries, never plaintext
+                // secret values, and is written atomically with private mode.
+                await writeJsonAtomic(snapshot_path, data, { chmod: 0o600 });
+                await set_file_permissions(snapshot_path);
+            });
+        },
+
+        async restore_snapshot(snapshot_path: string): Promise<void> {
+            await with_lock(async () => {
+                const raw = await readFile(snapshot_path, "utf8");
+                let parsed: unknown;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch {
+                    throw new Error("Failed to parse encrypted vault snapshot");
+                }
+                if (!is_vault_data(parsed)) {
+                    throw new Error("Invalid encrypted vault snapshot");
+                }
+                await write_vault(parsed);
+                mirror = parsed;
             });
         },
 

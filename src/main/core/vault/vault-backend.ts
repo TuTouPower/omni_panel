@@ -6,4 +6,10 @@ export interface VaultBackend {
     list_keys(prefix?: string): Promise<string[]>;
     /** 原子整体替换 vault 内容：单次加密全量、单次写盘，失败时磁盘与镜像均保持旧态。 */
     replaceAll(entries: Record<string, string>): Promise<void>;
+    /**
+     * Write/read an encrypted pre-import snapshot. Optional for lightweight
+     * in-memory test backends; the production file backend implements both.
+     */
+    write_snapshot?(snapshot_path: string): Promise<void>;
+    restore_snapshot?(snapshot_path: string): Promise<void>;
 }
