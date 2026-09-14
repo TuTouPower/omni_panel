@@ -1,23 +1,39 @@
 # Review Bundle: robustness | chunk 6
 
 - Perspective: robustness
+
 - Chunk: 6（bundle index % 6 == 5）
+
 - Bundles reviewed: 17 / 111
+
 - Files reviewed: 77
+
 - HEAD SHA: `51ea3972efefea568cc2fba3e530ea5f69296182`
+
 - Scope: connectors_exa, root_config_02, src_main_cli, src_main_core_logging_ts, src_main_core_popup, src_main_core_token_stats, src_main_window, src_preload_usageboard_api_ts, src_renderer_components_Button_tsx, src_renderer_components_CpaConnectorSettings_tsx, src_renderer_components_ProviderAccountList_tsx, src_renderer_components_SecretInput_tsx, src_renderer_components_UpcomingResetRow_tsx, src_renderer_components_forms, src_renderer_components_token_stats, src_renderer_lib_02, src_shared_schemas
 
 - [Medium][85] src/main/core/token-stats/claude-reader.ts:574 — 文件读取失败后 mtime 已提交，文件被永久跳过直到 mtime 变化，增量数据静默丢失 — `new_state.mtimes.set(file, stat.mtimeMs)` 在 `readFileSync` 之前执行；read 失败走 `catch { continue }`（592-595 行）时 mtime 已记录但文件未进入 `new_state.files`。下一轮 `prev.mtimes.get(file) === stat.mtimeMs` 命中 → `continue`，该文件不再重读。同一问题存在于 kimi-reader.ts:387（stat 成功后立即 set mtime，read 失败同样永久跳过）。WSL UNC 网络抖动、Windows 文件被其他进程独占时 read 瞬时失败即可触发；结果该会话增量永久缺失且无日志告警。grok-reader.ts:428-431 特意注释并修复了同一模式（"A failed read does not commit its mtime…retried on the next scan"），claude/kimi 未对齐。修复：read 失败时不提交 mtime（或下轮对"mtimes 有记录但 files 无记录"的文件强制重试）。
+
 - [Medium][90] src/main/core/token-stats/collector.ts:409 — grok 源部分文件不可读时整轮数据被丢弃且误报 unavailable — `scan_grok_updates` 的 `missing` 是双义：目录缺失（数据为空）与 `file_unreadable`（部分文件 stat/read 失败，其余文件已成功解析，grok-reader.ts:506 返回 `missing: file_unreadable`）。collector 的 grok 分支 `if (result.missing)` 一律返回 `...EMPTY_READ, status: "unavailable"`，丢弃已成功读取的 sessions/daily/records；且 `grok_states.set(src.key, result.new_state)` 已保存成功文件的 mtime → 下轮不重读 → 增量永久丢失。与 grok-reader.test.ts:362 的断言（"still collecting the rest"）语义错位——reader 层保证收集其余文件，collector 层把结果整个扔掉。修复：missing 且结果非空时返回部分数据并置 failed 状态，仅目录缺失才报 unavailable。
+
 - [Medium][75] src/main/core/token-stats/manager.ts:80 — apply_batches 单批 DB 失败即中断剩余批次，该轮剩余 records 永久丢失且无重试 — `catch (err) { log.error(...); return; }` 直接终止 setImmediate 链，offset 不再前进，`deps.on_update?.()` 也不触发（面板无任何刷新/提示）。同时 collector 已在 postMessage 前把全部 records 标记进 `emitted_record_keys`（collector.ts:519），失败批次之后的记录不会在下一轮重发（除非对应文件 mtime 再变）。场景：SQLite busy（WAL 锁竞争）或瞬时磁盘故障时，一批 2000 条写入失败 → 本轮其余记录静默丢失，UI 无提示。修复：失败后记录断点并延迟重试剩余批次（或向 collector 回传失败 offset 触发重发）。
+
 - [Low][55] src/main/core/token-stats/collector.ts:519 — emitted 标记先于 postMessage，发送失败时整轮 records 已标记但从未送达 — `emitted_record_keys.add(key)` 在 `get_parent_port()?.postMessage(update)`（541 行，可选链 no-op 或抛错被 catch）之前执行。parentPort 消失/发送抛错时该轮 records 被标记为已发出而永久丢弃，无恢复路径。修复：postMessage 失败时不保留 emitted 标记（或发送成功后统一标记）。
+
 - [Low][80] src/main/index.ts:1261 — before-quit 只 stop query dispatcher，未调用 tokenStatsManager.stop()，collector 子进程与重启定时器依赖隐式回收 — `tokenStatsQueryDispatcher.stop()` 之后无 `tokenStatsManager.stop()`（全仓 grep 无调用）。collector 的 exit handler 在 quit 时仍可能设置 30s restart_timer（unref，不阻止退出），scan-state 的最后一次 fire-and-forget 保存可能未落盘 → 重启后全量重扫（性能损失而非正确性），子进程由 Electron 强杀。修复：before-quit 中按对称顺序调用 `tokenStatsManager.stop()`（内部 clear restart_timer + kill child）。
+
 - [Low][70] src/main/core/token-stats/query-dispatcher.ts:220 — queued 请求的超时计时从入队起算，active 请求慢时 queued 一发送即误报 QueryTimeoutError — `p.timer` 在 `request_dashboard` 创建 Promise 时设置，`settle` 中 `send(next)`（161 行）不重置 queued 请求的 timer。active 处理接近 10s 时，随后入队的请求在队列等待期间计时器已走完，发出即被超时 reject（`QueryTimeoutError`），尽管 worker 从未收到或刚开始处理。修复：发送 queued 请求时重置其 timer（或让 timer 只在成为 active 后生效）。
+
 - [Low][65] src/main/core/logging.ts:102 — 日志段数达上限后写入被静默跳过，仅警告一次，持续错误期间诊断信息丢失 — `size_warned_files` 使 warn 只发一次，之后每次写入 `return` 跳过 `appendFile`，此后所有错误日志（包括被跳过原因）不再落地，且无周期性提醒。修复：按写入条数周期性重新 warn，或降级为丢弃最旧段。
+
 - [Low][60] src/main/core/token-stats/collector.ts:247 — effective_wsl_user 缓存首次探测结果（含空串），探测失败后整段运行期 WSL 路径全部不可用 — `wsl_user_cache ??= lister(...)[0] ?? ""` 只填充一次：首次 home 目录不可达（网络/UNC 未就绪）时缓存 `""`，此后 `wsl_root` 恒返回 null（paths.ts:58-60），wsl 源全部报 unavailable，直到用户切换 distro 或重启进程。修复：空结果不缓存（仅缓存非空用户，空值每轮重试）。
+
 - [Low][70] src/main/cli/import-config.ts:83 — vault secret 转存中途失败时已写入的 keys 无回滚，留下孤儿 vault 条目 — `await deps.secretsStore.set(vault_key, value)` 抛错直接上抛，`rollback_entries` 只记录此前成功的条目且回滚逻辑仅在 configStore.save 失败路径执行；set 中断路径没有任何清理。结果：导入失败退出后 vault 残留无实例引用的 secret（config.json 未写），与 AC8「不留半初始化状态」的意图不完全一致。修复：set 循环用 try/catch，失败时回滚已记录 entries 再上抛。
+
 - [Low][60] src/renderer/components/CpaConnectorSettings.tsx:136 — getSecrets 异步返回覆盖用户正在编辑的 secret 输入 — useEffect 依赖 `[connector.instanceId, hasSecrets, displayName]`，任一变化即重新 `getSecrets` 并 `setSecret(value)`；`cancelled` 只防卸载后 setState，不防"用户已输入新值 → 异步旧值到达"的覆盖竞态（本地 vault 慢或 IPC 排队时可见，用户输入被重置为已存旧值）。修复：仅当输入框未被用户修改（dirty 标记）时才用异步结果回填。
+
 - [Low][80] src/main/core/popup/popup-height-controller.ts:10 — 注释称 75% 屏幕上限，实现为 100%（MAX_HEIGHT_RATIO = 1.0）— 函数头注释（55-58 行）与 apply_locked_size 内注释（66-67 行）均写 "75%"，但 `MAX_HEIGHT_RATIO = 1.0` 且 `compute_target_height` 用 `workArea.height * 1.0`；git log 确认 `60fa5f06 feat(t081): popup 高度上限 75% -> 100%` 变更后注释未同步。误导后续维护者对"高度钳制"行为的判断。修复：注释改为 100%（或恢复常量语义）。
+
 - [Info][45] src/main/core/token-stats/collector.ts:550 — 轮询周期短于全量 state 落盘时，两轮 fire-and-forget save_state 并发写同一固定 `.tmp` 路径 — `void save_state(state_path)` 每轮触发，`writeFileAtomic` 使用固定 `${filePath}.tmp`（write-json.ts:37），慢写轮与下一轮写入交错（writeFile/fsync/rename 交叉）；最终文件通常是后写完整快照，但中途 rename 可能移动未写完的 inode，若进程恰好退出则 state 文件损坏 → 下次 load_state JSON.parse 失败全量重扫（可恢复，性能损失）。修复：save_state 加单飞（in-flight 去重）或写入独立临时文件后原子替换。
 
 ## Reviewed files

@@ -10,7 +10,7 @@
 
 审查范围仅 robustness（错误处理、失败回滚、超时、重试、幂等、竞态防护、日志上下文、静默失败、恢复能力）；不含安全。
 
----
+______________________________________________________________________
 
 - [Medium][70] src/main/core/auth/grok_oauth_manager.ts:392 — OAuth 自动刷新链路无错误处理：vault 读失败 → unhandled rejection + 自动刷新静默中断 — `schedule_auto_refresh_if_enabled` 是 async 函数，其 `await load_tokens(...)`（grok:392、kimi:436）不在任何 try/catch 内，而 `load_tokens` 调 `vault.get` 可抛错（`file-vault-backend.ts` `read_vault` 在 vault 与 .bak 均损坏时 throw、磁盘 IO 错误时 throw）。所有调用方均为 `void schedule_auto_refresh_if_enabled(...)`（grok:218/261/328/370/427/445/471/490）无 catch → rejection 落入主进程 `process.on("unhandledRejection")`（`src/main/index.ts:109`，只打日志）→ 该 instance 的自动刷新链静默中断（timer 未重排），下次刷新只能等 reconcile/start_auto_refresh，期间 token 过期用户无感知。同构缺口：`refresh_now` 的 `load_tokens` 在 try 外（grok:293、kimi:336），`schedule_retry` 的 timer 回调 `void refresh_now(...).then(...)`（grok:377、kimi:421）无 `.catch`，同一触发路径同样 unhandled。 — 修复建议：`schedule_auto_refresh_if_enabled` 整体包 try/catch（失败 log.error 并保留 instance 待下次调度）；`refresh_now` 把 `load_tokens` 移入 try；timer 回调统一 `.catch()` 且 catch 中打含 instance_id 的日志。
 
@@ -36,7 +36,7 @@
 
 - [Info][45] connectors/opencode_go/connector.ts:397 — fallback 并发拉 bundle 用 `Promise.race(executing)`，任一 bundle 请求失败即中止整个链 — `server_fn_fallback` 中 race 的 rejection 直接传播 → fallback 整体 throw，尽管其余 bundle 可能正常；最终行为与后续 `hash 缺失 throw "页面协议可能已变更"` 相似（都是失败），但错误信息误导（网络瞬断报「协议变更」）。get_raw 有 15s 默认超时（net-client.ts:238），不会无限挂起。 — 修复建议：race 改用 `Promise.allSettled` 逐个收集，或 catch 后跳过失败 bundle 继续拉剩余。
 
----
+______________________________________________________________________
 
 No Critical/High findings. 最高级别 Medium。
 

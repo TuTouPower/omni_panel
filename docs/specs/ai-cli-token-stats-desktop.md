@@ -92,14 +92,14 @@ Set 不持久化（scan-state 不改）：进程重启后首次 collect 全量 e
 
 ## 4. 涉及文件清单（桌面进程层）
 
-| 文件                                   | 改动                                            | Task |
-| -------------------------------------- | ----------------------------------------------- | ---- |
-| `src/main/core/token-stats/manager.ts` | 新建：主进程侧 utilityProcess.fork / IPC / 写表 | 4.3  |
-| `src/main/index.ts`                    | 扩展：启动 token-stats manager                  | 4.3  |
-| `src/shared/types/ipc.ts`              | 扩展：TOKEN_STATS IPC channels                  | 5.1  |
-| `src/main/ipc/token-stats-ipc.ts`      | 新建：渲染端 IPC handler                        | 5.1  |
-| `src/preload/index.ts`                 | 扩展：暴露 tokenStats API                       | 5.1  |
-| `src/main/window/window-manager.ts`    | 扩展：新增 tokenStats 窗口配置                  | 5.2  |
+|文件|改动|Task|
+|---|---|---|
+|`src/main/core/token-stats/manager.ts`|新建：主进程侧 utilityProcess.fork / IPC / 写表|4.3|
+|`src/main/index.ts`|扩展：启动 token-stats manager|4.3|
+|`src/shared/types/ipc.ts`|扩展：TOKEN_STATS IPC channels|5.1|
+|`src/main/ipc/token-stats-ipc.ts`|新建：渲染端 IPC handler|5.1|
+|`src/preload/index.ts`|扩展：暴露 tokenStats API|5.1|
+|`src/main/window/window-manager.ts`|扩展：新增 tokenStats 窗口配置|5.2|
 
 `collector.ts`（子进程入口与聚合）见 `-api`；`TokenStatsView.tsx` 与组件见 `-ui`。
 
@@ -111,21 +111,21 @@ Set 不持久化（scan-state 不改）：进程重启后首次 collect 全量 e
 
 ## 6. 成功标准（Desktop 验证）
 
-| #   | 标准                                                | 验证方式 |
-| --- | --------------------------------------------------- | -------- |
-| 4   | 子进程 10 分钟自动采集，主进程收到数据并写入 SQLite | 日志验证 |
-| 9   | 子进程崩溃后主进程自动重启子进程，不丢数据          | 手工模拟 |
-| 10  | 全量测试 `pnpm test` 通过                           | CI       |
+|#|标准|验证方式|
+|---|---|---|
+|4|子进程 10 分钟自动采集，主进程收到数据并写入 SQLite|日志验证|
+|9|子进程崩溃后主进程自动重启子进程，不丢数据|手工模拟|
+|10|全量测试 `pnpm test` 通过|CI|
 
 #10 跨层（含 `-api` / `-ui`），由 CI 整体保证；门禁入口归本层。
 
 ## 7. 实施顺序（桌面进程层）
 
-| Task | Commit 前缀                                 | 内容                                                                                                                                | 前置     |
-| ---- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 4.3  | `feat(token-stats): add manager`            | `src/main/core/token-stats/manager.ts` — 主进程侧：fork、接收 IPC、写入 token-stats-store、广播事件。`index.ts` 启动 init。集成测试 | 1.2, 4.2 |
-| 5.1  | `feat(token-stats): add IPC and preload`    | `ipc.ts` 新增 `TOKEN_STATS_*` channels。`token-stats-ipc.ts` handler。`preload/index.ts` 暴露 API                                   | 4.3      |
-| 5.2  | `feat(token-stats): add token stats window` | `window-manager.ts` 新增 `tokenStats` 配置。托盘菜单新增入口。路由注册                                                              | 5.1      |
+|Task|Commit 前缀|内容|前置|
+|---|---|---|---|
+|4.3|`feat(token-stats): add manager`|`src/main/core/token-stats/manager.ts` — 主进程侧：fork、接收 IPC、写入 token-stats-store、广播事件。`index.ts` 启动 init。集成测试|1.2, 4.2|
+|5.1|`feat(token-stats): add IPC and preload`|`ipc.ts` 新增 `TOKEN_STATS_*` channels。`token-stats-ipc.ts` handler。`preload/index.ts` 暴露 API|4.3|
+|5.2|`feat(token-stats): add token stats window`|`window-manager.ts` 新增 `tokenStats` 配置。托盘菜单新增入口。路由注册|5.1|
 
 前置 1.1 / 1.2 / 4.1 / 4.2 见 `-api`；后置 5.3–5.5 见 `-ui`。
 

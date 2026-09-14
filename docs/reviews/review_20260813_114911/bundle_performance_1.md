@@ -26,7 +26,7 @@
 - connectors_antigravity: `connector.ts`, `manifest.json`
 - connectors_firecrawl: `connector.ts`, `manifest.json`
 - connectors_minimax: `connector.ts`, `manifest.json`
-- root*config_03: `docs/archive/tasks/t328..t337*_/handoff.json`（10，JSON 元数据）、`docs/archive/tasks*index.json`、`docs/tasks_index.json`、`docs/spikes/s008*_/code/compare*aggregation.ts`、`compare_read_scale.ts`、`docs/spikes/s009*\*/code/wal_readonly_concurrency.ts`、`electron-builder.test.yml`、`electron-builder.yml`、`electron.vite.config.ts`、`eslint.config.ts`、`knip.json`、`package.json`、`playwright.config.ts`、`public/frontend_demo/app/{components.json,package.json,pnpm-workspace.yaml}`
+- root\*config_03: `docs/archive/tasks/t328..t337*_/handoff.json`（10，JSON 元数据）、`docs/archive/tasks*index.json`、`docs/tasks_index.json`、`docs/spikes/s008*_/code/compare*aggregation.ts`、`compare_read_scale.ts`、`docs/spikes/s009*\*/code/wal_readonly_concurrency.ts`、`electron-builder.test.yml`、`electron-builder.yml`、`electron.vite.config.ts`、`eslint.config.ts`、`knip.json`、`package.json`、`playwright.config.ts`、`public/frontend_demo/app/{components.json,package.json,pnpm-workspace.yaml}`
 - src_main_config_callbacks_ts: `config-callbacks.ts`
 - src_main_core_main_panel: `agent-window-controller.ts`, `floating-bounds.ts`, `history-window-controller.ts`, `main-panel-config.ts`, `main-panel-controller.ts`, `main-panel-types.ts`
 - src_main_core_scheduler: `connector-scheduler.ts`, `hydrate-runtime-store.ts`, `observation-mapping.ts`, `refresh-service.ts`, `runtime-store.ts`, `scheduler-orchestrator.ts`, `snapshot-cache.ts`, `types.ts`

@@ -15,7 +15,7 @@
 
 ### ConnectorConfiguration
 
-`instanceId`、`stateId`、`name`、`displayName?`、`enabled`、`executablePath`、`refreshIntervalSeconds`、`manualRefreshOnly?`、`parameterValues`（record<string, string|number>，非 secret）、`endpointOverrides`（record<string,string>，默认 `{}`）。
+`instanceId`、`stateId`、`name`、`displayName?`、`enabled`、`executablePath`、`refreshIntervalSeconds`、`manualRefreshOnly?`、`parameterValues`（record\<string, string|number>，非 secret）、`endpointOverrides`（record\<string,string>，默认 `{}`）。
 
 ## 接口
 

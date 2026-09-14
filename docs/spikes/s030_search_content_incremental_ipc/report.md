@@ -3,6 +3,7 @@
 ## 问题
 
 内容搜索冷缓存需分块/增量反馈。候选 IPC 形态：
+
 - (A) renderer 分页多次调用 `searchContent`（每次小候选集，结果合并展示）
 - (B) 主进程回调/事件推送进度（Electron event + web SSE/NDJSON）
 
@@ -33,6 +34,7 @@
 选 **(A) renderer 分页多次 searchContent**。
 
 扩展可选字段（省略行为=现网全量一次）：
+
 - Request：`offset?`、`limit?`
 - Response：`progress?: { scanned, total, done, next_offset }`；本批 `hits`/`sessions` 仅含本 slice（offset=0 时附带 metadata 命中）。
 

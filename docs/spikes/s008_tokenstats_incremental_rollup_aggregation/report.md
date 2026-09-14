@@ -26,20 +26,20 @@ t192 需要确定两项前置方案：
 
 行数对比（density=25 时 records=5000）：
 
-| 表             | 行数 |
-| -------------- | ---- |
-| records        | 5000 |
-| A daily        | 1000 |
-| B hour         | 30   |
-| C session_hour | 1000 |
+|表|行数|
+|---|---|
+|records|5000|
+|A daily|1000|
+|B hour|30|
+|C session_hour|1000|
 
 dashboard 区域语义重建（oracle: calls=4900, sessions=200, tokens=2217900）：
 
-| 方案           | calls | sessions               | tokens  | 判定                                         |
-| -------------- | ----- | ---------------------- | ------- | -------------------------------------------- |
-| A daily        | 4900  | 200                    | 2217900 | ✓（但缺 hour 粒度：heatmap/hour 轴不可重建） |
-| B hour         | 4900  | SUM=1000（跨小时重复） | 2217900 | ✗ sessions 误计 800                          |
-| C session_hour | 4900  | 200                    | 2217900 | ✓ 全区域一致                                 |
+|方案|calls|sessions|tokens|判定|
+|---|---|---|---|---|
+|A daily|4900|200|2217900|✓（但缺 hour 粒度：heatmap/hour 轴不可重建）|
+|B hour|4900|SUM=1000（跨小时重复）|2217900|✗ sessions 误计 800|
+|C session_hour|4900|200|2217900|✓ 全区域一致|
 
 读取规模（固定 200 session × 5 model × 24h，message 密度 25→250→2500，records 5000→50000→500000）：
 

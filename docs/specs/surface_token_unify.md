@@ -12,14 +12,14 @@
 
 ## 已落地位点（t406）
 
-| 容器 | 修正 |
+|容器|修正|
 |---|---|
-| `SessionPane` `.conversation-pane` | `surface-raised` → `surface-card` |
-| `SessionRail` 容器 | color-mix → `surface-window` |
-| `SessionRail` 折叠钮（原 SessionShell rail-toggle 行，t413 迁入 rail 头部） | color-mix → 透明底 + hover raised |
-| `SettingsView` 侧栏 | color-mix → `surface-window` |
-| `SessionCard` | 去掉 `Card raised`，默认 `surface-card` |
-| `SessionRow` | 整面 `surface-card`，hover `surface-raised` |
+|`SessionPane` `.conversation-pane`|`surface-raised` → `surface-card`|
+|`SessionRail` 容器|color-mix → `surface-window`|
+|`SessionRail` 折叠钮（原 SessionShell rail-toggle 行，t413 迁入 rail 头部）|color-mix → 透明底 + hover raised|
+|`SettingsView` 侧栏|color-mix → `surface-window`|
+|`SessionCard`|去掉 `Card raised`，默认 `surface-card`|
+|`SessionRow`|整面 `surface-card`，hover `surface-raised`|
 
 ## 审计结论（AC-003）
 

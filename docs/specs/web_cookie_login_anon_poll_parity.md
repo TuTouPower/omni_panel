@@ -12,12 +12,12 @@ web 编辑实例 cookie 登录已采用 `cookieLogin` + `cookieLoginStatus` 轮�
 
 ## 实现落点
 
-| 路径 | 说明 |
-| ---- | ---- |
-| `src/renderer/lib/cookie_login_poll.ts` | 共享轮询、超时常量、中文错误映射 |
-| `src/renderer/components/WebLoginSection.tsx` | web+instance 用共享轮询；web 匿名降级指引；桌面 session.login |
-| `src/renderer/components/SettingsForm.tsx` | `handle_session_login` 调用 `poll_cookie_login` |
-| `src/main/ipc/auth-ipc.ts` | `startCookieLogin` 并发 CONFLICT（中文）既有行为，补测覆盖 |
+|路径|说明|
+|---|---|
+|`src/renderer/lib/cookie_login_poll.ts`|共享轮询、超时常量、中文错误映射|
+|`src/renderer/components/WebLoginSection.tsx`|web+instance 用共享轮询；web 匿名降级指引；桌面 session.login|
+|`src/renderer/components/SettingsForm.tsx`|`handle_session_login` 调用 `poll_cookie_login`|
+|`src/main/ipc/auth-ipc.ts`|`startCookieLogin` 并发 CONFLICT（中文）既有行为，补测覆盖|
 
 ## 验收
 

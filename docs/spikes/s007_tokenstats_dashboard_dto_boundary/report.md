@@ -16,14 +16,14 @@
 
 ### 当前组件输入
 
-| 区域                  | 当前输入                                                                                       | 首屏必要性                                                                       | DTO 归属                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `MetricDonut`（5 个） | `centerValue`、`segments`、`format`、`theme`                                                   | `centerValue` 与 `segments` 必须立即可得；`format`、`theme` 是 renderer 展示参数 | `summary.kpi`、`summary.donuts`                                |
-| `BarChart`            | `records`、`buckets`、`hourBuckets`、`rollup`、`metric`、`xaxis`、`gran`、`start`、`end`、别名 | 图表序列必须立即可得；原始中间结构不必传递                                       | `chart.series`、`query`；别名仍来自配置 state                  |
-| `Heatmap`             | `cells`、`metric`、`theme`                                                                     | `cells` 必须立即可得                                                             | `heatmap.cells`                                                |
-| `SessionTable`        | `rows`、`theme`、`modelColors`、`modelAliases`                                                 | 当前页摘要必须立即可得；完整详情不阻塞图表                                       | `sessions.items`、`summary.model_colors`；别名仍来自配置 state |
-| `RangePicker`         | `start`、`end`、`active`、`onApply`                                                            | 查询边界必须进入请求和响应，控件回填需要 `query.start/end`                       | `query`                                                        |
-| 顶部状态              | `status.running`、`status.last_updated`、`updatedAgo`、`refreshing`                            | 当前请求结果的新鲜度和 collector 状态必须可展示                                  | `status`、`freshness`                                          |
+|区域|当前输入|首屏必要性|DTO 归属|
+|---|---|---|---|
+|`MetricDonut`（5 个）|`centerValue`、`segments`、`format`、`theme`|`centerValue` 与 `segments` 必须立即可得；`format`、`theme` 是 renderer 展示参数|`summary.kpi`、`summary.donuts`|
+|`BarChart`|`records`、`buckets`、`hourBuckets`、`rollup`、`metric`、`xaxis`、`gran`、`start`、`end`、别名|图表序列必须立即可得；原始中间结构不必传递|`chart.series`、`query`；别名仍来自配置 state|
+|`Heatmap`|`cells`、`metric`、`theme`|`cells` 必须立即可得|`heatmap.cells`|
+|`SessionTable`|`rows`、`theme`、`modelColors`、`modelAliases`|当前页摘要必须立即可得；完整详情不阻塞图表|`sessions.items`、`summary.model_colors`；别名仍来自配置 state|
+|`RangePicker`|`start`、`end`、`active`、`onApply`|查询边界必须进入请求和响应，控件回填需要 `query.start/end`|`query`|
+|顶部状态|`status.running`、`status.last_updated`、`updatedAgo`、`refreshing`|当前请求结果的新鲜度和 collector 状态必须可展示|`status`、`freshness`|
 
 ### 最小字段覆盖
 

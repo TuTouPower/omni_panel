@@ -26,12 +26,12 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 
 `pnpm start:test` 启动一个与正常实例完全隔离的测试实例，用于验证改动而不碰真实数据：
 
-| 维度          | 正常实例 `pnpm start`   | 测试实例 `pnpm start:test`                           |
-| ------------- | ----------------------- | ---------------------------------------------------- |
-| userData      | `%APPDATA%/omni_panel`  | `.scratch/test-instance/`（gitignore）               |
-| LocalAPI 端口 | `18263`                 | `17864`（`OMNI_PANEL_PORT` env 覆盖）                |
-| 图标          | 蓝色（`assets/icon.*`） | 黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换） |
-| 视觉区分      | —                       | 托盘/窗口黄色                                        |
+|维度|正常实例 `pnpm start`|测试实例 `pnpm start:test`|
+|---|---|---|
+|userData|`%APPDATA%/omni_panel`|`.scratch/test-instance/`（gitignore）|
+|LocalAPI 端口|`18263`|`17864`（`OMNI_PANEL_PORT` env 覆盖）|
+|图标|蓝色（`assets/icon.*`）|黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换）|
+|视觉区分|—|托盘/窗口黄色|
 
 实现：`scripts/start-test.mjs` 设 `TEST_INSTANCE=1` + `OMNI_PANEL_PORT=17864` + Electron `--user-data-dir=.scratch/test-instance`；`paths.ts` 按 env 切图标资源；`local-api/server.ts` 读 env 覆盖默认端口。
 
@@ -54,12 +54,12 @@ pnpm icons:test   # 从 assets/logo-test.svg 渲染 icon-test.png/ico + tray-ico
 
 ## 测试分层
 
-| 层级         | 目录                  | 框架             | 职责                                                                                                             |
-| ------------ | --------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 单元         | `tests/unit/`         | Vitest           | 纯函数、工具、schema 校验、parser、连接器解析逻辑                                                                |
-| 集成         | `tests/integration/`  | Vitest           | Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store）                        |
-| Electron E2E | `tests/e2e/electron/` | Playwright       | 真实 Electron 实例，模拟真实用户操作（`.spec.ts`），手动跑 Electron 专属能力（托盘/多窗口/powerMonitor/restart） |
-| 打包 smoke   | `tests/e2e/packaged/` | Playwright + CDP | 验证 `artifacts/win-unpacked/OmniPanel.exe` 启动、渲染、发现内置连接器、popup 高度回归                           |
+|层级|目录|框架|职责|
+|---|---|---|---|
+|单元|`tests/unit/`|Vitest|纯函数、工具、schema 校验、parser、连接器解析逻辑|
+|集成|`tests/integration/`|Vitest|Node 环境可真实运行的主进程模块（config/cache/scheduler/runtime/vault/observation-store）|
+|Electron E2E|`tests/e2e/electron/`|Playwright|真实 Electron 实例，模拟真实用户操作（`.spec.ts`），手动跑 Electron 专属能力（托盘/多窗口/powerMonitor/restart）|
+|打包 smoke|`tests/e2e/packaged/`|Playwright + CDP|验证 `artifacts/win-unpacked/OmniPanel.exe` 启动、渲染、发现内置连接器、popup 高度回归|
 
 三层职责不重叠：
 
@@ -76,7 +76,7 @@ web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后�
 1. 启动 OmniPanel 提供 local-api :18263（择一）：
     - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniPanel.exe`
     - dev：`pnpm start`（electron-vite dev）
-      两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:18263/v1/health` 返回 `{"status":"ok"}` 后继续。
+        两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:18263/v1/health` 返回 `{"status":"ok"}` 后继续。
 2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
 3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
 
@@ -94,11 +94,11 @@ Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixtur
 
 ### 三路 e2e project 对照
 
-| project  | 目录                  | 驱动                      | 何时跑                                 |
-| -------- | --------------------- | ------------------------- | -------------------------------------- |
-| web      | `tests/e2e/web/`      | chromium + mock local-api | 本地日常（首次需先录 fixture，见上节） |
-| electron | `tests/e2e/electron/` | Electron（真实进程）      | 本地手动 / nightly                     |
-| packaged | `tests/e2e/packaged/` | CDP 连 exe                | CI + 本地                              |
+|project|目录|驱动|何时跑|
+|---|---|---|---|
+|web|`tests/e2e/web/`|chromium + mock local-api|本地日常（首次需先录 fixture，见上节）|
+|electron|`tests/e2e/electron/`|Electron（真实进程）|本地手动 / nightly|
+|packaged|`tests/e2e/packaged/`|CDP 连 exe|CI + 本地|
 
 ## 通用原则
 
@@ -132,12 +132,12 @@ Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixtur
 
 ## 覆盖率阈值
 
-| 指标       | 阈值 |
-| ---------- | ---- |
-| Statements | 15%  |
-| Branches   | 25%  |
-| Functions  | 25%  |
-| Lines      | 15%  |
+|指标|阈值|
+|---|---|
+|Statements|15%|
+|Branches|25%|
+|Functions|25%|
+|Lines|15%|
 
 > 基线日期 2026-05-30，阈值 = 基线 − 5%。
 

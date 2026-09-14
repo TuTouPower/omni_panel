@@ -1,6 +1,6 @@
 # connector-user-scripts
 
-用户自定义 connector 支持。用户在 `userData/connectors/<vendor>/` 放 `manifest.json` + `connector.ts`，app 启动自动发现并采集；provider 名为开放 snake*case 命名空间（`^[a-z]a-z0-9*]\*$`），不限于内置 enum。
+用户自定义 connector 支持。用户在 `userData/connectors/<vendor>/` 放 `manifest.json` + `connector.ts`，app 启动自动发现并采集；provider 名为开放 snake\*case 命名空间（`^[a-z]a-z0-9*]\*$`），不限于内置 enum。
 
 ## 实现要点
 

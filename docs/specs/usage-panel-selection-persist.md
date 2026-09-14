@@ -26,7 +26,7 @@
 
 ## 实现要点
 
-- 新增 config 键：`providerL2Open`（Record<provider, boolean>）+ `activeUsageTab`（string）。shared/types/config.ts + main/core/config/types.ts（zod）。
+- 新增 config 键：`providerL2Open`（Record\<provider, boolean>）+ `activeUsageTab`（string）。shared/types/config.ts + main/core/config/types.ts（zod）。
 - `ProviderCard.tsx`：`l2open` 本地 state 改受控（props `l2Open` + `onToggleL2Open`），折叠复位逻辑上移父级。
 - `PopupView.tsx`：`l2open_providers` 与 `activeTab` 均用 t153 prev ref 回显抑制（值相等保留 state 不触发写回；用户切换才写）；config 无键时首次切换正常写盘（不死锁）；折叠卡片强制复位 l2Open；结构裁剪过滤过期 provider。
 

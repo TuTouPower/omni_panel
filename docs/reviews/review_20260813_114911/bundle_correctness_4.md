@@ -22,9 +22,9 @@
 
 - [Info][80] connectors/tikhub/connector.ts:27 — api_key 缺失时静默 return [] 不报 failed_account — `const api_key = (ctx.params["API_KEY"] ?? "").trim(); if (!api_key) return [];`：与 grok 的约定（空结果须 report_failed_account，见 refresh-service t039 注释）不一致。当前实际不可达——API_KEY 是 required secret，build_params 缺值先抛 "Missing required secret"；但若脚本被其它宿主直接调用（local-api 测试路径），空返回会被 refresh-service 当作「无数据」处理。建议与 grok 对齐：`ctx.report_failed_account("tikhub", ...)` 后再 return []。
 
-- [Low][55] scripts/repo_template/repo_state.py:146 — cmd_added_lines 对引号转义路径解析错误，--exclude 失效 — `current_path = line[4:].removeprefix("b/")` 假设 `+++ b/<path>` 未加引号；含空格/非 ASCII 的文件名在 git 默认 core.quotePath 下输出 `+++ "b/a b.ts"`（带引号与 \xxx 转义），路径解析含引号导致 `_excluded` 匹配失败，清洁度计数把被排除文件的新增行算进来。修复：用 `git diff --name-only -z`（NUL 分隔）替代解析 `+++` 行，或先 `git config core.quotePath false`。
+- [Low][55] scripts/repo_template/repo_state.py:146 — cmd_added_lines 对引号转义路径解析错误，--exclude 失效 — `current_path = line[4:].removeprefix("b/")` 假设 `+++ b/<path>` 未加引号；含空格/非 ASCII 的文件名在 git 默认 core.quotePath 下输出 `+++ "b/a b.ts"`（带引号与 \\xxx 转义），路径解析含引号导致 `_excluded` 匹配失败，清洁度计数把被排除文件的新增行算进来。修复：用 `git diff --name-only -z`（NUL 分隔）替代解析 `+++` 行，或先 `git config core.quotePath false`。
 
-- [Low][60] scripts/repo*template/\_id_scan.py:121 — \_entry_number 只认小写 slug，手工建的大写文件名编号不可见 — `re.fullmatch(rf"{prefix}([0-9]{{3,}})*[a-z0-9_]+{suffix}", name)`：若有人手工创建 `p047*MyEntry.md`（未走 pending.py 的 SLUG_RE 校验），扫描不识别其编号，`allocate`可能把 p047 分配给新条目造成同号冲突。防御性缺口（受控入口已校验）。修复：slug 段放宽为`[A-Za-z0-9*]+` 或在扫描时对不匹配文件告警。
+- [Low][60] scripts/repo\*template/\_id_scan.py:121 — \_entry_number 只认小写 slug，手工建的大写文件名编号不可见 — `re.fullmatch(rf"{prefix}([0-9]{{3,}})*[a-z0-9_]+{suffix}", name)`：若有人手工创建 `p047*MyEntry.md`（未走 pending.py 的 SLUG_RE 校验），扫描不识别其编号，`allocate`可能把 p047 分配给新条目造成同号冲突。防御性缺口（受控入口已校验）。修复：slug 段放宽为`[A-Za-z0-9*]+` 或在扫描时对不匹配文件告警。
 
 - [Medium][80] src/main/core/connector/runtime.ts:114 — race_with_timeout 超时后不取消脚本异步工作，脚本继续在后台运行 — setTimeout 只 reject 等待方；脚本 main() 里已发起的异步操作（HTTP、定时器、循环）不受控继续执行。连接器超时（15s）后 refresh 失败并 stale 标记，但旧脚本仍可能在跑，下一次刷新又启动新脚本 → 同一实例并发多个脚本实例反复打上游（资源泄漏 + 重复请求）。`vm.runInContext` 的 timeout 只覆盖同步段。修复：超时时向脚本暴露 AbortSignal（ctx.signal），脚本 HTTP 请求绑定 signal；至少对已超时实例的并发执行计数并拒绝重叠启动。
 
@@ -50,7 +50,7 @@
 
 - [Medium][75] src/renderer/components/AddAccountDialog.tsx:182 — handle_save 无 catch，apikey/session 添加失败完全静默 — `try { await on_save(params); on_close(); } finally { set_saving(false); }` 无 catch；`error_message` 在本文件只被 `set_error_message(null)`（L170/179/185），从不置非 null，L305-312 的错误渲染块死代码。on_save（create_instance_and_save → saveSecrets/save_config）reject 时（IPC 失败、CONFLICT 等）变成未处理 rejection，用户点击「添加账号」无任何反馈，对话框保持原样。cpa/web_login/oauth 表单路径有各自 catch 不受影响。修复：catch 后 `set_error_message(...)` 并保留对话框。
 
-- [Low][70] src/renderer/components/TrendSparkline.tsx:60 — percent 越界时数据点落在 viewBox 外不可见 — `y_at(v) = pad_top + inner_height * (1 - v/100)`：percent>100（如 kimi 未钳制）时 y 为负，percent<0 时 y 超底，圆点/折线被裁掉，用户看不到该点（且折线穿过图外）。修复：y 值钳制在 [pad_top, pad_top+inner_height] 或对越界值画箭头标记。
+- [Low][70] src/renderer/components/TrendSparkline.tsx:60 — percent 越界时数据点落在 viewBox 外不可见 — `y_at(v) = pad_top + inner_height * (1 - v/100)`：percent>100（如 kimi 未钳制）时 y 为负，percent\<0 时 y 超底，圆点/折线被裁掉，用户看不到该点（且折线穿过图外）。修复：y 值钳制在 [pad_top, pad_top+inner_height] 或对越界值画箭头标记。
 
 - [Info][85] src/renderer/components/CpaAddDialog.tsx:66 — 死 UI：对话框不可达且按钮无 onClick — `showCpaAdd` 在 SettingsView.tsx 只在 L123 声明 false、L685 渲染，全仓无 `setShowCpaAdd(true)`；即使渲染，CpaAddDialog 的「测试连接」「保存并同步」按钮（L59/L66）均无 onClick，点击无任何行为。添加 CPA 实际走 AddAccountDialog + CpaMgmtForm（有完整保存逻辑）。修复：删除 CpaAddDialog 及其引用，避免维护两份入口。
 

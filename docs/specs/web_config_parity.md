@@ -8,12 +8,12 @@ Web SPA 通过 LocalAPI 完成配置实例管理、配置导入导出和配置/�
 
 LocalAPI 暴露以下免认证端点，行为与桌面版配置 IPC 对齐：
 
-| 方法   | 路径                        | 请求体                     | 成功结果                   |
-| ------ | --------------------------- | -------------------------- | -------------------------- |
-| `POST` | `/v1/config/duplicate`      | `{ "instanceId": string }` | `{ "instanceId": string }` |
-| `POST` | `/v1/config/createInstance` | `{ "manifestId": string }` | `{ "instanceId": string }` |
-| `GET`  | `/v1/config`                | 无                         | 当前 `AppConfiguration`    |
-| `POST` | `/v1/config`                | `AppConfiguration`         | 保存成功                   |
+|方法|路径|请求体|成功结果|
+|---|---|---|---|
+|`POST`|`/v1/config/duplicate`|`{ "instanceId": string }`|`{ "instanceId": string }`|
+|`POST`|`/v1/config/createInstance`|`{ "manifestId": string }`|`{ "instanceId": string }`|
+|`GET`|`/v1/config`|无|当前 `AppConfiguration`|
+|`POST`|`/v1/config`|`AppConfiguration`|保存成功|
 
 `duplicate` 和 `createInstance` 保存配置后返回新实例 ID；Web 设置页重新读取配置后展示新实例。
 

@@ -1,4 +1,4 @@
-# d038 主进程 import scripts/*.mjs 可被 electron-vite 构建期内联进 out/main
+# d038 主进程 import scripts/\*.mjs 可被 electron-vite 构建期内联进 out/main
 
 - 来源：s029 spike / t400
 - 结论：`src/main` 以相对路径 `import` `scripts/*.mjs` 时，esbuild 与 vite/rollup（electron-vite main 链路）均将导出字符串**内联**进 bundle；打包 `files` 仅 `out/**` 时运行时不依赖 `scripts/` 目录存在。

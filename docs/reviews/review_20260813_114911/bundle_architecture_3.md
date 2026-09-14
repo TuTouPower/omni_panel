@@ -8,7 +8,7 @@
 审查范围（按 `bundle.json` id 排序后 index `% 6 == 2`）：
 connectors_codex / connectors_glm / connectors_tavily / scripts / src_main_core_config / src_main_core_observation / src_main_core_session_history / src_main_index_ts / src_preload_oauth_api_ts / src_renderer_components_AccountRow_tsx / src_renderer_components_ConfirmDelete_tsx / src_renderer_components_DragGrip_tsx / src_renderer_components_ProviderNav_tsx / src_renderer_components_TokenPanel_tsx / src_renderer_components_VendorCard_tsx / src_renderer_components_session_library / src_renderer_hooks / src_renderer_vite_env_d_ts / src_web_usageboard_web_ts。
 
----
+______________________________________________________________________
 
 - [Medium][60] src/renderer/components/TokenPanel.tsx:20 — Segmented 时间范围控件是死交互，`range` state 从不影响任何输出 — `const [range, setRange] = useState("today")` 只被 `Segmented` 的 value/onChange 读写，`display_value`（:22-25）只依赖 `total_tokens`/`has_real_data`，与 range 无关；全仓唯一消费方 `PopupView.tsx:893` 固定传 `<TokenPanel has_real_data={false} />`（不传 total_tokens），面板永远显示「暂无历史数据」。用户点击 今天/最近一周/最近一月 无任何效果，是带误导性的空控件。修复建议：要么实现 range→取数逻辑，要么删除 Segmented 与 range state（保留纯展示）；若属规划中功能，加 TODO 并禁用控件。
 
@@ -26,7 +26,7 @@ connectors_codex / connectors_glm / connectors_tavily / scripts / src_main_core_
 
 - [Medium][55] src/preload/oauth_api.ts:26 — grok/kimi OAuth API 工厂近乎逐字重复 — `create_grok_oauth_apis`（:26-57）与 `create_kimi_oauth_apis`（:59-89）仅 IPC channel 名与泛型参数不同，结构/签名完全一致，`settings_api` 中 `login_status` 又各转发一次 `readonly_api`。修复建议：参数化单工厂 `create_oauth_apis<TReadonly, TSettings>(channels: { loginStatus, loginStart, loginPoll, loginCancel, logout, refresh })`，保留两个类型化导出。
 
-- [Medium][55] src/renderer/components/session-library/session-library-utils.ts:15 — source→agent 派生助手分散多文件、语义重叠 — `agent_abbrev`（本文件）、`agent_friendly`/`agent_slug`（lib/session-history/markdown.ts）、`agent_accent`/`vendor_id_for_source`（lib/workspace/slots.ts）各自独立实现 claude*code/opencode/kimi_code/grok 的映射；`recent_sessions`（subscription-service.ts:615）又用 `source.replace(/*/g,"-")`内联派生。新增厂商需同步 4-5 处。修复建议：在`lib/session-history`或 shared 层集中一个`source_meta(source)` 返回 {friendly, slug, abbrev, accent, vendor_id}，各处消费。
+- [Medium][55] src/renderer/components/session-library/session-library-utils.ts:15 — source→agent 派生助手分散多文件、语义重叠 — `agent_abbrev`（本文件）、`agent_friendly`/`agent_slug`（lib/session-history/markdown.ts）、`agent_accent`/`vendor_id_for_source`（lib/workspace/slots.ts）各自独立实现 claude\*code/opencode/kimi_code/grok 的映射；`recent_sessions`（subscription-service.ts:615）又用 `source.replace(/*/g,"-")`内联派生。新增厂商需同步 4-5 处。修复建议：在`lib/session-history`或 shared 层集中一个`source_meta(source)` 返回 {friendly, slug, abbrev, accent, vendor_id}，各处消费。
 
 - [Low][50] src/web/usageboard-web.ts:161 — 常驻 10s 轮询定时器永不清除且无订阅也空转 — `setInterval(..., POLL_MS)` 在 `create_web_usageboard()` 内创建后从不 clear；`token_stats_callbacks` 为空时每 10s 仍唤醒一次空循环；若未来多实例化（HMR/重复 install）会叠加多个定时器。修复建议：在首个 subscriber 注册时启动、最后一个注销时清除（或至少空集合时跳过），并暴露 dispose。
 
@@ -50,7 +50,7 @@ connectors_codex / connectors_glm / connectors_tavily / scripts / src_main_core_
 
 - [Info][30] src/main/core/session-history/head-read.ts:49 — 死赋值 — `else if (last_nl < 0) { last_nl = -1; }` 分支中 last_nl 已为 -1，赋值无效果，属冗余防御。修复建议：删除该 else 分支（或改为显式初始化注释）。
 
----
+______________________________________________________________________
 
 Reviewed files（61，均以 HEAD 内容审读）：
 

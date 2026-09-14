@@ -4,12 +4,12 @@
 
 ## 四类窗口（`WINDOW_CONFIGS`）
 
-| key         | route     | 尺寸             | 特征                                                                   |
-| ----------- | --------- | ---------------- | ---------------------------------------------------------------------- |
-| `usage`     | `usage`   | 482×480, min 472 | frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）       |
-| `setting`   | `setting` | 820×660          | frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口 |
-| `tray_menu` | `tray`    | —                | 自定义托盘菜单渲染窗口                                                 |
-| `agent`     | `agent`   | 900×700          | `frame:true`, `showWhenReady`, 圆角，独立窗承载 TokenStatsView         |
+|key|route|尺寸|特征|
+|---|---|---|---|
+|`usage`|`usage`|482×480, min 472|frameless, resizable, 托盘弹窗用量面板（默认隐藏，托盘点击显示）|
+|`setting`|`setting`|820×660|frameless, `titleBarStyle:hidden`, `showWhenReady`, 圆角，独立持久窗口|
+|`tray_menu`|`tray`|—|自定义托盘菜单渲染窗口|
+|`agent`|`agent`|900×700|`frame:true`, `showWhenReady`, 圆角，独立窗承载 TokenStatsView|
 
 URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在前 hash 在后）。
 

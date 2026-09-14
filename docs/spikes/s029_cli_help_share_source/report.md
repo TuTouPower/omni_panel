@@ -20,7 +20,7 @@
 ## 证据
 
 - esbuild 产物（`.scratch/s029/out/esbuild_bundle.mjs`）内容为：
-  `var CLI_HELP_TEXT = "OMNI_SPIKE_HELP_MARKER_FROM_SCRIPTS_s029\n";`（字符串已内联）。
+    `var CLI_HELP_TEXT = "OMNI_SPIKE_HELP_MARKER_FROM_SCRIPTS_s029\n";`（字符串已内联）。
 - vite 产物（`.scratch/s029/out/main_like_entry.mjs`）同样内联同一标记字符串。
 - 两路均无 `import ... from "..._spike_cli_help_probe.mjs"` 的 runtime 依赖。
 
@@ -33,5 +33,5 @@
 ## 是否采纳
 
 - 决定：是
-- 理由：满足「单一真相源 + 打包仅 out/**」；无需构建期复制/软链。
+- 理由：满足「单一真相源 + 打包仅 out/\*\*」；无需构建期复制/软链。
 - 后续 task：t400

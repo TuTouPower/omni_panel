@@ -18,13 +18,13 @@ t193 需要确定两项前置方案：
 
 执行端选型对比（推理 + 项目既有证据）：
 
-| 维度               | worker_threads                                     | utilityProcess                                                                                               |
-| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 隔离               | 同进程线程；native 崩溃（段错误）带崩整个 Electron | 独立 OS 进程；崩溃/异常退出不影响主进程                                                                      |
-| 打包               | 无需额外产物（同模块）                             | collector 已用 `utilityProcess.fork` + `resolve_collector_path` 处理 asar unpacked（manager.ts），路径已验证 |
-| better-sqlite3 ABI | 主进程模块，ABI 同                                 | 运行于 Electron → electron ABI，与主进程 store 相同（ensure_sqlite_abi electron 模式）                       |
-| IPC                | 同进程 message 通道                                | postMessage/on('message')，需自建 request_id 关联                                                            |
-| 权限边界           | 应用层                                             | 应用层（utilityProcess 与主进程同用户权限，非 OS 沙箱）                                                      |
+|维度|worker_threads|utilityProcess|
+|---|---|---|
+|隔离|同进程线程；native 崩溃（段错误）带崩整个 Electron|独立 OS 进程；崩溃/异常退出不影响主进程|
+|打包|无需额外产物（同模块）|collector 已用 `utilityProcess.fork` + `resolve_collector_path` 处理 asar unpacked（manager.ts），路径已验证|
+|better-sqlite3 ABI|主进程模块，ABI 同|运行于 Electron → electron ABI，与主进程 store 相同（ensure_sqlite_abi electron 模式）|
+|IPC|同进程 message 通道|postMessage/on('message')，需自建 request_id 关联|
+|权限边界|应用层|应用层（utilityProcess 与主进程同用户权限，非 OS 沙箱）|
 
 ## 证据
 

@@ -33,19 +33,19 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 
 ## 3. 端点
 
-| 方法     | 路径                                                    | 说明                                                       | 认证   |
-| -------- | ------------------------------------------------------- | ---------------------------------------------------------- | ------ |
-| GET      | 所有非 `/v1/` 的 GET                                    | web SPA 静态资源（未命中文件走 index.html）                | 无     |
-| GET      | `/v1/health`                                            | 存活检查                                                   | 无     |
-| GET      | `/v1/records` `/v1/sessions` `/v1/buckets` `/v1/status` | 代理面板数据（query: agent/env/start/end）                 | 无     |
-| GET      | `/v1/trend`                                             | 用量趋势序列（query: provider/accountId/metricId/days?=7） | 无     |
-| GET      | `/v1/connectors`                                        | 连接器列表                                                 | 无     |
-| POST     | `/v1/connectors`                                        | 触发全部连接器刷新                                         | 无     |
-| GET      | `/v1/connectors/:id/state`                              | 单连接器状态                                               | 无     |
-| POST     | `/v1/connectors/:id/refresh`                            | 触发单连接器刷新                                           | 无     |
-| GET/POST | `/v1/config`                                            | 设置面板配置读/写                                          | 无     |
-| GET/POST | `/v1/secrets`                                           | 密钥明文读/写（query/field: instanceId）                   | 无     |
-| POST     | `/v1/ingest`                                            | observation 注入                                           | Bearer |
+|方法|路径|说明|认证|
+|---|---|---|---|
+|GET|所有非 `/v1/` 的 GET|web SPA 静态资源（未命中文件走 index.html）|无|
+|GET|`/v1/health`|存活检查|无|
+|GET|`/v1/records` `/v1/sessions` `/v1/buckets` `/v1/status`|代理面板数据（query: agent/env/start/end）|无|
+|GET|`/v1/trend`|用量趋势序列（query: provider/accountId/metricId/days?=7）|无|
+|GET|`/v1/connectors`|连接器列表|无|
+|POST|`/v1/connectors`|触发全部连接器刷新|无|
+|GET|`/v1/connectors/:id/state`|单连接器状态|无|
+|POST|`/v1/connectors/:id/refresh`|触发单连接器刷新|无|
+|GET/POST|`/v1/config`|设置面板配置读/写|无|
+|GET/POST|`/v1/secrets`|密钥明文读/写（query/field: instanceId）|无|
+|POST|`/v1/ingest`|observation 注入|Bearer|
 
 ## 4. 构建
 

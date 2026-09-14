@@ -60,27 +60,27 @@ provider 同时是用量卡片分组键，建议与目录名一致。内置 prov
 
 ### 字段说明
 
-| 字段           | 说明                                                                  |
-| -------------- | --------------------------------------------------------------------- |
-| `id`           | connector 标识，建议与目录/provider 同名                              |
-| `provider`     | snake_case provider 名（见上）                                        |
-| `capabilities` | 能力枚举：`poll` / `local` / `session` / `observe`，至少一个          |
-| `parameters`   | 参数数组（见下）                                                      |
-| `endpoints`    | 命名端点 URL 映射，`default` 为 HTTP 请求基准                         |
-| `poll.request` | poll 能力的 HTTP 请求：`endpoint`（键）+ `path`+ `method`（GET/POST） |
-| `poll.map`     | 数值配额字段的 JSON path 映射（值须以 `$` 开头）；无需可留空 `{}`     |
-| `script`       | 采集脚本文件名（相对子目录）                                          |
+|字段|说明|
+|---|---|
+|`id`|connector 标识，建议与目录/provider 同名|
+|`provider`|snake_case provider 名（见上）|
+|`capabilities`|能力枚举：`poll` / `local` / `session` / `observe`，至少一个|
+|`parameters`|参数数组（见下）|
+|`endpoints`|命名端点 URL 映射，`default` 为 HTTP 请求基准|
+|`poll.request`|poll 能力的 HTTP 请求：`endpoint`（键）+ `path`+ `method`（GET/POST）|
+|`poll.map`|数值配额字段的 JSON path 映射（值须以 `$` 开头）；无需可留空 `{}`|
+|`script`|采集脚本文件名（相对子目录）|
 
 ### parameter 字段
 
-| 字段                      | 说明                                     |
-| ------------------------- | ---------------------------------------- |
-| `name`                    | 参数键，脚本通过 `ctx.params[name]` 取值 |
-| `type`                    | `secret` / `string` / `number`           |
-| `required`                | 是否必填                                 |
-| `default`                 | 默认值（字符串）                         |
-| `label` / `label@zh-Hans` | UI 标签（英文 / 简中）                   |
-| `exposeToScript`          | `true` 时参数值注入 `ctx.params`         |
+|字段|说明|
+|---|---|
+|`name`|参数键，脚本通过 `ctx.params[name]` 取值|
+|`type`|`secret` / `string` / `number`|
+|`required`|是否必填|
+|`default`|默认值（字符串）|
+|`label` / `label@zh-Hans`|UI 标签（英文 / 简中）|
+|`exposeToScript`|`true` 时参数值注入 `ctx.params`|
 
 `type: secret` 的参数走 vault 加密存储，UI 不回显明文。
 
@@ -132,17 +132,17 @@ async function main() {
 
 ### ctx 能力
 
-| 成员                                                                                 | 说明                                                       |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `ctx.params`                                                                         | manifest `exposeToScript` 参数键值（secret/string/number） |
-| `ctx.http.get_json(endpoint, path, opts)`                                            | 发 JSON GET，返回解析后对象                                |
-| `ctx.http.post_json(endpoint, path, body, opts)`                                     | JSON POST                                                  |
-| `ctx.http.get_raw(...)`                                                              | 返回 `{ status, headers, body }` 原始响应                  |
-| `ctx.files.read(path)` / `ctx.files.list(path)`                                      | 读账号本地文件（local 能力用）                             |
-| `ctx.status.for_pct(pct)` / `for_ratio(used, limit)` / `for_balance(balance, limit)` | 阈值→状态（normal/warning/critical/unknown）助手           |
-| `ctx.sourceInstanceId` / `ctx.accountId` / `ctx.accountLabel`                        | 当前账号上下文                                             |
-| `ctx.report_failed_account(msg)`                                                     | 上报账号级错误                                             |
-| `ctx.log.debug/info/warn/error`                                                      | 日志（脱敏）                                               |
+|成员|说明|
+|---|---|
+|`ctx.params`|manifest `exposeToScript` 参数键值（secret/string/number）|
+|`ctx.http.get_json(endpoint, path, opts)`|发 JSON GET，返回解析后对象|
+|`ctx.http.post_json(endpoint, path, body, opts)`|JSON POST|
+|`ctx.http.get_raw(...)`|返回 `{ status, headers, body }` 原始响应|
+|`ctx.files.read(path)` / `ctx.files.list(path)`|读账号本地文件（local 能力用）|
+|`ctx.status.for_pct(pct)` / `for_ratio(used, limit)` / `for_balance(balance, limit)`|阈值→状态（normal/warning/critical/unknown）助手|
+|`ctx.sourceInstanceId` / `ctx.accountId` / `ctx.accountLabel`|当前账号上下文|
+|`ctx.report_failed_account(msg)`|上报账号级错误|
+|`ctx.log.debug/info/warn/error`|日志（脱敏）|
 
 ### status 助手阈值
 

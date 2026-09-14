@@ -17,14 +17,14 @@ pnpm test:full
 
 ## Required Environment Variables
 
-| Variable           | Plugin                | Notes                                               |
-| ------------------ | --------------------- | --------------------------------------------------- |
-| `DEEPSEEK_API_KEY` | deepseek-usage-plugin | DeepSeek API key                                    |
-| `GLM_API_KEY`      | glm-usage-plugin      | ZhipuAI API key                                     |
-| `MINIMAX_API_KEY`  | minimax-usage-plugin  | MiniMax API key                                     |
-| `TAVILY_API_KEY`   | tavily-usage-plugin   | Tavily API key                                      |
-| `CPA_MGMT_KEY`     | cpa-usage-plugin      | CPA-Manager bearer token                            |
-| `CPA_MGMT_URL`     | cpa-usage-plugin      | CPA-Manager base URL (e.g. `http://localhost:8080`) |
+|Variable|Plugin|Notes|
+|---|---|---|
+|`DEEPSEEK_API_KEY`|deepseek-usage-plugin|DeepSeek API key|
+|`GLM_API_KEY`|glm-usage-plugin|ZhipuAI API key|
+|`MINIMAX_API_KEY`|minimax-usage-plugin|MiniMax API key|
+|`TAVILY_API_KEY`|tavily-usage-plugin|Tavily API key|
+|`CPA_MGMT_KEY`|cpa-usage-plugin|CPA-Manager bearer token|
+|`CPA_MGMT_URL`|cpa-usage-plugin|CPA-Manager base URL (e.g. `http://localhost:8080`)|
 
 If a variable is not set the corresponding test is **skipped** (not failed).
 
@@ -43,5 +43,5 @@ etc.) are asserted because they change over time. The tests verify:
 - `updatedAt` is a valid ISO 8601 string
 - `items` is an array
 - Each item has: `id` (string), `name` (string), `used` (number),
-  `limit` (number), `displayStyle` ("percent" | "ratio"),
-  `status` ("normal" | "warning" | "critical" | "unknown")
+    `limit` (number), `displayStyle` ("percent" | "ratio"),
+    `status` ("normal" | "warning" | "critical" | "unknown")

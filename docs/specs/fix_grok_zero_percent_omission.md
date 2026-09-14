@@ -26,10 +26,10 @@ creditUsagePercent = 0
 
 周期映射：
 
-| `currentPeriod.type`        | `window` | `cycleDurationMs` | `reset_at`          |
-| --------------------------- | -------- | ----------------- | ------------------- |
-| `USAGE_PERIOD_TYPE_WEEKLY`  | `week`   | 7 天              | `currentPeriod.end` |
-| `USAGE_PERIOD_TYPE_MONTHLY` | `month`  | 30 天             | `currentPeriod.end` |
+|`currentPeriod.type`|`window`|`cycleDurationMs`|`reset_at`|
+|---|---|---|---|
+|`USAGE_PERIOD_TYPE_WEEKLY`|`week`|7 天|`currentPeriod.end`|
+|`USAGE_PERIOD_TYPE_MONTHLY`|`month`|30 天|`currentPeriod.end`|
 
 周期时间必须是合法 RFC3339 字符串，接受标准允许的小写 `t` / `z`；日历日期、时间、时区字段必须有效，且 `end > start`。未知 period type 不参与省略百分比回填。
 

@@ -6,7 +6,7 @@
 - **审过 files**: 84（bundle `files` 全量 + 关联测试 ~15 个、共享 schema 源、preload 平台定义、main-panel-config、manifest schema）
 - **HEAD SHA**: `51ea3972efefea568cc2fba3e530ea5f69296182`
 
----
+______________________________________________________________________
 
 ## Findings
 
@@ -38,7 +38,7 @@
 
 - [Info][20] public/frontend_demo/app/src/components/workspace/format.ts:6 — demo 与生产的摘选复制格式化存在两套实现且数字规则不一致，无对齐测试 — demo 的 `formatTokens`（n>=10000 → k，n>=100 时 `v.toFixed(1)`）与生产 `src/renderer/lib/workspace/copy-format.ts` + `slots.ts` 的 `format_tokens`（n>=1_000_000 → M）规则不同，`buildMarkdown`/`buildGrouped` 头部格式也各自独立；t311 声称 web 面板与 demo 对齐，但没有任何测试锁定两套实现的输出一致，demo 演进可悄然与生产漂移。修复建议：抽取共享格式函数或在 web 面板测试中对 demo 样例输出做 golden 断言。
 
----
+______________________________________________________________________
 
 ## Reviewed files
 

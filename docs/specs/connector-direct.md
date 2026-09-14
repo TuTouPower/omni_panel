@@ -4,23 +4,23 @@
 
 ## 内置清单（`connectors/<id>/`）
 
-| id            | provider    | 能力    | 形态 | 说明                                                                                                                                                                                                                                                                                                                                                         |
-| ------------- | ----------- | ------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `claude`      | claude      | local   | 直连 | 读 `~/.claude` 本地用量                                                                                                                                                                                                                                                                                                                                      |
-| `codex`       | codex       | local   | 直连 | 读 `~/.codex` 本地用量                                                                                                                                                                                                                                                                                                                                       |
-| `deepseek`    | deepseek    | poll    | 直连 | 官方用量 API                                                                                                                                                                                                                                                                                                                                                 |
-| `getoneapi`   | getoneapi   | poll    | 直连 | GetOneAPI 余额 API（`POST /back/user/balance`）；余额型 `data.balance`（CNY），余额反向 status（t050）                                                                                                                                                                                                                                                       |
-| `glm`         | glm         | poll    | 直连 | 智谱 API                                                                                                                                                                                                                                                                                                                                                     |
-| `minimax`     | minimax     | poll    | 直连 | MiniMax API                                                                                                                                                                                                                                                                                                                                                  |
-| `tavily`      | tavily      | poll    | 直连 | Tavily API                                                                                                                                                                                                                                                                                                                                                   |
-| `firecrawl`   | firecrawl   | poll    | 直连 | Firecrawl API                                                                                                                                                                                                                                                                                                                                                |
-| `exa`         | exa         | poll    | 直连 | Exa 团队 API（`x-api-key` service key）；成本型 `total_cost_usd` + `cost_breakdown`，无远端 limit，用户自定预算 LIMIT（t049）                                                                                                                                                                                                                                |
-| `mimo`        | mimo        | session | 直连 | 受控网页登录捕获 cookie                                                                                                                                                                                                                                                                                                                                      |
-| `kimi`        | kimi        | poll    | 直连 | Kimi Code API（OAuth device-code；遗留 API Key 兼容）；t362 移除 manifest API_KEY 参数（OAuth 主路径）                                                                                                                                                                                                                                                   |
-| `opencode_go` | opencode_go | session | 直连 | 受控网页登录捕获 cookie                                                                                                                                                                                                                                                                                                                                      |
-| `antigravity` | antigravity | local   | 直连 | 占位 stub（t362）：读取路径 `~/.antigravity/session.json` 未确认（UNVERIFIED-SPIKE），connector 明示「暂不支持」，添加后报错不静默空                                                                                                                                                                                                                       |
-| `grok`        | grok        | poll    | 直连 | Grok API（OAuth device-code）；解析 credits 响应时，完整有效 `currentPeriod` + 省略 `creditUsagePercent` 表示 proto3 默认 `0%`，按 period type 映射 weekly/monthly window；缺少有效周期且无有限 percent 时须 `report_failed_account`，不得静默 `return []`；deprecated `monthlyLimit.val` / `used.val` 是 USD cents，禁止映射 weekly usage（t039/t159/t160） |
-| `tikhub`      | tikhub      | poll    | 直连 | TikHub 用户接口（`GET /api/v1/tikhub/user/get_user_info`）；`user_data.balance` 余额反向 + `free_credit`，account_id=email（t051）                                                                                                                                                                                                                           |
+|id|provider|能力|形态|说明|
+|---|---|---|---|---|
+|`claude`|claude|local|直连|读 `~/.claude` 本地用量|
+|`codex`|codex|local|直连|读 `~/.codex` 本地用量|
+|`deepseek`|deepseek|poll|直连|官方用量 API|
+|`getoneapi`|getoneapi|poll|直连|GetOneAPI 余额 API（`POST /back/user/balance`）；余额型 `data.balance`（CNY），余额反向 status（t050）|
+|`glm`|glm|poll|直连|智谱 API|
+|`minimax`|minimax|poll|直连|MiniMax API|
+|`tavily`|tavily|poll|直连|Tavily API|
+|`firecrawl`|firecrawl|poll|直连|Firecrawl API|
+|`exa`|exa|poll|直连|Exa 团队 API（`x-api-key` service key）；成本型 `total_cost_usd` + `cost_breakdown`，无远端 limit，用户自定预算 LIMIT（t049）|
+|`mimo`|mimo|session|直连|受控网页登录捕获 cookie|
+|`kimi`|kimi|poll|直连|Kimi Code API（OAuth device-code；遗留 API Key 兼容）；t362 移除 manifest API_KEY 参数（OAuth 主路径）|
+|`opencode_go`|opencode_go|session|直连|受控网页登录捕获 cookie|
+|`antigravity`|antigravity|local|直连|占位 stub（t362）：读取路径 `~/.antigravity/session.json` 未确认（UNVERIFIED-SPIKE），connector 明示「暂不支持」，添加后报错不静默空|
+|`grok`|grok|poll|直连|Grok API（OAuth device-code）；解析 credits 响应时，完整有效 `currentPeriod` + 省略 `creditUsagePercent` 表示 proto3 默认 `0%`，按 period type 映射 weekly/monthly window；缺少有效周期且无有限 percent 时须 `report_failed_account`，不得静默 `return []`；deprecated `monthlyLimit.val` / `used.val` 是 USD cents，禁止映射 weekly usage（t039/t159/t160）|
+|`tikhub`|tikhub|poll|直连|TikHub 用户接口（`GET /api/v1/tikhub/user/get_user_info`）；`user_data.balance` 余额反向 + `free_credit`，account_id=email（t051）|
 
 ## 能力分发（`refresh-service.execute_connector`）
 

@@ -39,13 +39,13 @@ interface AuthDescriptor {
 
 ## 内置连接器映射
 
-| 连接器      | method       | secret_name    | 备注                                                                                                        |
-| ----------- | ------------ | -------------- | ----------------------------------------------------------------------------------------------------------- |
-| grok        | oauth_device | OAUTH_TOKEN    | 设备码 OAuth 流程                                                                                           |
-| kimi        | oauth_device | OAUTH_TOKEN    | 设备码 OAuth（t112），token 读取 OAUTH_TOKEN -> API_KEY 回退；API_KEY 为可选 fallback，保留 apikey 登录路径 |
-| exa         | apikey       | SERVICE_KEY    | 额外字段 `API_KEY_ID`                                                                                       |
-| cpa         | cpa_mgmt     | cpa_mgmt_key   | 强制 endpoint override                                                                                      |
-| opencode_go | web_login    | SESSION_COOKIE | 登录入口 `https://opencode.ai/auth`                                                                         |
+|连接器|method|secret_name|备注|
+|---|---|---|---|
+|grok|oauth_device|OAUTH_TOKEN|设备码 OAuth 流程|
+|kimi|oauth_device|OAUTH_TOKEN|设备码 OAuth（t112），token 读取 OAUTH_TOKEN -> API_KEY 回退；API_KEY 为可选 fallback，保留 apikey 登录路径|
+|exa|apikey|SERVICE_KEY|额外字段 `API_KEY_ID`|
+|cpa|cpa_mgmt|cpa_mgmt_key|强制 endpoint override|
+|opencode_go|web_login|SESSION_COOKIE|登录入口 `https://opencode.ai/auth`|
 
 其余 11 个内置连接器暂不补 `auth` 块，由 capabilities（`session` / `local` / 默认 `apikey`）回退推导。
 

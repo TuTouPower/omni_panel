@@ -6,17 +6,17 @@
 
 ## 通道分组（`IPC_CHANNELS`）
 
-| 组        | channel                                                                                                                                                                                                                    | 用途                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| theme     | `theme:set`                                                                                                                                                                                                                | 渲染→主设主题                                   |
-| popup     | `popup:reportContentHeight`                                                                                                                                                                                                | 渲染上报测得内容高度（窗口自适应）              |
-| settings  | `settings:open` / `navigate` / `minimize` / `maximize` / `close`                                                                                                                                                           | 设置窗控制                                      |
-| mainPanel | `mainPanel:hide` / `getMode`                                                                                                                                                                                               | 用量面板 shell 动作                             |
-| tray      | `tray:openPanel` / `refreshAll` / `togglePause` / `toggleAutostart` / `openSettings` / `openWeb` / `checkUpdate` / `survey` / `sponsor` / `quit` / `restart` / `hide` / `reportMenuSize` / `pauseState` / `autostartState` | 托盘菜单动作（`openWeb` 为 t026+ web 面板入口） |
-| auth      | `auth:cookieLogin`                                                                                                                                                                                                         | 通用 cookie 登录                                |
-| grok      | `grok:loginStart` / `loginPoll` / `loginStatus` / `logout` / `refresh`                                                                                                                                                     | Grok OAuth device-code 与 token 生命周期        |
-| session   | `session:login` / `refresh`                                                                                                                                                                                                | 受控网页登录（见 `connector-session.md`）       |
-| test      | `test:tray-click`                                                                                                                                                                                                          | **E2E only**，程序触发托盘点击                  |
+|组|channel|用途|
+|---|---|---|
+|theme|`theme:set`|渲染→主设主题|
+|popup|`popup:reportContentHeight`|渲染上报测得内容高度（窗口自适应）|
+|settings|`settings:open` / `navigate` / `minimize` / `maximize` / `close`|设置窗控制|
+|mainPanel|`mainPanel:hide` / `getMode`|用量面板 shell 动作|
+|tray|`tray:openPanel` / `refreshAll` / `togglePause` / `toggleAutostart` / `openSettings` / `openWeb` / `checkUpdate` / `survey` / `sponsor` / `quit` / `restart` / `hide` / `reportMenuSize` / `pauseState` / `autostartState`|托盘菜单动作（`openWeb` 为 t026+ web 面板入口）|
+|auth|`auth:cookieLogin`|通用 cookie 登录|
+|grok|`grok:loginStart` / `loginPoll` / `loginStatus` / `logout` / `refresh`|Grok OAuth device-code 与 token 生命周期|
+|session|`session:login` / `refresh`|受控网页登录（见 `connector-session.md`）|
+|test|`test:tray-click`|**E2E only**，程序触发托盘点击|
 
 ## 渲染 API（`UsageboardApi`，preload 暴露）
 

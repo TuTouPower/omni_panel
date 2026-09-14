@@ -6,13 +6,13 @@ launcher 与主进程共用 `scripts/cli_help.mjs` 导出的 `CLI_HELP_TEXT`。�
 
 ## 行为
 
-| 入口 | 路径 | 输出 |
-| --- | --- | --- |
-| `omni_panel`（无参） | launcher `mode: help` | `CLI_HELP_TEXT` → stdout |
-| `omni_panel --help` / `-h` | 同上 | 同上 |
-| `omni_panel help` | 同上（**不**注入 `--cli`） | 同上 |
-| `omni_panel --cli help` | 主进程 `command.type === "help"` | 同一 `CLI_HELP_TEXT` → stdout 后 `app.exit(0)` |
-| 无法识别的子命令 | launcher `mode: invalid` | 错误行 + `CLI_HELP_TEXT` → stderr，exit 1 |
+|入口|路径|输出|
+|---|---|---|
+|`omni_panel`（无参）|launcher `mode: help`|`CLI_HELP_TEXT` → stdout|
+|`omni_panel --help` / `-h`|同上|同上|
+|`omni_panel help`|同上（**不**注入 `--cli`）|同上|
+|`omni_panel --cli help`|主进程 `command.type === "help"`|同一 `CLI_HELP_TEXT` → stdout 后 `app.exit(0)`|
+|无法识别的子命令|launcher `mode: invalid`|错误行 + `CLI_HELP_TEXT` → stderr，exit 1|
 
 统一文本须含：`--gui` 用法；子命令 serve / open / refresh-all / pause / resume / restart / quit / autostart / export；兼容说明与数据目录说明。
 

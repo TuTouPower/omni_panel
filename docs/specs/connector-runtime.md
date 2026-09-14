@@ -6,7 +6,7 @@
 
 ### manifest schema（`src/shared/schemas/manifest.ts`，`.strict()`）
 
-顶层 key：`id`、`provider`（= `usageProviderSchema` ∪ `"cpa"`）、`capabilities`（`["poll"|"local"|"session"|"observe"]`，≥1）、`parameters[]`、`endpoints?`（record<string,url>）、`requireExplicitEndpoints?`、`manualDefault?`、`script?`、`poll?`、`observe?`、`local?`、`loginDomains?`（session 连接器允许的登录域名，由 auth-ipc 读取）、`cookieNames?`（静默刷新校验用的 cookie 名）。`.refine`：声明的 poll/local/observe 能力必须有对应配置（session 无此约束）。
+顶层 key：`id`、`provider`（= `usageProviderSchema` ∪ `"cpa"`）、`capabilities`（`["poll"|"local"|"session"|"observe"]`，≥1）、`parameters[]`、`endpoints?`（record\<string,url>）、`requireExplicitEndpoints?`、`manualDefault?`、`script?`、`poll?`、`observe?`、`local?`、`loginDomains?`（session 连接器允许的登录域名，由 auth-ipc 读取）、`cookieNames?`（静默刷新校验用的 cookie 名）。`.refine`：声明的 poll/local/observe 能力必须有对应配置（session 无此约束）。
 
 - `parameter`：`name` / `type`（`secret`|`string`|`number`）/ `required`（默认 false）/ `label` / `label@zh-Hans` / `default` / `exposeToScript`（默认 **false**）。
 - `poll.request`：`endpoint` / `path` / `method`（GET|POST，默认 GET）/ `auth?` / `body?`；`poll.map`：`used`/`limit`/`remaining` 若存在须以 `$` 开头。
@@ -41,7 +41,7 @@
 - **完整性校验**：**未实现**（无 SHA-256 清单/签名）。现有两层编译/加载期防护：
     - **路径逃逸检查**（`refresh-service.resolve_script_path`）：script 路径不得逃出连接器目录，逃出则抛 "script path escapes connector directory"。
     - **沙箱逃逸正则**（`runtime.detect_sandbox_escape`，编译期）：拒绝 `eval`（含间接 eval）、`new Function` / `Function(`、`.constructor.constructor` 链、`process.binding`，命中即抛 "sandbox escape vector (...)"。
-      两者均为短期缓解，非真隔离（见 `architecture.md` §6）。
+        两者均为短期缓解，非真隔离（见 `architecture.md` §6）。
 
 ## NetClient（`net-client.ts`，undici）
 
