@@ -77,6 +77,7 @@ export const PROVIDER_ORDER: readonly string[] = [
     "mimo",
     "opencode_go",
     "grok",
+    "commandcode",
 ];
 
 export const PROVIDER_LABELS: Record<string, string> = {
@@ -96,6 +97,7 @@ export const PROVIDER_LABELS: Record<string, string> = {
     mimo: "MiMo",
     opencode_go: "OpenCode Go",
     grok: "Grok",
+    commandcode: "Command Code",
 };
 
 const log = createLogger("renderer:provider-usage");

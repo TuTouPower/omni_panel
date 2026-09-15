@@ -1,0 +1,36 @@
+{
+    "id": "commandcode",
+    "provider": "commandcode",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "API_KEY",
+            "type": "secret",
+            "required": true,
+            "label": "User Key",
+            "label@zh-Hans": "用户密钥 (user_...)",
+            "exposeToScript": true
+        },
+        {
+            "name": "API_BASE",
+            "type": "string",
+            "required": false,
+            "default": "https://api.commandcode.ai",
+            "label": "API Base URL",
+            "label@zh-Hans": "API 基础地址",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api.commandcode.ai"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "default",
+            "path": "/alpha/whoami",
+            "method": "GET"
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

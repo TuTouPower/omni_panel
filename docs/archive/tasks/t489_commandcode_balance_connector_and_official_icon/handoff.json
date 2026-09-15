@@ -1,0 +1,28 @@
+{
+  "tid": "t489",
+  "attempt": 1,
+  "execution_id": "1cf18430049d4f04a7705830c74a0626",
+  "status": "done",
+  "branch": "t489_commandcode_balance_connector_and_official_icon",
+  "base_sha": "3f4c6c788e6a0bbcb97d4ba54bd5c09afd0d390d",
+  "tests": "pnpm vitest run tests/unit/connector/commandcode.test.ts tests/unit/renderer/components/icon.test.tsx (35 passed); pnpm typecheck (0 errors); pnpm eslint (0 warnings)",
+  "blackbox": "Vitest connector runtime sandbox execution verifying poll logic, Cloudflare bypass headers, quota calculation and error trapping",
+  "review": "full Round 1 PASS，0 finding，reviewed_scope=82789bac759c81f0",
+  "ac_evidence": {
+    "AC-001": [
+      "tests/unit/connector/commandcode.test.ts: manifest loads and matches schema, registered in common-services and provider-usage",
+      "tests/unit/renderer/components/icon.test.tsx: VendorMark renders official squircle icon"
+    ],
+    "AC-002": [
+      "tests/unit/connector/commandcode.test.ts: verifies curl/8.7.1 User-Agent and Authorization Bearer header"
+    ],
+    "AC-003": [
+      "tests/unit/connector/commandcode.test.ts: verifies monthly credits, 5h window limit, weekly window limit with resetAt"
+    ],
+    "AC-004": [
+      "tests/unit/connector/commandcode.test.ts: verifies 401 Unauthorized, timeout, and missing secret handling"
+    ]
+  },
+  "pending": [],
+  "findings": []
+}

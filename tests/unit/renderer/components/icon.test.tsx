@@ -348,6 +348,20 @@ describe("VendorMark", () => {
         expect(img.getAttribute("src")).toContain("cpa");
     });
 
+    it("renders the official Command Code logo asset", () => {
+        const { container } = render(<VendorMark id="commandcode" />);
+        const image = container.querySelector('[data-testid="vendor-mark"] img');
+        const svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/commandcode.svg"),
+            "utf8",
+        );
+
+        expect(image).toBeInTheDocument();
+        expect(image).toHaveClass("object-contain");
+        expect(image?.getAttribute("src")).toContain("commandcode");
+        expect(svg).toContain("M98.8049 27.6163");
+    });
+
     it("renders overview SVG as default for overview id", () => {
         const { container } = render(<VendorMark id="overview" />);
         const inner = container.querySelector('[data-testid="vendor-mark"] svg');

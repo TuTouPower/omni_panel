@@ -19,5 +19,6 @@ export const ADD_COMMON_SERVICES: { id: AddServiceId; label: string }[] = [
     { id: "mimo", label: "MiMo" },
     { id: "opencode_go", label: "OpenCode Go" },
     { id: "grok", label: "Grok" },
+    { id: "commandcode", label: "Command Code" },
     { id: "cpa", label: "CPA Manager" },
 ];
