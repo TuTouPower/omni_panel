@@ -1,0 +1,34 @@
+{
+    "tid": "t491",
+    "attempt": 1,
+    "execution_id": "1aad1bbf84c140e5bf985f60c847b59c",
+    "status": "done",
+    "branch": "t491_kimi_web_bearer_mint_spike",
+    "base_sha": "91c6b73e2a75cfdbbae893084378bddf27a0890e",
+    "tests": "本 task 只新增 docs（无生产代码变更）。pnpm typecheck 通过；pnpm lint 通过；pnpm format:check 通过；md_format.py --check 通过；git diff --check 通过。pnpm test 在本机 Node 24.21.0 下触发既有 p228（better-sqlite3 Statement::~Statement abort + ERR_IPC_CHANNEL_CLOSED），并在 base commit 91c6b73e 复现同样结果与同样 8 例 tests/unit/ipc/auth-ipc.test.ts 失败，确认与本 task 无关；本 task 无被测行为变更",
+    "blackbox": "黑盒为本 task 自身的真实验证链（非 pnpm test）：①真实账号扫码登录抓包 20 分钟（Playwright 有头 Chrome，含响应体）——登录响应下发 accessToken/refreshToken，页面懒刷新；②离线最小请求复现刷新（200 + 新 access，quota 口用新 Bearer 取数 200）；③负样本（篡改/垃圾/缺失 Bearer 401；cookie-only RefreshToken 400、cookie-only quota 401）；④Electron 同款 webPreferences 下 executeJavaScript 可读 localStorage。脚本与脱敏证据见 docs/spikes/s039_kimi_web_bearer_mint_probe/",
+    "review": "single 级：Round 1 FAIL（1 important t491_gen_f001 + 3 minor），Round 2 PASS（f001~f004 已消除，新增 minor f005），Round 3 用官方渲染器重出 prompt 复跑 PASS、零新 finding；末轮 verdict PASS，reviewed_scope c51b36f9a26541d2 ok，overall=PASS",
+    "ac_evidence": {
+        "AC-001": [
+            "三条候选路径逐条有实测证据：路径 1 report.md 第 1 节（GetLoginQRCodeStatus 响应体含 accessToken/refreshToken）；路径 2 第 2、5 节（RefreshToken 端点 200 + 页面自身调用同一端点）；路径 3 第 3 节（cookie-only RefreshToken 400 invalid_argument、cookie-only quota 401，脚本 code/cookie_probe.mjs）"
+        ],
+        "AC-002": [
+            "report.md「AC-002：与 device_code_oauth_manager / oauth_helpers 的对接点与差异（逐项）」映射表 6 行：请求协议 form vs JSON、响应字段名 access_token vs accessToken / error vs code、expires_at 由 expires_in vs JWT exp、存储键、refresh_now 返回值与去重、401 钩子门控；结论改为「形态可对齐、实现不能直接复用」",
+            "Round 2/3 reviewer 逐行对照 oauth_helpers.ts:9-11,79-89,91-93,137-140、device_code_oauth_manager.ts:118-125,321-377,445、refresh-service.ts:276、index.ts:412-423 复核一致"
+        ],
+        "AC-003": [
+            "条件不成立（已找到可用 HTTP 续期路径），故不适用；否定判据反向证据见 AC-001 路径 3，token pump 方案在 report 结论段明确作废"
+        ],
+        "AC-004": [
+            "report.md 结论段：续期由应用进程直接发 HTTP 完成，不需要常驻浏览器上下文或后台导航（离线最小请求在无 Cookie、无浏览器上下文下 200）"
+        ],
+        "AC-005": [
+            "report.md 第 5 节 20 分钟时间轴：页面空闲 960s（Bearer 于 954s 过期）期间无任何请求、无续期；1136s 手动刷新页面后页面才调 RefreshToken。结论：网页端懒刷新，应用侧必须主动续期，续期不依赖页面流量"
+        ],
+        "AC-006": [
+            "code/scan_credentials.mjs（凭据形态扫描：JWT/cookie 名值/Bearer 头/x-msh id）扫描入库产物 11 个文件，hits=0、退出码 0；report「凭据销毁」小节记录删除清单（profile 30MB、secrets.json、network.jsonl、bodies/、storage.json、refresh_*.json 等）；.scratch/kimi-spike 残留仅日志（sha256 前 8 位与 exp）"
+        ]
+    },
+    "pending": [],
+    "findings": ["d060_kimi_web_bearer_http_refresh"]
+}
