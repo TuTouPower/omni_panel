@@ -53,6 +53,7 @@ import {
 import antigravity_svg from "../assets/vendor_logos/antigravity.svg";
 import claude_svg from "../assets/vendor_logos/claude.svg";
 import codex_svg from "../assets/vendor_logos/codex.svg";
+import commandcode_svg from "../assets/vendor_logos/commandcode.svg";
 import cpa_png from "../assets/vendor_logos/cpa.png";
 import deepseek_svg from "../assets/vendor_logos/deepseek.svg";
 import exa_light_png from "../assets/vendor_logos/exa_light.png";
@@ -236,6 +237,7 @@ const VENDOR_THEME_LOGOS: Partial<Record<string, { light: string; dark: string }
 const VENDOR_LOGOS: Record<string, string> = {
     claude: claude_svg,
     codex: codex_svg,
+    commandcode: commandcode_svg,
     antigravity: antigravity_svg,
     kimi: kimi_svg,
     kimi_web: kimi_svg,
@@ -267,8 +269,10 @@ const VENDOR_MARKS: Record<string, (s: number) => string> = {
         `<path d="M12 12.4l8-4.6M12 12.4v9.1M12 12.4L4 7.8" stroke="#6172f3" stroke-width="1.4" stroke-linejoin="round"/>` +
         `<path d="M12 2.6l8 4.4-8 5.4-8-5.4z" fill="#8b9bff"/></svg>`,
     commandcode: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
-        `<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m7.5 9 3 3-3 3M13.5 15h3"/></svg>`,
+        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 144 144" fill="none">` +
+        `<rect width="144" height="144" rx="32" fill="currentColor" fill-opacity="0.12"/>` +
+        `<path d="M98.8049 27.6163C89.3295 27.6163 81.6214 35.3243 81.6214 44.7997V52.1641H61.9832V44.7997C61.9832 35.3243 54.2752 27.6163 44.7997 27.6163C35.3243 27.6163 27.6163 35.3243 27.6163 44.7997C27.6163 54.2752 35.3243 61.9832 44.7997 61.9832H52.1641V81.6214H44.7997C35.3243 81.6214 27.6163 89.3295 27.6163 98.8049C27.6163 108.28 35.3243 115.988 44.7997 115.988C54.2752 115.988 61.9832 108.28 61.9832 98.8049V91.4406H81.6214V98.8049C81.6214 108.28 89.3295 115.988 98.8049 115.988C108.28 115.988 115.988 108.28 115.988 98.8049C115.988 89.3295 108.28 81.6214 98.8049 81.6214H91.4406V61.9832H98.8049C108.28 61.9832 115.988 54.2752 115.988 44.7997C115.988 35.3243 108.28 27.6163 98.8049 27.6163ZM91.4406 52.1641V44.7997C91.4406 40.7248 94.73 37.4354 98.8049 37.4354C102.88 37.4354 106.169 40.7248 106.169 44.7997C106.169 48.8747 102.88 52.1641 98.8049 52.1641H91.4406ZM44.7997 52.1641C40.7248 52.1641 37.4354 48.8747 37.4354 44.7997C37.4354 40.7248 40.7248 37.4354 44.7997 37.4354C48.8747 37.4354 52.1641 40.7248 52.1641 44.7997V52.1641H44.7997ZM61.9832 81.6214V61.9832H81.6214V81.6214H61.9832ZM98.8049 106.169C94.73 106.169 91.4406 102.88 91.4406 98.8049V91.4406H98.8049C102.88 91.4406 106.169 94.73 106.169 98.8049C106.169 102.88 102.88 106.169 98.8049 106.169ZM44.7997 106.169C40.7248 106.169 37.4354 102.88 37.4354 98.8049C37.4354 94.73 40.7248 91.4406 44.7997 91.4406H52.1641V98.8049C52.1641 102.88 48.8747 106.169 44.7997 106.169Z" fill="currentColor"/>` +
+        `</svg>`,
     antigravity: (s) =>
         `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
         `<circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M4 12c2-5 14-5 16 0M4 12c2 5 14 5 16 0"/>` +

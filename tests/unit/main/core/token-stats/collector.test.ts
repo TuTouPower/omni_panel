@@ -1168,63 +1168,33 @@ describe("collector", () => {
                 .map((c) => c[0] as { level: string; message: string });
         }
 
-        it("t437: host=macos 平台源 env=mac 参与采集，wsl 源 unavailable（AC-003）", () => {
+        // t487: 原 t437「host=macos 平台源 env=mac 参与采集，wsl 源 unavailable」与原「non-Windows host filters wsl sources out and marks them unavailable」语义已废弃。
+        // 理由：WSL 仅在 Windows 宿主存在，在 macOS/Linux 挂载并标记 unavailable 会导致前端 Agent 面板报错红字。改为仅在 Windows 宿主挂载 WSL 源。
+        it("t487 AC-001 & AC-002: host=macos 平台源 env=mac 参与采集，不包含任何 wsl 源且无 unavailable 报错", () => {
             set_collector_host("macos");
             configure(wsl_config);
 
             const update = posted_updates()[0]!;
-            // 平台八源（t445 +codex；t470 +antigravity；t483 +commandcode）env=mac、全部 ok；reader 收到 env=mac。
             const mac_statuses = update.sources_status.filter((s) => s.env === "mac");
             expect(mac_statuses).toHaveLength(8);
             expect(mac_statuses.every((s) => s.status === "ok")).toBe(true);
             expect(mock_scan_grok.mock.calls[0]![1]).toBe("mac");
             expect(mock_read_costs.mock.calls[0]![1]).toBe("mac");
-            // wsl 源恒 unavailable（非 windows 宿主，既有行为不变）。
+
+            // AC-001 & AC-002: 不包含任何 wsl 源条目，且无 unavailable 状态报错
             const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
-            expect(wsl_statuses).toHaveLength(5);
-            expect(wsl_statuses.every((s) => s.status === "unavailable")).toBe(true);
-            // 无 local 残留。
-            expect(update.sources_status.some((s) => s.env === "local")).toBe(false);
+            expect(wsl_statuses).toHaveLength(0);
+            expect(update.sources_status.some((s) => s.status === "unavailable")).toBe(false);
+            expect(posted_logs().filter((l) => l.message.includes("wsl"))).toHaveLength(0);
         });
 
-        it("AC-001: non-Windows host filters wsl sources out without reading them and marks them unavailable", () => {
-            set_collector_host("linux");
+        it("t487 AC-003: host=windows 平台保持正常挂载 WSL 源", () => {
+            set_collector_host("windows");
             configure(wsl_config);
-
-            // wsl sources never reach the readers (no path building, no reads).
-            const read_calls = [
-                ...mock_read_costs.mock.calls,
-                ...mock_scan_jsonls.mock.calls,
-                ...mock_read_opencode_sessions.mock.calls,
-                ...mock_scan_kimi.mock.calls,
-                ...mock_scan_grok.mock.calls,
-            ];
-            expect(read_calls.some((c) => String(c[0]).includes("wsl.localhost"))).toBe(false);
 
             const update = posted_updates()[0]!;
             const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
             expect(wsl_statuses).toHaveLength(5);
-            for (const s of wsl_statuses) {
-                expect(s.status).toBe("unavailable");
-                expect(s.lastError).toContain("windows host");
-            }
-            // 平台源 stay healthy（linux 宿主 → 8 个 linux 平台源，t445 +codex，t470 +antigravity，t483 +commandcode）。
-            const platform_statuses = update.sources_status.filter((s) => s.env === "linux");
-            expect(platform_statuses).toHaveLength(8);
-            expect(platform_statuses.every((s) => s.status === "ok")).toBe(true);
-
-            // AC-003: one warn per unavailable source, keyed with source/env + reason.
-            // t438: linux 宿主额外 5 个 win 源（发现失败 → path unavailable）也各
-            // warn 一次——共 10 条（5 wsl 宿主过滤 + 5 win 不可达）。
-            const warns = posted_logs();
-            expect(warns).toHaveLength(10);
-            for (const w of warns) {
-                expect(w.level).toBe("warn");
-            }
-            expect(
-                warns.filter((w) => w.message.includes("wsl data requires a windows host")),
-            ).toHaveLength(5);
-            expect(warns.filter((w) => w.message.includes("path unavailable"))).toHaveLength(5);
         });
 
         it("AC-002/AC-003: a throwing reader is marked failed with the error and warns once", () => {

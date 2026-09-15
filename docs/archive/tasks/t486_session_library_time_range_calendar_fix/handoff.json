@@ -1,0 +1,27 @@
+{
+    "tid": "t486",
+    "attempt": 1,
+    "execution_id": "16e231201dc44a109318af8a4e11519d",
+    "status": "done",
+    "branch": "t486_session_library_time_range_calendar_fix",
+    "base_sha": "74e51421e576c36e3923d2c3a3e4e80d3a980204",
+    "tests": "pnpm vitest run tests/unit/renderer/components/session_library/TimeRangeFilter.test.tsx (5 tests passed); session_library & RangePicker (93 tests passed); tsc --noEmit (passed); pnpm lint (passed)",
+    "blackbox": "组件单元测试覆盖渲染、点击展开、外部点击关闭、应用回调完整交互",
+    "review": "single Round 1 PASS，0 finding，reviewed_scope=a9eaa692acf0e72d",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/components/session-library/TimeRangeFilter.tsx::zoneRef 绑定触发容器并传递给 RangePicker；tests/unit/renderer/components/session_library/TimeRangeFilter.test.tsx AC-001 测试通过"
+        ],
+        "AC-002": [
+            "src/renderer/components/session-library/TimeRangeFilter.tsx::custom 胶囊重选按钮绑定 zoneRef；tests/unit/renderer/components/session_library/TimeRangeFilter.test.tsx AC-002 测试通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/session_library/TimeRangeFilter.test.tsx AC-003 验证点击外部区域关闭弹层"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_library/TimeRangeFilter.test.tsx AC-004 验证输入有效时间范围并点击应用正确触发 on_change 切换为 custom"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

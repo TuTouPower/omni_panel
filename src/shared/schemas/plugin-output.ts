@@ -20,6 +20,7 @@ export const usageProviderSchema = z.enum([
     "mimo",
     "opencode_go",
     "grok",
+    "commandcode",
 ]);
 export const usageSourceSchema = z.enum([
     "poll",

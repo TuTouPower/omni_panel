@@ -1,6 +1,6 @@
 import { execFile, type ChildProcess } from "node:child_process";
-import { realpath, readdir, stat } from "node:fs/promises";
-import { basename, isAbsolute, resolve } from "node:path";
+import { readFile, realpath, readdir, stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import type {
@@ -27,7 +27,55 @@ const SKIP_DIRECTORIES = new Set([
     ".cache",
     ".venv",
     "target",
+    ".scratch",
+    ".claude",
+    "uv_cache",
+    ".turbo",
+    ".next",
 ]);
+
+function is_ignorable_git_error(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+        lower.includes("invalid gitfile format") ||
+        lower.includes("not a git repository") ||
+        lower.includes("not a valid repository")
+    );
+}
+
+async function is_valid_git_entry(git_path: string): Promise<boolean> {
+    try {
+        const s = await stat(git_path);
+        if (s.isDirectory()) {
+            try {
+                await stat(resolve(git_path, "HEAD"));
+                return true;
+            } catch {
+                try {
+                    await stat(resolve(git_path, "config"));
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+        }
+        if (s.isFile()) {
+            if (s.size === 0) return false;
+            const content = await readFile(git_path, "utf-8");
+            const match = /^gitdir:\s*(.+)$/m.exec(content);
+            if (!match?.[1]) return false;
+            const raw_target = match[1].trim();
+            const target = isAbsolute(raw_target)
+                ? raw_target
+                : resolve(dirname(git_path), raw_target);
+            await stat(target);
+            return true;
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
 
 function path_key(value: string): string {
     return process.platform === "win32" ? value.toLowerCase() : value;
@@ -154,8 +202,10 @@ async function discover_repositories(root: string, signal: AbortSignal): Promise
             throw_if_aborted(signal);
             const child = resolve(directory, entry.name);
             if (entry.name === ".git") {
-                const repo = await canonical_path(directory);
-                repositories.set(path_key(repo), repo);
+                if (await is_valid_git_entry(child)) {
+                    const repo = await canonical_path(directory);
+                    repositories.set(path_key(repo), repo);
+                }
                 continue;
             }
             if (entry.isDirectory() && !SKIP_DIRECTORIES.has(entry.name)) {
@@ -370,10 +420,14 @@ export async function scan_git_roots(
                         );
                     } catch (error: unknown) {
                         if (root_controller.signal.aborted) throw error;
+                        const message = error instanceof Error ? error.message : String(error);
+                        if (is_ignorable_git_error(message)) {
+                            continue;
+                        }
                         errors.push({
                             root,
                             path: repository,
-                            message: error instanceof Error ? error.message : String(error),
+                            message,
                         });
                     }
                 }

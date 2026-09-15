@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { time_filter_range, type TimePreset } from "../../lib/session-library/filter";
 import { format_compact_datetime } from "../../lib/workspace/pane";
 import { Segmented } from "../ui/Segmented";
@@ -24,6 +24,7 @@ const CUSTOM_DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  */
 export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeFilterProps) {
     const [pickerOpen, setPickerOpen] = useState(false);
+    const zoneRef = useRef<HTMLDivElement>(null);
     const now = Date.now();
 
     if (preset === "custom") {
@@ -31,7 +32,8 @@ export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeF
             ts === undefined ? "…" : format_compact_datetime(ts);
         return (
             <div
-                className="flex items-center gap-2 rounded-md bg-[var(--color-primary-container)] px-3 py-2"
+                ref={zoneRef}
+                className="relative flex items-center gap-2 rounded-md bg-[var(--color-primary-container)] px-3 py-2"
                 data-testid="time-custom-pill"
             >
                 <span className="flex-1 truncate text-[length:var(--text-label-md)] tabular-nums text-[var(--color-primary)]">
@@ -65,6 +67,7 @@ export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeF
                     end={applied_range.end_at ?? now}
                     open={pickerOpen}
                     onOpenChange={setPickerOpen}
+                    zoneRef={zoneRef}
                     onApply={(range) => {
                         setPickerOpen(false);
                         on_change("custom", { start_at: range.start, end_at: range.end });
@@ -75,7 +78,7 @@ export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeF
     }
 
     return (
-        <div className="flex items-center gap-1">
+        <div ref={zoneRef} className="relative flex items-center gap-1">
             <div className="min-w-0 flex-1">
                 <Segmented
                     size="sm"
@@ -109,6 +112,7 @@ export function TimeRangeFilter({ preset, applied_range, on_change }: TimeRangeF
                 end={applied_range.end_at ?? now}
                 open={pickerOpen}
                 onOpenChange={setPickerOpen}
+                zoneRef={zoneRef}
                 onApply={(range) => {
                     setPickerOpen(false);
                     on_change("custom", { start_at: range.start, end_at: range.end });

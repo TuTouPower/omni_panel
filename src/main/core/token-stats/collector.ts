@@ -418,7 +418,7 @@ let collector_host: Host = paths.host_from_platform(process.platform);
 let sources: SourceDef[] = [
     ...platform_source_defs(collector_host),
     ...(collector_host === "linux" ? WIN_SOURCES_LINUX : []),
-    ...WSL_SOURCES,
+    ...(collector_host === "windows" ? WSL_SOURCES : []),
 ];
 
 /**
@@ -426,13 +426,14 @@ let sources: SourceDef[] = [
  * so tests simulate any host by overriding this. Production never calls it —
  * the host is fixed at module load from process.platform. t437: 平台源定义
  * 随宿主重建（key/env 与平台标签一致）。t438: linux 宿主同时挂 win 五源。
+ * t487: WSL 五源仅在 Windows 宿主挂载，macOS/Linux 不挂载，消除跨平台 unavailable 报错。
  */
 export function set_collector_host(host: Host): void {
     collector_host = host;
     sources = [
         ...platform_source_defs(host),
         ...(host === "linux" ? WIN_SOURCES_LINUX : []),
-        ...WSL_SOURCES,
+        ...(host === "windows" ? WSL_SOURCES : []),
     ];
 }
 
