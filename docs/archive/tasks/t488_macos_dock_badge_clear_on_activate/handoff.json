@@ -1,0 +1,24 @@
+{
+    "tid": "t488",
+    "attempt": 1,
+    "execution_id": "ab65837c351946f7b86b7c849375fdea",
+    "status": "done",
+    "branch": "t488_macos_dock_badge_clear_on_activate",
+    "base_sha": "c7c46a05ae73c7fc48ffe31505e8a187c9dd13ad",
+    "tests": "pnpm test tests/unit/main/core/dock-badge.test.ts (5 passed); pnpm typecheck (0 errors); pnpm lint (0 warnings)",
+    "blackbox": "多平台（darwin/win32/linux）宿主环境模拟覆盖 setBadge 与 setBadgeCount 调用行为",
+    "review": "single Round 1 PASS，0 finding，reviewed_scope=b41b774642bae68c",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/dock-badge.ts::clear_dock_badge, src/main/window/window-manager.ts::focus, src/main/core/main-panel/main-panel-controller.ts::on_show; tests/unit/main/core/dock-badge.test.ts 验证通过"
+        ],
+        "AC-002": [
+            "src/main/index.ts::app.on('activate') 调用 clear_dock_badge; tests/unit/main/core/dock-badge.test.ts 验证通过"
+        ],
+        "AC-003": [
+            "src/main/core/dock-badge.ts 平台判断非 darwin 立即返回; tests/unit/main/core/dock-badge.test.ts 验证通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

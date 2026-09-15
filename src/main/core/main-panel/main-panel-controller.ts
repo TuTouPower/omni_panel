@@ -44,6 +44,7 @@ export interface MainPanelControllerDeps {
     readonly get_display_for_bounds: (bounds: BoundsLike) => DisplayLike;
     readonly get_all_displays: () => readonly DisplayLike[];
     readonly get_primary_display: () => DisplayLike;
+    readonly on_show?: () => void;
 }
 
 export function create_main_panel_controller(deps: MainPanelControllerDeps): MainPanelController {
@@ -198,6 +199,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         // t280: headless 下不弹屏。
         if (!is_e2e_headless()) target.show();
         target.focus();
+        deps.on_show?.();
     }
 
     return {

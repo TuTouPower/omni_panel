@@ -2,6 +2,7 @@ import { BrowserWindow, nativeTheme, shell } from "electron";
 import { createLogger } from "../../shared/lib/logger";
 import { is_e2e_headless } from "../e2e-headless";
 import { PANEL_MIN_WIDTH, PANEL_MIN_HEIGHT, USAGE_MIN_WIDTH } from "./window-bounds";
+import { clear_dock_badge } from "../core/dock-badge";
 
 const log = createLogger("window-manager");
 
@@ -197,6 +198,10 @@ export function createWindowManager(opts: {
         if (process.platform === "win32") {
             win.setAppDetails({ appId: "omni-panel" });
         }
+        // t488: 窗口聚焦时清理 macOS Dock 通知角标。
+        win.on("focus", () => {
+            clear_dock_badge();
+        });
         // Open external http(s) links in the system default browser instead of
         // spawning a new Electron window (t156). 畸形 url 拒绝（p125）。
         win.webContents.setWindowOpenHandler(({ url }) => {

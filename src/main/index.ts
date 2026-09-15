@@ -102,6 +102,7 @@ import { create_main_panel_controller } from "./core/main-panel/main-panel-contr
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
+import { clear_dock_badge } from "./core/dock-badge";
 import { cleanup_temp_files } from "./core/storage/write-json";
 import { extract_user_argv, resolve_entry, type CliArgs } from "./cli/args";
 import { run_background_serve_parent } from "./cli/background_serve";
@@ -966,6 +967,7 @@ void app.whenReady().then(async () => {
             // t280: headless 下 settings 打开不弹屏。
             if (!is_e2e_headless()) win.show();
             win.focus();
+            clear_dock_badge();
             return { created: true };
         }
 
@@ -1064,6 +1066,9 @@ void app.whenReady().then(async () => {
             get_display_for_bounds: (bounds) => screen.getDisplayMatching(bounds),
             get_all_displays: () => screen.getAllDisplays(),
             get_primary_display: () => screen.getPrimaryDisplay(),
+            on_show: () => {
+                clear_dock_badge();
+            },
         });
 
         // Agent (token-stats) window singleton: tokenStats.open() reuses an
@@ -1460,6 +1465,14 @@ void app.whenReady().then(async () => {
                         `shutdown flush failed: ${err instanceof Error ? err.message : String(err)}`,
                     );
                 });
+            }
+        });
+
+        // t488: macOS activate 事件时清理 Dock 角标并唤起主窗口。
+        app.on("activate", () => {
+            clear_dock_badge();
+            if (!cliMode) {
+                main_panel_controller?.open_or_focus();
             }
         });
 
