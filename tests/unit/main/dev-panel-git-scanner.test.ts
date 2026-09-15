@@ -139,4 +139,62 @@ describe("t481 Git development panel scanner", () => {
         await expect.poll(() => manager.get_status().status, { timeout: 5000 }).not.toBe("running");
         expect(manager.get_status().result?.data_version).toBe(1);
     });
+
+    it("AC-001: silently skips 0-byte .git files without reporting invalid gitfile errors", async () => {
+        const { root } = await fixture_repo();
+        const fake_repo = join(root, "fake_empty_git");
+        await mkdir(fake_repo);
+        await writeFile(join(fake_repo, ".git"), "");
+
+        const result = await scan_git_roots({
+            scanRoots: [root],
+            commitCutoff: "2026-03-20",
+            currentUserOnly: false,
+        });
+
+        expect(result.status).toBe("completed");
+        expect(result.errors).toEqual([]);
+        expect(result.repositories).toHaveLength(1);
+    });
+
+    it("AC-002: silently skips broken worktree .git files pointing to non-existent paths", async () => {
+        const { root } = await fixture_repo();
+        const broken_worktree = join(root, "broken_worktree");
+        await mkdir(broken_worktree);
+        await writeFile(
+            join(broken_worktree, ".git"),
+            "gitdir: /non_existent_drive/non_existent_path/.git/worktrees/broken\n",
+        );
+
+        const result = await scan_git_roots({
+            scanRoots: [root],
+            commitCutoff: "2026-03-20",
+            currentUserOnly: false,
+        });
+
+        expect(result.status).toBe("completed");
+        expect(result.errors).toEqual([]);
+        expect(result.repositories).toHaveLength(1);
+    });
+
+    it("AC-003: skips directories in SKIP_DIRECTORIES including .scratch, .claude, uv_cache", async () => {
+        const { root } = await fixture_repo();
+        for (const skip_dir of [".scratch", ".claude", "uv_cache"]) {
+            const nested = join(root, skip_dir, "nested_repo");
+            await mkdir(nested, { recursive: true });
+            git(nested, "init", "--quiet");
+        }
+
+        const result = await scan_git_roots({
+            scanRoots: [root],
+            commitCutoff: "2026-03-20",
+            currentUserOnly: false,
+        });
+
+        expect(result.status).toBe("completed");
+        expect(result.repositories).toHaveLength(1);
+        expect(result.repositories[0]?.path).not.toContain(".scratch");
+        expect(result.repositories[0]?.path).not.toContain(".claude");
+        expect(result.repositories[0]?.path).not.toContain("uv_cache");
+    });
 });

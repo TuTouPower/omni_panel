@@ -1,0 +1,24 @@
+{
+    "tid": "t485",
+    "attempt": 1,
+    "execution_id": "246fff31836f44b99ca96bf719d46fa7",
+    "status": "done",
+    "branch": "t485_dev_panel_git_scanner_invalid_git_tolerance",
+    "base_sha": "28048e03c560bde0e57dc75423b52b47e6f1f549",
+    "tests": "pnpm vitest run tests/unit/main/dev-panel-git-scanner.test.ts (7 tests passed); dev-panel-model-routing (6 tests passed); pnpm typecheck passed; eslint passed",
+    "blackbox": "git-scanner 为主进程数据收集模块，通过单元测试模拟 0 字节 .git 与断链 worktree 覆盖",
+    "review": "single Round 1 PASS，0 finding，reviewed_scope=d572cace4b6cee69",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/dev-panel/git-scanner.ts::is_valid_git_entry 拦截 0 字节 .git，is_ignorable_git_error 跳过 invalid gitfile format；tests/unit/main/dev-panel-git-scanner.test.ts AC-001 测试通过"
+        ],
+        "AC-002": [
+            "src/main/core/dev-panel/git-scanner.ts::is_valid_git_entry 校验 worktree 目标路径存在性，is_ignorable_git_error 跳过 not a git repository；tests/unit/main/dev-panel-git-scanner.test.ts AC-002 测试通过"
+        ],
+        "AC-003": [
+            "src/main/core/dev-panel/git-scanner.ts::SKIP_DIRECTORIES 补充 .scratch、.claude、uv_cache、.turbo、.next；tests/unit/main/dev-panel-git-scanner.test.ts AC-003 测试通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
