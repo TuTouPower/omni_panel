@@ -1,0 +1,24 @@
+{
+    "tid": "t487",
+    "attempt": 1,
+    "execution_id": "ce0265db442348d495e8ca92ca0b4bdf",
+    "status": "done",
+    "branch": "t487_token_stats_collector_wsl_mac_isolation",
+    "base_sha": "ad6c4177f48fc7d1f1f98ee18ecf052bdc10d216",
+    "tests": "pnpm test tests/unit/main/core/token-stats/collector.test.ts (55 tests passed); tsc --noEmit (passed); pnpm lint (passed)",
+    "blackbox": "单元测试多宿主模拟（macos/windows/linux）覆盖采集源挂载与状态列表",
+    "review": "single Round 1 PASS，0 finding，reviewed_scope=a465afcdd711f8ec",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/token-stats/collector.ts::sources 初始化与 set_collector_host 隔离 WSL 源；tests/unit/main/core/token-stats/collector.test.ts t487 AC-001 测试通过"
+        ],
+        "AC-002": [
+            "tests/unit/main/core/token-stats/collector.test.ts::collect() 产生的 sources_status 无 wsl 条目且无 unavailable 报错，测试通过"
+        ],
+        "AC-003": [
+            "tests/unit/main/core/token-stats/collector.test.ts::host=windows 保持挂载 5 个 WSL 源，测试通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
