@@ -447,6 +447,11 @@ describe("refresh-service", () => {
             if (state.status !== "failed") throw new Error("expected failed state");
             expect(state.error).toContain("缺少必填配置");
             expect(state.error).toContain("API_KEY");
+
+            // 配置缺口每轮复现，但 warn 只在文案变化时记一次。
+            const before = log_messages.filter((m) => m.includes("is not configured")).length;
+            await service.refresh("deepseek-1", { force: true });
+            expect(log_messages.filter((m) => m.includes("is not configured")).length).toBe(before);
         } finally {
             remove_transport();
             setLogLevel(previous_level);

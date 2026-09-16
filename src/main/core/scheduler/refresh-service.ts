@@ -234,6 +234,12 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     // t370 f002: 锁存唯一 token——force 覆盖旧锁后，旧刷新 finally 只删自己 token，
     // 不误删新锁（否则级联并发）。
     const locks = new Map<string, { token: number; at: number }>();
+    /**
+     * p241: 已上报过的「缺必填配置」文案，按实例去重——配置缺口每轮都会复现，
+     * 只在文案变化（首次/换了缺失字段）时记一条 warn，避免周期性噪音。
+     * 状态随 service 实例（而非模块）存活，避免同进程多实例互相抑制。
+     */
+    const missing_config_reported = new Map<string, string>();
     let lock_seq = 0;
     const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
     const run_connector = deps.execute_connector ?? execute_connector;
@@ -435,6 +441,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         items,
                         updatedAt,
                     });
+                    missing_config_reported.delete(instanceId);
                     trace_log.info(
                         `Connector ${instanceId} (${connector_config.name}) refreshed: ${String(items.length)} items`,
                     );
@@ -444,9 +451,12 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     // p241: 缺必填配置不会因重试而消失——warn 一次并立即放弃，
                     // 避免每轮 3 次无意义重试与 error 级噪音。
                     if (error instanceof MissingRequiredSecretError) {
-                        trace_log.warn(
-                            `Connector ${instanceId} (${connector_config.name}) is not configured: ${last_error}`,
-                        );
+                        if (missing_config_reported.get(instanceId) !== last_error) {
+                            missing_config_reported.set(instanceId, last_error);
+                            trace_log.warn(
+                                `Connector ${instanceId} (${connector_config.name}) is not configured: ${last_error}`,
+                            );
+                        }
                         break;
                     }
                     trace_log.error(
