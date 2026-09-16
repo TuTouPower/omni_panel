@@ -29,4 +29,4 @@
         2. IPC 单元测试（`tests/unit/main/config_ipc_export.test.ts`）：断言桌面端 `handleConfigExport` 接收 `{ includeSecrets: false }` 时导出的 JSON 中不包含 `secrets`，接收 `{ includeSecrets: true }` 时包含 `secrets`。
         3. LocalAPI 导入测试：验证与桌面端导入一致性。
 - 线索：`.scratch/repro_web_desktop_divergence.ts`
-- 处理：未开
+- 处理：t490
