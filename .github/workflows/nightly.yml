@@ -11,18 +11,33 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-2022]
+                # d062：e2e 此前只有 Windows/Ubuntu，macOS 平台假设（Electron 路径、菜单栏、
+                # 加速键、realpath、模式默认值）长期无人暴露。macOS 腿补齐该覆盖。
+                # ubuntu + node 24：p228 的 Node 24 teardown abort 曾在 CI 矩阵外（CI 固定 22）。
+                include:
+                    - os: ubuntu-latest
+                      node: 22
+                    - os: windows-2022
+                      node: 22
+                    - os: macos-latest
+                      node: 22
+                    - os: ubuntu-latest
+                      node: 24
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4
             - uses: actions/setup-node@v4
               with:
-                  node-version: 22
+                  node-version: ${{ matrix.node }}
                   cache: pnpm
             - run: pnpm install --frozen-lockfile
             - run: pnpm check
             - run: pnpm test
+            - name: Build app bundles
+              # electron/cli e2e 直接加载 out/main/index.js（global_setup 只做存在性提示，
+              # 不代跑构建）；缺这一步三平台的 electron/cli e2e 都会因无产物失败。
+              run: pnpm build
             - name: Install Playwright browsers
               run: npx playwright install --with-deps chromium
             - name: Start Xvfb
@@ -32,6 +47,15 @@ jobs:
               run: pnpm test:e2e:electron
               env:
                   DISPLAY: ":99"
+            - name: Run CLI E2E tests
+              run: pnpm test:e2e:cli
+              env:
+                  DISPLAY: ":99"
+            - name: Run web e2e (synthetic fixture)
+              # 与 ci.yml 相同的 synthetic 播种 fixture，三平台都跑一遍 SPA 数据链路。
+              env:
+                  MOCK_FIXTURE: synthetic
+              run: pnpm test:e2e:web
 
     package:
         name: Package build

@@ -38,7 +38,8 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-2022]
+                # d062：macOS 平台假设只能在 macOS 上暴露（历史 p227/p236/p238 均属此类）。
+                os: [ubuntu-latest, windows-2022, macos-latest]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
