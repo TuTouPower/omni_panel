@@ -981,6 +981,38 @@ describe("local-api config management", () => {
         expect(with_secrets_body.secrets).toEqual({ "managed-1:API_KEY": "sk-managed" });
     });
 
+    // t490 AC-005：Web 导入与桌面端同行为——含端点覆盖的合法配置不再被单独拒绝。
+    it("import accepts endpoint overrides over HTTP like the desktop path (t490)", async () => {
+        await api.start();
+        const with_overrides = canonical_config_transfer(
+            {
+                ...structuredClone(managed_config),
+                plugins: managed_config.plugins.map((plugin) => ({
+                    ...plugin,
+                    parameterValues: {},
+                    endpointOverrides: { default: "https://self-hosted.example" },
+                })),
+            },
+            {},
+        );
+
+        const response = await fetch(
+            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(with_overrides),
+            },
+        );
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as { imported: boolean };
+        expect(body.imported).toBe(true);
+        expect(managed_config.plugins[0]?.endpointOverrides).toEqual({
+            default: "https://self-hosted.example",
+        });
+    });
+
     it("import validates malformed/schema-invalid JSON without changing config", async () => {
         await api.start();
         const incoming = canonical_config_transfer(
@@ -1071,37 +1103,9 @@ describe("local-api config management", () => {
         expect(managed_config.plugins[0]?.parameterValues).not.toHaveProperty("API_KEY");
     });
 
-    it("web import rejects endpoint overrides before persisting config or secrets", async () => {
-        await api.start();
-        const before = structuredClone(managed_config);
-        const incoming = canonical_config_transfer(
-            {
-                ...structuredClone(managed_config),
-                plugins: managed_config.plugins.map((plugin) => ({
-                    ...plugin,
-                    parameterValues: {},
-                    endpointOverrides: { default: "https://untrusted.example" },
-                })),
-            },
-            { "managed-1:API_KEY": "sk-untrusted" },
-        );
-        const response = await fetch(
-            `http://127.0.0.1:${String(api.get_port())}/v1/config/import`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(incoming),
-            },
-        );
-        expect(response.status).toBe(400);
-        const body = (await response.json()) as { message: string };
-        expect(body.message).toContain("自定义端点");
-        expect(managed_config).toEqual(before);
-        expect(
-            (managed_deps.secretsStore.importAll as unknown as { mock: { calls: unknown[][] } })
-                .mock.calls,
-        ).toHaveLength(0);
-    });
+    // t490: 原「web import rejects endpoint overrides before persisting config or secrets」
+    // 用例断言的是本 task 明确移除的 Web 单向拦截行为，语义已失效，整体删除；
+    // 新行为由本文件上方「import accepts endpoint overrides over HTTP like the desktop path」覆盖。
 
     it("config save publishes named SSE events to two subscribed clients", async () => {
         await api.start();

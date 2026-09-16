@@ -11,7 +11,6 @@ export function DataSection({
     handle_export_logs,
     handle_import,
     save_config,
-    show_secret_option,
     include_secrets,
     on_include_secrets_change,
 }: {
@@ -21,7 +20,6 @@ export function DataSection({
     handle_export_logs: () => Promise<void>;
     handle_import: () => Promise<void>;
     save_config: (payload: AppConfiguration) => Promise<void>;
-    show_secret_option: boolean;
     include_secrets: boolean;
     on_include_secrets_change: (value: boolean) => void;
 }) {
@@ -58,28 +56,19 @@ export function DataSection({
                 </Button>
             </SetRow>
             <SetGroupLabel>数据</SetGroupLabel>
-            <SetRow
-                title="导出设置"
-                sub={
-                    show_secret_option
-                        ? "导出配置；默认不含明文密钥"
-                        : "导出全部配置与账号密钥到 JSON 文件"
-                }
-            >
+            <SetRow title="导出设置" sub="导出配置；默认不含明文密钥">
                 <div className="flex items-center gap-3">
-                    {show_secret_option && (
-                        <label className="flex items-center gap-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
-                            <Checkbox
-                                aria-label="包含明文密钥"
-                                checked={include_secrets}
-                                onChange={(event) => {
-                                    on_include_secrets_change(event.target.checked);
-                                }}
-                            />
-                            <span>包含明文密钥</span>
-                        </label>
-                    )}
-                    {show_secret_option && include_secrets && (
+                    <label className="flex items-center gap-2 text-[length:var(--text-body-sm)] text-[var(--color-on-surface-variant)]">
+                        <Checkbox
+                            aria-label="包含明文密钥"
+                            checked={include_secrets}
+                            onChange={(event) => {
+                                on_include_secrets_change(event.target.checked);
+                            }}
+                        />
+                        <span>包含明文密钥</span>
+                    </label>
+                    {include_secrets && (
                         <span className="text-[length:var(--text-label-md)] text-[var(--color-error)]">
                             文件含明文密钥，请妥善保管
                         </span>

@@ -1,0 +1,35 @@
+{
+    "tid": "t490",
+    "attempt": 2,
+    "execution_id": "b87229c9234340888098b4078e9e3c5d",
+    "status": "done",
+    "branch": "t490_settings_data_import_export_unify",
+    "base_sha": "ee2f89584d260f3757382455ff51068a9ee79ea9",
+    "tests": "pnpm typecheck / lint / format:check / md_format --check / git diff --check / pnpm build 全绿。相关用例：renderer 视图目录 216/216（NODE_ENV=test）、preload 转发 2/2、config-ipc 52 例通过（含新增 AC-004/AC-005）、local-api 新增 AC-005 HTTP 用例通过。既有红灯（base 复现，与本 task 无关）：local-api export 用例（p237）、auth-ipc 8 例（p236）；本机 pnpm test 全量受 p228 abort 限制无法整跑",
+    "blackbox": "①`pnpm build` 通过；②真实应用黑盒（`electron out/main/index.js serve --foreground --port 17871 --user-data-dir <abs>`）：`GET /v1/health` ok；`GET /v1/config/export` 默认响应不含 `secrets` 字段，`?includeSecrets=true` 含 `secrets`；`POST /v1/config/import` 提交含 `endpointOverrides` 的 canonical v2 文档返回 `{\"imported\":true,\"skipped\":[]}`，且 override 落入磁盘 config.json（AC-005 端到端）。③桌面端导出走原生保存对话框，自动化环境无法完成落盘断言，由 config-ipc 单测（mock dialog + 实写临时文件）覆盖；④`pnpm test:e2e:web` 本机不可用（Playwright 浏览器未安装：需 chromium_headless_shell-1223，缓存只有 1243），未执行",
+    "review": "full 级：本轮 code / test 双轴 reviewer 结论见 review_code.md / review_test.md",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/settings_view_data.test.tsx：桌面模式与 Web 模式（document.documentElement.dataset.web）分别渲染 SettingsView，断言统一副标题「导出配置；默认不含明文密钥」、复选框存在且默认未勾选、勾选后出现「文件含明文密钥，请妥善保管」",
+            "实现：SettingsView 去掉 web_mode 分支、data_section.tsx 去掉 show_secret_option 维度（两端同一 JSX）"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/settings_view_data.test.tsx > passes { includeSecrets } properly to window.usageboard.config.export on desktop：桌面模式点击导出两次，断言 mock 分别收到 { includeSecrets: false } 与 { includeSecrets: true }"
+        ],
+        "AC-003": [
+            "tests/unit/preload/config_export_options.test.ts：真实导入 preload/index，经 contextBridge 暴露的 api.config.export({includeSecrets:true|false}) 分别以 (CONFIG_EXPORT, {includeSecrets}) 调用 ipcRenderer.invoke；无参调用传 null"
+        ],
+        "AC-004": [
+            "tests/unit/ipc/config-ipc.test.ts > handleConfigExport writes canonical v2 JSON without secrets by default：默认导出文件 formatVersion=2、无 secrets 字段、未调用 secretsStore.exportAll",
+            "tests/unit/ipc/config-ipc.test.ts > handleConfigExport includes secrets only when includeSecrets is true：显式 true 时文件含 secrets",
+            "黑盒：真实应用 GET /v1/config/export 默认无 secrets、?includeSecrets=true 有 secrets（同一 export_config 实现）"
+        ],
+        "AC-005": [
+            "tests/unit/ipc/config-ipc.test.ts > t490 AC-005：handleConfigImportData 导入含 endpointOverrides 的 v2 文档成功且落盘保留 override",
+            "tests/integration/local-api/server.test.ts > import accepts endpoint overrides over HTTP like the desktop path (t490)：HTTP POST /v1/config/import 含 endpointOverrides 返回 200 imported:true",
+            "黑盒：真实应用 HTTP 导入同上并落盘；原「web import rejects endpoint overrides…」用例因语义被本 task 移除而整体删除"
+        ]
+    },
+    "pending": ["p236", "p237"],
+    "findings": ["d061_coding_agent_shell_node_env_breaks_renderer_tests"]
+}

@@ -35,7 +35,7 @@
 }
 ```
 
-导出默认省略 `secrets`；只有显式启用 `includeSecrets` 才写入顶层密钥集合，密钥值保持明文以便用户自行保管。导入只接受 `formatVersion: 2`，裸 `AppConfiguration` 与 v1 wrapper 均明确拒绝，并在解析、schema、密钥形状及 manifest 过滤全部完成前不写入存储。
+导出默认省略 `secrets`；只有显式启用 `includeSecrets` 才写入顶层密钥集合，密钥值保持明文以便用户自行保管。桌面端 IPC 导出（`config:export`）同样遵循这一默认：渲染层透传「包含明文密钥」勾选状态，未勾选时导出文件不含 `secrets`（t490，与 LocalAPI/CLI 一致）。导入只接受 `formatVersion: 2`，裸 `AppConfiguration` 与 v1 wrapper 均明确拒绝，并在解析、schema、密钥形状及 manifest 过滤全部完成前不写入存储。
 
 导入按 `manifestId` 过滤本机不存在的连接器并报告跳过项，同时用本机 definition 重算 `executablePath`。vault 语义按 `secrets` 字段三态处理：字段缺失时保留仍在新配置中的实例密钥并清理悬空实例；字段存在时以其为唯一集合整体替换；空对象清空 vault。配置和 vault 写入前分别生成 config `.bak` 与加密 vault 快照，任一写入失败恢复到导入前的一致状态。
 
