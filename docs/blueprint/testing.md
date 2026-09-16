@@ -46,8 +46,8 @@
 task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`，门禁命令需先备依赖：
 
 - `pnpm install --prefer-offline`：pnpm store 全局共享，较快；推荐。
-- 或软链主仓 `node_modules`（快但需注意 better-sqlite3 原生 ABI）。
-- better-sqlite3 ABI 由 `scripts/ensure_sqlite_abi.mjs` 在 worktree 内按 Electron/Node 运行时切换；`pnpm test` 前置 `node scripts/ensure_sqlite_abi.mjs node`。
+- 或软链主仓 `node_modules`（快；better-sqlite3 13 起为 N-API prebuild，同一份二进制通用于 Node 与 Electron，无 ABI 互斥问题）。
+- better-sqlite3 13（N-API，自带 `prebuilds/`）无需按运行时切换；`scripts/ensure_sqlite_abi.mjs <runtime>` 保留为**加载校验**（在目标 runtime 实跑一次），`pnpm test` 前置 `node scripts/ensure_sqlite_abi.mjs node`。
 - `src/generated/`（gitignore）需在 worktree 内先 `npx tsx scripts/gen-build-info.ts` 生成，否则 `build-info-ipc` 相关测试整批必挂（t218 实测）。
 
 ## 黑盒验证细则
@@ -67,7 +67,7 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 
 ### CLI 模式验证（t275）
 
-- CLI 模式 e2e：`tests/e2e/electron/cli_serve.spec.ts`（`--cli serve` 起真进程，断言无窗口、stdout URL、cli.json 端口、`--config` 导入 vault 往返、端口优先级、失败退出码）。跑前须 `node scripts/ensure_sqlite_abi.mjs electron`（Electron 主进程加载 better-sqlite3 需 electron ABI），并经 `pnpm build` 出 `out/main/index.js`。
+- CLI 模式 e2e：`tests/e2e/electron/cli_serve.spec.ts`（`--cli serve` 起真进程，断言无窗口、stdout URL、cli.json 端口、`--config` 导入 vault 往返、端口优先级、失败退出码）。跑前须 `node scripts/ensure_sqlite_abi.mjs electron`（校验 better-sqlite3 能在 Electron 运行时加载），并经 `pnpm build` 出 `out/main/index.js`。
 - 无显示环境（WSL 无 WSLg）：`xvfb-run` 包一层；`DISPLAY` 存在时 `dialog.showErrorBox` 会同步阻塞，CLI 模式启动失败只向 stderr 输出后退出，不弹框。
 
 ### CLI 控制子命令验证（t276）

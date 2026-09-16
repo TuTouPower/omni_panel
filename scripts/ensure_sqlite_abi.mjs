@@ -1,186 +1,57 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
 /**
- * 统一管理 better-sqlite3 原生模块的 NODE_MODULE_VERSION。
+ * 校验 better-sqlite3 原生模块能在目标 runtime 下加载。
  *
- * 同一份 node_modules/better-sqlite3/build/Release/better_sqlite3.node 只能为
- * 一种 runtime 编译（Electron 或 Node），靠本脚本在入口处按需切换。
+ * p228：better-sqlite3 13 起改用 N-API，包内自带 `prebuilds/`（每平台一份二进制），
+ * 同一份产物同时适用于 Node 与 Electron——历史「同一份 .node 只能为一种 runtime
+ * 编译，需按 runtime 切换/重建」的前提不再成立，切换、缓存与重建逻辑已删除。
  *
- * 双产物缓存（node_modules/.cache/omni-sqlite-abi/{electron,node}/）+ 指纹：
- * 版本/patch/arch 任一变化即失效重建；否则秒级 copy，不重编译。
- * 每次切换后用目标 runtime 实跑 better-sqlite3 验证加载，杜绝「看似成功 ABI 错」。
+ * 本脚本保留原有 `<electron|node>` CLI 契约（package.json / CI / docs 均按此调用），
+ * 只做加载验证：避免「看似成功但 ABI 不匹配」拖到测试或启动阶段才暴露。
  *
  * 用法：node scripts/ensure_sqlite_abi.mjs <electron|node>
  */
 
 const target = process.argv[2];
 if (target !== "electron" && target !== "node") {
-    process.stderr.write("[abi] usage: node scripts/ensure_sqlite_abi.mjs <electron|node>\n");
+    process.stderr.write("[sqlite] usage: node scripts/ensure_sqlite_abi.mjs <electron|node>\n");
     process.exit(1);
 }
 
 const require = createRequire(import.meta.url);
-const project_root = process.cwd();
-const cache_root = resolve(project_root, "node_modules/.cache/omni-sqlite-abi");
-const sqlite_node_path = resolve(
-    project_root,
-    "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-);
-const current_file = resolve(cache_root, ".current.json");
-const patch_path = resolve(project_root, "patches/better-sqlite3.patch");
-const REBUILD_TIMEOUT = 300_000;
+const bsq_dir = resolve(process.cwd(), "node_modules/better-sqlite3");
 
-/** @param {string} p @returns {Record<string, unknown> | null} */
-function read_json(p) {
-    try {
-        /** @type {unknown} */
-        const parsed = JSON.parse(readFileSync(p, "utf8"));
-        return /** @type {Record<string, unknown> | null} */ (parsed);
-    } catch {
-        return null;
+let version = "unknown";
+try {
+    /** @type {unknown} */
+    const parsed = JSON.parse(readFileSync(resolve(bsq_dir, "package.json"), "utf8"));
+    if (typeof parsed === "object" && parsed !== null) {
+        const raw = /** @type {{ version?: unknown }} */ (parsed).version;
+        if (typeof raw === "string") version = raw;
     }
-}
-
-/** @param {string} p @param {unknown} obj */
-function write_json(p, obj) {
-    mkdirSync(resolve(p, ".."), { recursive: true });
-    writeFileSync(p, JSON.stringify(obj, null, 2));
-}
-
-/** @param {string} p */
-function file_hash(p) {
-    try {
-        return createHash("sha256").update(readFileSync(p)).digest("hex").slice(0, 16);
-    } catch {
-        return "";
-    }
-}
-
-/** @param {"electron"|"node"} runtime */
-function fingerprint(runtime) {
-    const bsq_pkg = read_json(resolve(project_root, "node_modules/better-sqlite3/package.json"));
-    /** @type {string} */
-    let runtime_version;
-    if (runtime === "electron") {
-        const e_pkg = read_json(resolve(project_root, "node_modules/electron/package.json"));
-        runtime_version = typeof e_pkg?.version === "string" ? e_pkg.version : "unknown";
-    } else {
-        runtime_version = process.versions.node;
-    }
-    return {
-        target: runtime,
-        runtime_version,
-        bsq_version: typeof bsq_pkg?.version === "string" ? bsq_pkg.version : "unknown",
-        patch_hash: file_hash(patch_path),
-        arch: process.env["npm_config_arch"] ?? process.arch,
-    };
-}
-
-/** @param {"electron"|"node"} runtime */
-function rebuild(runtime) {
-    const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-    const bsq_dir = resolve(project_root, "node_modules/better-sqlite3");
-    const args = ["node-gyp", "rebuild", "--release", "--build-from-source"];
-    if (runtime === "electron") {
-        const e_pkg = read_json(resolve(project_root, "node_modules/electron/package.json"));
-        const electron_version = e_pkg?.version;
-        if (typeof electron_version !== "string") {
-            process.stderr.write("[abi] cannot read Electron version\n");
-            process.exit(1);
-        }
-        args.push(
-            "--runtime=electron",
-            `--target=${electron_version}`,
-            `--arch=${process.env["npm_config_arch"] ?? process.arch}`,
-            "--dist-url=https://electronjs.org/headers",
-        );
-    }
-    const r = spawnSync(npx, args, {
-        stdio: "inherit",
-        shell: process.platform === "win32",
-        cwd: bsq_dir,
-        timeout: REBUILD_TIMEOUT,
-    });
-    if (r.status !== 0) {
-        process.exit(r.status ?? 1);
-    }
-}
-
-/** @param {"electron"|"node"} runtime */
-function verify(runtime) {
-    const script = "new (require('better-sqlite3'))(':memory:').close()";
-    if (runtime === "electron") {
-        const electron_bin = String(require("electron"));
-        const r = spawnSync(electron_bin, ["-e", script], {
-            stdio: "pipe",
-            env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-        });
-        return r.status === 0;
-    }
-    const r = spawnSync(process.execPath, ["-e", script], { stdio: "pipe" });
-    return r.status === 0;
-}
-
-const fp = fingerprint(target);
-const target_cache_dir = resolve(cache_root, target);
-const target_cache_node = resolve(target_cache_dir, "better_sqlite3.node");
-const target_cache_fp = resolve(target_cache_dir, ".fingerprint.json");
-
-const build_hash = file_hash(sqlite_node_path);
-const current = read_json(current_file);
-
-// 1) 当前已是目标且产物未变 -> 跳过
-if (
-    current !== null &&
-    current["target"] === target &&
-    JSON.stringify(current["fingerprint"]) === JSON.stringify(fp) &&
-    typeof current["build_hash"] === "string" &&
-    current["build_hash"] === build_hash &&
-    build_hash
-) {
-    process.stderr.write(`[abi] already ${target} (v${fp.runtime_version})\n`);
-    process.exit(0);
-}
-
-// 2) 缓存有效 -> copy + 验证
-const cached_fp = read_json(target_cache_fp);
-const cache_valid =
-    cached_fp && JSON.stringify(cached_fp) === JSON.stringify(fp) && existsSync(target_cache_node);
-
-if (cache_valid) {
-    process.stderr.write(`[abi] switching to ${target} (v${fp.runtime_version}) from cache\n`);
-    mkdirSync(resolve(sqlite_node_path, ".."), { recursive: true });
-    copyFileSync(target_cache_node, sqlite_node_path);
-} else {
-    // 3) 重建
-    process.stderr.write(`[abi] rebuilding for ${target} (v${fp.runtime_version})...\n`);
-    rebuild(target);
-    process.stderr.write(`[abi] rebuild complete, verifying...\n`);
-}
-
-// 验证（缓存命中与重建两条路径都要过）
-if (!verify(target)) {
-    process.stderr.write(`[abi] verification FAILED for ${target} — better-sqlite3 won't load\n`);
+} catch {
+    process.stderr.write("[sqlite] 未找到 node_modules/better-sqlite3；请先 pnpm install\n");
     process.exit(1);
 }
 
-// 写入缓存（仅重建路径需要，但缓存命中时 copy 产物一致，重写无害）
-if (!cache_valid) {
-    mkdirSync(target_cache_dir, { recursive: true });
-    copyFileSync(sqlite_node_path, target_cache_node);
-    write_json(target_cache_fp, fp);
+const probe = "new (require('better-sqlite3'))(':memory:').close()";
+const result =
+    target === "electron"
+        ? spawnSync(String(require("electron")), ["-e", probe], {
+              stdio: "pipe",
+              env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+          })
+        : spawnSync(process.execPath, ["-e", probe], { stdio: "pipe" });
+
+if (result.status !== 0) {
+    const detail = result.stderr.toString().trim();
+    process.stderr.write(`[sqlite] ${target} 下加载 better-sqlite3 失败：${detail}\n`);
+    process.exit(result.status ?? 1);
 }
 
-const new_build_hash = file_hash(sqlite_node_path);
-write_json(current_file, {
-    target,
-    fingerprint: fp,
-    build_hash: new_build_hash,
-});
-process.stderr.write(
-    `[abi] verified ${target} (v${fp.runtime_version}, ${new_build_hash || "no-hash"})\n`,
-);
+const flavor = existsSync(resolve(bsq_dir, "prebuilds")) ? "N-API prebuild" : "本地编译产物";
+process.stderr.write(`[sqlite] ${target} 校验通过（better-sqlite3 ${version}，${flavor}）\n`);

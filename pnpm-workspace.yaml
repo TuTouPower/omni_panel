@@ -13,5 +13,3 @@ onlyBuiltDependencies:
 overrides:
     tar: ">=6.2.1"
     tmp: ">=0.2.4"
-patchedDependencies:
-    better-sqlite3: patches/better-sqlite3.patch

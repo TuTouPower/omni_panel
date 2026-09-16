@@ -5,4 +5,4 @@
 - 根因：Node 24.19.0 起 backport `node::ObjectWrap` 的 cleanup hook（nodejs/node#63642），但未带全局 addon cleanup-hook registry（1723773d），导致 NAN 风格 `ObjectWrap` addon 的对象在无 live Environment 时被 GC，`~ObjectWrap()` 调 `RemoveEnvironmentCleanupHook(Isolate::GetCurrent())` 触发 `CHECK_NOT_NULL(env)` abort。better-sqlite3 12.10.0 属该 addon 面；24.20.0/24.21.0 未修。已确认崩溃位点：`Statement::~Statement`（本机栈），同类机制亦覆盖 `Database::~Database` 与 node-pty 等 NAN addon。上游修法为升 better-sqlite3 至 13（声明 engines 支持 Node 24，且修 NAN→N-API cleanup 语义）或退回 Node 22。
 - 测试缺口：`pnpm test` 无运行期 runtime 版本断言，CI 只在 Node 22 跑故不暴露。补法（择一或并用）：CI/本地统一 Node 版本（加 `.nvmrc`/`.mise.toml` 或 `engines` + `packageManager` 约束到 22 LTS）；或升 better-sqlite3 到 13 并在 Node 24 矩阵跑 `pnpm test` 验证 teardown 不崩；至少补一条 issue 记录 + 明确的门禁说明。
 - 线索：`.scratch/` 下 `pnpm test`（可 `npx vitest run --project node --pool=forks --poolOptions.forks.singleFork=true`）复现；本机 `node -v`=`v24.21.0`、`process.versions.modules`=137；参考上游 issue：WiseLibs/better-sqlite3#1376、nodejs/node#65446。
-- 处理：未开
+- 处理：main-direct-fix
