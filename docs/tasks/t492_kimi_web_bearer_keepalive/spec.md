@@ -4,13 +4,14 @@
 
 kimi_web 的 quota 认证凭证是 15 分钟寿命的 Bearer JWT，只在受控登录窗口打开时捕获一次。运行期没有任何续期通道，且 `trySilentCookieRefresh` 对 kimi_web 的判定是「`authorization` 字段非空即算可用」——它原样保留过期 Bearer 却返回成功，使 `refresh-service` 的 401 自动重登链用同一个过期令牌重试一次后落 `failed`，全程不打开登录窗。结果是：添加账号后约 15~20 分钟采集固定失败，只能由用户手动重跑「网页登录」恢复（复现与证据见 `docs/pending/todo/p235_kimi_web_bearer_no_keepalive.md`）。
 
-本 task 让 kimi_web 具备无人值守的 Bearer 续期能力，并修正静默刷新的假成功语义。续期通道形态（复用现有 HTTP token 续期设施，或按 s036/d057 的 token pump 在实例 partition 拦截请求头）由 t491 的实测结论决定。
+本 task 让 kimi_web 具备无人值守的 Bearer 续期能力，并修正静默刷新的假成功语义。续期形态已由 t491（`docs/spikes/s039_kimi_web_bearer_mint_probe/`、`docs/findings/d060_kimi_web_bearer_http_refresh.md`）实测确定为**纯 HTTP 续期**：`POST https://auth.kimi.com/api/account.gateway.v1.AuthService/RefreshToken`，最小请求 `content-type: application/json` + `{"refreshToken":"…"}`，200 返回 `{accessToken, refreshToken}`（access 900 秒、refresh 90 天且轮换）。s036/d057 的 token pump 方案作废。本 task 尚需解决登录侧如何取得 `refreshToken`（现有登录窗只捕获请求头 Bearer；t491 已验证可在登录窗内用 `webContents.executeJavaScript` 读 localStorage 的 `refresh_token`）。
 
 ## 契约区
 
 ### 范围
 
-- 为 kimi_web 增加 Bearer 续期通道：在运行期产出新 Bearer 并写回 `SESSION_COOKIE` 的 JSON 凭据，使采集不再依赖用户手动重登。形态按 t491 结论实现。
+- 为 kimi_web 增加 Bearer 续期通道：以 refresh token 调上述 HTTP 端点产出新 access token 并写回 vault 凭据，使采集不再依赖用户手动重登。
+- 在登录流程中取得 `refreshToken` 并随 `SESSION_COOKIE` 凭据一并入库（候选取自登录窗 localStorage 的 `refresh_token`）。
 - 修正 `trySilentCookieRefresh` 对 kimi_web 的「非空即有效」判定：无法产出可用新 Bearer 时不得报告成功。
 - 修正 401 自动重登链语义：重登后重试必须使用新 Bearer；未换到新 Bearer 时不计入成功重登，也不得因此耗尽重试预算后静默失败。
 - 替换 t469 把「原样保留过期 authorization」当期望的假绿测试，并补齐覆盖新语义的测试。
@@ -60,9 +61,9 @@ kimi_web 的 quota 认证凭证是 15 分钟寿命的 Bearer JWT，只在受控�
 
 - 来源：`docs/pending/todo/p235_kimi_web_bearer_no_keepalive.md`（2026-09-15 核实）
 - 复现证据：`.scratch/kimi-web-session/repro.test.ts`，`pnpm vitest run --config .scratch/kimi-web-session/vitest.repro.config.mts`——R1 静默刷新返回 `true` 且 authorization 逐字节未变（exp 早于当前 300 秒）；R2 真实 `refresh-service` + 真实 connector 下 Bearer 两次相同、登录窗 0 次、终态 `failed`。
-- 续期形态依据：t491（`docs/tasks/t491_kimi_web_bearer_mint_spike/`）的实测结论；若结论为「无可用 HTTP 续期路径」，按 `docs/findings/d057_kimi_web_quota_api_contract.md` 与 `docs/spikes/s036_kimi_web_quota_pump/report.md` 的 token pump 方案实施。
-- 既有设施：`src/main/core/auth/device_code_oauth_manager.ts`、`src/main/core/auth/oauth_helpers.ts`、`src/main/core/scheduler/refresh-service.ts`（`oauth_refresh` 钩子当前仅对 `auth.method === "oauth_device"` 生效）、`src/main/ipc/auth-ipc.ts`（`trySilentCookieRefresh`）、`src/main/index.ts:394`（`sessionLogin` 接线）。
-- 相关历史 task：t464（连接器与凭据捕获）、t469（wildcard 静默刷新修复，其 AC-002 用例即假绿来源）。
+- 续期形态依据（已验证，2026-09-15）：t491 → `docs/spikes/s039_kimi_web_bearer_mint_probe/report.md`（含「AC-002 对接点与差异」逐项映射表）、`docs/findings/d060_kimi_web_bearer_http_refresh.md`。要点：端点 `POST https://auth.kimi.com/api/account.gateway.v1.AuthService/RefreshToken`；最小请求 `content-type: application/json` + `{"refreshToken":"…"}`；200 → `{accessToken, refreshToken}`（access 900s、refresh 90 天且轮换）；401 `{"code":"unauthenticated"}` 表示 refresh token 失效（须重登）；quota 口只认 Bearer，cookie 与 `x-msh-*` 均非必需；token pump 方案作废。
+- 既有设施（**形态可对齐、实现需适配，不可直接复用**）：`src/main/core/auth/oauth_helpers.ts`（token 存取与 `expires_at`；注意其 `is_token_response` 只认 `access_token`、`compute_expires_at` 依赖 `expires_in`——kimi 均不适用）、`src/main/core/auth/device_code_oauth_manager.ts`（`refresh_now` + 到期前调度；其请求体是 form 编码）、`src/main/core/scheduler/refresh-service.ts`（`oauth_refresh` 钩子当前仅对 `auth.method === "oauth_device"` 生效）、`src/main/ipc/auth-ipc.ts`（`trySilentCookieRefresh`）、`src/main/index.ts:394`（`sessionLogin` 接线）。
+- 相关历史 task：t464（连接器与凭据捕获）、t469（wildcard 静默刷新修复，其 AC-002 用例即假绿来源）、t491（本次 spike，结论见上）。
 
 ### 有意不测
 
@@ -83,16 +84,17 @@ kimi_web 的 quota 认证凭证是 15 分钟寿命的 Bearer JWT，只在受控�
 
 <!-- /规范 -->
 
-- 新 Bearer 的获取通道（HTTP mint 接口是否存在；不存在时的 partition 拦截点与空闲触发方式）：`UNVERIFIED-BLOCKING`，待 t491 结论；核实后改写为结论与验证方式。
+- 续期端点契约（endpoint / 请求形态 / 响应字段 / 有效期 / 轮换 / 错误码）：**已验证**（2026-09-15，s039 spike 真实账号实测 + 离线最小请求复现）；结论见上文「续期形态依据」，脚本见 `docs/spikes/s039_kimi_web_bearer_mint_probe/code/`。t492 实施时按已核实契约直接对接，不需再验证端点本身。
+- 登录窗取 `refreshToken` 的具体时机与失败回退：本 task 实施中确认（机制已验证：Electron 同款 webPreferences 下 `executeJavaScript` 可读 localStorage；kimi SPA 确实写 `refresh_token`）。属本 task 实现细节，不构成外部阻塞。
 
 ### 风险与回退
 
-- 风险：token pump 需要常驻 partition 监听与后台导航，可能带来额外资源占用或触发页面反感；若续期依赖浏览器上下文，纯 CLI/headless 模式仍无法续期。
+- 风险：登录窗读 localStorage 的时机若早于 SPA 落盘，会取不到 `refresh_token`（须在捕获成功后再读，并保留手动重登回退）；refresh token 90 天有效期内若被服务端作废，401 只能重登；web/headless 模式仍无法交互登录。
 - 回退：保留现有手动「网页登录」入口与 `trySilentCookieRefresh` 的 cookie 刷新能力；续期通道失败时按 AC-002/003 显式失败并提示重登，不回退到静默假成功。
 
 ### 依赖与约束
 
-- 前置：t491 完成并给出续期形态结论（`depends_on: t491`），未完成前不得 start。
+- 前置：t491 已完成（`depends_on: t491`），续期形态结论已落 `docs/findings/d060_*` 与本 spec。
 - 涉及鉴权凭据写入与持久化，按 `full` 级 review。
 - 凭据只入 vault；日志、错误信息、fixture 均不得出现真实 JWT/cookie/session/device 值。
 
