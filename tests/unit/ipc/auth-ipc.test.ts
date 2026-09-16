@@ -61,6 +61,23 @@ const mimo_definition: ConnectorDefinition = {
     },
 };
 
+const kimi_web_definition: ConnectorDefinition = {
+    directory: "connectors/kimi_web",
+    executablePath: "connectors/kimi_web",
+    manifest: {
+        id: "kimi_web",
+        provider: "kimi_web",
+        capabilities: ["session"],
+        parameters: [],
+        endpoints: {
+            default: "https://www.kimi.com",
+            login: "https://www.kimi.com/settings/subscription?tab=quota",
+        },
+        loginDomains: ["kimi.com", "www.kimi.com", "auth.kimi.com"],
+        cookieNames: ["*"],
+    },
+};
+
 function create_mock_session_manager(
     result: { saved: boolean } = { saved: true },
 ): SessionManager & { calls: LoginRequest[] } {
@@ -153,6 +170,27 @@ describe("handleCookieLogin", () => {
             ],
             auto_close_ms: 1500,
         });
+    });
+
+    // p239：kimi_web 的续期材料由登录页在存活期间写入，自动关窗会让捕获落在错误时刻；
+    // 渲染层（WebLoginSection）自 t464 起即不传 auto_close_ms，此处对齐同一条规则。
+    it("p239: kimi_web 不传 auto_close_ms，登录窗保持打开待用户关闭", async () => {
+        const sm = create_mock_session_manager({ saved: true });
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.handleCookieLogin(
+            build_deps("kimi-web-1", sm, kimi_web_definition),
+            "kimi-web-1",
+        );
+
+        expect(result.ok).toBe(true);
+        expect(sm.calls).toHaveLength(1);
+        expect(sm.calls[0]).toMatchObject({
+            instance_id: "kimi-web-1",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+        });
+        expect(sm.calls[0]).not.toHaveProperty("auto_close_ms");
     });
 
     it("returns the result from sessionManager.start_login", async () => {

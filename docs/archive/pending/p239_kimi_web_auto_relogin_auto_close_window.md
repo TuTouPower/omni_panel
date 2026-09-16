@@ -9,4 +9,4 @@
 - 同类位点：`handleCookieLogin` 是自动重登与「用户手动触发 AUTH_COOKIE_LOGIN」的共用实现（`startCookieLogin` 也走它），故两条入口都受影响；经 `session.login` IPC 的路径（`WebLoginSection` / `WebLoginForm`）不受影响。
 - 测试缺口：现有单测只断言 `session_manager.start_login` 收到的 `auto_close_ms`（`tests/unit/ipc/auth-ipc.test.ts` 的 `delegates to sessionManager.start_login with instance-scoped partition and auto_close`），没有「kimi_web 不得自动关窗」的期望，也没有覆盖「自动重登期间用户需要扫码」的场景。
 - 线索：打包版日志 `~/Library/Application Support/OmniPanel/logs/app-2026-09-16.log`（grep `Auto-closing login window` 与同一 trace 的 `Cookie captured`）；修复方向与渲染层对齐——`handleCookieLogin` 对 provider `kimi_web` 不传 `auto_close_ms`，并补一条断言两条入口一致性的单测。注意取舍：不自动关窗会在无人值守时留一个待关窗口（需一并决定超时/提示策略）。
-- 处理：未开
+- 处理：main-direct-fix

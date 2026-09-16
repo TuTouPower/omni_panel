@@ -179,6 +179,27 @@ describe("WebLoginSection cookie login parity (t282)", () => {
         });
     });
 
+    it("p239: kimi_web add path 不传 auto_close_ms（与主进程 handleCookieLogin 同一规则）", async () => {
+        document.documentElement.dataset["web"] = "";
+        session_login.mockResolvedValue({ saved: true, cookie: "session=kimi" });
+        render_section({
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+        });
+        const user = userEvent.setup();
+
+        await user.click(screen.getByText("网页登录"));
+
+        await waitFor(() => {
+            expect(session_login).toHaveBeenCalledWith({
+                provider: "kimi_web",
+                login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+                cookie_names: ["*"],
+            });
+        });
+        expect(session_login.mock.calls[0]?.[0]).not.toHaveProperty("auto_close_ms");
+    });
+
     it("web add path maps concurrent session.login English error to Chinese", async () => {
         document.documentElement.dataset["web"] = "";
         session_login.mockRejectedValue(

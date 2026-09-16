@@ -8,7 +8,7 @@ import {
     format_cookie_login_error,
     poll_cookie_login,
 } from "../lib/cookie_login_poll";
-import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
+import { login_auto_close_ms } from "../../shared/constants";
 
 export interface WebLoginSectionProps {
     readonly provider: string;
@@ -53,15 +53,14 @@ export function WebLoginSection({
             // Desktop (any path) and web add-account (no instance_id): blocking session.login.
             // Web add path cannot use cookieLogin (needs config instance); capture returns in
             // response only — AC-001 degrade guide warns not to refresh; manual paste recovers.
-            // t331: 登录成功捕获 Cookie 后按 auto_close_ms 自动关闭登录窗口（对齐编辑路径 1500ms）。
+            // t331/t464: 自动关窗延迟来自共享单一来源；kimi_web 与带 instance_id 的路径不自动关窗。
+            const auto_close_ms = instance_id ? undefined : login_auto_close_ms(provider);
             const result = await window.usageboard.session.login({
                 provider,
                 login_url,
                 cookie_names: cookie_names ?? ["*"],
                 ...(instance_id ? { instance_id } : {}),
-                ...(instance_id || provider === "kimi_web"
-                    ? {}
-                    : { auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS }),
+                ...(auto_close_ms === undefined ? {} : { auto_close_ms }),
             });
             if (!result.saved) {
                 // t337: 区分「未捕获到 Cookie」与「登录态无效」——无效时引导重登或手动粘贴。

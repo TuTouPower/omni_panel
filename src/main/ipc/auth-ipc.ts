@@ -13,7 +13,7 @@ import {
     refresh_kimi_web_tokens,
     type KimiWebRefreshResult,
 } from "../core/auth/kimi_web_token_refresher";
-import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
+import { login_auto_close_ms } from "../../shared/constants";
 import {
     COOKIE_LOGIN_MESSAGES,
     type CookieLoginErrorCode,
@@ -138,12 +138,14 @@ export async function handleCookieLogin(
     }
 
     try {
+        // p239/t464: kimi_web 的续期材料由登录页在存活期间写入会话，不能按 1.5s 自动关窗。
+        const auto_close_ms = login_auto_close_ms(def.manifest.provider);
         const result = await deps.sessionManager.start_login({
             instance_id: instanceId,
             provider: def.manifest.provider,
             login_url: loginUrl,
             cookie_names,
-            auto_close_ms: SESSION_LOGIN_AUTO_CLOSE_MS,
+            ...(auto_close_ms === undefined ? {} : { auto_close_ms }),
         });
         return ok(result);
     } catch (err: unknown) {
