@@ -7,4 +7,4 @@
     生产侧不受影响——`src/main/index.ts` 构造 config_deps 时传了 `appVersion: app.getVersion()`。
 - 测试缺口：本用例即测试本身失效（断言恒定 400），非覆盖缺口。修法（择一，一行即可）：①在该测试的 `managed_deps`/config_deps 里补 `appVersion: "1.0.0-test"`；②让 `app_version_for` 在 electron 不可用时返回明确错误码（如 `INTERNAL_ERROR` 而非依赖 400 映射），并补一条「无 appVersion 且无 electron 时导出可见失败」的用例。修完须确认该 describe 组整体转绿。
 - 线索：`npx vitest run --project node tests/integration/local-api/server.test.ts -t "export returns canonical config"`（node ABI：先 `node scripts/ensure_sqlite_abi.mjs node`）；t490 实施现场记录见 `docs/tasks/t490_settings_data_import_export_unify/task.md` 实施笔记。
-- 处理：未开
+- 处理：main-direct-fix

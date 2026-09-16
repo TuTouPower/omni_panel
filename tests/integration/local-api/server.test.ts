@@ -875,6 +875,10 @@ describe("local-api config management", () => {
             },
             secretParamKeys: new Map([["managed-1", new Set(["API_KEY"])]]),
             definitions: [definition],
+            // p237: 生产侧（index.ts）构造 config_deps 时会注入 app.getVersion()；
+            // 测试环境没有 Electron 运行时，import("electron") 拿不到 app，缺这项会让
+            // /v1/config/export 恒定 400。这里显式补上，与生产接线一致。
+            appVersion: "1.0.0-test",
             onConfigSaved: vi.fn(),
             onConfigImported: vi.fn(),
         };
