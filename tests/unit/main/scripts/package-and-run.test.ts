@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("node:child_process", () => ({
     execSync: vi.fn(),
@@ -8,6 +8,7 @@ vi.mock("node:child_process", () => ({
 import { execSync } from "node:child_process";
 import {
     linux_proc_match_pattern,
+    mac_sign_identity,
     omni_proc_match_pattern,
     run_package_build,
 } from "../../../../scripts/package-and-run";
@@ -45,6 +46,43 @@ describe("package-and-run run_package_build", () => {
 
         const calls = exec_mock.mock.calls.map(([cmd]) => cmd);
         expect(calls[calls.length - 1]).toContain("ensure_sqlite_abi.mjs node");
+    });
+});
+
+describe("package-and-run mac signing identity (p245)", () => {
+    const original = process.env["OMNIPANEL_MAC_SIGN_IDENTITY"];
+
+    afterEach(() => {
+        if (original === undefined) delete process.env["OMNIPANEL_MAC_SIGN_IDENTITY"];
+        else process.env["OMNIPANEL_MAC_SIGN_IDENTITY"] = original;
+    });
+
+    it("环境变量覆盖优先，不再查钥匙串", () => {
+        process.env["OMNIPANEL_MAC_SIGN_IDENTITY"] = "OVERRIDE-ID";
+        expect(mac_sign_identity()).toBe("OVERRIDE-ID");
+        expect(exec_mock).not.toHaveBeenCalled();
+    });
+
+    it("从 security find-identity 取稳定自签身份", () => {
+        delete process.env["OMNIPANEL_MAC_SIGN_IDENTITY"];
+        exec_mock.mockReturnValueOnce(
+            [
+                '  1) 577801370FC267A881778008B3D564F286D739A8 "OmniPanel Local Dev"',
+                "     1 valid identities found",
+            ].join("\n"),
+        );
+        expect(mac_sign_identity()).toBe("577801370FC267A881778008B3D564F286D739A8");
+    });
+
+    it("证书缺失时回退 ad-hoc（`-`），不抛错", () => {
+        delete process.env["OMNIPANEL_MAC_SIGN_IDENTITY"];
+        exec_mock.mockReturnValueOnce("     0 valid identities found");
+        expect(mac_sign_identity()).toBe("-");
+
+        exec_mock.mockImplementationOnce(() => {
+            throw new Error("security unavailable");
+        });
+        expect(mac_sign_identity()).toBe("-");
     });
 });
 

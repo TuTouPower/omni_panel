@@ -99,15 +99,49 @@ export function mac_app_rel_path(arch: string = process.arch): string {
 }
 
 /**
+ * 稳定签名身份名（p245）。macOS 钥匙串条目的 ACL 绑定代码签名的 designated
+ * requirement：ad-hoc 签名（`-`）绑定二进制内容哈希，每次构建都不同 → 每次启动
+ * 都要求重新授权（cookie 加密密钥 `"OmniPanel Safe Storage"`）。改用固定的自签
+ * 证书后，DR = `certificate root = H"<cert>"`，跨构建稳定，只需授权一次。
+ * 未安装该证书（新机器/CI）时退回 ad-hoc，行为与之前一致。
+ */
+const MAC_SIGN_IDENTITY_NAME = "OmniPanel Local Dev";
+
+/** 返回 codesign 用的身份：优先环境变量覆盖，其次查找证书，找不到回退 ad-hoc `-`。 */
+export function mac_sign_identity(): string {
+    const override = process.env["OMNIPANEL_MAC_SIGN_IDENTITY"];
+    if (override !== undefined && override.trim().length > 0) return override.trim();
+    try {
+        const output = execSync("security find-identity -p codesigning", {
+            stdio: "pipe",
+        }).toString();
+        const line = output
+            .split("\n")
+            .find((candidate) => candidate.includes(MAC_SIGN_IDENTITY_NAME));
+        const hash = line?.match(/[0-9A-Fa-f]{40}/)?.[0];
+        if (hash !== undefined) return hash;
+    } catch {
+        // security 不可用：按 ad-hoc 处理。
+    }
+    return "-";
+}
+
+/**
  * 无 Developer ID 时 electron-builder 跳过签名，但 electronFuses 的
  * enableEmbeddedAsarIntegrityValidation + hardenedRuntime 要求有效签名，
- * 未重签会在启动瞬间 SIGKILL (Code Signature Invalid)。这里做 ad-hoc 重签。
+ * 未签会在启动瞬间 SIGKILL (Code Signature Invalid)。这里重签：优先用稳定的
+ * 自签身份（p245，钥匙串只授权一次），缺证书时退回 ad-hoc。
  * 注意：重签会改动 asar 完整性哈希，fuse 校验以重签后的 seal 为准。
  */
-function adhoc_sign_mac(app_dir: string): void {
+function sign_mac_app(app_dir: string): void {
     const app = resolve(ROOT, app_dir);
-    log(`ad-hoc signing: ${app}`);
-    execSync(`codesign --force --deep --sign - ${JSON.stringify(app)}`, {
+    const identity = mac_sign_identity();
+    log(
+        identity === "-"
+            ? `ad-hoc signing: ${app}`
+            : `signing with stable identity ${identity}: ${app}`,
+    );
+    execSync(`codesign --force --deep --sign ${JSON.stringify(identity)} ${JSON.stringify(app)}`, {
         cwd: ROOT,
         stdio: "inherit",
     });
@@ -116,7 +150,7 @@ function adhoc_sign_mac(app_dir: string): void {
 function run_packaged(): void {
     if (platform() === "darwin") {
         const app_dir = mac_app_rel_path();
-        adhoc_sign_mac(app_dir);
+        sign_mac_app(app_dir);
         const app_path = resolve(ROOT, app_dir);
         if (!existsSync(app_path)) {
             throw new Error(`packaged app not found: ${app_path}`);
