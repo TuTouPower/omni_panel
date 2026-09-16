@@ -29,6 +29,8 @@
 |Session 级累积快照|JSONL|`~/.claude/metrics/costs.jsonl`|`/home/{USER}/.claude/metrics/costs.jsonl`|
 |每次 API 调用明细|Session JSONL|`~/.claude/projects/{project}/{session_id}.jsonl`|同|
 
+**macOS 无 costs.jsonl（p243）**：Claude Code 2.1.236 的 macOS 版本不写该文件（二进制内不存在该路径字符串，`~/.claude/` 下也没有 `metrics/`），故 macOS 宿主**不声明** `claude_costs` 源；mac 的 token 数据全部来自 Session JSONL 源。声明的源见 `collector.ts` 的 `platform_source_defs`。
+
 **costs.jsonl**：每行一次 API 调用后的累积快照。关键字段：`Timestamp`、`session_id`、`model`、`input_tokens`、`output_tokens`、`cache_write_tokens`、`cache_read_tokens`。
 
 **聚合策略**：按 `session_id` 分组后取 `max_by(.timestamp)`（时间最新的一条），**不用** `map(last)`（文件行序不可靠——rotate/replay 可能导致后写的行时间更早）。需过滤 `session_id="default"` 且 `model="unknown"` 的零值记录。
@@ -130,6 +132,7 @@ interface TokenStatsConfig {
 
 - Win Claude Code：`{win_home}\.claude\metrics\costs.jsonl`
 - WSL Claude Code：`\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.claude\metrics\costs.jsonl`
+- macOS 宿主：不拼接 costs 路径（p243：Claude Code 不写该文件，源不声明）；Session JSONL 走 `~/.claude/projects/{project}/{session_id}.jsonl`。
 - OpenCode 同理。
 - env 标签（t437，替代 t308 的 `local|wsl`）：`win` = Windows 用户目录数据（win_home）；`wsl` = 经 UNC 读到的 WSL home 数据（Windows 宿主）；`linux` / `mac` = 对应宿主的 POSIX home 数据。
 

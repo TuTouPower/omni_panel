@@ -1176,10 +1176,15 @@ describe("collector", () => {
 
             const update = posted_updates()[0]!;
             const mac_statuses = update.sources_status.filter((s) => s.env === "mac");
-            expect(mac_statuses).toHaveLength(8);
+            // p243: macOS 不声明 claude_costs 源（Claude Code 不写该文件），故比
+            // windows/linux 宿主少一个平台源。
+            expect(mac_statuses).toHaveLength(7);
+            expect(mac_statuses.some((s) => s.source === "claude_code" && s.status === "ok")).toBe(
+                true,
+            );
             expect(mac_statuses.every((s) => s.status === "ok")).toBe(true);
             expect(mock_scan_grok.mock.calls[0]![1]).toBe("mac");
-            expect(mock_read_costs.mock.calls[0]![1]).toBe("mac");
+            expect(mock_read_costs.mock.calls.some((c) => c[1] === "mac")).toBe(false);
 
             // AC-001 & AC-002: 不包含任何 wsl 源条目，且无 unavailable 状态报错
             const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");

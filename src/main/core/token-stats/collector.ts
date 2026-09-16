@@ -275,14 +275,29 @@ const PLATFORM_ENV_BY_HOST: Record<Host, "win" | "linux" | "mac"> = {
 
 /**
  * t437: 平台源定义按当前宿主生成——每宿主只存在一个平台变体，key 与平台
- * 标签一致（windows 宿主 `claude_costs_win`，linux `claude_costs_linux`，
- * macos `claude_costs_mac`），env=对应平台值。替代 pre-t437 的静态平台源
- *（`local` 语义 = 「进程所在 OS」已废止）。
+ * 标签一致（windows 宿主 `claude_costs_win`，linux `claude_costs_linux`），
+ * env=对应平台值。替代 pre-t437 的静态平台源（`local` 语义 = 「进程所在 OS」已废止）。
+ *
+ * p243: macOS 宿主不声明 costs 源——Claude Code（2.1.236 实测）不写
+ * `~/.claude/metrics/costs.jsonl`（二进制内无该路径，`~/.claude/` 下也没有
+ * metrics/；`claude-reader.ts` 的笔记亦记录该文件自 2026-07 起不再写出），
+ * 声明它只会每轮产出 ENOENT → failed 与 warn。mac 的 token 数据由同平台的
+ * `claude_jsonl_<env>` 会话源完整覆盖（usage 字段含 in/out/cache）。
  */
 function platform_source_defs(host: Host): SourceDef[] {
     const env = PLATFORM_ENV_BY_HOST[host];
     return [
-        { key: `claude_costs_${env}`, source: "claude_code", kind: "costs", env, hosts: [host] },
+        ...(host === "macos"
+            ? []
+            : [
+                  {
+                      key: `claude_costs_${env}`,
+                      source: "claude_code" as TokenStatsSource,
+                      kind: "costs" as const,
+                      env,
+                      hosts: [host],
+                  },
+              ]),
         {
             key: `claude_jsonl_${env}`,
             source: "claude_code",
