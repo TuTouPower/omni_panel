@@ -24,6 +24,15 @@ const HEADERS = {
     Origin: "https://www.kimi.com",
     Referer: "https://www.kimi.com/settings/subscription?tab=quota",
 };
+const SESSION_EXPIRED_MESSAGE = "Kimi 网页会话已失效，请重新打开网页登录窗口";
+
+function is_auth_failure(message: string): boolean {
+    // 宿主 net-client 的错误形如 `HTTP 401: request failed (N bytes)`；脚本跑在 VM 里，
+    // 跨 realm 的 Error 取不到 message，String(error) 会带 `Error: ` 前缀，因此不锚定
+    // 行首，只匹配 `HTTP <状态码>` 这一形态——字节数里的 401（如 HTTP 500 的
+    // `(401 bytes)`）不会被误判。
+    return /HTTP\s+40[13]\b/.test(message) || /unauthenticated/i.test(message);
+}
 
 function number_or_null(value: unknown): number | null {
     const n = typeof value === "number" ? value : Number(value);
@@ -90,20 +99,29 @@ async function main(): Promise<ScriptObservation[]> {
     }
     if (!authorization)
         throw new Error("Kimi 网页会话缺少 Bearer 令牌，请重新打开网页登录窗口后重试");
-    const payload = (await ctx.http.post_json(
-        "default",
-        PATH,
-        {},
-        {
-            headers: {
-                ...HEADERS,
-                Cookie: cookie,
-                Authorization: authorization,
-                ...(session_id ? { "x-msh-session-id": session_id } : {}),
-                ...(device_id ? { "x-msh-device-id": device_id } : {}),
+    let payload: StatsPayload;
+    try {
+        payload = (await ctx.http.post_json(
+            "default",
+            PATH,
+            {},
+            {
+                headers: {
+                    ...HEADERS,
+                    Cookie: cookie,
+                    Authorization: authorization,
+                    ...(session_id ? { "x-msh-session-id": session_id } : {}),
+                    ...(device_id ? { "x-msh-device-id": device_id } : {}),
+                },
             },
-        },
-    )) as StatsPayload;
+        )) as StatsPayload;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!is_auth_failure(message)) throw error;
+        // t492 AC-006: 用户可见错误不带裸 HTTP 状态码；原始错误留给日志。
+        ctx.log.warn(`Kimi quota request rejected: ${message}`);
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
     const now = Date.now();
     const results: ScriptObservation[] = [];
     const five = payload.ratelimitCode5h;

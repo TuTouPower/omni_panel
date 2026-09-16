@@ -8,6 +8,11 @@ import type { AppConfigStore } from "../core/config/config-store";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
 import { get_session_login_partition, type SessionManager } from "../core/session/session-manager";
+import {
+    is_bearer_usable,
+    refresh_kimi_web_tokens,
+    type KimiWebRefreshResult,
+} from "../core/auth/kimi_web_token_refresher";
 import { SESSION_LOGIN_AUTO_CLOSE_MS } from "../../shared/constants";
 import {
     COOKIE_LOGIN_MESSAGES,
@@ -17,11 +22,27 @@ import {
 
 const log = createLogger("ipc:auth");
 
+/**
+ * t492：静默刷新的结果。`refreshed` 表示凭据已写回 vault；`credential_changed`
+ * 表示凭据值确实变了——刷新服务只把「真的换到了新凭据」当作重登成功，否则
+ * 用同一份失效凭据重试是空转（AC-002/003）。
+ */
+export interface SilentRefreshResult {
+    readonly refreshed: boolean;
+    readonly credential_changed: boolean;
+}
+
+const NO_SILENT_REFRESH: SilentRefreshResult = { refreshed: false, credential_changed: false };
+
 export interface AuthIpcDeps {
     configStore: AppConfigStore;
     secretsStore: SecretsStore;
     definitions: readonly ConnectorDefinition[];
     sessionManager: SessionManager;
+    /** kimi_web 续期请求的代理解析（与 connector/oauth 路径同源）；缺省直连。 */
+    get_proxy_url?: () => string | undefined;
+    /** 测试 seam：kimi_web 的 HTTP 续期实现；缺省用真实端点。 */
+    kimi_web_refresh?: (refresh_token: string) => Promise<KimiWebRefreshResult>;
 }
 
 interface CookieLoginState {
@@ -216,85 +237,173 @@ export async function handleCookieLoginStatus(
 }
 
 /**
- * Try to silently refresh cookies from the persisted login session
- * without opening a login window. Returns true if the session still
- * has all required cookies (declared in manifest.cookieNames) and
- * they were saved, or false if not.
+ * Try to silently refresh the stored session without opening a login window.
+ *
+ * - 普通 session 连接器：从持久化 partition 重读 cookie 并写回（cookie 自身
+ *   就是凭据）。
+ * - kimi_web：cookie 不是凭据，用 vault 里的 refresh token 调 HTTP 续期端点换
+ *   新 Bearer（t492/d060）；没有 refresh token 的旧凭据则要求现有 Bearer 仍在
+ *   有效期内，否则按「无法续期」返回。
+ *
+ * `refreshed:false` 表示刷新未完成（调用方应回退交互式登录）；`credential_changed`
+ * 为 false 表示写回的凭据与原来一致——刷新服务不得据此认定重登成功。
  */
 export async function trySilentCookieRefresh(
     deps: AuthIpcDeps,
     instanceId: string,
-): Promise<boolean> {
+): Promise<SilentRefreshResult> {
     const config = await deps.configStore.load();
     const plugin = config.plugins.find((p) => p.instanceId === instanceId);
     if (!plugin) {
         log.warn(`Silent refresh: instance ${instanceId} not found in config`);
-        return false;
+        return NO_SILENT_REFRESH;
     }
     const def = deps.definitions.find((d) => d.manifest.id === plugin.manifestId);
     if (!def) {
         log.warn(`Silent refresh: definition not found for ${instanceId}`);
-        return false;
+        return NO_SILENT_REFRESH;
     }
+    const is_kimi_web = def.manifest.provider === "kimi_web";
     const cookie_names = def.manifest.cookieNames ?? [];
     if (!cookie_names.length) {
         log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);
-        return false;
+        return NO_SILENT_REFRESH;
     }
     const is_wildcard = cookie_names.includes("*");
     const targetNames = new Set(cookie_names);
     const partition = get_session_login_partition(instanceId);
     const loginSession = session.fromPartition(partition);
+    const secretKey = keyFor(instanceId, "SESSION_COOKIE");
     try {
         const allCookies = await loginSession.cookies.get({});
         const matched = is_wildcard
             ? allCookies
             : allCookies.filter((cookie) => targetNames.has(cookie.name));
         if (matched.length === 0 || (!is_wildcard && matched.length < targetNames.size)) {
-            log.debug(
-                is_wildcard
-                    ? `Silent refresh: no cookies found, skipping`
-                    : `Silent refresh: only ${String(matched.length)}/${String(targetNames.size)} cookies found, skipping`,
-            );
-            return false;
+            // kimi_web 的凭据是 Bearer（cookie 非必需），partition 无 cookie 时
+            // 仍可凭 refresh token 续期；其它 session 连接器没有 cookie 就无从刷新。
+            if (!is_kimi_web) {
+                log.debug(
+                    is_wildcard
+                        ? `Silent refresh: no cookies found, skipping`
+                        : `Silent refresh: only ${String(matched.length)}/${String(targetNames.size)} cookies found, skipping`,
+                );
+                return NO_SILENT_REFRESH;
+            }
+            log.debug(`Silent refresh: no cookies in partition for ${instanceId}`);
         }
-        const cookieHeader = matched.map((c) => `${c.name}=${c.value}`).join("; ");
-        let savedSecret = cookieHeader;
-        if (def.manifest.provider === "kimi_web") {
-            const existing = await deps.secretsStore.get(keyFor(instanceId, "SESSION_COOKIE"));
-            if (!existing) {
-                log.debug(`Silent refresh: Kimi session secret missing, skipping`);
-                return false;
-            }
-            let parsed: Record<string, unknown>;
-            try {
-                const value: unknown = JSON.parse(existing);
-                if (typeof value !== "object" || value === null || Array.isArray(value)) {
-                    return false;
-                }
-                parsed = value as Record<string, unknown>;
-            } catch {
-                log.debug(`Silent refresh: Kimi session secret is not JSON, skipping`);
-                return false;
-            }
-            if (typeof parsed["authorization"] !== "string" || !parsed["authorization"].trim()) {
-                log.debug(`Silent refresh: Kimi authorization missing, skipping`);
-                return false;
-            }
-            savedSecret = JSON.stringify({
-                ...parsed,
-                cookie: cookieHeader,
-            });
+        const cookieHeader =
+            matched.length > 0 ? matched.map((c) => `${c.name}=${c.value}`).join("; ") : null;
+
+        if (is_kimi_web) {
+            return await refresh_kimi_web_session(deps, instanceId, secretKey, cookieHeader);
         }
-        await deps.secretsStore.set(keyFor(instanceId, "SESSION_COOKIE"), savedSecret);
-        log.info(`Silent cookie refresh succeeded for ${instanceId}`);
-        return true;
+        if (!cookieHeader) return NO_SILENT_REFRESH;
+        return await write_session_secret(deps, instanceId, secretKey, cookieHeader);
     } catch (err: unknown) {
         log.warn(
             `Silent cookie refresh failed for ${instanceId}: ${err instanceof Error ? err.message : String(err)}`,
         );
-        return false;
+        return NO_SILENT_REFRESH;
     }
+}
+
+/**
+ * 写回 secret 并报告凭据是否真的发生变化。
+ * `options.credential_changed` 用于「写回内容变了但凭据本身没变」的场景
+ * （kimi_web 旧凭据只更新 cookie、Bearer 未换），此时不得报成换到新凭据。
+ */
+async function write_session_secret(
+    deps: AuthIpcDeps,
+    instanceId: string,
+    secretKey: string,
+    savedSecret: string,
+    options?: { credential_changed?: boolean },
+): Promise<SilentRefreshResult> {
+    const previous = await deps.secretsStore.get(secretKey);
+    await deps.secretsStore.set(secretKey, savedSecret);
+    const credential_changed = options?.credential_changed ?? previous !== savedSecret;
+    log.info(
+        `Silent session refresh succeeded for ${instanceId} (credential changed: ${String(credential_changed)})`,
+    );
+    return { refreshed: true, credential_changed };
+}
+
+/**
+ * kimi_web 静默续期：优先用 refresh token 换新 Bearer（顺带把轮换后的 refresh
+ * token 与到期时间写回）；没有 refresh token 时退化为「现有 Bearer 是否仍可用」
+ * 的判定，不可用即返回未刷新，交给交互式登录（AC-002）。
+ */
+async function refresh_kimi_web_session(
+    deps: AuthIpcDeps,
+    instanceId: string,
+    secretKey: string,
+    cookieHeader: string | null,
+): Promise<SilentRefreshResult> {
+    const existing = await deps.secretsStore.get(secretKey);
+    if (!existing) {
+        log.debug(`Silent refresh: Kimi session secret missing, skipping`);
+        return NO_SILENT_REFRESH;
+    }
+    let parsed: Record<string, unknown>;
+    try {
+        const value: unknown = JSON.parse(existing);
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+            return NO_SILENT_REFRESH;
+        }
+        parsed = value as Record<string, unknown>;
+    } catch {
+        log.debug(`Silent refresh: Kimi session secret is not JSON, skipping`);
+        return NO_SILENT_REFRESH;
+    }
+
+    const refresh_token =
+        typeof parsed["refresh_token"] === "string" ? parsed["refresh_token"].trim() : "";
+    const cookie = cookieHeader ?? (typeof parsed["cookie"] === "string" ? parsed["cookie"] : "");
+
+    if (!refresh_token) {
+        // 旧凭据（t492 之前登录）：没有续期材料，只更新 cookie；Bearer 已过期
+        // 或无法解析时不得报成功。
+        if (!is_bearer_usable(parsed["authorization"])) {
+            log.warn(
+                `Silent refresh: Kimi session for ${instanceId} has no refresh token and the stored Bearer is not usable`,
+            );
+            return NO_SILENT_REFRESH;
+        }
+        if (!cookieHeader) return NO_SILENT_REFRESH;
+        return await write_session_secret(
+            deps,
+            instanceId,
+            secretKey,
+            JSON.stringify({ ...parsed, cookie }),
+            // 只换 cookie、Bearer 未变：不算「换到新凭据」（AC-003），刷新服务据此
+            // 不再用同一份 Bearer 重试。
+            { credential_changed: false },
+        );
+    }
+
+    const get_proxy_url = deps.get_proxy_url;
+    const refresh =
+        deps.kimi_web_refresh ??
+        ((token: string) => refresh_kimi_web_tokens(token, get_proxy_url ? { get_proxy_url } : {}));
+    const result: KimiWebRefreshResult = await refresh(refresh_token);
+    if (!result.ok) {
+        log.warn(
+            `Silent refresh: Kimi token refresh failed for ${instanceId}${result.unauthenticated ? " (refresh token rejected)" : ""}: ${result.error}`,
+        );
+        return NO_SILENT_REFRESH;
+    }
+    return await write_session_secret(
+        deps,
+        instanceId,
+        secretKey,
+        JSON.stringify({
+            ...parsed,
+            cookie,
+            authorization: `Bearer ${result.tokens.access_token}`,
+            refresh_token: result.tokens.refresh_token,
+        }),
+    );
 }
 
 export function registerAuthIpc(deps: AuthIpcDeps): void {

@@ -7810,6 +7810,22 @@
             "conflicts_with": "",
             "note": "来源 p235；验证网页端是否存在 cookie/会话→新 Bearer 的 HTTP 接口（QR-status 下发或 auth.kimi.com refresh），给出可复用 kimi_oauth_manager 续期的结论或回落 token pump 的依据",
             "dir": "docs/archive/tasks/t491_kimi_web_bearer_mint_spike"
+        },
+        {
+            "tid": "t492",
+            "slug": "kimi_web_bearer_keepalive",
+            "title": "Kimi 网页会话 Bearer 续期通道与静默刷新语义修正",
+            "status": "done",
+            "branch": "t492_kimi_web_bearer_keepalive",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "302fb4be30040b2041fd6eebcdf42c5fe8833659",
+            "depends_on": "t491",
+            "conflicts_with": "",
+            "note": "来源 p235；Bearer 过期后无人值守自动续期，静默刷新不得假成功，401 重登须换用新 Bearer；替换 t469 假绿用例",
+            "dir": "docs/archive/tasks/t492_kimi_web_bearer_keepalive"
         }
     ]
 }

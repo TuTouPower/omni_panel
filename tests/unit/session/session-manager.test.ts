@@ -15,6 +15,10 @@ class MockWindow extends EventEmitter implements SessionWindow {
     readonly loaded_urls: string[] = [];
     closed = false;
     fail_load_with?: Error;
+    /** t492: kimi_web 登录窗 localStorage（refresh_token 来源）。 */
+    readonly local_storage: Record<string, string> = {};
+    readonly read_local_storage_keys: string[] = [];
+    read_local_storage_fails = false;
 
     loadURL(url: string): Promise<void> {
         this.loaded_urls.push(url);
@@ -31,6 +35,19 @@ class MockWindow extends EventEmitter implements SessionWindow {
 
     isDestroyed(): boolean {
         return this.closed;
+    }
+
+    read_local_storage(key: string): Promise<string | null> {
+        this.read_local_storage_keys.push(key);
+        // 真实宿主（Electron）在窗口销毁后 executeJavaScript 必然失败——mock 同样
+        // 拒绝，以覆盖「必须在窗口存活时读取」这一约束（t492 code review f001）。
+        if (this.closed) {
+            return Promise.reject(new Error("Object has been destroyed"));
+        }
+        if (this.read_local_storage_fails) {
+            return Promise.reject(new Error("page navigated away"));
+        }
+        return Promise.resolve(this.local_storage[key] ?? null);
     }
 }
 
@@ -238,6 +255,85 @@ describe("session-manager", () => {
 
         await expect(promise).resolves.toEqual({ saved: true });
         await expect(deps.vault.get("opencode-go-1:SESSION_COOKIE")).resolves.toBe("session=abc");
+    });
+
+    // t492: kimi_web 的 Bearer 15 分钟过期，续期材料（refresh token）只在页面
+    // localStorage，登录成功时一并捕获入库，否则运行期无从续期。
+    it("t492: kimi_web 登录捕获把 localStorage 的 refresh_token 一并入库", async () => {
+        const deps = create_deps();
+        deps.window.local_storage["refresh_token"] = "refresh-token-value";
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "kimi-web-1",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+            Authorization: "Bearer access-token",
+            "x-msh-session-id": "session-id",
+            "x-msh-device-id": "device-id",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        expect(deps.window.read_local_storage_keys).toEqual(["refresh_token"]);
+        const saved = await deps.vault.get("kimi-web-1:SESSION_COOKIE");
+        expect(JSON.parse(saved ?? "{}")).toEqual({
+            cookie: "kimi_session=abc",
+            authorization: "Bearer access-token",
+            session_id: "session-id",
+            device_id: "device-id",
+            refresh_token: "refresh-token-value",
+        });
+    });
+
+    it("t492: kimi_web 读不到 refresh_token 时不阻塞登录（字段为 null）", async () => {
+        const deps = create_deps();
+        deps.window.read_local_storage_fails = true;
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "kimi-web-2",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+            Authorization: "Bearer access-token",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        const saved = await deps.vault.get("kimi-web-2:SESSION_COOKIE");
+        expect(JSON.parse(saved ?? "{}")).toMatchObject({
+            cookie: "kimi_session=abc",
+            authorization: "Bearer access-token",
+            refresh_token: null,
+        });
+    });
+
+    it("t492: 非 kimi_web 登录不读取页面 localStorage（凭据仍是纯 cookie）", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-2",
+            provider: "mimo",
+            login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+            cookie_names: ["token"],
+        });
+        deps.emit_before_send_headers("https://platform.xiaomimimo.com/console/plan-manage", {
+            Cookie: "token=abc",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        expect(deps.window.read_local_storage_keys).toEqual([]);
+        await expect(deps.vault.get("mimo-2:SESSION_COOKIE")).resolves.toBe("token=abc");
     });
 
     it("returns captured Cookie without writing vault after anonymous wildcard login returns", async () => {

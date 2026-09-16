@@ -18,22 +18,6 @@
             "conflicts_with": "",
             "note": "来源 p234；统一两端数据导出明文密钥选项、文案、IPC透传及导入端点校验",
             "dir": "docs/tasks/t490_settings_data_import_export_unify"
-        },
-        {
-            "tid": "t492",
-            "slug": "kimi_web_bearer_keepalive",
-            "title": "Kimi 网页会话 Bearer 续期通道与静默刷新语义修正",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "t491",
-            "conflicts_with": "",
-            "note": "来源 p235；Bearer 过期后无人值守自动续期，静默刷新不得假成功，401 重登须换用新 Bearer；替换 t469 假绿用例",
-            "dir": "docs/tasks/t492_kimi_web_bearer_keepalive"
         }
     ]
 }

@@ -47,7 +47,7 @@ src/
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
 │   │   ├── connector/             # script-cache（脚本 mtime 缓存，t195）+ runtime/net-client/manifest-loader
-│   │   ├── session/session-manager.ts        # 登录窗 + cookie 捕获
+│   │   ├── session/session-manager.ts        # 登录窗 + cookie/Bearer/refresh token 捕获
 │   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
 │   │   ├── cli/                   # CLI 模式（t275）：argv 解析 + --config 导入 + cli.json 实例发现
 │   │   ├── main-panel/            # 托盘弹出/悬浮窗控制 + floating-bounds
@@ -55,6 +55,7 @@ src/
 │   │   ├── auth/device_code_oauth_manager.ts # 参数化 device-code OAuth manager（t339：grok/kimi 共享实现，配置收敛 DeviceCodeOAuthConfig）
 │   │   ├── auth/grok_oauth_manager.ts          # Grok 薄包装：端点/client_id/scope + 纯 Content-Type 头
 │   │   ├── auth/kimi_oauth_manager.ts          # Kimi 薄包装：端点/client_id + 异步设备头（含 device-id resolver）
+│   │   ├── auth/kimi_web_token_refresher.ts    # t492：kimi 网页会话 Bearer 续期（auth.kimi.com RefreshToken，refresh→access）
 │   │   ├── auth/oauth_helpers.ts               # OAuth 共享常量、类型与纯函数（Layer 1）
 │   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts

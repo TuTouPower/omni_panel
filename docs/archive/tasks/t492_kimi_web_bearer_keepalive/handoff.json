@@ -1,0 +1,44 @@
+{
+    "tid": "t492",
+    "attempt": 1,
+    "execution_id": "59e48650e3fa4cf098a6a165806a17fd",
+    "status": "done",
+    "branch": "t492_kimi_web_bearer_keepalive",
+    "base_sha": "302fb4be30040b2041fd6eebcdf42c5fe8833659",
+    "tests": "typecheck / lint / format:check / md_format --check / git diff --check / pnpm build 全绿。相关文件测试：新增与改写用例全绿（93 passed）；`pnpm test` 全量在本机 Node 24.21.0 触发既有 p228（better-sqlite3 Statement::~Statement abort + ERR_IPC_CHANNEL_CLOSED），已在 base 302fb4be 复现同样结果；另有 13 例既有失败（auth-ipc 7 + refresh-service 6）来自 t471 manifestId 迁移未同步 fixture，已登记 p236，base 同样红",
+    "blackbox": "①`pnpm build` 通过（main/preload/renderer/web 全量构建）；②构建产物真机冒烟：`electron out/main/index.js serve --foreground --port 17867 --user-data-dir <abs>` 启动成功，`GET /v1/health` 返回 {\"status\":\"ok\"}（验证改过的 index.ts 会话接线在真实主进程可加载）；③端到端行为黑盒由 integration 用例经真实 refresh-service 覆盖：401 → sessionLogin 换新凭据 → 重试使用新凭据并产出观测（AC-001）、凭据未变时不重试（AC-003）。真实 kimi 账号 ≥20 分钟连续运行属 [deploy] AC-007，本地无账号，留部署人工验收。renderer 项目在本机整体 React.act 失败（base 同样），渲染层断言无法本地执行",
+    "review": "full 级：本轮 code / test 双轴 reviewer 结论见 review_code.md / review_test.md",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/scheduler/refresh-service.test.ts > t492 AC-001: refreshed credential is used for the retry and collection succeeds——真实 createRefreshService，401 后 sessionLogin 写入新凭据，断言两次采集用的凭据不同且终态 ready/1 item",
+            "tests/unit/ipc/auth-ipc.test.ts > t492 AC-001/004: Kimi 静默刷新换新 Bearer…（refresh token 换新 Bearer）与 > t492 AC-001: partition 无 cookie 时 Kimi 仍能靠 refresh token 续期"
+        ],
+        "AC-002": [
+            "tests/unit/ipc/auth-ipc.test.ts > t492 AC-002: refresh token 被拒时静默刷新不报成功，也不改凭据（refreshed:false，vault 未改写）",
+            "tests/unit/ipc/auth-ipc.test.ts > t492 AC-002: 无 refresh token 的旧凭据在 Bearer 过期时不报成功（is_bearer_usable 判定）",
+            "tests/unit/auth/kimi_web_token_refresher.test.ts：401 unauthenticated / 400 invalid_argument 归类为不可恢复，传输失败与异常形状归类为可重试"
+        ],
+        "AC-003": [
+            "tests/integration/scheduler/refresh-service.test.ts > t492 AC-003: credential-unchanged re-login is not counted as success and is not retried（sessionLogin 仅 1 次、只采集 1 次、终态 failed）"
+        ],
+        "AC-004": [
+            "tests/unit/ipc/auth-ipc.test.ts > t492 AC-001/004：写回后 session_id/device_id 保留、cookie 更新、refresh_token 落盘为轮换后的新值",
+            "tests/unit/session/session-manager.test.ts > t492: kimi_web 登录捕获把 localStorage 的 refresh_token 一并入库（JSON 含 cookie/authorization/session_id/device_id/refresh_token）"
+        ],
+        "AC-005": [
+            "t469 假绿用例已整体删除并由上列新语义用例替换（auth-ipc.test.ts 内注释标明替换原因）",
+            "新增 tests/unit/auth/kimi_web_token_refresher.test.ts（9 例）、session-manager 3 例、refresh-service 2 例、connector 2 例、auth-error 2 例；本 task 涉及文件新增/改写用例全绿"
+        ],
+        "AC-006": [
+            "src/renderer/components/provider_card_states.tsx：ProviderCardErrorBanner auth 分支改为统一文案「凭证失效，请重新登录」+ 重新登录按钮；ProviderAccountRow tooltip 走 auth_error_display_text",
+            "tests/unit/shared/auth-error.test.ts > auth_error_display_text：401 原文映射为统一文案且不含 HTTP \\d{3}，非凭证错误原样透出",
+            "tests/integration/connector/kimi_web_connector.test.ts > t492 AC-006：401 映射为「Kimi 网页会话已失效…」且 is_auth_error 仍为 true（重新登录入口保留）",
+            "tests/unit/renderer/components/provider_card_states.test.tsx > t492 AC-006（渲染层断言；本机 renderer 项目整体故障，无法本地执行）"
+        ],
+        "AC-007": [
+            "不可自动测试（[deploy]）：真实账号 ≥20 分钟连续采集留部署人工验收；本 task 已在实现与测试层提供全部前置能力（HTTP 续期、凭据落盘、401 自动续期重试）"
+        ]
+    },
+    "pending": ["p236"],
+    "findings": ["d060_kimi_web_bearer_http_refresh"]
+}

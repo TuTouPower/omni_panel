@@ -301,6 +301,8 @@ export const ProviderCard = memo(function ProviderCard({
                 <ProviderCardErrorBanner
                     provider={provider}
                     connectorError={connectorError}
+                    isAuth={is_auth}
+                    onReLogin={onReLogin}
                     onRefresh={onRefresh}
                 />
                 {usage_content}

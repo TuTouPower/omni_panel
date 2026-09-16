@@ -64,4 +64,4 @@
 - 连接器脚本扇出节流：脚本内并发 HTTP 请求应使用 `map_with_limit(items, limit, fn)` 闸门（`Promise.race` 实现），避免大量请求同时对同 origin 发起 TLS 握手。参考 `connectors/opencode_go/connector.ts` 的 `bundle_limit=4` 实现。
 - script / poll / probe 及观测写库失败统一最多尝试 3 次，相邻尝试固定等待 1s；三次均失败才向 runtime-store 写 `failed`，错误取最后一次失败。
 - 连接级错误（`ECONNRESET`/`EPROTO`/`ETIMEDOUT`/`socket hang up`/`UND_ERR_SOCKET`/`UND_ERR_CONNECT`/`tls`/`ssl`）触发 `force_fresh_connection`，后续重试向 undici 传 `{reset:true}` 跳过连接池。**需连续两次连接错误才升级**，非连接级错误重置连续计数。
-- session 连接器首次出现 auth 错误（消息含 401/unauthorized/token/credential/auth）且有 `sessionLogin` 依赖 → 每轮刷新最多触发一次重新登录；保存成功后额外等待 2s，再继续剩余通用尝试。
+- session 连接器首次出现 auth 错误（消息含 401/unauthorized/token/credential/auth）且有 `sessionLogin` 依赖 → 每轮刷新最多触发一次重新登录；重登仅在 `saved && credential_changed` 时算成功（凭据未变不计入，直接按失败处置），成功后额外等待 2s，再继续剩余通用尝试。

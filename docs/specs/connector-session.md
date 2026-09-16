@@ -26,7 +26,15 @@ session 能力的连接器（MiMo / OpenCode Go / Kimi）需要用户在受控�
 
 ## 后台续期
 
-未实现。当前 `SESSION_REFRESH` 复用 `SESSION_LOGIN` 的 handler（`session-ipc.ts:63-68`），仅打开登录窗由用户重新完成登录，无按 `cookieRefreshHours` 的后台定时续期；代码库中无 `cookieRefreshHours` 字段。捕获成功后由 `auto_close_ms` 延时自动关窗。
+分两类（t492 起）：
+
+- **kimi_web（`web_login`）**：cookie 不是凭据，quota 口只认 Bearer JWT（900 秒）。续期走 HTTP——`POST https://auth.kimi.com/api/account.gateway.v1.AuthService/RefreshToken`（ConnectRPC JSON，最小请求 `content-type: application/json` + `{"refreshToken":"…"}`），返回新的 access + 轮换后的 refresh token；由心跳链在 401 时触发，无需打开登录窗，也不依赖页面在线（契约见 `docs/findings/d060_kimi_web_bearer_http_refresh.md`）。续期材料 `refresh_token` 只在页面 localStorage，登录窗里带 Bearer 的请求到达时读取（窗口销毁后读取不可用），随 `SESSION_COOKIE` 的 JSON 凭据（`cookie`/`authorization`/`session_id`/`device_id`/`refresh_token`）入库。
+- **其它 session 连接器（cookie 即凭据）**：`SESSION_REFRESH` 重新打开实例受控登录窗（无后台定时续期）；`trySilentCookieRefresh` 从持久 partition 重读 cookie 并写回。仍无按 `cookieRefreshHours` 的定时续期，代码库中无该字段。
+
+续期结果语义（t492）：
+
+- `trySilentCookieRefresh` 返回 `{ refreshed, credential_changed }`。`refreshed=false` 表示本次没刷新成功（调用方回退交互式登录）；`credential_changed=false` 表示本次没有换到新的凭据（含 kimi_web 旧凭据仅更新 cookie、Bearer 未变的情形）。
+- 刷新服务只把「`saved && credential_changed`」当作重登成功——未换到新凭据时不重试（用同一份失效凭据重试是空转），直接按失败处置（AC-002/003）。
 
 ## 采集
 
