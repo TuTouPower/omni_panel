@@ -392,14 +392,28 @@ void app.whenReady().then(async () => {
             resolve_proxy_url: (config) =>
                 resolve_effective_proxy_url(config.proxy?.url, detected_system_proxy),
             sessionLogin: async (instanceId: string) => {
-                // Try silent cookie refresh first (no window popup).
+                // Try silent refresh first (no window popup).
                 // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
                 const silent = await trySilentCookieRefresh(
-                    { configStore, secretsStore, definitions: allDefinitions, sessionManager },
+                    {
+                        configStore,
+                        secretsStore,
+                        definitions: allDefinitions,
+                        sessionManager,
+                        // kimi_web 的续期请求与 connector 走同一代理策略，避免代理用户
+                        // 下静默续期直连外网失败（t492 code review f002）。
+                        get_proxy_url: () =>
+                            resolve_effective_proxy_url(
+                                currentConfigSnapshot.proxy?.url,
+                                detected_system_proxy,
+                            ),
+                    },
                     instanceId,
                 );
-                if (silent) {
-                    return { saved: true };
+                if (silent.refreshed) {
+                    // t492: 只有凭据真的变了才算重登成功——否则刷新服务会用同一份
+                    // 失效凭据重试（kimi_web 的假成功根因）。
+                    return { saved: true, credential_changed: silent.credential_changed };
                 }
                 // Fall back to interactive login window
                 const result = await handleCookieLogin(
@@ -407,7 +421,8 @@ void app.whenReady().then(async () => {
                     instanceId,
                 );
                 if (!result.ok) throw new Error(result.error.message);
-                return result.data;
+                // 交互式登录拿到的是全新凭据，视为已更换。
+                return { saved: result.data.saved, credential_changed: result.data.saved };
             },
             oauth_refresh: async (instanceId: string, definition: ConnectorDefinition) => {
                 // t172: OAuth(poll) 连接器 401/403 时的即时 token 刷新。manager 自带
@@ -705,7 +720,7 @@ void app.whenReady().then(async () => {
                 }
             },
             create_window: (partition) => {
-                return new BrowserWindow({
+                const window = new BrowserWindow({
                     width: 520,
                     height: 720,
                     // t280: headless 下登录窗不弹屏。
@@ -715,6 +730,17 @@ void app.whenReady().then(async () => {
                         nodeIntegration: false,
                         sandbox: true,
                         partition,
+                    },
+                });
+                return Object.assign(window, {
+                    // t492: kimi_web 的 refresh token 只在页面 localStorage，主进程在
+                    // sandbox + contextIsolation 下仍可 executeJavaScript 读取。
+                    read_local_storage: async (key: string): Promise<string | null> => {
+                        if (window.isDestroyed()) return null;
+                        const value: unknown = await window.webContents.executeJavaScript(
+                            `window.localStorage.getItem(${JSON.stringify(key)})`,
+                        );
+                        return typeof value === "string" ? value : null;
                     },
                 });
             },

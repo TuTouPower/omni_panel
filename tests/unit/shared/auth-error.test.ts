@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { is_auth_error } from "../../../src/shared/lib/auth-error";
+import {
+    AUTH_ERROR_DISPLAY_TEXT,
+    auth_error_display_text,
+    is_auth_error,
+} from "../../../src/shared/lib/auth-error";
 
 describe("is_auth_error (shared)", () => {
     it("matches HTTP 401/403 real net-client messages", () => {
@@ -44,5 +48,28 @@ describe("is_auth_error (shared)", () => {
         expect(is_auth_error("token pool exhausted")).toBe(false);
         expect(is_auth_error("batch auth rate limited")).toBe(false);
         expect(is_auth_error("oauth preflight skipped")).toBe(false);
+    });
+});
+
+// t492 AC-006：用户可见文案不得暴露 HTTP 状态码等内部细节。
+describe("auth_error_display_text (shared)", () => {
+    it("maps credential failures to the shared user-facing text", () => {
+        expect(auth_error_display_text("HTTP 401: request failed (371 bytes)")).toBe(
+            AUTH_ERROR_DISPLAY_TEXT,
+        );
+        expect(auth_error_display_text("HTTP 401: request failed (371 bytes)")).not.toMatch(
+            /HTTP \d{3}/,
+        );
+        expect(auth_error_display_text("unauthorized")).toBe(AUTH_ERROR_DISPLAY_TEXT);
+        expect(auth_error_display_text("Kimi 网页会话已失效，请重新打开网页登录窗口")).toBe(
+            AUTH_ERROR_DISPLAY_TEXT,
+        );
+    });
+
+    it("passes non-auth failures through unchanged", () => {
+        expect(auth_error_display_text("socket hang up")).toBe("socket hang up");
+        expect(auth_error_display_text("HTTP 500: request failed (12 bytes)")).toBe(
+            "HTTP 500: request failed (12 bytes)",
+        );
     });
 });

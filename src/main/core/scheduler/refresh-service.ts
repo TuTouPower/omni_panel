@@ -29,7 +29,14 @@ export interface RefreshServiceDeps {
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
     vault: VaultBackend;
-    sessionLogin?: (instanceId: string) => Promise<{ saved: boolean }>;
+    /**
+     * 会话连接器重登入口。`credential_changed` 表示重登是否真的换到了新凭据：
+     * 未换到时不得计入成功重登（t492 AC-003），否则等于用同一份失效凭据空转重试。
+     */
+    sessionLogin?: (instanceId: string) => Promise<{
+        saved: boolean;
+        credential_changed: boolean;
+    }>;
     resolve_proxy_url?: (config: AppConfiguration) => string | undefined;
     /** Test seam: override the connector executor to assert call counts. */
     execute_connector?: (
@@ -431,12 +438,18 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             let relogin_ok = false;
                             try {
                                 const result = await deps.sessionLogin(instanceId);
-                                if (result.saved) {
+                                if (result.saved && result.credential_changed) {
                                     trace_log.info(
                                         `Re-login succeeded for ${connector_config.name}, waiting before retry`,
                                     );
                                     await new Promise((resolve) => setTimeout(resolve, 2000));
                                     relogin_ok = true;
+                                } else if (result.saved) {
+                                    // t492: 重登「成功」但凭据没变——用同一份失效凭据重试
+                                    // 必然是空转，不计入成功重登，直接按失败处置。
+                                    trace_log.info(
+                                        `Re-login for ${connector_config.name} left the credential unchanged, not retrying`,
+                                    );
                                 }
                             } catch (login_error: unknown) {
                                 trace_log.error(

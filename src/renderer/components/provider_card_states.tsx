@@ -1,6 +1,10 @@
 import { Icon } from "./Icon";
 import type { ProviderError } from "./ProviderOverview";
-import { is_auth_error } from "../../shared/lib/auth-error";
+import {
+    AUTH_ERROR_DISPLAY_TEXT,
+    auth_error_display_text,
+    is_auth_error,
+} from "../../shared/lib/auth-error";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/Button";
 
@@ -24,6 +28,43 @@ interface ProviderCardStateProps {
 const STATE_BASE =
     "mt-3 flex items-center gap-[9px] text-[length:var(--text-body-md)] text-[var(--color-on-surface-variant)]";
 
+/**
+ * 凭证失效的统一提示行：统一文案 + 「重新登录」入口（无回调时退化为打开设置）。
+ * ProviderCardState 与 ProviderCardErrorBanner 共用，避免两处文案/行为漂移。
+ */
+function AuthRecoveryRow({
+    provider,
+    instanceId,
+    onReLogin,
+}: {
+    provider: string;
+    instanceId: string;
+    onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
+}) {
+    return (
+        <div className={STATE_BASE} data-testid="card-state" data-variant="auth">
+            <span className="flex shrink-0 text-[var(--color-warning)]">
+                <Icon name="lock" size={15} />
+            </span>
+            <span>{AUTH_ERROR_DISPLAY_TEXT}</span>
+            <Button
+                variant="text"
+                className="ml-auto rounded-lg"
+                data-testid="cs-action"
+                onClick={() => {
+                    if (onReLogin) {
+                        onReLogin(provider, instanceId);
+                    } else {
+                        window.usageboard.settings.open({ instanceId });
+                    }
+                }}
+            >
+                重新登录
+            </Button>
+        </div>
+    );
+}
+
 export function ProviderCardState({
     provider,
     connectorError,
@@ -36,34 +77,15 @@ export function ProviderCardState({
     if (isFailed) {
         if (!connectorError) return null;
         if (isAuth) {
-            const auth_label = "凭证失效，请重新登录";
             // t158: overview banner re-login target = first failed instance.
             // Per-row re-login in ProviderAccountRow covers the rest of the
             // instanceIds when multiple connectors share this provider.
-            const first_instance_id = connectorError.instanceIds[0] ?? "";
             return (
-                <div className={STATE_BASE} data-testid="card-state" data-variant="auth">
-                    <span className="flex shrink-0 text-[var(--color-warning)]">
-                        <Icon name="lock" size={15} />
-                    </span>
-                    <span>{auth_label}</span>
-                    <Button
-                        variant="text"
-                        className="ml-auto rounded-lg"
-                        data-testid="cs-action"
-                        onClick={() => {
-                            if (onReLogin) {
-                                onReLogin(provider, first_instance_id);
-                            } else {
-                                window.usageboard.settings.open({
-                                    instanceId: first_instance_id,
-                                });
-                            }
-                        }}
-                    >
-                        重新登录
-                    </Button>
-                </div>
+                <AuthRecoveryRow
+                    provider={provider}
+                    instanceId={connectorError.instanceIds[0] ?? ""}
+                    onReLogin={onReLogin}
+                />
             );
         }
         return (
@@ -109,6 +131,9 @@ export function ProviderCardState({
 interface ProviderCardErrorBannerProps {
     provider: string;
     connectorError: ProviderError | undefined;
+    /** 凭证失效类错误：展示统一文案 + 重新登录入口，不暴露原始错误串（t492 AC-006）。 */
+    isAuth?: boolean | undefined;
+    onReLogin?: ((provider: string, instanceId: string) => void) | undefined;
     onRefresh?: ((provider: string) => void) | undefined;
 }
 
@@ -117,9 +142,20 @@ interface ProviderCardErrorBannerProps {
 export function ProviderCardErrorBanner({
     provider,
     connectorError,
+    isAuth = false,
+    onReLogin,
     onRefresh,
 }: ProviderCardErrorBannerProps) {
     if (!connectorError) return null;
+    if (isAuth) {
+        return (
+            <AuthRecoveryRow
+                provider={provider}
+                instanceId={connectorError.instanceIds[0] ?? ""}
+                onReLogin={onReLogin}
+            />
+        );
+    }
     return (
         <div
             className={cn(STATE_BASE, "text-[var(--color-error)]")}
@@ -129,7 +165,7 @@ export function ProviderCardErrorBanner({
             <span className="flex shrink-0">
                 <Icon name="cloud_off" size={15} />
             </span>
-            <span>采集失败：{connectorError.error}</span>
+            <span>采集失败：{auth_error_display_text(connectorError.error)}</span>
             {onRefresh && (
                 <Button
                     variant="text"

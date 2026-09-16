@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import type { TrendPoint } from "../../shared/types/ipc";
 import { createLogger } from "../../shared/lib/logger";
-import { is_auth_error } from "../../shared/lib/auth-error";
+import { is_auth_error, auth_error_display_text } from "../../shared/lib/auth-error";
 import type { ProviderUsageAccount } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { relative_time } from "../lib/utils";
@@ -192,7 +192,7 @@ export const ProviderAccountRow = memo(function ProviderAccountRow({
                     {_error && (
                         <span
                             className="ml-2 font-[650] text-[var(--color-error)]"
-                            title={_error}
+                            title={auth_error_display_text(_error)}
                             data-testid="error-badge"
                         >
                             采集失败

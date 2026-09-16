@@ -500,6 +500,249 @@ describe("trySilentCookieRefresh", () => {
         vi.clearAllMocks();
     });
 
+    const b64 = (value: unknown): string =>
+        Buffer.from(JSON.stringify(value)).toString("base64url");
+    /** 形状与 Kimi 真 JWT 一致（仅 payload 的 exp 参与判定）。 */
+    const make_jwt = (exp_seconds: number): string =>
+        `${b64({ alg: "RS256" })}.${b64({ exp: exp_seconds })}.sig`;
+    const seconds_from_now = (offset: number): number => Math.floor(Date.now() / 1000) + offset;
+
+    const kimi_definition: ConnectorDefinition = {
+        directory: "connectors/kimi_web",
+        executablePath: "connectors/kimi_web",
+        manifest: {
+            id: "kimi_web",
+            provider: "kimi_web",
+            capabilities: ["session"],
+            parameters: [],
+            cookieNames: ["*"],
+        },
+    };
+
+    function kimi_deps(
+        instance_id: string,
+        options: { kimi_web_refresh?: (refresh_token: string) => Promise<unknown> } = {},
+    ): AuthIpcDeps {
+        return {
+            configStore: {
+                load: vi.fn().mockResolvedValue({
+                    schemaVersion: 1,
+                    language: "zh-Hans",
+                    plugins: [
+                        {
+                            instanceId: instance_id,
+                            stateId: instance_id,
+                            manifestId: "kimi_web",
+                            name: "Kimi Web",
+                            enabled: true,
+                            executablePath: kimi_definition.executablePath,
+                            refreshIntervalSeconds: 300,
+                            parameterValues: {},
+                            endpointOverrides: {},
+                        },
+                    ],
+                    launchAtLogin: false,
+                }),
+            },
+            secretsStore: {
+                set: vi.fn((key: string, value: string) => {
+                    secrets_store[key] = value;
+                    return Promise.resolve();
+                }),
+                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
+                delete: vi.fn(),
+                exportAll: vi.fn(),
+                importAll: vi.fn(),
+            },
+            definitions: [kimi_definition],
+            sessionManager: { start_login: vi.fn() },
+            ...(options.kimi_web_refresh ? { kimi_web_refresh: options.kimi_web_refresh } : {}),
+        } as unknown as AuthIpcDeps;
+    }
+
+    // t492：t469 原用例断言「静默刷新报成功且原样保留过期 authorization」——那正是
+    // 本缺陷语义（Bearer 15 分钟过期后采集必失败）。整体替换为新语义：以 refresh
+    // token 走 HTTP 续期端点换新 Bearer。
+    it("t492 AC-001/004: Kimi 静默刷新换新 Bearer，保留 session/device 并落盘轮换后的 refresh token", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        secrets_store["kimi-web:SESSION_COOKIE"] = JSON.stringify({
+            cookie: "old-cookie=stale",
+            authorization: `Bearer ${make_jwt(seconds_from_now(-300))}`,
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+            refresh_token: "refresh-sentinel",
+        });
+        const tokens = {
+            access_token: make_jwt(seconds_from_now(900)),
+            refresh_token: "rotated-refresh",
+        };
+        const kimi_web_refresh = vi.fn().mockResolvedValue({ ok: true, tokens });
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-web", { kimi_web_refresh }),
+            "kimi-web",
+        );
+
+        expect(result).toEqual({ refreshed: true, credential_changed: true });
+        expect(kimi_web_refresh).toHaveBeenCalledWith("refresh-sentinel");
+        const saved = JSON.parse(secrets_store["kimi-web:SESSION_COOKIE"] ?? "{}") as Record<
+            string,
+            unknown
+        >;
+        expect(saved["cookie"]).toBe("kimi_session=new-cookie");
+        expect(saved["authorization"]).toBe(`Bearer ${tokens.access_token}`);
+        expect(saved["refresh_token"]).toBe("rotated-refresh");
+        expect(saved["session_id"]).toBe("session-sentinel");
+        expect(saved["device_id"]).toBe("device-sentinel");
+    });
+
+    it("t492 AC-001: partition 无 cookie 时 Kimi 仍能靠 refresh token 续期（cookie 保持原值）", async () => {
+        mock_cookie_get_result = [];
+        secrets_store["kimi-web:SESSION_COOKIE"] = JSON.stringify({
+            cookie: "stored-cookie=keep",
+            authorization: `Bearer ${make_jwt(seconds_from_now(-300))}`,
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+            refresh_token: "refresh-sentinel",
+        });
+        const kimi_web_refresh = vi.fn().mockResolvedValue({
+            ok: true,
+            tokens: {
+                access_token: make_jwt(seconds_from_now(900)),
+                refresh_token: "rotated-refresh",
+            },
+        });
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-web", { kimi_web_refresh }),
+            "kimi-web",
+        );
+
+        expect(result).toEqual({ refreshed: true, credential_changed: true });
+        const saved = JSON.parse(secrets_store["kimi-web:SESSION_COOKIE"] ?? "{}") as Record<
+            string,
+            unknown
+        >;
+        expect(saved["cookie"]).toBe("stored-cookie=keep");
+    });
+
+    it("t492 AC-002: refresh token 被拒时静默刷新不报成功，也不改凭据", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        const original = JSON.stringify({
+            cookie: "old-cookie=stale",
+            authorization: `Bearer ${make_jwt(seconds_from_now(-300))}`,
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+            refresh_token: "rejected-refresh",
+        });
+        secrets_store["kimi-web:SESSION_COOKIE"] = original;
+        const kimi_web_refresh = vi.fn().mockResolvedValue({
+            ok: false,
+            unauthenticated: true,
+            error: "kimi refresh rejected: unauthenticated",
+        });
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-web", { kimi_web_refresh }),
+            "kimi-web",
+        );
+
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
+        expect(secrets_store["kimi-web:SESSION_COOKIE"]).toBe(original);
+    });
+
+    it("t492 AC-002: 无 refresh token 的旧凭据在 Bearer 过期时不报成功", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        const original = JSON.stringify({
+            cookie: "old-cookie=stale",
+            authorization: `Bearer ${make_jwt(seconds_from_now(-60))}`,
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+        });
+        secrets_store["kimi-legacy:SESSION_COOKIE"] = original;
+        const kimi_web_refresh = vi.fn();
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-legacy", { kimi_web_refresh }),
+            "kimi-legacy",
+        );
+
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
+        expect(kimi_web_refresh).not.toHaveBeenCalled();
+        expect(secrets_store["kimi-legacy:SESSION_COOKIE"]).toBe(original);
+    });
+
+    it("t492: 无 refresh token 但 Bearer 仍有效时只更新 cookie，且不报成换到新凭据", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        secrets_store["kimi-legacy:SESSION_COOKIE"] = JSON.stringify({
+            cookie: "old-cookie=stale",
+            authorization: `Bearer ${make_jwt(seconds_from_now(600))}`,
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+        });
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(kimi_deps("kimi-legacy"), "kimi-legacy");
+
+        // cookie 变了但 Bearer 没变：刷新服务不应据此判定重登成功（AC-003）。
+        expect(result).toEqual({ refreshed: true, credential_changed: false });
+        const saved = JSON.parse(secrets_store["kimi-legacy:SESSION_COOKIE"] ?? "{}") as Record<
+            string,
+            unknown
+        >;
+        expect(saved["cookie"]).toBe("kimi_session=new-cookie");
+        expect(saved["session_id"]).toBe("session-sentinel");
+        expect(saved["device_id"]).toBe("device-sentinel");
+    });
+
+    it("t492 AC-002: Bearer 字段缺失时静默刷新不报成功", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        const original = JSON.stringify({
+            cookie: "old-cookie=stale",
+            session_id: "session-sentinel",
+            device_id: "device-sentinel",
+        });
+        secrets_store["kimi-missing-bearer:SESSION_COOKIE"] = original;
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-missing-bearer"),
+            "kimi-missing-bearer",
+        );
+
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
+        expect(secrets_store["kimi-missing-bearer:SESSION_COOKIE"]).toBe(original);
+    });
+
+    it("t492: 非 JSON 的旧凭据（纯 cookie 字符串）不报成功也不被覆盖", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+        const original = "legacy-cookie-only";
+        secrets_store["kimi-non-json:SESSION_COOKIE"] = original;
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(
+            kimi_deps("kimi-non-json"),
+            "kimi-non-json",
+        );
+
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
+        expect(secrets_store["kimi-non-json:SESSION_COOKIE"]).toBe(original);
+    });
+
+    it("t492: 实例没有任何 kimi 凭据时不报成功也不写入", async () => {
+        mock_cookie_get_result = [{ name: "kimi_session", value: "new-cookie" }];
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.trySilentCookieRefresh(kimi_deps("kimi-absent"), "kimi-absent");
+
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
+        expect(secrets_store["kimi-absent:SESSION_COOKIE"]).toBeUndefined();
+    });
+
     it("uses instance-scoped partition persist:session-login:<instance_id>", async () => {
         mock_cookie_get_result = [
             { name: "my_custom_cookie", value: "val_abc" },
@@ -559,131 +802,13 @@ describe("trySilentCookieRefresh", () => {
         };
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
-        const ok = await mod.trySilentCookieRefresh(deps, "silent-test-1");
+        const result = await mod.trySilentCookieRefresh(deps, "silent-test-1");
 
-        expect(ok).toBe(true);
+        expect(result).toEqual({ refreshed: true, credential_changed: true });
         expect(mock_partitions).toEqual(["persist:session-login:silent-test-1"]);
         expect(secrets_store["silent-test-1:SESSION_COOKIE"]).toBe(
             "my_custom_cookie=val_abc; another_custom=val_xyz",
         );
-    });
-
-    it("t469 AC-001/002: wildcard Kimi refresh keeps Bearer and device fields", async () => {
-        mock_cookie_get_result = [
-            { name: "kimi_session", value: "new-cookie" },
-            { name: "device_cookie", value: "device-value" },
-        ];
-        const kimi_definition: ConnectorDefinition = {
-            directory: "connectors/kimi_web",
-            executablePath: "connectors/kimi_web",
-            manifest: {
-                id: "kimi_web",
-                provider: "kimi_web",
-                capabilities: ["session"],
-                parameters: [],
-                cookieNames: ["*"],
-            },
-        };
-        const existing = JSON.stringify({
-            cookie: "old-cookie=stale",
-            authorization: "Bearer token-sentinel",
-            session_id: "session-sentinel",
-            device_id: "device-sentinel",
-        });
-        secrets_store["kimi-web:SESSION_COOKIE"] = existing;
-        const deps = {
-            configStore: {
-                load: vi.fn().mockResolvedValue({
-                    schemaVersion: 1,
-                    language: "zh-Hans",
-                    plugins: [
-                        {
-                            instanceId: "kimi-web",
-                            stateId: "kimi-web",
-                            name: "Kimi Web",
-                            enabled: true,
-                            executablePath: kimi_definition.executablePath,
-                            refreshIntervalSeconds: 300,
-                            parameterValues: {},
-                            endpointOverrides: {},
-                        },
-                    ],
-                    launchAtLogin: false,
-                }),
-            },
-            secretsStore: {
-                set: vi.fn((_key: string, value: string) => {
-                    secrets_store[_key] = value;
-                    return Promise.resolve();
-                }),
-                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
-            },
-            definitions: [kimi_definition],
-            sessionManager: { start_login: vi.fn() },
-        };
-
-        const mod = await import("../../../src/main/ipc/auth-ipc");
-        await expect(
-            mod.trySilentCookieRefresh(deps as unknown as AuthIpcDeps, "kimi-web"),
-        ).resolves.toBe(true);
-        expect(JSON.parse(secrets_store["kimi-web:SESSION_COOKIE"] ?? "{}")).toEqual({
-            cookie: "kimi_session=new-cookie; device_cookie=device-value",
-            authorization: "Bearer token-sentinel",
-            session_id: "session-sentinel",
-            device_id: "device-sentinel",
-        });
-        expect(deps.sessionManager.start_login).not.toHaveBeenCalled();
-    });
-
-    it("t469 AC-003: Kimi refresh without Bearer falls back instead of overwriting secret", async () => {
-        mock_cookie_get_result = [{ name: "kimi_session", value: "cookie-value" }];
-        const kimi_definition: ConnectorDefinition = {
-            directory: "connectors/kimi_web",
-            executablePath: "connectors/kimi_web",
-            manifest: {
-                id: "kimi_web",
-                provider: "kimi_web",
-                capabilities: ["session"],
-                parameters: [],
-                cookieNames: ["*"],
-            },
-        };
-        const old_secret = "legacy-cookie-only";
-        secrets_store["kimi-legacy:SESSION_COOKIE"] = old_secret;
-        const deps = {
-            configStore: {
-                load: vi.fn().mockResolvedValue({
-                    schemaVersion: 1,
-                    language: "zh-Hans",
-                    plugins: [
-                        {
-                            instanceId: "kimi-legacy",
-                            stateId: "kimi-legacy",
-                            name: "Kimi Web",
-                            enabled: true,
-                            executablePath: kimi_definition.executablePath,
-                            refreshIntervalSeconds: 300,
-                            parameterValues: {},
-                            endpointOverrides: {},
-                        },
-                    ],
-                    launchAtLogin: false,
-                }),
-            },
-            secretsStore: {
-                set: vi.fn(),
-                get: vi.fn((key: string) => Promise.resolve(secrets_store[key] ?? null)),
-            },
-            definitions: [kimi_definition],
-            sessionManager: { start_login: vi.fn() },
-        };
-
-        const mod = await import("../../../src/main/ipc/auth-ipc");
-        await expect(
-            mod.trySilentCookieRefresh(deps as unknown as AuthIpcDeps, "kimi-legacy"),
-        ).resolves.toBe(false);
-        expect(deps.secretsStore.set).not.toHaveBeenCalled();
-        expect(secrets_store["kimi-legacy:SESSION_COOKIE"]).toBe(old_secret);
     });
 
     it("returns false when manifest declares no cookieNames (P1-4)", async () => {
@@ -738,8 +863,8 @@ describe("trySilentCookieRefresh", () => {
         };
 
         const mod = await import("../../../src/main/ipc/auth-ipc");
-        const ok = await mod.trySilentCookieRefresh(deps, "no-cookies-test-1");
+        const result = await mod.trySilentCookieRefresh(deps, "no-cookies-test-1");
 
-        expect(ok).toBe(false);
+        expect(result).toEqual({ refreshed: false, credential_changed: false });
     });
 });

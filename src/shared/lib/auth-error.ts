@@ -23,3 +23,14 @@ export function is_auth_error(message: string): boolean {
         lower.includes("密钥")
     );
 }
+
+/** 凭证失效类错误的统一用户文案（t492 AC-006）。 */
+export const AUTH_ERROR_DISPLAY_TEXT = "凭证失效，请重新登录";
+
+/**
+ * 用户可见错误文案：凭证失效类不暴露内部细节（HTTP 状态码、字节数等），
+ * 其余错误原样透出，便于用户与支持判断问题。
+ */
+export function auth_error_display_text(message: string): string {
+    return is_auth_error(message) ? AUTH_ERROR_DISPLAY_TEXT : message;
+}

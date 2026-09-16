@@ -200,6 +200,29 @@ describe("ProviderCard - states", () => {
         expect(screen.queryByLabelText("展开")).not.toBeInTheDocument();
     });
 
+    // t492 AC-006：凭证失效时用户可见文案统一，不暴露 HTTP 状态码；重新登录入口保留。
+    it("t492 AC-006: auth failure with cached usage shows the re-login entry, never the raw error", () => {
+        const onReLogin = vi.fn();
+        render(
+            <ProviderCard
+                provider="kimi_web"
+                group={makeGroup()}
+                connectorError={{
+                    displayName: "Kimi Web",
+                    error: "HTTP 401: request failed (371 bytes)",
+                    instanceIds: ["kimi-web-1"],
+                }}
+                onReLogin={onReLogin}
+            />,
+        );
+
+        expect(screen.getByText("凭证失效，请重新登录")).toBeInTheDocument();
+        expect(screen.queryByText(/HTTP 401/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/request failed/)).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText("重新登录"));
+        expect(onReLogin).toHaveBeenCalledWith("kimi_web", "kimi-web-1");
+    });
+
     it("shows the error banner alongside cached usage when a connector failed but has data (has_stale_error)", () => {
         render(
             <ProviderCard

@@ -20,6 +20,11 @@ export interface SessionWindow {
     close(): void;
     isDestroyed(): boolean;
     on(event: "closed", listener: () => void): this;
+    /**
+     * t492: 读取登录窗页面的 localStorage。kimi_web 用它取 refresh token
+     * （SPA 把 refresh_token 写在 localStorage，见 d060）。缺省表示宿主不支持。
+     */
+    read_local_storage?(key: string): Promise<string | null>;
 }
 
 export interface SessionController {
@@ -111,6 +116,8 @@ export function create_session_manager(
             let captured_authorization: string | null = null;
             let captured_session_id: string | null = null;
             let captured_device_id: string | null = null;
+            let captured_refresh_token: string | null = null;
+            let refresh_token_read: Promise<void> | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
             let auto_close_timer: ReturnType<typeof setTimeout> | null = null;
             let completed = false;
@@ -129,6 +136,39 @@ export function create_session_manager(
 
                 function release_lock(): void {
                     in_progress.delete(login_id);
+                }
+
+                /**
+                 * t492: kimi_web 的续期材料（refresh token）只在页面 localStorage。
+                 * 窗口关掉后 `executeJavaScript` 必然失败，因此只能在页面活跃时读取；
+                 * 已有值或读取在途时跳过，读到空值则允许下次请求再试。
+                 */
+                function capture_refresh_token(): void {
+                    if (
+                        !window.read_local_storage ||
+                        captured_refresh_token ||
+                        refresh_token_read
+                    ) {
+                        return;
+                    }
+                    refresh_token_read = (async () => {
+                        try {
+                            const value = await window.read_local_storage?.("refresh_token");
+                            if (typeof value === "string" && value.trim()) {
+                                captured_refresh_token = value.trim();
+                            }
+                        } catch (error) {
+                            // 窗口可能在读取途中被销毁：不阻塞登录（缺 refresh token
+                            // 的凭据仍可用到 Bearer 过期，由静默刷新兜底）。
+                            log.warn(
+                                `Kimi refresh token unavailable for ${login_id}: ${
+                                    error instanceof Error ? error.message : String(error)
+                                }`,
+                            );
+                        } finally {
+                            refresh_token_read = null;
+                        }
+                    })();
                 }
 
                 function finish_with_error(error: Error): void {
@@ -173,6 +213,14 @@ export function create_session_manager(
                             }
                         }
 
+                        // t492: refresh token 只在页面 localStorage，而窗口 close 后
+                        // executeJavaScript 已不可用——读取必须在页面仍存活时发起
+                        // （见 on_before_send_headers 的 capture_refresh_token）；
+                        // 这里只等待在途读取落定。
+                        if (refresh_token_read) {
+                            await refresh_token_read.catch(() => undefined);
+                        }
+
                         const saved_secret =
                             request.provider === "kimi_web"
                                 ? JSON.stringify({
@@ -180,6 +228,7 @@ export function create_session_manager(
                                       authorization: captured_authorization,
                                       session_id: captured_session_id,
                                       device_id: captured_device_id,
+                                      refresh_token: captured_refresh_token,
                                   })
                                 : captured_cookie;
                         if (!instance_id) {
@@ -211,6 +260,7 @@ export function create_session_manager(
                         captured_authorization = null;
                         captured_session_id = null;
                         captured_device_id = null;
+                        captured_refresh_token = null;
                         release_lock();
                     }
                 }
@@ -240,10 +290,15 @@ export function create_session_manager(
                         ? select_cookie_header_values(cookie, request.cookie_names)
                         : null;
                     if (request.provider === "kimi_web") {
-                        captured_authorization =
+                        const authorization =
                             details.requestHeaders["authorization"] ??
-                            details.requestHeaders["Authorization"] ??
-                            captured_authorization;
+                            details.requestHeaders["Authorization"];
+                        if (authorization) {
+                            captured_authorization = authorization;
+                            // 带 Bearer 的请求意味着 SPA 已把令牌写进 localStorage（它先
+                            // 存后用），此时窗口仍存活，是唯一可靠的读取时机。
+                            capture_refresh_token();
+                        }
                         captured_session_id =
                             details.requestHeaders["x-msh-session-id"] ?? captured_session_id;
                         captured_device_id =
@@ -252,8 +307,6 @@ export function create_session_manager(
                     if (selected_cookie) {
                         log.info(`Cookie captured for ${login_id}`);
                         captured_cookie = selected_cookie;
-                        if (request.provider === "kimi_web") {
-                        }
                         if (request.auto_close_ms != null) {
                             auto_close_timer ??= setTimeout(() => {
                                 auto_close_timer = null;

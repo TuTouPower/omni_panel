@@ -679,7 +679,7 @@ return [{
         await vault.set("mimo-1:SESSION_COOKIE", "expired");
         const sessionLogin = vi.fn().mockImplementation(async () => {
             await vault.set("mimo-1:SESSION_COOKIE", "valid");
-            return { saved: true };
+            return { saved: true, credential_changed: true };
         });
         const service = createRefreshService({
             definitions: [
@@ -977,7 +977,7 @@ return [{
         await vault.set("mimo-1:SESSION_COOKIE", "expired");
         const sessionLogin = vi.fn().mockImplementation(async () => {
             await vault.set("mimo-1:SESSION_COOKIE", "valid");
-            return { saved: true };
+            return { saved: true, credential_changed: true };
         });
         const service = createRefreshService({
             definitions: [
@@ -1019,6 +1019,189 @@ return [{
             if (state.status === "ready") {
                 expect(state.items).toHaveLength(1);
                 expect(state.items[0]?.used).toBe(50);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    // t492 AC-003：重登「成功」但凭据没变（例如 kimi_web 静默刷新只重读 cookie
+    // 却保留过期 Bearer）时必须判失败，不得用同一份失效凭据空转重试一次。
+    it("t492 AC-003: credential-unchanged re-login is not counted as success and is not retried", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "session-relogin-unchanged-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 401: request failed");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("mimo-1:SESSION_COOKIE", "stale-credential");
+        const sessionLogin = vi.fn().mockImplementation(() => {
+            // 静默刷新完成，但写回的凭据与原来一致（例如只有 cookie 被重读、
+            // Bearer 仍是过期值）。
+            return Promise.resolve({ saved: true, credential_changed: false });
+        });
+        const credentials_used: string[] = [];
+        const execute_connector = vi.fn(
+            async (_cfg: unknown, _def: unknown, exec_vault: VaultBackend) => {
+                credentials_used.push((await exec_vault.get("mimo-1:SESSION_COOKIE")) ?? "");
+                throw new Error("HTTP 401: request failed");
+            },
+        );
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: make_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("mimo-1"),
+                    manifestId: "mimo",
+                    executablePath: tempDir,
+                    name: "MiMo",
+                },
+            ]),
+            vault,
+            sessionLogin,
+            execute_connector,
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledTimes(1);
+            // 只采集 1 次：没有拿未变的凭据重试。
+            expect(credentials_used).toEqual(["stale-credential"]);
+            const state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    // t492 AC-001：Bearer 过期（401）→ 静默续期换到新 Bearer → 重试成功产出观测，
+    // 全程无需用户手动重登。
+    it("t492 AC-001: refreshed credential is used for the retry and collection succeeds", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "kimi-refresh-retry-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 401: request failed");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("kimi-web-1:SESSION_COOKIE", JSON.stringify({ authorization: "stale" }));
+        const sessionLogin = vi.fn().mockImplementation(async () => {
+            // 模拟 trySilentCookieRefresh 的 kimi_web 分支：refresh token 换到新 Bearer。
+            await vault.set(
+                "kimi-web-1:SESSION_COOKIE",
+                JSON.stringify({ authorization: "fresh-bearer" }),
+            );
+            return { saved: true, credential_changed: true };
+        });
+        const credentials_used: string[] = [];
+        const execute_connector = vi.fn(
+            async (_cfg: unknown, _def: unknown, exec_vault: VaultBackend) => {
+                const credential = (await exec_vault.get("kimi-web-1:SESSION_COOKIE")) ?? "";
+                credentials_used.push(credential);
+                if (credential.includes("stale")) {
+                    throw new Error("HTTP 401: request failed");
+                }
+                return {
+                    observations: [
+                        {
+                            provider: "kimi_web",
+                            account_id: "kimi-web",
+                            account_label: "Kimi Web",
+                            metric_id: "kimi_web:five_hour",
+                            raw_label: "five_hour",
+                            normalized_label: "5小时",
+                            window: "second",
+                            cycleDurationMs: 18_000_000,
+                            used: 0.2,
+                            limit: 1,
+                            display_style: "ratio",
+                            reset_at: null,
+                            status: "normal",
+                            observed_at: 1_780_000_000_000,
+                            source: "session",
+                            stale: false,
+                            last_error: null,
+                            source_instance_id: "kimi-web-1",
+                        },
+                    ],
+                    failed_accounts: [],
+                };
+            },
+        );
+        const observationStore = make_store();
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "kimi_web",
+                        provider: "kimi_web",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://www.kimi.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("kimi-web-1"),
+                    manifestId: "kimi_web",
+                    executablePath: tempDir,
+                    name: "Kimi Web",
+                },
+            ]),
+            vault,
+            sessionLogin,
+            execute_connector: execute_connector as never,
+        });
+
+        try {
+            await service.refresh("kimi-web-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledTimes(1);
+            // 两次采集用的凭据不同：第二次是续期后的新 Bearer。
+            expect(credentials_used).toHaveLength(2);
+            expect(credentials_used[0]).toContain("stale");
+            expect(credentials_used[1]).toContain("fresh-bearer");
+            const state = runtimeStore.getSnapshot("kimi-web-1");
+            expect(state.status).toBe("ready");
+            if (state.status === "ready") {
+                expect(state.items).toHaveLength(1);
             }
         } finally {
             await rm(tempDir, { recursive: true, force: true });
