@@ -55,7 +55,7 @@ kimi_web 网页连接器的认证凭证是 15 分钟寿命的 Bearer JWT（`exp-
 - AC-003：不可自动测试，同上；替代验证为否定判据的逐条证据。
 - AC-004：不可自动测试，同上。
 - AC-005：不可自动测试，同上；替代验证为长时空闲实测记录（须写明观测时长与观测方式）。
-- AC-006：可自动测试——对入库产物做凭据形态扫描（JWT 结构、cookie 名值、session/device id 特征）并断言零命中。
+- AC-006：可自动测试——`docs/spikes/s039_kimi_web_bearer_mint_probe/code/scan_credentials.mjs` 对入库产物做凭据形态扫描（JWT 结构、cookie 名值、`Bearer` 头、`x-msh-*` id 特征）并断言零命中（零命中退出码 0）；抓包原值销毁记录见该 spike 报告「凭据销毁」小节。
 
 ## 上下文区
 
@@ -80,7 +80,8 @@ kimi_web 网页连接器的认证凭证是 15 分钟寿命的 Bearer JWT（`exp-
 
 <!-- /规范 -->
 
-- kimi 网页端的新 Bearer 下发/续期接口：`UNVERIFIED-SPIKE`，本 task 即该验证；结论与验证方式写入 `docs/findings/` 后替换本行。
+- kimi 网页端的新 Bearer 下发/续期接口：**已验证**（2026-09-15 真实账号在线实测 + 离线最小请求复现）。结论：`GetLoginQRCodeStatus` 响应下行 `accessToken`(900s)+`refreshToken`(90 天)；续期端点为 `POST https://auth.kimi.com/api/account.gateway.v1.AuthService/RefreshToken`（ConnectRPC JSON，最小请求仅需 `content-type: application/json` + `{"refreshToken":"..."}`，无需 cookie/`x-msh-*`/`Origin`），200 返回 `{accessToken, refreshToken}` 且 refreshToken 轮换；quota 口只认 Bearer。证据与脚本见 `docs/spikes/s039_kimi_web_bearer_mint_probe/`，可复用结论见 `docs/findings/d060_kimi_web_bearer_http_refresh.md`。
+- 登录窗口取得 refreshToken 的方式（现有捕获只拿请求头 Bearer）：**已验证**（2026-09-15）。主进程 `webContents.executeJavaScript` 在应用同款 webPreferences（`contextIsolation: true` / `nodeIntegration: false` / `sandbox: true`）下能读到页面 localStorage；而 kimi SPA 把 `refresh_token` 写在 localStorage 并以此续期（本 spike 第 3、5 节实测）。证据：`docs/spikes/s039_kimi_web_bearer_mint_probe/code/login_storage_probe.cjs`。
 
 ### 风险与回退
 

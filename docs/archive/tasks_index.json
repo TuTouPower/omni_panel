@@ -7794,6 +7794,22 @@
             "conflicts_with": "",
             "note": "来源 p233：新增 commandcode 连接器(poll)、添加账号与官方 ⌘ 图标",
             "dir": "docs/archive/tasks/t489_commandcode_balance_connector_and_official_icon"
+        },
+        {
+            "tid": "t491",
+            "slug": "kimi_web_bearer_mint_spike",
+            "title": "Kimi 网页 Bearer 续期口验证：是否存在 HTTP mint 通道",
+            "status": "done",
+            "branch": "t491_kimi_web_bearer_mint_spike",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "91c6b73e2a75cfdbbae893084378bddf27a0890e",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p235；验证网页端是否存在 cookie/会话→新 Bearer 的 HTTP 接口（QR-status 下发或 auth.kimi.com refresh），给出可复用 kimi_oauth_manager 续期的结论或回落 token pump 的依据",
+            "dir": "docs/archive/tasks/t491_kimi_web_bearer_mint_spike"
         }
     ]
 }
