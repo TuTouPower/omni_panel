@@ -189,6 +189,34 @@ describe("dev panel model routing", () => {
     // p242: new-api（rc.36）的 Channel 结构里 id/status 是 JSON number（`Id int`、
     // `Status int`，1=启用 2=手动禁用 3=自动禁用），models 是逗号分隔字符串。
     // 只认字符串会把每个渠道判空丢弃、把禁用渠道当成启用。
+    it("模型条目内嵌的 alias 也进入别名表，顶层 aliases 同键优先", async () => {
+        const fixture = await make_fixture();
+        await writeFile(
+            fixture.config_path,
+            [
+                'base_url: "http://127.0.0.1:19999"',
+                "session: secret-session-value",
+                "aliases:",
+                "  glm-5.3-flash:",
+                "    - top-level-alias",
+                "models:",
+                "  - name: glm-5.3-flash",
+                "    alias: standard-glm",
+                "  - name: deepseek-v4-flash",
+                "    alias: ds-flash",
+                "  - name: gpt-5.6-luna",
+            ].join("\n"),
+        );
+        const manager = create_dev_panel_model_routing_manager({ ...fixture });
+
+        const config = await manager.get_config();
+        expect(config.models).toEqual(["glm-5.3-flash", "deepseek-v4-flash", "gpt-5.6-luna"]);
+        expect(config.aliases).toEqual({
+            "glm-5.3-flash": ["top-level-alias"],
+            "deepseek-v4-flash": ["ds-flash"],
+        });
+    });
+
     it("p242: 解析 new-api 真实响应形状（数字 id/status），禁用态不被当成启用", async () => {
         const fixture = await make_fixture();
         const manager = create_dev_panel_model_routing_manager({

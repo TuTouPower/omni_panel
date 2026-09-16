@@ -196,10 +196,9 @@ function parse_yaml(text: string): unknown {
                 const key = item.slice(0, separator).trim();
                 const raw = item.slice(separator + 1).trim();
                 object[key] = raw.length > 0 ? scalar_value(raw) : {};
-                const child = object[key];
-                if (child && typeof child === "object" && !Array.isArray(child)) {
-                    stack.push({ indent, value: object });
-                }
+                // 列表项的后续键（更深缩进）要落进这个对象：`- name: x` 之后
+                // 的 `alias:`/`context:` 等同级键曾整行被丢弃（父级是数组）。
+                stack.push({ indent, value: object });
             } else {
                 parent.push(scalar_value(item));
             }
@@ -518,9 +517,15 @@ async function load_external_config(
         base_url,
         session_token,
         models,
-        aliases: parse_aliases(
-            source["aliases"] ?? source["model_aliases"] ?? source["modelAliases"],
-        ),
+        // 别名有两个来源：模型条目内嵌的 `alias`（本机 yaml 就是这么写的）与顶层
+        // `aliases:` 映射；同键时顶层优先。只读顶层会让「渠道用别名指向预设模型」
+        // 的匹配失效，面板会误判该模型不存在。
+        aliases: {
+            ...parse_aliases(source["models"]),
+            ...parse_aliases(
+                source["aliases"] ?? source["model_aliases"] ?? source["modelAliases"],
+            ),
+        },
         expanded_slots: expand_slots(settings_text),
         settings_present,
         test_path,
