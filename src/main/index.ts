@@ -419,6 +419,7 @@ void app.whenReady().then(async () => {
                 const result = await handleCookieLogin(
                     { configStore, secretsStore, definitions: allDefinitions, sessionManager },
                     instanceId,
+                    { auto: true },
                 );
                 if (!result.ok) throw new Error(result.error.message);
                 // 交互式登录拿到的是全新凭据，视为已更换。

@@ -316,6 +316,89 @@ describe("session-manager", () => {
         });
     });
 
+    // p239: 自动重登（close_when_credential_refreshed）下，窗口何时关取决于页面
+    // 是否真的换到了新 Bearer——无人值守不能等用户关窗（120s 超时会丢凭据），
+    // 会话失效时必须留着窗口让用户扫码。
+    it("p239: 自动重登捕获到不同的 Bearer 即关窗并落库", async () => {
+        const deps = create_deps();
+        await deps.vault.set(
+            "kimi-web-auto-1:SESSION_COOKIE",
+            JSON.stringify({ authorization: "Bearer stale-token" }),
+        );
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "kimi-web-auto-1",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+            close_when_credential_refreshed: true,
+        });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+            Authorization: "Bearer fresh-token",
+        });
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        expect(deps.window.closed).toBe(true);
+        const saved = await deps.vault.get("kimi-web-auto-1:SESSION_COOKIE");
+        expect(JSON.parse(saved ?? "{}")).toMatchObject({
+            authorization: "Bearer fresh-token",
+            cookie: "kimi_session=abc",
+        });
+    });
+
+    it("p239: 自动重登捕获的 Bearer 与已存凭据相同则保持窗口打开（等用户扫码）", async () => {
+        const deps = create_deps();
+        await deps.vault.set(
+            "kimi-web-auto-2:SESSION_COOKIE",
+            JSON.stringify({ authorization: "Bearer stale-token" }),
+        );
+        const manager = create_session_manager(deps, { timeout_ms: 60_000 });
+
+        const promise = manager.start_login({
+            instance_id: "kimi-web-auto-2",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+            close_when_credential_refreshed: true,
+        });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+            Authorization: "Bearer stale-token",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(deps.window.closed).toBe(false);
+        deps.window.close();
+        await expect(promise).resolves.toEqual({ saved: true });
+    });
+
+    it("p239: 手动登录（无该标志）即使用户换到新 Bearer 也不自动关窗", async () => {
+        const deps = create_deps();
+        await deps.vault.set(
+            "kimi-web-manual-1:SESSION_COOKIE",
+            JSON.stringify({ authorization: "Bearer stale-token" }),
+        );
+        const manager = create_session_manager(deps, { timeout_ms: 60_000 });
+
+        const promise = manager.start_login({
+            instance_id: "kimi-web-manual-1",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+        });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+            Authorization: "Bearer fresh-token",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(deps.window.closed).toBe(false);
+        deps.window.close();
+        await expect(promise).resolves.toEqual({ saved: true });
+    });
+
     it("t492: 非 kimi_web 登录不读取页面 localStorage（凭据仍是纯 cookie）", async () => {
         const deps = create_deps();
         const manager = create_session_manager(deps);

@@ -57,6 +57,13 @@ export interface LoginRequest {
     readonly login_url: string;
     readonly cookie_names: readonly string[];
     readonly auto_close_ms?: number;
+    /**
+     * p239: 捕获到的 Bearer 与已存凭据不同（页面确实换到了新令牌）时立即关窗。
+     * 供**自动**重登使用：无人值守下不能等用户关窗（120s 超时会丢弃已捕获凭据），
+     * 但也不能按固定时延关——会话已失效时页面要先让用户扫码，过早关窗会存下旧 Bearer。
+     * 手动登录不传此标志（t464：登录窗留给用户手动关闭）。
+     */
+    readonly close_when_credential_refreshed?: boolean;
 }
 
 export interface LoginResult {
@@ -169,6 +176,54 @@ export function create_session_manager(
                             refresh_token_read = null;
                         }
                     })();
+                }
+
+                /**
+                 * p239: 自动重登时，只有页面确实换到了**不同**的 Bearer 才关窗——说明
+                 * SPA 用有效 cookie 自愈了，随后的保存/重试立刻可用。若 Bearer 与已存
+                 * 凭据相同（会话已失效，页面在等用户扫码），保持窗口打开；读凭据失败
+                 * 同样不关，交回用户或 120s 超时。
+                 */
+                let credential_compare: Promise<void> | null = null;
+
+                function stored_authorization(): Promise<string | null> {
+                    if (!instance_id) return Promise.resolve(null);
+                    return deps.vault.get(keyFor(instance_id, SESSION_COOKIE_KEY)).then((raw) => {
+                        if (raw === null) return null;
+                        try {
+                            const parsed = JSON.parse(raw) as { authorization?: unknown };
+                            return typeof parsed.authorization === "string"
+                                ? parsed.authorization
+                                : null;
+                        } catch {
+                            return null;
+                        }
+                    });
+                }
+
+                function close_when_credential_refreshed(authorization: string): void {
+                    if (credential_compare) return;
+                    credential_compare = stored_authorization()
+                        .then((stored) => {
+                            if (completed || window.isDestroyed()) return;
+                            // 无 cookie 时关窗会让保存走 no_cookie 分支，白丢一次捕获。
+                            if (!captured_cookie || stored === null || stored === authorization)
+                                return;
+                            log.info(
+                                `New credential captured for ${login_id}, closing login window`,
+                            );
+                            window.close();
+                        })
+                        .catch((error: unknown) => {
+                            log.warn(
+                                `Stored credential unreadable for ${login_id}: ${
+                                    error instanceof Error ? error.message : String(error)
+                                }`,
+                            );
+                        })
+                        .finally(() => {
+                            credential_compare = null;
+                        });
                 }
 
                 function finish_with_error(error: Error): void {
@@ -298,6 +353,9 @@ export function create_session_manager(
                             // 带 Bearer 的请求意味着 SPA 已把令牌写进 localStorage（它先
                             // 存后用），此时窗口仍存活，是唯一可靠的读取时机。
                             capture_refresh_token();
+                            if (request.close_when_credential_refreshed) {
+                                close_when_credential_refreshed(authorization);
+                            }
                         }
                         captured_session_id =
                             details.requestHeaders["x-msh-session-id"] ?? captured_session_id;

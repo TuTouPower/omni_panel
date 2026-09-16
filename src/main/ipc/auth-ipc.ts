@@ -108,6 +108,7 @@ function update_cookie_login_state(
 export async function handleCookieLogin(
     deps: AuthIpcDeps,
     instanceId: string,
+    options: { auto?: boolean } = {},
 ): Promise<IpcResult<{ saved: boolean; reason?: "invalid_cookie" | "no_cookie" }>> {
     const config = await deps.configStore.load();
     const plugin = config.plugins.find((p) => p.instanceId === instanceId);
@@ -138,14 +139,22 @@ export async function handleCookieLogin(
     }
 
     try {
-        // p239/t464: kimi_web 的续期材料由登录页在存活期间写入会话，不能按 1.5s 自动关窗。
-        const auto_close_ms = login_auto_close_ms(def.manifest.provider);
+        const provider = def.manifest.provider;
+        // p239/t464: kimi_web 的续期材料由登录页在存活期间写入会话，不能按 1.5s 定时关窗。
+        const auto_close_ms = login_auto_close_ms(provider);
+        // 自动重登（refresh-service 触发）不允许无人值守下等满 120s 超时丢凭据，
+        // 改为「捕获到新 Bearer 即关窗」；手动登录仍由用户关窗（t464）。
+        const close_when_credential_refreshed =
+            provider === "kimi_web" && options.auto === true ? true : undefined;
         const result = await deps.sessionManager.start_login({
             instance_id: instanceId,
-            provider: def.manifest.provider,
+            provider,
             login_url: loginUrl,
             cookie_names,
             ...(auto_close_ms === undefined ? {} : { auto_close_ms }),
+            ...(close_when_credential_refreshed === undefined
+                ? {}
+                : { close_when_credential_refreshed }),
         });
         return ok(result);
     } catch (err: unknown) {

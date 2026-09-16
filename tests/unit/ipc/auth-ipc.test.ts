@@ -174,12 +174,13 @@ describe("handleCookieLogin", () => {
 
     // p239：kimi_web 的续期材料由登录页在存活期间写入，自动关窗会让捕获落在错误时刻；
     // 渲染层（WebLoginSection）自 t464 起即不传 auto_close_ms，此处对齐同一条规则。
-    it("p239: kimi_web 不传 auto_close_ms，登录窗保持打开待用户关闭", async () => {
+    it("p239: kimi_web 自动重登不传 auto_close_ms，改为「捕获到新凭据即关窗」", async () => {
         const sm = create_mock_session_manager({ saved: true });
         const mod = await import("../../../src/main/ipc/auth-ipc");
         const result = await mod.handleCookieLogin(
             build_deps("kimi-web-1", sm, kimi_web_definition),
             "kimi-web-1",
+            { auto: true },
         );
 
         expect(result.ok).toBe(true);
@@ -189,8 +190,22 @@ describe("handleCookieLogin", () => {
             provider: "kimi_web",
             login_url: "https://www.kimi.com/settings/subscription?tab=quota",
             cookie_names: ["*"],
+            close_when_credential_refreshed: true,
         });
         expect(sm.calls[0]).not.toHaveProperty("auto_close_ms");
+    });
+
+    it("p239: kimi_web 手动登录不设任何自动关窗（窗口留给用户）", async () => {
+        const sm = create_mock_session_manager({ saved: true });
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.handleCookieLogin(
+            build_deps("kimi-web-2", sm, kimi_web_definition),
+            "kimi-web-2",
+        );
+
+        expect(result.ok).toBe(true);
+        expect(sm.calls[0]).not.toHaveProperty("auto_close_ms");
+        expect(sm.calls[0]).not.toHaveProperty("close_when_credential_refreshed");
     });
 
     it("returns the result from sessionManager.start_login", async () => {
