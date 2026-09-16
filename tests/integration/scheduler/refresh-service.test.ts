@@ -414,6 +414,46 @@ describe("refresh-service", () => {
         }
     });
 
+    it("p241: 缺必填配置只尝试一次，warn 给出可操作文案而非 error 级重试噪音", async () => {
+        const previous_level = getLogLevel();
+        const log_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, module, message) {
+                if (module === "refresh-service") log_messages.push(message);
+            },
+        });
+        setLogLevel("debug");
+        const { tempDir, service, runtimeStore } = await create_service([
+            plugin_config_no_secret("deepseek-1"),
+        ]);
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            // 不做无意义重试：缺配置不会在重试窗口内自愈。
+            expect(
+                log_messages.filter((m) => m.includes("attempt") && m.includes("failed")),
+            ).toHaveLength(0);
+            expect(
+                log_messages.some(
+                    (m) =>
+                        m.includes("is not configured") &&
+                        m.includes("缺少必填配置") &&
+                        m.includes("DeepSeek"),
+                ),
+            ).toBe(true);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+            if (state.status !== "failed") throw new Error("expected failed state");
+            expect(state.error).toContain("缺少必填配置");
+            expect(state.error).toContain("API_KEY");
+        } finally {
+            remove_transport();
+            setLogLevel(previous_level);
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("ignores Grok billing endpoint overrides before attaching the bearer token", async () => {
         const temp_dir = await mkdtemp(join(tmpdir(), "grok-endpoint-policy-test-"));
         const requests = { official: 0, attacker: 0 };

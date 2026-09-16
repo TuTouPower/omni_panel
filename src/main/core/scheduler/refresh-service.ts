@@ -111,6 +111,20 @@ const script_cache = create_script_cache();
 
 const build_params_log = createLogger("refresh-service");
 
+/**
+ * p241: 必填 secret 未配置（既无 vault 条目、也无 parameterValues/default）。
+ * 属配置缺口而非采集故障：调用方据此跳过重试并给出可操作文案。
+ */
+export class MissingRequiredSecretError extends Error {
+    readonly param_name: string;
+
+    constructor(account_name: string, param_name: string, label: string) {
+        super(`账号「${account_name}」缺少必填配置：${label}（在设置中填入后即可采集）`);
+        this.name = "MissingRequiredSecretError";
+        this.param_name = param_name;
+    }
+}
+
 async function build_params(
     connector_config: ConnectorConfiguration,
     definition: ConnectorDefinition,
@@ -145,8 +159,15 @@ async function build_params(
         // usually returns a misleading 401/403 instead of a clear "missing
         // secret" error. Optional secrets with no value are allowed through as
         // empty strings — some connectors have genuinely optional auth.
+        //
+        // p241: 这是配置缺口而非采集故障——带类型抛出，调用方据此不再做无意义重试，
+        // 并给出可操作中文文案（英文内部串对用户不可用）。
         if (param.required) {
-            throw new Error(`Missing required secret: ${param.name}`);
+            throw new MissingRequiredSecretError(
+                connector_config.name,
+                param.name,
+                param["label@zh-Hans"] ?? param.label ?? param.name,
+            );
         }
         params[param.name] = "";
     }
@@ -420,6 +441,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     return;
                 } catch (error: unknown) {
                     last_error = error instanceof Error ? error.message : String(error);
+                    // p241: 缺必填配置不会因重试而消失——warn 一次并立即放弃，
+                    // 避免每轮 3 次无意义重试与 error 级噪音。
+                    if (error instanceof MissingRequiredSecretError) {
+                        trace_log.warn(
+                            `Connector ${instanceId} (${connector_config.name}) is not configured: ${last_error}`,
+                        );
+                        break;
+                    }
                     trace_log.error(
                         `Connector ${instanceId} (${connector_config.name}) attempt ${String(attempt + 1)}/${String(max_attempts)} failed: ${last_error}`,
                     );
