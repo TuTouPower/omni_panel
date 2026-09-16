@@ -792,9 +792,12 @@ export function create_dev_panel_model_routing_manager(
                 if (!Number.isInteger(channel_id)) {
                     throw new Error(`渠道 ID 不是整数：${draft.channel.id}`);
                 }
+                // p242: `models` 是**逗号串**（new-api `Channel.Models` 为 string，
+                // `GetModels()` 即 `strings.Split(Models, ",")`；面板原先进 JSON 数组串
+                // 会被当成一个畸形模型名写库）。`model_mapping` 才是 JSON 字符串。
                 const response = await transport.put("/api/channel/", {
                     id: channel_id,
-                    models: JSON.stringify(draft.models),
+                    models: draft.models.join(","),
                     model_mapping: JSON.stringify(draft.mapping),
                     ...(draft.priority === null ? {} : { priority: draft.priority }),
                 });

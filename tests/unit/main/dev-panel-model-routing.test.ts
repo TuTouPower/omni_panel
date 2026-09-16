@@ -157,7 +157,8 @@ describe("dev panel model routing", () => {
         const supported = writes.find((write) => write.id === 201);
         const duplicate = writes.find((write) => write.id === 202);
         const unsupported = writes.find((write) => write.id === 203);
-        expect(JSON.parse(String(supported?.body["models"]))).toEqual([
+        // p242: models 必须是逗号串（new-api 侧 `strings.Split(Models, ",")`）。
+        expect(String(supported?.body["models"]).split(",")).toEqual([
             "claude-sonnet",
             "claude-opus",
             "default_model",
@@ -168,7 +169,7 @@ describe("dev panel model routing", () => {
         });
         expect(supported?.body["priority"]).toBe(1);
         expect(duplicate?.body["priority"]).toBe(2);
-        expect(JSON.parse(String(unsupported?.body["models"]))).toEqual(["claude-sonnet"]);
+        expect(String(unsupported?.body["models"])).toBe("claude-sonnet");
         expect(JSON.parse(String(unsupported?.body["model_mapping"]))).toEqual({
             other_slot: "claude-sonnet",
         });
@@ -316,7 +317,8 @@ describe("dev panel model routing", () => {
         expect(put_calls.map((call) => call.path)).toEqual(["/api/channel/", "/api/channel/"]);
         expect(put_calls[0]?.body["id"]).toBe(101);
         expect(put_calls[1]?.body["id"]).toBe(102);
-        expect(JSON.parse(String(put_calls[0]?.body["models"]))).toContain("default_model");
+        expect(String(put_calls[0]?.body["models"])).toContain("default_model");
+        expect(String(put_calls[0]?.body["models"]).startsWith("[")).toBe(false);
         expect(String(put_calls[0]?.body["model_mapping"])).not.toContain("secret-session-value");
         const snapshot = JSON.parse(await readFile(fixture.snapshot_path, "utf8")) as Record<
             string,
