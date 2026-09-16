@@ -47,7 +47,11 @@ export interface SessionManagerDeps {
      * 生效（on_before_send_headers），返回 false 时判定登录无效、不落库。缺省跳过。
      */
     readonly verify_cookie?: (cookie: string, login_url: string) => Promise<boolean>;
-    create_window(partition: string): SessionWindow;
+    /**
+     * p240: `hidden` 用于**自动**重登——不弹屏也能让页面继续发请求（宿主需关闭
+     * 后台节流），从而不再周期性闪窗；手动登录仍显示窗口。
+     */
+    create_window(partition: string, options?: { hidden?: boolean }): SessionWindow;
     create_session(partition: string): SessionController;
 }
 
@@ -64,6 +68,10 @@ export interface LoginRequest {
      * 手动登录不传此标志（t464：登录窗留给用户手动关闭）。
      */
     readonly close_when_credential_refreshed?: boolean;
+    /**
+     * p240: 不显示登录窗（自动重登用）。页面照常加载并发请求，捕获逻辑不变。
+     */
+    readonly hidden?: boolean;
 }
 
 export interface LoginResult {
@@ -114,7 +122,9 @@ export function create_session_manager(
             const partition = instance_id
                 ? get_session_login_partition(instance_id)
                 : `session-login:${login_id}`;
-            const window = deps.create_window(partition);
+            const window = deps.create_window(partition, {
+                ...(request.hidden === true ? { hidden: true } : {}),
+            });
             const session = deps.create_session(partition);
             const is_wildcard_login = request.cookie_names.includes(ALL_COOKIES);
             let wildcard_left_login_origin = false;

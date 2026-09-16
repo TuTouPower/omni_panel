@@ -146,6 +146,9 @@ export async function handleCookieLogin(
         // 改为「捕获到新 Bearer 即关窗」；手动登录仍由用户关窗（t464）。
         const close_when_credential_refreshed =
             provider === "kimi_web" && options.auto === true ? true : undefined;
+        // p240: 自动重登不弹屏（kimi_web 的 Bearer 15 分钟一过期，闪窗会周期性出现）；
+        // 手动登录仍显示窗口。
+        const hidden = provider === "kimi_web" && options.auto === true ? true : undefined;
         const result = await deps.sessionManager.start_login({
             instance_id: instanceId,
             provider,
@@ -155,6 +158,7 @@ export async function handleCookieLogin(
             ...(close_when_credential_refreshed === undefined
                 ? {}
                 : { close_when_credential_refreshed }),
+            ...(hidden === undefined ? {} : { hidden }),
         });
         return ok(result);
     } catch (err: unknown) {

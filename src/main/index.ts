@@ -720,17 +720,21 @@ void app.whenReady().then(async () => {
                     return false;
                 }
             },
-            create_window: (partition) => {
+            create_window: (partition, options) => {
+                // p240: 自动重登用隐藏窗——页面照常发请求（关掉后台节流，否则 Chromium
+                // 会推迟 SPA 的令牌刷新），但不闪屏。
+                const hidden = options?.hidden === true;
                 const window = new BrowserWindow({
                     width: 520,
                     height: 720,
                     // t280: headless 下登录窗不弹屏。
-                    show: !is_e2e_headless(),
+                    show: !is_e2e_headless() && !hidden,
                     webPreferences: {
                         contextIsolation: true,
                         nodeIntegration: false,
                         sandbox: true,
                         partition,
+                        ...(hidden ? { backgroundThrottling: false } : {}),
                     },
                 });
                 return Object.assign(window, {

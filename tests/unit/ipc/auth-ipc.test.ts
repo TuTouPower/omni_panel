@@ -191,6 +191,7 @@ describe("handleCookieLogin", () => {
             login_url: "https://www.kimi.com/settings/subscription?tab=quota",
             cookie_names: ["*"],
             close_when_credential_refreshed: true,
+            hidden: true,
         });
         expect(sm.calls[0]).not.toHaveProperty("auto_close_ms");
     });
@@ -206,6 +207,7 @@ describe("handleCookieLogin", () => {
         expect(result.ok).toBe(true);
         expect(sm.calls[0]).not.toHaveProperty("auto_close_ms");
         expect(sm.calls[0]).not.toHaveProperty("close_when_credential_refreshed");
+        expect(sm.calls[0]).not.toHaveProperty("hidden");
     });
 
     it("returns the result from sessionManager.start_login", async () => {

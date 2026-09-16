@@ -90,6 +90,8 @@ interface TestDeps extends SessionManagerDeps {
     readonly window: MockWindow;
     readonly partitions: string[];
     readonly cookie_urls: string[];
+    /** p240: create_window 收到的选项（hidden 用于自动重登）。 */
+    readonly window_options: { hidden?: boolean }[];
     /** 注入的 cookie 有效性探测（t337）。 */
     readonly verify_cookie: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
     emit_before_send_headers(
@@ -103,6 +105,7 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
     const window = new MockWindow();
     const partitions: string[] = [];
     const cookie_urls: string[] = [];
+    const window_options: { hidden?: boolean }[] = [];
     let before_send_headers:
         | ((details: {
               url: string;
@@ -115,10 +118,12 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
         window,
         partitions,
         cookie_urls,
+        window_options,
         vault: create_vault(),
         verify_cookie: vi.fn().mockResolvedValue(true),
-        create_window(partition: string) {
+        create_window(partition: string, options?: { hidden?: boolean }) {
             partitions.push(`window:${partition}`);
+            window_options.push(options ?? {});
             return window;
         },
         create_session(partition: string) {
@@ -372,6 +377,38 @@ describe("session-manager", () => {
         expect(deps.window.closed).toBe(false);
         deps.window.close();
         await expect(promise).resolves.toEqual({ saved: true });
+    });
+
+    it("p240: 自动重登请求隐藏窗口，手动登录仍显示窗口", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const auto_promise = manager.start_login({
+            instance_id: "kimi-web-hidden-1",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+            hidden: true,
+        });
+        expect(deps.window_options[0]).toEqual({ hidden: true });
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+        });
+        deps.window.close();
+        await expect(auto_promise).resolves.toEqual({ saved: true });
+
+        const manual_promise = manager.start_login({
+            instance_id: "kimi-web-hidden-2",
+            provider: "kimi_web",
+            login_url: "https://www.kimi.com/settings/subscription?tab=quota",
+            cookie_names: ["*"],
+        });
+        expect(deps.window_options[1]).toEqual({});
+        deps.emit_before_send_headers("https://www.kimi.com/apiv2/UserService/GetCurrentUser", {
+            Cookie: "kimi_session=abc",
+        });
+        deps.window.close();
+        await expect(manual_promise).resolves.toEqual({ saved: true });
     });
 
     it("p239: 手动登录（无该标志）即使用户换到新 Bearer 也不自动关窗", async () => {
