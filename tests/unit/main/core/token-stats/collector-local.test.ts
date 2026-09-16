@@ -141,16 +141,16 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
         }
     });
 
-    it("t309: marks unreachable wsl sources unavailable on a non-Windows host", () => {
+    // t487 起 WSL 五源仅在 Windows 宿主挂载：非 Windows 宿主编不再产出任何 wsl 源条目，
+    // 也不再报 `unavailable: wsl data requires a windows host`（原 t309 期望的「5 条
+    // unavailable」语义已废弃，兄弟用例 collector.test.ts 已同步，本文件在 p238 补齐）。
+    it("t487 AC-001 & AC-002: 非 Windows 宿主编不含任何 wsl 源条目，也无 wsl 报错", () => {
         // t309_code_f001: 显式注入 host，避免 CI 矩阵 Windows job 上
         // process.platform 推导为 windows 导致 host 过滤分支不执行而挂。
         set_collector_host("linux");
         const home = fs.mkdtempSync(path.join(os.tmpdir(), "ts-collector-local-"));
         try {
             homedir_mock.dir = home;
-            // No wsl data present anywhere; on this host the wsl sources are
-            // host-filtered (declarative hosts list), never read, and reported
-            // unavailable with a reason instead of failing silently.
             configure({ ...base_config, wsl_enabled: true });
 
             const update = mock_post_message.mock.calls
@@ -173,18 +173,14 @@ describe("collector on a non-Windows host (t308 AC-001)", () => {
             expect(update.sessions).toEqual([]);
             expect(update.records).toEqual([]);
             const wsl_statuses = update.sources_status.filter((s) => s.env === "wsl");
-            expect(wsl_statuses).toHaveLength(5);
-            expect(wsl_statuses.every((s) => s.status === "unavailable")).toBe(true);
-            // AC-003: each host-filtered wsl source emits a warn log carrying the
-            // reason (the missing costs.jsonl also warns — filter to wsl ones).
+            expect(wsl_statuses).toHaveLength(0);
+            // AC-002: 不再产生跨平台的 wsl unavailable 噪音。
             const wsl_warns = mock_post_message.mock.calls.filter(
                 (c) =>
                     (c[0] as { type?: string }).type === "collector_log" &&
-                    (c[0] as { message: string }).message.includes(
-                        "unavailable: wsl data requires a windows host",
-                    ),
+                    (c[0] as { message: string }).message.includes("wsl"),
             );
-            expect(wsl_warns).toHaveLength(5);
+            expect(wsl_warns).toHaveLength(0);
         } finally {
             fs.rmSync(home, { recursive: true, force: true });
         }
