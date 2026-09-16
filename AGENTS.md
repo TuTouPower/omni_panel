@@ -50,6 +50,7 @@
 - specs driven：需求拆分为可独立验证的 task，填写 `spec.md`（契约区行为 AC 须非空）；版本号、底层库选型、目录结构不写进行为 AC，需要长期约束的写 `docs/blueprint/decisions.md`。
 - TDD：可测部分先红后绿；测试须触达生产逻辑。实现变更让旧测试语义失效时，新增覆盖新语义的测试；旧测试原样保留或整体删除并写明理由，**禁止就地把旧测试的预期改成当前实现的输出**。
 - 用户未明确允许或者不在 skill 流程时，绝不准手动直接更改未被 gitignore 的代码文件。
+- 测试按 `docs/blueprint/testing.md`「用户干扰分级」执行：会弹窗/抢焦点/或用 `package`/`reload` 重启用户正在用的 app 的命令（`test:e2e:electron`、`test:packaged`、`package`、`reload`、`start`、`test:contract:live`）**必须先取得用户明确许可**，不得自行触发；无窗口的（`pnpm test`、`typecheck`、`lint`、`format:check`、headless e2e 变体）可直接跑。
 - 主仓负责 task 创建、从主干或上一 task 分支启动 worktree、task commit 后清理 worktree、整批最终合并（派生 index 随同一 merge commit 入库）；除非用户明确允许否则不在主仓直接 `task-run`。
 - `start` 无绕过参数；只能从干净主仓默认分支调用。首 task 基于本地主干，后续 task 基于上一已完成且已清理 worktree 的 task 分支；批次执行期间允许 main 并行推进，链与 main 的对齐在合并阶段处理。
 - task 状态读取优先级：登记 worktree -> 未合并 task 分支链尾 ref -> main。批次期间 main 中 task 状态可能滞后；`list/show/preflight --ref` 用于只读分支快照，不能据 main 旧 backlog 重复 start 或维护。
