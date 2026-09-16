@@ -13,3 +13,4 @@
 - 未验证项：`[deploy]` 端到端读写需有效系统令牌（本机 yaml 令牌已被拒），且 PUT 会改动用户真实路由，agent 不宜自行施加。
 - 线索：`.scratch/probe_new_api2.mjs`（只读探针，不打印令牌）；`.scratch/new-api-1.0.0-rc.36/`（源码副本：`model/channel.go`、`controller/channel.go`、`router/channel-router.go`、`common/page_info.go`、`docs/authentication.md`）。
 - 处理：main-direct-fix
+- 实测补充（2026-09-17，用户提供有效访问令牌后）：用该令牌对真实部署跑面板读路径（临时配置 + `create_dev_panel_model_routing_manager`，探针 `.scratch/probe_dev_panel_read.ts`）→ `get_config()` 正常，`get_channels()` 返回 **13 条渠道**，数字 `id`（39/38/6/66/72…）、`status` 2/3 判为禁用、`priority`、逗号分隔 `models` 全部解析正确 → **读路径在真实数据上验证通过**。写路径（`PUT /api/channel/`）仍未实测：需对某条真实渠道做一次回写，未获授权执行。
