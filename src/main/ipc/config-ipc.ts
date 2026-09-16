@@ -400,11 +400,6 @@ export interface ConfigExportOptions {
     readonly includeSecrets?: boolean;
 }
 
-export interface ConfigImportOptions {
-    /** Web callers cannot show the desktop endpoint-overrides confirmation dialog. */
-    readonly allowEndpointOverrides?: boolean;
-}
-
 function transfer_deps(deps: ConfigIpcDeps): ConfigTransferDeps {
     const snapshot_path =
         deps.vaultSnapshotPath ??
@@ -453,36 +448,8 @@ function is_record(value: unknown): value is Record<string, unknown> {
 export async function handleConfigImportData(
     deps: ConfigIpcDeps,
     raw: unknown,
-    options: ConfigImportOptions = {},
 ): Promise<IpcResult<{ imported: boolean; skipped: readonly unknown[] }>> {
     try {
-        if (
-            options.allowEndpointOverrides === false &&
-            is_record(raw) &&
-            raw["formatVersion"] === 2 &&
-            is_record(raw["config"])
-        ) {
-            const parsed = appConfigurationSchema.safeParse(raw["config"]);
-            if (
-                parsed.success &&
-                parsed.data.plugins.some(
-                    (plugin) => Object.keys(plugin.endpointOverrides).length > 0,
-                )
-            ) {
-                return fail(
-                    "VALIDATION_ERROR",
-                    "Web 导入不接受自定义端点覆盖，请在桌面版确认后导入",
-                );
-            }
-        }
-        if (
-            options.allowEndpointOverrides === false &&
-            is_record(raw) &&
-            raw["formatVersion"] === 2 &&
-            !is_record(raw["config"])
-        ) {
-            return fail("VALIDATION_ERROR", "导入文件缺少配置数据");
-        }
         const result = await import_config(transfer_deps(deps), raw);
         deps.onConfigSaved?.(result.config);
         deps.onConfigImported?.(result.config);
@@ -499,12 +466,14 @@ export async function handleConfigImportData(
 
 export async function handleConfigExport(
     deps: ConfigIpcDeps,
+    options: ConfigExportOptions = {},
 ): Promise<IpcResult<{ saved: boolean }>> {
     try {
         const { dialog, app } = await import("electron");
+        // t490: 桌面导出与 LocalAPI/CLI 同规范——默认不含明文密钥，仅在显式勾选时写入 secrets。
         const data = await export_config(transfer_deps(deps), {
             appVersion: app.getVersion(),
-            includeSecrets: true,
+            includeSecrets: options.includeSecrets === true,
         });
 
         const { filePath, canceled } = await dialog.showSaveDialog({
@@ -648,9 +617,13 @@ export async function registerConfigIpc(deps: ConfigIpcDeps): Promise<void> {
             return handleConfigCreateInstance(deps, manifestId);
         });
     });
-    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e) => {
+    ipcMain.handle(IPC_CHANNELS.CONFIG_EXPORT, (e, rawOptions: unknown) => {
         assert_valid_sender(e);
-        return logged(IPC_CHANNELS.CONFIG_EXPORT, [], () => handleConfigExport(deps));
+        // t490: 渲染层传 { includeSecrets }；非对象入参一律按默认（不含密钥）处理。
+        const options: ConfigExportOptions = is_record(rawOptions)
+            ? { includeSecrets: rawOptions["includeSecrets"] === true }
+            : {};
+        return logged(IPC_CHANNELS.CONFIG_EXPORT, [], () => handleConfigExport(deps, options));
     });
     ipcMain.handle(IPC_CHANNELS.CONFIG_IMPORT, (e) => {
         assert_valid_sender(e);

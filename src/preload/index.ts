@@ -368,12 +368,12 @@ const config_full = {
             IPC_CHANNELS.CONFIG_CREATE_INSTANCE,
             manifestId,
         ),
-    export: (options?: ConfigExportOptions) => {
-        void options;
-        return invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
+    export: (options?: ConfigExportOptions) =>
+        invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["export"]>>>(
             IPC_CHANNELS.CONFIG_EXPORT,
-        );
-    },
+            // t490: 桌面端与 Web 端一致地透传 { includeSecrets }，不再丢弃入参。
+            options ?? null,
+        ),
     import: () =>
         invoke<UnwrapPromise<ReturnType<UsageboardApi["config"]["import"]>>>(
             IPC_CHANNELS.CONFIG_IMPORT,

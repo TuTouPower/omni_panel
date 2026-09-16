@@ -33,7 +33,6 @@ import { AboutSection } from "./settings-view/sections/about_section";
 import { AccountsSection } from "./settings-view/sections/accounts_section";
 import { AppearanceSection } from "./settings-view/sections/appearance_section";
 import { DataSection } from "./settings-view/sections/data_section";
-import { is_web } from "../lib/is-web";
 import { GeneralSection } from "./settings-view/sections/general_section";
 
 /* ── types ── */
@@ -244,7 +243,6 @@ export function SettingsView() {
     });
     const [dataMsg, setDataMsg] = useState<string | null>(null);
     const [include_secrets, set_include_secrets] = useState(false);
-    const web_mode = is_web();
     const data_msg_timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Clear any pending data-msg timer on unmount so it can't fire setDataMsg
@@ -261,9 +259,11 @@ export function SettingsView() {
 
     const handleExport = useCallback(async () => {
         try {
-            const { saved } = await window.usageboard.config.export(
-                web_mode ? { includeSecrets: include_secrets } : undefined,
-            );
+            // t490: 桌面端与 Web 端一致——统一把「包含明文密钥」勾选状态交给后端，
+            // 由导出实现决定是否写入 secrets（默认不含）。
+            const { saved } = await window.usageboard.config.export({
+                includeSecrets: include_secrets,
+            });
             setDataMsg(saved ? "设置已导出" : null);
         } catch {
             setDataMsg("导出失败");
@@ -272,7 +272,7 @@ export function SettingsView() {
         data_msg_timer.current = setTimeout(() => {
             setDataMsg(null);
         }, 2000);
-    }, [include_secrets, web_mode]);
+    }, [include_secrets]);
 
     const handleExportLogs = useCallback(async () => {
         try {
@@ -525,7 +525,6 @@ export function SettingsView() {
                                 handle_export_logs={handleExportLogs}
                                 handle_import={handleImport}
                                 save_config={save_config}
-                                show_secret_option={web_mode}
                                 include_secrets={include_secrets}
                                 on_include_secrets_change={set_include_secrets}
                             />

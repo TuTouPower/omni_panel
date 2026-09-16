@@ -2,22 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t490",
-            "slug": "settings_data_import_export_unify",
-            "title": "设置页数据导入导出桌面端与Web端一致性对齐",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "来源 p234；统一两端数据导出明文密钥选项、文案、IPC透传及导入端点校验",
-            "dir": "docs/tasks/t490_settings_data_import_export_unify"
-        }
-    ]
+    "tasks": []
 }

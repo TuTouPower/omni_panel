@@ -29,7 +29,7 @@ Web bridge 将响应下载为 `omni-panel-config-YYYY-MM-DD.json`。设置页默
 
 `POST /v1/config/import` 接受原生 `AppConfiguration`，也接受 `formatVersion: 1` 的桌面导出包装格式。合法导入写入配置；包含 secret 的导入将 secret 转存 vault，规范 `config.json` 仍只保留非 secret 参数。
 
-Web 导入在保存配置或密钥前拒绝未知 connector 路径和非空 `endpointOverrides`。坏 JSON、schema 不符、JSON `null` 以及不支持的包装版本返回 4xx 可读错误，且不破坏已有配置。取消文件选择器不发起请求并正常结束导入操作。
+Web 导入在保存配置或密钥前拒绝未知 connector 路径；`endpointOverrides` 与桌面端同行为——不再因来源是 Web 而单独拒绝（t490，对齐 t473 同权限基线）。坏 JSON、schema 不符、JSON `null` 以及不支持的包装版本返回 4xx 可读错误，且不破坏已有配置。取消文件选择器不发起请求并正常结束导入操作。
 
 ## 4. 配置与主题事件
 

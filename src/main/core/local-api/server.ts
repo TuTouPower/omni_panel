@@ -1731,12 +1731,9 @@ export function create_local_api_server(
         if (url.pathname === "/v1/config/import" && req.method === "POST") {
             const parsed = await read_json_body(req, res);
             if (!parsed.ok) return true;
-            send_result(
-                res,
-                await handleConfigImportData(deps, parsed.value, {
-                    allowEndpointOverrides: false,
-                }),
-            );
+            // t490: 与桌面端同权限同行为（t473 基线）——不再针对 Web 来源单独拒绝
+            // 端点覆盖，导入校验完全交给 canonical v2 导入实现。
+            send_result(res, await handleConfigImportData(deps, parsed.value));
             return true;
         }
         if (url.pathname === "/v1/config") {

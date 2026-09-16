@@ -492,7 +492,9 @@ describe("config-ipc", () => {
         expect(added?.stateId).not.toBe("claude");
     });
 
-    it("handleConfigExport writes canonical v2 JSON with plaintext secrets", async () => {
+    // t490 AC-004：桌面导出与 LocalAPI/CLI 同规范——默认不含密钥，仅在显式勾选时写入。
+    // 原用例断言「桌面导出无条件包含明文密钥」，正是本 task 要消除的行为，故整体替换。
+    it("handleConfigExport writes canonical v2 JSON without secrets by default", async () => {
         const { dialog } = await import("electron");
         const exportPath = await tempFile("export.json");
         vi.mocked(dialog).showSaveDialog.mockResolvedValue({
@@ -507,11 +509,75 @@ describe("config-ipc", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.data.saved).toBe(true);
-        expect(deps.secretsStore.exportAll).toHaveBeenCalled();
+        expect(deps.secretsStore.exportAll).not.toHaveBeenCalled();
         const parsed = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
         expect(parsed["formatVersion"]).toBe(2);
         expect(parsed["config"]).toBeDefined();
+        expect(parsed["secrets"]).toBeUndefined();
+    });
+
+    it("handleConfigExport includes secrets only when includeSecrets is true", async () => {
+        const { dialog } = await import("electron");
+        const exportPath = await tempFile("export-with-secrets.json");
+        vi.mocked(dialog).showSaveDialog.mockResolvedValue({
+            canceled: false,
+            filePath: exportPath,
+        });
+
+        const deps = createMockDeps();
+        const { handleConfigExport } = await import("../../../src/main/ipc/config-ipc");
+        const result = await handleConfigExport(deps, { includeSecrets: true });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(deps.secretsStore.exportAll).toHaveBeenCalled();
+        const parsed = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
         expect(parsed["secrets"]).toEqual({ "claude:API_KEY": "sk-real" });
+    });
+
+    // t490 code review：CONFIG_EXPORT 通道的 rawOptions→options 桥接此前无覆盖——
+    // 三层各自有测，但把布尔映射写反仍会全绿，故经真实 handler 触发一次。
+    it("config:export IPC handler maps the raw options through to the export file", async () => {
+        const { dialog } = await import("electron");
+        const exportPath = await tempFile("export-channel.json");
+        vi.mocked(dialog).showSaveDialog.mockResolvedValue({
+            canceled: false,
+            filePath: exportPath,
+        });
+
+        const deps = createMockDeps();
+        const { registerConfigIpc } = await import("../../../src/main/ipc/config-ipc");
+        await registerConfigIpc(deps);
+
+        const handler = ipc_main_mock.handle.mock.calls.find(
+            ([channel]) => channel === "config:export",
+        )?.[1];
+        if (!handler) throw new Error("missing config:export handler");
+
+        const invoke_event = {
+            senderFrame: { url: "file:///D:/app/out/renderer/index.html#setting" },
+        } as Electron.IpcMainInvokeEvent;
+
+        // 渲染层勾选「包含明文密钥」→ 文件含 secrets。
+        await handler(invoke_event, { includeSecrets: true });
+        const with_secrets = JSON.parse(await readFile(exportPath, "utf8")) as Record<
+            string,
+            unknown
+        >;
+        expect(with_secrets["secrets"]).toEqual({ "claude:API_KEY": "sk-real" });
+
+        // 渲染层未勾选时发送的正是 { includeSecrets: false } → 文件不含 secrets。
+        await handler(invoke_event, { includeSecrets: false });
+        const unchecked = JSON.parse(await readFile(exportPath, "utf8")) as Record<string, unknown>;
+        expect(unchecked["secrets"]).toBeUndefined();
+
+        // 非对象入参（老 renderer / 误传）→ 保守按默认处理，不含 secrets。
+        await handler(invoke_event, null);
+        const without_secrets = JSON.parse(await readFile(exportPath, "utf8")) as Record<
+            string,
+            unknown
+        >;
+        expect(without_secrets["secrets"]).toBeUndefined();
     });
 
     it("handleConfigExport returns saved=false when dialog canceled", async () => {
@@ -1513,7 +1579,7 @@ describe("config-ipc", () => {
             });
         });
 
-        it("Web 导入拒绝自定义端点覆盖", async () => {
+        it("t490 AC-005: 导入含端点覆盖的配置不再被拒绝（与桌面端同行为）", async () => {
             const { handleConfigImportData } = await import("../../../src/main/ipc/config-ipc");
             const deps = createMockDeps();
             const loaded = (await deps.configStore.load()) as AppConfiguration;
@@ -1521,17 +1587,25 @@ describe("config-ipc", () => {
                 ...loaded,
                 plugins: loaded.plugins.map((plugin) => ({
                     ...plugin,
-                    endpointOverrides: { default: "https://untrusted.example" },
+                    endpointOverrides: { default: "https://self-hosted.example" },
                 })),
             };
 
-            const result = await handleConfigImportData(deps, incoming, {
-                allowEndpointOverrides: false,
+            const result = await handleConfigImportData(deps, {
+                formatVersion: 2,
+                exportedAt: "2026-05-31T00:00:00Z",
+                appVersion: "1.0.0",
+                config: incoming,
             });
 
-            expect(result.ok).toBe(false);
-            expect(deps.configStore.save).not.toHaveBeenCalled();
-            expect(deps.secretsStore.importAll).not.toHaveBeenCalled();
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            expect(result.data.imported).toBe(true);
+            const savedArgs = deps.configStore.save.mock.calls as [AppConfiguration][];
+            const saved = savedArgs.at(-1)?.[0];
+            expect(saved?.plugins[0]?.endpointOverrides).toEqual({
+                default: "https://self-hosted.example",
+            });
         });
     });
 });
