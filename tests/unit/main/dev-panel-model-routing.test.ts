@@ -273,6 +273,103 @@ describe("dev panel model routing", () => {
         });
     });
 
+    it("p244: 渠道接口 401 转成含配置路径的可操作文案，500 转成状态码文案", async () => {
+        const fixture = await make_fixture();
+        let status = 401;
+        const server = createServer((_request, response) => {
+            response.setHeader("content-type", "application/json");
+            response.statusCode = status;
+            response.end(
+                JSON.stringify({
+                    code: "AUTH_UNAUTHORIZED",
+                    message: "Unauthorized, invalid access token",
+                    success: false,
+                }),
+            );
+        });
+        await new Promise<void>((resolve) => {
+            server.listen(0, "127.0.0.1", resolve);
+        });
+        const address = server.address() as AddressInfo;
+        await writeFile(
+            fixture.config_path,
+            `base_url: http://127.0.0.1:${String(address.port)}\nsession: stale-token\nmodels:\n  - claude-sonnet\n`,
+        );
+        try {
+            const manager = create_dev_panel_model_routing_manager(fixture);
+            await expect(manager.get_channels()).rejects.toThrow(fixture.config_path);
+            await expect(manager.get_channels()).rejects.toThrow(/系统令牌/);
+            await expect(manager.get_channels()).rejects.not.toThrow(/stale-token/);
+
+            status = 500;
+            await expect(manager.get_channels()).rejects.toThrow("New API 请求失败（HTTP 500）");
+        } finally {
+            await new Promise<void>((resolve) =>
+                server.close(() => {
+                    resolve();
+                }),
+            );
+        }
+    });
+
+    it("p244: 自检 401 返回可操作文案，不再吞掉配置路径", async () => {
+        const fixture = await make_fixture();
+        const server = createServer((_request, response) => {
+            response.setHeader("content-type", "application/json");
+            response.statusCode = 401;
+            response.end(JSON.stringify({ success: false, message: "invalid access token" }));
+        });
+        await new Promise<void>((resolve) => {
+            server.listen(0, "127.0.0.1", resolve);
+        });
+        const address = server.address() as AddressInfo;
+        await writeFile(
+            fixture.config_path,
+            `base_url: http://127.0.0.1:${String(address.port)}\nsession: stale-token\nmodels:\n  - claude-sonnet\n`,
+        );
+        try {
+            const manager = create_dev_panel_model_routing_manager(fixture);
+            const result = await manager.test({ slot: "default_model", model: "claude-sonnet" });
+            expect(result.success).toBe(false);
+            expect(result.error).toContain(fixture.config_path);
+            expect(result.error).toContain("系统令牌");
+        } finally {
+            await new Promise<void>((resolve) =>
+                server.close(() => {
+                    resolve();
+                }),
+            );
+        }
+    });
+
+    it("p244: 快照损坏留 warn，快照缺失保持静默", async () => {
+        const fixture = await make_fixture();
+        const { addTransport } = await import("../../../src/shared/lib/logger");
+        const lines: string[] = [];
+        const remove_transport = addTransport({
+            write(level, module, message) {
+                lines.push(`${level}:${module}:${message}`);
+            },
+        });
+        try {
+            const missing = create_dev_panel_model_routing_manager(fixture);
+            await expect(missing.get_snapshot_info()).resolves.toBeNull();
+            expect(lines).toHaveLength(0);
+
+            await writeFile(fixture.snapshot_path, "{not json");
+            const corrupted = create_dev_panel_model_routing_manager(fixture);
+            await expect(corrupted.get_snapshot_info()).resolves.toBeNull();
+            expect(lines.some((line) => line.includes("snapshot unreadable"))).toBe(true);
+
+            await writeFile(fixture.snapshot_path, JSON.stringify({ info: { snapshot_id: "x" } }));
+            const malformed = create_dev_panel_model_routing_manager(fixture);
+            await expect(malformed.get_snapshot_info()).resolves.toBeNull();
+            expect(lines.some((line) => line.includes("snapshot shape invalid"))).toBe(true);
+        } finally {
+            remove_transport();
+        }
+    });
+
     it("uses the host HTTP transport for paginated channels and self-checks", async () => {
         const fixture = await make_fixture();
         let authorization = "";

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { request as undici_request } from "undici";
+import { createLogger } from "../../../shared/lib/logger";
 import { writeJsonAtomic } from "../storage/write-json";
 import {
     MODEL_ROUTING_SLOTS,
@@ -24,6 +25,19 @@ const DEFAULT_TEST_PATH = "/v1/chat/completions";
 const HTTP_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const SLOT_SET = new Set<string>(MODEL_ROUTING_SLOTS);
+
+const log = createLogger("dev-panel-model-routing");
+
+/** 携带 HTTP 状态码的 New API 传输错误：上层据此给出可操作文案（p244）。 */
+class NewApiRequestError extends Error {
+    readonly status: number;
+
+    constructor(status: number, message: string) {
+        super(message);
+        this.name = "NewApiRequestError";
+        this.status = status;
+    }
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -413,7 +427,10 @@ function create_transport(
                 }
             }
             if (response.statusCode < 200 || response.statusCode >= 300) {
-                throw new Error(`New API request failed (HTTP ${String(response.statusCode)})`);
+                throw new NewApiRequestError(
+                    response.statusCode,
+                    `New API request failed (HTTP ${String(response.statusCode)})`,
+                );
             }
             if (extract_success(payload) === false) {
                 throw new Error("New API rejected the request");
@@ -635,10 +652,21 @@ function to_snapshot(
     };
 }
 
-function public_error(error: unknown, fallback: string): string {
+/**
+ * 出站错误文案：只脱敏凭据本身（Bearer 值），保留配置路径等可操作信息——
+ * 原先「含 session/token 字样就整条替换」会连 `New API 配置缺少 models：<path>`
+ * 一起吃掉（p244）。鉴权失败单独给可操作指引，其它 HTTP 失败给状态码。
+ */
+function public_error(error: unknown, config_path: string, fallback: string): string {
+    if (error instanceof NewApiRequestError) {
+        if (error.status === 401 || error.status === 403) {
+            return `New API 鉴权失败（HTTP ${String(error.status)}）：请更新 ${config_path} 里的 session（需为控制台「个人设置 → 安全设置」的系统令牌）`;
+        }
+        return `New API 请求失败（HTTP ${String(error.status)}）`;
+    }
     if (!(error instanceof Error)) return fallback;
-    const message = error.message.replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
-    return message.includes("session") || message.includes("token") ? fallback : message;
+    const message = error.message.replace(/(Bearer)\s+\S+/gi, "$1 [redacted]");
+    return message.trim().length > 0 ? message : fallback;
 }
 
 export function create_dev_panel_model_routing_manager(
@@ -661,9 +689,19 @@ export function create_dev_panel_model_routing_manager(
         );
     }
 
+    async function fetch_channel_list(
+        transport: NewApiTransport,
+    ): Promise<DevPanelModelRoutingChannel[]> {
+        try {
+            return await fetch_channels(transport);
+        } catch (error: unknown) {
+            throw new Error(public_error(error, config_path, "New API 渠道读取失败"));
+        }
+    }
+
     async function get_channels(): Promise<DevPanelModelRoutingChannels> {
         const config = await load();
-        const channels = await fetch_channels(get_transport(config));
+        const channels = await fetch_channel_list(get_transport(config));
         return { fetched_at: new Date().toISOString(), channels };
     }
 
@@ -673,7 +711,7 @@ export function create_dev_panel_model_routing_manager(
         if (!request.confirmed) throw new Error("保存模型路由前需要确认");
         const config = await load();
         const transport = get_transport(config);
-        const channels = await fetch_channels(transport);
+        const channels = await fetch_channel_list(transport);
         const snapshot_info: DevPanelModelRoutingSnapshotInfo = {
             snapshot_id: randomUUID(),
             created_at: new Date().toISOString(),
@@ -750,7 +788,7 @@ export function create_dev_panel_model_routing_manager(
                     removed_models: draft.removed_models,
                     mapping_changes: draft.mapping_changes,
                     priority_changed: draft.priority_changed,
-                    error: public_error(error, "渠道写入失败"),
+                    error: public_error(error, config_path, "渠道写入失败"),
                 });
             }
         }
@@ -787,23 +825,38 @@ export function create_dev_panel_model_routing_manager(
                 throw new Error("New API rejected the self-check");
             return { success: true, model_name: extract_model_name(response), error: null };
         } catch (error: unknown) {
-            return { success: false, model_name: null, error: public_error(error, "模型自检失败") };
+            return {
+                success: false,
+                model_name: null,
+                error: public_error(error, config_path, "模型自检失败"),
+            };
         }
     }
 
     async function get_snapshot_info(): Promise<DevPanelModelRoutingSnapshotInfo | null> {
         if (last_snapshot) return last_snapshot.info;
+        let raw: unknown;
         try {
-            const raw = JSON.parse(await readFile(snapshot_path, "utf8")) as unknown;
-            const info = as_record(as_record(raw)["info"]);
-            const snapshot_id = string_value(info["snapshot_id"]);
-            const created_at = string_value(info["created_at"]);
-            const channel_count = info["channel_count"];
-            if (!snapshot_id || !created_at || typeof channel_count !== "number") return null;
-            return { snapshot_id, created_at, channel_count };
-        } catch {
+            raw = JSON.parse(await readFile(snapshot_path, "utf8")) as unknown;
+        } catch (error: unknown) {
+            // p244: 文件不存在是正常状态（从未保存过），其余（权限/损坏 JSON）必须留痕，
+            // 否则与「无快照」同形。
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+                log.warn(`Model routing snapshot unreadable: ${snapshot_path}`, {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
             return null;
         }
+        const info = as_record(as_record(raw)["info"]);
+        const snapshot_id = string_value(info["snapshot_id"]);
+        const created_at = string_value(info["created_at"]);
+        const channel_count = info["channel_count"];
+        if (!snapshot_id || !created_at || typeof channel_count !== "number") {
+            log.warn(`Model routing snapshot shape invalid: ${snapshot_path}`);
+            return null;
+        }
+        return { snapshot_id, created_at, channel_count };
     }
 
     return {
