@@ -362,7 +362,7 @@ describe("dev panel model routing", () => {
         try {
             const manager = create_dev_panel_model_routing_manager(fixture);
             await expect(manager.get_channels()).rejects.toThrow(fixture.config_path);
-            await expect(manager.get_channels()).rejects.toThrow(/系统令牌/);
+            await expect(manager.get_channels()).rejects.toThrow(/session 未通过服务端校验/);
             await expect(manager.get_channels()).rejects.not.toThrow(/stale-token/);
 
             status = 500;
@@ -396,7 +396,7 @@ describe("dev panel model routing", () => {
             const result = await manager.test({ slot: "default_model", model: "claude-sonnet" });
             expect(result.success).toBe(false);
             expect(result.error).toContain(fixture.config_path);
-            expect(result.error).toContain("系统令牌");
+            expect(result.error).toContain("鉴权失败");
         } finally {
             await new Promise<void>((resolve) =>
                 server.close(() => {

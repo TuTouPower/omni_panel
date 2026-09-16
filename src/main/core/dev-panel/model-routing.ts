@@ -681,7 +681,7 @@ function to_snapshot(
 function public_error(error: unknown, config_path: string, fallback: string): string {
     if (error instanceof NewApiRequestError) {
         if (error.status === 401 || error.status === 403) {
-            return `New API 鉴权失败（HTTP ${String(error.status)}）：请更新 ${config_path} 里的 session（需为控制台「个人设置 → 安全设置」的系统令牌）`;
+            return `New API 鉴权失败（HTTP ${String(error.status)}）：${config_path} 里的 session 未通过服务端校验，请更新后重试`;
         }
         return `New API 请求失败（HTTP ${String(error.status)}）`;
     }
