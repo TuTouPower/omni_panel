@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
+import { resolve_electron_binary } from "../fixtures/electron_binary";
+import { canonical_config_document } from "../fixtures/config_transfer";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { get as httpGet, request as httpRequest } from "node:http";
 import { join, resolve } from "node:path";
@@ -7,7 +9,7 @@ import { tmpdir } from "node:os";
 
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
-const ELECTRON = resolve(ROOT, "node_modules/electron/dist/electron");
+const ELECTRON = resolve_electron_binary();
 
 function httpJson(url: string, timeout = 2000): Promise<{ status: number; body: unknown }> {
     return new Promise((resolveResult, reject) => {
@@ -83,14 +85,17 @@ async function launchCliWithConfig(): Promise<{
     const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-flow-"));
     const importDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-flow-import-"));
     const importFile = join(importDir, "import.json");
+    // --config 只接受 canonical v2 信封（裸 AppConfiguration 会被判「不支持的导入文件版本」）
     writeFileSync(
         importFile,
-        JSON.stringify({
-            schemaVersion: 1,
-            language: "zh-Hans",
-            plugins: [],
-            launchAtLogin: false,
-        }),
+        JSON.stringify(
+            canonical_config_document({
+                schemaVersion: 1,
+                language: "zh-Hans",
+                plugins: [],
+                launchAtLogin: false,
+            }),
+        ),
     );
 
     let stdout = "";
@@ -228,7 +233,18 @@ test.describe("CLI 全栈 e2e（t280 AC3）", () => {
             ).setFiles({
                 name: "schema-invalid.json",
                 mimeType: "application/json",
-                buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, launchAtLogin: "wrong" })),
+                // 信封合法（canonical v2）、内层 config schema 无效 → 触发「配置格式无效」
+                // 而非「不支持的导入文件版本」（后者要求裸/旧版本文件）。
+                buffer: Buffer.from(
+                    JSON.stringify(
+                        canonical_config_document({
+                            schemaVersion: 1,
+                            language: "zh-Hans",
+                            plugins: [],
+                            launchAtLogin: "wrong",
+                        }),
+                    ),
+                ),
             });
 
             await expect(import_button).toHaveText("失败");

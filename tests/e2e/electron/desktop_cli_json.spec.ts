@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { realpathSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createTestWithSetup } from "../fixtures/test_with_setup";
 
@@ -33,7 +33,8 @@ test.describe("desktop cli.json instance discovery (t459)", () => {
         };
         expect(info.port).toBe(AC1_PORT);
         expect(info.url).toBe(`http://localhost:${String(AC1_PORT)}/`);
-        expect(info.userData).toBe(omni.userDataDir);
+        // macOS 的 tmpdir 是 /var → /private/var 符号链接，两侧都取 realpath 再比。
+        expect(realpathSync(info.userData)).toBe(realpathSync(omni.userDataDir));
         expect(info.pid).toBeGreaterThan(0);
         expect(Number.isNaN(Date.parse(info.startedAt))).toBe(false);
         const res = await fetch(`http://localhost:${String(AC1_PORT)}/v1/health`);

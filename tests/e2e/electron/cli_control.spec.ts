@@ -1,5 +1,6 @@
 import { expect, test } from "../fixtures/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
+import { resolve_electron_binary } from "../fixtures/electron_binary";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { get as httpGet } from "node:http";
@@ -8,7 +9,7 @@ import { tmpdir } from "node:os";
 
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
-const ELECTRON = resolve(ROOT, "node_modules/electron/dist/electron");
+const ELECTRON = resolve_electron_binary();
 
 function httpJson(url: string, timeout = 2000): Promise<{ status: number; body: unknown }> {
     return new Promise((resolveResult, reject) => {
@@ -297,6 +298,8 @@ test.describe("CLI 控制子命令（t276）", () => {
     });
 
     test("AC5：autostart 在 Linux 返回 unsupported", async () => {
+        // autostart 只在 Linux 上以「不受支持」退出；macOS/Windows 走各自实现。
+        test.skip(process.platform !== "linux", "autostart unsupported 语义仅在 Linux 生效");
         const userDataDir = mkdtempSync(join(tmpdir(), "omnipanel-cli-auto-"));
         const r = await runThinClient(["autostart"], userDataDir);
         expect(r.exitCode).toBe(0);

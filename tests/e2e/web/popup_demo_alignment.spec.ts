@@ -21,7 +21,10 @@ test.describe("popup demo alignment (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
+        // waitReady 只等 app-title；card 由异步数据后渲染，先等首张卡片可见再计数
+        // （否则会与数据加载竞态，偶发 count=0）。
         const cards = webPage.locator('[data-testid="collapsible-card"]');
+        await expect(cards.first()).toBeVisible({ timeout: 15_000 });
         expect(await cards.count()).toBeGreaterThan(0);
     });
 

@@ -11,7 +11,10 @@ test.describe("scheduler (web)", () => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
+        // waitReady 只等 app-title；card 由异步数据后渲染，先等首张卡片可见再计数
+        // （否则会与数据加载竞态，偶发 count=0）。
         const pluginCards = popup.root().locator('[data-testid="collapsible-card"]');
+        await expect(pluginCards.first()).toBeVisible({ timeout: 15_000 });
         const count = await pluginCards.count();
         expect(count).toBeGreaterThan(0);
     });

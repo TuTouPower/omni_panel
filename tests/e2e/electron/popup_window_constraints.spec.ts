@@ -4,9 +4,13 @@ import { PopupPage } from "../pages/popup_page";
 /**
  * Phase 20 E2E: window height constraints — max 100%, internal scroll,
  * collapsed min height, no bottom whitespace regression.
+ *
+ * 上限口径：`docs/specs/window-management.md` 规定「不超过 100% 工作区高度」
+ * （t081 起 `MAX_HEIGHT_RATIO = 1.0`）。原断言写死 75% 是 t081 之前的口径，
+ * 在默认全高可用时会误报，已按现行契约同步。
  */
 test.describe("popup window constraints", () => {
-    test("window height does not exceed 75% of screen work area", async ({ omni }) => {
+    test("window height does not exceed the screen work area", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         const popup = new PopupPage(page);
         await popup.waitReady();
@@ -18,7 +22,7 @@ test.describe("popup window constraints", () => {
             };
         });
 
-        const max_allowed = Math.floor(work_area_height * 0.75);
+        const max_allowed = Math.floor(work_area_height);
         // Allow 15px tolerance for OS window decorations and rounding
         expect(window_height).toBeLessThanOrEqual(max_allowed + 15);
     });

@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { test, expect, is_e2e_headless, headless_skip_reason } from "../fixtures/test";
 import type { ElectronApplication, Page } from "@playwright/test";
 
@@ -59,7 +61,7 @@ async function open_agent_page(omni: ElectronApplication, popup: Page): Promise<
 }
 
 test.describe("panel window controls (t252)", () => {
-    test("agent 窗口系统标题为面板标题、无原生菜单栏（AC9/AC4）", async ({ omni }) => {
+    test("agent 窗口系统标题为面板标题（AC9）", async ({ omni }) => {
         const page = await omni.app.firstWindow();
         await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
         const agent_page = await open_agent_page(omni.app, page);
@@ -68,6 +70,16 @@ test.describe("panel window controls (t252)", () => {
         await expect(async () => {
             expect(await bw_title(omni.app, "#agent")).toBe("Omni Panel - Agent");
         }).toPass({ timeout: 10_000 });
+    });
+
+    test("agent 窗口无原生菜单栏（AC4）", async ({ omni }) => {
+        // macOS 的菜单栏是应用级全局菜单，窗口级 isMenuBarVisible 恒为 true，
+        // 该断言只在 Windows/Linux 有意义（平台适配见 t252）。
+        test.skip(process.platform === "darwin", "macOS 菜单栏为全局，窗口级 API 不适用");
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
+        const agent_page = await open_agent_page(omni.app, page);
+        await agent_page.waitForSelector(".token-stats", { timeout: 15_000 });
 
         expect(await bw_flag(omni.app, "#agent", "isMenuBarVisible")).toBe(false);
     });
@@ -83,18 +95,6 @@ test.describe("panel window controls (t252)", () => {
             return getComputedStyle(el).getPropertyValue("-webkit-app-region");
         });
         expect(region).toContain("drag");
-    });
-
-    test("用量面板隐藏按钮隐藏窗口而非销毁（AC3）", async ({ omni }) => {
-        const page = await omni.app.firstWindow();
-        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
-        // e2e fixture 默认 floating：显示「隐藏用量面板」（AC3 用量关闭=隐藏到托盘）。
-        await page.getByRole("button", { name: "隐藏用量面板" }).click();
-
-        await expect(async () => {
-            const visible = await bw_flag(omni.app, "#usage", "isVisible");
-            expect(visible).toBe(false);
-        }).toPass({ timeout: 10_000 });
     });
 
     test("agent 窗口最小化/最大化按钮正确（AC3）", async ({ omni }) => {
@@ -165,16 +165,52 @@ test.describe("panel window controls (t252)", () => {
             input.focus();
             input.select();
         });
-        await agent_page.keyboard.press("Control+c");
+        const modifier = process.platform === "darwin" ? "Meta" : "Control";
+        await agent_page.keyboard.press(`${modifier}+c`);
         await agent_page.evaluate(() => {
             const paste = document.createElement("input");
             paste.id = "ac7-paste";
             document.body.appendChild(paste);
             paste.focus();
         });
-        await agent_page.keyboard.press("Control+v");
+        await agent_page.keyboard.press(`${modifier}+v`);
         await expect(agent_page.locator("#ac7-paste")).toHaveValue("t252-copy-paste", {
             timeout: 5_000,
         });
+    });
+});
+
+/**
+ * AC3：隐藏到托盘按钮只在 floating 模式渲染。主面板模式 `system` 的默认解析随平台而异
+ * （`resolve_main_panel_mode`：darwin → popup，其余 → floating），因此这里显式 seed
+ * `mainPanelMode: "floating"`，让该用例在所有平台测同一行为，而不是依赖宿主平台默认。
+ */
+test.describe("floating 模式：用量面板隐藏到托盘（AC3）", () => {
+    test.use({
+        omniOptions: {
+            setupPlugins: (userDataDir: string) => {
+                writeFileSync(
+                    join(userDataDir, "config.json"),
+                    JSON.stringify({
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        launchAtLogin: false,
+                        mainPanelMode: "floating",
+                        plugins: [],
+                    }),
+                );
+            },
+        },
+    });
+
+    test("用量面板隐藏按钮隐藏窗口而非销毁（AC3）", async ({ omni }) => {
+        const page = await omni.app.firstWindow();
+        await page.waitForSelector('[data-testid="app-title"]', { timeout: 10_000 });
+        await page.getByRole("button", { name: "隐藏用量面板" }).click();
+
+        await expect(async () => {
+            const visible = await bw_flag(omni.app, "#usage", "isVisible");
+            expect(visible).toBe(false);
+        }).toPass({ timeout: 10_000 });
     });
 });

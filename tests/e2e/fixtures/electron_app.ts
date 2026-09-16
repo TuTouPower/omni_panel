@@ -2,6 +2,7 @@ import { _electron as electron, type ElectronApplication } from "@playwright/tes
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { resolve_electron_binary } from "./electron_binary";
 
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
@@ -9,13 +10,6 @@ const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
 /** Returns a fresh isolated userData dir for each test. */
 export function getDefaultUserData(): string {
     return mkdtempSync(join(tmpdir(), "omnipanel-e2e-"));
-}
-
-function getElectronPath(): string {
-    if (process.platform === "win32") {
-        return resolve(ROOT, "node_modules/electron/dist/electron.exe");
-    }
-    return resolve(ROOT, "node_modules/electron/dist/electron");
 }
 
 export interface LaunchedApp {
@@ -41,7 +35,7 @@ export async function launchApp(options?: LaunchAppOptions): Promise<LaunchedApp
 
     options?.onReady?.(userDataDir);
 
-    const electronPath = getElectronPath();
+    const electronPath = resolve_electron_binary();
     console.log("[E2E] electron path:", electronPath);
     console.log("[E2E] main entry:", MAIN_ENTRY);
     console.log("[E2E] userData:", userDataDir);

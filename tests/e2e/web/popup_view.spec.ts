@@ -56,6 +56,8 @@ test.describe("popup view (web)", () => {
         const providerTabs = providerNav.locator("button").filter({
             hasNotText: /总览/,
         });
+        // tab 由异步数据后渲染，先等首个 provider tab 可见再计数（避免竞态 count=0）。
+        await expect(providerTabs.first()).toBeVisible({ timeout: 15_000 });
         expect(await providerTabs.count()).toBeGreaterThan(0);
         // CPA provider 应被过滤出主 UI（业务规则：CPA 数据进对应 provider，不独立成 tab）
         await expect(providerNav.getByRole("button", { name: /^CPA$/ })).toHaveCount(0);

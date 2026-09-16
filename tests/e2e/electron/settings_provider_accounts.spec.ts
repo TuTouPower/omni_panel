@@ -41,6 +41,7 @@ const { test, expect } = createTestWithSetup({
                     {
                         instanceId: "settings-deepseek-plugin",
                         stateId: "settings-deepseek-plugin-state",
+                        manifestId: "deepseek",
                         name: "SettingsDeepSeek",
                         enabled: true,
                         executablePath: plugin_path,

@@ -61,6 +61,7 @@ const { test: testWithConfig, expect: expectWithConfig } = createTestWithSetup({
                 {
                     instanceId: "test-instance-id",
                     stateId: "test-state-id",
+                    manifestId: "claude",
                     name: "My Claude",
                     displayName: "My Claude",
                     enabled: true,

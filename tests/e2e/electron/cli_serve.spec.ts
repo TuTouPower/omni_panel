@@ -1,5 +1,7 @@
 import { expect, test } from "../fixtures/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
+import { resolve_electron_binary } from "../fixtures/electron_binary";
+import { canonical_config_document } from "../fixtures/config_transfer";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { createServer, get as httpGet, request as httpRequest } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -8,7 +10,7 @@ import { tmpdir } from "node:os";
 
 const ROOT = process.cwd();
 const MAIN_ENTRY = resolve(ROOT, "out/main/index.js");
-const ELECTRON = resolve(ROOT, "node_modules/electron/dist/electron");
+const ELECTRON = resolve_electron_binary();
 
 async function httpJson(url: string): Promise<{ status: number; body: unknown }> {
     return new Promise((resolveResult, reject) => {
@@ -302,18 +304,28 @@ test.describe("CLI 模式 serve（t275）", () => {
             plugins: [
                 {
                     instanceId: "cli-import-test",
+                    manifestId: "deepseek",
                     stateId: "cli-import-test",
                     name: "Test",
                     enabled: true,
                     executablePath: resolve(ROOT, "connectors/deepseek"),
                     refreshIntervalSeconds: 300,
-                    parameterValues: { API_KEY: "sk-synthetic-cli-e2e" },
+                    parameterValues: {},
                     endpointOverrides: {},
                 },
             ],
             launchAtLogin: false,
         };
-        writeFileSync(importFile, JSON.stringify(config));
+        // canonical v2：明文 secret 只从信封顶层 secrets 入 vault（parameterValues 里的
+        // secret 会被 import 剥离且不落 vault，这是 t472 起的唯一契约）。
+        writeFileSync(
+            importFile,
+            JSON.stringify(
+                canonical_config_document(config, {
+                    "cli-import-test:API_KEY": "sk-synthetic-cli-e2e",
+                }),
+            ),
+        );
 
         const { app, userDataDir } = await launchCli([
             "serve",
@@ -373,24 +385,30 @@ test.describe("CLI 模式 serve（t275）", () => {
 
         writeFileSync(
             import_file,
-            JSON.stringify({
-                schemaVersion: 1,
-                language: "zh-Hans",
-                plugins: [
+            JSON.stringify(
+                canonical_config_document(
                     {
-                        instanceId: instance_id,
-                        stateId: instance_id,
-                        name: "DeepSeek roundtrip",
-                        enabled: true,
-                        executablePath: resolve(ROOT, "connectors/deepseek"),
-                        refreshIntervalSeconds: 300,
-                        manualRefreshOnly: true,
-                        parameterValues: { API_KEY: secret, LIMIT: "100" },
-                        endpointOverrides: { default: mock.url },
+                        schemaVersion: 1,
+                        language: "zh-Hans",
+                        plugins: [
+                            {
+                                instanceId: instance_id,
+                                manifestId: "deepseek",
+                                stateId: instance_id,
+                                name: "DeepSeek roundtrip",
+                                enabled: true,
+                                executablePath: resolve(ROOT, "connectors/deepseek"),
+                                refreshIntervalSeconds: 300,
+                                manualRefreshOnly: true,
+                                parameterValues: { LIMIT: "100" },
+                                endpointOverrides: { default: mock.url },
+                            },
+                        ],
+                        launchAtLogin: false,
                     },
-                ],
-                launchAtLogin: false,
-            }),
+                    { [`${instance_id}:API_KEY`]: secret },
+                ),
+            ),
         );
 
         try {
@@ -416,14 +434,20 @@ test.describe("CLI 模式 serve（t275）", () => {
                 `http://localhost:${String(source_port)}/v1/config/export?includeSecrets=true`,
             );
             expect(plaintext_export.status).toBe(200);
-            const exported_config = plaintext_export.body as {
-                plugins?: {
-                    instanceId?: string;
-                    parameterValues?: Record<string, string | number>;
-                }[];
+            // /v1/config/export 返回 canonical v2 信封：config.plugins / secrets 在信封内。
+            const export_envelope = plaintext_export.body as {
+                formatVersion?: number;
+                config?: {
+                    plugins?: {
+                        instanceId?: string;
+                        parameterValues?: Record<string, string | number>;
+                    }[];
+                };
+                secrets?: Record<string, string>;
             };
-            expect(exported_config.plugins?.[0]?.instanceId).toBe(instance_id);
-            expect(exported_config.plugins?.[0]?.parameterValues?.["API_KEY"]).toBe(secret);
+            expect(export_envelope.formatVersion).toBe(2);
+            expect(export_envelope.config?.plugins?.[0]?.instanceId).toBe(instance_id);
+            expect(export_envelope.secrets?.[`${instance_id}:API_KEY`]).toBe(secret);
 
             // AC4：真实瘦客户端必须走相同 LocalAPI，且两种输出与端点导出等价。
             client_user_data_dir = mkdtempSync(join(tmpdir(), "omnipanel-t277-export-client-"));
@@ -432,17 +456,25 @@ test.describe("CLI 模式 serve（t275）", () => {
                 client_user_data_dir,
             );
             expect(cli_redacted.exitCode).toBe(0);
-            expect(JSON.parse(cli_redacted.stdout.trim()) as unknown).toEqual(redacted_export.body);
+            // 瘦客户端 export 走同一 LocalAPI，内容等价；exportedAt 为各自导出时刻，比较时剔除。
+            const strip_exported_at = (value: unknown): Record<string, unknown> => {
+                const { exportedAt, ...rest } = value as { exportedAt?: unknown };
+                expect(typeof exportedAt).toBe("string");
+                return rest;
+            };
+            expect(strip_exported_at(JSON.parse(cli_redacted.stdout.trim()))).toEqual(
+                strip_exported_at(redacted_export.body),
+            );
             const cli_plaintext = await runThinClient(
                 ["export", "--include-secrets", "--port", String(source_port)],
                 client_user_data_dir,
             );
             expect(cli_plaintext.exitCode).toBe(0);
-            expect(JSON.parse(cli_plaintext.stdout.trim()) as unknown).toEqual(
-                plaintext_export.body,
+            expect(strip_exported_at(JSON.parse(cli_plaintext.stdout.trim()))).toEqual(
+                strip_exported_at(plaintext_export.body),
             );
 
-            writeFileSync(export_file, JSON.stringify(exported_config));
+            writeFileSync(export_file, JSON.stringify(export_envelope));
             const auth_count_before_import = mock.seen_auth.length;
             const source_stdout = source.stdout();
             await closeApp(source_app);
@@ -614,6 +646,7 @@ test.describe("CLI 模式 serve（t275）", () => {
                 plugins: [
                     {
                         instanceId: "preset-ds",
+                        manifestId: "deepseek",
                         stateId: "preset-ds",
                         name: "Preset",
                         enabled: true,

@@ -3,35 +3,42 @@ import { PopupPage } from "../pages/popup_page";
 
 /**
  * Web e2e：failed connector 渲染。
- * real/synthetic 含 enabled+failed connector（real KIMI 401 带 stale items；
- * synthetic 从 real 取该 KIMI 加入）触发 ProviderCard render_error_banner
- * `[data-testid="card-state"][data-variant="err"]`（stale banner 分支）。
- * 原 electron 3 case（error/crash/slow behavior 区分）合并为 failed 通用
- * （mock 无法造 runtime behavior 区分；behavior 区分由 connector 单测覆盖）。
+ * real/synthetic 含 enabled+failed connector（错误为 `HTTP 401: request failed`，即 auth 类；
+ * synthetic 从 real 取该 KIMI 401 加入）。
+ *
+ * t492 AC-006 起，auth 类失败统一渲染 `[data-testid="card-state"][data-variant="auth"]`
+ * （「凭证失效，请重新登录」+ 重新登录），不再暴露裸 HTTP 状态码，也不再给「重试」——
+ * 用同一份失效凭据重试是空转。原两条 case（err variant 非空 message / 重试 action）
+ * 断言的是 t492 之前的行为，整体替换。
+ * 非 auth 失败的 err 分支（采集失败 + 重试）由 renderer 单测覆盖
+ * （`tests/unit/renderer/components/provider_card_states.test.tsx`）；e2e fixture 中
+ * 没有非 auth 的 failed connector。
  */
 test.describe("plugin failure modes (web)", () => {
-    test("failed connector renders error card state with message", async ({ webPage }) => {
+    test("failed connector renders auth state with a user-facing message", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
         const live = popup.root();
-        // failed+无items connector 渲染 [data-testid="card-state"][data-variant="err"]（overview 显示所有 provider card）
-        const err_state = live.locator('[data-testid="card-state"][data-variant="err"]').first();
-        await expect(err_state).toBeVisible({ timeout: 15_000 });
-        // error message 非空（"Missing required secret" / "HTTP 401" / 等）
-        const msg = await err_state.locator("span").nth(1).textContent();
-        expect((msg ?? "").trim().length).toBeGreaterThan(0);
+        const auth_state = live.locator('[data-testid="card-state"][data-variant="auth"]').first();
+        await expect(auth_state).toBeVisible({ timeout: 15_000 });
+        // 统一文案非空，且不含内部细节（HTTP 状态码 / 字节数）
+        const msg = (await auth_state.locator("span").nth(1).textContent()) ?? "";
+        expect(msg.trim().length).toBeGreaterThan(0);
+        expect(msg).not.toMatch(/HTTP \d{3}/);
+        expect(msg).not.toMatch(/request failed/);
     });
 
-    test("failed card offers retry action", async ({ webPage }) => {
+    test("auth-failed card offers the re-login action", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();
 
         const live = popup.root();
-        const err_state = live.locator('[data-testid="card-state"][data-variant="err"]').first();
-        await expect(err_state).toBeVisible({ timeout: 15_000 });
-        // KIMI 401 非 auth failed，必渲染"重试"action（ProviderCard onRefresh 条件）
-        const retry = err_state.locator('[data-testid="cs-action"]').filter({ hasText: "重试" });
-        await expect(retry).toBeVisible();
+        const auth_state = live.locator('[data-testid="card-state"][data-variant="auth"]').first();
+        await expect(auth_state).toBeVisible({ timeout: 15_000 });
+        const relogin = auth_state
+            .locator('[data-testid="cs-action"]')
+            .filter({ hasText: "重新登录" });
+        await expect(relogin).toBeVisible();
     });
 });
