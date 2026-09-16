@@ -14,3 +14,4 @@
 - 线索：`.scratch/probe_new_api2.mjs`（只读探针，不打印令牌）；`.scratch/new-api-1.0.0-rc.36/`（源码副本：`model/channel.go`、`controller/channel.go`、`router/channel-router.go`、`common/page_info.go`、`docs/authentication.md`）。
 - 处理：main-direct-fix
 - 实测补充（2026-09-17，用户提供有效访问令牌后）：用该令牌对真实部署跑面板读路径（临时配置 + `create_dev_panel_model_routing_manager`，探针 `.scratch/probe_dev_panel_read.ts`）→ `get_config()` 正常，`get_channels()` 返回 **13 条渠道**，数字 `id`（39/38/6/66/72…）、`status` 2/3 判为禁用、`priority`、逗号分隔 `models` 全部解析正确 → **读路径在真实数据上验证通过**。写路径（`PUT /api/channel/`）仍未实测：需对某条真实渠道做一次回写，未获授权执行。
+- 修复补充（2026-09-17）：本机 `new_api.yaml` 的模型条目是 `- name: X` + `alias:` 多键形式，而面板自带的 YAML 子集解析器只对「值还是对象」的列表项压栈，导致每条的 `alias`（及 `context`/`multimodal`）整行被丢弃；同时别名表只读顶层 `aliases:`。两处均已修（列表项一律压栈；别名表合并模型内嵌 `alias` 与顶层 `aliases`，同键顶层优先），并补单测。
