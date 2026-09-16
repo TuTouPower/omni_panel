@@ -97,6 +97,32 @@ function string_value(value: unknown): string | undefined {
     return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+/**
+ * p242: new-api（rc.36）返回的 `id`/`status` 是 **JSON number**（`Channel.Id int`、
+ * `Channel.Status int`），只认字符串会把每个渠道的 id 判空后整体丢弃（列表恒为空），
+ * 也会把 status=2/3（手动/自动禁用）当成启用。这里同时接受 number 与 string。
+ */
+function id_value(value: unknown): string | undefined {
+    if (typeof value === "number" && Number.isInteger(value)) return String(value);
+    return string_value(value);
+}
+
+function channel_status(source: JsonRecord): { status: string; disabled: boolean } {
+    const raw = source["status"];
+    const numeric = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+    if (numeric !== null) {
+        // new-api: 1=启用，2=手动禁用，3=自动禁用。
+        const enabled = numeric === 1;
+        return { status: enabled ? "enabled" : "disabled", disabled: !enabled };
+    }
+    const text = string_value(raw) ?? (source["enabled"] === false ? "disabled" : "enabled");
+    return {
+        status: text,
+        disabled:
+            source["enabled"] === false || raw === false || /disabled|inactive|off/i.test(text),
+    };
+}
+
 function scalar_value(raw: string): unknown {
     const value = raw.trim();
     if (!value) return "";
@@ -305,15 +331,10 @@ function parse_string_list(value: unknown): string[] {
 
 function channel_from_raw(value: unknown): DevPanelModelRoutingChannel | null {
     const source = as_record(value);
-    const id = string_value(source["id"] ?? source["channel_id"] ?? source["key"]);
+    const id = id_value(source["id"] ?? source["channel_id"] ?? source["key"]);
     if (!id) return null;
-    const status = string_value(source["status"]) ?? "enabled";
+    const { status, disabled } = channel_status(source);
     const group = string_value(source["group"] ?? source["channel_group"]) ?? "";
-    const disabled =
-        source["enabled"] === false ||
-        source["status"] === false ||
-        source["status"] === 0 ||
-        /disabled|inactive|off/i.test(status);
     const mapping = parse_json_record(source["model_mapping"] ?? source["modelMapping"]);
     const priority_raw = source["priority"];
     const priority =
@@ -759,14 +780,19 @@ export function create_dev_panel_model_routing_manager(
                 continue;
             }
             try {
-                const response = await transport.put(
-                    `/api/channel/${encodeURIComponent(draft.channel.id)}`,
-                    {
-                        models: JSON.stringify(draft.models),
-                        model_mapping: JSON.stringify(draft.mapping),
-                        ...(draft.priority === null ? {} : { priority: draft.priority }),
-                    },
-                );
+                // p242: new-api（rc.36）只注册 `PUT /api/channel/`，id 取自 **body**
+                // （`PatchChannel` 内嵌 model.Channel，UpdateChannel 用 channel.Id 回查）。
+                // 面板原先把 id 放在 URL 上，服务端拿不到 id 必然失败。
+                const channel_id = Number(draft.channel.id);
+                if (!Number.isInteger(channel_id)) {
+                    throw new Error(`渠道 ID 不是整数：${draft.channel.id}`);
+                }
+                const response = await transport.put("/api/channel/", {
+                    id: channel_id,
+                    models: JSON.stringify(draft.models),
+                    model_mapping: JSON.stringify(draft.mapping),
+                    ...(draft.priority === null ? {} : { priority: draft.priority }),
+                });
                 if (extract_success(response) === false)
                     throw new Error("New API rejected the channel update");
                 changes.push({

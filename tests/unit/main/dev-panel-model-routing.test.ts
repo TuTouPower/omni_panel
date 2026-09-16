@@ -38,10 +38,10 @@ async function make_fixture(): Promise<{
     return { config_path, settings_path, snapshot_path };
 }
 
-function channel(id: string, priority: number) {
+function channel(id: string | number, priority: number) {
     return {
         id,
-        name: id.toUpperCase(),
+        name: String(id).toUpperCase(),
         group: "default",
         status: "enabled",
         models: ["claude-sonnet", "claude-opus"],
@@ -88,7 +88,7 @@ describe("dev panel model routing", () => {
         const fixture = await make_fixture();
         const entries = [
             {
-                ...channel("supported", 1),
+                ...channel(201, 1),
                 models: ["claude-sonnet", "claude-opus", "default_model"],
                 model_mapping: JSON.stringify({
                     default_model: "claude-sonnet",
@@ -96,7 +96,7 @@ describe("dev panel model routing", () => {
                 }),
             },
             {
-                ...channel("duplicate", 1),
+                ...channel(202, 1),
                 models: ["claude-sonnet", "claude-opus", "default_model"],
                 model_mapping: JSON.stringify({
                     default_model: "claude-opus",
@@ -104,7 +104,7 @@ describe("dev panel model routing", () => {
                 }),
             },
             {
-                ...channel("unsupported", 1),
+                ...channel(203, 1),
                 models: ["claude-sonnet", "default_model"],
                 model_mapping: JSON.stringify({
                     default_model: "claude-opus",
@@ -112,18 +112,18 @@ describe("dev panel model routing", () => {
                 }),
             },
             {
-                ...channel("disabled", 1),
+                ...channel(204, 1),
                 status: "disabled",
                 models: ["claude-opus", "default_model"],
             },
             {
-                ...channel("experimental", 1),
+                ...channel(205, 1),
                 group: "experimental",
                 models: ["claude-opus", "default_model"],
             },
         ];
         let page = 0;
-        const writes: { id: string; body: Record<string, unknown> }[] = [];
+        const writes: { id: number; path: string; body: Record<string, unknown> }[] = [];
         const manager = create_dev_panel_model_routing_manager({
             ...fixture,
             transport_factory: () => ({
@@ -135,7 +135,9 @@ describe("dev panel model routing", () => {
                 },
                 put: (path, body) => {
                     writes.push({
-                        id: decodeURIComponent(path.split("/").at(-1) ?? ""),
+                        // p242: id 在 body 里（服务端契约），不再从 URL 取。
+                        id: Number((body as { id?: number }).id),
+                        path,
                         body: body as Record<string, unknown>,
                     });
                     return Promise.resolve({ success: true });
@@ -150,10 +152,11 @@ describe("dev panel model routing", () => {
         });
 
         expect(result.success).toBe(true);
-        expect(writes.map((write) => write.id)).toEqual(["supported", "duplicate", "unsupported"]);
-        const supported = writes.find((write) => write.id === "supported");
-        const duplicate = writes.find((write) => write.id === "duplicate");
-        const unsupported = writes.find((write) => write.id === "unsupported");
+        expect(writes.map((write) => write.id)).toEqual([201, 202, 203]);
+        expect(writes.every((write) => write.path === "/api/channel/")).toBe(true);
+        const supported = writes.find((write) => write.id === 201);
+        const duplicate = writes.find((write) => write.id === 202);
+        const unsupported = writes.find((write) => write.id === 203);
         expect(JSON.parse(String(supported?.body["models"]))).toEqual([
             "claude-sonnet",
             "claude-opus",
@@ -177,10 +180,71 @@ describe("dev panel model routing", () => {
             }[];
         };
         expect(snapshot.channels).toHaveLength(5);
-        expect(snapshot.channels.find((item) => item.channel_id === "unsupported")).toMatchObject({
+        expect(snapshot.channels.find((item) => item.channel_id === "203")).toMatchObject({
             models: ["claude-sonnet", "default_model"],
             model_mapping: { default_model: "claude-opus", other_slot: "claude-sonnet" },
         });
+    });
+
+    // p242: new-api（rc.36）的 Channel 结构里 id/status 是 JSON number（`Id int`、
+    // `Status int`，1=启用 2=手动禁用 3=自动禁用），models 是逗号分隔字符串。
+    // 只认字符串会把每个渠道判空丢弃、把禁用渠道当成启用。
+    it("p242: 解析 new-api 真实响应形状（数字 id/status），禁用态不被当成启用", async () => {
+        const fixture = await make_fixture();
+        const manager = create_dev_panel_model_routing_manager({
+            ...fixture,
+            transport_factory: () => ({
+                get: (path: string) =>
+                    Promise.resolve(
+                        path.includes("p=1")
+                            ? {
+                                  success: true,
+                                  data: {
+                                      items: [
+                                          {
+                                              id: 11,
+                                              name: "ON",
+                                              status: 1,
+                                              group: "default",
+                                              models: "claude-sonnet,default_model",
+                                              model_mapping: JSON.stringify({
+                                                  other_slot: "claude-opus",
+                                              }),
+                                              priority: 7,
+                                          },
+                                          {
+                                              id: 12,
+                                              name: "OFF_MANUAL",
+                                              status: 2,
+                                              group: "default",
+                                              models: "claude-sonnet",
+                                              priority: 7,
+                                          },
+                                          {
+                                              id: 13,
+                                              name: "OFF_AUTO",
+                                              status: 3,
+                                              group: "default",
+                                              models: "claude-sonnet",
+                                          },
+                                      ],
+                                  },
+                              }
+                            : { success: true, data: { items: [] } },
+                    ),
+                put: () => Promise.resolve({ success: true }),
+                post: () => Promise.resolve({ model: "unused" }),
+            }),
+        });
+
+        const channels = await manager.get_channels();
+        expect(channels.channels.map((item) => [item.id, item.enabled, item.priority])).toEqual([
+            ["11", true, 7],
+            ["12", false, 7],
+            ["13", false, null],
+        ]);
+        expect(channels.channels[0]?.models).toEqual(["claude-sonnet", "default_model"]);
+        expect(channels.channels[0]?.model_mapping).toEqual({ other_slot: "claude-opus" });
     });
 
     it("stops writes after a failure, classifies remaining channels, and keeps a snapshot", async () => {
@@ -194,11 +258,7 @@ describe("dev panel model routing", () => {
                     channel_page === 1
                         ? {
                               data: {
-                                  items: [
-                                      channel("first", 1),
-                                      channel("second", 1),
-                                      channel("third", 3),
-                                  ],
+                                  items: [channel(101, 1), channel(102, 1), channel(103, 3)],
                               },
                           }
                         : { data: { items: [] } },
@@ -207,7 +267,7 @@ describe("dev panel model routing", () => {
             put: (path, body) => {
                 put_calls.push({ path, body: body as Record<string, unknown> });
                 return Promise.resolve(
-                    path.includes("second") ? { success: false } : { success: true },
+                    (body as { id?: number }).id === 102 ? { success: false } : { success: true },
                 );
             },
             post: () => Promise.resolve({ model: "claude-sonnet" }),
@@ -224,6 +284,10 @@ describe("dev panel model routing", () => {
         expect(result.success).toBe(false);
         expect(result.changes.map((item) => item.status)).toEqual(["success", "failed", "skipped"]);
         expect(put_calls).toHaveLength(2);
+        // p242: new-api 只注册 `PUT /api/channel/`，id 必须放在 body（整数）。
+        expect(put_calls.map((call) => call.path)).toEqual(["/api/channel/", "/api/channel/"]);
+        expect(put_calls[0]?.body["id"]).toBe(101);
+        expect(put_calls[1]?.body["id"]).toBe(102);
         expect(JSON.parse(String(put_calls[0]?.body["models"]))).toContain("default_model");
         expect(String(put_calls[0]?.body["model_mapping"])).not.toContain("secret-session-value");
         const snapshot = JSON.parse(await readFile(fixture.snapshot_path, "utf8")) as Record<
