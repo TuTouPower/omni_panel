@@ -101,6 +101,7 @@ describe("handleCookieLogin", () => {
                         {
                             instanceId: instance_id,
                             stateId: instance_id,
+                            manifestId: definition.manifest.id,
                             name: "MiMo",
                             enabled: true,
                             executablePath: definition.executablePath,
@@ -770,6 +771,7 @@ describe("trySilentCookieRefresh", () => {
                         {
                             instanceId: "silent-test-1",
                             stateId: "silent-test-1",
+                            manifestId: "custom-silent",
                             name: "CustomSilent",
                             enabled: true,
                             executablePath: custom_definition.executablePath,
@@ -834,6 +836,7 @@ describe("trySilentCookieRefresh", () => {
                         {
                             instanceId: "no-cookies-test-1",
                             stateId: "no-cookies-test-1",
+                            manifestId: "no-cookies",
                             name: "NoCookies",
                             enabled: true,
                             executablePath: no_cookies_definition.executablePath,

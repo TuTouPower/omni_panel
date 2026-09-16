@@ -10,4 +10,4 @@
         失败特征与之一致：auth 侧报「插件定义不存在」/`expected false to be true`；scheduler 侧报「Refresh requested for connector without definition」，会话重登与连接错误重试路径整段不执行。
 - 测试缺口：本次是既有测试自身失效，不是覆盖缺口；修复即补齐 fixture 的 `manifestId`（`auth-ipc.test.ts` 两处、`refresh-service.test.ts` 的 helper 与各调用点）。修完须重跑两个文件确认转绿，并检查是否还有其它文件复用同类 fixture。
 - 线索：主仓不改源码直接运行 `npx vitest run --project node tests/unit/ipc/auth-ipc.test.ts tests/integration/scheduler/refresh-service.test.ts` 即复现 13 例红；t492 实施记录见 `docs/archive/tasks/t492_kimi_web_bearer_keepalive/task.md` 实施笔记。
-- 处理：未开
+- 处理：main-direct-fix

@@ -55,11 +55,15 @@ return [{
 }];
 `;
 
-function plugin_config(instance_id = "deepseek-1", enabled = true): ConnectorConfiguration {
+function plugin_config(
+    instance_id = "deepseek-1",
+    enabled = true,
+    manifest_id = "deepseek",
+): ConnectorConfiguration {
     return {
         instanceId: instance_id,
         stateId: instance_id,
-        manifestId: "deepseek",
+        manifestId: manifest_id,
         name: "DeepSeek",
         enabled,
         executablePath: "/connectors/deepseek",
@@ -707,7 +711,7 @@ return [{
             runtimeStore,
             configStore: create_config_store([
                 {
-                    ...plugin_config("mimo-1"),
+                    ...plugin_config("mimo-1", true, "mimo"),
                     executablePath: tempDir,
                     name: "MiMo",
                 },
@@ -758,7 +762,7 @@ return [{
             runtimeStore,
             configStore: create_config_store([
                 {
-                    ...plugin_config("mimo-1"),
+                    ...plugin_config("mimo-1", true, "mimo"),
                     executablePath: tempDir,
                     name: "MiMo",
                     parameterValues: {},
@@ -829,7 +833,7 @@ return [{
             observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([
-                { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
+                { ...plugin_config("mimo-1", true, "mimo"), executablePath: tempDir, name: "MiMo" },
             ]),
             vault: create_vault(),
         });
@@ -1004,7 +1008,7 @@ return [{
             observationStore,
             runtimeStore,
             configStore: create_config_store([
-                { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
+                { ...plugin_config("mimo-1", true, "mimo"), executablePath: tempDir, name: "MiMo" },
             ]),
             vault,
             sessionLogin,
@@ -1074,7 +1078,7 @@ return [{
             runtimeStore,
             configStore: create_config_store([
                 {
-                    ...plugin_config("mimo-1"),
+                    ...plugin_config("mimo-1", true, "mimo"),
                     manifestId: "mimo",
                     executablePath: tempDir,
                     name: "MiMo",
@@ -1242,7 +1246,7 @@ return [{
             runtimeStore,
             configStore: create_config_store([
                 {
-                    ...plugin_config("mimo-1"),
+                    ...plugin_config("mimo-1", true, "mimo"),
                     executablePath: tempDir,
                     name: "MiMo",
                     parameterValues: { SESSION_COOKIE: "dummy" },
@@ -1791,7 +1795,7 @@ return [{
             observationStore: make_store(),
             runtimeStore,
             configStore: create_config_store([
-                { ...plugin_config("mimo-1"), executablePath: tempDir, name: "MiMo" },
+                { ...plugin_config("mimo-1", true, "mimo"), executablePath: tempDir, name: "MiMo" },
             ]),
             vault: create_vault(),
         });
