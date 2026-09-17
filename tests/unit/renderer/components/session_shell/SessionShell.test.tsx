@@ -365,4 +365,15 @@ describe("SessionShell (P6 library + compare)", () => {
         expect(document.querySelector('[data-testid="session-rail"]')).toBeNull();
         expect(document.querySelector(".session-rail-toggle-row")).toBeNull();
     });
+
+    it("t494 AC-004：顶栏由 PanelTitleBar 直出，不使用外层 header 重复声明边框与背景", async () => {
+        render(<SessionShell />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        const topbar = document.querySelector('[data-testid="session-topbar"]');
+        expect(topbar).not.toBeNull();
+        expect(topbar?.getAttribute("data-panel-titlebar")).toBe("Session");
+        expect(topbar?.tagName.toLowerCase()).not.toBe("header");
+    });
 });

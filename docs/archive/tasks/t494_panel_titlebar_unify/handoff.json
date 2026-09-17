@@ -1,0 +1,35 @@
+{
+    "tid": "t494",
+    "attempt": 1,
+    "execution_id": "3fdcef65ef4147129ac903effb9a32d6",
+    "status": "done",
+    "branch": "t494_panel_titlebar_unify",
+    "base_sha": "e676cd9d131554984b22ca228fd2149948682379",
+    "tests": "pnpm test：3826 passed / 9 skipped；tsc --noEmit exit 0；eslint exit 0；prettier exit 0；designmd:check exit 0",
+    "blackbox": "全量单测 3826 passed + tsc 0 + eslint 0 + prettier 0",
+    "review": "single 级 general：Round 1 PASS（review_general.md）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/settings_view_titlebar.test.tsx::loading 状态下标题栏面板切换与刷新可用 (AC-001/AC-002) 通过",
+            "tests/unit/renderer/views/settings_view_titlebar.test.tsx::error 状态下标题栏面板切换与刷新可用 (AC-001/AC-002) 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/views/settings_view_titlebar.test.tsx::正常状态下标题栏渲染刷新按钮且点击触发 reload (AC-002) 通过",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::设置面板切换按钮恒定五枚「设置 用量 代理 会话 开发」且刷新按钮渲染在首位 (t494 AC-002/AC-003) 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::所有面板标题栏右侧按钮集合遵循统一顺序：刷新 → 五面板切换 → 窗口控制 (t494 AC-003) 通过",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::Usage 浮动形态右侧按钮遵循：刷新 → 五面板切换 → 隐藏到托盘 (t494 AC-003) 通过"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/session_shell/SessionShell.test.tsx::t494 AC-004：顶栏由 PanelTitleBar 直出，不使用外层 header 重复声明边框与背景 通过"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::web 模式不渲染窗口控制按钮（最小化/最大化/关闭） 通过",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::web 态互跳图标渲染为原生链接，href 精确且无 onClick 拦截 (t311 AC-001/AC-004) 通过",
+            "tests/unit/web/usageboard-web.test.ts 通过 (69 tests)"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

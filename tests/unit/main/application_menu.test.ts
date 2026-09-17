@@ -5,13 +5,16 @@ vi.mock("electron", () => ({
     app: { name: "OmniPanel" },
     Menu: {
         buildFromTemplate: (tpl: unknown) => buildFromTemplateMock(tpl),
-        setApplicationMenu: (menu: unknown) => setApplicationMenuMock(menu),
+        setApplicationMenu: (menu: unknown) => {
+            setApplicationMenuMock(menu);
+        },
     },
     BrowserWindow: {
         getFocusedWindow: vi.fn(),
     },
 }));
 
+import type { MenuItemConstructorOptions, BrowserWindow } from "electron";
 import {
     build_application_menu_template,
     setup_application_menu,

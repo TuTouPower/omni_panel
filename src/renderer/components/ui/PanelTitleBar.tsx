@@ -27,6 +27,7 @@ interface PanelTitleBarProps {
     no_drag?: boolean;
     className?: string;
     "data-panel-titlebar"?: string;
+    "data-testid"?: string;
     /** 面板形态：当前面板名（t493: 仅面板名 Settings/Usage/Agent/Session/Dev）。 */
     panel?: PanelName;
     /** 面板形态：是否正在刷新（旋转动画）。 */
@@ -136,6 +137,7 @@ export function PanelTitleBar({
     no_drag = false,
     className,
     "data-panel-titlebar": dataPanelTitlebar,
+    "data-testid": dataTestId,
     panel,
     refreshing = false,
     onRefresh,
@@ -169,7 +171,11 @@ export function PanelTitleBar({
 
     if (panel !== undefined) {
         return (
-            <div className={base} data-panel-titlebar={dataPanelTitlebar ?? panel}>
+            <div
+                className={base}
+                data-panel-titlebar={dataPanelTitlebar ?? panel}
+                data-testid={dataTestId}
+            >
                 <div className="flex min-w-0 items-center gap-2">
                     {show_traffic_spacer && (
                         <div
@@ -193,23 +199,22 @@ export function PanelTitleBar({
                 )}
                 <div className={actions_cls}>
                     {before_actions}
-                    {(onRefresh !== undefined || onRefreshAll !== undefined) &&
-                        panel !== "Settings" && (
-                            <Button
-                                variant="icon"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title={onRefreshAll ? "刷新全部" : "刷新当前面板"}
-                                aria-label="刷新"
-                                onClick={is_live ? (onRefreshAll ?? onRefresh) : undefined}
-                            >
-                                <Icon
-                                    name="refresh"
-                                    size={16}
-                                    {...(refreshing ? { className: "animate-spin" } : {})}
-                                />
-                            </Button>
-                        )}
+                    {(onRefresh !== undefined || onRefreshAll !== undefined) && (
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title={onRefreshAll ? "刷新全部" : "刷新当前面板"}
+                            aria-label="刷新"
+                            onClick={is_live ? (onRefreshAll ?? onRefresh) : undefined}
+                        >
+                            <Icon
+                                name="refresh"
+                                size={16}
+                                {...(refreshing ? { className: "animate-spin" } : {})}
+                            />
+                        </Button>
+                    )}
                     {panels.map((p) => {
                         const icon = (
                             <>
@@ -256,7 +261,7 @@ export function PanelTitleBar({
     }
 
     return (
-        <div className={base} data-panel-titlebar={dataPanelTitlebar}>
+        <div className={base} data-panel-titlebar={dataPanelTitlebar} data-testid={dataTestId}>
             <div className="truncate">{title}</div>
             {actions !== undefined && <div className={actions_cls}>{actions}</div>}
         </div>
