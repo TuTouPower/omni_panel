@@ -2,5 +2,22 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t499",
+            "slug": "codex_local_quota_connector",
+            "title": "Codex 本地连接器对接官方配额 API 与面板展示",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "读本地 ~/.codex/auth.json 直连 chatgpt.com/backend-api/wham/usage 获取 5h 与周配额",
+            "dir": "docs/tasks/t499_codex_local_quota_connector"
+        }
+    ]
 }
