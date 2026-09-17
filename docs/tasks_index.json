@@ -82,6 +82,22 @@
             "conflicts_with": "",
             "note": "来源：用户对比其它菜单栏应用：其弹窗在全屏应用之上；当前仅 setAlwaysOnTop，无 visibleOnFullScreen/panel 类型",
             "dir": "docs/tasks/t497_popup_above_fullscreen_apps"
+        },
+        {
+            "tid": "t498",
+            "slug": "commandcode_monthly_usage_inverted_fix",
+            "title": "Command Code 月额度消耗计算与重置时间展示修复",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p246；修复 Command Code 月额度 remaining 错当 used 导致的用量反转、display_style 改为 percent 并正常展示重置时间与状态",
+            "dir": "docs/tasks/t498_commandcode_monthly_usage_inverted_fix"
         }
     ]
 }
