@@ -82,6 +82,8 @@ export interface AppConfiguration {
     readonly activeUsageTab?: string;
     /** t495: 用量面板（popup）宽度持久化。 */
     readonly usagePopupWidth?: number;
+    /** p247: 用量面板（popup）高度持久化（用户拉伸后保存）。 */
+    readonly usagePopupHeight?: number;
     readonly convergentTimeMinutes?: number;
     /** Directories grouped under one project label in the agent panel. */
     readonly dirAliases?: readonly {

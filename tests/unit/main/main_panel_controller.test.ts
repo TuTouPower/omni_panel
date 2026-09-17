@@ -537,4 +537,74 @@ describe("main panel controller", () => {
             expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
         });
     });
+
+    describe("popup bounds persistence and content height behavior (p247)", () => {
+        it("persists popup width and height on resize in popup mode without persisting position", () => {
+            const { controller, windows, saved_configs } = build(
+                { ...base_config, mainPanelMode: "popup" },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+
+            // 模拟 resize 到 600x650（mock workArea 高度为 720）
+            win.bounds = { ...win.bounds, width: 600, height: 650 };
+            for (const fn of win.listeners["resize"] ?? []) fn();
+
+            const last_config = saved_configs[saved_configs.length - 1];
+            expect(last_config?.usagePopupWidth).toBe(600);
+            expect(last_config?.usagePopupHeight).toBe(650);
+        });
+
+        it("restores popup width and height from config on open while anchoring to tray", () => {
+            const { controller, windows } = build(
+                {
+                    ...base_config,
+                    mainPanelMode: "popup",
+                    usagePopupWidth: 550,
+                    usagePopupHeight: 500,
+                },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+            expect(win.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    width: 550,
+                    height: 500,
+                }),
+            );
+        });
+
+        it("keeps user resized height when content reports smaller height (e.g. switching tabs)", () => {
+            const { controller, windows } = build(
+                {
+                    ...base_config,
+                    mainPanelMode: "popup",
+                    usagePopupWidth: 500,
+                    usagePopupHeight: 650,
+                },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+
+            // 模拟 DeepSeek 页签上报较矮的内容高度 280
+            const applied = controller.report_content_height({
+                content_height: 280,
+                collapsed_min_height: 150,
+            });
+
+            // 窗口高度应维持用户设定的 650，而不是被压扁成 280
+            expect(applied).toBe(650);
+            expect(win.setBounds).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    height: 650,
+                }),
+            );
+        });
+    });
 });

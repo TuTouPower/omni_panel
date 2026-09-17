@@ -58,10 +58,18 @@ export interface PopupAnchorContext {
  * Content height is rounded up so sub-pixel content is never clipped.
  * Max height is rounded down so the popup never exceeds the work area.
  */
-export function compute_target_height(report: ContentHeightReport, display: DisplayLike): number {
+export function compute_target_height(
+    report: ContentHeightReport,
+    display: DisplayLike,
+    min_preferred_height?: number,
+): number {
     const max_height = Math.floor(display.workArea.height * MAX_HEIGHT_RATIO);
     const min_height = Math.ceil(report.collapsed_min_height);
-    const desired = Math.ceil(report.content_height);
+    const content_desired = Math.ceil(report.content_height);
+    const desired =
+        min_preferred_height !== undefined
+            ? Math.max(content_desired, min_preferred_height)
+            : content_desired;
 
     // When clamp bounds invert (min > max because work area is tiny),
     // honour the max — we must not exceed the work area constraint.
@@ -87,7 +95,7 @@ export function should_apply_report(
 /**
  * Compute new window bounds when applying a locked size. Width is preserved.
  *
- * macOS: re-anchors x under the tray icon centre and y just under the tray.
+ * macOS: re-anchors x under the tray icon centre and y just under the tray, unless user_moved is true.
  * Windows/Linux: preserves the current (possibly user-moved) top-left.
  * Linux fallback: when tray bounds are unreliable, snaps to the display
  * work area bottom-right.
@@ -104,7 +112,7 @@ export function apply_locked_size(
 
     if (platform === "darwin") {
         const tray = anchor.tray_bounds;
-        if (tray) {
+        if (tray && !anchor.user_moved) {
             const x = Math.round(tray.x + tray.width / 2 - width / 2);
             const y = Math.round(tray.y + tray.height + 4);
             return {
@@ -114,7 +122,7 @@ export function apply_locked_size(
                 height: new_height,
             };
         }
-        // macOS without tray bounds: keep current x/y but clamp.
+        // macOS without tray bounds or user moved: keep current x/y but clamp.
         return {
             x: clamp(current.x, work.x, work.x + work.width - width),
             y: clamp(current.y, work.y, work.y + work.height - new_height),
@@ -180,6 +188,7 @@ export interface PopupHeightControllerOptions {
     readonly get_window: () => PopupWindowHandle | null;
     readonly get_display_for_window: (win: PopupWindowHandle) => DisplayLike;
     readonly get_anchor: () => PopupAnchorContext;
+    readonly get_min_preferred_height?: () => number | undefined;
 }
 
 export interface PopupHeightController {
@@ -211,7 +220,8 @@ export function create_popup_height_controller(
             if (!win || win.isDestroyed()) return null;
 
             const display = options.get_display_for_window(win);
-            const target = compute_target_height(report, display);
+            const min_pref = options.get_min_preferred_height?.();
+            const target = compute_target_height(report, display, min_pref);
 
             if (last_applied_height !== null && target === last_applied_height) {
                 return null;

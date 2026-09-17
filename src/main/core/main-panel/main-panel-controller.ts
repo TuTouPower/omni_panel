@@ -86,6 +86,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 tray_bounds: deps.get_tray_bounds(),
                 user_moved: mode === "floating",
             }),
+            get_min_preferred_height: () => {
+                if (mode === "floating") return undefined;
+                return deps.get_config().usagePopupHeight;
+            },
         });
     }
 
@@ -111,29 +115,40 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         });
     }
 
-    function save_popup_width(target: WindowLike): void {
+    function save_popup_bounds(target: WindowLike): void {
         if (mode !== "popup" || suppress_tokens.size > 0 || target.isDestroyed()) return;
         const bounds = target.getBounds();
         const display = deps.get_display_for_bounds(bounds);
         const width = clamp(bounds.width, USAGE_MIN_WIDTH, display.workArea.width);
+        const height = clamp(bounds.height, 160, display.workArea.height);
         const config = deps.get_config();
-        if (config.usagePopupWidth === width) return;
+        if (config.usagePopupWidth === width && config.usagePopupHeight === height) {
+            return;
+        }
         deps.save_config({
             ...config,
             usagePopupWidth: width,
+            usagePopupHeight: height,
         });
     }
 
     function position_popup(target: WindowLike): void {
         const tray_bounds = deps.get_tray_bounds();
         if (!tray_bounds || tray_bounds.width <= 0 || tray_bounds.height <= 0) return;
+        const config = deps.get_config();
         const current = target.getBounds();
         const display = deps.get_display_for_bounds(tray_bounds);
         const work = display.workArea;
-        const saved_width = deps.get_config().usagePopupWidth;
-        const base_width = saved_width ?? current.width;
+
+        const saved_width = config.usagePopupWidth;
+        const saved_height = config.usagePopupHeight;
         const width =
-            saved_width !== undefined ? clamp(base_width, USAGE_MIN_WIDTH, work.width) : base_width;
+            saved_width !== undefined
+                ? clamp(saved_width, USAGE_MIN_WIDTH, work.width)
+                : current.width;
+        const height =
+            saved_height !== undefined ? clamp(saved_height, 160, work.height) : current.height;
+
         const x = Math.round(tray_bounds.x + tray_bounds.width / 2 - width / 2);
         const y = Math.round(tray_bounds.y + tray_bounds.height + 4);
         const token = ++suppress_bounds_token;
@@ -141,9 +156,9 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         try {
             target.setBounds({
                 x: clamp(x, work.x, work.x + work.width - width),
-                y: clamp(y, work.y, work.y + work.height - current.height),
+                y: clamp(y, work.y, work.y + work.height - height),
                 width,
-                height: current.height,
+                height,
             });
         } finally {
             suppress_tokens.delete(token);
@@ -200,20 +215,28 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 save_floating_bounds(target);
             });
         } else {
-            // t495: 先设最小宽度，若有保存的 usagePopupWidth 则预设 target bounds，
-            // 确保无 tray_bounds 场景下也能恢复宽度；position_popup 时再按托盘所在屏工作区 clamp 定位。
+            // t495 & p247: 先设最小宽高，若有保存的 usagePopupWidth/usagePopupHeight 则预设 target bounds，
+            // 确保无 tray_bounds 场景下也能恢复尺寸；position_popup 时再按工作区 clamp 定位。
             target.setMinimumSize(USAGE_MIN_WIDTH, 160);
             const saved_width = deps.get_config().usagePopupWidth;
-            if (saved_width !== undefined) {
+            const saved_height = deps.get_config().usagePopupHeight;
+            if (saved_width !== undefined || saved_height !== undefined) {
                 const current = target.getBounds();
                 const display = deps.get_display_for_bounds(current);
-                const width = clamp(saved_width, USAGE_MIN_WIDTH, display.workArea.width);
-                target.setBounds({ ...current, width });
+                const width =
+                    saved_width !== undefined
+                        ? clamp(saved_width, USAGE_MIN_WIDTH, display.workArea.width)
+                        : current.width;
+                const height =
+                    saved_height !== undefined
+                        ? clamp(saved_height, 160, display.workArea.height)
+                        : current.height;
+                target.setBounds({ ...current, width, height });
             }
             position_popup(target);
             target.setResizable(true);
             target.on("resize", () => {
-                save_popup_width(target);
+                save_popup_bounds(target);
             });
         }
 
