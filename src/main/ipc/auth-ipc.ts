@@ -1,6 +1,7 @@
 import { ipcMain, session } from "electron";
 import { IPC_CHANNELS } from "../../shared/types/ipc";
-import type { CookieLoginResult, CookieLoginStatus } from "../../shared/types/ipc";
+import type { CookieLoginResult, CookieLoginStatus, LocalScanResult } from "../../shared/types/ipc";
+import { scan_local_auth, type LocalScannerDeps } from "../core/auth/local-scanner";
 import type { IpcResult } from "./helpers";
 import { ok, fail, assert_valid_sender } from "./helpers";
 import { keyFor, type SecretsStore } from "../core/config/secrets-store";
@@ -421,6 +422,19 @@ async function refresh_kimi_web_session(
     );
 }
 
+export async function handleAuthScanLocal(
+    vendor_id: string,
+    deps?: LocalScannerDeps,
+): Promise<IpcResult<LocalScanResult>> {
+    try {
+        const result = await scan_local_auth(vendor_id, deps);
+        return ok(result);
+    } catch (err: unknown) {
+        log.error(`Local auth scan failed for ${vendor_id}`);
+        return fail("INTERNAL_ERROR", err instanceof Error ? err.message : String(err));
+    }
+}
+
 export function registerAuthIpc(deps: AuthIpcDeps): void {
     ipcMain.handle(
         IPC_CHANNELS.AUTH_COOKIE_LOGIN,
@@ -434,6 +448,13 @@ export function registerAuthIpc(deps: AuthIpcDeps): void {
         (e, instanceId: string): Promise<IpcResult<CookieLoginStatus>> => {
             assert_valid_sender(e);
             return handleCookieLoginStatus(deps, instanceId);
+        },
+    );
+    ipcMain.handle(
+        IPC_CHANNELS.AUTH_SCAN_LOCAL,
+        (e, vendor_id: string): Promise<IpcResult<LocalScanResult>> => {
+            assert_valid_sender(e);
+            return handleAuthScanLocal(vendor_id);
         },
     );
 }

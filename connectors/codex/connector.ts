@@ -3,6 +3,7 @@ import type { ScriptObservation } from "../../src/shared/types/observation";
 
 declare const ctx: ConnectorContext;
 
+const DEFAULT_AUTH_FILE = "~/.codex/auth.json";
 const SESSION_DIRS = ["~/.codex/sessions", "~/.codex/archived_sessions"];
 /** t364: 单文件内容长度上限（字符数，与 parse 成本正比），超大文件跳过解析避免拖慢采集。 */
 const MAX_FILE_CHARS = 5 * 1024 * 1024;
@@ -29,6 +30,43 @@ function day_key(ts_ms: number): string {
     return `${d.getUTCFullYear().toString()}-${month}-${day}`;
 }
 
+function base64_decode(input: string): string {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    let str = input.replace(/-/g, "+").replace(/_/g, "/");
+    while (str.length % 4) {
+        str += "=";
+    }
+    let output = "";
+    let bc = 0;
+    let bs = 0;
+    for (let idx = 0; idx < str.length; idx++) {
+        const char = str.charAt(idx);
+        const char_index = chars.indexOf(char);
+        if (char_index >= 0 && char !== "=") {
+            bs = bc % 4 ? bs * 64 + char_index : char_index;
+            if (bc++ % 4) {
+                output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+            }
+        }
+    }
+    return output;
+}
+
+function extract_email_from_jwt(token: string): string | null {
+    try {
+        const parts = token.split(".");
+        if (parts.length < 2 || !parts[1]) return null;
+        const decoded = base64_decode(parts[1]);
+        const payload: unknown = JSON.parse(decoded);
+        if (is_record(payload) && typeof payload["email"] === "string") {
+            return payload["email"];
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 function extract_model(event: Record<string, unknown>): string | null {
     const payload = event["payload"];
     if (!is_record(payload)) return null;
@@ -48,7 +86,157 @@ function extract_token_total(event: Record<string, unknown>): number | null {
     return Number.isFinite(total) ? total : null;
 }
 
-async function main(): Promise<ScriptObservation[]> {
+interface WindowData {
+    used_percent: number;
+    limit_window_seconds: number;
+    reset_at?: number;
+}
+
+interface UsageResponse {
+    rate_limit?: {
+        primary_window?: WindowData;
+        secondary_window?: WindowData;
+    };
+}
+
+async function collect_quota(now: number, observations: ScriptObservation[]): Promise<void> {
+    const auth_path =
+        (typeof ctx.params["auth_file"] === "string" && ctx.params["auth_file"]) ||
+        DEFAULT_AUTH_FILE;
+
+    let auth_content: string;
+    try {
+        auth_content = await ctx.files.read(auth_path);
+    } catch {
+        // 无 auth 文件时略过配额请求
+        return;
+    }
+
+    let auth_data: Record<string, unknown>;
+    try {
+        const parsed: unknown = JSON.parse(auth_content);
+        if (!is_record(parsed)) return;
+        auth_data = parsed;
+    } catch {
+        return;
+    }
+
+    const tokens = is_record(auth_data["tokens"]) ? auth_data["tokens"] : undefined;
+    const access_token =
+        (typeof tokens?.["access_token"] === "string" ? tokens["access_token"] : undefined) ??
+        (typeof auth_data["access_token"] === "string" ? auth_data["access_token"] : undefined);
+
+    if (!access_token) return;
+
+    const account_id =
+        (typeof tokens?.["account_id"] === "string" ? tokens["account_id"] : undefined) ??
+        (typeof auth_data["account_id"] === "string" ? auth_data["account_id"] : undefined);
+
+    let email = typeof auth_data["email"] === "string" ? auth_data["email"] : undefined;
+    const id_token = typeof tokens?.["id_token"] === "string" ? tokens["id_token"] : undefined;
+    if (id_token && !email) {
+        const extracted = extract_email_from_jwt(id_token);
+        if (extracted) email = extracted;
+    }
+
+    const headers: Record<string, string> = {
+        Authorization: `Bearer ${access_token}`,
+        "User-Agent": "codex-cli",
+        Accept: "application/json",
+    };
+    if (account_id) {
+        headers["ChatGPT-Account-Id"] = account_id;
+    }
+
+    try {
+        const res = (await ctx.http.get_json("chatgpt", "/backend-api/wham/usage", {
+            headers,
+        })) as UsageResponse;
+
+        const rate_limit = res.rate_limit;
+        const acct_label = email ?? "Codex";
+        const primary = rate_limit?.primary_window;
+        const secondary = rate_limit?.secondary_window;
+
+        if (primary && typeof primary.used_percent === "number") {
+            const cycle_ms = primary.limit_window_seconds * 1000;
+            const reset_ms = primary.reset_at ? primary.reset_at * 1000 : null;
+            observations.push({
+                provider: "codex",
+                account_id: account_id ?? "codex",
+                account_label: acct_label,
+                metric_id: `codex:${account_id ?? "default"}:primary`,
+                raw_label: "5h_limit",
+                normalized_label: "5小时",
+                window: "second",
+                cycleDurationMs: cycle_ms,
+                used: primary.used_percent,
+                limit: 100,
+                display_style: "percent",
+                reset_at: reset_ms,
+                status: ctx.status.for_pct(primary.used_percent),
+                observed_at: now,
+                source: "local",
+                stale: false,
+                last_error: null,
+            });
+        }
+
+        if (secondary && typeof secondary.used_percent === "number") {
+            const cycle_ms = secondary.limit_window_seconds * 1000;
+            const reset_ms = secondary.reset_at ? secondary.reset_at * 1000 : null;
+            observations.push({
+                provider: "codex",
+                account_id: account_id ?? "codex",
+                account_label: acct_label,
+                metric_id: `codex:${account_id ?? "default"}:secondary`,
+                raw_label: "weekly_limit",
+                normalized_label: "一周",
+                window: "day",
+                cycleDurationMs: cycle_ms,
+                used: secondary.used_percent,
+                limit: 100,
+                display_style: "percent",
+                reset_at: reset_ms,
+                status: ctx.status.for_pct(secondary.used_percent),
+                observed_at: now,
+                source: "local",
+                stale: false,
+                last_error: null,
+            });
+        }
+    } catch (err: unknown) {
+        ctx.log.warn("Failed to fetch official Codex quota", { error: String(err) });
+        const is_unauthorized =
+            err instanceof Error &&
+            (err.message.includes("401") ||
+                err.message.includes("Unauthorized") ||
+                err.message.includes("token"));
+        if (is_unauthorized) {
+            observations.push({
+                provider: "codex",
+                account_id: account_id ?? "codex",
+                account_label: email ?? "Codex",
+                metric_id: `codex:${account_id ?? "default"}:auth_error`,
+                raw_label: "auth_error",
+                normalized_label: "认证失效",
+                window: "day",
+                cycleDurationMs: null,
+                used: 0,
+                limit: 100,
+                display_style: "percent",
+                reset_at: null,
+                status: "critical",
+                observed_at: now,
+                source: "local",
+                stale: true,
+                last_error: "本地凭证已失效，请在终端重新运行 codex 登录",
+            });
+        }
+    }
+}
+
+async function collect_sessions(now: number, observations: ScriptObservation[]): Promise<void> {
     const all_files: string[] = [];
     for (const dir of SESSION_DIRS) {
         try {
@@ -110,10 +298,6 @@ async function main(): Promise<ScriptObservation[]> {
         }
     }
 
-    if (aggregates.size === 0) return [];
-
-    const now = Date.now();
-    const observations: ScriptObservation[] = [];
     for (const [key, used] of aggregates) {
         const model = key.split("|", 1)[0] ?? "unknown";
         // t393 AC-004: 观测携带所属分桶日（day 派生字段）——测试可对
@@ -140,6 +324,14 @@ async function main(): Promise<ScriptObservation[]> {
             day,
         });
     }
+}
+
+async function main(): Promise<ScriptObservation[]> {
+    const now = Date.now();
+    const observations: ScriptObservation[] = [];
+
+    await collect_quota(now, observations);
+    await collect_sessions(now, observations);
 
     return observations;
 }

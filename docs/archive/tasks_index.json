@@ -7938,6 +7938,22 @@
             "conflicts_with": "",
             "note": "来源 p246；修复 Command Code 月额度 remaining 错当 used 导致的用量反转、display_style 改为 percent 并正常展示重置时间与状态",
             "dir": "docs/archive/tasks/t498_commandcode_monthly_usage_inverted_fix"
+        },
+        {
+            "tid": "t499",
+            "slug": "codex_local_quota_connector",
+            "title": "Codex 本地连接器对接官方配额 API 与面板展示",
+            "status": "done",
+            "branch": "t499_codex_local_quota_connector",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "152bd4d26c9ef5ec89e5d6698f795bcb93760a84",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "读本地 ~/.codex/auth.json 直连 chatgpt.com/backend-api/wham/usage 获取 5h 与周配额",
+            "dir": "docs/archive/tasks/t499_codex_local_quota_connector"
         }
     ]
 }

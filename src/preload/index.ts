@@ -16,6 +16,7 @@ import type {
     ConfigExportOptions,
     CookieLoginResult,
     CookieLoginStatus,
+    LocalScanResult,
     HistoryMessageLike,
     RendererLogPayload,
     RendererPlatform,
@@ -529,6 +530,8 @@ const auth_methods = {
         invoke<CookieLoginResult>(IPC_CHANNELS.AUTH_COOKIE_LOGIN, instanceId),
     cookieLoginStatus: (instanceId: string) =>
         invoke<CookieLoginStatus>(IPC_CHANNELS.AUTH_COOKIE_LOGIN_STATUS, instanceId),
+    scanLocal: (vendor_id: string) =>
+        invoke<LocalScanResult>(IPC_CHANNELS.AUTH_SCAN_LOCAL, vendor_id),
 };
 
 const session_methods = {

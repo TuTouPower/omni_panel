@@ -2,10 +2,21 @@
     "id": "codex",
     "provider": "codex",
     "capabilities": ["local"],
-    "parameters": [],
-    "endpoints": {},
+    "parameters": [
+        {
+            "name": "auth_file",
+            "label": "认证文件路径",
+            "type": "string",
+            "required": false,
+            "default": "~/.codex/auth.json",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "chatgpt": "https://chatgpt.com"
+    },
     "local": {
-        "paths": ["~/.codex/sessions", "~/.codex/archived_sessions"]
+        "paths": ["~/.codex/auth.json", "~/.codex/sessions", "~/.codex/archived_sessions"]
     },
     "script": "connector.ts"
 }
