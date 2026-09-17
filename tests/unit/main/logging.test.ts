@@ -2,8 +2,21 @@ import { mkdtemp, mkdir, readFile, readdir, rm, stat, utimes, writeFile } from "
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultLogLevelForEnv, initLogging } from "../../../src/main/core/logging";
+import { defaultLogLevelForEnv, exportCurrentLog, initLogging } from "../../../src/main/core/logging";
 import { createLogger } from "../../../src/shared/lib/logger";
+import { get_local_date_string } from "../../../src/shared/lib/local-time";
+
+// t502: ESM 下直接 vi.mock 本地 helper 需 hoisted 模式；跨午夜用真实 Date 推进
+//（local-time 纯函数取系统本地时区，CI 多时区均可通过）。
+const local_date_mock = vi.hoisted(() => ({ date: "" }));
+vi.mock(import("../../../src/shared/lib/local-time"), async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        get_local_date_string: (d?: Date) =>
+            local_date_mock.date || actual.get_local_date_string(d),
+    };
+});
 
 const MAX_SEGMENTS = 3;
 
@@ -147,7 +160,7 @@ describe("initLogging", () => {
         });
 
         const log_dir = join(temp_dir, "logs");
-        const date = new Date().toISOString().slice(0, 10);
+        const date = get_local_date_string();
         // Write enough to fill current + MAX_SEGMENTS segments, then keep going.
         for (let i = 0; i < 40; i++) {
             createLogger("test").info(`filler line ${String(i)} padding padding padding`);
@@ -175,7 +188,7 @@ describe("initLogging", () => {
         const log_dir = join(temp_dir, "logs");
         await mkdir(log_dir, { recursive: true });
 
-        const old_date = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const old_date = get_local_date_string(new Date(Date.now() - 8 * 24 * 60 * 60 * 1000));
         const old_current = join(log_dir, `app-${old_date}.log`);
         const old_segment = join(log_dir, `app-${old_date}.1.log`);
         await writeFile(old_current, "old current\n", "utf8");
@@ -191,5 +204,36 @@ describe("initLogging", () => {
         const files = await readdir(log_dir);
         expect(files).not.toContain(`app-${old_date}.log`);
         expect(files).not.toContain(`app-${old_date}.1.log`);
+    });
+
+    it("rotates fd across local midnight and export syncs to new file (t502 AC-001/002)", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-"));
+        const log_dir = join(temp_dir, "logs");
+        local_date_mock.date = "2026-09-18";
+        try {
+            remove_logging = await initLogging(temp_dir, { logLevel: "debug" });
+            createLogger("test").info("before-midnight-sentinel-t502");
+            await vi.waitFor(async () => {
+                const content = await readFile(join(log_dir, "app-2026-09-18.log"), "utf8");
+                expect(content).toContain("before-midnight-sentinel-t502");
+            });
+
+            local_date_mock.date = "2026-09-19";
+            createLogger("test").info("after-midnight-sentinel-t502");
+            await cleanup_logging();
+
+            const before = await readFile(join(log_dir, "app-2026-09-18.log"), "utf8");
+            const after = await readFile(join(log_dir, "app-2026-09-19.log"), "utf8");
+            expect(before).toContain("before-midnight-sentinel-t502");
+            expect(before).not.toContain("after-midnight-sentinel-t502");
+            expect(after).toContain("after-midnight-sentinel-t502");
+
+            // exportCurrentLog 与写路径同走 mocked 本地日期，跨天后导出新文件非空。
+            const target = join(temp_dir, "exported-t502.log");
+            await exportCurrentLog(temp_dir, target);
+            expect(await readFile(target, "utf8")).toContain("after-midnight-sentinel-t502");
+        } finally {
+            local_date_mock.date = "";
+        }
     });
 });

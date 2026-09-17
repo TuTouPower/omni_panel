@@ -25,6 +25,7 @@ import type {
 } from "../../../src/main/core/session-history/subscription-service";
 import { clear_resolution_cache } from "../../../src/main/core/session-history/session-locator";
 import { addTransport, scrubber, setLogLevel } from "../../../src/shared/lib/logger";
+import { get_local_date_string } from "../../../src/shared/lib/local-time";
 
 let temp_dir: string;
 let sync_store: ObservationStore;
@@ -3462,7 +3463,7 @@ describe("local-api logs export (t279)", () => {
     it("GET /v1/logs/export 流式返回当前活跃日志段并带下载头", async () => {
         const logs_home = await mkdtemp(join(tmpdir(), "omni-logs-export-"));
         try {
-            const date = new Date().toISOString().slice(0, 10);
+            const date = get_local_date_string();
             // get_logs_dir(base) = <base>/logs，与桌面 exportCurrentLog 同路径语义。
             await mkdir(join(logs_home, "logs"), { recursive: true });
             await writeFile(join(logs_home, "logs", `app-${date}.log`), "export-sentinel-line\n");

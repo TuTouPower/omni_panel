@@ -7,6 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
+import { get_local_date_string } from "../../../shared/lib/local-time";
 import { observation_ingest_schema } from "../../../shared/schemas/observation";
 import type { Observation } from "../../../shared/types/observation";
 import type { ObservationStore } from "../observation/observation-store";
@@ -1053,7 +1054,7 @@ export function create_local_api_server(
             return;
         }
         const log_dir = get_logs_dir(user_data_path);
-        const date = new Date().toISOString().slice(0, 10);
+        const date = get_local_date_string();
         const log_file = path.join(log_dir, `app-${date}.log`);
         const download_name = `omni-panel-log-${date}.log`;
         fs.stat(log_file, (stat_err, s) => {

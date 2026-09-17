@@ -45,6 +45,7 @@ import type {
     TokenStatsSessionFilters,
 } from "../shared/types/token-stats";
 import { apply_theme } from "../renderer/lib/theme";
+import { get_local_date_string } from "../shared/lib/local-time";
 
 const POLL_MS = 10_000;
 
@@ -393,7 +394,7 @@ export function create_web_usageboard(): UsageboardApi {
                 const data: unknown = await response.json();
                 download_json_file(
                     data,
-                    `omni-panel-config-${new Date().toISOString().slice(0, 10)}.json`,
+                    `omni-panel-config-${get_local_date_string()}.json`,
                 );
                 return { saved: true };
             },
@@ -665,7 +666,7 @@ export function create_web_usageboard(): UsageboardApi {
                     await throw_http_error(res, "GET", "/v1/logs/export");
                 }
                 const blob = await res.blob();
-                const date = new Date().toISOString().slice(0, 10);
+                const date = get_local_date_string();
                 download_blob(blob, `omni-panel-log-${date}.log`);
                 return { saved: true };
             },

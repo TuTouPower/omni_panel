@@ -153,6 +153,26 @@ describe("logger", () => {
         }
     });
 
+    it("ts 带本地时区偏移且 meta 中机器日期保留 UTC (t502 AC-003)", () => {
+        const lines: string[] = [];
+        const transport = createFileTransport((line) => lines.push(line));
+        const remove_transport = addTransport(transport);
+        setLogLevel("debug");
+
+        try {
+            const log = createLogger("tz-check");
+            log.info("tz", { resetAt: new Date("2026-06-06T12:00:00.000Z") });
+
+            const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+            const meta = record["meta"] as Record<string, unknown>;
+            expect(record["ts"]).toMatch(/[+-]\d{2}:\d{2}$/);
+            expect(record["ts"] as string).not.toMatch(/Z$/);
+            expect(meta["resetAt"]).toBe("2026-06-06T12:00:00.000Z");
+        } finally {
+            remove_transport();
+        }
+    });
+
     it("createFileTransport serializes unstringifiable metadata safely", () => {
         const lines: string[] = [];
         const transport = createFileTransport((line) => lines.push(line));
