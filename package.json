@@ -15,6 +15,7 @@
         "build:web": "vite build --config vite.web.config.ts",
         "package": "tsx scripts/package-and-run.ts",
         "package:build": "tsx scripts/package-and-run.ts",
+        "package:nosign": "OMNI_SKIP_SIGN=1 tsx scripts/package-and-run.ts",
         "reload": "tsx scripts/package-and-run.ts --no-build",
         "make": "pnpm build && electron-builder",
         "make:win": "pnpm build && electron-builder --win",
