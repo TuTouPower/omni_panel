@@ -2,22 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t500",
-            "slug": "disable_cookie_encryption_fuse",
-            "title": "关闭打包 Cookie 加密 fuse，启动不再访问钥匙串",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "来源 p249；用户要求删除 Chromium Cookie 钥匙串加密。cookie 登录本身保留。",
-            "dir": "docs/tasks/t500_disable_cookie_encryption_fuse"
-        }
-    ]
+    "tasks": []
 }
