@@ -73,20 +73,42 @@ export function getUserConnectorsDir(): string {
     return join(getDataRoot(), "connectors");
 }
 
-export function get_tray_icon_path(): string {
-    const suffix = process.env["TEST_INSTANCE"] === "1" ? "-test" : "";
-    if (app.isPackaged) {
-        return join(process.resourcesPath, `tray-icon${suffix}.png`);
+export function get_tray_icon_path(base_dir?: string): string {
+    const is_test = is_test_build();
+    const suffix = is_test ? "-test" : "";
+    const is_darwin = process.platform === "darwin";
+    const template_suffix = is_darwin ? "Template" : "";
+    const filename = `tray-icon${suffix}${template_suffix}.png`;
+    if (base_dir) {
+        return join(base_dir, filename);
     }
-    return join(PROJECT_ROOT, "assets", `tray-icon${suffix}.png`);
+    if (app.isPackaged) {
+        const target = join(process.resourcesPath, filename);
+        if (existsSync(target)) {
+            return target;
+        }
+        if (is_darwin && existsSync(join(process.resourcesPath, "tray-iconTemplate.png"))) {
+            return join(process.resourcesPath, "tray-iconTemplate.png");
+        }
+        return join(
+            process.resourcesPath,
+            is_darwin ? "tray-iconTemplate.png" : `tray-icon${suffix}.png`,
+        );
+    }
+    return join(PROJECT_ROOT, "assets", filename);
 }
 
-export function get_app_icon_path(): string {
-    const suffix = process.env["TEST_INSTANCE"] === "1" ? "-test" : "";
-    if (app.isPackaged) {
-        return join(process.resourcesPath, `icon${suffix}.png`);
+export function get_app_icon_path(base_dir?: string): string {
+    const is_test = is_test_build();
+    const suffix = is_test ? "-test" : "";
+    const filename = `icon${suffix}.png`;
+    if (base_dir) {
+        return join(base_dir, filename);
     }
-    return join(PROJECT_ROOT, "assets", `icon${suffix}.png`);
+    if (app.isPackaged) {
+        return join(process.resourcesPath, filename);
+    }
+    return join(PROJECT_ROOT, "assets", filename);
 }
 
 /**

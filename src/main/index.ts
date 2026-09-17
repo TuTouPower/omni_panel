@@ -1208,6 +1208,9 @@ void app.whenReady().then(async () => {
             if (trayIcon.isEmpty()) {
                 log.warn("Tray icon loaded as empty image");
             }
+            if (process.platform === "darwin") {
+                trayIcon.setTemplateImage(true);
+            }
             const tray = new Tray(trayIcon);
             tray_ref = tray;
             tray.setToolTip("OmniPanel — AI 用量监控");

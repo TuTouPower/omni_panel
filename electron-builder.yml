@@ -16,6 +16,10 @@ extraResources:
       to: connectors
     - from: assets/tray-icon.png
       to: tray-icon.png
+    - from: assets/tray-iconTemplate.png
+      to: tray-iconTemplate.png
+    - from: assets/tray-iconTemplate@2x.png
+      to: tray-iconTemplate@2x.png
     - from: assets/icon.png
       to: icon.png
     - from: out/web

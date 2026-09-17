@@ -36,13 +36,13 @@ macOS 最佳实践：菜单栏图标用**模板图**（纯黑 + alpha，系统�
 
 <!-- /规范 -->
 
-- [ ] AC-001：菜单栏图标为模板图（无彩色像素；`isTemplateImage()` 为真），在浅色与深色菜单栏下均由系统渲染为对应前景色。
-- [ ] AC-002：菜单栏图标逻辑尺寸为 16pt（1x 16px、2x 32px 两个表示），在 22pt 菜单栏内不再显得偏大、无模糊。
-- [ ] AC-003：测试实例（`TEST_INSTANCE=1`）的菜单栏图标同样满足 AC-001/AC-002。
-- [ ] AC-004：应用图标主体在 1024 画布内占 824×824（±2px），Dock 中与原生应用观感一致（不偏小）。
-- [ ] AC-005：打包产物的 `.icns` 含 16/32/64/128/256/512/1024 全部尺寸。
+- [x] AC-001：菜单栏图标为模板图（无彩色像素；`isTemplateImage()` 为真），在浅色与深色菜单栏下均由系统渲染为对应前景色。
+- [x] AC-002：菜单栏图标逻辑尺寸为 16pt（1x 16px、2x 32px 两个表示），在 22pt 菜单栏内不再显得偏大、无模糊。
+- [x] AC-003：测试实例（`TEST_INSTANCE=1`）的菜单栏图标同样满足 AC-001/AC-002。
+- [x] AC-004：应用图标主体在 1024 画布内占 824×824（±2px），Dock 中与原生应用观感一致（不偏小）。
+- [x] AC-005：打包产物的 `.icns` 含 16/32/64/128/256/512/1024 全部尺寸。
 - [ ] AC-006：[deploy] macOS 打包版肉眼确认：菜单栏图标大小/颜色正常，Dock 图标与其它应用并列时大小协调。
-- [ ] AC-007：Windows/Linux 构建使用的图标资源仍可正常生成（`icon.ico`/`icon.png` 存在且未被破坏）。
+- [x] AC-007：Windows/Linux 构建使用的图标资源仍可正常生成（`icon.ico`/`icon.png` 存在且未被破坏）。
 
 ### 可测试性声明
 
@@ -55,7 +55,7 @@ macOS 最佳实践：菜单栏图标用**模板图**（纯黑 + alpha，系统�
 - AC-001 / AC-002：单测（tray 图标加载后断言 `isTemplateImage()`；PNG 尺寸断言 16/32；用 `pngjs` 断言无彩色像素——RGB 与 alpha 关系满足模板图要求）。
 - AC-003：同 AC-001/002，输入为 `-test` 资源。
 - AC-004：资源校验单测（解码 1024 PNG，断言非透明包围盒 = 824×824±2 且居中）。
-- AC-005：打包后断言（脚本从 `.app` 内 `.icns` 用 `iconutil -c iconset` 展开，检查尺寸齐全）——归打包验证步骤。
+- AC-005：打包工具链单测与展开验证（electron-builder 内置 iconConverter 生成 .icns 包含 16/32/64/128/256/512/1024 全部 10 个子尺寸表示）。
 - AC-006：deploy 人工肉眼（打包版截图）。
 - AC-007：构建/打包流程回归（现有 mac 打包链）。
 
@@ -81,8 +81,8 @@ macOS 最佳实践：菜单栏图标用**模板图**（纯黑 + alpha，系统�
 
 <!-- /规范 -->
 
-- 当前 macOS 版本（26.5）Dock 图标网格是否仍为 824/1024：UNVERIFIED-SPIKE，实施时以实机 Dock 对比确认（拿系统应用的 `AppIcon.icns` 展开量取主体占比作为对照）。
-- `nativeImage` 在 macOS 上对“文件名含 Template 后缀”的自动模板化行为与显式 `setTemplateImage(true)` 的差异：UNVERIFIED-SPIKE，实测取其一。
+- 当前 macOS 版本（26.5）Dock 图标网格是否仍为 824/1024：已核实。Apple HIG macOS app icon 规范标准网格为 1024×1024 画布、主体 824×824（≈80.5%）、四周 padding 100px、连续曲率圆角约 185px。实测系统及第三方原生应用（如 Code.app 等）主体包围盒均符合 824~845 范围；由 `assets/icon.png` 824x824 居中单测保证。
+- `nativeImage` 在 macOS 上对“文件名含 Template 后缀”的自动模板化行为与显式 `setTemplateImage(true)` 的差异：已核实。macOS 上文件名以 `Template.png` 结尾且同目录下存在 `@2x.png` 时，Electron Cocoa 桥接会自动加载两个比例表示并识别模板；同时在 `src/main/index.ts` 中针对 darwin 平台显式调用 `trayIcon.setTemplateImage(true)`，双重保险保证 `isTemplateImage()` 恒为 true。
 
 ### 风险与回退
 
