@@ -1,0 +1,32 @@
+{
+    "tid": "t501",
+    "attempt": 1,
+    "execution_id": "d41b36c519a94c89abbb208062a381aa",
+    "status": "done",
+    "branch": "t501_net_client_allowed_paths_tilde_expansion",
+    "base_sha": "a7fb6079e802a301420aeef193ab18d01d5b589d",
+    "tests": "pnpm test 317文件3881 passed(9 skipped); 定向net-client/codex/claude三文件65 passed; pnpm typecheck/lint/build通过; git diff --check绿",
+    "blackbox": "blackbox_verify无打包/托盘/真实Electron/live/SPA路径，pnpm test即主黑盒；pnpm build(electron-vite+web)通过",
+    "review": "full; code Round1 PASS零finding; test Round1 FAIL(f001 important+f002 minor)->修复->Round2 PASS; reviewed_scope对应最终内容",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/connector/net-client.ts:expand_home补~/裸~ ~\\、canonical_path双边规范化is_within_allowed",
+            "tests/integration/connector/net-client.test.ts:~/双边读、裸~白名单、~\\展开、~otheruser拒绝"
+        ],
+        "AC-002": [
+            "src/main/core/connector/net-client.ts:files.list先resolve(expand_home)再校验并传同一resolved_dir给扫描",
+            "tests/integration/connector/net-client.test.ts:list返回resolve绝对路径并拒绝~/other与~/sessions/../outside"
+        ],
+        "AC-003": [
+            "connectors/codex/connector.ts:collect_quota读warn/解析debug、collect_sessions list/read warn、行解析debug，均带路径+String(err)不含正文",
+            "connectors/claude/connector.ts:读warn/解析debug带cred_path不泄露",
+            "tests/integration/connector/codex-connector.test.ts:auth读warn、list warn、session读warn、auth解析debug、行解析debug; tests/integration/connector/claude-connector.test.ts:读warn/解析debug"
+        ],
+        "AC-004": [
+            "tests/integration/connector/net-client.test.ts:~/白名单内外、..越权、 symlink外跳拒绝，全程vi.mock node:os指向mkdtemp隔离目录",
+            "tests/integration/connector/codex-connector.test.ts与claude-connector.test.ts经run_connector断言沙箱拒绝时ctx.log.warn触发"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

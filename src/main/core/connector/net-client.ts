@@ -1,6 +1,6 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import * as os from "node:os";
+import { join, normalize, resolve } from "node:path";
 import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, withLogContext, type Logger } from "../../../shared/lib/logger";
@@ -71,20 +71,23 @@ export interface NetClientConfig {
 }
 
 function expand_home(path_pattern: string): string {
-    if (path_pattern === "~") return homedir();
-    if (path_pattern.startsWith("~/")) return join(homedir(), path_pattern.slice(2));
+    if (path_pattern === "~") return os.homedir();
+    if (path_pattern.startsWith("~/")) return join(os.homedir(), path_pattern.slice(2));
+    if (path_pattern.startsWith("~\\")) return join(os.homedir(), path_pattern.slice(2));
     return path_pattern;
 }
 
+function canonical_path(value: string): string {
+    return normalize(resolve(expand_home(value)))
+        .replace(/[\\/]+/g, "/")
+        .replace(/\/$/, "")
+        .toLowerCase();
+}
+
 function is_within_allowed(path: string, allowed: readonly string[]): boolean {
-    const normalize = (value: string): string =>
-        resolve(value)
-            .replace(/[\\/]+/g, "/")
-            .replace(/\/$/, "")
-            .toLowerCase();
-    const normalized_path = normalize(path);
+    const normalized_path = canonical_path(path);
     for (const root of allowed) {
-        const normalized_root = normalize(root);
+        const normalized_root = canonical_path(root);
         if (
             normalized_path === normalized_root ||
             normalized_path.startsWith(`${normalized_root}/`)
@@ -500,11 +503,11 @@ export function create_connector_context(
             },
             async list(dir_pattern: string) {
                 const allowed = manifest.local?.paths ?? [];
-                const expanded = expand_home(dir_pattern);
-                if (!is_within_allowed(expanded, allowed)) {
+                const resolved_dir = resolve(expand_home(dir_pattern));
+                if (!is_within_allowed(resolved_dir, allowed)) {
                     throw new Error("Local directory is not allowed");
                 }
-                return list_dir_recursive(expanded);
+                return list_dir_recursive(resolved_dir);
             },
         },
         params: config.params ?? {},

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { ctx_status } from "./_ctx_status";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
@@ -144,14 +144,24 @@ describe("codex connector", () => {
             }) +
             "\n";
 
-        const result = await run_connector(
-            manifest,
-            script,
-            create_ctx({ "~/.codex/sessions/rollout-x.jsonl": content }),
-        );
+        const ctx = create_ctx({
+            "~/.codex/auth.json": '{"tokens":{}}',
+            "~/.codex/sessions/rollout-x.jsonl": content,
+        });
+        const warn = vi.fn();
+        const debug = vi.fn();
+        ctx.log.warn = warn;
+        ctx.log.debug = debug;
+        const result = await run_connector(manifest, script, ctx);
 
         expect(result.error).toBeNull();
         expect(result.observations[0]?.used).toBe(300);
+        // t501 AC-003: 会话行解析失败降级 debug（带路径，不含行正文），不 warn。
+        expect(debug).toHaveBeenCalled();
+        const debug_msgs = debug.mock.calls.map((c) => String(c[0] ?? ""));
+        expect(debug_msgs.some((m) => m.includes("rollout-x.jsonl"))).toBe(true);
+        expect(debug_msgs.join("\n")).not.toContain("{bad json");
+        expect(warn).not.toHaveBeenCalled();
     });
 
     it("skips oversized session files (t364 AC-001)", async () => {
@@ -287,5 +297,72 @@ describe("codex connector", () => {
         // 缺零填充回归：仅桶数量断言对「12-31/01-01 用错月份」与「01-01 未补零
         // （会成 2027-1-1）」不敏感，此处直接锁 day 派生输出。
         expect(gpt5.map((o) => o.day).sort()).toEqual(["2026-12-31", "2027-01-01"]);
+    });
+
+    it("logs warn with path and error when auth file read fails (t501 AC-003)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const warn = vi.fn();
+        const debug = vi.fn();
+        const ctx = create_ctx({});
+        ctx.log.warn = warn;
+        ctx.log.debug = debug;
+        ctx.files.read = (path: string) =>
+            Promise.reject(new Error(`Local file path is not allowed: ${path}`));
+        const result = await run_connector(manifest, script, ctx);
+        expect(result.error).toBeNull();
+        expect(warn).toHaveBeenCalled();
+        const msg = String(warn.mock.calls[0]?.[0] ?? "");
+        expect(msg).toContain("~/.codex/auth.json");
+        expect(msg).toContain("Local file path is not allowed");
+        // 严禁记录文件正文。
+        expect(msg).not.toContain("sk-secret-payload");
+    });
+
+    it("logs warn when session list fails and debug on auth parse failure (t501 AC-003)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        // list 失败 → warn（提供有效 auth 使 quota 路径不 warn，隔离 list 断言）。
+        const warn_list = vi.fn();
+        const ctx_list = create_ctx({ "~/.codex/auth.json": '{"tokens":{}}' });
+        ctx_list.log.warn = warn_list;
+        ctx_list.log.debug = vi.fn();
+        ctx_list.files.list = (dir: string) =>
+            Promise.reject(new Error(`Local directory is not allowed: ${dir}`));
+        const result_list = await run_connector(manifest, script, ctx_list);
+        expect(result_list.error).toBeNull();
+        expect(warn_list).toHaveBeenCalled();
+        const list_msgs = warn_list.mock.calls.map((c) => String(c[0] ?? ""));
+        expect(list_msgs.some((m) => m.includes("~/.codex/sessions"))).toBe(true);
+
+        // auth 文件 JSON 解析失败 → debug，不 warn。
+        const warn_parse = vi.fn();
+        const debug_parse = vi.fn();
+        const ctx_parse = create_ctx({ "~/.codex/auth.json": "{bad json" });
+        ctx_parse.log.warn = warn_parse;
+        ctx_parse.log.debug = debug_parse;
+        // list 返回空，避免 sessions 路径干扰。
+        ctx_parse.files.list = () => Promise.resolve([]);
+        const result_parse = await run_connector(manifest, script, ctx_parse);
+        expect(result_parse.error).toBeNull();
+        expect(debug_parse).toHaveBeenCalled();
+        expect(String(debug_parse.mock.calls[0]?.[0] ?? "")).toContain("~/.codex/auth.json");
+        expect(warn_parse).not.toHaveBeenCalled();
+    });
+
+    it("logs warn with path when session file read fails (t501 AC-003)", async () => {
+        const script = await readFile(join("connectors", "codex", "connector.ts"), "utf8");
+        const warn = vi.fn();
+        const ctx = create_ctx({ "~/.codex/auth.json": '{"tokens":{}}' });
+        ctx.log.warn = warn;
+        ctx.log.debug = vi.fn();
+        ctx.files.list = (dir: string) =>
+            Promise.resolve([`${dir}/rollout-1.jsonl`]);
+        ctx.files.read = (path: string) => {
+            if (path.endsWith("auth.json")) return Promise.resolve('{"tokens":{}}');
+            return Promise.reject(new Error(`ENOENT: ${path}`));
+        };
+        const result = await run_connector(manifest, script, ctx);
+        expect(result.error).toBeNull();
+        expect(warn).toHaveBeenCalled();
+        expect(String(warn.mock.calls[0]?.[0] ?? "")).toContain("rollout-1.jsonl");
     });
 });
