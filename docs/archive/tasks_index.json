@@ -7986,6 +7986,22 @@
             "conflicts_with": "",
             "note": "来源 p251；修复 net-client is_within_allowed 未展开波浪号导致 codex/claude 无法读取本地文件的问题，补齐错误日志",
             "dir": "docs/archive/tasks/t501_net_client_allowed_paths_tilde_expansion"
+        },
+        {
+            "tid": "t502",
+            "slug": "logging_and_exports_use_china_local_time",
+            "title": "日志切分、日志时间戳与导出文件名改用系统本地时区",
+            "status": "done",
+            "branch": "t502_logging_and_exports_use_china_local_time",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "2cfeae89044712b5870966d070b9980fc6adc995",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p252；日志文件名按本地时区切分，日志条目带本地时区时间戳，导出默认文件名对齐本地日期",
+            "dir": "docs/archive/tasks/t502_logging_and_exports_use_china_local_time"
         }
     ]
 }

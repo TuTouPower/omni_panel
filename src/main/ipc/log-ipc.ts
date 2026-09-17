@@ -2,6 +2,7 @@ import { IPC_CHANNELS } from "../../shared/types/ipc";
 import type { RendererLogPayload } from "../../shared/types/ipc";
 import type { Logger } from "../../shared/lib/logger";
 import { createLogger } from "../../shared/lib/logger";
+import { get_local_date_string } from "../../shared/lib/local-time";
 import { exportCurrentLog } from "../core/logging";
 import type { IpcResult } from "./helpers";
 import { fail, ok, assert_valid_sender } from "./helpers";
@@ -48,7 +49,7 @@ export async function handleLogExport(
         const { dialog } = await import("electron");
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: "导出运行日志",
-            defaultPath: `omni-panel-log-${new Date().toISOString().slice(0, 10)}.log`,
+            defaultPath: `omni-panel-log-${get_local_date_string()}.log`,
             filters: [{ name: "Log", extensions: ["log"] }],
         });
         if (canceled || !filePath) return ok({ saved: false });

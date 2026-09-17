@@ -12,6 +12,7 @@ import { appConfigurationSchema } from "../core/config/types";
 import { FOLLOW_GLOBAL_REFRESH_SENTINEL } from "../core/config/auto-seed";
 import type { ConnectorDefinition } from "../core/connector/manifest-loader";
 import { createLogger } from "../../shared/lib/logger";
+import { get_local_date_string } from "../../shared/lib/local-time";
 import { redact_config_raw } from "../../shared/lib/config_redaction";
 import { createLoggedIpcHandler } from "./logged";
 import {
@@ -478,7 +479,7 @@ export async function handleConfigExport(
 
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: "导出设置",
-            defaultPath: `omni-panel-settings-${new Date().toISOString().slice(0, 10)}.json`,
+            defaultPath: `omni-panel-settings-${get_local_date_string()}.json`,
             filters: [{ name: "JSON", extensions: ["json"] }],
         });
 

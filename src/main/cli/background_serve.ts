@@ -6,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { closeSync, mkdirSync, openSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { format_local_iso } from "../../shared/lib/local-time";
 import { parse_cli_json } from "../../../scripts/cli_json_parse.mjs";
 import type { CliServeOptions } from "./args";
 
@@ -125,7 +126,7 @@ export function run_background_serve_parent(options: CliServeOptions): never {
 
     const log_dir = join(data_root, "logs");
     mkdirSync(log_dir, { recursive: true });
-    const log_path = join(log_dir, `serve-${new Date().toISOString().replace(/[:.]/g, "-")}.log`);
+    const log_path = join(log_dir, `serve-${format_local_iso().replace(/[:+.]/g, "-")}.log`);
     const log_fd = openSync(log_path, "a");
     const child_user = build_child_user_args(options);
     const { command, args } = spawn_self_args(child_user);

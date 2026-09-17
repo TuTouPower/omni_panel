@@ -8,6 +8,7 @@ import {
     type LogLevel,
     setLogLevel,
 } from "../../shared/lib/logger";
+import { get_local_date_string } from "../../shared/lib/local-time";
 import { get_logs_dir } from "./paths";
 
 const MAX_LOG_AGE_DAYS = 7;
@@ -19,8 +20,7 @@ export function getLogDir(userDataPath: string): string {
 }
 
 function getLogFilePath(logDir: string): string {
-    const date = new Date().toISOString().slice(0, 10);
-    return join(logDir, `app-${date}.log`);
+    return join(logDir, `app-${get_local_date_string()}.log`);
 }
 
 async function getCurrentSegmentCount(logDir: string, logFile: string): Promise<number> {
@@ -63,6 +63,7 @@ export function defaultLogLevelForEnv(env: NodeJS.ProcessEnv = process.env): Log
 export async function exportCurrentLog(userDataPath: string, targetPath: string): Promise<void> {
     // Export the currently active log segment only. Historical segments are
     // named app-<date>.N.log and remain in the logs directory.
+    // t502 AC-002: 与写路径同一本地日期文件严格同步（均经 get_local_date_string）。
     const logFile = getLogFilePath(getLogDir(userDataPath));
     await copyFile(logFile, targetPath);
 }
@@ -85,6 +86,9 @@ export async function initLogging(
     const maxSegments = options.maxSegments ?? MAX_SEGMENTS;
 
     let currentSegment = await getCurrentSegmentCount(logDir, logFile);
+    // t502: 常驻进程跨午夜写时轮转——跟踪当前活跃日期与文件，写时比对本地日期。
+    let current_log_file = logFile;
+    let current_log_date = get_local_date_string();
     let log_fd: Awaited<ReturnType<typeof open>> | null = null;
     let cached_size = 0;
     let writes_since_stat = 0;
@@ -100,7 +104,7 @@ export async function initLogging(
 
     async function ensure_log_fd(): Promise<NonNullable<typeof log_fd>> {
         if (log_fd) return log_fd;
-        log_fd = await open(logFile, "a");
+        log_fd = await open(current_log_file, "a");
         const s = await log_fd.stat();
         cached_size = s.size;
         writes_since_stat = 0;
@@ -114,6 +118,20 @@ export async function initLogging(
         }
     }
 
+    // t502 AC-001: 写时跨天检测——本地日期变化时关闭旧 fd 并切换到新一天文件。
+    async function rotate_if_date_changed(): Promise<void> {
+        const today = get_local_date_string();
+        if (today === current_log_date) return;
+        await close_log_fd();
+        current_log_file = getLogFilePath(logDir);
+        current_log_date = today;
+        currentSegment = await getCurrentSegmentCount(logDir, current_log_file);
+        cached_size = 0;
+        writes_since_stat = 0;
+        writes_since_segment_warn = 0;
+        segment_warn_issued = false;
+    }
+
     setLogLevel(options.logLevel ?? defaultLogLevelForEnv());
 
     const removeFileTransport = addTransport(
@@ -122,9 +140,10 @@ export async function initLogging(
                 const payload = line + "\n";
                 pending_write = pending_write.then(async () => {
                     try {
+                        await rotate_if_date_changed();
                         const fd = await ensure_log_fd();
                         if (writes_since_stat >= SIZE_STAT_INTERVAL) {
-                            const s = await stat(logFile).catch(() => undefined);
+                            const s = await stat(current_log_file).catch(() => undefined);
                             if (s) {
                                 cached_size = s.size;
                             } else {
@@ -154,18 +173,18 @@ export async function initLogging(
                                     // file transport 写路径 → skip→warn 递归自增殖，
                                     // 直接 console 输出诊断。
                                     console.warn(
-                                        `[logging] Log file exceeded ${String(maxLogFileBytes / 1024 / 1024)}MB and reached the segment limit (${String(maxSegments)}), skipping further writes: ${logFile}`,
+                                        `[logging] Log file exceeded ${String(maxLogFileBytes / 1024 / 1024)}MB and reached the segment limit (${String(maxSegments)}), skipping further writes: ${current_log_file}`,
                                     );
                                 }
                                 return;
                             }
                             await close_log_fd();
                             const nextSegment = currentSegment + 1;
-                            const segmentPath = logFile.replace(
+                            const segmentPath = current_log_file.replace(
                                 /\.log$/,
                                 `.${String(nextSegment)}.log`,
                             );
-                            await rename(logFile, segmentPath);
+                            await rename(current_log_file, segmentPath);
                             currentSegment = nextSegment;
                             // t376 AC-002: rotate 后段限解除，重置首标记——再次写满
                             // 达上限时首次 skip 立即 warn（否则等 100 条才诊断）。

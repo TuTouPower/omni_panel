@@ -1,5 +1,7 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
+import { format_local_iso } from "./local-time";
+
 export interface LogRecord {
     readonly ts: string;
     readonly level: LogLevel;
@@ -106,7 +108,7 @@ export async function flushLogTransports(): Promise<void> {
 }
 
 function format_timestamp(): string {
-    return new Date().toISOString();
+    return format_local_iso();
 }
 
 function should_log(level: LogLevel): boolean {
