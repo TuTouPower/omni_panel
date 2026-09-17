@@ -2,12 +2,21 @@ import { createServer, type IncomingMessage } from "node:http";
 import { symlinkSync, existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { join, resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { create_connector_context } from "../../../src/main/core/connector/net-client";
 import { create_file_vault_backend } from "../../../src/main/core/vault/file-vault-backend";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
+
+// t501: ESM 下 vi.spyOn(os, "homedir") 不可配置（module namespace），改用
+// vi.mock("node:os") 重定向 homedir 到隔离临时目录（同 collector-local.test.ts
+// 模式），全程不触碰开发者真实 ~。homedir_mock.dir 即 mock 的 os.homedir() 返回值。
+const homedir_mock = vi.hoisted(() => ({ dir: "" }));
+vi.mock(import("node:os"), async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, homedir: () => homedir_mock.dir };
+});
 
 let temp_dir: string;
 let vault: VaultBackend;
@@ -543,6 +552,223 @@ describe("net-client", () => {
 
         const files = await ctx.files.list(dir);
         expect(files).toEqual([]);
+    });
+
+    describe("tilde expansion (t501 AC-001/002/004)", () => {
+        it("reads file via ~/ whitelist after homedir mock", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-")));
+            try {
+                const fake_sub = join(fake_home, ".codex");
+                await mkdir(fake_sub, { recursive: true });
+                await writeFile(join(fake_sub, "auth.json"), "tilde-ok", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/.codex/auth.json", "~/.codex/sessions"] },
+                    } satisfies Manifest;
+                    // 白名单用 ~ 声明，待检用绝对路径与 ~ 两种形态均应通过（双边规范化）。
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~/.codex/auth.json")).resolves.toBe("tilde-ok");
+                    await expect(
+                        ctx.files.read(join(fake_home, ".codex", "auth.json")),
+                    ).resolves.toBe("tilde-ok");
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("reads via bare ~ whitelist root", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-bare-")));
+            try {
+                const sub = join(fake_home, "sub");
+                await mkdir(sub, { recursive: true });
+                await writeFile(join(sub, "file.txt"), "bare-ok", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~/sub/file.txt")).resolves.toBe("bare-ok");
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("expands ~\\ prefix the same as ~/ (t501 AC-001)", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-bs-")));
+            try {
+                const sub = join(fake_home, "sub2");
+                await mkdir(sub, { recursive: true });
+                await writeFile(join(sub, "file.txt"), "backslash-ok", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~\\sub2"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~\\sub2/file.txt")).resolves.toBe("backslash-ok");
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("resolves relative paths before whitelist check", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-rel-")));
+            try {
+                const sub = join(fake_home, "relsub");
+                await mkdir(sub, { recursive: true });
+                await writeFile(join(sub, "a.txt"), "rel-ok", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/relsub"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    // 绝对路径形态通过。
+                    await expect(ctx.files.read(join(fake_home, "relsub", "a.txt"))).resolves.toBe(
+                        "rel-ok",
+                    );
+                    // 白名单外绝对路径拒绝。
+                    await expect(ctx.files.read(join(fake_home, "outside.txt"))).rejects.toThrow(
+                        "not allowed",
+                    );
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("rejects .. traversal outside ~/ whitelist", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-dotdot-")));
+            try {
+                const sub = join(fake_home, "allowed");
+                await mkdir(sub, { recursive: true });
+                await writeFile(join(sub, "ok.txt"), "ok", "utf8");
+                await writeFile(join(fake_home, "secret.txt"), "TOP SECRET", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/allowed"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~/allowed/ok.txt")).resolves.toBe("ok");
+                    await expect(ctx.files.read("~/allowed/../secret.txt")).rejects.toThrow(
+                        "not allowed",
+                    );
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("does not expand ~otheruser (treated as relative and rejected)", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-other-")));
+            try {
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/allowed"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~otheruser/allowed/ok.txt")).rejects.toThrow(
+                        "not allowed",
+                    );
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("rejects symlink escaping ~/ whitelist (t501 AC-004)", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-link-")));
+            try {
+                const allowed = join(fake_home, "allowed");
+                const outside = join(fake_home, "outside");
+                await mkdir(allowed, { recursive: true });
+                await mkdir(outside, { recursive: true });
+                await writeFile(join(outside, "secret.txt"), "TOP SECRET", "utf8");
+                const link_path = join(allowed, "escape.txt");
+                if (!create_link(join(outside, "secret.txt"), link_path, "file")) {
+                    return;
+                }
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/allowed"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    await expect(ctx.files.read("~/allowed/escape.txt")).rejects.toThrow(
+                        "symlink target outside allowed directories",
+                    );
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
+
+        it("files.list uses same resolved absolute path as files.read (t501 AC-002)", async () => {
+            const fake_home = await realpath(await mkdtemp(join(tmpdir(), "t501-home-list-")));
+            try {
+                const sessions = join(fake_home, "sessions");
+                const sub = join(sessions, "2026");
+                await mkdir(sub, { recursive: true });
+                await writeFile(join(sub, "a.jsonl"), "{}\n", "utf8");
+                homedir_mock.dir = fake_home;
+                try {
+                    const manifest = {
+                        ...get_test_manifest(),
+                        capabilities: ["poll", "local"],
+                        local: { paths: ["~/sessions"] },
+                    } satisfies Manifest;
+                    const ctx = create_connector_context(manifest, vault, "test-1", {});
+                    const files = await ctx.files.list("~/sessions");
+                    expect(files.map((f) => resolve(f)).sort()).toEqual(
+                        [resolve(join(sub, "a.jsonl"))].sort(),
+                    );
+                    // 白名单外目录拒绝（先 resolve 再比对）。
+                    await expect(ctx.files.list("~/other")).rejects.toThrow("not allowed");
+                    await expect(ctx.files.list("~/sessions/../outside")).rejects.toThrow(
+                        "not allowed",
+                    );
+                } finally {
+                    homedir_mock.dir = "";
+                }
+            } finally {
+                await rm(fake_home, { recursive: true, force: true });
+            }
+        });
     });
 
     describe("requireExplicitEndpoints", () => {

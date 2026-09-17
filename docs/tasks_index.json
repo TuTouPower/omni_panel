@@ -4,22 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t501",
-            "slug": "net_client_allowed_paths_tilde_expansion",
-            "title": "net-client 本地白名单路径展开波浪号并补齐连接器错误日志",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "来源 p251；修复 net-client is_within_allowed 未展开波浪号导致 codex/claude 无法读取本地文件的问题，补齐错误日志",
-            "dir": "docs/tasks/t501_net_client_allowed_paths_tilde_expansion"
-        },
-        {
             "tid": "t502",
             "slug": "logging_and_exports_use_china_local_time",
             "title": "日志切分、日志时间戳与导出文件名改用系统本地时区",

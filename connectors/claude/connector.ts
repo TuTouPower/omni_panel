@@ -43,14 +43,21 @@ function pct(value: number | undefined): number {
 }
 
 async function main(): Promise<ScriptObservation[]> {
+    // t363 AC-004: 读 ctx.params.data_dir（manifest 契约，默认 ~/.claude），不再硬编码路径。
+    const data_dir = (ctx.params["data_dir"] ?? "~/.claude").replace(/\/+$/, "");
+    const cred_path = `${data_dir}/.credentials.json`;
+    let raw: string;
+    try {
+        raw = await ctx.files.read(cred_path);
+    } catch (err) {
+        ctx.log.warn(`Claude credentials read failed: ${cred_path}: ${String(err)}`);
+        return [];
+    }
     let credentials: ClaudeCredentials;
     try {
-        // t363 AC-004: 读 ctx.params.data_dir（manifest 契约，默认 ~/.claude），不再硬编码路径。
-        const data_dir = (ctx.params["data_dir"] ?? "~/.claude").replace(/\/+$/, "");
-        credentials = JSON.parse(
-            await ctx.files.read(`${data_dir}/.credentials.json`),
-        ) as ClaudeCredentials;
-    } catch {
+        credentials = JSON.parse(raw) as ClaudeCredentials;
+    } catch (err) {
+        ctx.log.debug(`Claude credentials parse failed: ${cred_path}: ${String(err)}`);
         return [];
     }
 

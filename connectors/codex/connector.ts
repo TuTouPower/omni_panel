@@ -107,8 +107,9 @@ async function collect_quota(now: number, observations: ScriptObservation[]): Pr
     let auth_content: string;
     try {
         auth_content = await ctx.files.read(auth_path);
-    } catch {
-        // 无 auth 文件时略过配额请求
+    } catch (err) {
+        // 无 auth 文件 / 白名单拒绝 / IO 异常时打 warn（带路径与错误摘要，不含文件正文）。
+        ctx.log.warn(`Codex auth file read failed: ${auth_path}: ${String(err)}`);
         return;
     }
 
@@ -117,7 +118,8 @@ async function collect_quota(now: number, observations: ScriptObservation[]): Pr
         const parsed: unknown = JSON.parse(auth_content);
         if (!is_record(parsed)) return;
         auth_data = parsed;
-    } catch {
+    } catch (err) {
+        ctx.log.debug(`Codex auth file parse failed: ${auth_path}: ${String(err)}`);
         return;
     }
 
@@ -246,7 +248,8 @@ async function collect_sessions(now: number, observations: ScriptObservation[]):
                 if (!f.endsWith(".jsonl")) continue;
                 all_files.push(f);
             }
-        } catch {
+        } catch (err) {
+            ctx.log.warn(`Codex session dir list failed: ${dir}: ${String(err)}`);
             continue;
         }
     }
@@ -257,7 +260,8 @@ async function collect_sessions(now: number, observations: ScriptObservation[]):
         let content: string;
         try {
             content = await ctx.files.read(file_path);
-        } catch {
+        } catch (err) {
+            ctx.log.warn(`Codex session file read failed: ${file_path}: ${String(err)}`);
             continue;
         }
         // t364 AC-001: 超大文件（> MAX_FILE_CHARS）跳过解析，避免全量读/parse 拖慢采集。
@@ -272,7 +276,8 @@ async function collect_sessions(now: number, observations: ScriptObservation[]):
             let parsed: unknown;
             try {
                 parsed = JSON.parse(trimmed);
-            } catch {
+            } catch (err) {
+                ctx.log.debug(`Codex session line parse failed: ${file_path}: ${String(err)}`);
                 continue;
             }
             if (!is_record(parsed)) continue;

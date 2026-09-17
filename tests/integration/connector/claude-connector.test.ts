@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { ctx_status } from "./_ctx_status";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
@@ -155,5 +155,43 @@ describe("claude connector", () => {
 
         expect(result.error).toBeNull();
         expect(result.observations.length).toBeGreaterThan(0);
+    });
+
+    it("logs warn with path and error when credentials read fails (t501 AC-003)", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        const warn = vi.fn();
+        const debug = vi.fn();
+        ctx.log.warn = warn;
+        ctx.log.debug = debug;
+        ctx.files.read = (path: string) =>
+            Promise.reject(new Error(`Local file path is not allowed: ${path}`));
+        const result = await run_connector(manifest, script, ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
+        const msg = String(warn.mock.calls[0]?.[0] ?? "");
+        expect(msg).toContain(".credentials.json");
+        expect(msg).toContain("Local file path is not allowed");
+        expect(msg).not.toContain("fake-token");
+        expect(debug).not.toHaveBeenCalled();
+    });
+
+    it("logs debug (not warn) when credentials JSON parse fails (t501 AC-003)", async () => {
+        const script = await readFile(join("connectors", "claude", "connector.ts"), "utf8");
+        const ctx = create_ctx();
+        const warn = vi.fn();
+        const debug = vi.fn();
+        ctx.log.warn = warn;
+        ctx.log.debug = debug;
+        ctx.files.read = () => Promise.resolve("{bad json with secret-payload-xyz");
+        const result = await run_connector(manifest, script, ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toEqual([]);
+        expect(debug).toHaveBeenCalledTimes(1);
+        expect(String(debug.mock.calls[0]?.[0] ?? "")).toContain(".credentials.json");
+        expect(warn).not.toHaveBeenCalled();
+        // 解析失败日志不得带文件正文。
+        expect(String(debug.mock.calls[0]?.[0] ?? "")).not.toContain("secret-payload-xyz");
     });
 });
