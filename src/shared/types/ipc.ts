@@ -46,6 +46,18 @@ export interface TokenStatsStatus {
 }
 export type { AppConfiguration } from "./config";
 export type { GrokLoginResult, KimiLoginResult } from "./oauth";
+export interface LocalScanDetails {
+    readonly valid: boolean;
+    readonly email?: string;
+    readonly accountId?: string;
+    readonly error?: string;
+}
+
+export interface LocalScanResult {
+    readonly found: boolean;
+    readonly path: string;
+    readonly details?: LocalScanDetails;
+}
 
 export const IPC_CHANNELS = {
     CONNECTOR_LIST: "connector:list",
@@ -112,6 +124,7 @@ export const IPC_CHANNELS = {
 
     AUTH_COOKIE_LOGIN: "auth:cookieLogin",
     AUTH_COOKIE_LOGIN_STATUS: "auth:cookieLoginStatus",
+    AUTH_SCAN_LOCAL: "auth:scanLocal",
 
     SESSION_LOGIN: "session:login",
     SESSION_REFRESH: "session:refresh",
@@ -693,6 +706,7 @@ export interface UsageboardApi {
     auth: {
         cookieLogin(instanceId: string): Promise<CookieLoginResult>;
         cookieLoginStatus(instanceId: string): Promise<CookieLoginStatus>;
+        scanLocal?(vendor_id: string): Promise<LocalScanResult>;
     };
     session: {
         login(request: SessionLoginRequest): Promise<SessionLoginResult>;

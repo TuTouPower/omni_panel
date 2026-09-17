@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
+import type { ConnectorCatalogEntry, ConnectorInfo, LocalScanResult } from "../../shared/types/ipc";
 import type { AddServiceId } from "../lib/common-services";
 import { VendorMark, Icon } from "./Icon";
 import { ADD_COMMON_SERVICES } from "../lib/common-services";
@@ -119,6 +119,7 @@ export function AddAccountDialog({
         cookie: "",
     });
     const oauth_instance_id_ref = useRef("");
+    const [local_scan_result, set_local_scan_result] = useState<LocalScanResult | null>(null);
 
     const resolved_vendor = useMemo(
         () => (vendor_id ? find_vendor(catalog, plugin_infos, vendor_id) : undefined),
@@ -181,11 +182,16 @@ export function AddAccountDialog({
         set_vendor_id(null);
         set_account_name("");
         set_error_message(null);
+        set_local_scan_result(null);
     }, []);
 
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
         if (form_handles_save) return;
+        if (auth_method === "local_cli" && local_scan_result && !local_scan_result.details?.valid) {
+            set_error_message(local_scan_result.details?.error ?? "未找到有效的本地授权凭据");
+            return;
+        }
         set_error_message(null);
         set_saving(true);
         try {
@@ -239,6 +245,7 @@ export function AddAccountDialog({
         vendor_label,
         saving,
         form_handles_save,
+        local_scan_result,
         on_save,
         on_close,
     ]);
@@ -369,7 +376,17 @@ export function AddAccountDialog({
                             form_ref={session_form_ref}
                         />
                     )}
-                    {auth_method === "local_cli" && <LocalScanForm vendor_id={vendor_id} />}
+                    {auth_method === "local_cli" && (
+                        <LocalScanForm
+                            vendor_id={vendor_id}
+                            on_scan_result={(res) => {
+                                set_local_scan_result(res);
+                                if (res.details?.email && !account_name) {
+                                    set_account_name(res.details.email);
+                                }
+                            }}
+                        />
+                    )}
                     {auth_method === "oauth_device" && (
                         <OAuthDeviceForm
                             key={vendor_id}
