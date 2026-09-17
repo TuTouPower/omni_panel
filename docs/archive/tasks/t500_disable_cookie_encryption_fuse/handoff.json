@@ -1,0 +1,30 @@
+{
+    "tid": "t500",
+    "attempt": 1,
+    "execution_id": "a77fb6bc623143ed878f45c6e69cc825",
+    "status": "done",
+    "branch": "t500_disable_cookie_encryption_fuse",
+    "base_sha": "8bf9a9e28f6bb25796a42a260752be160d6c938b",
+    "tests": "pnpm test 全绿（317 个测试文件，3867 个测试用例全通过）；pnpm typecheck & pnpm lint & pnpm deadcode & pnpm arch & pnpm format:check 全部 exit 0",
+    "blackbox": "tests/unit/electron_builder_fuses.test.ts 机械断言两份构建配置 fuse 并验证篡改为 true 时测试失败；tests/unit/session/session-manager.test.ts 覆盖 persist:session-login:* partition 存续；AC-004 [deploy] 留待用户本机打包后冷启动免钥匙串验证",
+    "review": "full 级：review_code.md PASS（Round 1 零 finding）；review_test.md PASS（Round 1 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "electron-builder.yml 与 electron-builder.test.yml 中 electronFuses.enableCookieEncryption 均为 false",
+            "tests/unit/electron_builder_fuses.test.ts 断言两份打包配置中的 enableCookieEncryption 为 false"
+        ],
+        "AC-002": [
+            "tests/unit/electron_builder_fuses.test.ts 读取 electron-builder.yml 与 electron-builder.test.yml 并断言 enableCookieEncryption 为 false",
+            "tests/unit/electron_builder_fuses.test.ts 测试 assert_no_cookie_encryption_fuses 在遇到 enableCookieEncryption: true 时抛错失败"
+        ],
+        "AC-003": [
+            "src/main/core/session/session-manager.ts 保留 persist:session-login:* 分区读写路径，未因关闭 fuse 受损",
+            "tests/unit/session/session-manager.test.ts 37 项测试全绿通过"
+        ],
+        "AC-004": [
+            "[deploy] 约束下不执行触发弹窗的 pnpm package，由用户本机执行 pnpm package 并冷启动验证 OmniPanel Safe Storage 钥匙串弹窗不再出现"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
