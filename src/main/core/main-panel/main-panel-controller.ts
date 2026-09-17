@@ -59,6 +59,11 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     // runs on every config save, so re-applying an unchanged value (a visible
     // flicker on Windows) must be skipped.
     let last_pin_to_top: boolean | null = null;
+    // t503/p253: darwin 展示期提权状态。创建/隐藏时窗口回到用户 pinToTop 基线
+    // （默认 false = normal，盖不住全屏）；展示时临时提权到 floating 盖全屏，
+    // 并重申 setVisibleOnAllWorkspaces 使窗口跟到当前 Space（p253：A 全屏切 B
+    // 再点仍粘 A）。非 darwin 恒 false。
+    let elevated = false;
 
     const current_mode = () => resolve_main_panel_mode(deps.get_config(), deps.platform);
 
@@ -167,13 +172,15 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
 
     function create_panel_window(next_mode: MainPanelShellMode): WindowLike {
         mode = next_mode;
+        elevated = false;
         const target = deps.create_window(next_mode);
         void target.loadURL(deps.get_renderer_url("usage")).catch((error: unknown) => {
             log.error("Failed to load main panel", error);
         });
         last_pin_to_top = deps.get_config().pinToTop ?? false;
-        // t497 AC-001/AC-003/AC-005: macOS 下使用量弹窗在所有空间及全屏应用之上可见，
-        // 且置顶级别使用 floating。Windows/Linux 保持既有行为不变。
+        // t497: macOS 下使用量弹窗在所有空间及全屏应用之上可见（创建期声明）。
+        // t503: 创建期只落用户 pinToTop 基线；展示期由 elevate_for_show 提权到
+        // floating 盖全屏，隐藏由 restore_after_hide 恢复。Windows/Linux 不变。
         if (deps.platform === "darwin") {
             target.setVisibleOnAllWorkspaces(true, {
                 visibleOnFullScreen: true,
@@ -244,6 +251,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         target.on("closed", () => {
             if (win === target) {
                 win = null;
+                elevated = false;
                 height_controller = null;
             }
         });
@@ -257,6 +265,28 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         return create_panel_window(current_mode());
     }
 
+    // t503 AC-001: darwin 展示期提权——floating 盖全屏 Space；重申
+    // setVisibleOnAllWorkspaces 使窗口跟到当前 Space（p253 跨 Space 粘滞）。
+    function elevate_for_show(target: WindowLike): void {
+        if (deps.platform !== "darwin" || target.isDestroyed()) return;
+        target.setVisibleOnAllWorkspaces(true, {
+            visibleOnFullScreen: true,
+            skipTransformProcessType: true,
+        });
+        target.setAlwaysOnTop(true, "floating");
+        if (target === win) elevated = true;
+    }
+
+    // t503 AC-001: 隐藏后按用户 pinToTop 恢复，不残留置顶。
+    function restore_after_hide(target: WindowLike): void {
+        if (deps.platform !== "darwin" || target.isDestroyed()) return;
+        if (target !== win) return;
+        elevated = false;
+        const pin_to_top = deps.get_config().pinToTop ?? false;
+        last_pin_to_top = pin_to_top;
+        target.setAlwaysOnTop(pin_to_top, "floating");
+    }
+
     function show_panel(target: WindowLike): void {
         // t194 f001: popup 隐藏后重开要重新锚定到托盘（与 t194 前 close→重建每次
         // 重锚一致），否则托盘移动/显示器拓扑变化后旧 bounds 会偏。floating 保持
@@ -264,6 +294,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         if (mode === "popup") {
             position_popup(target);
         }
+        // t503/p253: 先提权再显示，保证盖住当前全屏 Space 且跟到当前 Space。
+        elevate_for_show(target);
         // t280: headless 下不弹屏。
         // t497 AC-002: macOS 下用量弹窗使用 showInactive 显示且不抢焦点，
         // 避免把全屏应用切出或打断用户操作；Windows/Linux 保持既有 show() + focus()。
@@ -287,6 +319,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             // 数据，下次打开直接 show，消除冷启动重建。模式切换/退出仍走 close（AC4）。
             if (target.isVisible()) {
                 target.hide();
+                // t503 AC-001: 隐藏后按 pinToTop 恢复，不残留置顶。
+                restore_after_hide(target);
                 return;
             }
             show_panel(target);
@@ -297,10 +331,13 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         hide() {
             if (!win || win.isDestroyed()) return;
             win.hide();
+            // t503 AC-001: 隐藏后按 pinToTop 恢复，不残留置顶。
+            restore_after_hide(win);
         },
         close_for_mode_switch() {
             if (win && !win.isDestroyed()) win.close();
             win = null;
+            elevated = false;
             height_controller = null;
         },
         apply_config_change() {
@@ -313,6 +350,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 this.close_for_mode_switch();
                 const target = create_panel_window(next_mode);
                 if (!is_e2e_headless()) {
+                    // t503: 重建后展示同样提权（show_panel 外的展示路径）。
+                    elevate_for_show(target);
                     if (deps.platform === "darwin") {
                         target.showInactive();
                     } else {
@@ -324,14 +363,27 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 }
                 return;
             }
+            // t503: darwin 展示期保持提权，只更新基线供隐藏时恢复；隐藏时按
+            // 最新 pinToTop 落实。非 darwin 保持 t153 原语义（变才重调）。
             const pin_to_top = deps.get_config().pinToTop ?? false;
-            if (pin_to_top !== last_pin_to_top) {
-                last_pin_to_top = pin_to_top;
-                if (deps.platform === "darwin") {
-                    win.setAlwaysOnTop(pin_to_top, "floating");
-                } else {
-                    win.setAlwaysOnTop(pin_to_top);
+            const was_pin = last_pin_to_top;
+            last_pin_to_top = pin_to_top;
+            if (deps.platform === "darwin") {
+                if (win.isVisible()) {
+                    if (!elevated) elevate_for_show(win);
+                    return;
                 }
+                if (elevated) {
+                    restore_after_hide(win);
+                    return;
+                }
+                if (pin_to_top !== was_pin) {
+                    win.setAlwaysOnTop(pin_to_top, "floating");
+                }
+                return;
+            }
+            if (pin_to_top !== was_pin) {
+                win.setAlwaysOnTop(pin_to_top);
             }
         },
         report_content_height(report: PopupContentHeightReport) {

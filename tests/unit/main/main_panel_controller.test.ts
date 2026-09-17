@@ -476,7 +476,7 @@ describe("main panel controller", () => {
         });
     });
 
-    describe("macOS popup above fullscreen apps (t497)", () => {
+    describe("macOS popup above fullscreen apps (t497/t503/p253)", () => {
         it("AC-001~AC-003: calls setVisibleOnAllWorkspaces with visibleOnFullScreen and skipTransformProcessType on macOS", () => {
             const { controller, windows } = build(
                 { ...base_config, mainPanelMode: "system" },
@@ -484,11 +484,12 @@ describe("main panel controller", () => {
             );
             controller.open_or_focus();
             const win = windows[0];
-            expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledTimes(1);
+            // t503/p253: 创建期声明一次，展示期重申一次（跟到当前 Space）。
             expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
                 visibleOnFullScreen: true,
                 skipTransformProcessType: true,
             });
+            expect(win?.setVisibleOnAllWorkspaces.mock.calls.length).toBeGreaterThanOrEqual(2);
         });
 
         it("AC-002: shows window via showInactive on macOS without calling focus", () => {
@@ -503,19 +504,43 @@ describe("main panel controller", () => {
             expect(win?.focus).not.toHaveBeenCalled();
         });
 
-        it("AC-005: calls setAlwaysOnTop with floating level on macOS when pinToTop is true, and cancels when false", () => {
+        it("AC-005: elevates to floating while shown and restores pinToTop on hide (t503)", () => {
+            const { controller, windows } = build(
+                { ...base_config, mainPanelMode: "system", pinToTop: false },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            // 展示期提权盖全屏（与 pinToTop 解耦）。
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
+
+            controller.open_or_toggle(); // hide
+            expect(win?.isVisible()).toBe(false);
+            // 隐藏后按 pinToTop 恢复，不残留置顶。
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false, "floating");
+        });
+
+        it("t503: re-elevates on every show and restores latest pinToTop after mid-show config change", () => {
             const { controller, windows, state } = build(
                 { ...base_config, mainPanelMode: "system", pinToTop: false },
                 "darwin",
             );
             controller.open_or_focus();
             const win = windows[0];
-            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+            controller.open_or_toggle(); // hide → restore false
             expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false, "floating");
 
+            controller.open_or_toggle(); // show → re-elevate (p253: 跟到当前 Space)
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
+            expect(win?.setVisibleOnAllWorkspaces.mock.calls.length).toBeGreaterThanOrEqual(3);
+
+            // 展示中途改 pinToTop：展示期保持提权，只更新基线。
             state.config = { ...state.config, pinToTop: true };
             controller.apply_config_change();
-            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
+
+            // 隐藏后按最新 pinToTop 恢复。
+            controller.hide();
             expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
         });
 

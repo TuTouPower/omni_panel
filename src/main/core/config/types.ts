@@ -87,6 +87,7 @@ export const appConfigurationSchema = z.object({
     logLevel: logLevelSchema.optional(),
     pinToTop: z.boolean().optional(),
     minimizeToTray: z.boolean().optional(),
+    hideDockIcon: z.boolean().optional(),
     globalRefreshIntervalSeconds: z.number().int().min(1).optional(),
     pauseAutoRefresh: z.boolean().optional(),
     providerOrder: z.array(z.string()).optional(),

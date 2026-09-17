@@ -289,4 +289,18 @@ describe("appConfigurationSchema", () => {
         expect(() => appConfigurationSchema.parse({ ...base, usagePopupWidth: 0 })).toThrow();
         expect(() => appConfigurationSchema.parse({ ...base, usagePopupWidth: 600.5 })).toThrow();
     });
+
+    it("p254: accepts hideDockIcon as an optional boolean without stripping", () => {
+        const base = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+        };
+        expect(appConfigurationSchema.parse({ ...base, hideDockIcon: true }).hideDockIcon).toBe(
+            true,
+        );
+        expect(appConfigurationSchema.parse(base).hideDockIcon).toBeUndefined();
+        expect(() => appConfigurationSchema.parse({ ...base, hideDockIcon: "yes" })).toThrow();
+    });
 });

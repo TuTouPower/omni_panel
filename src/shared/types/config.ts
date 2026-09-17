@@ -44,6 +44,8 @@ export interface AppConfiguration {
     readonly logLevel?: LogLevel;
     readonly pinToTop?: boolean;
     readonly minimizeToTray?: boolean;
+    /** p254: 为 true 时 macOS Dock 不显示图标，仅保留菜单栏图标。缺省显示。 */
+    readonly hideDockIcon?: boolean;
     readonly globalRefreshIntervalSeconds?: number;
     readonly pauseAutoRefresh?: boolean;
     readonly providerOrder?: readonly string[];

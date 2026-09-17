@@ -6,4 +6,4 @@
     已确认同类位点：`src/main/index.ts:1377-1384` tray click 同一 `open_or_toggle` 路径；`src/main/index.ts:1378/1393` `trayMenuWin` 的 `isVisible()` 切换 + 缺 `setVisibleOnAllWorkspaces`/`type:panel`（t503 已覆盖其跨全屏部分）。
 - 测试缺口：`tests/unit/main/main_panel_controller.test.ts` 只测同 Space toggle（`:255`/`:265`），无跨 Space 用例；t497 单测只断言调了 `setVisibleOnAllWorkspaces`（`:480`），层级与 `pinToTop` 绑死假绿（p250 已记）。应补：darwin 下全局 visible 但在它 Space 时再次 toggle 应在当前 Space 显示（含 `position_popup` 重锚 + 展示期提权至 `floating`、隐藏恢复 `pinToTop`）；trayMenuWin 平台分支（darwin `showInactive` 且不 `focus` vs 非 darwin 原样）。真机双全屏切换仍 `[deploy]`。
 - 线索：`.scratch/repro_space_sticky_20260918.ts`、`.scratch/popup_stuck_on_space_a_20260918.md`
-- 处理：未开
+- 处理：直接改 main（本次提交：p253 提权状态机 + p254 Dock 选项，无独立 task）

@@ -104,6 +104,7 @@ import { create_agent_window_controller } from "./core/main-panel/agent-window-c
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { clear_dock_badge } from "./core/dock-badge";
+import { apply_dock_visibility } from "./core/dock-visibility";
 import { cleanup_temp_files } from "./core/storage/write-json";
 import { extract_user_argv, resolve_entry, type CliArgs } from "./cli/args";
 import { run_background_serve_parent } from "./cli/background_serve";
@@ -457,6 +458,8 @@ void app.whenReady().then(async () => {
         // Config is the single source of truth: reconcile the OS login item in
         // both directions on every real application start.
         apply_configured_launch_at_login(currentConfig.launchAtLogin);
+        // p254: 启动期按配置显隐 Dock 图标（即时生效，无需重启）。
+        apply_dock_visibility(currentConfig.hideDockIcon ?? false);
 
         function noop_send_tray_state(): void {
             // The tray window is created after the LocalAPI and orchestrator.
@@ -628,6 +631,10 @@ void app.whenReady().then(async () => {
             }
             if (previousConfig.launchAtLogin !== updatedConfig.launchAtLogin) {
                 apply_configured_launch_at_login(updatedConfig.launchAtLogin);
+            }
+            // p254: Dock 显隐即时生效。
+            if ((previousConfig.hideDockIcon ?? false) !== (updatedConfig.hideDockIcon ?? false)) {
+                apply_dock_visibility(updatedConfig.hideDockIcon ?? false);
             }
             setLogLevel(updatedConfig.logLevel ?? defaultLogLevelForEnv());
             log.info("Config saved — reconciling scheduler and secret keys");
@@ -1251,12 +1258,23 @@ void app.whenReady().then(async () => {
                 alwaysOnTop: true,
                 show: false,
                 resizable: false,
+                // t503 AC-002: macOS 下托盘菜单用 NSPanel + 跨全屏，随用量弹窗盖在
+                // 全屏应用之上；Windows/Linux 保持普通窗口。
+                ...(process.platform === "darwin"
+                    ? { type: "panel", visibleOnFullScreen: true }
+                    : {}),
                 icon: get_app_icon_path(),
                 webPreferences: {
                     ...SECURE_WEB_PREFS,
                     preload: getPreloadPath(),
                 },
             });
+            // t503 AC-002: 创建期声明跨空间可见（p253：右键菜单同样跟到当前 Space）。
+            if (process.platform === "darwin") {
+                trayMenuWin.setVisibleOnAllWorkspaces(true, {
+                    visibleOnFullScreen: true,
+                });
+            }
             void trayMenuWin.loadURL(windowManager.getRendererUrl("tray")).catch((err: unknown) => {
                 log.error(
                     `tray loadURL failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -1387,6 +1405,12 @@ void app.whenReady().then(async () => {
             // Right-click → show custom tray menu
             tray.on("right-click", () => {
                 if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
+                // t503 AC-002: 二次右键收起（darwin 下 showInactive 无焦点、
+                // 无 blur，此为主要收起路径；左键点击同样收起）。
+                if (trayMenuWin.isVisible()) {
+                    hideTrayMenu();
+                    return;
+                }
 
                 // Copy the bounds - Electron doesn't guarantee getBounds() returns a
                 // fresh object, so don't mutate the return value in place (A19).
@@ -1425,8 +1449,16 @@ void app.whenReady().then(async () => {
                     height: menuHeight,
                 });
                 send_tray_state();
-                trayMenuWin.show();
-                trayMenuWin.focus();
+                if (process.platform === "darwin") {
+                    // t503 AC-002: 不 focus，避免强切 Space；重申跨空间跟到当前 Space。
+                    trayMenuWin.setVisibleOnAllWorkspaces(true, {
+                        visibleOnFullScreen: true,
+                    });
+                    trayMenuWin.showInactive();
+                } else {
+                    trayMenuWin.show();
+                    trayMenuWin.focus();
+                }
                 trayMenuWin.once("blur", hideTrayMenu);
             });
         } // end of E2E !== "1" tray block

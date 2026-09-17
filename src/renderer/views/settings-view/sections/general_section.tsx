@@ -118,6 +118,17 @@ export function GeneralSection({
                     }}
                 />
             </SetRow>
+            <SetRow title="在 Dock 中显示图标" sub="关闭后仅保留菜单栏图标">
+                <Switch
+                    checked={!(config.hideDockIcon ?? false)}
+                    onChange={() => {
+                        void save_config({
+                            ...config,
+                            hideDockIcon: !(config.hideDockIcon ?? false),
+                        });
+                    }}
+                />
+            </SetRow>
 
             <SetGroupLabel>刷新</SetGroupLabel>
             <SetRow title="自动刷新间隔" sub="后台轮询各服务用量的频率">
