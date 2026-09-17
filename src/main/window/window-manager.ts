@@ -29,6 +29,7 @@ export interface WindowConfig {
     minHeight?: number;
     maxWidth?: number;
     showWhenReady?: boolean;
+    type?: string;
 }
 
 export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
@@ -168,6 +169,9 @@ export function createWindowManager(opts: {
         const is_panel_window =
             key === "setting" || key === "agent" || key === "session" || key === "dev";
         const resolved_frame = is_panel_window ? target_platform === "darwin" : (cfg.frame ?? true);
+        // t497 AC-001: macOS 下用量弹窗使用 NSPanel (type: "panel")，浮于全屏应用之上且不激活应用；
+        // Windows/Linux 保持既有默认 normal 类型。
+        const resolved_type = key === "usage" && target_platform === "darwin" ? "panel" : cfg.type;
 
         const win = new BrowserWindow({
             width: cfg.width,
@@ -183,6 +187,7 @@ export function createWindowManager(opts: {
             ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
             ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
             ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
+            ...(resolved_type !== undefined && { type: resolved_type }),
             icon: opts.getIconPath(),
             backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b22" : "#ffffff",
             webPreferences: {

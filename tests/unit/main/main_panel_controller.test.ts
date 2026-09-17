@@ -31,6 +31,8 @@ interface FakeWindow {
     setSkipTaskbar: ReturnType<typeof vi.fn>;
     setMinimumSize: ReturnType<typeof vi.fn>;
     setAlwaysOnTop: ReturnType<typeof vi.fn>;
+    setVisibleOnAllWorkspaces: ReturnType<typeof vi.fn>;
+    showInactive: ReturnType<typeof vi.fn>;
     loadURL: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
 }
@@ -72,6 +74,10 @@ function make_window(): FakeWindow {
         setSkipTaskbar: vi.fn(),
         setMinimumSize: vi.fn(),
         setAlwaysOnTop: vi.fn(),
+        setVisibleOnAllWorkspaces: vi.fn(),
+        showInactive: vi.fn(() => {
+            win.visible = true;
+        }),
         loadURL: vi.fn(() => Promise.resolve()),
         on: vi.fn((event: string, handler: () => void) => {
             win.listeners[event] ??= [];
@@ -467,6 +473,68 @@ describe("main panel controller", () => {
             expect(windows[0]?.setBounds).toHaveBeenCalledWith(
                 expect.objectContaining({ width: 460 }), // default in mock
             );
+        });
+    });
+
+    describe("macOS popup above fullscreen apps (t497)", () => {
+        it("AC-001~AC-003: calls setVisibleOnAllWorkspaces with visibleOnFullScreen and skipTransformProcessType on macOS", () => {
+            const { controller, windows } = build(
+                { ...base_config, mainPanelMode: "system" },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledTimes(1);
+            expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
+                visibleOnFullScreen: true,
+                skipTransformProcessType: true,
+            });
+        });
+
+        it("AC-002: shows window via showInactive on macOS without calling focus", () => {
+            const { controller, windows } = build(
+                { ...base_config, mainPanelMode: "system" },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.showInactive).toHaveBeenCalledTimes(1);
+            expect(win?.show).not.toHaveBeenCalled();
+            expect(win?.focus).not.toHaveBeenCalled();
+        });
+
+        it("AC-005: calls setAlwaysOnTop with floating level on macOS when pinToTop is true, and cancels when false", () => {
+            const { controller, windows, state } = build(
+                { ...base_config, mainPanelMode: "system", pinToTop: false },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false, "floating");
+
+            state.config = { ...state.config, pinToTop: true };
+            controller.apply_config_change();
+            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
+        });
+
+        it("AC-006: Windows does not call setVisibleOnAllWorkspaces, and uses show() + focus() with boolean setAlwaysOnTop", () => {
+            const { controller, windows, state } = build(
+                { ...base_config, mainPanelMode: "system", pinToTop: false },
+                "win32",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setVisibleOnAllWorkspaces).not.toHaveBeenCalled();
+            expect(win?.show).toHaveBeenCalledTimes(1);
+            expect(win?.focus).toHaveBeenCalledTimes(1);
+            expect(win?.showInactive).not.toHaveBeenCalled();
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+
+            state.config = { ...state.config, pinToTop: true };
+            controller.apply_config_change();
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
         });
     });
 });

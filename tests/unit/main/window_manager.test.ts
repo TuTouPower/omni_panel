@@ -84,6 +84,17 @@ describe("createWindowManager", () => {
         expect(created_args[0]?.["frame"]).toBe(false);
     });
 
+    it("macOS 下 usage 窗口类型为 panel (type: 'panel')，Windows/Linux 下不设置 (t497 AC-001/AC-006)", async () => {
+        const mac_manager = await load_manager("darwin");
+        mac_manager.createWindowFor("usage", { load: false });
+        expect(created_args[0]?.["type"]).toBe("panel");
+
+        created_args.length = 0;
+        const win_manager = await load_manager("win32");
+        win_manager.createWindowFor("usage", { load: false });
+        expect(created_args[0]?.["type"]).toBeUndefined();
+    });
+
     it("setting/agent/session 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {
         const manager = await load_manager();
         manager.createWindowFor("setting", { load: false });

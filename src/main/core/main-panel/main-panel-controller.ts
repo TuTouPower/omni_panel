@@ -157,7 +157,17 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             log.error("Failed to load main panel", error);
         });
         last_pin_to_top = deps.get_config().pinToTop ?? false;
-        target.setAlwaysOnTop(last_pin_to_top);
+        // t497 AC-001/AC-003/AC-005: macOS 下使用量弹窗在所有空间及全屏应用之上可见，
+        // 且置顶级别使用 floating。Windows/Linux 保持既有行为不变。
+        if (deps.platform === "darwin") {
+            target.setVisibleOnAllWorkspaces(true, {
+                visibleOnFullScreen: true,
+                skipTransformProcessType: true,
+            });
+            target.setAlwaysOnTop(last_pin_to_top, "floating");
+        } else {
+            target.setAlwaysOnTop(last_pin_to_top);
+        }
         if (deps.platform === "win32") {
             target.setSkipTaskbar(next_mode === "popup");
         }
@@ -232,8 +242,18 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             position_popup(target);
         }
         // t280: headless 下不弹屏。
-        if (!is_e2e_headless()) target.show();
-        target.focus();
+        // t497 AC-002: macOS 下用量弹窗使用 showInactive 显示且不抢焦点，
+        // 避免把全屏应用切出或打断用户操作；Windows/Linux 保持既有 show() + focus()。
+        if (!is_e2e_headless()) {
+            if (deps.platform === "darwin") {
+                target.showInactive();
+            } else {
+                target.show();
+            }
+        }
+        if (deps.platform !== "darwin") {
+            target.focus();
+        }
         deps.on_show?.();
     }
 
@@ -269,14 +289,26 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             if (next_mode !== mode) {
                 this.close_for_mode_switch();
                 const target = create_panel_window(next_mode);
-                if (!is_e2e_headless()) target.show();
-                target.focus();
+                if (!is_e2e_headless()) {
+                    if (deps.platform === "darwin") {
+                        target.showInactive();
+                    } else {
+                        target.show();
+                    }
+                }
+                if (deps.platform !== "darwin") {
+                    target.focus();
+                }
                 return;
             }
             const pin_to_top = deps.get_config().pinToTop ?? false;
             if (pin_to_top !== last_pin_to_top) {
                 last_pin_to_top = pin_to_top;
-                win.setAlwaysOnTop(pin_to_top);
+                if (deps.platform === "darwin") {
+                    win.setAlwaysOnTop(pin_to_top, "floating");
+                } else {
+                    win.setAlwaysOnTop(pin_to_top);
+                }
             }
         },
         report_content_height(report: PopupContentHeightReport) {
