@@ -9,6 +9,6 @@
     3. 产物签名未变化时跳过重签（`codesign -dv` 校验失败才签）。
 - 未验证项：`[deploy]` 点击「允许/始终允许」后启动是否继续正常（需人工点击；本次由用户侧完成）。
 - 线索：`sample "$(pgrep -f 'MacOS/Omni[P]anel')" 3 -mayDie`（主线程停在 `SecItemCopyMatching`）；`pgrep -l SecurityAgent`；直接启动二进制时 stdout 为空（`/tmp/app_direct.log`）。
-- 处理：未开
+- 处理：2989deb6
 - 实现（2026-09-17，选项 1）：本机登录钥匙串建了自签代码签名证书 `OmniPanel Local Dev`（CN=OmniPanel Local Dev，critical codeSigning EKU，10 年），`scripts/package-and-run.ts` 改为优先用该身份签名（`mac_sign_identity()`：`OMNIPANEL_MAC_SIGN_IDENTITY` 覆盖 → `security find-identity -p codesigning` 命中 → 回退 ad-hoc `-`）。签名后 DR = `certificate root = H"577801370FC267A881778008B3D564F286D739A8"`（实测 `codesign -d --requirements`），跨构建稳定。证书只在本机钥匙串，不进库；CI/新机器走 ad-hoc 回退。临时私钥文件已删除，身份可由同步骤重建（openssl 自签 + `security import -T /usr/bin/codesign`，p12 需 `-certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1` 才能被 `security import` 解析）。
 - 待验证（需用户许可后执行 `pnpm package`）：切换身份后的**第一次**启动仍会弹一次授权（ACL 从 ad-hoc 换成证书 DR），点「始终允许」后；**第二次**打包重启应不再弹窗。
