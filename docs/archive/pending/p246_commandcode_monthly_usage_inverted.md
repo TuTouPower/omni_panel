@@ -14,4 +14,4 @@
     4. 断言高余额（低消耗）时状态为 `normal`，低余额（高消耗）时状态为 `critical`；
     5. 覆盖当套餐 ID 未知（`monthly_cap` 为 null）时的防御降级行为。
 - 线索：`.scratch/test_cc.py`（调取官方接口抓取完整数据验证字段语义）、`.scratch/repro_bug.ts`（最小复现与反向算法验证）。
-- 处理：未开
+- 处理：t498
