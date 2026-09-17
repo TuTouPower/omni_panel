@@ -80,6 +80,8 @@ export interface AppConfiguration {
     readonly providerL2Open?: Readonly<Record<string, boolean>>;
     /** t250: popup 顶部 provider 页签（overview / 各 provider）持久化。 */
     readonly activeUsageTab?: string;
+    /** t495: 用量面板（popup）宽度持久化。 */
+    readonly usagePopupWidth?: number;
     readonly convergentTimeMinutes?: number;
     /** Directories grouped under one project label in the agent panel. */
     readonly dirAliases?: readonly {

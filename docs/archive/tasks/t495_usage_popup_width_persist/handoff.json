@@ -1,0 +1,35 @@
+{
+    "tid": "t495",
+    "attempt": 1,
+    "execution_id": "4070c3f4fd384999894689f94a785624",
+    "status": "done",
+    "branch": "t495_usage_popup_width_persist",
+    "base_sha": "e9d3356d1bc953fe1e04399e52b1ac765a0eb649",
+    "tests": "pnpm test：3832 passed / 9 skipped；tsc --noEmit exit 0；eslint exit 0；prettier exit 0；designmd:check exit 0",
+    "blackbox": "全量单测 3832 passed + tsc 0 + eslint 0 + prettier 0",
+    "review": "single 级 general：Round 1 PASS（review_general.md）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > usage popup width persistence (t495) > saves width when user resizes popup and restores it on next show (AC-001) 通过"
+        ],
+        "AC-002": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > usage popup width persistence (t495) > uses saved usagePopupWidth on initial open after restart (AC-002) 通过",
+            "tests/unit/config/config-schema.test.ts::appConfigurationSchema > t495 AC-002: accepts usagePopupWidth as a positive integer 通过"
+        ],
+        "AC-003": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > usage popup width persistence (t495) > clamps saved and restored width to [USAGE_MIN_WIDTH, workArea.width] (AC-003) 通过"
+        ],
+        "AC-004": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > usage popup width persistence (t495) > clamps restored width to display workArea.width when exceeding screen (AC-004) 通过"
+        ],
+        "AC-005": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > usage popup width persistence (t495) > falls back to default width when usagePopupWidth is not set (AC-005) 通过"
+        ],
+        "AC-006": [
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > positions popup shell near the tray 通过",
+            "tests/unit/main/main_panel_controller.test.ts::main panel controller > re-anchors a reopened popup to the tray (t194 code f001) 通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

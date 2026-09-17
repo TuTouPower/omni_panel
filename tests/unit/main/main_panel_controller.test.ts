@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { create_main_panel_controller } from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
 import { WINDOW_CONFIGS } from "../../../src/main/window/window-manager";
+import { USAGE_MIN_WIDTH } from "../../../src/main/window/window-bounds";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 
 const base_config: AppConfiguration = {
@@ -380,5 +381,92 @@ describe("main panel controller", () => {
 
         expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
         expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+    });
+
+    describe("usage popup width persistence (t495)", () => {
+        it("saves width when user resizes popup and restores it on next show (AC-001)", () => {
+            const { controller, windows, state } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win).toBeDefined();
+            if (!win) return;
+
+            // Simulate user resize to 600
+            win.bounds = { ...win.bounds, width: 600 };
+            for (const h of win.listeners["resize"] ?? []) h();
+            expect(state.config.usagePopupWidth).toBe(600);
+
+            // Hide and reopen
+            controller.open_or_toggle(); // hide
+            expect(win.hide).toHaveBeenCalled();
+            controller.open_or_toggle(); // show
+            expect(win.setBounds).toHaveBeenLastCalledWith(expect.objectContaining({ width: 600 }));
+        });
+
+        it("uses saved usagePopupWidth on initial open after restart (AC-002)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 650,
+            });
+            controller.open_or_focus();
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 650 }),
+            );
+        });
+
+        it("clamps saved and restored width to [USAGE_MIN_WIDTH, workArea.width] (AC-003)", () => {
+            const { controller, windows, state } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win).toBeDefined();
+            if (!win) return;
+
+            // Resize smaller than USAGE_MIN_WIDTH (472)
+            win.bounds = { ...win.bounds, width: 300 };
+            for (const h of win.listeners["resize"] ?? []) h();
+            expect(state.config.usagePopupWidth).toBe(USAGE_MIN_WIDTH);
+
+            // Restore with width smaller than USAGE_MIN_WIDTH
+            const { controller: c2, windows: w2 } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 300,
+            });
+            c2.open_or_focus();
+            expect(w2[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: USAGE_MIN_WIDTH }),
+            );
+        });
+
+        it("clamps restored width to display workArea.width when exceeding screen (AC-004)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 2000,
+            });
+            controller.open_or_focus();
+            // display workArea.width is 1280 in mock
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 1280, x: 0 }),
+            );
+        });
+
+        it("falls back to default width when usagePopupWidth is not set (AC-005)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 460 }), // default in mock
+            );
+        });
     });
 });

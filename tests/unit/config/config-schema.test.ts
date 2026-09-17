@@ -274,4 +274,19 @@ describe("appConfigurationSchema", () => {
         });
         expect(parsed.devPanel).toEqual(dev_panel);
     });
+
+    it("t495 AC-002: accepts usagePopupWidth as a positive integer", () => {
+        const base = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+        };
+        expect(
+            appConfigurationSchema.parse({ ...base, usagePopupWidth: 600 }).usagePopupWidth,
+        ).toBe(600);
+        expect(() => appConfigurationSchema.parse({ ...base, usagePopupWidth: -10 })).toThrow();
+        expect(() => appConfigurationSchema.parse({ ...base, usagePopupWidth: 0 })).toThrow();
+        expect(() => appConfigurationSchema.parse({ ...base, usagePopupWidth: 600.5 })).toThrow();
+    });
 });
