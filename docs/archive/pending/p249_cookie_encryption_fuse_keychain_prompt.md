@@ -7,4 +7,4 @@
     已确认同类位点：`electron-builder.yml`、`electron-builder.test.yml` 两处 fuse。Cookie 登录 `persist:session-login:*` 依赖 Chromium Cookie 库，关加密后已有加密库可能读失败，须重新 cookie 登录；Vault 里已抽出的密钥不受影响。
 - 测试缺口：单测/集成不启动打包 App、不触钥匙串。应加构建配置断言两份 yml 的 `enableCookieEncryption` 为 false；关 fuse 后 cookie 登录/静默刷新路径要有「明文 Cookie 库仍可读」的说明或回归。真机打包弹窗无法在 CI 覆盖。
 - 线索：`.scratch/keychain_prompt_20260918.md`
-- 处理：未开
+- 处理：t500

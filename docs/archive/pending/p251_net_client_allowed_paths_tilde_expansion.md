@@ -12,4 +12,4 @@
     2. `tests/integration/connector/net-client.test.ts` 中的测试用例全部使用 `mkdtemp` 的绝对临时路径测试白名单，从未断言过 manifest 声明中以 `~` 开头的路径展开行为。
         应在 `tests/integration/connector/net-client.test.ts` 中补测包含 `~/` 的 manifest 白名单匹配，并在连接器层补充真实上下文集成验证与错误日志记录。
 - 线索：`.scratch/repro.ts`（最小路径计算对比）、`.scratch/repro_full.ts`（真实上下文复现白名单报错）、`.scratch/repro_fix.ts`（展开波浪号后端到端成功读出 2 条配额）、`.scratch/test_quota_request.ts`（验证远端 wham/usage 接口及 wangyun 账号正常）。
-- 处理：未开
+- 处理：t501

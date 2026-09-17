@@ -14,4 +14,4 @@
         - `src/web/usageboard-web.ts:396, 668`：Web 模式配置导出与日志日期。
 - 测试缺口：现有单元测试（如 `tests/unit/main/core/logging.test.ts`）大多只对时间戳或文件名做形如 `app-\\d{4}-\\d{2}-\\d{2}\\.log` 的正则断言，或在 mock 时直接注入 UTC 假时间，未覆盖跨午夜偏置（UTC 与本地时区日期不同步）的场景。
 - 线索：本地日志 `~/Library/Application Support/OmniPanel/logs/app-2026-09-17.log` 最后修改时间为 2026-09-18 03:23，但文件名为 09-17。
-- 处理：未开
+- 处理：t502

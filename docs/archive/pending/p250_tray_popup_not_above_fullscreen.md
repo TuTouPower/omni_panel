@@ -6,4 +6,4 @@
     已确认同类位点：`src/main/core/main-panel/main-panel-controller.ts` 的 darwin `setAlwaysOnTop(last_pin_to_top, "floating")` 与 `apply_config_change` 同路径；`src/main/index.ts` 的 `trayMenuWin` 构造与 right-click `show()`/`focus()`。
 - 测试缺口：t497 单测只断言调用了 `setVisibleOnAllWorkspaces` 和 `pinToTop` 为 false 时 `setAlwaysOnTop(false)`，把「不要钉在普通窗口上」和「不要浮在全屏上」绑死，假绿。无托盘菜单的 panel / `showInactive` / `visibleOnFullScreen` 断言。应拆：弹出期间用量窗与 tray menu 在 darwin 使用足以盖全屏的层级（如 `floating`/`status`/`pop-up-menu`），与 `pinToTop` 解耦；tray menu 断言 `type: "panel"`、`visibleOnFullScreen`、`showInactive` 且不 `focus`。真机全屏仍 `[deploy]`。
 - 线索：`.scratch/tray_popup_fullscreen_20260918.md`
-- 处理：未开
+- 处理：t503
