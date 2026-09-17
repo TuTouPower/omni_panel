@@ -146,9 +146,11 @@ describe("Command Code connector", () => {
             expect(monthly?.raw_label).toBe("monthly");
             expect(monthly?.normalized_label).toBe("月额度");
             expect(monthly?.window).toBe("month");
-            expect(monthly?.used).toBe(18.25);
+            // t498 语义修正：旧测试将 monthlyCredits（实际为剩余额度 18.25）误断言为 used 且断言 display_style 为 "ratio"；
+            // 现按 AC-001/AC-002 覆盖实际已消耗量（30 - 18.25 = 11.75）与 "percent" 百分比风格
+            expect(monthly?.used).toBe(11.75);
             expect(monthly?.limit).toBe(30); // individual-pro cap
-            expect(monthly?.display_style).toBe("ratio");
+            expect(monthly?.display_style).toBe("percent");
             expect(monthly?.account_label).toBe("testuser (PRO)");
             expect(monthly?.status).toBe("normal");
             expect(monthly?.reset_at).toBe(Date.parse("2026-10-01T12:00:00Z"));
@@ -250,6 +252,168 @@ describe("Command Code connector", () => {
             const ctx = create_mock_ctx(() => ({}), { API_KEY: "" });
             const result = await run_connector(manifest, script, ctx);
             expect(result.error).toContain("Missing required secret: API_KEY");
+        });
+    });
+
+    describe("t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004)", () => {
+        it("AC-001 & AC-002: calculates used as monthly_cap - monthly_remaining with percent display_style and reset_at", async () => {
+            const { manifest, script } = await load_connector();
+            const ctx = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/whoami") {
+                    return { user: { userName: "goat_user" } };
+                }
+                if (path === "/alpha/billing/credits") {
+                    return {
+                        credits: { monthlyCredits: 56.16, belowThreshold: false },
+                    };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return {
+                        data: {
+                            planId: "individual-goat",
+                            currentPeriodEnd: "2026-10-13T00:00:00Z",
+                        },
+                    };
+                }
+                return {};
+            });
+
+            const result = await run_connector(manifest, script, ctx);
+            expect(result.error).toBeNull();
+            const monthly = result.observations.find((o) => o.metric_id === "commandcode:monthly");
+            expect(monthly).toBeDefined();
+            // Cap is 70, remaining is 56.16 => used = 70 - 56.16 = 13.84
+            expect(monthly?.used).toBe(13.84);
+            expect(monthly?.limit).toBe(70);
+            expect(monthly?.display_style).toBe("percent");
+            expect(monthly?.reset_at).toBe(Date.parse("2026-10-13T00:00:00Z"));
+            expect(monthly?.status).toBe("normal");
+        });
+
+        it("AC-001: clamps used to 0 if monthly_remaining exceeds monthly_cap", async () => {
+            const { manifest, script } = await load_connector();
+            const ctx = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 75.0, belowThreshold: false } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "individual-goat" } };
+                }
+                return {};
+            });
+
+            const result = await run_connector(manifest, script, ctx);
+            const monthly = result.observations.find((o) => o.metric_id === "commandcode:monthly");
+            expect(monthly?.used).toBe(0);
+            expect(monthly?.limit).toBe(70);
+        });
+
+        it("AC-003: maps status according to consumed ratio thresholds (normal, warning at 75%, critical at 90%, and belowThreshold)", async () => {
+            const { manifest, script } = await load_connector();
+
+            // Case 1: Low consumption (cap 40, remaining 32 => used 8 => 20% => normal)
+            const ctxNormal = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 32, belowThreshold: false } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "teams-pro" } }; // cap: 40
+                }
+                return {};
+            });
+            const resNormal = await run_connector(manifest, script, ctxNormal);
+            expect(
+                resNormal.observations.find((o) => o.metric_id === "commandcode:monthly")?.status,
+            ).toBe("normal");
+
+            // Case 2: Warning consumption (cap 40, remaining 8 => used 32 => 80% >= 75% => warning)
+            const ctxWarning = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 8, belowThreshold: false } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "teams-pro" } };
+                }
+                return {};
+            });
+            const resWarning = await run_connector(manifest, script, ctxWarning);
+            expect(
+                resWarning.observations.find((o) => o.metric_id === "commandcode:monthly")?.status,
+            ).toBe("warning");
+
+            // Case 3: Critical consumption (cap 40, remaining 2 => used 38 => 95% >= 90% => critical)
+            const ctxCritical = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 2, belowThreshold: false } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "teams-pro" } };
+                }
+                return {};
+            });
+            const resCritical = await run_connector(manifest, script, ctxCritical);
+            expect(
+                resCritical.observations.find((o) => o.metric_id === "commandcode:monthly")?.status,
+            ).toBe("critical");
+
+            // Case 4: belowThreshold is true => at least warning even if consumed ratio is low (used 8/40 = 20%)
+            const ctxBelowThreshold = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 32, belowThreshold: true } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "teams-pro" } };
+                }
+                return {};
+            });
+            const resBelowThreshold = await run_connector(manifest, script, ctxBelowThreshold);
+            expect(
+                resBelowThreshold.observations.find((o) => o.metric_id === "commandcode:monthly")
+                    ?.status,
+            ).toBe("warning");
+
+            // Case 5: belowThreshold is true with critical consumption => remains critical
+            const ctxBelowThresholdCrit = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 2, belowThreshold: true } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "teams-pro" } };
+                }
+                return {};
+            });
+            const resBelowThresholdCrit = await run_connector(
+                manifest,
+                script,
+                ctxBelowThresholdCrit,
+            );
+            expect(
+                resBelowThresholdCrit.observations.find(
+                    (o) => o.metric_id === "commandcode:monthly",
+                )?.status,
+            ).toBe("critical");
+        });
+
+        it("AC-004: safely degrades to ratio display with raw balance when monthly_cap is unknown", async () => {
+            const { manifest, script } = await load_connector();
+            const ctx = create_mock_ctx((_endpoint, path) => {
+                if (path === "/alpha/billing/credits") {
+                    return { credits: { monthlyCredits: 42.5, belowThreshold: false } };
+                }
+                if (path === "/alpha/billing/subscriptions") {
+                    return { data: { planId: "unknown-custom-plan" } };
+                }
+                return {};
+            });
+
+            const result = await run_connector(manifest, script, ctx);
+            expect(result.error).toBeNull();
+            const monthly = result.observations.find((o) => o.metric_id === "commandcode:monthly");
+            expect(monthly).toBeDefined();
+            expect(monthly?.used).toBe(42.5);
+            expect(monthly?.limit).toBeNull();
+            expect(monthly?.display_style).toBe("ratio");
+            expect(monthly?.status).toBe("normal");
         });
     });
 });

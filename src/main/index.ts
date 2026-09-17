@@ -99,6 +99,7 @@ import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
+import { setup_application_menu } from "./menu/application-menu";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
@@ -1102,6 +1103,18 @@ void app.whenReady().then(async () => {
             },
         });
 
+        // t493 AC-004: 安装 macOS 应用菜单（⌘W/⌘M/⌃⌘F/⌘H/⌘Q）
+        setup_application_menu({
+            platform: process.platform,
+            is_usage_window: (win) => {
+                const usage_win = main_panel_controller?.get_window();
+                return usage_win != null && (usage_win as unknown as BrowserWindow) === win;
+            },
+            hide_usage_panel: () => {
+                main_panel_controller?.hide();
+            },
+        });
+
         // Agent (token-stats) window singleton: tokenStats.open() reuses an
         // existing window instead of stacking multiple agent BrowserWindows.
         const agent_window_controller = create_agent_window_controller({
@@ -1194,6 +1207,9 @@ void app.whenReady().then(async () => {
             const trayIcon = nativeImage.createFromPath(get_tray_icon_path());
             if (trayIcon.isEmpty()) {
                 log.warn("Tray icon loaded as empty image");
+            }
+            if (process.platform === "darwin") {
+                trayIcon.setTemplateImage(true);
             }
             const tray = new Tray(trayIcon);
             tray_ref = tray;

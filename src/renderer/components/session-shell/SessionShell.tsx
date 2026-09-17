@@ -151,20 +151,15 @@ export function SessionShell() {
             className="flex h-screen min-h-screen flex-col bg-[var(--color-surface-window)] text-[var(--color-on-surface)]"
             data-testid="session-shell"
         >
-            <header
-                className="relative flex shrink-0 items-center border-b border-[var(--color-hairline)] bg-[var(--color-surface-window)]"
+            <PanelTitleBar
+                panel="Session"
                 data-testid="session-topbar"
-            >
-                <PanelTitleBar
-                    panel="Session"
-                    className="min-w-0 flex-1"
-                    onNavigate={navigate}
-                    onRefresh={() => {
-                        void window.usageboard.tokenStats.forceCollect().catch(() => undefined);
-                        set_refresh_token((k) => k + 1);
-                    }}
-                />
-            </header>
+                onNavigate={navigate}
+                onRefresh={() => {
+                    void window.usageboard.tokenStats.forceCollect().catch(() => undefined);
+                    set_refresh_token((k) => k + 1);
+                }}
+            />
             <main className="flex min-h-0 flex-1" data-testid="session-body">
                 <section
                     className={cn("min-w-0 flex-1", page !== "library" && "hidden")}

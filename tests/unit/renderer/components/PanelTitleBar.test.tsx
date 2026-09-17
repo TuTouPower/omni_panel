@@ -10,10 +10,49 @@ describe("PanelTitleBar (t252)", () => {
         };
     });
 
-    it("渲染品牌标题：软件 icon + `Omni Panel - <面板名>`", () => {
+    // 旧测试「渲染品牌标题：软件 icon + `Omni Panel - <面板名>`」已被 t493 AC-002 废弃：
+    // 用户要求全平台标题栏不再渲染 logo 与品牌前缀，只留纯面板名。按 AGENTS.md 废除并新增覆盖新语义测试。
+    it("所有面板标题栏只显示面板名，不再渲染 logo 与「Omni Panel - 」前缀 (t493 AC-002)", () => {
         render(<PanelTitleBar panel="Settings" />);
-        expect(screen.getByText("Omni Panel - Settings")).toBeInTheDocument();
-        expect(screen.getByAltText("OmniPanel")).toBeInTheDocument();
+        expect(screen.getByTestId("app-title")).toHaveTextContent("Settings");
+        expect(screen.queryByText("Omni Panel - Settings")).toBeNull();
+        expect(screen.queryByAltText("OmniPanel")).toBeNull();
+    });
+
+    it("macOS 下 setting/agent/session/dev 预留 78px 交通灯区域，内容不重叠 (t493 AC-001)", () => {
+        const { unmount } = render(<PanelTitleBar panel="Settings" platform="darwin" />);
+        expect(screen.getByTestId("traffic-lights-spacer")).toBeInTheDocument();
+        expect(screen.getByTestId("traffic-lights-spacer")).toHaveClass("w-[78px]");
+        unmount();
+
+        // Usage 面板（托盘弹窗）不预留交通灯空间
+        render(<PanelTitleBar panel="Usage" platform="darwin" />);
+        expect(screen.queryByTestId("traffic-lights-spacer")).toBeNull();
+    });
+
+    it("Windows/Linux 下不预留交通灯区域 (t493)", () => {
+        render(<PanelTitleBar panel="Settings" platform="win32" />);
+        expect(screen.queryByTestId("traffic-lights-spacer")).toBeNull();
+    });
+
+    it("macOS 下正常面板窗口不渲染自绘最小化/最大化/关闭按钮 (t493 AC-003)", () => {
+        render(<PanelTitleBar panel="Settings" platform="darwin" />);
+        expect(screen.queryByTitle("最小化")).toBeNull();
+        expect(screen.queryByTitle("最大化/还原")).toBeNull();
+        expect(screen.queryByTitle("关闭")).toBeNull();
+    });
+
+    it("Windows/Linux 下渲染自绘最小化/最大化/关闭按钮 (t493 AC-003)", () => {
+        render(<PanelTitleBar panel="Settings" platform="win32" />);
+        expect(screen.getByTitle("最小化")).toBeInTheDocument();
+        expect(screen.getByTitle("最大化/还原")).toBeInTheDocument();
+        expect(screen.getByTitle("关闭")).toBeInTheDocument();
+    });
+
+    it("macOS 下 floating popup 模式仍渲染「隐藏到托盘」按钮 (t493 非范围)", () => {
+        render(<PanelTitleBar panel="Usage" floating platform="darwin" />);
+        expect(screen.getByTitle("隐藏到托盘")).toBeInTheDocument();
+        expect(screen.queryByTitle("最小化")).toBeNull();
     });
 
     it("面板形态恒定渲染五个切换按钮，含当前面板（AC-001）", () => {
@@ -114,10 +153,11 @@ describe("PanelTitleBar (t252)", () => {
         ]);
     });
 
-    it("设置面板切换按钮恒定五枚「设置 用量 代理 会话 开发」且刷新按钮恒不渲染（AC-001）", () => {
-        render(<PanelTitleBar panel="Settings" onRefresh={vi.fn()} />);
-        const panel_buttons = screen
-            .getAllByRole("button")
+    it("设置面板切换按钮恒定五枚「设置 用量 代理 会话 开发」且刷新按钮渲染在首位（t494 AC-002/AC-003）", () => {
+        render(<PanelTitleBar panel="Settings" onRefresh={vi.fn()} platform="win32" />);
+        const buttons = screen.getAllByRole("button");
+        expect(buttons[0]?.getAttribute("aria-label")).toBe("刷新");
+        const panel_buttons = buttons
             .map((b) => b.getAttribute("aria-label"))
             .filter((l): l is string => typeof l === "string" && l.endsWith("面板"));
         expect(panel_buttons).toEqual([
@@ -127,13 +167,57 @@ describe("PanelTitleBar (t252)", () => {
             "Session面板",
             "Dev面板",
         ]);
-        expect(screen.queryByTitle("刷新当前面板")).toBeNull();
     });
 
-    it("非设置面板刷新按钮在首位（AC-001）", () => {
-        render(<PanelTitleBar panel="Session" onRefresh={vi.fn()} />);
+    it("所有面板标题栏右侧按钮集合遵循统一顺序：刷新 → 五面板切换 → 窗口控制（t494 AC-003）", () => {
+        const panels: ("Settings" | "Usage" | "Agent" | "Session" | "Dev")[] = [
+            "Settings",
+            "Usage",
+            "Agent",
+            "Session",
+            "Dev",
+        ];
+        for (const panel of panels) {
+            const { unmount } = render(
+                <PanelTitleBar panel={panel} onRefresh={vi.fn()} platform="win32" />,
+            );
+            const buttons = screen.getAllByRole("button");
+            const labels = buttons.map((b) => b.getAttribute("aria-label"));
+            expect(labels[0]).toBe("刷新");
+            expect(labels.slice(1, 6)).toEqual([
+                "Settings面板",
+                "Usage面板",
+                "Agent面板",
+                "Session面板",
+                "Dev面板",
+            ]);
+            // win32 下最后三个为窗口控制
+            expect(labels.slice(6)).toEqual(["最小化", "最大化/还原", "关闭"]);
+            unmount();
+        }
+    });
+
+    it("Usage 浮动形态右侧按钮遵循：刷新 → 五面板切换 → 隐藏到托盘（t494 AC-003）", () => {
+        render(
+            <PanelTitleBar
+                panel="Usage"
+                onRefreshAll={vi.fn()}
+                floating
+                onClose={vi.fn()}
+                platform="darwin"
+            />,
+        );
         const buttons = screen.getAllByRole("button");
-        expect(buttons[0]?.getAttribute("aria-label")).toBe("刷新");
+        const labels = buttons.map((b) => b.getAttribute("aria-label"));
+        expect(labels[0]).toBe("刷新");
+        expect(labels.slice(1, 6)).toEqual([
+            "Settings面板",
+            "Usage面板",
+            "Agent面板",
+            "Session面板",
+            "Dev面板",
+        ]);
+        expect(labels[6]).toBe("隐藏用量面板");
     });
 
     it("before_actions 渲染于刷新按钮左侧（t323 三按钮插槽）", () => {

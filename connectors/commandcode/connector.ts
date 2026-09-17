@@ -144,11 +144,19 @@ async function main(): Promise<ScriptObservation[]> {
 
         if (monthly_remaining !== null) {
             const is_below_threshold = Boolean(credits_data.credits?.belowThreshold);
+            const has_known_cap = monthly_cap !== null && monthly_cap > 0;
+            const used = has_known_cap
+                ? Math.round(Math.max(0, monthly_cap - monthly_remaining) * 10000) / 10000
+                : monthly_remaining;
+            const limit = has_known_cap ? monthly_cap : null;
+            const display_style = has_known_cap ? "percent" : "ratio";
+
             let status: ScriptObservation["status"] = "normal";
-            if (is_below_threshold) {
+            if (has_known_cap) {
+                status = ctx.status.for_ratio(used, monthly_cap);
+            }
+            if (is_below_threshold && status === "normal") {
                 status = "warning";
-            } else if (monthly_cap !== null && monthly_cap > 0) {
-                status = ctx.status.for_ratio(monthly_remaining, monthly_cap);
             }
 
             results.push({
@@ -160,9 +168,9 @@ async function main(): Promise<ScriptObservation[]> {
                 normalized_label: "月额度",
                 window: "month",
                 cycleDurationMs: 30 * 24 * 60 * 60 * 1000,
-                used: monthly_remaining,
-                limit: monthly_cap,
-                display_style: "ratio",
+                used,
+                limit,
+                display_style,
                 reset_at: current_period_end,
                 status,
                 observed_at: now,

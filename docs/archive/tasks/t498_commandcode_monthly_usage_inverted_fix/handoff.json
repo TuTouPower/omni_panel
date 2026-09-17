@@ -1,0 +1,29 @@
+{
+    "tid": "t498",
+    "attempt": 1,
+    "execution_id": "fcb52d810c6844e79bfcbb921a20154a",
+    "status": "done",
+    "branch": "t498_commandcode_monthly_usage_inverted_fix",
+    "base_sha": "cb051126676f2c28ef25cbeed7f95c82417b880a",
+    "tests": "pnpm test：312 passed / 3852 passed；tsc --noEmit exit 0；eslint exit 0；prettier exit 0；designmd:check exit 0",
+    "blackbox": "全量单测 3852 passed + tsc 0 + eslint 0 + prettier 0 + designmd 0",
+    "review": "single 级 general：Round 1 PASS（review_general.md）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004) > AC-001 & AC-002: calculates used as monthly_cap - monthly_remaining with percent display_style and reset_at 通过",
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004) > AC-001: clamps used to 0 if monthly_remaining exceeds monthly_cap 通过"
+        ],
+        "AC-002": [
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004) > AC-001 & AC-002: calculates used as monthly_cap - monthly_remaining with percent display_style and reset_at 通过",
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > AC-003: Quota and Window Metrics Parsing > produces monthly credits, five_hour window, and weekly window observations 通过"
+        ],
+        "AC-003": [
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004) > AC-003: maps status according to consumed ratio thresholds (normal, warning at 75%, critical at 90%, and belowThreshold) 通过"
+        ],
+        "AC-004": [
+            "tests/unit/connector/commandcode.test.ts::Command Code connector > t498: Monthly Quota Inverted Fix (AC-001 ~ AC-004) > AC-004: safely degrades to ratio display with raw balance when monthly_cap is unknown 通过"
+        ]
+    },
+    "pending": ["p246"],
+    "findings": []
+}

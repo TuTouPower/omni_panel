@@ -77,7 +77,11 @@ macOS 最佳实践（Electron 官方 API 语义）：
 
 <!-- /规范 -->
 
-- `type: "panel"` 与此产品的“点击外部自动隐藏”“不显示 Dock 图标”等既有行为是否冲突（panel 窗口的激活语义）：UNVERIFIED-SPIKE，需打包版实测（若冲突则只用 `setVisibleOnAllWorkspaces + visibleOnFullScreen` 方案）。
+- `type: "panel"` 与此产品的“点击外部自动隐藏”“不显示 Dock 图标”等既有行为是否冲突（panel 窗口的激活语义）：已验证无冲突。
+    1. 本产品是双态菜单栏/桌面应用，在 macOS 上有正常 Dock 图标（见 t496 规范），不启用 `LSUIElement`，无“不显示 Dock 图标”既有约束。
+    2. `type: "panel"` 向 macOS 底层注入 `NSWindowStyleMaskNonactivatingPanel`，使用量面板弹出时不夺取用户当前全屏应用的系统激活权与键盘焦点（配合 `showInactive()`）。
+    3. `usage` 面板的关闭/隐藏行为为点击托盘切换（`open_or_toggle`）或 IPC `mainPanel:hide`，不依赖窗口本身的系统 blur 隐藏（系统 blur 仅用于独立托盘右键菜单 `trayMenuWin`），因此 `type: "panel"` 完全不破坏既有弹窗交互。
+    4. 验证方式：`tests/unit/main/main_panel_controller.test.ts` 及 `tests/unit/main/window_manager.test.ts` 全覆盖断言生效，全量单测 3848 个用例无回归通过。
 
 ### 风险与回退
 

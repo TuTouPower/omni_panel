@@ -121,6 +121,7 @@ export const appConfigurationSchema = z.object({
     expandedProviders: z.record(z.boolean()).optional(),
     providerL2Open: z.record(z.boolean()).optional(),
     activeUsageTab: z.string().optional(),
+    usagePopupWidth: z.number().int().positive().optional(),
     convergentTimeMinutes: z.number().int().min(1).max(1440).optional(),
     dirAliases: z
         .array(z.object({ alias: z.string().min(1), dirs: z.array(z.string()) }))

@@ -393,7 +393,13 @@ export function SettingsView() {
                 className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
-                <PanelTitleBar panel="Settings" />
+                <PanelTitleBar
+                    panel="Settings"
+                    onNavigate={navigate}
+                    onRefresh={() => {
+                        void reload();
+                    }}
+                />
                 <div className="p-6 text-[var(--color-on-surface-muted)]">加载中...</div>
             </div>
         );
@@ -404,7 +410,13 @@ export function SettingsView() {
                 className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window"
                 data-window="settings"
             >
-                <PanelTitleBar panel="Settings" />
+                <PanelTitleBar
+                    panel="Settings"
+                    onNavigate={navigate}
+                    onRefresh={() => {
+                        void reload();
+                    }}
+                />
                 <div className="p-6">
                     <Alert
                         tone="error"

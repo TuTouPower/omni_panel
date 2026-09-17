@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { create_main_panel_controller } from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
 import { WINDOW_CONFIGS } from "../../../src/main/window/window-manager";
+import { USAGE_MIN_WIDTH } from "../../../src/main/window/window-bounds";
 import type { AppConfiguration } from "../../../src/shared/types/config";
 
 const base_config: AppConfiguration = {
@@ -30,6 +31,8 @@ interface FakeWindow {
     setSkipTaskbar: ReturnType<typeof vi.fn>;
     setMinimumSize: ReturnType<typeof vi.fn>;
     setAlwaysOnTop: ReturnType<typeof vi.fn>;
+    setVisibleOnAllWorkspaces: ReturnType<typeof vi.fn>;
+    showInactive: ReturnType<typeof vi.fn>;
     loadURL: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
 }
@@ -71,6 +74,10 @@ function make_window(): FakeWindow {
         setSkipTaskbar: vi.fn(),
         setMinimumSize: vi.fn(),
         setAlwaysOnTop: vi.fn(),
+        setVisibleOnAllWorkspaces: vi.fn(),
+        showInactive: vi.fn(() => {
+            win.visible = true;
+        }),
         loadURL: vi.fn(() => Promise.resolve()),
         on: vi.fn((event: string, handler: () => void) => {
             win.listeners[event] ??= [];
@@ -380,5 +387,154 @@ describe("main panel controller", () => {
 
         expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
         expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+    });
+
+    describe("usage popup width persistence (t495)", () => {
+        it("saves width when user resizes popup and restores it on next show (AC-001)", () => {
+            const { controller, windows, state } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win).toBeDefined();
+            if (!win) return;
+
+            // Simulate user resize to 600
+            win.bounds = { ...win.bounds, width: 600 };
+            for (const h of win.listeners["resize"] ?? []) h();
+            expect(state.config.usagePopupWidth).toBe(600);
+
+            // Hide and reopen
+            controller.open_or_toggle(); // hide
+            expect(win.hide).toHaveBeenCalled();
+            controller.open_or_toggle(); // show
+            expect(win.setBounds).toHaveBeenLastCalledWith(expect.objectContaining({ width: 600 }));
+        });
+
+        it("uses saved usagePopupWidth on initial open after restart (AC-002)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 650,
+            });
+            controller.open_or_focus();
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 650 }),
+            );
+        });
+
+        it("clamps saved and restored width to [USAGE_MIN_WIDTH, workArea.width] (AC-003)", () => {
+            const { controller, windows, state } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win).toBeDefined();
+            if (!win) return;
+
+            // Resize smaller than USAGE_MIN_WIDTH (472)
+            win.bounds = { ...win.bounds, width: 300 };
+            for (const h of win.listeners["resize"] ?? []) h();
+            expect(state.config.usagePopupWidth).toBe(USAGE_MIN_WIDTH);
+
+            // Restore with width smaller than USAGE_MIN_WIDTH
+            const { controller: c2, windows: w2 } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 300,
+            });
+            c2.open_or_focus();
+            expect(w2[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: USAGE_MIN_WIDTH }),
+            );
+        });
+
+        it("clamps restored width to display workArea.width when exceeding screen (AC-004)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+                usagePopupWidth: 2000,
+            });
+            controller.open_or_focus();
+            // display workArea.width is 1280 in mock
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 1280, x: 0 }),
+            );
+        });
+
+        it("falls back to default width when usagePopupWidth is not set (AC-005)", () => {
+            const { controller, windows } = build({
+                ...base_config,
+                mainPanelMode: "popup",
+            });
+            controller.open_or_focus();
+            expect(windows[0]?.setBounds).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 460 }), // default in mock
+            );
+        });
+    });
+
+    describe("macOS popup above fullscreen apps (t497)", () => {
+        it("AC-001~AC-003: calls setVisibleOnAllWorkspaces with visibleOnFullScreen and skipTransformProcessType on macOS", () => {
+            const { controller, windows } = build(
+                { ...base_config, mainPanelMode: "system" },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledTimes(1);
+            expect(win?.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
+                visibleOnFullScreen: true,
+                skipTransformProcessType: true,
+            });
+        });
+
+        it("AC-002: shows window via showInactive on macOS without calling focus", () => {
+            const { controller, windows } = build(
+                { ...base_config, mainPanelMode: "system" },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.showInactive).toHaveBeenCalledTimes(1);
+            expect(win?.show).not.toHaveBeenCalled();
+            expect(win?.focus).not.toHaveBeenCalled();
+        });
+
+        it("AC-005: calls setAlwaysOnTop with floating level on macOS when pinToTop is true, and cancels when false", () => {
+            const { controller, windows, state } = build(
+                { ...base_config, mainPanelMode: "system", pinToTop: false },
+                "darwin",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false, "floating");
+
+            state.config = { ...state.config, pinToTop: true };
+            controller.apply_config_change();
+            expect(win?.setAlwaysOnTop).toHaveBeenCalledTimes(2);
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
+        });
+
+        it("AC-006: Windows does not call setVisibleOnAllWorkspaces, and uses show() + focus() with boolean setAlwaysOnTop", () => {
+            const { controller, windows, state } = build(
+                { ...base_config, mainPanelMode: "system", pinToTop: false },
+                "win32",
+            );
+            controller.open_or_focus();
+            const win = windows[0];
+            expect(win?.setVisibleOnAllWorkspaces).not.toHaveBeenCalled();
+            expect(win?.show).toHaveBeenCalledTimes(1);
+            expect(win?.focus).toHaveBeenCalledTimes(1);
+            expect(win?.showInactive).not.toHaveBeenCalled();
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+
+            state.config = { ...state.config, pinToTop: true };
+            controller.apply_config_change();
+            expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+        });
     });
 });

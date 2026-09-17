@@ -17,6 +17,8 @@ const {
     get_observations_db_path,
     get_snapshot_cache_path,
     get_logs_dir,
+    get_tray_icon_path,
+    get_app_icon_path,
 } = await import("../../src/main/core/paths");
 
 describe("paths", () => {
@@ -94,5 +96,37 @@ describe("paths", () => {
             `${custom_base}/snapshot-cache.json`,
         );
         expect(normalize(get_logs_dir(custom_base))).toBe(`${custom_base}/logs`);
+        const is_darwin = process.platform === "darwin";
+        const expected_tray = is_darwin ? "tray-iconTemplate.png" : "tray-icon.png";
+        expect(normalize(get_tray_icon_path(custom_base))).toBe(`${custom_base}/${expected_tray}`);
+        expect(normalize(get_app_icon_path(custom_base))).toBe(`${custom_base}/icon.png`);
+    });
+
+    it("get_tray_icon_path reflects TEST_INSTANCE and platform specification", () => {
+        const origEnv = process.env["TEST_INSTANCE"];
+        try {
+            delete process.env["TEST_INSTANCE"];
+            const is_darwin = process.platform === "darwin";
+            const default_tray = get_tray_icon_path();
+            if (is_darwin) {
+                expect(default_tray).toMatch(/tray-iconTemplate\.png$/);
+            } else {
+                expect(default_tray).toMatch(/tray-icon\.png$/);
+            }
+
+            process.env["TEST_INSTANCE"] = "1";
+            const test_tray = get_tray_icon_path();
+            if (is_darwin) {
+                expect(test_tray).toMatch(/tray-icon-testTemplate\.png$/);
+            } else {
+                expect(test_tray).toMatch(/tray-icon-test\.png$/);
+            }
+        } finally {
+            if (origEnv !== undefined) {
+                process.env["TEST_INSTANCE"] = origEnv;
+            } else {
+                delete process.env["TEST_INSTANCE"];
+            }
+        }
     });
 });

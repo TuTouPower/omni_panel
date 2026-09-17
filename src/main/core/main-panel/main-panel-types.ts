@@ -20,7 +20,9 @@ export type WindowLike = Pick<
     | "setMinimumSize"
     | "setResizable"
     | "setSkipTaskbar"
+    | "setVisibleOnAllWorkspaces"
     | "show"
+    | "showInactive"
 >;
 
 export interface MainPanelController {

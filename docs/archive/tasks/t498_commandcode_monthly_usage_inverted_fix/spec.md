@@ -31,10 +31,10 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：当 API 返回月度剩余额度与已知套餐上限时，`commandcode` 连接器产出的 `commandcode:monthly` 观察量中 `used` 为实际已消耗额度（即 `monthly_cap - monthly_remaining`，且不低于 0），`limit` 为套餐月度额度上限。
-- [ ] AC-002：`commandcode:monthly` 观察量的 `display_style` 为 `"percent"`，且附带周期重置时间戳 `reset_at`，与 5 小时和周窗口保持一致，使得前端能正常渲染已用百分比与重置日期。
-- [ ] AC-003：`commandcode:monthly` 状态根据实际已消耗量正确映射（低消耗为 `normal`，消耗达 75% 预警阈值为 `warning`，达 90% 严重阈值为 `critical`；`belowThreshold` 为真时至少为 `warning`）。
-- [ ] AC-004：当套餐上限未知（`monthly_cap` 为 null）时，连接器安全降级产出原始剩余额度（`used` 为剩余额度，`limit` 为 null，`display_style` 为 `"ratio"`），不发生异常崩溃。
+- [x] AC-001：当 API 返回月度剩余额度与已知套餐上限时，`commandcode` 连接器产出的 `commandcode:monthly` 观察量中 `used` 为实际已消耗额度（即 `monthly_cap - monthly_remaining`，且不低于 0），`limit` 为套餐月度额度上限。
+- [x] AC-002：`commandcode:monthly` 观察量的 `display_style` 为 `"percent"`，且附带周期重置时间戳 `reset_at`，与 5 小时和周窗口保持一致，使得前端能正常渲染已用百分比与重置日期。
+- [x] AC-003：`commandcode:monthly` 状态根据实际已消耗量正确映射（低消耗为 `normal`，消耗达 75% 预警阈值为 `warning`，达 90% 严重阈值为 `critical`；`belowThreshold` 为真时至少为 `warning`）。
+- [x] AC-004：当套餐上限未知（`monthly_cap` 为 null）时，连接器安全降级产出原始剩余额度（`used` 为剩余额度，`limit` 为 null，`display_style` 为 `"ratio"`），不发生异常崩溃。
 
 ### 可测试性声明
 

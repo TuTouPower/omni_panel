@@ -111,20 +111,43 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         });
     }
 
+    function save_popup_width(target: WindowLike): void {
+        if (mode !== "popup" || suppress_tokens.size > 0 || target.isDestroyed()) return;
+        const bounds = target.getBounds();
+        const display = deps.get_display_for_bounds(bounds);
+        const width = clamp(bounds.width, USAGE_MIN_WIDTH, display.workArea.width);
+        const config = deps.get_config();
+        if (config.usagePopupWidth === width) return;
+        deps.save_config({
+            ...config,
+            usagePopupWidth: width,
+        });
+    }
+
     function position_popup(target: WindowLike): void {
         const tray_bounds = deps.get_tray_bounds();
         if (!tray_bounds || tray_bounds.width <= 0 || tray_bounds.height <= 0) return;
         const current = target.getBounds();
         const display = deps.get_display_for_bounds(tray_bounds);
         const work = display.workArea;
-        const x = Math.round(tray_bounds.x + tray_bounds.width / 2 - current.width / 2);
+        const saved_width = deps.get_config().usagePopupWidth;
+        const base_width = saved_width ?? current.width;
+        const width =
+            saved_width !== undefined ? clamp(base_width, USAGE_MIN_WIDTH, work.width) : base_width;
+        const x = Math.round(tray_bounds.x + tray_bounds.width / 2 - width / 2);
         const y = Math.round(tray_bounds.y + tray_bounds.height + 4);
-        target.setBounds({
-            x: clamp(x, work.x, work.x + work.width - current.width),
-            y: clamp(y, work.y, work.y + work.height - current.height),
-            width: current.width,
-            height: current.height,
-        });
+        const token = ++suppress_bounds_token;
+        suppress_tokens.add(token);
+        try {
+            target.setBounds({
+                x: clamp(x, work.x, work.x + work.width - width),
+                y: clamp(y, work.y, work.y + work.height - current.height),
+                width,
+                height: current.height,
+            });
+        } finally {
+            suppress_tokens.delete(token);
+        }
     }
 
     function create_panel_window(next_mode: MainPanelShellMode): WindowLike {
@@ -134,7 +157,17 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             log.error("Failed to load main panel", error);
         });
         last_pin_to_top = deps.get_config().pinToTop ?? false;
-        target.setAlwaysOnTop(last_pin_to_top);
+        // t497 AC-001/AC-003/AC-005: macOS 下使用量弹窗在所有空间及全屏应用之上可见，
+        // 且置顶级别使用 floating。Windows/Linux 保持既有行为不变。
+        if (deps.platform === "darwin") {
+            target.setVisibleOnAllWorkspaces(true, {
+                visibleOnFullScreen: true,
+                skipTransformProcessType: true,
+            });
+            target.setAlwaysOnTop(last_pin_to_top, "floating");
+        } else {
+            target.setAlwaysOnTop(last_pin_to_top);
+        }
         if (deps.platform === "win32") {
             target.setSkipTaskbar(next_mode === "popup");
         }
@@ -167,9 +200,21 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 save_floating_bounds(target);
             });
         } else {
-            position_popup(target);
+            // t495: 先设最小宽度，若有保存的 usagePopupWidth 则预设 target bounds，
+            // 确保无 tray_bounds 场景下也能恢复宽度；position_popup 时再按托盘所在屏工作区 clamp 定位。
             target.setMinimumSize(USAGE_MIN_WIDTH, 160);
+            const saved_width = deps.get_config().usagePopupWidth;
+            if (saved_width !== undefined) {
+                const current = target.getBounds();
+                const display = deps.get_display_for_bounds(current);
+                const width = clamp(saved_width, USAGE_MIN_WIDTH, display.workArea.width);
+                target.setBounds({ ...current, width });
+            }
+            position_popup(target);
             target.setResizable(true);
+            target.on("resize", () => {
+                save_popup_width(target);
+            });
         }
 
         height_controller = build_height_controller(target);
@@ -197,8 +242,18 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             position_popup(target);
         }
         // t280: headless 下不弹屏。
-        if (!is_e2e_headless()) target.show();
-        target.focus();
+        // t497 AC-002: macOS 下用量弹窗使用 showInactive 显示且不抢焦点，
+        // 避免把全屏应用切出或打断用户操作；Windows/Linux 保持既有 show() + focus()。
+        if (!is_e2e_headless()) {
+            if (deps.platform === "darwin") {
+                target.showInactive();
+            } else {
+                target.show();
+            }
+        }
+        if (deps.platform !== "darwin") {
+            target.focus();
+        }
         deps.on_show?.();
     }
 
@@ -234,14 +289,26 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             if (next_mode !== mode) {
                 this.close_for_mode_switch();
                 const target = create_panel_window(next_mode);
-                if (!is_e2e_headless()) target.show();
-                target.focus();
+                if (!is_e2e_headless()) {
+                    if (deps.platform === "darwin") {
+                        target.showInactive();
+                    } else {
+                        target.show();
+                    }
+                }
+                if (deps.platform !== "darwin") {
+                    target.focus();
+                }
                 return;
             }
             const pin_to_top = deps.get_config().pinToTop ?? false;
             if (pin_to_top !== last_pin_to_top) {
                 last_pin_to_top = pin_to_top;
-                win.setAlwaysOnTop(pin_to_top);
+                if (deps.platform === "darwin") {
+                    win.setAlwaysOnTop(pin_to_top, "floating");
+                } else {
+                    win.setAlwaysOnTop(pin_to_top);
+                }
             }
         },
         report_content_height(report: PopupContentHeightReport) {

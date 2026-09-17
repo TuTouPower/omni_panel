@@ -29,6 +29,7 @@ export interface WindowConfig {
     minHeight?: number;
     maxWidth?: number;
     showWhenReady?: boolean;
+    type?: string;
 }
 
 export const WINDOW_CONFIGS: Record<string, WindowConfig> = {
@@ -134,6 +135,7 @@ export function createWindowManager(opts: {
     /** Absolute filesystem path to the built renderer index.html. Passed in
      * because its resolution depends on the app root, not window logic. */
     rendererIndexPath: string;
+    platform?: NodeJS.Platform | undefined;
 }): WindowManager {
     function getRendererUrl(route: string, route_query?: Record<string, string>): string {
         const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
@@ -161,10 +163,20 @@ export function createWindowManager(opts: {
         log.debug(
             `Window ${key} theme: shouldUseDarkColors=${String(nativeTheme.shouldUseDarkColors)}, themeSource=${nativeTheme.themeSource}`,
         );
+        const target_platform = opts.platform ?? process.platform;
+        // t493 AC-001: macOS 下面板窗口（setting/agent/session/dev）改用系统边框 (frame: true) +
+        // titleBarStyle: "hidden"，使系统原生交通灯可见；Windows/Linux 保持自绘无边框 (frame: false)。
+        const is_panel_window =
+            key === "setting" || key === "agent" || key === "session" || key === "dev";
+        const resolved_frame = is_panel_window ? target_platform === "darwin" : (cfg.frame ?? true);
+        // t497 AC-001: macOS 下用量弹窗使用 NSPanel (type: "panel")，浮于全屏应用之上且不激活应用；
+        // Windows/Linux 保持既有默认 normal 类型。
+        const resolved_type = key === "usage" && target_platform === "darwin" ? "panel" : cfg.type;
+
         const win = new BrowserWindow({
             width: cfg.width,
             height: cfg.height,
-            frame: cfg.frame ?? true,
+            frame: resolved_frame,
             // t280: e2e headless 门控——E2E=1 且 E2E_HEADLESS=1 时窗口存在但不弹屏。
             show: is_e2e_headless() ? false : (cfg.show ?? true),
             autoHideMenuBar: cfg.autoHideMenuBar ?? false,
@@ -175,6 +187,7 @@ export function createWindowManager(opts: {
             ...(cfg.titleBarStyle !== undefined && { titleBarStyle: cfg.titleBarStyle }),
             ...(cfg.titleBarOverlay !== undefined && { titleBarOverlay: cfg.titleBarOverlay }),
             ...(cfg.roundedCorners !== undefined && { roundedCorners: cfg.roundedCorners }),
+            ...(resolved_type !== undefined && { type: resolved_type }),
             icon: opts.getIconPath(),
             backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b22" : "#ffffff",
             webPreferences: {

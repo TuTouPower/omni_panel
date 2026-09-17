@@ -16,6 +16,16 @@ extraResources:
       to: connectors
     - from: assets/tray-icon-test.png
       to: tray-icon.png
+    - from: assets/tray-icon-test.png
+      to: tray-icon-test.png
+    - from: assets/tray-icon-testTemplate.png
+      to: tray-iconTemplate.png
+    - from: assets/tray-icon-testTemplate@2x.png
+      to: tray-iconTemplate@2x.png
+    - from: assets/tray-icon-testTemplate.png
+      to: tray-icon-testTemplate.png
+    - from: assets/tray-icon-testTemplate@2x.png
+      to: tray-icon-testTemplate@2x.png
     - from: assets/icon-test.png
       to: icon.png
     - from: assets/test.marker

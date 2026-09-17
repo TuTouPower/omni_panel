@@ -75,7 +75,10 @@ describe("dock-badge (t488)", () => {
         expect(mock_set_badge_count).toHaveBeenCalledWith(0);
     });
 
-    it("AC-001: main_panel_controller 打开/展示主面板时调用 on_show 回调", () => {
+    // t497: macOS 下 show_panel 改为调用 showInactive() 且不再抢焦点调用 focus()（AC-002）。
+    // 旧测试「AC-001: main_panel_controller 打开/展示主面板时调用 on_show 回调」硬编码断言了
+    // mock_win.show 与 mock_win.focus，其断言语义已失效，按规范整体删除并由下方新测试替代。
+    it("AC-001: main_panel_controller 打开/展示主面板时调用 on_show 回调（t497: macOS 下使用 showInactive）", () => {
         const on_show = vi.fn();
         const mock_win: WindowLike = {
             isDestroyed: () => false,
@@ -92,6 +95,8 @@ describe("dock-badge (t488)", () => {
             setSkipTaskbar: vi.fn(),
             setMinimumSize: vi.fn(),
             setResizable: vi.fn(),
+            setVisibleOnAllWorkspaces: vi.fn(),
+            showInactive: vi.fn(),
             on: vi.fn(),
         };
 
@@ -116,8 +121,9 @@ describe("dock-badge (t488)", () => {
 
         controller.open_or_focus();
 
-        expect(mock_win.show).toHaveBeenCalled();
-        expect(mock_win.focus).toHaveBeenCalled();
+        expect(mock_win.showInactive).toHaveBeenCalled();
+        expect(mock_win.show).not.toHaveBeenCalled();
+        expect(mock_win.focus).not.toHaveBeenCalled();
         expect(on_show).toHaveBeenCalledTimes(1);
     });
 });

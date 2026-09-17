@@ -380,6 +380,26 @@ OmniPanel 是一个常驻桌面的用量监控工具：它把多个 AI 服务商
 
 图标按三类处理：操作/导航图标统一 lucide-react（已是依赖），手绘 SVG 图标集退役；vendor logo 与品牌 mark 保留资产文件，不属于 lucide 清零范围；图表、sparkline 等数据可视化 SVG 是数据渲染，不属于图标。
 
+### 应用与系统级图标规范（Dock 与菜单栏）
+
+遵循 Apple Human Interface Guidelines 与跨平台托盘标准：
+
+1. **macOS Dock / 应用图标网格与画布（`assets/icon.png`、`assets/icon-test.png`）：**
+
+    - **画布尺寸：** 1024×1024 px（全透明背景）。
+    - **主体尺寸与网格：** 主体外轮廓宽高为 824×824 px（占画布约 80.5%，允许 ±2px），居中放置（上下左右内边距各 100px）。避免直接将小主体放入 1024 画布导致 Dock 中偏小。
+    - **圆角与参考线：** 遵循 Apple HIG macOS app icon 标准连续曲率（连续平滑圆角，参考半径约 185px）；圆角或圆形轮廓紧贴 824×824 参考网格。
+    - **平台衍生：** Windows/Linux 由构建脚本经 resvg 渲染多尺寸（`assets/icon.ico`：256/128/64/48/32/16；Linux 图标 1024）。
+
+2. **macOS 菜单栏 / 托盘图标规范（`assets/tray-iconTemplate*.png`）：**
+
+    - **模板语义（Template Image）：** 必须为纯黑（`#000000`）+ Alpha 通道单色图，严禁包含彩色像素。运行时由系统根据浅色/深色菜单栏与高亮选中态自动反转与着色。
+    - **尺寸与分辨率：** 逻辑尺寸 16×16 pt（在 22pt 菜单栏内垂直居中，边缘留 1–2px 呼吸间距）。提供两套位图表示：
+        - 1x：16×16 px（`tray-iconTemplate.png` / `tray-icon-testTemplate.png`）
+        - 2x：32×32 px（`tray-iconTemplate@2x.png` / `tray-icon-testTemplate@2x.png`）
+    - **加载规范：** 文件名以 `Template.png` 结尾，并在 main 进程显式调用 `trayIcon.setTemplateImage(true)`，保证 `isTemplateImage()` 语义成立。
+    - **测试实例标识：** `TEST_INSTANCE=1` 的菜单栏模板图标同样保持纯黑 + alpha 规范，右上角增加单色 "T" 标识以供视觉辨识；非 macOS 平台保持彩色托盘图。
+
 ## Colors
 
 强调色是单变量系统：界面唯一的强调色驱动所有交互（主按钮、选中态、链接、聚焦环、菜单悬停），用户在设置中切换蓝/紫/青/橙/红五档，实现上以 accent key 原子切换一组变量，所有窗口的所有面板同时响应——不存在第二套强调色。
@@ -432,7 +452,7 @@ Inter Variable 的字重轴用 450/550/600/650/700 五档。数字一律 `tabula
 
 - **网格:** Tailwind v4 默认 4px 间距基网（`--spacing`），布局层的 `p-*`/`gap-*`/`m-*` 直接用整数倍。语义间距另设 token：卡片间距 `{spacing.card-gap}`、卡片内边距 `{spacing.card-padding}`、分区间隔 `{spacing.section-gap}`。组件内部 padding 以 `components` token 的定义值为准（如按钮 9px 18px、输入框 9px 12px、列表行 10px 12px），属组件 token，不受基网约束。
 - **卡片网格:** `grid-cols-[repeat(auto-fill,minmax(420px,1fr))]`，账户/服务商卡片自适应填充。
-- **标题栏:** 所有窗口使用统一的 PanelTitleBar 组件（`panel-titlebar`，高 44px）：24px logo + 窗口标题 + 面板切换 + min/max/close。用量面板因浮动形态省略窗口控制钮，但 logo、标题字号、高度与其它窗口一致。
+- **标题栏:** 所有窗口使用统一的 PanelTitleBar 组件（`panel-titlebar`，高 44px）：纯面板标题 + 右侧统一为「[刷新] → [五面板切换] → [窗口控制]」。macOS 下常规面板由系统提供原生交通灯并隐藏自绘控制；用量面板因浮动形态只渲染「隐藏到托盘」；标题字号、高度与其它窗口一致。
 - **层级（z-index）:** 全应用统一五层，定义于 front matter `z-index` 并导出为 `--z-*` 变量（`sticky` 10、`menu` 60、`scrim` 90、`context` 100、`modal` 120）。Tailwind v4 不由 `--z-*` 生成裸 `z-*` 工具类，引用一律写任意值形态 `z-[var(--z-*)]`（如 `z-[var(--z-menu)]`）。任何新浮层对号入座，不自造中间值。
 - **密度:** 列表行高 `{spacing.row-height}`（40px，紧凑变体 36px），行内图标 14–16px。宁可缩短文案，不放大行距。
 
