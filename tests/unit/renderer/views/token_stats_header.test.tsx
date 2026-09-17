@@ -136,13 +136,16 @@ describe("TokenStatsView header single row (t312)", () => {
         } as unknown as typeof window.usageboard;
     });
 
-    it("AC-001: 标题栏单行包含 logo/标题/刷新时间/四个下拉/四个按钮", async () => {
+    // 旧测试「AC-001: 标题栏单行包含 logo/标题/刷新时间/四个下拉/四个按钮」断言 logo 与 `Omni Panel - Agent`。
+    // 该语义已被 t493 AC-002 废除（全平台面板标题栏移除 logo 与品牌前缀，只留纯面板名）。
+    // 按 AGENTS.md 废除旧语义，新增覆盖新语义的测试：
+    it("t493 AC-002: 标题栏单行包含纯面板名/刷新时间/四个下拉/五个面板切换按钮，无 logo 与品牌前缀", async () => {
         render(<TokenStatsView />);
         await screen.findByTestId("session-records");
 
-        const logo = screen.getByAltText("OmniPanel");
-        expect(logo).toBeInTheDocument();
-        expect(screen.getByTestId("app-title")).toHaveTextContent("Omni Panel - Agent");
+        expect(screen.queryByAltText("OmniPanel")).toBeNull();
+        expect(screen.getByTestId("app-title")).toHaveTextContent("Agent");
+        expect(screen.queryByText("Omni Panel - Agent")).toBeNull();
 
         const agentSelect = screen.getByLabelText("工具筛选");
         const platformSelect = screen.getByLabelText("平台筛选");
@@ -158,7 +161,7 @@ describe("TokenStatsView header single row (t312)", () => {
         const titlebar = screen.getByTestId("app-title").closest("[data-panel-titlebar]");
         expect(titlebar).not.toBeNull();
         for (const el of [
-            logo,
+            screen.getByTestId("app-title"),
             agentSelect,
             platformSelect,
             modelSelect,

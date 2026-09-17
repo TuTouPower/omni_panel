@@ -99,6 +99,7 @@ import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
+import { setup_application_menu } from "./menu/application-menu";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
 import type { MainPanelController } from "./core/main-panel/main-panel-types";
@@ -1099,6 +1100,18 @@ void app.whenReady().then(async () => {
             get_primary_display: () => screen.getPrimaryDisplay(),
             on_show: () => {
                 clear_dock_badge();
+            },
+        });
+
+        // t493 AC-004: 安装 macOS 应用菜单（⌘W/⌘M/⌃⌘F/⌘H/⌘Q）
+        setup_application_menu({
+            platform: process.platform,
+            is_usage_window: (win) => {
+                const usage_win = main_panel_controller?.get_window();
+                return usage_win != null && (usage_win as unknown as BrowserWindow) === win;
+            },
+            hide_usage_panel: () => {
+                main_panel_controller?.hide();
             },
         });
 

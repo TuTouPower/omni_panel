@@ -17,11 +17,11 @@ function deferred_promise<T>() {
 
 describe("Renderer smoke tests", () => {
     describe("PopupView", () => {
-        it("renders OmniPanel header", async () => {
+        // 旧测试断言 `Omni Panel - Usage`，t493 AC-002 统一改为纯面板名 `Usage`。
+        it("renders Usage panel header", async () => {
             render(<App />);
             await waitFor(() => {
-                // t252 AC8: 品牌标题统一为 `Omni Panel - <面板名>`。
-                expect(screen.getByText("Omni Panel - Usage")).toBeInTheDocument();
+                expect(screen.getByTestId("app-title")).toHaveTextContent("Usage");
             });
         });
 
@@ -129,8 +129,8 @@ describe("Renderer smoke tests", () => {
         it("renders settings sidebar with plugin names", async () => {
             render(<SettingsView />);
             await waitFor(() => {
-                // t252 AC8: 设置面板品牌标题。
-                expect(screen.getByText("Omni Panel - Settings")).toBeInTheDocument();
+                // t493 AC-002: 设置面板标题只显示面板名 Settings。
+                expect(screen.getByTestId("app-title")).toHaveTextContent("Settings");
             });
             // nav items present
             expect(screen.getByText("常规")).toBeInTheDocument();

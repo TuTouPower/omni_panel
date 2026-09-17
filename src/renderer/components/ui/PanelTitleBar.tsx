@@ -3,7 +3,6 @@ import { cn } from "../../lib/utils";
 import { Icon } from "../Icon";
 import { is_web } from "../../lib/is-web";
 import type { PanelName } from "../../lib/panel-navigation";
-import logo from "../../assets/logo.svg";
 import { Button } from "./Button";
 import { ICON_LINK_CLS } from "./icon-link";
 
@@ -28,7 +27,7 @@ interface PanelTitleBarProps {
     no_drag?: boolean;
     className?: string;
     "data-panel-titlebar"?: string;
-    /** 面板形态：当前面板名（品牌标题 `Omni Panel - <name>`）。 */
+    /** 面板形态：当前面板名（t493: 仅面板名 Settings/Usage/Agent/Session/Dev）。 */
     panel?: PanelName;
     /** 面板形态：是否正在刷新（旋转动画）。 */
     refreshing?: boolean;
@@ -38,20 +37,29 @@ interface PanelTitleBarProps {
     onNavigate?: (panel: PanelName) => void;
     /** 面板形态：刷新按钮仅 live 模式可用。 */
     is_live?: boolean;
+    /** 注入平台（测试/跨平台环境覆盖，默认读取 window.usageboard.platform）。 */
+    platform?: "darwin" | "win32" | "linux" | undefined;
 }
 
 /**
  * 窗口控制按钮组（最小化/最大化/关闭），面板形态与通用形态共用。
- * Web 构建不渲染（无窗口 API）。t380 floating 模式只渲染「隐藏到托盘」。
+ * Web 构建不渲染（无窗口 API）。
+ * t493 AC-003: macOS 拥有原生交通灯，普通窗口不渲染自绘三连；floating 模式只渲染「隐藏到托盘」。
  */
 export function WindowControls({
     onClose,
     floating = false,
+    platform,
 }: {
     onClose?: (() => void) | undefined;
     floating?: boolean;
+    platform?: "darwin" | "win32" | "linux" | undefined;
 }): ReactNode {
     if (is_web()) return null;
+    const current_platform = platform ?? window.usageboard.platform;
+    // macOS 上常规窗口（非 floating popup）使用系统原生交通灯，不自绘控制按钮
+    if (current_platform === "darwin" && !floating) return null;
+
     if (floating) {
         return (
             <Button
@@ -133,7 +141,13 @@ export function PanelTitleBar({
     onRefresh,
     onNavigate,
     is_live = true,
+    platform,
 }: PanelTitleBarProps) {
+    const current_platform = platform ?? window.usageboard.platform;
+    const is_macos = current_platform === "darwin" && !is_web();
+    // t493 AC-001: macOS 下非 Usage 面板预留 78px 交通灯区域
+    const show_traffic_spacer = is_macos && panel !== undefined && panel !== "Usage" && !floating;
+
     const panels: PanelName[] = ["Settings", "Usage", "Agent", "Session", "Dev"];
     // t311：web 端互跳入口为原生 `<a href="#{route}">`（中键/Ctrl+Click 由浏览器新开标签页），
     // 桌面端保持 Button + onNavigate。路由名映射与 use-route.ts VALID_ROUTES / App.tsx 挂载一致。
@@ -157,16 +171,18 @@ export function PanelTitleBar({
         return (
             <div className={base} data-panel-titlebar={dataPanelTitlebar ?? panel}>
                 <div className="flex min-w-0 items-center gap-2">
-                    <img
-                        src={logo}
-                        alt="OmniPanel"
-                        className="logo-drop-shadow h-6 w-6 shrink-0 object-contain"
-                    />
+                    {show_traffic_spacer && (
+                        <div
+                            className="w-[78px] shrink-0"
+                            data-testid="traffic-lights-spacer"
+                            aria-hidden="true"
+                        />
+                    )}
                     <span
-                        className="truncate text-[length:var(--text-title-md)] font-bold tracking-[-0.01em]"
+                        className="truncate text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface)]"
                         data-testid="app-title"
                     >
-                        {`Omni Panel - ${panel}`}
+                        {panel}
                     </span>
                     {title_extra}
                 </div>
@@ -233,7 +249,7 @@ export function PanelTitleBar({
                             </Button>
                         );
                     })}
-                    <WindowControls onClose={onClose} floating={floating} />
+                    <WindowControls onClose={onClose} floating={floating} platform={platform} />
                 </div>
             </div>
         );

@@ -1,0 +1,41 @@
+{
+    "tid": "t493",
+    "attempt": 1,
+    "execution_id": "a5e9a209243d4ba8a1b929a9788c8d1a",
+    "status": "done",
+    "branch": "t493_macos_window_chrome_native_traffic_lights",
+    "base_sha": "07f5dae855a790728e12b8a9ce6afcd00da31ccd",
+    "tests": "pnpm test：3821 passed / 9 skipped；tsc --noEmit exit 0；eslint exit 0；prettier exit 0",
+    "blackbox": "全量单测 3821 passed + tsc 0 + eslint 0 + prettier 0",
+    "review": "single 级 general：Round 1 PASS（review_general.md）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/window_manager.test.ts::macOS (darwin) 平台下常规面板窗口启用系统边框与 hidden 标题栏 (AC-001/AC-005) 通过",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::macOS 下为非 Usage 面板渲染交通灯占位区 (AC-001) 通过"
+        ],
+        "AC-002": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::标题栏纯面板名，无 logo 与 Omni Panel 前缀 (AC-002) 通过",
+            "tests/unit/renderer/views/token_stats_header.test.tsx::标题展示纯面板名 Agent，不含 logo 与 Omni Panel 前缀 (AC-002) 通过"
+        ],
+        "AC-003": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::WindowControls macOS 上常规窗口隐藏控制按钮 (AC-003) 通过",
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::WindowControls Windows/Linux 仍渲染三个窗口控制按钮 (AC-003) 通过"
+        ],
+        "AC-004": [
+            "tests/unit/main/application_menu.test.ts::macOS 菜单模板包含必要的快捷键与动作 (AC-004) 通过",
+            "tests/unit/main/application_menu.test.ts::Cmd+W 点击事件分流：usage 隐藏，其它窗口关闭 (AC-004) 通过"
+        ],
+        "AC-005": [
+            "tests/unit/main/window_manager.test.ts::macOS (darwin) 平台下常规面板窗口启用系统边框与 hidden 标题栏 (AC-001/AC-005) 通过",
+            "tests/e2e/electron/panel_window_controls.spec.ts::agent 窗口系统标题为面板标题（AC9） 通过"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/components/PanelTitleBar.test.tsx::WindowControls web 构建不渲染 (AC-006) 通过"
+        ],
+        "AC-007": [
+            "代码静态与单元测试已验证交通灯预留 78px 边距与样式规整；真实交互行为与视觉对齐由后续打包发布阶段验证 [deploy]"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

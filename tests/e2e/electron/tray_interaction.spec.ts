@@ -74,8 +74,8 @@ test.describe("tray interaction", () => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(
-            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
-        ).toBeVisible({
+            page.locator('[data-popup="live"]').locator('[data-testid="app-title"]'),
+        ).toHaveText("Usage", {
             timeout: 10_000,
         });
     });
@@ -86,8 +86,8 @@ test.describe("tray interaction", () => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(
-            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
-        ).toBeVisible({
+            page.locator('[data-popup="live"]').locator('[data-testid="app-title"]'),
+        ).toHaveText("Usage", {
             timeout: 10_000,
         });
 
@@ -103,8 +103,8 @@ test.describe("tray interaction", () => {
         const page = await findPopupPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(
-            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
-        ).toBeVisible({
+            page.locator('[data-popup="live"]').locator('[data-testid="app-title"]'),
+        ).toHaveText("Usage", {
             timeout: 10_000,
         });
 
@@ -121,8 +121,8 @@ test.describe("tray interaction", () => {
         // 在重开后仍可见（AC2 数据保留的用户可观察证据）。
         expect(await popupWindowCount(omni.app)).toBe(1);
         await expect(
-            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
-        ).toBeVisible({
+            page.locator('[data-popup="live"]').locator('[data-testid="app-title"]'),
+        ).toHaveText("Usage", {
             timeout: 10_000,
         });
     });

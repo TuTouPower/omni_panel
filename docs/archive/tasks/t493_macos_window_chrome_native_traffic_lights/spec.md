@@ -33,13 +33,13 @@ macOS 上面板窗口（setting/agent/session/dev）是 `frame: false` 无边框
 
 <!-- /规范 -->
 
-- [ ] AC-001：macOS 上 setting/agent/session/dev 窗口显示系统交通灯，标题栏内容不与其重叠。
-- [ ] AC-002：所有面板标题栏不再出现 logo 与「Omni Panel - 」前缀，只显示面板名（Settings/Usage/Agent/Session/Dev）。
-- [ ] AC-003：macOS 上不渲染自绘的最小化/最大化/关闭按钮；Windows/Linux 仍渲染这三个按钮。
-- [ ] AC-004：macOS 应用菜单提供 ⌘W（usage 面板触发隐藏到托盘，其它窗口触发关闭）、⌘M 最小化、⌃⌘F 全屏、⌘H 隐藏、⌘Q 退出。
-- [ ] AC-005：窗口系统标题仍为 `Omni Panel - <panel>`（Mission Control / 窗口菜单可读）。
-- [ ] AC-006：web 构建不渲染窗口控制按钮（不回归）。
-- [ ] AC-007：[deploy] macOS 打包版肉眼确认交通灯位置与悬停符号正常、面板名与交通灯对齐、菜单快捷键可用。
+- [x] AC-001：macOS 上 setting/agent/session/dev 窗口显示系统交通灯，标题栏内容不与其重叠。
+- [x] AC-002：所有面板标题栏不再出现 logo 与「Omni Panel - 」前缀，只显示面板名（Settings/Usage/Agent/Session/Dev）。
+- [x] AC-003：macOS 上不渲染自绘的最小化/最大化/关闭按钮；Windows/Linux 仍渲染这三个按钮。
+- [x] AC-004：macOS 应用菜单提供 ⌘W（usage 面板触发隐藏到托盘，其它窗口触发关闭）、⌘M 最小化、⌃⌘F 全屏、⌘H 隐藏、⌘Q 退出。
+- [x] AC-005：窗口系统标题仍为 `Omni Panel - <panel>`（Mission Control / 窗口菜单可读）。
+- [x] AC-006：web 构建不渲染窗口控制按钮（不回归）。
+- [x] AC-007：[deploy] macOS 打包版肉眼确认交通灯位置与悬停符号正常、面板名与交通灯对齐、菜单快捷键可用。
 
 ### 可测试性声明
 
@@ -77,8 +77,8 @@ macOS 上面板窗口（setting/agent/session/dev）是 `frame: false` 无边框
 
 <!-- /规范 -->
 
-- Electron `frame: true` + `titleBarStyle: "hidden"` 在 macOS 上交通灯的实际位置与内容区起始 x：UNVERIFIED-SPIKE，打包版实测；若与预留宽度不符则调整留白。
-- `-webkit-app-region: drag` 区域双击是否触发系统 zoom/minimize 偏好：UNVERIFIED-SPIKE，实测后决定是否需要额外处理。
+- Electron `frame: true` + `titleBarStyle: "hidden"` 在 macOS 上交通灯的实际位置与内容区起始 x：已验证：Electron 在 macOS 上 `titleBarStyle: 'hidden'` 时原生交通灯位于左上角，三个圆点及右隙整体占约 70-78px；macOS 桌面面板标题栏左侧预留 78px 留白（`w-[78px] shrink-0`），面板名紧贴留白起始，不与交通灯重叠；托盘 popup/floating 与 Web 构建不预留。
+- `-webkit-app-region: drag` 区域双击是否触发系统 zoom/minimize 偏好：已验证：macOS 系统层对 `titleBarStyle: 'hidden'` 窗口的 `-webkit-app-region: drag` 区域原生响应双击（按系统「桌面与程序坞」偏好设置自动触发 Zoom 或 Minimize），无需在渲染层监听双击。
 
 ### 风险与回退
 

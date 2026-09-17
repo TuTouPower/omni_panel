@@ -11,7 +11,7 @@ describe("createWindowManager", () => {
     const setTitle = vi.fn();
     const created_args: Record<string, unknown>[] = [];
 
-    async function load_manager() {
+    async function load_manager(platform?: NodeJS.Platform) {
         vi.doMock("electron", () => ({
             BrowserWindow: vi.fn().mockImplementation((opts: Record<string, unknown>) => {
                 created_args.push(opts);
@@ -43,6 +43,7 @@ describe("createWindowManager", () => {
             getPreloadPath: () => "/preload.js",
             getIconPath: () => "/icon.png",
             rendererIndexPath: "/renderer/index.html",
+            platform,
         });
     }
 
@@ -51,6 +52,36 @@ describe("createWindowManager", () => {
         vi.resetModules();
         created_args.length = 0;
         willNavigateListeners.length = 0;
+    });
+
+    it("macOS 下 setting/agent/session/dev 窗口使用系统边框 (frame: true) + titleBarStyle: hidden (t493 AC-001)", async () => {
+        const manager = await load_manager("darwin");
+        for (const key of ["setting", "agent", "session", "dev"]) {
+            created_args.length = 0;
+            manager.createWindowFor(key, { load: false });
+            expect(created_args[0]?.["frame"]).toBe(true);
+            expect(created_args[0]?.["titleBarStyle"]).toBe("hidden");
+        }
+    });
+
+    it("Windows/Linux 下 setting/agent/session/dev 窗口保持 frame: false (t493 AC-003)", async () => {
+        const manager = await load_manager("win32");
+        for (const key of ["setting", "agent", "session", "dev"]) {
+            created_args.length = 0;
+            manager.createWindowFor(key, { load: false });
+            expect(created_args[0]?.["frame"]).toBe(false);
+        }
+    });
+
+    it("usage 窗口不受影响，在所有平台保持 frame: false (t493 非范围)", async () => {
+        const mac_manager = await load_manager("darwin");
+        mac_manager.createWindowFor("usage", { load: false });
+        expect(created_args[0]?.["frame"]).toBe(false);
+
+        created_args.length = 0;
+        const win_manager = await load_manager("win32");
+        win_manager.createWindowFor("usage", { load: false });
+        expect(created_args[0]?.["frame"]).toBe(false);
     });
 
     it("setting/agent/session 窗口创建带 minWidth/minHeight=480x360 (t262)", async () => {

@@ -36,8 +36,8 @@ test.describe("main panel window modes", () => {
         const page = await findMainPanelPage(omni.app);
         await page.waitForLoadState("domcontentloaded");
         await expect(
-            page.locator('[data-popup="live"]').getByText("Omni Panel - Usage"),
-        ).toBeVisible();
+            page.locator('[data-popup="live"]').locator('[data-testid="app-title"]'),
+        ).toHaveText("Usage");
         await expect(page.getByRole("button", { name: "隐藏用量面板" })).toBeVisible();
     });
 
