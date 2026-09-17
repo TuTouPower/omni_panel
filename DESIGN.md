@@ -387,16 +387,16 @@ OmniPanel 是一个常驻桌面的用量监控工具：它把多个 AI 服务商
 1. **macOS Dock / 应用图标网格与画布（`assets/icon.png`、`assets/icon-test.png`）：**
 
     - **画布尺寸：** 1024×1024 px（全透明背景）。
-    - **主体尺寸与网格：** 主体外轮廓宽高为 824×824 px（占画布约 80.5%，允许 ±2px），居中放置（上下左右内边距各 100px）。避免直接将小主体放入 1024 画布导致 Dock 中偏小。
-    - **圆角与参考线：** 遵循 Apple HIG macOS app icon 标准连续曲率（连续平滑圆角，参考半径约 185px）；圆角或圆形轮廓紧贴 824×824 参考网格。
+    - **主体尺寸与网格：** 主体外轮廓宽高为 1000×1000 px（占画布约 97.6%，允许 ±2px），居中放置（上下左右内边距各 12px）。饱满利用画布空间，防止 macOS Dock 在自动合成磨砂圆角矩形底板时因双重缩放导致偏小。
+    - **圆角与参考线：** 圆形主体居中对称；Windows/Linux 由构建脚本经 resvg 渲染多尺寸（`assets/icon.ico`：256/128/64/48/32/16；Linux 图标 1024）。
     - **平台衍生：** Windows/Linux 由构建脚本经 resvg 渲染多尺寸（`assets/icon.ico`：256/128/64/48/32/16；Linux 图标 1024）。
 
 2. **macOS 菜单栏 / 托盘图标规范（`assets/tray-iconTemplate*.png`）：**
 
     - **模板语义（Template Image）：** 必须为纯黑（`#000000`）+ Alpha 通道单色图，严禁包含彩色像素。运行时由系统根据浅色/深色菜单栏与高亮选中态自动反转与着色。
-    - **尺寸与分辨率：** 逻辑尺寸 16×16 pt（在 22pt 菜单栏内垂直居中，边缘留 1–2px 呼吸间距）。提供两套位图表示：
-        - 1x：16×16 px（`tray-iconTemplate.png` / `tray-icon-testTemplate.png`）
-        - 2x：32×32 px（`tray-iconTemplate@2x.png` / `tray-icon-testTemplate@2x.png`）
+    - **尺寸与分辨率：** 逻辑尺寸 18×18 pt（对标 macOS 状态栏标准尺寸及常见应用如 ChatGPT，主体占 34px / 17pt，四周保留 1px 呼吸间隙）。提供两套位图表示：
+        - 1x：18×18 px（`tray-iconTemplate.png` / `tray-icon-testTemplate.png`）
+        - 2x：36×36 px（`tray-iconTemplate@2x.png` / `tray-icon-testTemplate@2x.png`）
     - **加载规范：** 文件名以 `Template.png` 结尾，并在 main 进程显式调用 `trayIcon.setTemplateImage(true)`，保证 `isTemplateImage()` 语义成立。
     - **测试实例标识：** `TEST_INSTANCE=1` 的菜单栏模板图标同样保持纯黑 + alpha 规范，右上角增加单色 "T" 标识以供视觉辨识；非 macOS 平台保持彩色托盘图。
 

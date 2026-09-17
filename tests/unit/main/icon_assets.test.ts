@@ -74,62 +74,62 @@ function assertTemplatePixels(png: PngImage): void {
 }
 
 describe("AC-001 & AC-002: macOS tray icon template specification", () => {
-    it("tray-iconTemplate.png is 16x16 and pure black + alpha", () => {
+    it("tray-iconTemplate.png is 18x18 and pure black + alpha", () => {
         const png = readPng("assets/tray-iconTemplate.png");
-        expect(png.width).toBe(16);
-        expect(png.height).toBe(16);
+        expect(png.width).toBe(18);
+        expect(png.height).toBe(18);
         assertTemplatePixels(png);
     });
 
-    it("tray-iconTemplate@2x.png is 32x32 and pure black + alpha", () => {
+    it("tray-iconTemplate@2x.png is 36x36 and pure black + alpha", () => {
         const png = readPng("assets/tray-iconTemplate@2x.png");
-        expect(png.width).toBe(32);
-        expect(png.height).toBe(32);
+        expect(png.width).toBe(36);
+        expect(png.height).toBe(36);
         assertTemplatePixels(png);
     });
 });
 
 describe("AC-003: Test instance tray icon template specification", () => {
-    it("tray-icon-testTemplate.png is 16x16 and pure black + alpha", () => {
+    it("tray-icon-testTemplate.png is 18x18 and pure black + alpha", () => {
         const png = readPng("assets/tray-icon-testTemplate.png");
-        expect(png.width).toBe(16);
-        expect(png.height).toBe(16);
+        expect(png.width).toBe(18);
+        expect(png.height).toBe(18);
         assertTemplatePixels(png);
     });
 
-    it("tray-icon-testTemplate@2x.png is 32x32 and pure black + alpha", () => {
+    it("tray-icon-testTemplate@2x.png is 36x36 and pure black + alpha", () => {
         const png = readPng("assets/tray-icon-testTemplate@2x.png");
-        expect(png.width).toBe(32);
-        expect(png.height).toBe(32);
+        expect(png.width).toBe(36);
+        expect(png.height).toBe(36);
         assertTemplatePixels(png);
     });
 });
 
 describe("AC-004: macOS dock / app icon canvas specification", () => {
-    it("assets/icon.png body is 824±2px and centered in 1024x1024", () => {
+    it("assets/icon.png body is 1000±2px and centered in 1024x1024", () => {
         const png = readPng("assets/icon.png");
         expect(png.width).toBe(1024);
         expect(png.height).toBe(1024);
         const bbox = getBoundingBox(png);
-        expect(bbox.width).toBeGreaterThanOrEqual(822);
-        expect(bbox.width).toBeLessThanOrEqual(826);
-        expect(bbox.height).toBeGreaterThanOrEqual(822);
-        expect(bbox.height).toBeLessThanOrEqual(826);
-        expect(Math.abs(bbox.minX - 100)).toBeLessThanOrEqual(2);
-        expect(Math.abs(bbox.minY - 100)).toBeLessThanOrEqual(2);
+        expect(bbox.width).toBeGreaterThanOrEqual(998);
+        expect(bbox.width).toBeLessThanOrEqual(1002);
+        expect(bbox.height).toBeGreaterThanOrEqual(998);
+        expect(bbox.height).toBeLessThanOrEqual(1002);
+        expect(Math.abs(bbox.minX - 12)).toBeLessThanOrEqual(2);
+        expect(Math.abs(bbox.minY - 12)).toBeLessThanOrEqual(2);
     });
 
-    it("assets/icon-test.png body is 824±2px and centered in 1024x1024", () => {
+    it("assets/icon-test.png body is 1000±2px and centered in 1024x1024", () => {
         const png = readPng("assets/icon-test.png");
         expect(png.width).toBe(1024);
         expect(png.height).toBe(1024);
         const bbox = getBoundingBox(png);
-        expect(bbox.width).toBeGreaterThanOrEqual(822);
-        expect(bbox.width).toBeLessThanOrEqual(826);
-        expect(bbox.height).toBeGreaterThanOrEqual(822);
-        expect(bbox.height).toBeLessThanOrEqual(826);
-        expect(Math.abs(bbox.minX - 100)).toBeLessThanOrEqual(2);
-        expect(Math.abs(bbox.minY - 100)).toBeLessThanOrEqual(2);
+        expect(bbox.width).toBeGreaterThanOrEqual(998);
+        expect(bbox.width).toBeLessThanOrEqual(1002);
+        expect(bbox.height).toBeGreaterThanOrEqual(998);
+        expect(bbox.height).toBeLessThanOrEqual(1002);
+        expect(Math.abs(bbox.minX - 12)).toBeLessThanOrEqual(2);
+        expect(Math.abs(bbox.minY - 12)).toBeLessThanOrEqual(2);
     });
 });
 
@@ -150,8 +150,8 @@ describe("AC-007: Windows & Linux icon assets preserved", () => {
 
     it("assets/tray-icon.png exists for non-macOS platforms", () => {
         const png = readPng("assets/tray-icon.png");
-        expect(png.width).toBe(32);
-        expect(png.height).toBe(32);
+        expect(png.width).toBe(36);
+        expect(png.height).toBe(36);
     });
 
     it("assets/tray-icon-test.png exists for non-macOS test platforms", () => {

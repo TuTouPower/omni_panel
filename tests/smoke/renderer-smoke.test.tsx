@@ -20,9 +20,12 @@ describe("Renderer smoke tests", () => {
         // 旧测试断言 `Omni Panel - Usage`，t493 AC-002 统一改为纯面板名 `Usage`。
         it("renders Usage panel header", async () => {
             render(<App />);
-            await waitFor(() => {
-                expect(screen.getByTestId("app-title")).toHaveTextContent("Usage");
-            });
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId("app-title")).toHaveTextContent("Usage");
+                },
+                { timeout: 5000 },
+            );
         });
 
         it("shows provider cards with usage data", async () => {

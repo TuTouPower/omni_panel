@@ -11,15 +11,15 @@ const ICO_SIZES = [256, 128, 64, 48, 32, 16];
 
 const SVG = readFileSync(SVG_PATH, "utf8");
 
-// Scale logo body from 780px to 824px centered in 1024x1024 (macOS HIG Dock icon standard: 824/1024 ≈ 80.5%)
+// Scale logo body from 780px to 1000px centered in 1024x1024 (macOS Dock squircle / full canvas standard: 1000/1024 ≈ 97.6%)
 function get_dock_svg(raw_svg) {
     return raw_svg.replace(
         /(<defs>[\s\S]*?<\/defs>)([\s\S]*)(<\/svg>)/,
-        `$1<g transform="translate(512, 512) scale(${824 / 780}) translate(-512, -512)">$2</g>$3`,
+        `$1<g transform="translate(512, 512) scale(${1000 / 780}) translate(-512, -512)">$2</g>$3`,
     );
 }
 
-// Convert SVG to pure monochrome black (#000000) for macOS template images
+// Convert SVG to pure monochrome black (#000000) for macOS template images, scaled to fill 34px in 36x36 canvas (18pt status bar)
 function get_tray_template_svg(raw_svg) {
     let s = raw_svg;
     s = s.replace(/fill="url\(#logo_grad\)"/g, `fill="#000000"`);
@@ -28,7 +28,7 @@ function get_tray_template_svg(raw_svg) {
     s = s.replace(/fill="#FFEB3B"/g, `fill="#000000"`);
     s = s.replace(
         /(<defs>[\s\S]*?<\/defs>)([\s\S]*)(<\/svg>)/,
-        `$1<g transform="translate(512, 512) scale(${824 / 780}) translate(-512, -512)">$2</g>$3`,
+        `$1<g transform="translate(512, 512) scale(${(1024 * 34) / 36 / 780}) translate(-512, -512)">$2</g>$3`,
     );
     return s;
 }
@@ -41,7 +41,7 @@ function render_png(svg_content, size) {
     return Buffer.from(resvg.render().asPng());
 }
 
-// 1. macOS / Linux Dock/App icon (1024x1024 with 824x824 body)
+// 1. macOS / Linux Dock/App icon (1024x1024 with 1000x1000 body)
 const dock_svg = get_dock_svg(SVG);
 const png = render_png(dock_svg, PNG_SIZE);
 const OUT_PNG = resolve(ROOT, "assets/icon.png");
@@ -55,20 +55,20 @@ const OUT_ICO = resolve(ROOT, "assets/icon.ico");
 writeFileSync(OUT_ICO, ico);
 console.log(`[render_icon] wrote ${OUT_ICO} (sizes: ${ICO_SIZES.join(",")})`);
 
-// 3. macOS Tray Template Icons (16x16 @1x, 32x32 @2x, pure black + alpha)
+// 3. macOS Tray Template Icons (18x18 @1x, 36x36 @2x, pure black + alpha, 18pt status bar standard)
 const template_svg = get_tray_template_svg(SVG);
-const tray_1x = render_png(template_svg, 16);
+const tray_1x = render_png(template_svg, 18);
 const OUT_TRAY_1X = resolve(ROOT, "assets/tray-iconTemplate.png");
 writeFileSync(OUT_TRAY_1X, tray_1x);
-console.log(`[render_icon] wrote ${OUT_TRAY_1X} (16x16)`);
+console.log(`[render_icon] wrote ${OUT_TRAY_1X} (18x18)`);
 
-const tray_2x = render_png(template_svg, 32);
+const tray_2x = render_png(template_svg, 36);
 const OUT_TRAY_2X = resolve(ROOT, "assets/tray-iconTemplate@2x.png");
 writeFileSync(OUT_TRAY_2X, tray_2x);
-console.log(`[render_icon] wrote ${OUT_TRAY_2X} (32x32)`);
+console.log(`[render_icon] wrote ${OUT_TRAY_2X} (36x36)`);
 
-// 4. Non-macOS colored tray icon (32x32)
+// 4. Non-macOS colored tray icon (36x36)
 const OUT_TRAY = resolve(ROOT, "assets/tray-icon.png");
-const tray_color = render_png(SVG, 32);
+const tray_color = render_png(dock_svg, 36);
 writeFileSync(OUT_TRAY, tray_color);
-console.log(`[render_icon] wrote ${OUT_TRAY} (32x32)`);
+console.log(`[render_icon] wrote ${OUT_TRAY} (36x36)`);
