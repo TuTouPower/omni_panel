@@ -79,4 +79,16 @@ describe("tray menu", () => {
             expect(source).toContain(label);
         }
     });
+
+    it("p256: tray menu dismiss fallback is wired (focus-hide + in-menu hint)", async () => {
+        const main_source = await import("../../../src/main/index.ts?raw").then((m) => m.default);
+        // 我方其它窗口获焦即收菜单（showInactive 无 blur 时的兜底）。
+        expect(main_source).toContain("browser-window-focus");
+        const tray_source = await import("../../../src/renderer/views/TrayMenu?raw").then(
+            (m) => m.default,
+        );
+        // 桌面空白/外部应用点不到本进程，菜单内明示再次点击托盘收起。
+        expect(tray_source).toContain("tray-dismiss-hint");
+        expect(tray_source).toContain("再次点击托盘图标可收起菜单");
+    });
 });

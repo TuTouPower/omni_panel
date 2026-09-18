@@ -91,4 +91,10 @@ describe("TrayMenu", () => {
         fireEvent.click(item);
         expect(session_history_open).toHaveBeenCalledWith("", "", "");
     });
+
+    it("p256: shows dismiss hint for clickaway fallback", async () => {
+        render(<TrayMenu />);
+        const hint = await screen.findByTestId("tray-dismiss-hint");
+        expect(hint).toHaveTextContent("再次点击托盘图标可收起菜单");
+    });
 });

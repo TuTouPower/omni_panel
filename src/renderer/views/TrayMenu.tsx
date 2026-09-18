@@ -250,6 +250,12 @@ export function TrayMenu() {
                     ))}
                 </Menu>
             </div>
+            <div
+                className="px-3.5 pb-2 pt-1 text-[length:var(--text-label-md)] text-[var(--color-on-surface-muted)]"
+                data-testid="tray-dismiss-hint"
+            >
+                {t("再次点击托盘图标可收起菜单", "Click the tray icon again to dismiss")}
+            </div>
         </div>
     );
 }

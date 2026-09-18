@@ -1461,6 +1461,13 @@ void app.whenReady().then(async () => {
                 }
                 trayMenuWin.once("blur", hideTrayMenu);
             });
+
+            // p256: darwin 菜单 showInactive 从未获焦时点桌面空白无 blur；
+            // 我方任一其它窗口获焦即收菜单。桌面空白/外部应用点击到不了
+            // 本进程，仍靠再次点击托盘（见菜单内 tray-dismiss-hint）。
+            app.on("browser-window-focus", (_event, focused) => {
+                if (focused !== trayMenuWin) hideTrayMenu();
+            });
         } // end of E2E !== "1" tray block
 
         // Agent (token-stats) panel open is a window-level capability, not a
