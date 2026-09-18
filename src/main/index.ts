@@ -98,7 +98,10 @@ import { registerBuildInfoIpc } from "./ipc/build-info-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
-import { create_main_panel_controller } from "./core/main-panel/main-panel-controller";
+import {
+    create_main_panel_controller,
+    should_hide_popup_on_outside_focus,
+} from "./core/main-panel/main-panel-controller";
 import { setup_application_menu } from "./menu/application-menu";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
 import { apply_window_bounds, watch_window_bounds, get_saved_bounds } from "./window/window-bounds";
@@ -1462,11 +1465,26 @@ void app.whenReady().then(async () => {
                 trayMenuWin.once("blur", hideTrayMenu);
             });
 
-            // p256: darwin 菜单 showInactive 从未获焦时点桌面空白无 blur；
-            // 我方任一其它窗口获焦即收菜单。桌面空白/外部应用点击到不了
-            // 本进程，仍靠再次点击托盘（见菜单内 tray-dismiss-hint）。
+            // p256+p258 失活收起：
+            // - 托盘菜单：我方任一其它窗口获焦即收。桌面空白/外部应用点击
+            //   到不了本进程，仍靠再次点击托盘（见菜单内 tray-dismiss-hint）。
+            // - 用量面板：仅 popup 模式 popover 语义自动收（floating 常驻；
+            //   pinToTop 钉住豁免）。hide 经 restore_after_hide 恢复提权。
             app.on("browser-window-focus", (_event, focused) => {
                 if (focused !== trayMenuWin) hideTrayMenu();
+                const popup = main_panel_controller?.get_window() ?? null;
+                if (
+                    popup !== null &&
+                    !popup.isDestroyed() &&
+                    should_hide_popup_on_outside_focus({
+                        mode: main_panel_controller?.get_mode() ?? "floating",
+                        panel_visible: popup.isVisible(),
+                        focused_is_panel: focused === popup,
+                        pin_to_top: currentConfigSnapshot.pinToTop ?? false,
+                    })
+                ) {
+                    main_panel_controller?.hide();
+                }
             });
         } // end of E2E !== "1" tray block
 

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { create_main_panel_controller } from "../../../src/main/core/main-panel/main-panel-controller";
+import {
+    create_main_panel_controller,
+    should_hide_popup_on_outside_focus,
+} from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
 import { WINDOW_CONFIGS } from "../../../src/main/window/window-manager";
 import { USAGE_MIN_WIDTH } from "../../../src/main/window/window-bounds";
@@ -630,6 +633,60 @@ describe("main panel controller", () => {
                     height: 650,
                 }),
             );
+        });
+    });
+
+    describe("p258 should_hide_popup_on_outside_focus", () => {
+        it("popup 可见、焦点在他窗、不钉住 → 收起", () => {
+            expect(
+                should_hide_popup_on_outside_focus({
+                    mode: "popup",
+                    panel_visible: true,
+                    focused_is_panel: false,
+                    pin_to_top: false,
+                }),
+            ).toBe(true);
+        });
+
+        it("floating 常驻 → 不收", () => {
+            expect(
+                should_hide_popup_on_outside_focus({
+                    mode: "floating",
+                    panel_visible: true,
+                    focused_is_panel: false,
+                    pin_to_top: false,
+                }),
+            ).toBe(false);
+        });
+
+        it("pinToTop 钉住 → 豁免不收", () => {
+            expect(
+                should_hide_popup_on_outside_focus({
+                    mode: "popup",
+                    panel_visible: true,
+                    focused_is_panel: false,
+                    pin_to_top: true,
+                }),
+            ).toBe(false);
+        });
+
+        it("焦点仍在面板自己 / 面板不可见 → 不收", () => {
+            expect(
+                should_hide_popup_on_outside_focus({
+                    mode: "popup",
+                    panel_visible: true,
+                    focused_is_panel: true,
+                    pin_to_top: false,
+                }),
+            ).toBe(false);
+            expect(
+                should_hide_popup_on_outside_focus({
+                    mode: "popup",
+                    panel_visible: false,
+                    focused_is_panel: false,
+                    pin_to_top: false,
+                }),
+            ).toBe(false);
         });
     });
 });

@@ -91,4 +91,11 @@ describe("tray menu", () => {
         expect(tray_source).toContain("tray-dismiss-hint");
         expect(tray_source).toContain("再次点击托盘图标可收起菜单");
     });
+
+    it("p258: popup outside-focus auto-hide is wired with pinToTop exemption", async () => {
+        const main_source = await import("../../../src/main/index.ts?raw").then((m) => m.default);
+        expect(main_source).toContain("should_hide_popup_on_outside_focus");
+        expect(main_source).toContain('get_mode() ?? "floating"');
+        expect(main_source).toContain("pinToTop");
+    });
 });

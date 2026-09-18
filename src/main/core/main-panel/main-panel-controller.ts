@@ -47,6 +47,22 @@ export interface MainPanelControllerDeps {
     readonly on_show?: () => void;
 }
 
+/**
+ * p258: popup 点外部自动收起判定（popover 语义，纯函数可单测）。
+ * 仅 popup 模式（floating 常驻窗口不自动收）；pinToTop 钉住豁免；
+ * 调用方保证只在面板存活时调（destroyed 窗口的 isVisible 会抛）。
+ */
+export function should_hide_popup_on_outside_focus(args: {
+    readonly mode: MainPanelShellMode;
+    readonly panel_visible: boolean;
+    readonly focused_is_panel: boolean;
+    readonly pin_to_top: boolean;
+}): boolean {
+    return (
+        args.mode === "popup" && args.panel_visible && !args.focused_is_panel && !args.pin_to_top
+    );
+}
+
 export function create_main_panel_controller(deps: MainPanelControllerDeps): MainPanelController {
     let win: WindowLike | null = null;
     let mode: MainPanelShellMode = resolve_main_panel_mode(deps.get_config(), deps.platform);
