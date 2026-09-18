@@ -495,7 +495,7 @@ describe("main panel controller", () => {
             expect(win?.setVisibleOnAllWorkspaces.mock.calls.length).toBeGreaterThanOrEqual(2);
         });
 
-        it("AC-002: shows window via showInactive on macOS without calling focus", () => {
+        it("AC-002: shows window via showInactive on macOS, takes key via focus without activating app (p258 supersedes no-focus)", () => {
             const { controller, windows } = build(
                 { ...base_config, mainPanelMode: "system" },
                 "darwin",
@@ -504,7 +504,10 @@ describe("main panel controller", () => {
             const win = windows[0];
             expect(win?.showInactive).toHaveBeenCalledTimes(1);
             expect(win?.show).not.toHaveBeenCalled();
-            expect(win?.focus).not.toHaveBeenCalled();
+            // p258 取代 t497「不 focus」：非激活 NSPanel 上 focus() 只拿 key
+            // 不激活应用（全屏宿主不被打断），失 key 走 blur 才能覆盖点外部
+            // 应用/桌面的收起。旧断言保留 showInactive 部分。
+            expect(win?.focus).toHaveBeenCalledTimes(1);
         });
 
         it("AC-005: elevates to floating while shown and restores pinToTop on hide (t503)", () => {
@@ -687,6 +690,44 @@ describe("main panel controller", () => {
                     pin_to_top: false,
                 }),
             ).toBe(false);
+        });
+    });
+
+    describe("p258 popup 失 key 自动收起（blur）", () => {
+        function open_popup(config: AppConfiguration, platform: "darwin" | "win32" = "darwin") {
+            const { controller, windows } = build({ ...config, mainPanelMode: "popup" }, platform);
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+            return { controller, win };
+        }
+
+        function fire_blur(win: { listeners: Record<string, (() => void)[]> }): void {
+            for (const handler of win.listeners["blur"] ?? []) {
+                handler();
+            }
+        }
+
+        it("darwin 展示拿 key，失 key 后自动隐藏", () => {
+            const { win } = open_popup(base_config);
+            expect(win.focus).toHaveBeenCalled();
+            fire_blur(win);
+            expect(win.hide).toHaveBeenCalled();
+        });
+
+        it("pinToTop 钉住时失 key 不收", () => {
+            const { win } = open_popup({ ...base_config, pinToTop: true });
+            fire_blur(win);
+            expect(win.hide).not.toHaveBeenCalled();
+        });
+
+        it("隐藏中/已销毁时 blur 无操作不抛错", () => {
+            const { win } = open_popup(base_config);
+            win.visible = false;
+            expect(() => {
+                fire_blur(win);
+            }).not.toThrow();
+            expect(win.hide).not.toHaveBeenCalled();
         });
     });
 });

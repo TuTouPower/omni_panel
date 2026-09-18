@@ -1453,11 +1453,14 @@ void app.whenReady().then(async () => {
                 });
                 send_tray_state();
                 if (process.platform === "darwin") {
-                    // t503 AC-002: 不 focus，避免强切 Space；重申跨空间跟到当前 Space。
+                    // t503 AC-002: 不激活应用，避免强切 Space；重申跨空间跟到当前 Space。
+                    // p256 真解：非激活 NSPanel 上 focus() 只拿 key 不激活应用，
+                    // 之后点任何外部（桌面/他应用/我方窗口）都失 key 走 blur 收起。
                     trayMenuWin.setVisibleOnAllWorkspaces(true, {
                         visibleOnFullScreen: true,
                     });
                     trayMenuWin.showInactive();
+                    trayMenuWin.focus();
                 } else {
                     trayMenuWin.show();
                     trayMenuWin.focus();

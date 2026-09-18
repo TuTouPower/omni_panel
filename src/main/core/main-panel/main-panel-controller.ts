@@ -261,6 +261,16 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             target.on("resize", () => {
                 save_popup_bounds(target);
             });
+            // p258 真解：popup 点外部收起不能靠 app 焦点事件（外部应用/
+            // 桌面到不了本进程），靠失 key。即便 darwin 非激活 NSPanel，
+            // focus() 也只拿 key 不激活应用（全屏宿主不被打断），之后点
+            // 任何外部即 blur。仅 popup；pinToTop 钉住豁免。
+            target.on("blur", () => {
+                if (mode !== "popup" || target.isDestroyed() || !target.isVisible()) return;
+                if (deps.get_config().pinToTop === true) return;
+                target.hide();
+                restore_after_hide(target);
+            });
         }
 
         height_controller = build_height_controller(target);
@@ -313,11 +323,14 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         // t503/p253: 先提权再显示，保证盖住当前全屏 Space 且跟到当前 Space。
         elevate_for_show(target);
         // t280: headless 下不弹屏。
-        // t497 AC-002: macOS 下用量弹窗使用 showInactive 显示且不抢焦点，
+        // t497 AC-002: macOS 下用量弹窗使用 showInactive 显示且不激活应用，
         // 避免把全屏应用切出或打断用户操作；Windows/Linux 保持既有 show() + focus()。
+        // p258: 非激活 NSPanel 上 focus() 只拿 key 不激活应用——全屏宿主
+        // 不受扰，同时之后点任何外部都会失 key 走 blur 自动收起。
         if (!is_e2e_headless()) {
             if (deps.platform === "darwin") {
                 target.showInactive();
+                target.focus();
             } else {
                 target.show();
             }
