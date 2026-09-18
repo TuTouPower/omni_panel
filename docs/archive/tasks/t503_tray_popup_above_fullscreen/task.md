@@ -2,7 +2,7 @@
 tid: "t503"
 slug: "tray_popup_above_fullscreen"
 title: "菜单栏用量弹窗与托盘右键菜单浮于全屏应用之上"
-status: "backlog"
+status: "dropped"
 branch: ""
 worktree: ""
 review_level: "single"
@@ -11,7 +11,7 @@ verify_limit: "5"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: "来源 p250；解决 macOS 全屏工作流下用量弹窗和右键菜单无法盖在全屏应用上的问题"
+note: "来源 p250；解决 macOS 全屏工作流下用量弹窗和右键菜单无法盖在全屏应用上的问题; dropped: 用户裁决：被main b2d6d1d9超集覆盖（含跨Space重申与p254），分支已删，遗留已在main重建为p256"
 ---
 
 # Task 过程总账

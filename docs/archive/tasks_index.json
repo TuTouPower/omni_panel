@@ -8002,6 +8002,22 @@
             "conflicts_with": "",
             "note": "来源 p252；日志文件名按本地时区切分，日志条目带本地时区时间戳，导出默认文件名对齐本地日期",
             "dir": "docs/archive/tasks/t502_logging_and_exports_use_china_local_time"
+        },
+        {
+            "tid": "t503",
+            "slug": "tray_popup_above_fullscreen",
+            "title": "菜单栏用量弹窗与托盘右键菜单浮于全屏应用之上",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p250；解决 macOS 全屏工作流下用量弹窗和右键菜单无法盖在全屏应用上的问题; dropped: 用户裁决：被main b2d6d1d9超集覆盖（含跨Space重申与p254），分支已删，遗留已在main重建为p256",
+            "dir": "docs/archive/tasks/t503_tray_popup_above_fullscreen"
         }
     ]
 }
