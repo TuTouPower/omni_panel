@@ -6,6 +6,8 @@ import {
     last_dir_segment,
 } from "../../lib/workspace/pane";
 import { agent_accent, vendor_id_for_source } from "../../lib/workspace/slots";
+import { resume_command } from "../../lib/session-resume";
+import { use_config } from "../../hooks/use-config";
 import { cn } from "../../lib/utils";
 import { Icon, VendorMark } from "../Icon";
 import { Button } from "../ui/Button";
@@ -33,22 +35,30 @@ function short_id(id: string): string {
 }
 
 /**
- * 会话 ID chip（对齐 demo IdChip）：显示短 id，点击复制完整 id，
+ * 会话 ID chip（对齐 demo IdChip）：显示短 id，点击复制续接命令，
  * 成功后短暂变「已复制」。阻止冒泡，避免触发卡片勾选。
+ * 未知来源无内置模板时回退复制完整 id。
  */
 export function IdChip({
     id,
+    source,
     on_copied,
 }: {
     readonly id: string;
+    readonly source?: string | undefined;
     readonly on_copied?: ((message: string) => void) | undefined;
 }) {
     const [copied, set_copied] = useState(false);
+    const { config } = use_config();
+    const copy_text =
+        source === undefined
+            ? id
+            : (resume_command(source, id, config?.resumeCommandTemplates) ?? id);
     return (
         <button
             type="button"
             data-testid="library-card-id-chip"
-            title={`点击复制完整会话 ID\n${id}`}
+            title={`点击复制续接命令\n${copy_text}`}
             className={cn(
                 "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xs px-2 py-1 font-code-md text-[length:var(--text-label-md)] transition-feedback",
                 copied
@@ -60,7 +70,7 @@ export function IdChip({
                 // web 非安全上下文（HTTP）无 clipboard API，同步 TypeError 需前置守卫。
                 if (typeof navigator.clipboard === "undefined") return;
                 void navigator.clipboard
-                    .writeText(id)
+                    .writeText(copy_text)
                     .then(() => {
                         set_copied(true);
                         on_copied?.("已复制");
@@ -82,7 +92,7 @@ export function IdChip({
 /**
  * 会话库网格卡片（对齐 demo SessionCard）：
  * 行1 logo + 首条→末条消息时间区间 + hover 浮现勾选框（选中态常显）；
- * 行2 目录末级 · tokens · 轮次 + IdChip（复制会话 ID）；
+ * 行2 目录末级 · tokens · 轮次 + IdChip（复制续接命令）；
  * 行3 末条用户消息（单行截断）。无独立标题行。
  */
 export const SessionCard = memo(function SessionCard({
@@ -169,7 +179,7 @@ export const SessionCard = memo(function SessionCard({
                         {String(s.calls)} 轮
                     </span>
                     <span className="min-w-1 flex-1" />
-                    <IdChip id={s.id} on_copied={show_toast} />
+                    <IdChip id={s.id} source={s.source} on_copied={show_toast} />
                 </div>
                 {/* 行3：末条用户消息（单行截断） */}
                 <p

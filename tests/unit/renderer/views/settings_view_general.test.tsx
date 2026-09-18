@@ -307,15 +307,18 @@ describe("SettingsView", () => {
         expect(screen.getByPlaceholderText("留空表示直连")).toHaveValue("http://127.0.0.1:7897");
     });
 
-    describe("resume command templates (t402)", () => {
+    describe("resume command templates (t402, p257 默认填充)", () => {
         const placeholders = {
             claude_code: "claude --resume {session_id}",
             kimi_code: "kimi -r {session_id}",
             grok: "grok --resume {session_id}",
             opencode: "opencode -s {session_id}",
+            codex: "codex resume {session_id}",
+            antigravity: "agy --conversation {session_id}",
+            commandcode: "cmd --resume {session_id}",
         } as const;
 
-        it("AC-001: shows group and 4 source inputs with built-in placeholders", async () => {
+        it("AC-001: shows group and source inputs pre-filled with built-in defaults", async () => {
             render(<SettingsView />);
             await waitFor(() => {
                 expect(screen.getByText("会话续接命令")).toBeInTheDocument();
@@ -323,7 +326,8 @@ describe("SettingsView", () => {
             for (const [source, ph] of Object.entries(placeholders)) {
                 const input = screen.getByLabelText(`续接命令 ${source}`);
                 expect(input).toHaveAttribute("placeholder", ph);
-                expect(input).toHaveDisplayValue("");
+                // p257：未配置自定义模板时输入框默认填内置模板，不等用户填写。
+                expect(input).toHaveDisplayValue(ph);
             }
             expect(screen.getByText(/\{session_id\}/, { exact: false })).toBeInTheDocument();
         });
@@ -405,8 +409,13 @@ describe("SettingsView", () => {
             expect(screen.getByLabelText("续接命令 grok")).toHaveDisplayValue(
                 "grok custom {session_id}",
             );
-            expect(screen.getByLabelText("续接命令 claude_code")).toHaveDisplayValue("");
-            expect(screen.getByLabelText("续接命令 opencode")).toHaveDisplayValue("");
+            // p257：未配置的来源显示内置默认，不再是空值。
+            expect(screen.getByLabelText("续接命令 claude_code")).toHaveDisplayValue(
+                "claude --resume {session_id}",
+            );
+            expect(screen.getByLabelText("续接命令 opencode")).toHaveDisplayValue(
+                "opencode -s {session_id}",
+            );
         });
     });
 

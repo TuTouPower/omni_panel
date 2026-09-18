@@ -2,10 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionCard } from "../../../../../src/renderer/components/session-library/SessionCard";
 import type { TokenStatsSession } from "../../../../../src/shared/types/token-stats";
+import type { AppConfiguration } from "../../../../../src/shared/types/config";
+import { install_history_usageboard } from "../../views/session_history_test_utils";
 
 /**
  * 会话库网格卡片（demo SessionCard 对齐）：行1 徽标 + 首条→末条消息时间区间 +
- * hover 勾选框；行2 目录末级 / tokens / 轮次 / IdChip（复制完整会话 ID）；
+ * hover 勾选框；行2 目录末级 / tokens / 轮次 / IdChip（复制续接命令）；
  * 行3 末条用户消息摘要。无独立标题行。
  */
 
@@ -75,7 +77,8 @@ function id_chip(): HTMLButtonElement {
 }
 
 beforeEach(() => {
-    // 清理上个用例可能残留的 navigator.clipboard mock。
+    // IdChip 经 use_config 读自定义模板：先装 usageboard mock，再清剪贴板 mock。
+    install_history_usageboard();
     delete (navigator as { clipboard?: unknown }).clipboard;
 });
 
@@ -130,7 +133,7 @@ describe("SessionCard（demo 对齐）", () => {
         expect(summary?.getAttribute("title")).toBe("最后一条用户消息");
     });
 
-    it("IdChip 点击复制完整会话 ID：写剪贴板 + 变已复制 + toast", async () => {
+    it("IdChip 点击复制续接命令：写剪贴板 + 变已复制 + toast", async () => {
         // 复制前即钉假定时器，否则「已复制」回退定时器挂在真实时钟上。
         vi.useFakeTimers({ shouldAdvanceTime: true });
         const write_spy = vi.fn().mockResolvedValue(undefined);
@@ -139,7 +142,7 @@ describe("SessionCard（demo 对齐）", () => {
         render_card({ s: sess("sess_abcdefgh", "claude_code"), show_toast: toast_spy });
         fireEvent.click(id_chip());
         await waitFor(() => {
-            expect(write_spy).toHaveBeenCalledWith("sess_abcdefgh");
+            expect(write_spy).toHaveBeenCalledWith("claude --resume sess_abcdefgh");
         });
         expect(toast_spy).toHaveBeenCalledWith("已复制");
         expect(id_chip().textContent).toContain("已复制");
@@ -149,6 +152,26 @@ describe("SessionCard（demo 对齐）", () => {
         });
         expect(id_chip().textContent).toContain("sess_abc");
         vi.useRealTimers();
+    });
+
+    it("IdChip 点击复制自定义模板命令（配置优先于内置默认）", async () => {
+        install_history_usageboard(
+            () =>
+                ({
+                    plugins: [],
+                    resumeCommandTemplates: { kimi_code: "kimi --yolo -r {session_id}" },
+                }) as unknown as AppConfiguration,
+        );
+        const write_spy = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText: write_spy } });
+        render_card({ s: sess("sess_kimi", "kimi_code") });
+        await waitFor(() => {
+            expect(id_chip().title).toContain("kimi --yolo -r sess_kimi");
+        });
+        fireEvent.click(id_chip());
+        await waitFor(() => {
+            expect(write_spy).toHaveBeenCalledWith("kimi --yolo -r sess_kimi");
+        });
     });
 
     it("IdChip 点击不冒泡触发卡片勾选", async () => {

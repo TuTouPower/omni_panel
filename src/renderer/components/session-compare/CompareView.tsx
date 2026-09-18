@@ -281,7 +281,7 @@ function ComparePanel({
                     <span className="shrink-0 tabular-nums text-[var(--color-on-surface-variant)]">
                         {session.calls} 轮
                     </span>
-                    <IdChip id={session.id} on_copied={on_show_toast} />
+                    <IdChip id={session.id} source={session.source} on_copied={on_show_toast} />
                 </div>
             </div>
 

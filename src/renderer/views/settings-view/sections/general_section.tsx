@@ -264,7 +264,7 @@ export function GeneralSection({
             <SetGroupLabel>会话续接命令</SetGroupLabel>
             <SetRow
                 title="命令模板"
-                sub="点击 session ID 时复制的命令；用 {session_id} 占位。留空使用内置默认"
+                sub="点击 session ID 时复制的命令；用 {session_id} 占位。清空恢复内置默认"
             >
                 <span aria-hidden="true" />
             </SetRow>
@@ -273,7 +273,10 @@ export function GeneralSection({
                     <Input
                         aria-label={`续接命令 ${source}`}
                         className="min-w-[220px] font-[var(--font-code-md)]"
-                        value={config.resumeCommandTemplates?.[source] ?? ""}
+                        value={
+                            config.resumeCommandTemplates?.[source] ??
+                            DEFAULT_RESUME_COMMAND_TEMPLATES[source]
+                        }
                         placeholder={DEFAULT_RESUME_COMMAND_TEMPLATES[source]}
                         onChange={(e) => {
                             save_resume_template(config, save_config, source, e.target.value);
