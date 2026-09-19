@@ -1,0 +1,34 @@
+{
+    "tid": "t505",
+    "attempt": 1,
+    "execution_id": "54d99fe1e4914fcab09ba85c5a2cdc81",
+    "status": "done",
+    "branch": "t505_session_login_preemption",
+    "base_sha": "08c00e9137a4d1dd4a5705441fbcf5d98b28d825",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 319 个测试套件（3918 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试全量覆盖前台抢占后台会话、同类型互斥、会话终止关窗与凭据落库；pnpm test 零失败",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=3b10b4354bdd4413",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/session/session-manager.test.ts > t505: 用户可见登录抢占正在运行的后台隐藏重登会话：后台运行时前台登录成功 resolve 并启动可见窗口"
+        ],
+        "AC-002": [
+            "tests/unit/session/session-manager.test.ts > t505: 用户可见登录抢占正在运行的后台隐藏重登会话：断言后台 promise reject 且 deps.windows[0].closed=true"
+        ],
+        "AC-003": [
+            "tests/unit/session/session-manager.test.ts > t505: 已有前台可见会话运行时拒绝新的可见会话并发：断言前台并发抛出 CONFLICT"
+        ],
+        "AC-004": [
+            "tests/unit/session/session-manager.test.ts > t505: 已有后台隐藏重登运行时拒绝新的后台隐藏重登并发：断言后台并发抛出 CONFLICT"
+        ],
+        "AC-005": [
+            "tests/unit/session/session-manager.test.ts > t505: 用户可见登录抢占正在运行的后台隐藏重登会话：断言前台窗口正常捕获并写入 Vault 新凭据"
+        ],
+        "AC-006": [
+            "tests/unit/session/session-manager.test.ts 新增 3 项抢占与并发测试",
+            "tests/unit/ipc/auth-ipc.test.ts 新增 1 项后台仅在途时前台启动不报 CONFLICT 测试"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

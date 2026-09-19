@@ -85,7 +85,13 @@ export interface LoginResult {
 
 export interface SessionManager {
     start_login(request: LoginRequest): Promise<LoginResult>;
-    is_login_in_progress?(instance_id: string): boolean;
+    is_login_in_progress?(instance_id: string, options?: { only_interactive?: boolean }): boolean;
+}
+
+interface ActiveLoginSession {
+    readonly hidden: boolean;
+    readonly window: SessionWindow;
+    cancel(error?: Error): void;
 }
 
 export function create_session_manager(
@@ -93,7 +99,7 @@ export function create_session_manager(
     options?: { timeout_ms?: number },
 ): SessionManager {
     const timeout_ms = options?.timeout_ms ?? SESSION_LOGIN_TIMEOUT_MS;
-    const in_progress = new Set<string>();
+    const in_progress = new Map<string, ActiveLoginSession>();
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
@@ -113,13 +119,23 @@ export function create_session_manager(
                 );
             }
             log.info(`start_login: ${login_id}`);
-            if (in_progress.has(login_id)) {
-                log.warn(`Concurrent login rejected for ${login_id}`);
-                return Promise.reject(
-                    new Error(`Login already in progress for instance: ${login_id}`),
-                );
+            const existing = in_progress.get(login_id);
+            if (existing) {
+                if (existing.hidden && !request.hidden) {
+                    // t505: 前台可见登录具有最高优先级，抢占并终止正在运行的后台隐藏重登会话
+                    log.info(
+                        `Preempting background auto-login for ${login_id} with interactive login`,
+                    );
+                    existing.cancel(
+                        new Error(`Login preempted by interactive user login for ${login_id}`),
+                    );
+                } else {
+                    log.warn(`Concurrent login rejected for ${login_id}`);
+                    return Promise.reject(
+                        new Error(`Login already in progress for instance: ${login_id}`),
+                    );
+                }
             }
-            in_progress.add(login_id);
 
             const partition = instance_id
                 ? get_session_login_partition(instance_id)
@@ -154,8 +170,19 @@ export function create_session_manager(
                 }
 
                 function release_lock(): void {
-                    in_progress.delete(login_id);
+                    if (in_progress.get(login_id)?.window === window) {
+                        in_progress.delete(login_id);
+                    }
                 }
+
+                const active: ActiveLoginSession = {
+                    hidden: request.hidden === true,
+                    window,
+                    cancel(error?: Error) {
+                        finish_with_error(error ?? new Error(`Login cancelled for ${login_id}`));
+                    },
+                };
+                in_progress.set(login_id, active);
 
                 /**
                  * t492: kimi_web 的续期材料（refresh token）只在页面 localStorage。
@@ -448,8 +475,16 @@ export function create_session_manager(
                 });
             });
         },
-        is_login_in_progress(instance_id: string): boolean {
-            return in_progress.has(instance_id);
+        is_login_in_progress(
+            instance_id: string,
+            options?: { only_interactive?: boolean },
+        ): boolean {
+            const active = in_progress.get(instance_id);
+            if (!active) return false;
+            if (options?.only_interactive) {
+                return !active.hidden;
+            }
+            return true;
         },
     };
 }

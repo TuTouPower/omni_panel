@@ -521,7 +521,30 @@ describe("startCookieLogin", () => {
             },
         });
         expect(start_login).not.toHaveBeenCalled();
-        expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1");
+        expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1", {
+            only_interactive: true,
+        });
+    });
+
+    it("t505: does not return CONFLICT when only background hidden login is in progress", async () => {
+        const start_login = vi.fn().mockResolvedValue({ saved: true });
+        const sm = {
+            start_login,
+            is_login_in_progress: vi
+                .fn()
+                .mockImplementation(
+                    (_id: string, opts?: { only_interactive?: boolean }) => !opts?.only_interactive,
+                ),
+        };
+        const deps = build_deps("mimo-test-1", sm);
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+
+        const result = mod.startCookieLogin(deps, "mimo-test-1");
+
+        expect(result).toEqual({ ok: true, data: { started: true } });
+        expect(sm.is_login_in_progress).toHaveBeenCalledWith("mimo-test-1", {
+            only_interactive: true,
+        });
     });
 
     it("returns CONFLICT when cookie login state is already in_progress", async () => {

@@ -88,6 +88,7 @@ function create_vault(): VaultBackend & { values: Map<string, string>; fail_next
 
 interface TestDeps extends SessionManagerDeps {
     readonly window: MockWindow;
+    readonly windows: MockWindow[];
     readonly partitions: string[];
     readonly cookie_urls: string[];
     /** p240: create_window 收到的选项（hidden 用于自动重登）。 */
@@ -102,10 +103,12 @@ interface TestDeps extends SessionManagerDeps {
 }
 
 function create_deps(cookies: SessionCookie[] = []): TestDeps {
-    const window = new MockWindow();
+    const initial_window = new MockWindow();
+    const windows: MockWindow[] = [initial_window];
     const partitions: string[] = [];
     const cookie_urls: string[] = [];
     const window_options: { hidden?: boolean }[] = [];
+    let call_count = 0;
     let before_send_headers:
         | ((details: {
               url: string;
@@ -115,7 +118,10 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
         | null = null;
 
     return {
-        window,
+        get window() {
+            return windows[windows.length - 1] ?? initial_window;
+        },
+        windows,
         partitions,
         cookie_urls,
         window_options,
@@ -124,7 +130,13 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
         create_window(partition: string, options?: { hidden?: boolean }) {
             partitions.push(`window:${partition}`);
             window_options.push(options ?? {});
-            return window;
+            call_count++;
+            if (call_count === 1) {
+                return initial_window;
+            }
+            const win = new MockWindow();
+            windows.push(win);
+            return win;
         },
         create_session(partition: string) {
             partitions.push(`session:${partition}`);
@@ -1074,5 +1086,95 @@ describe("session-manager", () => {
         expect(is_valid_opencode_login(400, "/workspace/wrk_123")).toBe(false);
         expect(is_valid_opencode_login(302, null)).toBe(false);
         expect(is_valid_opencode_login(302, "")).toBe(false);
+    });
+
+    it("t505: 用户可见登录抢占正在运行的后台隐藏重登会话", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        // 1) 后台隐藏重登启动
+        const bg_promise = manager.start_login({
+            instance_id: "preempt-instance-1",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+            hidden: true,
+        });
+        expect(deps.window_options[0]).toEqual({ hidden: true });
+
+        // 2) 用户在前端触发可见登录
+        const fg_promise = manager.start_login({
+            instance_id: "preempt-instance-1",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+
+        // 断言后台会话被终止，窗口被关闭
+        await expect(bg_promise).rejects.toThrow(/preempted/i);
+        expect(deps.windows[0]?.closed).toBe(true);
+
+        // 断言前台可见会话成功启动，第二扇窗口为可见窗口（非 hidden）
+        expect(deps.window_options[1]).toEqual({});
+        expect(deps.windows[1]?.closed).toBe(false);
+
+        deps.emit_before_send_headers("https://opencode.ai/auth", {
+            Cookie: "session=fg-cookie",
+        });
+        deps.windows[1]?.close();
+        await expect(fg_promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("preempt-instance-1:SESSION_COOKIE")).resolves.toBe(
+            "session=fg-cookie",
+        );
+    });
+
+    it("t505: 已有前台可见会话运行时拒绝新的可见会话并发", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const fg_promise_1 = manager.start_login({
+            instance_id: "preempt-instance-2",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+        });
+
+        await expect(
+            manager.start_login({
+                instance_id: "preempt-instance-2",
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+            }),
+        ).rejects.toThrow(/already in progress/i);
+
+        deps.window.close();
+        await expect(fg_promise_1).resolves.toBeDefined();
+    });
+
+    it("t505: 已有后台隐藏重登运行时拒绝新的后台隐藏重登并发", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const bg_promise_1 = manager.start_login({
+            instance_id: "preempt-instance-3",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+            hidden: true,
+        });
+
+        await expect(
+            manager.start_login({
+                instance_id: "preempt-instance-3",
+                provider: "opencode_go",
+                login_url: "https://opencode.ai/auth",
+                cookie_names: ["*"],
+                hidden: true,
+            }),
+        ).rejects.toThrow(/already in progress/i);
+
+        deps.window.close();
+        await expect(bg_promise_1).resolves.toBeDefined();
     });
 });
