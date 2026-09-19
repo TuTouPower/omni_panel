@@ -2,5 +2,38 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t505",
+            "slug": "session_login_preemption",
+            "title": "网页登录支持用户交互抢占后台静默重登",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "解决后台自动重登占用锁导致前台用户点击登录被 CONFLICT 拦截的问题，支持前台可见登录抢占后台隐藏会话",
+            "dir": "docs/tasks/t505_session_login_preemption"
+        },
+        {
+            "tid": "t506",
+            "slug": "opencode_go_console_api_migration",
+            "title": "OpenCode Go 适配官方 Console 新架构与 REST API",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "适配 OpenCode 官方全新 Console 架构，登录凭据迁移至 __Host-console_session，连接器全面改用 /console/api/orgs 与 /console/api/usage/summary 官方接口",
+            "dir": "docs/tasks/t506_opencode_go_console_api_migration"
+        }
+    ]
 }
