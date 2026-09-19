@@ -173,7 +173,10 @@ export function startCookieLogin(
 ): IpcResult<CookieLoginResult> {
     const states = get_cookie_login_states(deps);
     const current = states.get(instanceId);
-    if (current?.in_progress || deps.sessionManager.is_login_in_progress?.(instanceId)) {
+    if (
+        current?.in_progress ||
+        deps.sessionManager.is_login_in_progress?.(instanceId, { only_interactive: true })
+    ) {
         return ok({
             started: false,
             conflict: true,
