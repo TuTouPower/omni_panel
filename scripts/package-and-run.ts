@@ -1,6 +1,6 @@
 import { execSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { platform } from "node:os";
 import { pathToFileURL } from "node:url";
 
@@ -137,34 +137,69 @@ export function skip_sign(): boolean {
     return true;
 }
 
+export function mac_codesign_identity(): string {
+    return skip_sign() ? "-" : mac_sign_identity();
+}
+
+/** fuse 翻过的 Electron Framework 必须单独签；禁止 --deep，避免扫嵌套签名时解锁钥匙串。 */
+export function mac_codesign_targets(app: string): string[] {
+    const framework = join(app, "Contents/Frameworks/Electron Framework.framework");
+    return existsSync(framework) ? [framework, app] : [app];
+}
+
+export function mac_codesign_argv(target: string, identity: string): string {
+    return `codesign --force --sign ${JSON.stringify(identity)} --timestamp=none ${JSON.stringify(target)}`;
+}
+
+export function should_resign_mac_app(no_build: boolean, signature_valid: boolean): boolean {
+    return !no_build || !signature_valid;
+}
+
+function is_mac_signature_valid(app: string): boolean {
+    try {
+        execSync(`codesign --verify ${JSON.stringify(app)}`, { stdio: "pipe" });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /**
  * 无 Developer ID 时 electron-builder 跳过签名，但 electronFuses 的
  * enableEmbeddedAsarIntegrityValidation + hardenedRuntime 要求有效签名，
  * 未签会在启动瞬间 SIGKILL (Code Signature Invalid)。默认 ad-hoc 重签；
  * OMNI_SIGN=1 时用稳定自签身份（p245）。
- * 注意：重签会改动 asar 完整性哈希，fuse 校验以重签后的 seal 为准。
+ * 不用 --deep：会递归签 Electron 官方嵌套签名并触发钥匙串解锁。
+ * --timestamp=none：默认时间戳行为会碰钥匙串。
  */
 function sign_mac_app(app_dir: string): void {
     const app = resolve(ROOT, app_dir);
-    const identity = skip_sign() ? "-" : mac_sign_identity();
+    const identity = mac_codesign_identity();
     log(
         identity === "-"
             ? `ad-hoc signing: ${app}`
             : `signing with stable identity ${identity}: ${app}`,
     );
-    execSync(`codesign --force --deep --sign ${JSON.stringify(identity)} ${JSON.stringify(app)}`, {
-        cwd: ROOT,
-        stdio: "inherit",
-    });
+    for (const target of mac_codesign_targets(app)) {
+        execSync(mac_codesign_argv(target, identity), {
+            cwd: ROOT,
+            stdio: "inherit",
+        });
+    }
 }
 
-function run_packaged(): void {
+function run_packaged(no_build: boolean): void {
     if (platform() === "darwin") {
         const app_dir = mac_app_rel_path();
-        sign_mac_app(app_dir);
         const app_path = resolve(ROOT, app_dir);
         if (!existsSync(app_path)) {
             throw new Error(`packaged app not found: ${app_path}`);
+        }
+        const valid = is_mac_signature_valid(app_path);
+        if (should_resign_mac_app(no_build, valid)) {
+            sign_mac_app(app_dir);
+        } else {
+            log(`signature valid, skip re-sign: ${app_path}`);
         }
         log(`starting: ${app_path}`);
         execSync(`open ${JSON.stringify(app_path)}`);
@@ -221,7 +256,7 @@ function main(): void {
     }
 
     // Step 5: run
-    run_packaged();
+    run_packaged(no_build);
 }
 
 export function run_package_build(): void {

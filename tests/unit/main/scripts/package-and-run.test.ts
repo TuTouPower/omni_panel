@@ -8,9 +8,12 @@ vi.mock("node:child_process", () => ({
 import { execSync } from "node:child_process";
 import {
     linux_proc_match_pattern,
+    mac_codesign_argv,
+    mac_codesign_identity,
     mac_sign_identity,
     omni_proc_match_pattern,
     run_package_build,
+    should_resign_mac_app,
     skip_sign,
 } from "../../../../scripts/package-and-run";
 
@@ -143,6 +146,34 @@ describe("package-and-run mac signing identity (p245)", () => {
             throw new Error("security unavailable");
         });
         expect(mac_sign_identity()).toBe("-");
+    });
+});
+
+describe("package-and-run adhoc codesign", () => {
+    const original_sign = process.env["OMNI_SIGN"];
+
+    afterEach(() => {
+        if (original_sign === undefined) delete process.env["OMNI_SIGN"];
+        else process.env["OMNI_SIGN"] = original_sign;
+    });
+
+    it("默认身份是 ad-hoc，不查钥匙串", () => {
+        delete process.env["OMNI_SIGN"];
+        expect(mac_codesign_identity()).toBe("-");
+        expect(exec_mock).not.toHaveBeenCalled();
+    });
+
+    it("codesign 不用 --deep，并禁用 timestamp", () => {
+        const argv = mac_codesign_argv("/tmp/OmniPanel.app", "-");
+        expect(argv).toBe('codesign --force --sign "-" --timestamp=none "/tmp/OmniPanel.app"');
+        expect(argv).not.toContain("--deep");
+    });
+
+    it("完整打包必须重签；reload 且签名有效则跳过", () => {
+        expect(should_resign_mac_app(false, true)).toBe(true);
+        expect(should_resign_mac_app(false, false)).toBe(true);
+        expect(should_resign_mac_app(true, true)).toBe(false);
+        expect(should_resign_mac_app(true, false)).toBe(true);
     });
 });
 
