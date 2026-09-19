@@ -515,12 +515,13 @@ function to_error(error: unknown): Error {
 }
 
 /**
- * t337: opencode_go web_login cookie 有效性判定——对 login_url 的 /auth 请求
- * 返回 3xx 且 Location 为 workspace 路由（含 workspace id）视为有效（对齐
- * connector 的 /auth 判定：`/\/workspace\/([^/?#]+)/`）。
+ * t337/t506: opencode_go web_login cookie 有效性判定：
+ * 1. 200 状态码直接判定有效；
+ * 2. 3xx 重定向至 /workspace/ 或 /console/ 视为有效。
  */
 export function is_valid_opencode_login(status: number, location: string | null): boolean {
-    return status >= 300 && status < 400 && Boolean(location?.match(/\/workspace\/([^/?#]+)/));
+    if (status === 200) return true;
+    return status >= 300 && status < 400 && Boolean(location?.match(/\/(?:workspace|console)\b/));
 }
 
 function select_cookie_header_values(

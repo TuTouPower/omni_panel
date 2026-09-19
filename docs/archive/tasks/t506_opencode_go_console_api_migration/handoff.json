@@ -1,0 +1,38 @@
+{
+    "tid": "t506",
+    "attempt": 1,
+    "execution_id": "bd4ebcee2e5c480996e15a9a7663f3cb",
+    "status": "done",
+    "branch": "t506_opencode_go_console_api_migration",
+    "base_sha": "2a34e0e50fca08c11d369facb07f13a962441912",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 318 个测试套件（3903 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "集成测试模拟真实 Console REST API 响应并覆盖 org 提取、用量与余额解析、401 失效分支；pnpm test 零失败",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=f2c8542e273fca40",
+    "ac_evidence": {
+        "AC-001": [
+            "connectors/opencode_go/manifest.json 声明 login_url 为 https://opencode.ai/console/login，cookieNames 包含 __Host-console_session"
+        ],
+        "AC-002": [
+            "src/main/index.ts verify_cookie 优先请求 /console/api/orgs 验证 200，并回退支持 /console/ 重定向",
+            "tests/unit/session/session-manager.test.ts 验证 is_valid_opencode_login 判定 200 与 /console/ 有效"
+        ],
+        "AC-003": [
+            "connectors/opencode_go/connector.ts 调用 /console/api/orgs 提取 orgId",
+            "tests/integration/connector/opencode_go_connector.test.ts 验证组织获取与空组织抛错"
+        ],
+        "AC-004": [
+            "connectors/opencode_go/connector.ts 带 x-org-id 请求 /console/api/usage/summary 与 /console/api/billing/status",
+            "tests/integration/connector/opencode_go_connector.test.ts 断言 rolling/weekly/monthly/balance 四项观测结果"
+        ],
+        "AC-005": [
+            "connectors/opencode_go/connector.ts 捕获 401 抛出「OpenCode 会话已失效，请重新登录」",
+            "tests/integration/connector/opencode_go_connector.test.ts 断言 401 报错文案"
+        ],
+        "AC-006": [
+            "tests/integration/connector/opencode_go_connector.test.ts 全量覆盖新 REST API 接口",
+            "tests/unit/connector/opencode_go.test.ts（旧 HTML 爬虫测试）已彻底删除"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

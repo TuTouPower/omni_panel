@@ -5,7 +5,7 @@
     "auth": {
         "method": "web_login",
         "secret_name": "SESSION_COOKIE",
-        "login_url": "https://opencode.ai/auth"
+        "login_url": "https://opencode.ai/console/login"
     },
     "parameters": [
         {
@@ -19,9 +19,10 @@
     ],
     "endpoints": {
         "default": "https://opencode.ai",
-        "login": "https://opencode.ai/auth"
+        "console": "https://opencode.ai/console",
+        "login": "https://opencode.ai/console/login"
     },
     "loginDomains": ["opencode.ai"],
-    "cookieNames": ["*"],
+    "cookieNames": ["__Host-console_session", "auth"],
     "script": "connector.ts"
 }

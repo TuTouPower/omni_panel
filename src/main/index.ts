@@ -700,9 +700,7 @@ void app.whenReady().then(async () => {
             has_display: () =>
                 process.platform !== "linux" ||
                 Boolean(process.env["DISPLAY"] ?? process.env["WAYLAND_DISPLAY"]),
-            // t337: 捕获 cookie 后有效性探测——对 login_url 发请求期望 3xx 且
-            // Location 含 workspace（opencode_go web_login）。探测失败判定无效、
-            // 不落库。仅 web_login provider 走此路径（login_url 来自 manifest）。
+            // t337/t506: 捕获 cookie 后有效性探测——优先探测 /console/api/orgs，回退探测 login_url。
             verify_cookie: async (cookie: string, login_url: string) => {
                 try {
                     const controller = new AbortController();
@@ -710,7 +708,9 @@ void app.whenReady().then(async () => {
                         controller.abort();
                     }, 10_000);
                     try {
-                        const res = await fetch(login_url, {
+                        const origin = new URL(login_url).origin;
+                        const orgs_url = `${origin}/console/api/orgs`;
+                        const res = await fetch(orgs_url, {
                             headers: {
                                 Cookie: cookie,
                                 "User-Agent":
@@ -721,9 +721,26 @@ void app.whenReady().then(async () => {
                             redirect: "manual",
                             signal: controller.signal,
                         });
-                        const status = res.status;
-                        const location = res.headers.get("location");
-                        return is_valid_opencode_login(status, location);
+                        if (res.status === 200) {
+                            const data: unknown = await res.json().catch(() => null);
+                            if (Array.isArray(data) && data.length > 0) return true;
+                        }
+
+                        const fallback_res = await fetch(login_url, {
+                            headers: {
+                                Cookie: cookie,
+                                "User-Agent":
+                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                                    "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+                                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                            },
+                            redirect: "manual",
+                            signal: controller.signal,
+                        });
+                        return is_valid_opencode_login(
+                            fallback_res.status,
+                            fallback_res.headers.get("location"),
+                        );
                     } finally {
                         clearTimeout(timer);
                     }

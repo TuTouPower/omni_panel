@@ -1077,13 +1077,15 @@ describe("session-manager", () => {
         expect(deps.verify_cookie).toHaveBeenCalled();
     });
 
-    it("is_valid_opencode_login 判定 3xx+workspace 有效、其余无效（t337 AC-003）", () => {
+    it("is_valid_opencode_login 判定 200 或 3xx+workspace/console 有效、其余无效（t337/t506）", () => {
+        expect(is_valid_opencode_login(200, null)).toBe(true);
         expect(is_valid_opencode_login(302, "/workspace/wrk_123")).toBe(true);
         expect(is_valid_opencode_login(301, "https://opencode.ai/workspace/wrk_123")).toBe(true);
-        expect(is_valid_opencode_login(200, null)).toBe(false);
-        expect(is_valid_opencode_login(200, "/login")).toBe(false);
-        expect(is_valid_opencode_login(302, "/login")).toBe(false);
+        expect(is_valid_opencode_login(302, "https://opencode.ai/console/login")).toBe(true);
+        expect(is_valid_opencode_login(307, "/console/")).toBe(true);
+        expect(is_valid_opencode_login(401, null)).toBe(false);
         expect(is_valid_opencode_login(400, "/workspace/wrk_123")).toBe(false);
+        expect(is_valid_opencode_login(302, "/login")).toBe(false);
         expect(is_valid_opencode_login(302, null)).toBe(false);
         expect(is_valid_opencode_login(302, "")).toBe(false);
     });
