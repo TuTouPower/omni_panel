@@ -26,6 +26,15 @@ describe("is_auth_error (shared)", () => {
         expect(is_auth_error("密钥错误")).toBe(true);
     });
 
+    it("matches web session / cookie expiration wording from connectors", () => {
+        expect(is_auth_error("Cookie 可能已失效，未跳转到 workspace")).toBe(true);
+        expect(is_auth_error("Cookie 已过期")).toBe(true);
+        expect(is_auth_error("会话已失效，请重新登录")).toBe(true);
+        expect(is_auth_error("session expired")).toBe(true);
+        expect(is_auth_error("invalid session cookie")).toBe(true);
+        expect(is_auth_error("MiMo 登录会话已失效")).toBe(true);
+    });
+
     it("does not match connection timeouts or plain network errors", () => {
         expect(is_auth_error("request failed: ETIMEDOUT")).toBe(false);
         expect(is_auth_error("socket hang up")).toBe(false);
@@ -48,6 +57,8 @@ describe("is_auth_error (shared)", () => {
         expect(is_auth_error("token pool exhausted")).toBe(false);
         expect(is_auth_error("batch auth rate limited")).toBe(false);
         expect(is_auth_error("oauth preflight skipped")).toBe(false);
+        expect(is_auth_error("cookie cache cleaned")).toBe(false);
+        expect(is_auth_error("session established")).toBe(false);
     });
 });
 

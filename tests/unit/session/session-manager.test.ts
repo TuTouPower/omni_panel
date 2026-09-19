@@ -411,6 +411,91 @@ describe("session-manager", () => {
         await expect(manual_promise).resolves.toEqual({ saved: true });
     });
 
+    it("t504: opencode_go 自动重登捕获到不同且探测有效的 Cookie 即关窗落库", async () => {
+        const deps = create_deps();
+        await deps.vault.set("opencode-auto-1:SESSION_COOKIE", "session=stale-cookie");
+        deps.verify_cookie.mockResolvedValue(true);
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "opencode-auto-1",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+            close_when_credential_refreshed: true,
+            hidden: true,
+        });
+        expect(deps.window_options[0]).toEqual({ hidden: true });
+        deps.emit_before_send_headers("https://opencode.ai/auth", {
+            Cookie: "session=fresh-cookie",
+        });
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        expect(deps.window.closed).toBe(true);
+        const saved = await deps.vault.get("opencode-auto-1:SESSION_COOKIE");
+        expect(saved).toBe("session=fresh-cookie");
+        expect(deps.verify_cookie).toHaveBeenCalledWith(
+            "session=fresh-cookie",
+            "https://opencode.ai/auth",
+        );
+    });
+
+    it("t504: opencode_go 自动重登捕获相同 Cookie 或探测失败时不关窗", async () => {
+        const deps = create_deps();
+        await deps.vault.set("opencode-auto-2:SESSION_COOKIE", "session=stale-cookie");
+        deps.verify_cookie.mockResolvedValue(false);
+        const manager = create_session_manager(deps, { timeout_ms: 60_000 });
+
+        const promise = manager.start_login({
+            instance_id: "opencode-auto-2",
+            provider: "opencode_go",
+            login_url: "https://opencode.ai/auth",
+            cookie_names: ["*"],
+            close_when_credential_refreshed: true,
+            hidden: true,
+        });
+        // 1) 相同 cookie 不关窗
+        deps.emit_before_send_headers("https://opencode.ai/auth", {
+            Cookie: "session=stale-cookie",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(deps.window.closed).toBe(false);
+
+        // 2) 不同 cookie 但 verify_cookie 返回 false 不关窗
+        deps.emit_before_send_headers("https://opencode.ai/auth", {
+            Cookie: "session=invalid-cookie",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(deps.window.closed).toBe(false);
+
+        deps.window.close();
+        await expect(promise).resolves.toEqual({ saved: false, reason: "invalid_cookie" });
+    });
+
+    it("t504: mimo 自动重登捕获到不同 Cookie 即关窗落库", async () => {
+        const deps = create_deps();
+        await deps.vault.set("mimo-auto-1:SESSION_COOKIE", "userId=123; token=stale");
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "mimo-auto-1",
+            provider: "mimo",
+            login_url: "https://platform.xiaomimimo.com/console/plan-manage",
+            cookie_names: ["*"],
+            close_when_credential_refreshed: true,
+            hidden: true,
+        });
+        expect(deps.window_options[0]).toEqual({ hidden: true });
+        deps.emit_before_send_headers("https://platform.xiaomimimo.com/console/plan-manage", {
+            Cookie: "userId=123; token=fresh",
+        });
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        expect(deps.window.closed).toBe(true);
+        const saved = await deps.vault.get("mimo-auto-1:SESSION_COOKIE");
+        expect(saved).toBe("userId=123; token=fresh");
+    });
+
     it("p239: 手动登录（无该标志）即使用户换到新 Bearer 也不自动关窗", async () => {
         const deps = create_deps();
         await deps.vault.set(

@@ -376,6 +376,23 @@ describe("handleCookieLogin", () => {
         expect(sm.calls).toHaveLength(1);
     });
 
+    it("t504: passes hidden, close_when_credential_refreshed, and timeout_ms for any session provider in auto mode", async () => {
+        const sm = create_mock_session_manager();
+        const deps = build_deps("mimo-test-1", sm, mimo_definition);
+
+        const mod = await import("../../../src/main/ipc/auth-ipc");
+        const result = await mod.handleCookieLogin(deps, "mimo-test-1", { auto: true });
+
+        expect(result.ok).toBe(true);
+        expect(sm.calls).toHaveLength(1);
+        expect(sm.calls[0]).toMatchObject({
+            hidden: true,
+            close_when_credential_refreshed: true,
+            timeout_ms: 30_000,
+        });
+        expect(sm.calls[0]?.auto_close_ms).toBeUndefined();
+    });
+
     it("propagates sessionManager errors as INTERNAL_ERROR", async () => {
         const sm: SessionManager = {
             start_login: vi.fn().mockRejectedValue(new Error("vault write failed")),

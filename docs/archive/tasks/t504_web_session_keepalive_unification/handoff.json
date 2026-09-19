@@ -1,0 +1,44 @@
+{
+    "tid": "t504",
+    "attempt": 1,
+    "execution_id": "716f043c7f8546068ef65c3be8e41035",
+    "status": "done",
+    "branch": "t504_web_session_keepalive_unification",
+    "base_sha": "c01c5e0613564e916458ca2ef6829d28c4e008e7",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 319 个测试套件（3909 个测试用例）100% 通过；git diff --check 零空白与格式问题",
+    "blackbox": "① pnpm test 全量覆盖真实 session-manager 与 refresh-service 调度；② tests/integration/scheduler/refresh-service.test.ts 真实覆盖 OpenCode Go 与 MiMo 在遇到失效报错时触发自动重登、使用新凭据重试并产出有效观测；③ pnpm test:e2e:web 运行通过",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=db6f61d114e38da8",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/shared/auth-error.test.ts > matches web session / cookie expiration wording from connectors：断言 OpenCode Go 的「Cookie 可能已失效，未跳转到 workspace」、MiMo 规范后的「MiMo 登录会话已失效」及多种会话过期文案均被 is_auth_error 判定为 true",
+            "tests/integration/connector/mimo-connector.test.ts > throws session expired error when usage_result indicates not logged in：断言 MiMo 服务端业务码未登录时规范抛出带会话失效语义的异常"
+        ],
+        "AC-002": [
+            "tests/integration/scheduler/refresh-service.test.ts > t504: triggers auto sessionLogin on opencode_go 'Cookie 可能已失效' error and succeeds after retry：断言抛出未跳转 workspace 错误时正确触发 sessionLogin 并重试成功",
+            "tests/integration/scheduler/refresh-service.test.ts > t504: triggers auto sessionLogin on mimo 'MiMo 登录会话已失效' error and succeeds after retry：断言 MiMo 会话失效时正确触发 sessionLogin 并重试成功"
+        ],
+        "AC-003": [
+            "tests/unit/ipc/auth-ipc.test.ts > t504: passes hidden, close_when_credential_refreshed, and timeout_ms for any session provider in auto mode：断言在 options.auto=true 模式下对任意 session 连接器传递 hidden=true、close_when_credential_refreshed=true、timeout_ms=30000 且 auto_close_ms=undefined",
+            "tests/unit/session/session-manager.test.ts > t504: opencode_go / mimo 自动重登断言 window_options 为 { hidden: true }"
+        ],
+        "AC-004": [
+            "tests/unit/session/session-manager.test.ts > t504: opencode_go 自动重登捕获到不同且探测有效的 Cookie 即关窗落库：验证新 Cookie 捕获后触发 verify_cookie 并关窗，写入 Vault 新凭据",
+            "tests/unit/session/session-manager.test.ts > t504: mimo 自动重登捕获到不同 Cookie 即关窗落库：验证新 Cookie 捕获后关窗并落库",
+            "tests/integration/scheduler/refresh-service.test.ts > 两条 t504 集成用例断言重试轮次产出最新观测项且终态 ready"
+        ],
+        "AC-005": [
+            "tests/unit/session/session-manager.test.ts > t504: opencode_go 自动重登捕获相同 Cookie 或探测失败时不关窗：验证未产生有效新凭据时不误关窗，直到超时关闭",
+            "tests/integration/scheduler/refresh-service.test.ts > falls back to failed state when sessionLogin fails：验证会话无法恢复时终态标记为 failed"
+        ],
+        "AC-006": [
+            "src/main/ipc/auth-ipc.ts 与 src/main/core/session/session-manager.ts 移除针对 kimi_web 的硬编码分支，泛化为通用 session 抽象",
+            "tests/unit/ipc/auth-ipc.test.ts（26 例）与 tests/unit/session/session-manager.test.ts（40 例）中既有 kimi_web 测试全部回归绿灯"
+        ],
+        "AC-007": [
+            "tests/unit/session/session-manager.test.ts 新增 3 项针对 opencode_go 与 mimo 的凭据换新比对、有效性验证、超时未关窗用例",
+            "tests/integration/scheduler/refresh-service.test.ts 新增 2 项针对 opencode_go 与 mimo 真实重登重试成功链路用例"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

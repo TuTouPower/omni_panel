@@ -109,9 +109,23 @@ async function main(): Promise<ScriptObservation[]> {
     ]);
 
     if (usage_result?.code !== 0 || !usage_result.data?.usage?.items) {
+        if (
+            usage_result?.code === 401 ||
+            usage_result?.code === 403 ||
+            /未登录|not login|login|token|cookie|session/i.test(usage_result?.message ?? "")
+        ) {
+            throw new Error(`MiMo 登录会话已失效: ${usage_result?.message ?? "未登录"}`);
+        }
         throw new Error(usage_result?.message ?? "MiMo usage response invalid");
     }
     if (detail_result && detail_result.code !== 0) {
+        if (
+            detail_result.code === 401 ||
+            detail_result.code === 403 ||
+            /未登录|not login|login|token|cookie|session/i.test(detail_result.message ?? "")
+        ) {
+            throw new Error(`MiMo 登录会话已失效: ${detail_result.message ?? "未登录"}`);
+        }
         throw new Error(detail_result.message ?? "MiMo detail response invalid");
     }
 

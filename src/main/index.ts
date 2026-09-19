@@ -415,12 +415,12 @@ void app.whenReady().then(async () => {
                     },
                     instanceId,
                 );
-                if (silent.refreshed) {
-                    // t492: 只有凭据真的变了才算重登成功——否则刷新服务会用同一份
-                    // 失效凭据重试（kimi_web 的假成功根因）。
-                    return { saved: true, credential_changed: silent.credential_changed };
+                if (silent.refreshed && silent.credential_changed) {
+                    // t492/t504: 只有凭据真的变了才算重登成功——否则刷新服务会用同一份
+                    // 失效凭据重试。未换到新凭据时回退到后台自动重登窗口。
+                    return { saved: true, credential_changed: true };
                 }
-                // Fall back to interactive login window
+                // Fall back to auto login window (hidden in auto mode)
                 const result = await handleCookieLogin(
                     { configStore, secretsStore, definitions: allDefinitions, sessionManager },
                     instanceId,
