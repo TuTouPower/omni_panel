@@ -52,7 +52,7 @@
 |`pnpm test:e2e:cli`|无（chromium headless；脚本带 `E2E_NO_WEBSERVER=1`）|`--cli serve` 自起临时端口|无|**可**|
 |`pnpm test:e2e:electron`|**有**：起真实 Electron app，未设 `E2E_HEADLESS` → 真窗口弹出、抢焦点（macOS 无 xvfb）|每用例起停 app|无（独立临时 `--user-data-dir`）|**须许可**|
 |`pnpm test:packaged`（`--project=packaged`）|**有**：起打包版 app（CDP）|临时 remote-debugging 端口|无|**须许可**|
-|`pnpm package` / `pnpm reload`|**有**：先 kill 正在运行的 OmniPanel 再重启；macOS 上重签会弹钥匙串授权|本地 API 端口随重启变更|**有**：直接改变用户正在用的 app|**须许可**|
+|`pnpm package` / `pnpm reload`|**有**：先 kill 正在运行的 OmniPanel 再重启；macOS 默认 ad-hoc 重签，不弹钥匙串（`OMNI_SIGN=1` 才用本机证书）|本地 API 端口随重启变更|**有**：直接改变用户正在用的 app|**须许可**|
 |`pnpm start` / `pnpm start:test`|**有**：dev app 窗口|dev server 端口|写用户 userData（除显式 `--user-data-dir`）|**须许可**|
 |`pnpm test:contract:live`|无|打真实上游|无（但消耗真实额度）|**须许可**|
 

@@ -127,19 +127,21 @@ export function mac_sign_identity(): string {
 }
 
 /**
- * OMNI_SKIP_SIGN=1：本地免密码打包。t500 后 Cookie 加密 fuse 已关，运行时不碰
- * 钥匙串，p245 那套“稳定证书 DR 绑定”的理由已不存在；ad-hoc seal 足以满足
- * asar 完整性校验，且 ad-hoc 从不访问钥匙串、永不弹窗。仅限本机运行，不得分发。
+ * 本地打包默认 ad-hoc：t500 后 Cookie 加密 fuse 已关，运行时不碰钥匙串，
+ * p245 稳定证书 DR 绑定已无必要。ad-hoc 从不访问钥匙串、不弹密码。
+ * 仅限本机运行，不得分发。要走钥匙串身份时设 OMNI_SIGN=1。
+ * OMNI_SKIP_SIGN=1 仍视为免签（旧入口兼容）。
  */
 export function skip_sign(): boolean {
-    return process.env["OMNI_SKIP_SIGN"] === "1";
+    if (process.env["OMNI_SIGN"] === "1") return false;
+    return true;
 }
 
 /**
  * 无 Developer ID 时 electron-builder 跳过签名，但 electronFuses 的
  * enableEmbeddedAsarIntegrityValidation + hardenedRuntime 要求有效签名，
- * 未签会在启动瞬间 SIGKILL (Code Signature Invalid)。这里重签：优先用稳定的
- * 自签身份（p245，钥匙串只授权一次），缺证书时退回 ad-hoc。
+ * 未签会在启动瞬间 SIGKILL (Code Signature Invalid)。默认 ad-hoc 重签；
+ * OMNI_SIGN=1 时用稳定自签身份（p245）。
  * 注意：重签会改动 asar 完整性哈希，fuse 校验以重签后的 seal 为准。
  */
 function sign_mac_app(app_dir: string): void {
@@ -198,8 +200,10 @@ function main(): void {
 
     if (skip_sign()) {
         log(
-            "OMNI_SKIP_SIGN=1: local unsigned build, ad-hoc seal, no keychain prompts. Do not distribute.",
+            "ad-hoc seal (default): no keychain prompts. Do not distribute. OMNI_SIGN=1 to use a keychain identity.",
         );
+    } else {
+        log("OMNI_SIGN=1: signing with keychain identity");
     }
 
     // Step 1: kill existing process
@@ -236,12 +240,12 @@ export function run_package_build(): void {
             cwd: ROOT,
             stdio: "inherit",
         });
-        // OMNI_SKIP_SIGN=1：electron-builder 官方支持 -c.mac.identity=null 跳过
-        // 签名（钥匙串零触碰）；seal 由后续 sign_mac_app 的 ad-hoc 重签补上。
+        // 默认 -c.mac.identity=null 跳过 electron-builder 自动发现钥匙串身份；
+        // seal 由后续 sign_mac_app 的 ad-hoc 重签补上。OMNI_SIGN=1 才让 builder 自己签。
         const skip = skip_sign();
         log(
             skip
-                ? "running electron-builder --dir (OMNI_SKIP_SIGN=1, unsigned)..."
+                ? "running electron-builder --dir (unsigned, identity=null)..."
                 : "running electron-builder --dir...",
         );
         execSync(`electron-builder --dir${skip ? " -c.mac.identity=null" : ""}`, {

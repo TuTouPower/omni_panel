@@ -11,6 +11,7 @@ import {
     mac_sign_identity,
     omni_proc_match_pattern,
     run_package_build,
+    skip_sign,
 } from "../../../../scripts/package-and-run";
 
 const exec_mock = vi.mocked(execSync);
@@ -46,6 +47,68 @@ describe("package-and-run run_package_build", () => {
 
         const calls = exec_mock.mock.calls.map(([cmd]) => cmd);
         expect(calls[calls.length - 1]).toContain("ensure_sqlite_abi.mjs node");
+    });
+
+    it("默认 electron-builder --dir 带 -c.mac.identity=null，不查钥匙串", () => {
+        const original = process.env["OMNI_SIGN"];
+        delete process.env["OMNI_SIGN"];
+        exec_mock.mockImplementation(() => Buffer.alloc(0));
+        try {
+            run_package_build();
+            const builder = exec_mock.mock.calls
+                .map(([cmd]) => cmd)
+                .find((cmd) => cmd.includes("electron-builder"));
+            expect(builder).toContain("electron-builder --dir -c.mac.identity=null");
+        } finally {
+            if (original === undefined) delete process.env["OMNI_SIGN"];
+            else process.env["OMNI_SIGN"] = original;
+        }
+    });
+
+    it("OMNI_SIGN=1 时 electron-builder 不带 identity=null", () => {
+        const original = process.env["OMNI_SIGN"];
+        process.env["OMNI_SIGN"] = "1";
+        exec_mock.mockImplementation(() => Buffer.alloc(0));
+        try {
+            run_package_build();
+            const builder = exec_mock.mock.calls
+                .map(([cmd]) => cmd)
+                .find((cmd) => cmd.includes("electron-builder"));
+            expect(builder).toBe("electron-builder --dir");
+        } finally {
+            if (original === undefined) delete process.env["OMNI_SIGN"];
+            else process.env["OMNI_SIGN"] = original;
+        }
+    });
+});
+
+describe("package-and-run skip_sign default", () => {
+    const original_sign = process.env["OMNI_SIGN"];
+    const original_skip = process.env["OMNI_SKIP_SIGN"];
+
+    afterEach(() => {
+        if (original_sign === undefined) delete process.env["OMNI_SIGN"];
+        else process.env["OMNI_SIGN"] = original_sign;
+        if (original_skip === undefined) delete process.env["OMNI_SKIP_SIGN"];
+        else process.env["OMNI_SKIP_SIGN"] = original_skip;
+    });
+
+    it("未设 OMNI_SIGN 时默认免签", () => {
+        delete process.env["OMNI_SIGN"];
+        delete process.env["OMNI_SKIP_SIGN"];
+        expect(skip_sign()).toBe(true);
+    });
+
+    it("OMNI_SKIP_SIGN=1 仍免签（旧入口兼容）", () => {
+        delete process.env["OMNI_SIGN"];
+        process.env["OMNI_SKIP_SIGN"] = "1";
+        expect(skip_sign()).toBe(true);
+    });
+
+    it("OMNI_SIGN=1 才走钥匙串身份", () => {
+        process.env["OMNI_SIGN"] = "1";
+        process.env["OMNI_SKIP_SIGN"] = "1";
+        expect(skip_sign()).toBe(false);
     });
 });
 
