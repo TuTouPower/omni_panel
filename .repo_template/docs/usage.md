@@ -2,6 +2,20 @@
 
 ## 工具链路径与写权
 
+## AGENTS.md 同步分区协议
+
+消费仓根 `AGENTS.md` 按固定标题分为三类内容：
+
+|区段|同步行为|消费仓可定制范围|
+|---|---|---|
+|项目介绍（`## 目录与读写规则` 之前）|绝不更新，始终保留消费仓内容|允许补充项目介绍和项目专属规则|
+|`## 目录与读写规则`|脚本只报告差异，不覆盖；由 Agent 对照模板智能语义合并|允许增删项目目录、写权和项目专属约定|
+|`## 开发原则`|每次同步从模板强制更新|不允许消费仓改写|
+
+`repo_sync.py plan` 会分别展示三部分状态。`apply` 只自动替换 `## 开发原则`；项目介绍和 `## 目录与读写规则` 均不由脚本覆盖。Agent 必须在同步时读取模板与消费仓差异，完成目录与读写规则的语义合并，并确认项目介绍未被改动。缺少这两个标题时，脚本对旧版模板继续使用旧的整文件裁定逻辑；新模板必须包含这两个标题。
+
+消费仓允许修改的 AGENTS.md 范围只有项目介绍和 `## 目录与读写规则`；`## 开发原则` 及其后的模板规则不应由消费仓自行改写。
+
 写权归属列声明路径的写入责任与时机；具体步骤见对应 skill 或文件内注释。
 
 |路径|用途|写权归属|
@@ -34,8 +48,8 @@
 - AC 编号：spec 验收标准每条行为 AC 用 `AC-NNN`（三位十进制，task 内从 1 顺序编号）。编号一旦分配永久归属，删除后不复用（允许断号，不强制连续），新增用下一个编号。`handoff.json` 的 `ac_evidence` 键引用同一编号，须精确覆盖 spec 验收标准全部 AC——缺或多都阻断合入。编号规范属 spec 模板门禁，见 `.repo_template/docs/task_template/spec.md`。
 - 占位示例（模板、示例行）不得占用真实 `tid` / `sid` / `pNNN`，也不得当作 active 工作项执行。
 - Markdown 嵌套内容缩进 4 空格，禁止 tab。
-- 非归档 Markdown 统一用 md_kx 格式化（`.repo_template/scripts/md_format.py`），表用 `compact`（`|a|b|`）。格式由 `.md_kx.toml` 统一，禁止 prettier / 按列 pad。commit 由 pre-commit hook 强制（`.repo_template/hooks/pre-commit`，格式化本次 staged 的 `.md` 并重新暂存；工作区与 index 不一致则拒绝），需先 `python3 .repo_template/scripts/repo_sync.py install-hooks` 启用 `core.hooksPath`（已有其它 hooksPath 须 `--force`）；临时手动格式化用 `python3 .repo_template/scripts/md_format.py --changed`，commit 前 `--check` 为绿。
-- 消费仓 `prettier --check .` 豁免模板自有路径：`.repo_template/scripts/package.json`、`.repo_template/tests/package.json`、`view_static/`（看板 UI，模板自有 `2` 空格/单引号风格）、`tests/test_chain_plan_cases.js`，以及本地生成的 `.opencode/package.json` / `package-lock.json`（`prettier` 不认 `.gitignore`）。`repo_sync.py apply` 机械追加到消费仓 `.prettierignore`（消费独有规则保留，去重），`status` / `plan` 展示缺失项；模板文件不随消费仓 `tabWidth` / 引号配置重排，消费侧不手改、不逐个加 `ignore`。`.github/workflows/repo-template-ci.yml` 已下线（`b3e5c8f` 起不再分发），残留时 `status` / `plan` / `apply` 警告，确认无消费定制后手动删除。
+- 非归档 Markdown 统一用 md_kx 格式化（`.repo_template/scripts/md_format.py`），表用 `compact`（`|a|b|`）。md_kx 来源 [TuTouPower/md_kx](https://github.com/TuTouPower/md_kx)（PyPI 发行名 `md-kx`，命令 `md_kx`），通常已在开发机全局安装（`uv tool install md-kx`）；消费仓不逐仓安装，缺二进制时 `md_format.py` / pre-commit 会在报错里给出来源与安装入口。格式由 `.md_kx.toml` 统一，禁止 prettier / 按列 pad。commit 由 pre-commit hook 强制（`.repo_template/hooks/pre-commit`，格式化本次 staged 的 `.md` 并重新暂存；工作区与 index 不一致则拒绝），需先 `python3 .repo_template/scripts/repo_sync.py install-hooks` 启用 `core.hooksPath`（已有其它 hooksPath 须 `--force`）；临时手动格式化用 `python3 .repo_template/scripts/md_format.py --changed`，commit 前 `--check` 为绿。
+- 消费仓 `prettier --check .` 豁免模板侧路径：分发静态文件（两 `package.json`、`view_static/` 看板 UI——模板自有 `2` 空格/单引号风格、`test_chain_plan_cases.js`）、同步状态（`.repo_template/sync_state.json`，每轮 `apply` 重写）、派生索引（`docs/tasks_index.json`、`docs/archive/tasks_index.json`，可重建）、任务产物（`docs/**/handoff.json`，逐任务生成），以及本地生成的 `.opencode/package.json` / `package-lock.json`（`prettier` 不认嵌套 `.gitignore`）。`repo_sync.py apply` 机械追加到消费仓 `.prettierignore`（消费独有规则保留，去重），`status` / `plan` 展示缺失项；模板文件不随消费仓 `tabWidth` / 引号配置重排，消费侧不手改、不逐个加 `ignore`。同步改写消费仓自有 JSON（`.claude/settings.json`、MCP）时沿用原缩进，不弄红门禁。`.github/workflows/repo-template-ci.yml` 已下线（`b3e5c8f` 起不再分发），残留时 `status` / `plan` / `apply` 警告，确认无消费定制后手动删除。
 - front matter 注释独占整行；行内注释有解析器兜底，但勿依赖。
 
 ## skill 调用

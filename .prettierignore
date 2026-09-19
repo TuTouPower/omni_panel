@@ -27,3 +27,8 @@ scripts/repo_template/
 # 消费仓补充：docs/archive/ 为冻结历史（append-only，内部文件只准新增），免检；
 # 活跃工作区 docs/tasks/ 照常受门禁约束
 docs/archive/
+
+# 同步自模板（repo-template-sync）：模板自有路径不受消费仓 format 门禁约束
+docs/tasks_index.json
+docs/archive/tasks_index.json
+docs/**/handoff.json

@@ -6,6 +6,8 @@
 
 本文件是 agent 行为入口：目录权责、状态机与 skill 路由。只加载当前任务所需文档。
 
+测试按 `docs/blueprint/testing.md`「用户干扰分级」执行：会弹窗/抢焦点/或用 `package`/`reload` 重启用户正在用的 app 的命令（`test:e2e:electron`、`test:packaged`、`package`、`reload`、`start`、`test:contract:live`）**必须先取得用户明确许可**，不得自行触发；无窗口的（`pnpm test`、`typecheck`、`lint`、`format:check`、headless e2e 变体）可直接跑。
+
 命名与格式约定见 `docs/blueprint/conventions.md`「命名与格式」。
 
 ## 目录与读写规则
@@ -49,13 +51,10 @@
 
 - specs driven：需求拆分为可独立验证的 task，填写 `spec.md`（契约区行为 AC 须非空）；版本号、底层库选型、目录结构不写进行为 AC，需要长期约束的写 `docs/blueprint/decisions.md`。
 - TDD：可测部分先红后绿；测试须触达生产逻辑。实现变更让旧测试语义失效时，新增覆盖新语义的测试；旧测试原样保留或整体删除并写明理由，**禁止就地把旧测试的预期改成当前实现的输出**。
-- 用户未明确允许或者不在 skill 流程时，绝不准手动直接更改未被 gitignore 的代码文件。
-- 测试按 `docs/blueprint/testing.md`「用户干扰分级」执行：会弹窗/抢焦点/或用 `package`/`reload` 重启用户正在用的 app 的命令（`test:e2e:electron`、`test:packaged`、`package`、`reload`、`start`、`test:contract:live`）**必须先取得用户明确许可**，不得自行触发；无窗口的（`pnpm test`、`typecheck`、`lint`、`format:check`、headless e2e 变体）可直接跑。
-- 主仓负责 task 创建、从主干或上一 task 分支启动 worktree、task commit 后清理 worktree、整批最终合并（派生 index 随同一 merge commit 入库）；除非用户明确允许否则不在主仓直接 `task-run`。
-- `start` 无绕过参数；只能从干净主仓默认分支调用。首 task 基于本地主干，后续 task 基于上一已完成且已清理 worktree 的 task 分支；批次执行期间允许 main 并行推进，链与 main 的对齐在合并阶段处理。
-- task 状态读取优先级：登记 worktree -> 未合并 task 分支链尾 ref -> main。批次期间 main 中 task 状态可能滞后；`list/show/preflight --ref` 用于只读分支快照，不能据 main 旧 backlog 重复 start 或维护。
-- task 执行期一个实现 commit；创建期和状态维护 commit 分开；派生 index 在集成时进入同一个 merge commit。task worktree 的执行 commit 不提交派生 index；整批完成并获用户批准后只合并链尾分支（`integrate-chain`）。每个 commit 必须独立可验证，有工程意义。
+- 用户未明确要求修改，且当前任务不在获准写入的 skill 流程中时，禁止修改未被 gitignore 的代码文件。
+- task 状态读取优先级：登记 worktree → 未合并 task 分支 ref → 主干。进行中 task 的状态在其合并前不进主干；`list/show/preflight --ref` 用于只读分支快照，不能据主干旧 backlog 重复 start 或维护。
+- task 执行期一个实现 commit；创建期和状态维护 commit 分开；派生 index 在集成时进入同一个 merge commit。每个 commit 必须独立可验证，有工程意义。
 - 发现 commit 混入不属于当前工作的改动时，立即停止工作并向用户汇报；未经用户确认，不继续提交、合并或修正。
-- 使用模板仓提供的工具链、skills、hooks、模板文件时发现缺陷，不静默处理、不自行绕过或修改，报告用户决定。
+- 使用 `.repo_template` 提供的工具链、skills、hooks、模板文件时发现缺陷，不静默处理、不自行绕过或修改，报告用户决定。
 - task 状态：`backlog` / `active` / `done` / `dropped`。
 - 开发工作流的设计见 `.repo_template/docs/architecture.md`，使用见 `.repo_template/docs/usage.md`。

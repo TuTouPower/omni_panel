@@ -74,6 +74,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
 
     monkeypatch.setattr(rs, "CONSUMER", consumer)
     monkeypatch.setattr(rs, "STATE_PATH", state_file)
+    monkeypatch.setattr(rs, "LEGACY_STATE_PATH", consumer / ".agents/skills/repo-template-sync/sync_state.json")
     monkeypatch.setattr(rs, "SKILLS_SRC", consumer / ".repo_template/skills")
     monkeypatch.setattr(rs, "SKILLS_AGENTS", consumer / ".agents/skills")
     monkeypatch.setattr(rs, "SKILLS_CLAUDE", consumer / ".claude/skills")
@@ -392,6 +393,60 @@ def test_prettierignore_preserves_consumer_rules(env):
     assert pi in changed
 
 
+def test_prettierignore_covers_generated_artifacts(env):
+    # Issue #3 回访：同步状态、派生索引、任务产物缺一即红门禁
+    rules = set(rs.PRETTIERIGNORE_TEMPLATE_RULES)
+    assert ".repo_template/sync_state.json" in rules
+    assert "docs/tasks_index.json" in rules
+    assert "docs/archive/tasks_index.json" in rules
+    assert "docs/**/handoff.json" in rules
+
+
+def test_detect_json_indent(env):
+    assert rs._detect_json_indent('{\n  "a": 1\n}\n') == 2
+    assert rs._detect_json_indent('{\n    "a": 1\n}\n') == 4
+    assert rs._detect_json_indent('{\n\t"a": 1\n}\n') == "\t"
+    assert rs._detect_json_indent('{"a": 1}') == 2
+    assert rs._detect_json_indent('') == 2
+
+
+def test_mcp_merge_preserves_consumer_indent(env):
+    src, consumer = env["src"], env["consumer"]
+    (src / ".mcp.json").write_text(json.dumps({"mcpServers": {"tpl-server": {"command": "x"}}}))
+    dmcp = consumer / ".mcp.json"
+    dmcp.write_text('{\n    "mcpServers": {\n        "consumer-server": {"command": "y"}\n    }\n}\n')
+
+    changed: set[Path] = set()
+    rs.merge_mcp(src, changed)
+    raw = dmcp.read_text()
+    assert json.loads(raw)["mcpServers"]["tpl-server"] == {"command": "x"}
+    assert '\n    "mcpServers"' in raw  # 消费仓 4 空格体例保留，未被重排成 2 空格
+    assert dmcp in changed
+
+
+def test_settings_rewrite_preserves_consumer_indent(env):
+    consumer = env["consumer"]
+    settings = consumer / '.claude/settings.json'
+    settings.parent.mkdir(parents=True)
+    settings.write_text(json.dumps({
+        'hooks': {'PreToolUse': [{
+            'matcher': 'Bash',
+            'hooks': [
+                {'type': 'command', 'command': rs._RETIRED_MERGE_GUARD_COMMAND},
+                {'type': 'command', 'command': 'echo keep'},
+            ],
+        }]},
+    }, ensure_ascii=False, indent=4) + "\n")
+    changed: set[Path] = set()
+    rs.repair_symlinks(changed)
+    raw = settings.read_text()
+    assert json.loads(raw)["hooks"]["PreToolUse"][0]["hooks"] == [
+        {"type": "command", "command": "echo keep"},
+    ]
+    assert '\n    "hooks"' in raw  # 退役项移除，但 4 空格体例保留
+    assert settings in changed
+
+
 def test_retired_template_warnings(env):
     consumer = env["consumer"]
     assert rs.retired_template_warnings() == []
@@ -419,6 +474,48 @@ def test_mcp_merge_keywise(env):
     changed = set()
     rs.merge_mcp(src, changed)
     assert json.loads(dmcp.read_text())["mcpServers"]["tpl-server"] == {"command": "x"}
+
+
+# ---------------------------------------------------------------------------
+# AGENTS.md 标题分区协议
+# ---------------------------------------------------------------------------
+
+def test_sectioned_agents_force_merge_intro_boundaries(env):
+    src, consumer = env["src"], env["consumer"]
+    source = """项目介绍模板，不能覆盖消费内容。
+
+## 目录与读写规则
+模板目录规则
+
+## 开发原则
+模板开发原则 v2
+"""
+    target = """消费仓项目介绍和自定义规则。
+
+## 目录与读写规则
+消费仓目录规则
+自定义目录规则
+
+## 开发原则
+旧开发原则
+"""
+    (src / "AGENTS.md").write_text(source)
+    (consumer / "AGENTS.md").write_text(target)
+    changed: set[Path] = set()
+    assert rs._apply_agents_sectioned(src, changed) is True
+    result = (consumer / "AGENTS.md").read_text()
+    assert "消费仓项目介绍和自定义规则。" in result
+    assert "消费仓目录规则" in result and "模板目录规则" not in result
+    assert "模板开发原则 v2" in result and "旧开发原则" not in result
+    assert consumer / "AGENTS.md" in changed
+
+
+def test_sectioned_agents_requires_headings(env):
+    src, consumer = env["src"], env["consumer"]
+    (src / "AGENTS.md").write_text("legacy")
+    (consumer / "AGENTS.md").write_text("legacy")
+    # 旧版模板源继续交回旧的整文件裁定逻辑。
+    assert rs._apply_agents_sectioned(src, set()) is False
 
 
 # ---------------------------------------------------------------------------
@@ -491,10 +588,33 @@ def test_init_writes_template_source(env, monkeypatch):
     consumer, state_file = env["consumer"], env["state_file"]
     monkeypatch.setattr(rs, "CONSUMER", consumer)
     monkeypatch.setattr(rs, "STATE_PATH", state_file)
+    monkeypatch.setattr(rs, "LEGACY_STATE_PATH", consumer / ".agents/skills/repo-template-sync/sync_state.json")
     rs.cmd_init(Namespace(source=str(env["src"])))
     state = rs.read_state()
     assert state["template_source"]["kind"] == "path"
     assert state["template_source"]["value"] == str(env["src"])
+
+
+def test_init_migrates_legacy_state_and_prompts(env, monkeypatch):
+    consumer, state_file = env["consumer"], env["state_file"]
+    state_file.unlink()
+    legacy = consumer / ".agents/skills/repo-template-sync/sync_state.json"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text(json.dumps({
+        "template_source": {"kind": "path", "value": "/old/path"},
+        "last_synced_commit": "deadbeef",
+        "last_synced_at": "2026-01-01T00:00:00+08:00",
+        "user_prompts": [{"text": "保留我", "tags": ["x"], "revoked": False}],
+    }))
+    monkeypatch.setattr(rs, "STATE_PATH", state_file)
+    monkeypatch.setattr(rs, "LEGACY_STATE_PATH", legacy)
+    rs.cmd_init(Namespace(source=str(env["src"])))
+    state = rs.read_state()
+    # prompt 与审计字段随迁移保留；template_source 以本次 --source 为准
+    assert state["user_prompts"][0]["text"] == "保留我"
+    assert state["last_synced_commit"] == "deadbeef"
+    assert state["template_source"]["value"] == str(env["src"])
+    assert not legacy.exists()
 
 
 def test_resolve_src_rejects_invalid(env):

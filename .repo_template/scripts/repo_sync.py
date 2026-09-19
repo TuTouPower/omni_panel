@@ -36,6 +36,9 @@ from pathlib import Path
 TOOLKIT_ROOT = Path(__file__).resolve().parent.parent
 CONSUMER = TOOLKIT_ROOT.parent
 STATE_PATH = CONSUMER / ".repo_template/sync_state.json"
+# 旧布局 state（2026-08-15 a9453b1 前）：宿主 skill 目录下的真实目录。
+# 首次在新路径 init 时读一次并迁移，避免 user_prompts / last_synced_* 丢失。
+LEGACY_STATE_PATH = CONSUMER / ".agents/skills/repo-template-sync/sync_state.json"
 SKILLS_SRC = CONSUMER / ".repo_template/skills"
 SKILLS_AGENTS = CONSUMER / ".agents/skills"
 SKILLS_CLAUDE = CONSUMER / ".claude/skills"
@@ -53,17 +56,29 @@ PROTECT_NAMES = {"sync_state.json"}
 
 # 裁定范围：可定制共享资产。.gitignore / .prettierignore / MCP 机械合并；AGENTS.md 语义合并。
 SHARED_FILES = ("AGENTS.md", ".gitignore")
+
+# AGENTS.md 同步协议：按固定标题识别三类内容。
+# 项目介绍永不更新；目录与读写规则只报告差异，由 agent 语义合并；开发原则每轮强制更新。
+AGENTS_INTRO_HEADING = "## 目录与读写规则"
+AGENTS_MERGE_HEADING = "## 目录与读写规则"
+AGENTS_FORCE_HEADING = "## 开发原则"
 MCP_CANDIDATES = (".mcp.json", ".cursor/mcp.json", ".vscode/mcp.json")
 
 # 模板自有路径：不受消费仓 prettier 门禁约束（Issue #3）。
 # view_static/ 与 test_chain_plan_cases.js 用模板自有风格（2 空格/单引号），
-# package.json 缩进随消费仓 tabWidth 漂移，.opencode/package*.json 属本地生成
-#（prettier 不认 .gitignore）。由 merge_prettierignore 机械追加，消费独有规则保留。
+# package.json / sync_state.json 缩进随消费仓 tabWidth 漂移（sync_state.json 每轮 apply 重写），
+# tasks_index.json 系派生索引（store.py 写 indent=4，可重建），handoff.json 由 task 流程逐任务生成，
+# .opencode/package*.json 属本地生成（prettier 不认嵌套 .gitignore）。
+# 由 merge_prettierignore 机械追加，消费独有规则保留。
 PRETTIERIGNORE_TEMPLATE_RULES = (
     ".repo_template/scripts/package.json",
     ".repo_template/tests/package.json",
     ".repo_template/scripts/repo_task/view_static/",
     ".repo_template/tests/test_chain_plan_cases.js",
+    ".repo_template/sync_state.json",
+    "docs/tasks_index.json",
+    "docs/archive/tasks_index.json",
+    "docs/**/handoff.json",
     ".opencode/package.json",
     ".opencode/package-lock.json",
 )
@@ -618,12 +633,32 @@ def _ensure_symlink(link: Path, target_rel: str, expected: Path, changed: set[Pa
 _RETIRED_MERGE_GUARD_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/merge_guard.py"'
 
 
+def _detect_json_indent(raw: str) -> int | str:
+    """从现有 JSON 文本推断缩进（首个 ^(空格|tab)+\" 行），无匹配回退 2。
+
+    同步改写消费仓 JSON（settings.json / MCP）时沿用原缩进，避免把消费仓
+    4 空格体例重排成 2 空格、反而弄红其 prettier 门禁。
+    """
+    for line in raw.splitlines():
+        if not line or line[0] not in (" ", "\t"):
+            continue
+        stripped = line.lstrip(" \t")
+        if stripped.startswith('"'):
+            prefix = line[: len(line) - len(stripped)]
+            if set(prefix) == {"\t"}:
+                return "\t"
+            if set(prefix) == {" "}:
+                return len(prefix)
+    return 2
+
+
 def _remove_retired_merge_guard_setting(changed: set[Path], reports: list[str]) -> None:
     settings = CONSUMER / ".claude/settings.json"
     if not settings.is_file():
         return
     try:
-        data = json.loads(settings.read_text(encoding="utf-8"))
+        raw = settings.read_text(encoding="utf-8")
+        data = json.loads(raw)
     except (json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
         raise SyncError(
             f"{_rel(settings)} 无法解析，不能安全移除已退役 merge guard PreToolUse（{error}）"
@@ -667,7 +702,7 @@ def _remove_retired_merge_guard_setting(changed: set[Path], reports: list[str]) 
     if not hooks:
         data.pop("hooks", None)
     temporary = settings.with_name(settings.name + ".tmp")
-    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=_detect_json_indent(raw)) + "\n", encoding="utf-8")
     temporary.replace(settings)
     changed.add(settings)
     reports.append(f"{_rel(settings)} 已移除退役 merge guard PreToolUse")
@@ -1009,7 +1044,8 @@ def merge_mcp(src: Path, changed: set[Path]) -> list[str]:
             merged.append(_rel(dp))
             continue
         try:
-            ddata = json.loads(dp.read_text(encoding="utf-8"))
+            draw = dp.read_text(encoding="utf-8")
+            ddata = json.loads(draw)
         except (OSError, json.JSONDecodeError) as e:
             print(f"WARNING: 消费侧 {rel} 无法解析，跳过 MCP 合并（{e}）", file=sys.stderr)
             continue
@@ -1021,7 +1057,7 @@ def merge_mcp(src: Path, changed: set[Path]) -> list[str]:
                 touched = True
         if touched:
             _stage_rollback(dp)
-            dp.write_text(json.dumps(ddata, ensure_ascii=False, indent=2) + "\n",
+            dp.write_text(json.dumps(ddata, ensure_ascii=False, indent=_detect_json_indent(draw)) + "\n",
                           encoding="utf-8", newline="\n")
             changed.add(dp)
             merged.append(_rel(dp))
@@ -1032,10 +1068,98 @@ def merge_mcp(src: Path, changed: set[Path]) -> list[str]:
 # apply 组装
 # ---------------------------------------------------------------------------
 
+def _markdown_section(text: str, heading: str) -> tuple[int, int, str] | None:
+    """返回 heading 所在 section 的 (start, end, text)，section 结束于下一个同级标题。"""
+    lines = text.splitlines(keepends=True)
+    offsets: list[tuple[int, str]] = []
+    offset = 0
+    for line in lines:
+        if line.startswith("## "):
+            offsets.append((offset, line.strip()))
+        offset += len(line)
+    for index, (start, title) in enumerate(offsets):
+        if title != heading:
+            continue
+        end = offsets[index + 1][0] if index + 1 < len(offsets) else len(text)
+        return start, end, text[start:end]
+    return None
+
+
+def _agents_parts(text: str) -> dict[str, tuple[int, int, str]]:
+    """识别 AGENTS.md 的 intro、merge、force 三部分；缺少强制标题则拒绝同步。"""
+    merge = _markdown_section(text, AGENTS_MERGE_HEADING)
+    force = _markdown_section(text, AGENTS_FORCE_HEADING)
+    if merge is None or force is None:
+        raise SyncError("AGENTS.md 缺少 ## 目录与读写规则 或 ## 开发原则，拒绝猜测同步")
+    intro_end = merge[0]
+    return {"intro": (0, intro_end, text[:intro_end]), "merge": merge, "force": force}
+
+
+def _replace_agents_force(src_text: str, dst_text: str) -> tuple[str, bool, bool, bool]:
+    """仅替换开发原则；返回新文本、force 是否变化、merge 是否不同、intro 是否不同。"""
+    src_parts = _agents_parts(src_text)
+    dst_parts = _agents_parts(dst_text)
+    src_force = src_parts["force"]
+    dst_force = dst_parts["force"]
+    result = dst_text[:dst_force[0]] + src_text[src_force[0]:src_force[1]] + dst_text[dst_force[1]:]
+    return (
+        result,
+        result != dst_text,
+        src_parts["merge"][2] != dst_parts["merge"][2],
+        src_parts["intro"][2] != dst_parts["intro"][2],
+    )
+
+
+def agents_section_status(src: Path) -> dict[str, str] | None:
+    sp, dp = src / "AGENTS.md", CONSUMER / "AGENTS.md"
+    if not sp.exists() or not dp.exists():
+        return None
+    src_parts = _agents_parts(sp.read_text(encoding="utf-8"))
+    dst_path = dp.resolve() if dp.is_symlink() else dp
+    dst_parts = _agents_parts(dst_path.read_text(encoding="utf-8"))
+    return {
+        "intro": "protected" if src_parts["intro"][2] != dst_parts["intro"][2] else "same",
+        "merge": "different" if src_parts["merge"][2] != dst_parts["merge"][2] else "same",
+        "force": "different" if src_parts["force"][2] != dst_parts["force"][2] else "same",
+    }
+
+
+def _apply_agents_sectioned(src: Path, changed: set[Path]) -> bool:
+    sp, dp = src / "AGENTS.md", CONSUMER / "AGENTS.md"
+    if not sp.exists():
+        return False
+    src_text = sp.read_text(encoding="utf-8")
+    # 旧版模板源没有固定标题时，交回旧的整文件裁定逻辑。
+    try:
+        _agents_parts(src_text)
+    except SyncError:
+        return False
+    if not dp.exists():
+        raise SyncError("模板 AGENTS.md 已启用分区协议，但消费仓缺少 AGENTS.md")
+    target = dp.resolve() if dp.is_symlink() else dp
+    dst_text = target.read_text(encoding="utf-8")
+    result, force_changed, merge_diff, intro_diff = _replace_agents_force(src_text, dst_text)
+    if intro_diff:
+        print("提示: AGENTS.md 项目介绍与模板不同；按规则保护消费仓内容，不覆盖")
+    if merge_diff:
+        print("提示: AGENTS.md 目录与读写规则与模板不同；交由 agent 语义合并，脚本不覆盖")
+    if force_changed:
+        _stage_rollback(target)
+        target.write_text(result, encoding="utf-8", newline="\n")
+        changed.add(target)
+    return True
+
 def _apply_shared_unit(unit: str, decision: str | None, src: Path, changed: set[Path]) -> None:
+    # 标题协议下只自动更新开发原则；其余部分分别保护或交 Agent。
+    if unit == "AGENTS.md" and _apply_agents_sectioned(src, changed):
+        print("AGENTS.md 已按标题协议处理：开发原则强制更新，目录规则交 agent 合并，项目介绍保留")
+        return
     if not decision:
         print(f"裁定单元 {unit} 未提供决策，跳过（待 agent 处理）")
         return
+    if unit == "AGENTS.md":
+        if _apply_agents_sectioned(src, changed):
+            return
     if decision in ("merge", "merge_into_consumer"):
         print(f"裁定单元 {unit} 为 merge：由 agent 编辑消费文件完成语义合并，脚本不整文件覆盖")
         return
@@ -1061,7 +1185,7 @@ def _run_tests(consumer: Path) -> bool:
     r = subprocess.run(
         ["pytest", ".repo_template/tests/", "-q"], cwd=str(consumer),
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=300,
+        timeout=500,
     )
     if r.returncode != 0:
         print(r.stdout[-2000:] if r.stdout else "", file=sys.stderr)
@@ -1078,16 +1202,32 @@ def cmd_init(args: argparse.Namespace) -> int:
     if not args.source:
         raise SyncError("init 需要 --source <path|url>")
     if not STATE_PATH.exists():
-        write_state({
+        # 旧布局 state 迁移：字段级带过 user_prompts / last_synced_*（新路径不存在时才读）。
+        legacy = None
+        if LEGACY_STATE_PATH.exists():
+            try:
+                legacy = json.loads(LEGACY_STATE_PATH.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                legacy = None
+        base = legacy if isinstance(legacy, dict) else {
             "template_source": None,
             "last_synced_commit": None,
             "last_synced_at": None,
             "user_prompts": [],
-        })
+        }
+        write_state(base)
+        if legacy is not None:
+            print(f"已迁移旧布局 state：{LEGACY_STATE_PATH.relative_to(CONSUMER).as_posix()} → {STATE_PATH.relative_to(CONSUMER).as_posix()}")
     data = read_state()
     kind = "path" if Path(args.source).expanduser().exists() else "url"
     data["template_source"] = {"kind": kind, "value": str(Path(args.source).expanduser().resolve() if kind == "path" else args.source)}
     write_state(data)
+    if LEGACY_STATE_PATH.exists():
+        try:
+            LEGACY_STATE_PATH.unlink()
+            print(f"旧布局 state 已移除：{LEGACY_STATE_PATH.relative_to(CONSUMER).as_posix()}")
+        except OSError:
+            pass
     print(f"template_source 已写：kind={kind}, value={data['template_source']['value']}")
     return 0
 
@@ -1189,7 +1329,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print("\n### 裁定同步 — 逐项（有 diff 必出现）")
     rows = []
     blocked = prompt_substrings(state)
+    agents_is_sectioned = agents_section_status(src) is not None
     for item in shared_status(src):
+        if item["unit"] == "AGENTS.md" and agents_is_sectioned:
+            continue
         if item["cls"] == "both_identical":
             continue
         if item["unit"] == ".gitignore" and item["cls"] in ("both_differ", "template_only"):
@@ -1202,6 +1345,17 @@ def cmd_plan(args: argparse.Namespace) -> int:
             disp = "ask_user / agent 决策"
         rows.append([item["unit"], item["cls"], disp])
     print(_md_table(["单元", "分类", "disposition"], rows))
+
+    print("\n### AGENTS.md 分区")
+    section_status = agents_section_status(src)
+    if section_status is None:
+        print("未识别到完整标题协议：需要 ## 目录与读写规则、## 开发原则")
+    else:
+        print(_md_table(["区段", "状态", "处置"], [
+            ["项目介绍", section_status["intro"], "绝不更新，保留消费仓内容"],
+            ["目录与读写规则", section_status["merge"], "agent 语义合并，脚本不覆盖"],
+            ["开发原则", section_status["force"], "每轮强制从模板更新"],
+        ]))
 
     print("\n### 软链")
     rows = []
@@ -1483,7 +1637,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="读取状态与差异摘要").set_defaults(func=cmd_status)
     sub.add_parser("plan", help="计算差异预览（零写盘）").set_defaults(func=cmd_plan)
-    sub.add_parser("prep", help="同步工具自举：单向覆盖 core skill 与 scripts/repo_template，建软链").set_defaults(func=cmd_prep)
+    sub.add_parser("prep", help="同步工具自举：单向覆盖 core skill 与 .repo_template/scripts，建软链").set_defaults(func=cmd_prep)
 
     apply = sub.add_parser("apply", help="执行对齐写盘")
     apply.add_argument("--decision", action="append", default=[], metavar="UNIT:DISP",
