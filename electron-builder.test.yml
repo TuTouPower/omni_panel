@@ -67,6 +67,7 @@ mac:
           arch: [x64, arm64]
     icon: assets/icon-test.png
     hardenedRuntime: true
+    identity: null
 linux:
     target:
         - AppImage

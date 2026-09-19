@@ -49,32 +49,29 @@ describe("package-and-run run_package_build", () => {
         expect(calls[calls.length - 1]).toContain("ensure_sqlite_abi.mjs node");
     });
 
-    it("默认 electron-builder --dir 带 -c.mac.identity=null，不查钥匙串", () => {
-        const original = process.env["OMNI_SIGN"];
-        delete process.env["OMNI_SIGN"];
+    it("electron-builder --dir 始终 identity=null 且关闭自动发现", () => {
         exec_mock.mockImplementation(() => Buffer.alloc(0));
-        try {
-            run_package_build();
-            const builder = exec_mock.mock.calls
-                .map(([cmd]) => cmd)
-                .find((cmd) => cmd.includes("electron-builder"));
-            expect(builder).toContain("electron-builder --dir -c.mac.identity=null");
-        } finally {
-            if (original === undefined) delete process.env["OMNI_SIGN"];
-            else process.env["OMNI_SIGN"] = original;
-        }
+        run_package_build();
+        const call = exec_mock.mock.calls.find(
+            ([cmd]) => typeof cmd === "string" && cmd.includes("electron-builder"),
+        );
+        expect(call?.[0]).toBe("electron-builder --dir -c.mac.identity=null");
+        const options = call?.[1] as { env?: NodeJS.ProcessEnv } | undefined;
+        expect(options?.env?.["CSC_IDENTITY_AUTO_DISCOVERY"]).toBe("false");
     });
 
-    it("OMNI_SIGN=1 时 electron-builder 不带 identity=null", () => {
+    it("OMNI_SIGN=1 时 builder 仍跳过钥匙串，只影响后续 codesign", () => {
         const original = process.env["OMNI_SIGN"];
         process.env["OMNI_SIGN"] = "1";
         exec_mock.mockImplementation(() => Buffer.alloc(0));
         try {
             run_package_build();
-            const builder = exec_mock.mock.calls
-                .map(([cmd]) => cmd)
-                .find((cmd) => cmd.includes("electron-builder"));
-            expect(builder).toBe("electron-builder --dir");
+            const call = exec_mock.mock.calls.find(
+                ([cmd]) => typeof cmd === "string" && cmd.includes("electron-builder"),
+            );
+            expect(call?.[0]).toBe("electron-builder --dir -c.mac.identity=null");
+            const options = call?.[1] as { env?: NodeJS.ProcessEnv } | undefined;
+            expect(options?.env?.["CSC_IDENTITY_AUTO_DISCOVERY"]).toBe("false");
         } finally {
             if (original === undefined) delete process.env["OMNI_SIGN"];
             else process.env["OMNI_SIGN"] = original;

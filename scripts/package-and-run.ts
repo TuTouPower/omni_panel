@@ -240,20 +240,16 @@ export function run_package_build(): void {
             cwd: ROOT,
             stdio: "inherit",
         });
-        // 默认 -c.mac.identity=null 跳过 electron-builder 自动发现钥匙串身份；
-        // seal 由后续 sign_mac_app 的 ad-hoc 重签补上。OMNI_SIGN=1 才让 builder 自己签。
-        const skip = skip_sign();
-        log(
-            skip
-                ? "running electron-builder --dir (unsigned, identity=null)..."
-                : "running electron-builder --dir...",
-        );
-        execSync(`electron-builder --dir${skip ? " -c.mac.identity=null" : ""}`, {
+        // yml 已钉 mac.identity: null；CLI + CSC_IDENTITY_AUTO_DISCOVERY=false
+        // 防止自动发现 OmniPanel Local Dev。seal 由后续 sign_mac_app 补上。
+        log("running electron-builder --dir (unsigned, identity=null)...");
+        execSync("electron-builder --dir -c.mac.identity=null", {
             cwd: ROOT,
             stdio: "inherit",
             env: {
                 ...process.env,
                 ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/",
+                CSC_IDENTITY_AUTO_DISCOVERY: "false",
             },
         });
     } finally {

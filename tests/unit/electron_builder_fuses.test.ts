@@ -46,6 +46,26 @@ export function assert_no_cookie_encryption(file_path: string): void {
     assert_no_cookie_encryption_fuses(fuses, file_path);
 }
 
+export function parse_mac_identity(yaml_content: string): string | null | undefined {
+    let in_mac = false;
+    for (const line of yaml_content.split(/\r?\n/)) {
+        if (/^mac:\s*$/.test(line)) {
+            in_mac = true;
+            continue;
+        }
+        if (in_mac) {
+            if (/^[^\s]/.test(line)) break;
+            const match = /^\s+identity:\s*(.+?)\s*$/.exec(line);
+            if (match?.[1]) {
+                const value = match[1];
+                if (value === "null" || value === "~") return null;
+                return value.replace(/^["']|["']$/g, "");
+            }
+        }
+    }
+    return undefined;
+}
+
 describe("t500 electron-builder fuses configuration", () => {
     it("parse_builder_fuses correctly extracts boolean fuses", () => {
         const sample = `
@@ -92,5 +112,21 @@ electronFuses:
         const content = readFileSync(path, "utf8");
         const fuses = parse_builder_fuses(content);
         expect(fuses["enableCookieEncryption"]).toBe(false);
+    });
+
+    it("parse_mac_identity reads null and quoted values", () => {
+        expect(parse_mac_identity("mac:\n    identity: null\nlinux:\n")).toBeNull();
+        expect(parse_mac_identity('mac:\n    identity: "-"\n')).toBe("-");
+        expect(parse_mac_identity("win:\n    target: nsis\n")).toBeUndefined();
+    });
+
+    it("electron-builder.yml pins mac.identity to null", () => {
+        const content = readFileSync(resolve(REPO_ROOT, "electron-builder.yml"), "utf8");
+        expect(parse_mac_identity(content)).toBeNull();
+    });
+
+    it("electron-builder.test.yml pins mac.identity to null", () => {
+        const content = readFileSync(resolve(REPO_ROOT, "electron-builder.test.yml"), "utf8");
+        expect(parse_mac_identity(content)).toBeNull();
     });
 });
