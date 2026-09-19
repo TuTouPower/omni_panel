@@ -8018,6 +8018,22 @@
             "conflicts_with": "",
             "note": "来源 p250；解决 macOS 全屏工作流下用量弹窗和右键菜单无法盖在全屏应用上的问题; dropped: 用户裁决：被main b2d6d1d9超集覆盖（含跨Space重申与p254），分支已删，遗留已在main重建为p256",
             "dir": "docs/archive/tasks/t503_tray_popup_above_fullscreen"
+        },
+        {
+            "tid": "t504",
+            "slug": "web_session_keepalive_unification",
+            "title": "统一 Web 会话类连接器保活机制与认证失效识别",
+            "status": "done",
+            "branch": "t504_web_session_keepalive_unification",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "c01c5e0613564e916458ca2ef6829d28c4e008e7",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "所有 session 网页连接器（opencode_go、mimo、kimi_web）统一认证失效识别、后台静默保活与生命周期管理",
+            "dir": "docs/archive/tasks/t504_web_session_keepalive_unification"
         }
     ]
 }

@@ -338,4 +338,18 @@ describe("mimo connector", () => {
         expect(result.observations.filter((o) => o.raw_label === "balance")).toHaveLength(0);
         expect(result.failed_accounts).toHaveLength(1);
     });
+
+    it("throws session expired error when usage_result indicates not logged in", async () => {
+        const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
+        const result = await run_connector(
+            manifest,
+            script,
+            create_ctx(
+                { code: 401, message: "用户未登录" },
+                { code: 0, data: {} },
+                { code: 0, data: { balance: 10 } },
+            ),
+        );
+        expect(result.error).toMatch(/MiMo 登录会话已失效/);
+    });
 });

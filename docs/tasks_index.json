@@ -2,22 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t504",
-            "slug": "web_session_keepalive_unification",
-            "title": "统一 Web 会话类连接器保活机制与认证失效识别",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "所有 session 网页连接器（opencode_go、mimo、kimi_web）统一认证失效识别、后台静默保活与生命周期管理",
-            "dir": "docs/tasks/t504_web_session_keepalive_unification"
-        }
-    ]
+    "tasks": []
 }

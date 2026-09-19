@@ -828,6 +828,176 @@ return [{
         }
     });
 
+    it("t504: triggers auto sessionLogin on opencode_go 'Cookie 可能已失效' error and succeeds after retry", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-opencode-relogin-"));
+        const session_script = `
+const cookie = ctx.params.SESSION_COOKIE;
+if (cookie === "expired") {
+    throw new Error("Cookie 可能已失效，未跳转到 workspace");
+}
+return [{
+    provider: "opencode_go",
+    source_instance_id: "opencode-1",
+    account_id: "opencode-1",
+    account_label: "OpenCode",
+    metric_id: "opencode_go:rolling",
+    raw_label: "rolling",
+    normalized_label: "Rolling",
+    window: "second",
+    used: 25,
+    limit: 100,
+    display_style: "percent",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "session",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(tempDir, "connector.js"), session_script);
+        const observationStore = make_store();
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("opencode-1:SESSION_COOKIE", "expired");
+        const sessionLogin = vi.fn().mockImplementation(async () => {
+            await vault.set("opencode-1:SESSION_COOKIE", "fresh");
+            return { saved: true, credential_changed: true };
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "opencode_go",
+                        provider: "opencode_go",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://opencode.ai" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("opencode-1", true, "opencode_go"),
+                    executablePath: tempDir,
+                    name: "OpenCode Go",
+                },
+            ]),
+            vault,
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("opencode-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledWith("opencode-1");
+            const state = runtimeStore.getSnapshot("opencode-1");
+            expect(state.status).toBe("ready");
+            if (state.status === "ready") {
+                expect(state.items).toHaveLength(1);
+                expect(state.items[0]?.used).toBe(25);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("t504: triggers auto sessionLogin on mimo 'MiMo 登录会话已失效' error and succeeds after retry", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-mimo-relogin-"));
+        const session_script = `
+const cookie = ctx.params.SESSION_COOKIE;
+if (cookie === "expired") {
+    throw new Error("MiMo 登录会话已失效: 用户未登录");
+}
+return [{
+    provider: "mimo",
+    source_instance_id: "mimo-1",
+    account_id: "mimo-1",
+    account_label: "MiMo",
+    metric_id: "mimo:plan_total_token",
+    raw_label: "plan_total_token",
+    normalized_label: "套餐额度",
+    window: "month",
+    used: 15,
+    limit: 100,
+    display_style: "percent",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "session",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(tempDir, "connector.js"), session_script);
+        const observationStore = make_store();
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("mimo-1:SESSION_COOKIE", "expired");
+        const sessionLogin = vi.fn().mockImplementation(async () => {
+            await vault.set("mimo-1:SESSION_COOKIE", "fresh");
+            return { saved: true, credential_changed: true };
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://platform.xiaomimimo.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("mimo-1", true, "mimo"),
+                    executablePath: tempDir,
+                    name: "MiMo",
+                },
+            ]),
+            vault,
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledWith("mimo-1");
+            const state = runtimeStore.getSnapshot("mimo-1");
+            expect(state.status).toBe("ready");
+            if (state.status === "ready") {
+                expect(state.items).toHaveLength(1);
+                expect(state.items[0]?.used).toBe(15);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("preserves lastSuccess across consecutive failures (anti-flicker)", async () => {
         // Scenario: connector was "ready", fails once (lastSuccess preserved),
         // fails again — second refresh MUST still carry lastSuccess so the

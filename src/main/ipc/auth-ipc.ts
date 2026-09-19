@@ -141,20 +141,19 @@ export async function handleCookieLogin(
 
     try {
         const provider = def.manifest.provider;
-        // p239/t464: kimi_web 的续期材料由登录页在存活期间写入会话，不能按 1.5s 定时关窗。
-        const auto_close_ms = login_auto_close_ms(provider);
-        // 自动重登（refresh-service 触发）不允许无人值守下等满 120s 超时丢凭据，
-        // 改为「捕获到新 Bearer 即关窗」；手动登录仍由用户关窗（t464）。
-        const close_when_credential_refreshed =
-            provider === "kimi_web" && options.auto === true ? true : undefined;
-        // p240: 自动重登不弹屏（kimi_web 的 Bearer 15 分钟一过期，闪窗会周期性出现）；
-        // 手动登录仍显示窗口。
-        const hidden = provider === "kimi_web" && options.auto === true ? true : undefined;
+        // p239/t464/t504: 自动重登不按固定时延关窗（避免把旧未换新凭据存下）；手动登录按 provider 策略关窗。
+        const auto_close_ms = options.auto === true ? undefined : login_auto_close_ms(provider);
+        // t504: 自动重登（refresh-service 触发）对所有 session 连接器启用后台隐藏窗口与捕获关窗，
+        // 并设置 30s 安全超时，无人值守不弹屏、不超时挂死。
+        const close_when_credential_refreshed = options.auto === true ? true : undefined;
+        const hidden = options.auto === true ? true : undefined;
+        const timeout_ms = options.auto === true ? 30_000 : undefined;
         const result = await deps.sessionManager.start_login({
             instance_id: instanceId,
             provider,
             login_url: loginUrl,
             cookie_names,
+            ...(timeout_ms === undefined ? {} : { timeout_ms }),
             ...(auto_close_ms === undefined ? {} : { auto_close_ms }),
             ...(close_when_credential_refreshed === undefined
                 ? {}

@@ -20,7 +20,10 @@ export function is_auth_error(message: string): boolean {
         lower.includes("credential") ||
         lower.includes("凭证") ||
         lower.includes("登录") ||
-        lower.includes("密钥")
+        lower.includes("密钥") ||
+        /(?:cookie|会话|session).*(?:失效|过期|invalid|expired)/i.test(lower) ||
+        /(?:失效|过期|invalid|expired).*(?:cookie|会话|session)/i.test(lower) ||
+        lower.includes("未跳转到 workspace")
     );
 }
 
