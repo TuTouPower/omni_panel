@@ -8,6 +8,27 @@ interface OrgItem {
     readonly name?: string;
 }
 
+interface MeterWindow {
+    readonly startsAt?: string;
+    readonly resetsAt?: string;
+    readonly limitMicroCents?: string | number;
+    readonly usedMicroCents?: string | number;
+}
+
+interface GoStatusResponse {
+    readonly subscriberUserId?: string;
+    readonly access?: {
+        readonly startsAt?: string;
+        readonly endsAt?: string;
+        readonly cancelAtPeriodEnd?: boolean;
+        readonly meters?: {
+            readonly fiveHour?: MeterWindow;
+            readonly week?: MeterWindow;
+            readonly month?: MeterWindow;
+        };
+    };
+}
+
 interface UsageSummary {
     readonly totalRequests?: string | number;
     readonly totalInputTokens?: string | number;
@@ -41,6 +62,20 @@ function micro_cents_to_usd(value: unknown): number {
     return Math.round((micro_cents / 100_000_000) * 100) / 100;
 }
 
+function meter_to_pct(meter?: MeterWindow): number | null {
+    if (!meter) return null;
+    const used = to_number(meter.usedMicroCents);
+    const limit = to_number(meter.limitMicroCents);
+    if (limit <= 0) return 0;
+    return Math.max(0, Math.round((used / limit) * 100));
+}
+
+function parse_ts(value: string | undefined): number | null {
+    if (!value) return null;
+    const ts = Date.parse(value);
+    return Number.isFinite(ts) ? ts : null;
+}
+
 function observation(
     account_id: string,
     account_label: string,
@@ -51,6 +86,7 @@ function observation(
     used: number,
     limit: number,
     display_style: "percent" | "ratio",
+    reset_at: number | null,
     now: number,
     status: ScriptObservation["status"],
 ): ScriptObservation {
@@ -66,7 +102,7 @@ function observation(
         used,
         limit,
         display_style,
-        reset_at: null,
+        reset_at,
         status,
         observed_at: now,
         source: "session",
@@ -107,19 +143,11 @@ async function main(): Promise<ScriptObservation[]> {
     const org_headers = { ...headers, "x-org-id": org_id };
     const now = Date.now();
 
-    // 2. 并发拉取 24h / 7d / 30d 汇总用量与账单状态
-    const [summary24h, summary7d, summary30d, billing] = await Promise.all([
+    // 2. 并发拉取 Go 套餐状态与账单状态
+    const [go_status, billing] = await Promise.all([
         ctx.http
-            .get_json("default", "/console/api/usage/summary?range=24h", { headers: org_headers })
-            .then((v) => v as UsageSummary | null)
-            .catch(() => null),
-        ctx.http
-            .get_json("default", "/console/api/usage/summary?range=7d", { headers: org_headers })
-            .then((v) => v as UsageSummary | null)
-            .catch(() => null),
-        ctx.http
-            .get_json("default", "/console/api/usage/summary?range=30d", { headers: org_headers })
-            .then((v) => v as UsageSummary | null)
+            .get_json("default", "/console/api/go/status", { headers: org_headers })
+            .then((v) => v as GoStatusResponse | null)
             .catch(() => null),
         ctx.http
             .get_json("default", "/console/api/billing/status", { headers: org_headers })
@@ -128,65 +156,95 @@ async function main(): Promise<ScriptObservation[]> {
     ]);
 
     const results: ScriptObservation[] = [];
+    const meters = go_status?.access?.meters;
 
-    // 滚动 24h
-    if (summary24h) {
-        const used = micro_cents_to_usd(summary24h.totalCostMicroCents);
-        results.push(
-            observation(
-                org_id,
-                account_label,
-                "rolling",
-                "滚动",
-                "second",
-                null,
-                used,
-                0,
-                "ratio",
-                now,
-                "normal",
-            ),
-        );
-    }
+    if (meters) {
+        // Go 订阅会员：输出精确的百分比用量与重置倒计时
+        if (meters.fiveHour) {
+            const pct = meter_to_pct(meters.fiveHour) ?? 0;
+            results.push(
+                observation(
+                    org_id,
+                    account_label,
+                    "rolling",
+                    "滚动",
+                    "second",
+                    null,
+                    pct,
+                    100,
+                    "percent",
+                    parse_ts(meters.fiveHour.resetsAt),
+                    now,
+                    ctx.status.for_pct(pct),
+                ),
+            );
+        }
 
-    // 周用量 7d
-    if (summary7d) {
-        const used = micro_cents_to_usd(summary7d.totalCostMicroCents);
-        results.push(
-            observation(
-                org_id,
-                account_label,
-                "weekly",
-                "一周",
-                "day",
-                7 * 24 * 60 * 60 * 1000,
-                used,
-                0,
-                "ratio",
-                now,
-                "normal",
-            ),
-        );
-    }
+        if (meters.week) {
+            const pct = meter_to_pct(meters.week) ?? 0;
+            results.push(
+                observation(
+                    org_id,
+                    account_label,
+                    "weekly",
+                    "一周",
+                    "day",
+                    7 * 24 * 60 * 60 * 1000,
+                    pct,
+                    100,
+                    "percent",
+                    parse_ts(meters.week.resetsAt),
+                    now,
+                    ctx.status.for_pct(pct),
+                ),
+            );
+        }
 
-    // 月用量 30d
-    if (summary30d) {
-        const used = micro_cents_to_usd(summary30d.totalCostMicroCents);
-        results.push(
-            observation(
-                org_id,
-                account_label,
-                "monthly",
-                "一月",
-                "month",
-                30 * 24 * 60 * 60 * 1000,
-                used,
-                0,
-                "ratio",
-                now,
-                "normal",
-            ),
-        );
+        if (meters.month) {
+            const pct = meter_to_pct(meters.month) ?? 0;
+            results.push(
+                observation(
+                    org_id,
+                    account_label,
+                    "monthly",
+                    "一月",
+                    "month",
+                    30 * 24 * 60 * 60 * 1000,
+                    pct,
+                    100,
+                    "percent",
+                    parse_ts(go_status.access.endsAt),
+                    now,
+                    ctx.status.for_pct(pct),
+                ),
+            );
+        }
+    } else {
+        // 回退到 30d usage summary 费用
+        const summary = await ctx.http
+            .get_json("default", "/console/api/usage/summary?range=30d", { headers: org_headers })
+            .then((v) => v as UsageSummary | null)
+            .catch(() => null);
+
+        if (summary) {
+            const used = micro_cents_to_usd(summary.totalCostMicroCents);
+            results.push(
+                observation(
+                    org_id,
+                    account_label,
+                    "monthly",
+                    "一月",
+                    "month",
+                    30 * 24 * 60 * 60 * 1000,
+                    used,
+                    0,
+                    "ratio",
+                    null,
+                    now,
+                    "normal",
+                ),
+            );
+        }
     }
 
     // 余额
@@ -205,6 +263,7 @@ async function main(): Promise<ScriptObservation[]> {
                 balance,
                 0,
                 "ratio",
+                null,
                 now,
                 ctx.status.for_balance(balance, 0),
             ),

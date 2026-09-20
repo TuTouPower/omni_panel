@@ -45,22 +45,30 @@ describe("opencode_go connector (t506 console REST API)", () => {
                         { id: "wrk_01KVAJY3W1421VAB7X1F6KR1JA", name: "Default" },
                     ]);
                 }
-                if (path.includes("/console/api/usage/summary?range=24h")) {
+                if (path === "/console/api/go/status") {
                     return Promise.resolve({
-                        totalRequests: "979",
-                        totalCostMicroCents: "118281096",
-                    });
-                }
-                if (path.includes("/console/api/usage/summary?range=7d")) {
-                    return Promise.resolve({
-                        totalRequests: "4363",
-                        totalCostMicroCents: "459555987",
-                    });
-                }
-                if (path.includes("/console/api/usage/summary?range=30d")) {
-                    return Promise.resolve({
-                        totalRequests: "4363",
-                        totalCostMicroCents: "459555987",
+                        subscriberUserId: "acc_01KVAJY3F9FA02SWBZ2X6V8WS1",
+                        access: {
+                            endsAt: "2026-10-17T18:58:27.000Z",
+                            meters: {
+                                fiveHour: {
+                                    startsAt: "2026-09-19T19:09:02.806Z",
+                                    resetsAt: "2026-09-20T00:09:02.806Z",
+                                    limitMicroCents: "1200000000",
+                                    usedMicroCents: "8963440",
+                                },
+                                week: {
+                                    startsAt: "2026-09-14T00:00:00.000Z",
+                                    resetsAt: "2026-09-21T00:00:00.000Z",
+                                    limitMicroCents: "3000000000",
+                                    usedMicroCents: "468519427",
+                                },
+                                month: {
+                                    limitMicroCents: "6000000000",
+                                    usedMicroCents: "468519427",
+                                },
+                            },
+                        },
                     });
                 }
                 if (path === "/console/api/billing/status") {
@@ -86,8 +94,9 @@ describe("opencode_go connector (t506 console REST API)", () => {
             account_label: "Default",
             raw_label: "rolling",
             normalized_label: "滚动",
-            used: 1.18,
-            display_style: "ratio",
+            used: 1,
+            limit: 100,
+            display_style: "percent",
             status: "normal",
         });
 
@@ -95,16 +104,18 @@ describe("opencode_go connector (t506 console REST API)", () => {
         expect(weekly).toMatchObject({
             raw_label: "weekly",
             normalized_label: "一周",
-            used: 4.6,
-            display_style: "ratio",
+            used: 16,
+            limit: 100,
+            display_style: "percent",
         });
 
         const monthly = result.observations.find((o) => o.metric_id === "opencode_go:monthly");
         expect(monthly).toMatchObject({
             raw_label: "monthly",
             normalized_label: "一月",
-            used: 4.6,
-            display_style: "ratio",
+            used: 8,
+            limit: 100,
+            display_style: "percent",
         });
 
         const balance = result.observations.find((o) => o.metric_id === "opencode_go:balance");
