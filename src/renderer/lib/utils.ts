@@ -22,19 +22,29 @@ export function relative_time(timestamp: string | number): string {
     return `${String(days)} 天前`;
 }
 
-/** Format resetAt epoch-ms or ISO string as "今天 13:10" or "5/18 21:00". */
+/** Format resetAt epoch-ms or ISO string as "今天 13:10" / "明天 13:10" / "后天 13:10" or "5/18 21:00". */
 export function format_reset_time(timestamp: string | number): string {
     const d = typeof timestamp === "number" ? new Date(timestamp) : new Date(timestamp);
     const now = new Date();
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
     const time = `${hh}:${mm}`;
-    if (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate()
-    ) {
+    const same_day = (a: Date, b: Date): boolean =>
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+    if (same_day(d, now)) {
         return `今天 ${time}`;
+    }
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    if (same_day(d, tomorrow)) {
+        return `明天 ${time}`;
+    }
+    const day_after = new Date(now);
+    day_after.setDate(now.getDate() + 2);
+    if (same_day(d, day_after)) {
+        return `后天 ${time}`;
     }
     return `${String(d.getMonth() + 1)}/${String(d.getDate())} ${time}`;
 }

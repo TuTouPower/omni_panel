@@ -19,7 +19,9 @@ export function fmtInt(n: number): string {
  * Format a timestamp as a friendly relative time:
  * - "今天 HH:mm" for today
  * - "昨天 HH:mm" for yesterday
- * - "M/D HH:mm" for older dates
+ * - "明天 HH:mm" for tomorrow
+ * - "后天 HH:mm" for the day after tomorrow
+ * - "M/D HH:mm" for other dates
  */
 export function fmtTime(ts: number): string {
     const d = new Date(ts);
@@ -27,18 +29,23 @@ export function fmtTime(ts: number): string {
     const pad = (n: number) => String(n).padStart(2, "0");
     const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-    const same_day =
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate();
-    if (same_day) return `今天 ${hm}`;
+    const same_day = (a: Date, b: Date): boolean =>
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+    if (same_day(d, now)) return `今天 ${hm}`;
 
-    const yesterday = new Date(now.getTime() - 86400000);
-    const is_yesterday =
-        d.getFullYear() === yesterday.getFullYear() &&
-        d.getMonth() === yesterday.getMonth() &&
-        d.getDate() === yesterday.getDate();
-    if (is_yesterday) return `昨天 ${hm}`;
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (same_day(d, yesterday)) return `昨天 ${hm}`;
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    if (same_day(d, tomorrow)) return `明天 ${hm}`;
+
+    const day_after = new Date(now);
+    day_after.setDate(now.getDate() + 2);
+    if (same_day(d, day_after)) return `后天 ${hm}`;
 
     return `${String(d.getMonth() + 1)}/${String(d.getDate())} ${hm}`;
 }
