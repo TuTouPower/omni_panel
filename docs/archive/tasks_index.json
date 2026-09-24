@@ -8082,6 +8082,22 @@
             "conflicts_with": "",
             "note": "参考 https://github.com/kargatharaakash/grok-bot-mcp",
             "dir": "docs/archive/tasks/t507_grok_bot_usage_connector"
+        },
+        {
+            "tid": "t508",
+            "slug": "muse_ai_usage_connector",
+            "title": "Muse AI 网页用量连接器与会话保持",
+            "status": "done",
+            "branch": "t508_muse_ai_usage_connector",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "f31799f5d9611fd670e740115f38ee1b5895da25",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t508_muse_ai_usage_connector"
         }
     ]
 }
