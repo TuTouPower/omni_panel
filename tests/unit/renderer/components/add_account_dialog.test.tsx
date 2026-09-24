@@ -204,6 +204,65 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(get_saved_params(on_save).secrets).toEqual({ SESSION_COOKIE: "mimo-cookie" });
     });
 
+    it("renders WebLoginForm for Muse AI and triggers session login with muse domains and cookies", async () => {
+        const session = {
+            login: vi
+                .fn()
+                .mockResolvedValue({ saved: true, cookie: "hatch_sess=muse-test-cookie" }),
+            refresh: vi.fn().mockResolvedValue({ saved: true, cookie: "" }),
+        };
+        (window as unknown as { usageboard: unknown }).usageboard = { session };
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "muse-1",
+            name: "Muse AI",
+            displayName: "Muse AI",
+            source: "session",
+            supportedProviders: ["muse"],
+            activeProviders: ["muse"],
+            metadata: {
+                name: "muse",
+                login_url: "https://muse.ai/",
+                cookie_names: ["hatch_sess", "hatch_gw", "hatch_vml", "datr"],
+                auth: {
+                    method: "web_login",
+                    login_url: "https://muse.ai/",
+                    secret_name: "SESSION_COOKIE",
+                },
+                parameters: [
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "Muse Session Cookie",
+                        type: "secret",
+                        required: true,
+                    },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("Muse AI"));
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
+
+        await user.click(screen.getByText("网页登录"));
+        await waitFor(() => {
+            expect(session.login).toHaveBeenCalledWith({
+                provider: "muse",
+                login_url: "https://muse.ai/",
+                cookie_names: ["hatch_sess", "hatch_gw", "hatch_vml", "datr"],
+                auto_close_ms: 1500,
+            });
+        });
+        await user.click(screen.getByText("添加账号"));
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).secrets).toEqual({
+            SESSION_COOKIE: "hatch_sess=muse-test-cookie",
+        });
+        expect(get_saved_params(on_save).vendor_id).toBe("muse");
+    });
+
     it("renders OAuth device form for grok and saves after polling succeeds", async () => {
         const grok = {
             login_start: vi.fn().mockResolvedValue({

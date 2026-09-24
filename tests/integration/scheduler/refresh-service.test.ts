@@ -998,6 +998,91 @@ return [{
         }
     });
 
+    it("triggers auto sessionLogin on muse 'Muse 会话已失效' error and succeeds after retry", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "connector-muse-relogin-"));
+        const session_script = `
+const cookie = ctx.params.SESSION_COOKIE;
+if (cookie === "expired") {
+    throw new Error("Muse 会话已失效，请重新登录: Authentication required");
+}
+return [{
+    provider: "muse",
+    source_instance_id: "muse-1",
+    account_id: "default",
+    account_label: "Muse Free",
+    metric_id: "muse:weekly",
+    raw_label: "weekly",
+    normalized_label: "每周限额",
+    window: "week",
+    used: 13,
+    limit: 100,
+    display_style: "percent",
+    reset_at: null,
+    status: "normal",
+    observed_at: 1780000000000,
+    source: "session",
+    stale: false,
+    last_error: null
+}];`;
+        await writeFile(join(tempDir, "connector.js"), session_script);
+        const observationStore = make_store();
+        const runtimeStore = createRuntimeStore();
+        const vault = create_vault();
+        await vault.set("muse-1:SESSION_COOKIE", "expired");
+        const sessionLogin = vi.fn().mockImplementation(async () => {
+            await vault.set("muse-1:SESSION_COOKIE", "fresh");
+            return { saved: true, credential_changed: true };
+        });
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "muse",
+                        provider: "muse",
+                        capabilities: ["session"],
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://muse.ai" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                {
+                    ...plugin_config("muse-1", true, "muse"),
+                    executablePath: tempDir,
+                    name: "Muse AI",
+                },
+            ]),
+            vault,
+            sessionLogin,
+        });
+
+        try {
+            await service.refresh("muse-1", { force: true });
+
+            expect(sessionLogin).toHaveBeenCalledWith("muse-1");
+            const state = runtimeStore.getSnapshot("muse-1");
+            expect(state.status).toBe("ready");
+            if (state.status === "ready") {
+                expect(state.items).toHaveLength(1);
+                expect(state.items[0]?.used).toBe(13);
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("preserves lastSuccess across consecutive failures (anti-flicker)", async () => {
         // Scenario: connector was "ready", fails once (lastSuccess preserved),
         // fails again — second refresh MUST still carry lastSuccess so the

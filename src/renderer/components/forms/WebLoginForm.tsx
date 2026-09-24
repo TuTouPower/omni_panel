@@ -9,6 +9,7 @@ export interface WebLoginFormProps {
     readonly provider: AddServiceId;
     readonly login_url: string;
     readonly secret_name: string;
+    readonly cookie_names?: readonly string[] | undefined;
     readonly account_name: string;
     readonly set_account_name: (v: string) => void;
     readonly on_save: (params: AddAccountParams) => Promise<void>;
@@ -18,6 +19,7 @@ export function WebLoginForm({
     provider,
     login_url,
     secret_name,
+    cookie_names,
     account_name,
     set_account_name,
     on_save,
@@ -77,6 +79,7 @@ export function WebLoginForm({
                 provider={provider}
                 login_url={login_url}
                 secret_name={secret_name}
+                cookie_names={cookie_names ? [...cookie_names] : undefined}
                 value={cookie}
                 onChange={(value) => {
                     set_cookie(value);

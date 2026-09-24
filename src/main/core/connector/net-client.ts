@@ -481,6 +481,33 @@ export function create_connector_context(
                     },
                 });
             },
+            async post_raw(endpoint_key: string, path: string, body: unknown, opts?: HttpOpts) {
+                return perform_request({
+                    method: "POST",
+                    endpoint_key,
+                    path,
+                    body,
+                    opts,
+                    initial_headers: { "Content-Type": "text/plain;charset=UTF-8" },
+                    log_prefix: "POST RAW",
+                    error_log_label: " post_raw",
+                    transform_response(status, text, response_headers) {
+                        const raw_headers: Record<string, string> = {};
+                        for (const [key, value] of Object.entries(response_headers)) {
+                            if (value !== undefined) {
+                                raw_headers[key.toLowerCase()] = Array.isArray(value)
+                                    ? (value[0] ?? "")
+                                    : value;
+                            }
+                        }
+                        return {
+                            status,
+                            headers: raw_headers,
+                            body: text,
+                        };
+                    },
+                });
+            },
         },
         files: {
             read(path_pattern: string) {

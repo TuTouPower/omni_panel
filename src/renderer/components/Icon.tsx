@@ -67,6 +67,7 @@ import kimi_svg from "../assets/vendor_logos/kimi.svg";
 import minimax_svg from "../assets/vendor_logos/minimax.svg";
 import opencode_go_dark_svg from "../assets/vendor_logos/opencode_go_dark.svg";
 import opencode_go_light_svg from "../assets/vendor_logos/opencode_go_light.svg";
+import muse_png from "../assets/vendor_logos/muse.png";
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
 import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
 
@@ -253,6 +254,7 @@ const VENDOR_LOGOS: Record<string, string> = {
     firecrawl: firecrawl_svg,
     tikhub: tikhub_jpeg,
     cpa: cpa_png,
+    muse: muse_png,
 };
 
 const VENDOR_MARKS: Record<string, (s: number) => string> = {

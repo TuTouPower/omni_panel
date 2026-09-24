@@ -22,6 +22,7 @@ describe("add-account common services", () => {
             "grok",
             "grok_bot",
             "commandcode",
+            "muse",
             "cpa",
         ]);
     });
@@ -33,5 +34,9 @@ describe("add-account common services", () => {
 
     it("labels the web Kimi entry as Kimi Web", () => {
         expect(ADD_COMMON_SERVICES).toContainEqual({ id: "kimi_web", label: "Kimi Web" });
+    });
+
+    it("labels the muse entry as Muse AI", () => {
+        expect(ADD_COMMON_SERVICES).toContainEqual({ id: "muse", label: "Muse AI" });
     });
 });

@@ -1,0 +1,31 @@
+{
+    "tid": "t508",
+    "attempt": 1,
+    "execution_id": "0b45ecc9115b4eb2a2c8bf78985054eb",
+    "status": "done",
+    "branch": "t508_muse_ai_usage_connector",
+    "base_sha": "f31799f5d9611fd670e740115f38ee1b5895da25",
+    "tests": "pnpm check 全绿（typecheck + lint + format:check + deadcode + arch 0 warnings 0 errors）；pnpm test 全绿（325 测试套件，3938 单元/集成用例通过）",
+    "blackbox": "通过 tests/integration/connector/muse_connector.test.ts 模拟沙箱内 RSC 流解析与鉴权抛错；通过 tests/unit/renderer/components/add_account_dialog.test.tsx 验证添加账号进入 WebLoginForm 并触发 session.login；通过 tests/unit/renderer/views/popup_view_muse.test.tsx 验证主用量面板渲染 Muse AI 标签、展开后用量进度条与重新登录按钮；通过 tests/integration/scheduler/refresh-service.test.ts 验证调度器后台自动隐藏重登与重试",
+    "review": "full 级：review_code.md PASS（Round 1 零 finding）；review_test.md PASS（Round 1 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/add_account_dialog.test.tsx: renders WebLoginForm for Muse AI and triggers session login with muse domains and cookies",
+            "tests/unit/renderer/common_services.test.ts: includes muse in add-account common services"
+        ],
+        "AC-002": [
+            "tests/integration/connector/muse_connector.test.ts: parses RSC response and outputs weekly usage and extra tokens",
+            "tests/unit/renderer/views/popup_view_muse.test.tsx: displays Muse AI tab and renders usage bars when expanded"
+        ],
+        "AC-003": [
+            "tests/integration/connector/muse_connector.test.ts: throws auth error when session is invalid or expired",
+            "tests/integration/scheduler/refresh-service.test.ts: triggers auto sessionLogin on muse 'Muse 会话已失效' error and succeeds after retry",
+            "tests/unit/renderer/views/popup_view_muse.test.tsx: surfaces re-login button when Muse session fails with auth error"
+        ],
+        "AC-004": [
+            "全仓 pnpm check 与 pnpm test 全绿（325 test files, 3938 passed）"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

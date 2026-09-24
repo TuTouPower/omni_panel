@@ -420,6 +420,7 @@ export function AddAccountDialog({
                             provider={vendor_id}
                             login_url={auth_descriptor.login_url}
                             secret_name={auth_descriptor.secret_name}
+                            cookie_names={selected_connector?.metadata?.cookie_names}
                             account_name={account_name}
                             set_account_name={set_account_name}
                             on_save={handle_form_save}
