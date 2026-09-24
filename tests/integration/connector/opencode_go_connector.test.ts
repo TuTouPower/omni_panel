@@ -85,7 +85,7 @@ describe("opencode_go connector (t506 console REST API)", () => {
         const result = await run_connector(manifest, script, make_ctx(get_json));
 
         expect(result.error).toBeNull();
-        expect(result.observations).toHaveLength(4);
+        expect(result.observations).toHaveLength(3);
 
         const rolling = result.observations.find((o) => o.metric_id === "opencode_go:rolling");
         expect(rolling).toMatchObject({
@@ -93,7 +93,7 @@ describe("opencode_go connector (t506 console REST API)", () => {
             account_id: "wrk_01KVAJY3W1421VAB7X1F6KR1JA",
             account_label: "Default",
             raw_label: "rolling",
-            normalized_label: "滚动",
+            normalized_label: "5h",
             used: 1,
             limit: 100,
             display_style: "percent",
@@ -116,15 +116,6 @@ describe("opencode_go connector (t506 console REST API)", () => {
             used: 8,
             limit: 100,
             display_style: "percent",
-        });
-
-        const balance = result.observations.find((o) => o.metric_id === "opencode_go:balance");
-        expect(balance).toMatchObject({
-            raw_label: "balance",
-            normalized_label: "余额",
-            used: 5.0,
-            display_style: "ratio",
-            status: "normal",
         });
     });
 

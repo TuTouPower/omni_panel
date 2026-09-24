@@ -12,26 +12,8 @@ interface SandUsageResponse {
     readonly grokPlanLabel?: string;
 }
 
-interface SpendLimitUsage {
-    readonly individualUsed?: number;
-    readonly totalSpend?: number;
-    readonly individualLimit?: number | null;
-    readonly individualRemaining?: number | null;
-}
-
-interface PeriodUsageResponse {
-    readonly spendLimitUsage?: SpendLimitUsage;
-    readonly billingCycleEnd?: number | string;
-    readonly planUsage?: {
-        readonly includedSpend?: number;
-        readonly limit?: number;
-        readonly remaining?: number;
-    };
-}
-
 const ENDPOINT_KEY = "cursor_api";
 const SAND_PATH = "/aiserver.v1.DashboardService/GetSandUsageStatus";
-const PERIOD_PATH = "/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 
 function base64url_decode(str: string): string {
     let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -147,9 +129,7 @@ async function main(): Promise<ScriptObservation[]> {
     };
 
     let sand_res: SandUsageResponse | null = null;
-    let period_res: PeriodUsageResponse | null = null;
     let sand_err: string | null = null;
-    let period_err: string | null = null;
 
     try {
         sand_res = (await ctx.http.post_json(
@@ -162,21 +142,10 @@ async function main(): Promise<ScriptObservation[]> {
         sand_err = err instanceof Error ? err.message : String(err);
     }
 
-    try {
-        period_res = (await ctx.http.post_json(
-            ENDPOINT_KEY,
-            PERIOD_PATH,
-            {},
-            { headers },
-        )) as PeriodUsageResponse;
-    } catch (err) {
-        period_err = err instanceof Error ? err.message : String(err);
-    }
-
     const now = Date.now();
     const observations: ScriptObservation[] = [];
 
-    // 1. 周用量 (Weekly Usage)
+    // 周用量 (Weekly Usage)
     if (
         sand_res &&
         typeof sand_res.usagePercent === "number" &&
@@ -205,44 +174,8 @@ async function main(): Promise<ScriptObservation[]> {
         });
     }
 
-    // 2. 按需用量 (On-demand Spend)
-    if (period_res?.spendLimitUsage) {
-        const spend = period_res.spendLimitUsage;
-        const used_cents = spend.individualUsed ?? spend.totalSpend ?? 0;
-        const used_dollars = Math.max(0, used_cents / 100);
-        const limit_dollars =
-            spend.individualLimit != null && spend.individualLimit >= 0
-                ? spend.individualLimit / 100
-                : null;
-        const billing_end = parse_timestamp(period_res.billingCycleEnd);
-
-        observations.push({
-            provider: "grok_bot",
-            account_id,
-            account_label,
-            metric_id: "grok_bot:ondemand",
-            raw_label: "ondemand_spend",
-            normalized_label: "按需额度",
-            window: "month",
-            cycleDurationMs: 30 * 24 * 3600 * 1000,
-            used: used_dollars,
-            limit: limit_dollars,
-            display_style: "ratio",
-            reset_at: billing_end,
-            status:
-                limit_dollars !== null && limit_dollars > 0
-                    ? ctx.status.for_ratio(used_dollars, limit_dollars)
-                    : "normal",
-            observed_at: now,
-            source: "poll",
-            stale: false,
-            last_error: null,
-        });
-    }
-
     if (observations.length === 0) {
-        const err_desc =
-            [sand_err, period_err].filter(Boolean).join("; ") || "no usable usage data returned";
+        const err_desc = sand_err ?? "no usable usage data returned";
         ctx.report_failed_account("grok_bot", account_id, account_label, err_desc);
     }
 

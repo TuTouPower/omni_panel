@@ -44,15 +44,6 @@ const mock_sand_response = {
     grokPlanLabel: "pro",
 };
 
-const mock_period_response = {
-    spendLimitUsage: {
-        individualUsed: 250, // $2.50
-        individualLimit: 1000, // $10.00
-        individualRemaining: 750,
-    },
-    billingCycleEnd: 1791535440000,
-};
-
 // 构造一个测试用 JWT: sub="user_123", email="user@example.com"
 const mock_payload = Buffer.from(
     JSON.stringify({ sub: "user_123", email: "user@example.com" }),
@@ -73,7 +64,7 @@ describe("grok_bot connector", () => {
         expect(parsed.endpoints?.["cursor_api"]).toBe("https://api2.cursor.sh");
     });
 
-    it("parses weekly and on-demand observations successfully", async () => {
+    it("parses weekly observation successfully", async () => {
         const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
         const posted_paths: string[] = [];
         const posted_headers: Record<string, string>[] = [];
@@ -88,9 +79,6 @@ describe("grok_bot connector", () => {
                     if (opts?.headers) posted_headers.push(opts.headers);
                     if (path.includes("GetSandUsageStatus")) {
                         return Promise.resolve(mock_sand_response);
-                    }
-                    if (path.includes("GetCurrentPeriodUsage")) {
-                        return Promise.resolve(mock_period_response);
                     }
                     return Promise.reject(new Error("unknown path"));
                 },
@@ -107,21 +95,21 @@ describe("grok_bot connector", () => {
 
         const result = await run_connector(test_manifest, script, ctx);
         expect(result.error).toBeNull();
-        expect(result.observations).toHaveLength(2);
+        expect(result.observations).toHaveLength(1);
 
         // 校验 Header 包含 checksum 等防伪头
-        expect(posted_headers).toHaveLength(2);
-        for (const h of posted_headers) {
-            expect(h["x-cursor-client-type"]).toBe("sand");
-            expect(h["x-cursor-checksum"]).toBeDefined();
-            expect(typeof h["x-cursor-checksum"]).toBe("string");
-            expect(h["x-cursor-checksum"]?.length).toBeGreaterThan(10);
-            expect(h["x-request-id"]).toBeDefined();
-        }
+        expect(posted_headers).toHaveLength(1);
+        const h = posted_headers[0];
+        expect(h?.["x-cursor-client-type"]).toBe("sand");
+        expect(h?.["x-cursor-checksum"]).toBeDefined();
+        expect(typeof h?.["x-cursor-checksum"]).toBe("string");
+        expect(h?.["x-cursor-checksum"]?.length).toBeGreaterThan(10);
+        expect(h?.["x-request-id"]).toBeDefined();
 
         // 校验 weekly 指标
-        const weekly = result.observations.find((o) => o.metric_id === "grok_bot:weekly");
+        const weekly = result.observations[0];
         expect(weekly).toBeDefined();
+        expect(weekly?.metric_id).toBe("grok_bot:weekly");
         expect(weekly?.provider).toBe("grok_bot");
         expect(weekly?.account_id).toBe("user_123");
         expect(weekly?.account_label).toBe("user@example.com");
@@ -130,17 +118,6 @@ describe("grok_bot connector", () => {
         expect(weekly?.display_style).toBe("percent");
         expect(weekly?.reset_at).toBe(Date.parse("2026-09-25T10:03:00Z"));
         expect(weekly?.status).toBe("critical"); // 97.27% 达到 critical 阈值
-
-        // 校验 ondemand 指标
-        const ondemand = result.observations.find((o) => o.metric_id === "grok_bot:ondemand");
-        expect(ondemand).toBeDefined();
-        expect(ondemand?.provider).toBe("grok_bot");
-        expect(ondemand?.account_id).toBe("user_123");
-        expect(ondemand?.account_label).toBe("user@example.com");
-        expect(ondemand?.used).toBe(2.5); // 250 cents = $2.50
-        expect(ondemand?.limit).toBe(10); // 1000 cents = $10.00
-        expect(ondemand?.display_style).toBe("ratio");
-        expect(ondemand?.reset_at).toBe(1791535440000);
     });
 
     it("clamps percentage and handles missing period usage gracefully", async () => {

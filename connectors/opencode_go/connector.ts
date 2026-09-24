@@ -36,13 +36,6 @@ interface UsageSummary {
     readonly totalCostMicroCents?: string | number;
 }
 
-interface BillingStatus {
-    readonly billingMode?: string;
-    readonly mode?: string;
-    readonly balanceMicroCents?: string | number;
-    readonly availableMicroCents?: string | number;
-}
-
 const USER_AGENT =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
@@ -79,7 +72,7 @@ function parse_ts(value: string | undefined): number | null {
 function observation(
     account_id: string,
     account_label: string,
-    raw_label: "rolling" | "weekly" | "monthly" | "balance",
+    raw_label: "rolling" | "weekly" | "monthly",
     normalized_label: string,
     window: ScriptObservation["window"],
     cycleDurationMs: number | null,
@@ -143,17 +136,11 @@ async function main(): Promise<ScriptObservation[]> {
     const org_headers = { ...headers, "x-org-id": org_id };
     const now = Date.now();
 
-    // 2. 并发拉取 Go 套餐状态与账单状态
-    const [go_status, billing] = await Promise.all([
-        ctx.http
-            .get_json("default", "/console/api/go/status", { headers: org_headers })
-            .then((v) => v as GoStatusResponse | null)
-            .catch(() => null),
-        ctx.http
-            .get_json("default", "/console/api/billing/status", { headers: org_headers })
-            .then((v) => v as BillingStatus | null)
-            .catch(() => null),
-    ]);
+    // 2. 拉取 Go 套餐状态
+    const go_status = await ctx.http
+        .get_json("default", "/console/api/go/status", { headers: org_headers })
+        .then((v) => v as GoStatusResponse | null)
+        .catch(() => null);
 
     const results: ScriptObservation[] = [];
     const meters = go_status?.access?.meters;
@@ -167,7 +154,7 @@ async function main(): Promise<ScriptObservation[]> {
                     org_id,
                     account_label,
                     "rolling",
-                    "滚动",
+                    "5h",
                     "second",
                     null,
                     pct,
@@ -245,29 +232,6 @@ async function main(): Promise<ScriptObservation[]> {
                 ),
             );
         }
-    }
-
-    // 余额
-    if (billing && (billing.balanceMicroCents != null || billing.availableMicroCents != null)) {
-        const balance = micro_cents_to_usd(
-            billing.availableMicroCents ?? billing.balanceMicroCents,
-        );
-        results.push(
-            observation(
-                org_id,
-                account_label,
-                "balance",
-                "余额",
-                "month",
-                null,
-                balance,
-                0,
-                "ratio",
-                null,
-                now,
-                ctx.status.for_balance(balance, 0),
-            ),
-        );
     }
 
     if (results.length === 0) {

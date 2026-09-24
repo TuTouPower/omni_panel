@@ -99,7 +99,7 @@ export function ProviderOverview({
                             onRefresh={onRefreshProvider}
                             expanded={
                                 expandedProviders
-                                    ? (expandedProviders[provider] ?? false)
+                                    ? (expandedProviders[provider] ?? true)
                                     : undefined
                             }
                             onToggleExpand={onToggleExpandProvider}
