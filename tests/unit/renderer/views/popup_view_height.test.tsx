@@ -254,6 +254,13 @@ describe("PopupView collapse + height report", () => {
                 logout: vi.fn(),
                 refresh: vi.fn(),
             },
+            grok_bot: {
+                login_start: vi.fn(),
+                login_poll: vi.fn(),
+                login_cancel: vi.fn(),
+                logout: vi.fn(),
+                refresh: vi.fn(),
+            },
             tokenStats: {
                 open: vi.fn(),
                 forceCollect: vi.fn().mockResolvedValue(null),

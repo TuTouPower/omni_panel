@@ -307,7 +307,8 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 if (
                     oauth_refresh_done ||
                     !deps.oauth_refresh ||
-                    definition.manifest.auth?.method !== "oauth_device"
+                    (definition.manifest.auth?.method !== "oauth_device" &&
+                        definition.manifest.auth?.method !== "oauth_pkce")
                 ) {
                     return false;
                 }

@@ -1,7 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/types/ipc";
 import { is_ipc_result } from "../shared/lib/ipc-envelope";
-import { create_grok_oauth_apis, create_kimi_oauth_apis } from "./oauth_api";
+import {
+    create_grok_oauth_apis,
+    create_kimi_oauth_apis,
+    create_grok_bot_oauth_apis,
+} from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
 import {
     select_grok_api,
@@ -552,6 +556,7 @@ const { readonly_api: grok_readonly_methods, settings_api: grok_methods } = crea
 const { readonly_api: kimi_readonly_methods, settings_api: kimi_methods } = create_kimi_oauth_apis({
     invoke,
 });
+const grok_bot_methods = create_grok_bot_oauth_apis({ invoke });
 
 const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
 
@@ -626,6 +631,7 @@ const api: UsageboardApi = (() => {
                 session: session_methods,
                 grok: route_grok_api,
                 kimi: route_kimi_api,
+                grok_bot: grok_bot_methods,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
@@ -666,6 +672,7 @@ const api: UsageboardApi = (() => {
                 session: session_disabled_methods,
                 grok: route_grok_api,
                 kimi: route_kimi_api,
+                grok_bot: grok_bot_methods,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
@@ -705,6 +712,7 @@ const api: UsageboardApi = (() => {
                 session: session_disabled_methods,
                 grok: route_grok_api,
                 kimi: route_kimi_api,
+                grok_bot: grok_bot_methods,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,
@@ -741,6 +749,7 @@ const api: UsageboardApi = (() => {
                 session: session_disabled_methods,
                 grok: route_grok_api,
                 kimi: route_kimi_api,
+                grok_bot: grok_bot_methods,
                 logs: logs_methods,
                 log: log_method,
                 tokenStats: token_stats_methods,

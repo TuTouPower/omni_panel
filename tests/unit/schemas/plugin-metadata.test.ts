@@ -32,7 +32,14 @@ describe("plugin-metadata auth descriptor", () => {
     });
 
     it("accepts all valid auth methods", () => {
-        const methods = ["apikey", "oauth_device", "web_login", "cpa_mgmt", "local_cli"] as const;
+        const methods = [
+            "apikey",
+            "oauth_device",
+            "web_login",
+            "cpa_mgmt",
+            "local_cli",
+            "oauth_pkce",
+        ] as const;
         for (const method of methods) {
             const result = authDescriptorSchema.safeParse({ method, secret_name: "X" });
             expect(result.success).toBe(true);

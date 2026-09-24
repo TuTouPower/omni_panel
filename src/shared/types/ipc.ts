@@ -137,6 +137,13 @@ export const IPC_CHANNELS = {
     GROK_LOGOUT: "grok:logout",
     GROK_REFRESH: "grok:refresh",
 
+    /** Grok Bot OAuth PKCE flow — independent token in OmniPanel vault. */
+    GROK_BOT_LOGIN_START: "grokBot:loginStart",
+    GROK_BOT_LOGIN_POLL: "grokBot:loginPoll",
+    GROK_BOT_LOGIN_CANCEL: "grokBot:loginCancel",
+    GROK_BOT_LOGOUT: "grokBot:logout",
+    GROK_BOT_REFRESH: "grokBot:refresh",
+
     /** Kimi OAuth device-code flow — mirrors Grok; token stored in vault. */
     KIMI_LOGIN_START: "kimi:loginStart",
     KIMI_LOGIN_POLL: "kimi:loginPoll",
@@ -604,6 +611,38 @@ export interface KimiSettingsApi extends KimiReadonlyApi {
     refresh(instance_id: string): Promise<KimiRefreshResult>;
 }
 
+export interface GrokBotLoginStartResult {
+    readonly auth_url: string;
+    readonly uuid: string;
+    readonly verifier: string;
+}
+
+export interface GrokBotLoginPollResult {
+    readonly saved: boolean;
+    readonly token?: string | undefined;
+    readonly refresh_token?: string | undefined;
+    readonly error?: string | undefined;
+}
+
+export interface GrokBotRefreshApiResult {
+    readonly ok: boolean;
+    readonly access_token?: string | undefined;
+    readonly error?: string | undefined;
+}
+
+export interface GrokBotSettingsApi {
+    login_start(): Promise<GrokBotLoginStartResult>;
+    login_poll(
+        instance_id: string,
+        uuid: string,
+        verifier: string,
+        timeout_ms?: number,
+    ): Promise<GrokBotLoginPollResult>;
+    login_cancel(instance_id: string): Promise<void>;
+    logout(instance_id: string): Promise<{ logged_out: boolean }>;
+    refresh(instance_id: string): Promise<GrokBotRefreshApiResult>;
+}
+
 export interface UsageboardApi {
     /** Host platform exposed to the renderer for platform-aware UI (e.g. titlebar drag). */
     platform: RendererPlatform;
@@ -714,6 +753,7 @@ export interface UsageboardApi {
     };
     grok: GrokReadonlyApi | GrokSettingsApi;
     kimi: KimiReadonlyApi | KimiSettingsApi;
+    grok_bot: GrokBotSettingsApi;
     logs: {
         export(): Promise<{ saved: boolean }>;
     };

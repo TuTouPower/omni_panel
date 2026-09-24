@@ -11,6 +11,7 @@ import {
 } from "../lib/auth-flow-registry";
 import { OAuthDeviceForm } from "./forms/OAuthDeviceForm";
 import { WebLoginForm } from "./forms/WebLoginForm";
+import { GrokBotPkceForm } from "./forms/GrokBotPkceForm";
 import { CpaMgmtForm } from "./forms/CpaMgmtForm";
 import { ExaServiceKeyForm } from "./forms/ExaServiceKeyForm";
 import { VendorPicker } from "./add_account/VendorPicker";
@@ -144,6 +145,7 @@ export function AddAccountDialog({
         session: "网页登录或粘贴 Cookie",
         local_cli: "扫描本地 CLI 授权文件",
         oauth_device: "OAuth 设备码授权",
+        oauth_pkce: "浏览器授权登录",
         web_login: "网页登录授权",
         cpa_mgmt: "CPA 管理端授权",
     };
@@ -154,6 +156,7 @@ export function AddAccountDialog({
     const has_extra_fields = (auth_descriptor?.extra_fields?.length ?? 0) > 0;
     const form_handles_save =
         auth_method === "oauth_device" ||
+        auth_method === "oauth_pkce" ||
         auth_method === "web_login" ||
         auth_method === "cpa_mgmt" ||
         (auth_method === "apikey" && vendor_id === "exa" && has_extra_fields);
@@ -397,6 +400,15 @@ export function AddAccountDialog({
                                 auth_descriptor?.secret_name ??
                                 fallback_secret_name(selected_connector)
                             }
+                            account_name={account_name}
+                            set_account_name={set_account_name}
+                            on_save={handle_form_save}
+                        />
+                    )}
+                    {auth_method === "oauth_pkce" && (
+                        <GrokBotPkceForm
+                            key={vendor_id}
+                            instance_id={oauth_instance_id_ref.current}
                             account_name={account_name}
                             set_account_name={set_account_name}
                             on_save={handle_form_save}

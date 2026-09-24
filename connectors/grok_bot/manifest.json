@@ -1,0 +1,36 @@
+{
+    "id": "grok_bot",
+    "provider": "grok_bot",
+    "capabilities": ["poll"],
+    "parameters": [
+        {
+            "name": "ACCESS_TOKEN",
+            "type": "secret",
+            "required": true,
+            "label": "Access Token",
+            "label@zh-Hans": "访问令牌 (JWT)",
+            "exposeToScript": true
+        }
+    ],
+    "auth": {
+        "method": "oauth_pkce",
+        "secret_name": "ACCESS_TOKEN",
+        "extra_fields": ["REFRESH_TOKEN"]
+    },
+    "endpoints": {
+        "cursor_api": "https://api2.cursor.sh"
+    },
+    "poll": {
+        "request": {
+            "endpoint": "cursor_api",
+            "path": "/aiserver.v1.DashboardService/GetSandUsageStatus",
+            "method": "POST",
+            "auth": {
+                "type": "bearer",
+                "secret": "ACCESS_TOKEN"
+            }
+        },
+        "map": {}
+    },
+    "script": "connector.ts"
+}

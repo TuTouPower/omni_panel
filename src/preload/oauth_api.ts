@@ -8,6 +8,10 @@ import type {
     KimiLoginResult,
     KimiLoginStatus,
     KimiRefreshResult,
+    GrokBotLoginStartResult,
+    GrokBotLoginPollResult,
+    GrokBotRefreshApiResult,
+    GrokBotSettingsApi,
 } from "../shared/types/ipc";
 
 export interface OAuthApiFactoryDeps {
@@ -127,4 +131,24 @@ export function create_kimi_oauth_apis(deps: OAuthApiFactoryDeps): OAuthApis<Kim
         logout: IPC_CHANNELS.KIMI_LOGOUT,
         refresh: IPC_CHANNELS.KIMI_REFRESH,
     });
+}
+
+export function create_grok_bot_oauth_apis(deps: OAuthApiFactoryDeps): GrokBotSettingsApi {
+    return {
+        login_start: () => deps.invoke<GrokBotLoginStartResult>(IPC_CHANNELS.GROK_BOT_LOGIN_START),
+        login_poll: (instance_id, uuid, verifier, timeout_ms) =>
+            deps.invoke<GrokBotLoginPollResult>(
+                IPC_CHANNELS.GROK_BOT_LOGIN_POLL,
+                instance_id,
+                uuid,
+                verifier,
+                timeout_ms,
+            ),
+        login_cancel: (instance_id) =>
+            deps.invoke<undefined>(IPC_CHANNELS.GROK_BOT_LOGIN_CANCEL, instance_id),
+        logout: (instance_id) =>
+            deps.invoke<{ logged_out: boolean }>(IPC_CHANNELS.GROK_BOT_LOGOUT, instance_id),
+        refresh: (instance_id) =>
+            deps.invoke<GrokBotRefreshApiResult>(IPC_CHANNELS.GROK_BOT_REFRESH, instance_id),
+    };
 }

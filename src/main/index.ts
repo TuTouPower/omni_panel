@@ -91,6 +91,8 @@ import type { TokenStatsSessionFilters } from "../shared/types/token-stats";
 import { registerSessionIpc } from "./ipc/session-ipc";
 import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
+import { create_grok_bot_oauth_manager } from "./core/auth/grok_bot_oauth_manager";
+import { registerGrokBotAuthIpc } from "./ipc/grok_bot_auth_ipc";
 import { resolve_effective_proxy_url, proxy_config_changed } from "./core/network/effective_proxy";
 import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
@@ -388,6 +390,16 @@ void app.whenReady().then(async () => {
                 ),
         });
 
+        // Grok Bot OAuth manager — browser PKCE login + token refresh.
+        const grokBotOAuthManager = create_grok_bot_oauth_manager({
+            vault,
+            get_proxy_url: () =>
+                resolve_effective_proxy_url(
+                    currentConfigSnapshot.proxy?.url,
+                    detected_system_proxy,
+                ),
+        });
+
         const refreshService = createRefreshService({
             definitions: allDefinitions,
             observationStore,
@@ -439,6 +451,12 @@ void app.whenReady().then(async () => {
                 }
                 if (definition.manifest.provider === "kimi") {
                     return kimiOAuthManager.refresh_now(instanceId);
+                }
+                if (definition.manifest.provider === "grok_bot") {
+                    const res = await grokBotOAuthManager.refresh_now(instanceId);
+                    return res.ok
+                        ? { success: true }
+                        : { success: false, error: res.error ?? "unknown error" };
                 }
                 return undefined;
             },
@@ -924,6 +942,7 @@ void app.whenReady().then(async () => {
         });
         registerGrokAuthIpc({ manager: grokOAuthManager });
         registerKimiAuthIpc({ manager: kimiOAuthManager });
+        registerGrokBotAuthIpc({ manager: grokBotOAuthManager });
 
         await registerSessionIpc({ sessionManager });
         registerAuthIpc({
@@ -1542,6 +1561,7 @@ void app.whenReady().then(async () => {
             orchestrator.shutdown();
             grokOAuthManager.shutdown();
             kimiOAuthManager.shutdown();
+            grokBotOAuthManager.shutdown();
             if (retention_scheduler !== null) {
                 retention_scheduler.stop();
                 retention_scheduler = null;

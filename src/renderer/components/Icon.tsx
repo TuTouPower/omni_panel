@@ -232,6 +232,10 @@ const VENDOR_THEME_LOGOS: Partial<Record<string, { light: string; dark: string }
         light: grok_light_svg,
         dark: grok_dark_svg,
     },
+    grok_bot: {
+        light: grok_light_svg,
+        dark: grok_dark_svg,
+    },
 };
 
 const VENDOR_LOGOS: Record<string, string> = {
