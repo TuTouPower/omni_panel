@@ -56,6 +56,16 @@ export function auto_seed_connectors(
             }
             continue;
         }
+        // 交互式登录类连接器（网页授权/设备码/网页登录）无预置密钥，不自动生成未配置空实例，避免报错与重复账号
+        const auth_method = def.manifest.auth?.method;
+        if (
+            auth_method === "oauth_pkce" ||
+            auth_method === "oauth_device" ||
+            auth_method === "web_login"
+        ) {
+            continue;
+        }
+
         seeded.push({
             instanceId: randomUUID(),
             stateId: randomUUID(),

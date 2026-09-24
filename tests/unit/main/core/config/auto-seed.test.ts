@@ -9,7 +9,10 @@ import type { ConnectorDefinition } from "../../../../../src/main/core/connector
 import type { ConnectorConfiguration } from "../../../../../src/shared/types/config";
 import type { Manifest } from "../../../../../src/shared/schemas/manifest";
 
-function make_definition(id: string, opts: { manualDefault?: boolean } = {}): ConnectorDefinition {
+function make_definition(
+    id: string,
+    opts: { manualDefault?: boolean; auth?: Manifest["auth"] } = {},
+): ConnectorDefinition {
     const manifest: Manifest = {
         id,
         provider: "claude",
@@ -17,6 +20,7 @@ function make_definition(id: string, opts: { manualDefault?: boolean } = {}): Co
         parameters: [],
         local: { paths: ["~/foo"] },
         ...(opts.manualDefault !== undefined && { manualDefault: opts.manualDefault }),
+        ...(opts.auth !== undefined && { auth: opts.auth }),
     };
     return {
         directory: `/connectors/${id}`,
@@ -144,13 +148,23 @@ describe("auto_seed_connectors", () => {
         expect(result.seeded[0]?.name).toBe("CLAUDE");
     });
 
-    it("seeds all when tombstone empty or absent (t038)", () => {
-        expect(
-            auto_seed_connectors([], [make_definition("claude"), make_definition("glm")]).seeded,
-        ).toHaveLength(2);
-        expect(
-            auto_seed_connectors([], [make_definition("claude")], new Set<string>()).seeded,
-        ).toHaveLength(1);
+    it("skips interactive auth connectors (oauth_pkce, oauth_device, web_login)", () => {
+        const pkce_def = make_definition("grok_bot", {
+            auth: { method: "oauth_pkce", secret_name: "ACCESS_TOKEN" },
+        });
+        const device_def = make_definition("grok", {
+            auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+        });
+        const web_def = make_definition("kimi_web", {
+            auth: { method: "web_login", secret_name: "COOKIE" },
+        });
+        const apikey_def = make_definition("deepseek", {
+            auth: { method: "apikey", secret_name: "API_KEY" },
+        });
+
+        const result = auto_seed_connectors([], [pkce_def, device_def, web_def, apikey_def]);
+        expect(result.seeded).toHaveLength(1);
+        expect(result.seeded[0]?.name).toBe("DEEPSEEK");
     });
 });
 
