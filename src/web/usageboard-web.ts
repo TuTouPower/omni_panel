@@ -19,6 +19,7 @@ import type {
     GrokLoginStatus,
     GrokRefreshResult,
     GrokSettingsApi,
+    GrokBotSettingsApi,
     ConfigExportOptions,
     ConnectorSnapshotDTO,
     HistoryMessageLike,
@@ -139,6 +140,18 @@ function create_web_oauth_api(namespace: WebOAuthNamespace): GrokSettingsApi {
             post_json(`${base}/logout`, { instance_id }) as Promise<{ logged_out: boolean }>,
         refresh: (instance_id: string) =>
             post_json(`${base}/refresh`, { instance_id }) as Promise<GrokRefreshResult>,
+    };
+}
+
+function create_web_grok_bot_api(): GrokBotSettingsApi {
+    return {
+        login_start: () =>
+            Promise.reject(new Error("Grok Bot OAuth login is only supported in desktop mode")),
+        login_poll: () =>
+            Promise.reject(new Error("Grok Bot OAuth login is only supported in desktop mode")),
+        login_cancel: () => Promise.resolve(),
+        logout: () => Promise.resolve({ logged_out: true }),
+        refresh: () => Promise.resolve({ ok: false, error: "Not supported in web mode" }),
     };
 }
 
@@ -656,6 +669,7 @@ export function create_web_usageboard(): UsageboardApi {
         },
         grok: create_web_oauth_api("grok"),
         kimi: create_web_oauth_api("kimi"),
+        grok_bot: create_web_grok_bot_api(),
         logs: {
             export: async () => {
                 const res = await fetch("/v1/logs/export");

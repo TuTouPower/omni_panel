@@ -21,6 +21,7 @@ export const usageProviderSchema = z.enum([
     "opencode_go",
     "grok",
     "commandcode",
+    "grok_bot",
 ]);
 export const usageSourceSchema = z.enum([
     "poll",

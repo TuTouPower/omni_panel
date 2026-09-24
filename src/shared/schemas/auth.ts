@@ -6,6 +6,7 @@ export const authMethodSchema = z.enum([
     "web_login",
     "cpa_mgmt",
     "local_cli",
+    "oauth_pkce",
 ]);
 
 export const authDescriptorSchema = z

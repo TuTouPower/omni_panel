@@ -236,6 +236,13 @@ export function install_popup_usageboard() {
             logout: vi.fn(),
             refresh: vi.fn(),
         },
+        grok_bot: {
+            login_start: vi.fn(),
+            login_poll: vi.fn(),
+            login_cancel: vi.fn(),
+            logout: vi.fn(),
+            refresh: vi.fn(),
+        },
         tokenStats: {
             open: token_stats_open,
             forceCollect: vi.fn().mockResolvedValue(null),

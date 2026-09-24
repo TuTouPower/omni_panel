@@ -2,22 +2,5 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": [
-        {
-            "tid": "t507",
-            "slug": "grok_bot_usage_connector",
-            "title": "Grok Bot 用量连接器与 Browser PKCE 认证",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "参考 https://github.com/kargatharaakash/grok-bot-mcp",
-            "dir": "docs/tasks/t507_grok_bot_usage_connector"
-        }
-    ]
+    "tasks": []
 }

@@ -54,6 +54,7 @@ src/
 │   │   ├── popup/popup-height-controller.ts  # 动态高度纯函数
 │   │   ├── auth/device_code_oauth_manager.ts # 参数化 device-code OAuth manager（t339：grok/kimi 共享实现，配置收敛 DeviceCodeOAuthConfig）
 │   │   ├── auth/grok_oauth_manager.ts          # Grok 薄包装：端点/client_id/scope + 纯 Content-Type 头
+│   │   ├── auth/grok_bot_oauth_manager.ts      # t507：Grok Bot PKCE 网页登录 + Refresh Token 换票
 │   │   ├── auth/kimi_oauth_manager.ts          # Kimi 薄包装：端点/client_id + 异步设备头（含 device-id resolver）
 │   │   ├── auth/kimi_web_token_refresher.ts    # t492：kimi 网页会话 Bearer 续期（auth.kimi.com RefreshToken，refresh→access）
 │   │   ├── auth/oauth_helpers.ts               # OAuth 共享常量、类型与纯函数（Layer 1）
@@ -69,7 +70,7 @@ src/
 │   ├── views/settings-view/       #   t122 拆分：sections/ + lib.ts
 │   └── views/popup-view/          #   t180 拆分：子组件（TitleBar/EmptyState/...）+ lib.ts
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
-connectors/                        # 16 个内置连接器（manifest.json + connector.ts）
+connectors/                        # 17 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / e2e(specs/packaged) / smoke
 ```
 
@@ -264,7 +265,7 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 代码现状**已偏离** `docs/archive/_pre_opinit_20260705/` 的旧 SPEC 与 v2 设计愿景，以下为"现在是什么"：
 
 - **连接器执行**：旧 SPEC 说"子进程 + esbuild + SHA-256 缓存 + stdin 传 secret"；现状是 `node:vm` 同进程沙箱 + `typescript.transpileModule`，**无 esbuild、无编译缓存、无内置连接器 SHA-256 完整性清单**。
-- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 16 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
+- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 17 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
 - **secret 默认进脚本**：v2 设想"明文默认不进沙箱"；现状连接器 secret 参数**全部** `exposeToScript:true`，明文经 `ctx.params` 进脚本。
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
 - **沙箱非真隔离**（已知安全限制）：`node:vm` 官方明示非安全边界，恶意脚本可 `(0,eval)("this")` 逃逸到主进程。缓解：禁 import/export、超时、能力受控。待办：`isolated-vm` 或子进程隔离。

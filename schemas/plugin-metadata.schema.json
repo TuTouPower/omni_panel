@@ -129,7 +129,14 @@
             "properties": {
                 "method": {
                     "type": "string",
-                    "enum": ["apikey", "oauth_device", "web_login", "cpa_mgmt", "local_cli"]
+                    "enum": [
+                        "apikey",
+                        "oauth_device",
+                        "web_login",
+                        "cpa_mgmt",
+                        "local_cli",
+                        "oauth_pkce"
+                    ]
                 },
                 "secret_name": {
                     "type": "string",

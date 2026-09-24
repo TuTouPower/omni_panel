@@ -20,6 +20,7 @@ describe("add-account common services", () => {
             "mimo",
             "opencode_go",
             "grok",
+            "grok_bot",
             "commandcode",
             "cpa",
         ]);

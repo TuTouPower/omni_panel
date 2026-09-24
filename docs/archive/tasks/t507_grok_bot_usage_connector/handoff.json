@@ -1,0 +1,35 @@
+{
+    "tid": "t507",
+    "attempt": 1,
+    "execution_id": "9be63fb2b62a4d66ae34f9dd34f9b756",
+    "status": "done",
+    "branch": "t507_grok_bot_usage_connector",
+    "base_sha": "f41e6a441a2e9741e83f351c0485d9ab0bf7542c",
+    "tests": "pnpm check 全绿（typecheck + lint + format:check + deadcode + arch 0 warnings 0 errors）；pnpm test 全绿（322 测试套件，3930 单元/集成用例通过）；pnpm build 构建通过",
+    "blackbox": "通过 tests/integration/connector/grok_bot_connector.test.ts 模拟沙箱内纯算法签名与 API 响应解析；通过 tests/unit/auth/grok_bot_oauth_manager.test.ts 验证 PKCE 授权与静默换票；通过 tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx 验证前台授权与手动输入保存",
+    "review": "full 级：review_code.md PASS（Round 1 零 finding）；review_test.md PASS（Round 1 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/connector/grok_bot_connector.test.ts: declares a valid manifest matching schema",
+            "tests/integration/connector/grok_bot_connector.test.ts: parses weekly and on-demand observations successfully"
+        ],
+        "AC-002": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: start_login generates valid PKCE params and calls open_external",
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: await_completion polls until 200 and saves tokens to vault"
+        ],
+        "AC-003": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: refresh_now updates access token in vault using refresh token",
+            "src/main/core/scheduler/refresh-service.ts 支持 oauth_pkce 触发即时换票并重试"
+        ],
+        "AC-004": [
+            "tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx 覆盖浏览器授权登录与手动输入 Token 保存",
+            "tests/unit/renderer/components/add_account_dialog.test.tsx 覆盖添加账号弹窗正确路由"
+        ],
+        "AC-005": [
+            "tests/integration/connector/grok_bot_connector.test.ts: clamps percentage and handles missing period usage gracefully",
+            "tests/integration/connector/grok_bot_connector.test.ts: reports failed account when both calls fail"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

@@ -8066,6 +8066,22 @@
             "conflicts_with": "",
             "note": "适配 OpenCode 官方全新 Console 架构，登录凭据迁移至 __Host-console_session，连接器全面改用 /console/api/orgs 与 /console/api/usage/summary 官方接口",
             "dir": "docs/archive/tasks/t506_opencode_go_console_api_migration"
+        },
+        {
+            "tid": "t507",
+            "slug": "grok_bot_usage_connector",
+            "title": "Grok Bot 用量连接器与 Browser PKCE 认证",
+            "status": "done",
+            "branch": "t507_grok_bot_usage_connector",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "f41e6a441a2e9741e83f351c0485d9ab0bf7542c",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "参考 https://github.com/kargatharaakash/grok-bot-mcp",
+            "dir": "docs/archive/tasks/t507_grok_bot_usage_connector"
         }
     ]
 }
