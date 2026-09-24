@@ -314,3 +314,13 @@
     `docs/specs/resume_command_template.md`。
 - 替代：renderer/browser 直接执行模板、Web 禁用 resume、或把 Command Code 混入
     其他 agent 的默认映射。
+
+## 034 Muse AI 采用 Next.js Server Action 会话抓取（2026-09-25）
+
+- 背景：Muse AI（Meta 智能体平台）使用 Next.js App Router 架构，其用量与订阅接口（`fetchSubscriptionAction`）通过 Next.js RSC Server Action（`POST https://muse.ai/`）分发，返回非标准 JSON 的 RSC 流，需基于网页会话 Cookie（`hatch_sess`）鉴权与后台保持。
+- 结论：
+    1. `host-io.ts` 与 `net-client.ts` 对称扩展可选 `post_raw` 方法，支持接收 RSC/流式非 JSON 响应体。
+    2. `connectors/muse/` 声明 `capabilities: ["session"]`，接入既有后台无感重登（`hidden: true`）与常驻轮询保活管线。
+    3. 指标输出每周限额（`muse:weekly`，百分比与重置时间戳）与从不过期额外额度（`muse:extra`）。
+- 落地：t508。
+- 替代：模拟浏览器账密表单提交逆向。

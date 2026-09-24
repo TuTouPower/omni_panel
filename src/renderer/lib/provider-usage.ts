@@ -79,6 +79,7 @@ export const PROVIDER_ORDER: readonly string[] = [
     "grok",
     "grok_bot",
     "commandcode",
+    "muse",
 ];
 
 export const PROVIDER_LABELS: Record<string, string> = {
@@ -100,6 +101,7 @@ export const PROVIDER_LABELS: Record<string, string> = {
     grok: "Grok",
     grok_bot: "Grok Bot",
     commandcode: "Command Code",
+    muse: "Muse AI",
 };
 
 const log = createLogger("renderer:provider-usage");

@@ -43,6 +43,12 @@ export interface ConnectorContext {
             opts?: HttpOpts,
         ): Promise<unknown>;
         get_raw(endpoint_key: string, path: string, opts?: HttpOpts): Promise<RawHttpResponse>;
+        post_raw?(
+            endpoint_key: string,
+            path: string,
+            body: unknown,
+            opts?: HttpOpts,
+        ): Promise<RawHttpResponse>;
     };
     readonly files: {
         read(path_pattern: string): Promise<string>;

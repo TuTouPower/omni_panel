@@ -21,5 +21,6 @@ export const ADD_COMMON_SERVICES: { id: AddServiceId; label: string }[] = [
     { id: "grok", label: "Grok" },
     { id: "grok_bot", label: "Grok Bot" },
     { id: "commandcode", label: "Command Code" },
+    { id: "muse", label: "Muse AI" },
     { id: "cpa", label: "CPA Manager" },
 ];
