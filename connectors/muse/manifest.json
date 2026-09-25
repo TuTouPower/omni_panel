@@ -22,6 +22,6 @@
         "login": "https://muse.ai/"
     },
     "loginDomains": ["muse.ai", "auth.muse.ai"],
-    "cookieNames": ["hatch_sess", "hatch_gw", "hatch_vml", "datr"],
+    "cookieNames": ["hatch_sess"],
     "script": "connector.ts"
 }

@@ -222,7 +222,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             metadata: {
                 name: "muse",
                 login_url: "https://muse.ai/",
-                cookie_names: ["hatch_sess", "hatch_gw", "hatch_vml", "datr"],
+                cookie_names: ["hatch_sess"],
                 auth: {
                     method: "web_login",
                     login_url: "https://muse.ai/",
@@ -249,7 +249,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             expect(session.login).toHaveBeenCalledWith({
                 provider: "muse",
                 login_url: "https://muse.ai/",
-                cookie_names: ["hatch_sess", "hatch_gw", "hatch_vml", "datr"],
+                cookie_names: ["hatch_sess"],
                 auto_close_ms: 1500,
             });
         });

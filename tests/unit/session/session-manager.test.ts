@@ -232,6 +232,44 @@ describe("session-manager", () => {
         await expect(deps.vault.get("mimo-1:SESSION_COOKIE")).resolves.toBe("token=abc");
     });
 
+    it("does not prematurely capture or auto-close Muse login window on anonymous tracking cookies", async () => {
+        vi.useFakeTimers();
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "muse-test-1",
+            provider: "muse",
+            login_url: "https://muse.ai/",
+            cookie_names: ["hatch_sess"],
+            auto_close_ms: 1500,
+        });
+
+        // 模拟页面初次加载时服务端下发的匿名 tracking cookie (datr, wd)
+        deps.emit_before_send_headers("https://muse.ai/api/consent/status", {
+            Cookie: "datr=anon_tracking_id_123; wd=1200x800",
+        });
+
+        // 推进 2 秒，断言绝不会误触发 auto_close 关窗
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(deps.window.closed).toBe(false);
+
+        // 模拟用户在页面内完成登录，后续请求携带 hatch_sess
+        deps.emit_before_send_headers("https://muse.ai/api/session", {
+            Cookie: "datr=anon_tracking_id_123; hatch_sess=valid_user_session_token",
+        });
+
+        // 此时捕获到登录凭据，1.5 秒后自动关窗
+        await vi.advanceTimersByTimeAsync(1500);
+        expect(deps.window.closed).toBe(true);
+
+        await expect(promise).resolves.toEqual({ saved: true });
+        await expect(deps.vault.get("muse-test-1:SESSION_COOKIE")).resolves.toBe(
+            "hatch_sess=valid_user_session_token",
+        );
+        vi.useRealTimers();
+    });
+
     it("cookie 保存失败返回可读错误（t367 AC-003）", async () => {
         const deps = create_deps();
         const vault = deps.vault as unknown as {
