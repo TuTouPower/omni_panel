@@ -39,6 +39,8 @@ export interface AppConfiguration {
     readonly language: AppLanguage;
     readonly plugins: readonly ConnectorConfiguration[];
     readonly launchAtLogin: boolean;
+    /** AC-003: 未开启外部连接器信任开关时默认禁止加载用户外部目录连接器 */
+    readonly allowUserConnectors?: boolean;
     readonly proxy?: ProxyConfiguration;
     readonly accentColor?: string;
     readonly theme?: "light" | "dark" | "system";

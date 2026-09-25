@@ -19,6 +19,8 @@ import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
 import { run_connector, is_non_retryable_error } from "../connector/runtime";
+import { run_connector_isolated } from "../connector/isolated-process-runner";
+import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import { create_script_cache } from "../connector/script-cache";
 import type { ObservationStore } from "../observation/observation-store";
 import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
@@ -189,6 +191,14 @@ async function execute_connector(
     reset?: boolean,
 ): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
     const params = await build_params(connector_config, definition, vault, trace_id);
+    const auth_secret_name = definition.manifest.poll?.request.auth?.secret;
+    if (auth_secret_name) {
+        const val = await vault.get(keyFor(connector_config.instanceId, auth_secret_name));
+        if (val) {
+            params[auth_secret_name] = val;
+            params[keyFor(connector_config.instanceId, auth_secret_name)] = val;
+        }
+    }
     const endpoint_overrides = { ...connector_config.endpointOverrides };
     if (definition.manifest.provider === "grok") {
         delete endpoint_overrides["grok_billing"];
@@ -206,7 +216,20 @@ async function execute_connector(
     if (definition.manifest.script) {
         // t195: 脚本 transpile 结果按 mtime 缓存，文本未变不重读盘、不重编译。
         const { code, compiled } = await script_cache.get_script(resolve_script_path(definition));
-        const result = await run_connector(definition.manifest, code, ctx, undefined, compiled);
+        // t515 / AC-002: 连接器脚本在独立隔离子进程执行，防拖垮主进程；单元测试可通过 OMNI_IN_PROCESS_CONNECTOR 回退
+        const result =
+            process.env["OMNI_IN_PROCESS_CONNECTOR"] === "1"
+                ? await run_connector(definition.manifest, code, ctx, undefined, compiled)
+                : await run_connector_isolated({
+                      manifest: definition.manifest,
+                      script_code: code,
+                      compiled_code: compiled,
+                      timeout_ms: DEFAULT_TIMEOUT_MS,
+                      params,
+                      instance_id: connector_config.instanceId,
+                      proxy_url,
+                      endpoint_overrides,
+                  });
         if (result.error) throw new Error(result.error);
         raw_observations = result.observations;
         failed_accounts = result.failed_accounts;

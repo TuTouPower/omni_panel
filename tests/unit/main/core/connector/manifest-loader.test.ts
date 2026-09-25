@@ -30,13 +30,21 @@ describe("manifest-loader custom provider (t095)", () => {
         await Promise.all(tmp_roots.splice(0).map((d) => rm(d, { recursive: true, force: true })));
     });
 
-    it("discovers a user connector with arbitrary snake_case provider name", async () => {
+    // t515: 引入 allow_user_connectors 信任开关，默认跳过未受信用户目录；开启后发现合法的自定义 snake_case 连接器
+    it("discovers a user connector with arbitrary snake_case provider name when allow_user_connectors is true", async () => {
         const builtin = await mkdtemp(join(tmpdir(), "builtin-"));
         const user = await mkdtemp(join(tmpdir(), "user-"));
         tmp_roots.push(builtin, user);
         await make_user_connector(user, "my_vendor");
 
-        const defs = await discover_connector_definitions(builtin, user);
+        // 默认未开启信任时跳过
+        const defs_default = await discover_connector_definitions(builtin, user);
+        expect(defs_default.find((d) => d.manifest.provider === "my_vendor")).toBeUndefined();
+
+        // 显式开启信任后加载
+        const defs = await discover_connector_definitions(builtin, user, {
+            allow_user_connectors: true,
+        });
 
         const custom = defs.find((d) => d.manifest.provider === "my_vendor");
         expect(custom, "custom provider connector must be discovered, not skipped").toBeDefined();
@@ -49,7 +57,9 @@ describe("manifest-loader custom provider (t095)", () => {
         await make_user_connector(builtin, "deepseek");
         await make_user_connector(user, "acme Corp"); // invalid: space → rejected by regex
 
-        const defs = await discover_connector_definitions(builtin, user);
+        const defs = await discover_connector_definitions(builtin, user, {
+            allow_user_connectors: true,
+        });
         const providers = defs.map((d) => d.manifest.provider);
 
         expect(providers).toContain("deepseek");

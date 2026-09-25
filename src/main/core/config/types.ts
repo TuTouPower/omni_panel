@@ -82,6 +82,7 @@ export const appConfigurationSchema = z.object({
     language: appLanguageSchema,
     plugins: z.array(connectorConfigurationSchema),
     launchAtLogin: z.boolean(),
+    allowUserConnectors: z.boolean().default(false).optional(),
     proxy: proxyConfigurationSchema.optional(),
     accentColor: z.string().optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
@@ -157,6 +158,7 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     language: "zh-Hans",
     plugins: [],
     launchAtLogin: false,
+    allowUserConnectors: false,
     devPanel: {
         scanRoots: ["~/kar/code"],
         commitCutoff: "2026-03-20",

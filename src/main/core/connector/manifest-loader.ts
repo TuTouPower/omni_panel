@@ -6,6 +6,11 @@ import {
     connectorProviderSchema,
     type Manifest,
 } from "../../../shared/schemas/manifest";
+import {
+    verify_connector_integrity,
+    generate_builtin_integrity,
+    type IntegrityRegistry,
+} from "./connector-integrity";
 
 const log = createLogger("manifest-loader");
 
@@ -13,6 +18,11 @@ export interface ConnectorDefinition {
     readonly directory: string;
     readonly executablePath: string;
     readonly manifest: Manifest;
+}
+
+export interface DiscoverOptions {
+    readonly allow_user_connectors?: boolean;
+    readonly integrity_registry?: IntegrityRegistry;
 }
 
 export async function load_manifest(connector_dir: string): Promise<Manifest | null> {
@@ -35,6 +45,8 @@ export async function load_manifest(connector_dir: string): Promise<Manifest | n
 async function load_definitions_from_dir(
     dir: string,
     definitions: ConnectorDefinition[],
+    is_builtin = false,
+    integrity_registry?: IntegrityRegistry,
 ): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -49,6 +61,18 @@ async function load_definitions_from_dir(
             );
             continue;
         }
+
+        // AC-001: 内置连接器进行 SHA-256 完整性清单比对校验
+        if (is_builtin && integrity_registry && Object.keys(integrity_registry).length > 0) {
+            const check = await verify_connector_integrity(manifest, directory, integrity_registry);
+            if (!check.ok) {
+                log.error(
+                    `Security alert: rejecting connector "${manifest.id}" due to integrity check failure: ${check.reason ?? "unknown"}`,
+                );
+                continue;
+            }
+        }
+
         definitions.push({ directory, executablePath: directory, manifest });
     }
 }
@@ -56,18 +80,30 @@ async function load_definitions_from_dir(
 export async function discover_connector_definitions(
     builtin_dir: string,
     user_dir: string,
+    options?: DiscoverOptions,
 ): Promise<ConnectorDefinition[]> {
     const definitions: ConnectorDefinition[] = [];
     // A missing/unreadable builtin dir is fatal: otherwise the app would launch
     // with zero connectors and no UI signal. Let it propagate to startup.
     if (process.env["E2E_SKIP_BUNDLED"] !== "1") {
-        await load_definitions_from_dir(builtin_dir, definitions);
+        let registry = options?.integrity_registry;
+        // AC-001: 校验内置连接器完整性
+        if (!registry && builtin_dir) {
+            registry = await generate_builtin_integrity(builtin_dir);
+        }
+        await load_definitions_from_dir(builtin_dir, definitions, true, registry);
     }
-    // The user dir is best-effort: it may not exist until the user adds a connector.
-    try {
-        await load_definitions_from_dir(user_dir, definitions);
-    } catch (err) {
-        log.warn("Could not read user connector directory", err);
+    // AC-003: 默认禁止加载未受信的用户外部目录连接器，必须显式开启信任开关
+    if (options?.allow_user_connectors) {
+        try {
+            await load_definitions_from_dir(user_dir, definitions, false);
+        } catch (err) {
+            log.warn("Could not read user connector directory", err);
+        }
+    } else {
+        log.debug(
+            "Skipping user connector directory (untrusted user connectors disabled by default)",
+        );
     }
     return definitions;
 }
@@ -75,8 +111,9 @@ export async function discover_connector_definitions(
 export async function discover_connectors(
     builtin_dir: string,
     user_dir: string,
+    options?: DiscoverOptions,
 ): Promise<Manifest[]> {
-    return (await discover_connector_definitions(builtin_dir, user_dir)).map(
+    return (await discover_connector_definitions(builtin_dir, user_dir, options)).map(
         (definition) => definition.manifest,
     );
 }

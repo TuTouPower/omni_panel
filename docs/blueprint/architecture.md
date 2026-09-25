@@ -93,7 +93,7 @@ CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli op
 |边界|规则|
 |---|---|
 |Renderer|`contextIsolation:true` `sandbox:true` `nodeIntegration:false` `webSecurity:true`；只调 preload 白名单；日常 `hasSecret`；设置窗可 `getSecrets` 回填明文|
-|Connector 沙箱|`node:vm` realm，无 `require/process/fs/fetch/timer`；只有注入的 `ctx`；禁 `import/export`；15s 超时。**注意：node:vm 非真隔离**（见 §6）。t371：超时冷却（超时结算后 2x timeout 冷却期内拒绝同 manifest 新执行——vm timeout 只断同步，异步残留 promise 生命周期不可知，靠冷却防残留与重试叠加打上游；正常完成不设冷却，多实例并发不受影响）；HTTP 超时 abort reason 含 timeout 字样（`is_timeout_error` 可分类）；observation schema 校验失败计入 `failed_accounts` 不静默丢条（account_id 取观测自身字段）。signal 取消未实现（预留 `ctx.signal`），进程级隔离（worker/child_process）留 spike|
+|Connector 隔离与完整性 (t515)|独立子进程/utilityProcess 隔离执行，崩溃、OOM、死循环不拖垮主进程；内置连接器加载前逐一比对 SHA-256 完整性清单，篡改即拒绝并告警；默认禁止加载未受信的用户外部目录连接器；参数与结果经结构化 IPC 传输|
 |主进程|唯一持有密钥明文、文件系统、网络、浏览器会话|
 |IPC sender|`assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**|
 |LocalAPI|绑 `0.0.0.0`；仅 `/v1/ingest` 需 Bearer；其余 web 路由在可信 LAN 下免认证（见 `specs/web-panel.md`）|

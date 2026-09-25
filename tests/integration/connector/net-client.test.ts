@@ -1078,8 +1078,8 @@ describe("net-client", () => {
         it("provides ctx.util methods for numbers, percentages, and timestamps (A99 / AC-005)", () => {
             const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
             expect(ctx.util).toBeDefined();
-            // 不使用 if (!ctx.util) return 规避条件跳过
-            const util = ctx.util!;
+            const util = ctx.util;
+            if (!util) throw new Error("Expected ctx.util to be defined");
             expect(util.to_number("42")).toBe(42);
             expect(util.to_number(undefined, 10)).toBe(10);
             expect(util.to_pct(0.75)).toBe(75);
