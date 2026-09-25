@@ -1,4 +1,4 @@
-import { app, utilityProcess, type UtilityProcess } from "electron";
+import { utilityProcess, type UtilityProcess } from "electron";
 import { fork, type ChildProcess, type Serializable } from "node:child_process";
 import * as fs from "node:fs";
 import { join, resolve } from "node:path";
@@ -24,19 +24,11 @@ export interface RunIsolatedOptions {
 
 /**
  * 解析连接器隔离子进程 worker 入口文件路径。
- * 生产/打包态优先查找 app.asar.unpacked/out/main/connector-worker.js；
- * 未打包态查找 out/main/connector-worker.js 或源码 ts 路径。
+ * 生产/打包态优先使用 app.asar 内的编译产物 out/main/connector-worker.js（由 utilityProcess 加载可透明访问 asar 内部依赖）；
+ * 开发/未打包态查找 out/main/connector-worker.js 或源码 ts 路径。
  */
 export function resolve_connector_worker_path(base_dir: string = __dirname): string {
     const candidate = join(base_dir, "connector-worker.js");
-    try {
-        if (app.isPackaged) {
-            const unpacked = candidate.replace("app.asar", "app.asar.unpacked");
-            if (fs.existsSync(unpacked)) return unpacked;
-        }
-    } catch {
-        // 忽略非 Electron 环境
-    }
     if (fs.existsSync(candidate)) return candidate;
 
     // 尝试工作区 out/main/connector-worker.js
