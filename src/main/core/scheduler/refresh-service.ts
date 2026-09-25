@@ -8,7 +8,8 @@ import type {
     ScriptObservation,
     FailedAccount,
 } from "../../../shared/types/observation";
-import { observations_to_ready_state } from "./observation-mapping";
+import { observations_to_ready_state, observation_to_metric_record } from "./observation-mapping";
+import { pluginResultSchema } from "../../../shared/schemas/plugin-output";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import { is_auth_error } from "../../../shared/lib/auth-error";
@@ -404,6 +405,26 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                             await cancellable_sleep(retry_delay_ms, deps.abort_signal);
                         }
                         continue;
+                    }
+
+                    // A78 / AC-002: 在输出消费边界调用 pluginResultSchema.safeParse，拦截非契约脏数据
+                    const mapped_items = observations.map((obs) =>
+                        observation_to_metric_record(obs),
+                    );
+                    const output_payload = {
+                        success: true,
+                        schemaVersion: 2,
+                        updatedAt: new Date().toISOString(),
+                        items: mapped_items,
+                    };
+                    const validated_output = pluginResultSchema.safeParse(output_payload);
+                    if (!validated_output.success) {
+                        trace_log.warn(
+                            `pluginResultSchema validation failed for ${instanceId}: ${validated_output.error.message}`,
+                        );
+                        throw new Error(
+                            `pluginResultSchema rejected output for ${instanceId}: ${validated_output.error.message}`,
+                        );
                     }
 
                     // t352 AC-001: refresh 一轮观测批量写入走单事务（insert_batch

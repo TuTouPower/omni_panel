@@ -26,10 +26,10 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：`plugin-metadata.schema.json` 与 zod 生成源完全对齐，不再出现合法字段被拦截的冲突分歧。
-- [ ] AC-002：连接器返回非契约格式的脏数据时被 `pluginResultSchema` 拦截并记录警告，数据不进入下游存储。
-- [ ] AC-003：执行 `pnpm schema:export --check` 能准确比对磁盘文件与代码生成物；若存在未同步修改则返回错误。
-- [ ] AC-004：`.env.example` 包含当前全部连接器的配置指引说明。
+- [x] AC-001：`plugin-metadata.schema.json` 与 zod 生成源完全对齐，不再出现合法字段被拦截的冲突分歧。
+- [x] AC-002：连接器返回非契约格式的脏数据时被 `pluginResultSchema` 拦截并记录警告，数据不进入下游存储。
+- [x] AC-003：执行 `pnpm schema:export --check` 能准确比对磁盘文件与代码生成物；若存在未同步修改则返回错误。
+- [x] AC-004：`.env.example` 包含当前全部连接器的配置指引说明。
 
 ### 可测试性声明
 
