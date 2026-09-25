@@ -10,6 +10,9 @@ export default {
                     index: resolve("src/main/index.ts"),
                     collector: resolve("src/main/core/token-stats/collector.ts"),
                     "query-worker": resolve("src/main/core/token-stats/query-worker.ts"),
+                    "connector-worker": resolve(
+                        "src/main/core/connector/worker/connector-worker-entry.ts",
+                    ),
                 },
             },
         },

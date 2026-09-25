@@ -93,7 +93,7 @@ CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli op
 |边界|规则|
 |---|---|
 |Renderer|`contextIsolation:true` `sandbox:true` `nodeIntegration:false` `webSecurity:true`；只调 preload 白名单；日常 `hasSecret`；设置窗可 `getSecrets` 回填明文|
-|Connector 隔离与完整性 (t515)|独立子进程/utilityProcess 隔离执行，崩溃、OOM、死循环不拖垮主进程；内置连接器加载前逐一比对 SHA-256 完整性清单，篡改即拒绝并告警；默认禁止加载未受信的用户外部目录连接器；参数与结果经结构化 IPC 传输|
+|Connector 隔离与完整性 (t515/t524)|生产与打包环境统一运行于 Electron utilityProcess 隔离子进程，优先通过 app.asar.unpacked 读取构建后 connector-worker.js，纯 Node 单测环境回退至 child_process.fork；隔离进程崩溃、OOM、死循环不拖垮主进程；内置连接器加载前逐一比对 SHA-256 完整性清单，篡改即拒绝并告警；默认禁止加载未受信的用户外部目录连接器；参数与结果经结构化 IPC 传输|
 |主进程|唯一持有密钥明文、文件系统、网络、浏览器会话|
 |IPC sender|`assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**|
 |LocalAPI（R7 信任模型）|绑 `0.0.0.0:18263`；定位于可信 LAN（局域网）环境，除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制路由免认证直连（见 `specs/web-panel.md`）|

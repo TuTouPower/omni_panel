@@ -8338,6 +8338,22 @@
             "conflicts_with": "",
             "note": "审阅采纳项: A83-A87, R7, R8, R10",
             "dir": "docs/archive/tasks/t523_docs_and_handoff_sync"
+        },
+        {
+            "tid": "t524",
+            "slug": "connector_worker_packaged_fix",
+            "title": "修复打包后连接器隔离子进程崩溃与全量采集失败",
+            "status": "done",
+            "branch": "t524_connector_worker_packaged_fix",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "f4fe9a67cc17ba9cbc7efc2450ceec8bcdcae94d",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源: p259",
+            "dir": "docs/archive/tasks/t524_connector_worker_packaged_fix"
         }
     ]
 }
