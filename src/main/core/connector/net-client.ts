@@ -312,7 +312,14 @@ export function create_connector_context(
             headersTimeout: effective_timeout,
             bodyTimeout: effective_timeout,
             signal: ac.signal,
-            ...(params.body !== undefined ? { body: JSON.stringify(params.body) } : {}),
+            ...(params.body !== undefined
+                ? {
+                      body:
+                          typeof params.body === "string"
+                              ? params.body
+                              : JSON.stringify(params.body),
+                  }
+                : {}),
             ...(dispatcher ? { dispatcher } : {}),
             ...(request_reset ? { reset: true } : {}),
         };
