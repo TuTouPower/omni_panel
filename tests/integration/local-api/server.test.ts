@@ -1876,6 +1876,17 @@ describe("local-api web read endpoints", () => {
         expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     });
 
+    it("GET /index.html returns tightened CSP header with connect-src 'self' (A19)", async () => {
+        await api.start();
+        const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/index.html`);
+        expect(res.status).toBe(200);
+        const csp = res.headers.get("content-security-policy");
+        expect(csp).not.toBeNull();
+        expect(csp).toContain("connect-src 'self'");
+        expect(csp).not.toContain("ws:");
+        expect(csp).not.toContain("wss:");
+    });
+
     it("GET /v1/connectors JSON 响应带 nosniff（p124）", async () => {
         await api.start();
         const res = await fetch(`http://127.0.0.1:${String(api.get_port())}/v1/connectors`);
@@ -2051,6 +2062,84 @@ describe("local-api web read endpoints", () => {
         const points_b = series_b.filter((p) => p !== null);
         // inst-b: used 500/1000 = 50%，不串 inst-a 的 10%
         expect(points_b[0]?.percent).toBe(50);
+    });
+
+    it("POST /v1/trend/bulk returns aggregated results across queries (A116 / AC-006)", async () => {
+        const now = Date.now();
+        const base = {
+            provider: "tavily",
+            account_id: "tavily",
+            raw_label: "test",
+            normalized_label: "测试",
+            account_label: "Tavily",
+            window: "month" as const,
+            cycleDurationMs: 30 * 24 * 3_600_000,
+            display_style: "ratio" as const,
+            reset_at: null,
+            status: "normal" as const,
+            source: "poll" as const,
+            stale: false,
+            last_error: null,
+        };
+        store.insert({
+            ...base,
+            source_instance_id: "inst-bulk",
+            metric_id: "tavily:m1",
+            used: 200,
+            limit: 1000,
+            observed_at: now,
+        });
+        store.insert({
+            ...base,
+            source_instance_id: "inst-bulk",
+            metric_id: "tavily:m2",
+            used: 600,
+            limit: 1000,
+            observed_at: now,
+        });
+
+        await api.start();
+        const bulk_url = `http://127.0.0.1:${String(api.get_port())}/v1/trend/bulk`;
+        const res = await fetch(bulk_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                queries: [
+                    {
+                        provider: "tavily",
+                        accountId: "tavily",
+                        metricId: "tavily:m1",
+                        sourceInstanceId: "inst-bulk",
+                    },
+                    {
+                        provider: "tavily",
+                        accountId: "tavily",
+                        metricId: "tavily:m2",
+                        sourceInstanceId: "inst-bulk",
+                    },
+                ],
+            }),
+        });
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as {
+            results: { metric_id: string; series: unknown[] }[];
+        };
+        expect(data.results).toHaveLength(2);
+        expect(data.results[0]?.metric_id).toBe("tavily:m1");
+        expect(data.results[0]?.series.length).toBeGreaterThan(0);
+        expect(data.results[1]?.metric_id).toBe("tavily:m2");
+        expect(data.results[1]?.series.length).toBeGreaterThan(0);
+    });
+
+    it("POST /v1/trend/bulk validates input structure (A116)", async () => {
+        await api.start();
+        const bulk_url = `http://127.0.0.1:${String(api.get_port())}/v1/trend/bulk`;
+        const res = await fetch(bulk_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ queries: "not-an-array" }),
+        });
+        expect(res.status).toBe(400);
     });
 });
 

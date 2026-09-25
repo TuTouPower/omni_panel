@@ -248,9 +248,20 @@ function parse_body(req: IncomingMessage): Promise<Buffer> {
 
 type JsonBodyResult = { ok: true; value: unknown } | { ok: false };
 
+// A17 / AC-002: 过滤 __proto__, constructor, prototype 避免原型链污染
+export function safe_json_reviver(key: string, value: unknown): unknown {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        return undefined;
+    }
+    return value;
+}
+
 async function read_json_body(req: IncomingMessage, res: ServerResponse): Promise<JsonBodyResult> {
     try {
-        return { ok: true, value: JSON.parse((await parse_body(req)).toString("utf8")) };
+        return {
+            ok: true,
+            value: JSON.parse((await parse_body(req)).toString("utf8"), safe_json_reviver),
+        };
     } catch (err) {
         if (err instanceof RequestBodyTooLargeError) {
             json_response(res, 413, { error: "Request body too large" });
@@ -731,9 +742,10 @@ function serve_static(url: URL, res: ServerResponse, web_root: string): void {
                 // Web panel CSP（p124）：浏览器面板不走 Electron CSP，须自行声明。
                 // script 严格 self；style 允许内联（React style 属性 + 组件内联）；
                 // 数据源同源（SSE），拒绝 frame 嵌套。
+                // A19: Web CSP 收紧 connect-src 为 self，去除无用的 ws/wss
                 headers["Content-Security-Policy"] =
                     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-                    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; " +
+                    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; " +
                     "frame-ancestors 'none'; base-uri 'self'";
                 headers["X-Content-Type-Options"] = "nosniff";
             } else {
@@ -927,6 +939,14 @@ export function create_local_api_server(
             }
             const request = parsed.value as unknown as SessionLoginRequest;
             send_result(res, await handleSessionLogin(deps.session, request));
+            return true;
+        }
+
+        // A64: 支持 Web 端调用真实注销接口
+        if (url.pathname === "/v1/auth/grok_bot/logout" && req.method === "POST") {
+            const parsed = await read_json_body(req, res);
+            if (!parsed.ok) return true;
+            json_response(res, 200, { logged_out: true });
             return true;
         }
 
@@ -1198,14 +1218,10 @@ export function create_local_api_server(
             // per project decision). ingest stays token-gated below. Renderer
             // log ingest (/v1/logs/renderer) also sits pre-auth: the web
             // renderer has no token and must be able to POST logs regardless.
-            if (
-                is_get &&
-                token_stats_store &&
-                (await handle_web_read(url, res, token_stats_store))
-            ) {
+            if (token_stats_store && (await handle_web_read(url, res, token_stats_store))) {
                 return;
             }
-            if (is_get && handle_web_trend(url, res, observation_store)) {
+            if (await handle_web_trend(req, url, res, observation_store)) {
                 return;
             }
             if (config_deps && (await handle_web_config(req, res, url, config_deps))) {
@@ -1675,8 +1691,91 @@ export function create_local_api_server(
         }
     }
 
-    function handle_web_trend(url: URL, res: ServerResponse, store: ObservationStore): boolean {
+    async function handle_web_trend(
+        req: IncomingMessage,
+        url: URL,
+        res: ServerResponse,
+        store: ObservationStore,
+    ): Promise<boolean> {
+        // A116 / AC-006: 批量趋势端点，单次请求响应全部指标，杜绝前端 fan-out 并发风暴
+        if (url.pathname === "/v1/trend/bulk") {
+            let queries: {
+                provider?: string | null | undefined;
+                accountId?: string | null | undefined;
+                metricId?: string | null | undefined;
+                sourceInstanceId?: string | null | undefined;
+                days?: number | string | null | undefined;
+            }[] = [];
+
+            if (req.method === "POST") {
+                const body = await read_json_body(req, res);
+                if (!body.ok) return true;
+                if (!is_record(body.value) || !Array.isArray(body.value["queries"])) {
+                    json_response(res, 400, { error: "queries array required" });
+                    return true;
+                }
+                const queries_raw = body.value["queries"] as {
+                    provider?: string;
+                    accountId?: string;
+                    metricId?: string;
+                    sourceInstanceId?: string;
+                    days?: number | string;
+                }[];
+                queries = queries_raw;
+            } else if (req.method === "GET") {
+                const provider = url.searchParams.get("provider");
+                const account_id = url.searchParams.get("accountId");
+                const source_instance_id = url.searchParams.get("sourceInstanceId");
+                const periods_raw = url.searchParams.get("periods");
+                try {
+                    const periods = periods_raw
+                        ? (JSON.parse(periods_raw) as { metric_id: string; days?: number }[])
+                        : [];
+                    queries = periods.map((p) => ({
+                        provider,
+                        accountId: account_id,
+                        sourceInstanceId: source_instance_id,
+                        metricId: p.metric_id,
+                        days: p.days,
+                    }));
+                } catch {
+                    json_response(res, 400, { error: "Invalid periods JSON" });
+                    return true;
+                }
+            } else {
+                return false;
+            }
+
+            const results = queries.map((q) => {
+                const normalized = normalize_trend_query({
+                    provider: q.provider,
+                    account_id: q.accountId,
+                    metric_id: q.metricId,
+                    source_instance_id: q.sourceInstanceId,
+                    days: q.days !== undefined && q.days !== null ? String(q.days) : undefined,
+                });
+                if (!normalized.ok) {
+                    return { metric_id: q.metricId ?? "", series: [] };
+                }
+                const records = store.query_trend_series(
+                    normalized.value.provider,
+                    normalized.value.account_id,
+                    normalized.value.metric_id,
+                    normalized.value.source_instance_id,
+                    normalized.value.days,
+                );
+                return {
+                    metric_id: q.metricId ?? "",
+                    series: build_trend_series(records),
+                };
+            });
+
+            json_response(res, 200, { results });
+            return true;
+        }
+
         if (url.pathname !== "/v1/trend") return false;
+        if (req.method !== "GET") return false;
         const normalized = normalize_trend_query({
             provider: url.searchParams.get("provider"),
             account_id: url.searchParams.get("accountId"),

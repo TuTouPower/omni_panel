@@ -2,8 +2,40 @@ import { describe, it, expect } from "vitest";
 import {
     is_within_web_root,
     sse_cleanup_should_unsubscribe,
+    safe_json_reviver,
 } from "../../../src/main/core/local-api/server";
 import type { Env } from "../../../src/main/core/session-history/subscription-service";
+
+describe("safe_json_reviver (A17 / AC-002: prototype pollution guard)", () => {
+    it("AC-002: strips __proto__, constructor, and prototype from parsed JSON", () => {
+        const payload = JSON.stringify({
+            valid: "data",
+            __proto__: { polluted: true },
+            nested: {
+                constructor: { evil: true },
+                prototype: { bad: true },
+                normal: 123,
+            },
+        });
+        interface TestParsed {
+            valid?: string;
+            nested?: {
+                normal?: number;
+                constructor?: unknown;
+                prototype?: unknown;
+            };
+            __proto__?: unknown;
+        }
+        const parsed = JSON.parse(payload, safe_json_reviver) as TestParsed;
+        expect(parsed.valid).toBe("data");
+        expect(parsed.nested?.normal).toBe(123);
+        expect(Object.prototype.hasOwnProperty.call(parsed, "__proto__")).toBe(false);
+        expect(parsed.__proto__).toBe(Object.prototype);
+        expect((Object.prototype as unknown as { polluted?: boolean }).polluted).toBeUndefined();
+        expect(parsed.nested?.constructor).toBe(Object);
+        expect(parsed.nested?.prototype).toBeUndefined();
+    });
+});
 
 describe("is_within_web_root (path traversal guard)", () => {
     it("accepts file inside web_root", () => {

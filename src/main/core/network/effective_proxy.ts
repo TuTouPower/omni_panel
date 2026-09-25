@@ -1,4 +1,7 @@
 import type { ProxyConfiguration } from "../../../shared/types/config";
+import { createLogger } from "../../../shared/lib/logger";
+
+const log = createLogger("effective-proxy");
 
 export function is_valid_proxy_url(url_str: string): boolean {
     try {
@@ -34,10 +37,18 @@ export function resolve_effective_proxy_url(
     use_system_proxy = true,
 ): string | undefined {
     if (configured_proxy_url) {
-        return is_valid_proxy_url(configured_proxy_url) ? configured_proxy_url : undefined;
+        if (is_valid_proxy_url(configured_proxy_url)) {
+            return configured_proxy_url;
+        }
+        log.warn(`Invalid configured proxy URL rejected: ${configured_proxy_url}`);
+        return undefined;
     }
     if (use_system_proxy && detected_proxy_url) {
-        return is_valid_proxy_url(detected_proxy_url) ? detected_proxy_url : undefined;
+        if (is_valid_proxy_url(detected_proxy_url)) {
+            return detected_proxy_url;
+        }
+        log.warn(`Invalid system detected proxy URL rejected: ${detected_proxy_url}`);
+        return undefined;
     }
     return undefined;
 }

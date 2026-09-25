@@ -32,6 +32,18 @@ describe("resolve_effective_proxy_url", () => {
         expect(resolve_effective_proxy_url("invalid-url", undefined)).toBeUndefined();
     });
 
+    // A14 / AC-001: 校验非法协议，仅接受 http/https/socks5
+    it("AC-001: rejects invalid protocols and malformed URLs", () => {
+        expect(is_valid_proxy_url("ftp://proxy.example:21")).toBe(false);
+        expect(is_valid_proxy_url("ws://proxy.example:8080")).toBe(false);
+        expect(is_valid_proxy_url("javascript:alert(1)")).toBe(false);
+        expect(is_valid_proxy_url("http://valid.example:8080")).toBe(true);
+        expect(is_valid_proxy_url("https://valid.example:8080")).toBe(true);
+        expect(is_valid_proxy_url("socks5://valid.example:1080")).toBe(true);
+
+        expect(resolve_effective_proxy_url("ftp://bad:21", undefined)).toBeUndefined();
+    });
+
     it("returns undefined when neither proxy is available", () => {
         expect(resolve_effective_proxy_url(undefined, undefined)).toBeUndefined();
     });
