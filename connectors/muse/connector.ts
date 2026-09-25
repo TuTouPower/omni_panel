@@ -35,6 +35,7 @@ interface SubscriptionResponse {
 }
 
 const ACTION_ID = "407c800bb93d1539e5152b02e7f8ed6a82a7729a86";
+const DEPLOYMENT_ID = "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3";
 const USER_AGENT =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
 
@@ -68,7 +69,11 @@ async function main(): Promise<ScriptObservation[]> {
         "Content-Type": "text/plain;charset=UTF-8",
         Origin: "https://muse.ai",
         Referer: "https://muse.ai/",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty",
         "next-action": ACTION_ID,
+        "x-deployment-id": DEPLOYMENT_ID,
         Cookie: cookie,
         "User-Agent": USER_AGENT,
     };

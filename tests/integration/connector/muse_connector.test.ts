@@ -106,6 +106,10 @@ describe("muse connector", () => {
             "next-action": "407c800bb93d1539e5152b02e7f8ed6a82a7729a86",
             Origin: "https://muse.ai",
             Referer: "https://muse.ai/",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+            "x-deployment-id": "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3",
             Cookie: "hatch_sess=test-session-token",
         });
     });
