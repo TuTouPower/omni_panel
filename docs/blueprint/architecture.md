@@ -275,3 +275,4 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 - **系统代理与外链安全策略（t510）**：默认采纳系统代理（含 SOCKS5 与 PAC 支持），设置中支持用户手动关闭系统代理（`proxy.useSystemProxy === false`）；窗口内所有外部 http/https 导航通过 `will-navigate` 拦截并委托系统默认浏览器打开，杜绝外部网页在应用窗口内加载。
 - **配置迁移（t510）**：`schemaVersion` 递增至 2，启动时自动清理存量未配置的交互式登录空实例。
 - **Preload 路由矩阵与分权（t511）**：Preload API 采用工厂驱动（`create_preload_api`），消除了三栈复制与大 switch 分支；Grok Bot OAuth 高阶能力仅限 setting 窗口，低权窗口全部注入 rejected 存根；Popup 窗口的 `config.save` 施加白名单保护（`filter_popup_config_save`），越权篡改核心敏感配置被安全忽略并恢复现值。
+- **Grok Bot 认证生命周期与 Token 轮换（t512）**：verifier 仅保留在主进程内存（`pending_verifiers`），不流经渲染层与 IPC；并发轮询通过 `active_cancels` 互斥隔离消除孤儿；`refresh_now` 实现基于 instance_id 的 Promise 去重与自动网络重试；Vault 写入具备原子补偿回滚；连接器 401 明确抛错联动调度器即时换票；支持后台定时自动刷新（`schedule_refresh`）与 Refresh Token 轮换持久化，失败触发 `on_token_expired` 告警。

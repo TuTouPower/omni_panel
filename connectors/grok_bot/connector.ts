@@ -40,13 +40,21 @@ function base64url_decode(str: string): string {
 function parse_jwt_info(token: string): { email?: string | undefined; sub?: string | undefined } {
     try {
         const parts = token.split(".");
-        if (parts.length < 2 || !parts[1]) return {};
+        if (parts.length < 2 || !parts[1]) {
+            ctx.log.debug(
+                `parse_jwt_info: invalid token format (parts length: ${String(parts.length)})`,
+            );
+            return {};
+        }
         const json = base64url_decode(parts[1]);
         const payload = JSON.parse(json) as Record<string, unknown>;
         const email = typeof payload["email"] === "string" ? payload["email"] : undefined;
         const sub = typeof payload["sub"] === "string" ? payload["sub"] : undefined;
         return { email, sub };
-    } catch {
+    } catch (err) {
+        ctx.log.debug(
+            `parse_jwt_info: failed to parse payload: ${err instanceof Error ? err.message : String(err)}`,
+        );
         return {};
     }
 }
@@ -90,14 +98,14 @@ function generate_uuid(): string {
 }
 
 function generate_checksum(mid: string, now = Date.now()): string {
-    const ks = Math.floor(now / 1e6);
+    const ks = BigInt(Math.floor(now / 1e6));
     const b = new Uint8Array([
-        (ks >> 40) & 255,
-        (ks >> 32) & 255,
-        (ks >> 24) & 255,
-        (ks >> 16) & 255,
-        (ks >> 8) & 255,
-        ks & 255,
+        Number((ks >> 40n) & 0xffn),
+        Number((ks >> 32n) & 0xffn),
+        Number((ks >> 24n) & 0xffn),
+        Number((ks >> 16n) & 0xffn),
+        Number((ks >> 8n) & 0xffn),
+        Number(ks & 0xffn),
     ]);
     return to_base64url_6bytes(obfuscate(b)) + mid;
 }
@@ -114,8 +122,19 @@ function parse_timestamp(value: unknown): number | null {
 async function main(): Promise<ScriptObservation[]> {
     const token = ctx.params["ACCESS_TOKEN"] ?? "";
     const jwt = parse_jwt_info(token);
-    const account_id = jwt.sub ?? "grok_bot";
-    const account_label = jwt.email ?? "Grok Bot";
+    // A13: 优先采用有效 sub 或根据 token 派生稳定非空 id，杜绝空字符串与碰撞
+    const raw_sub = jwt.sub?.trim();
+    let fallback_id = "grok_bot";
+    if (token) {
+        let h = 0;
+        for (let i = 0; i < token.length; i++) {
+            h = ((h << 5) - h + token.charCodeAt(i)) | 0;
+        }
+        fallback_id = `grok_bot_${Math.abs(h).toString(16)}`;
+    }
+    const account_id = raw_sub && raw_sub.length > 0 ? raw_sub : fallback_id;
+    const raw_email = jwt.email?.trim();
+    const account_label = raw_email && raw_email.length > 0 ? raw_email : "Grok Bot";
 
     const mid = generate_uuid();
     const headers: Record<string, string> = {
@@ -139,7 +158,16 @@ async function main(): Promise<ScriptObservation[]> {
             { headers },
         )) as SandUsageResponse;
     } catch (err) {
-        sand_err = err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? err.message : String(err);
+        // A7: 401/403 明确抛出错误，驱动 refresh-service 触发换票重试
+        if (
+            message.includes("401") ||
+            message.includes("403") ||
+            message.includes("Unauthorized")
+        ) {
+            throw new Error(`Grok Bot 会话已失效 (401): ${message}`);
+        }
+        sand_err = message;
     }
 
     const now = Date.now();

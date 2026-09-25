@@ -409,7 +409,17 @@ void app.whenReady().then(async () => {
                     detected_system_proxy,
                     currentConfigSnapshot.proxy?.useSystemProxy !== false,
                 ),
+            on_token_expired: (instanceId, reason) => {
+                log.warn(`Grok Bot token expired for instance ${instanceId}: ${reason}`);
+            },
         });
+
+        // A149: 启动时自动为已有启用的 grok_bot 实例调度后台定时换票
+        for (const p of currentConfig.plugins) {
+            if (p.enabled && p.manifestId === "grok_bot") {
+                grokBotOAuthManager.schedule_refresh?.(p.instanceId);
+            }
+        }
 
         const refreshService = createRefreshService({
             definitions: allDefinitions,

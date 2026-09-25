@@ -9,7 +9,7 @@ function mock_grok_bot_api(overrides: Record<string, unknown> = {}) {
         login_start: vi.fn().mockResolvedValue({
             auth_url: "https://cursor.com/loginDeepControl",
             uuid: "u123",
-            verifier: "v456",
+            login_id: "login_id_789",
         }),
         login_poll: vi.fn().mockResolvedValue({
             saved: true,
@@ -64,7 +64,7 @@ describe("GrokBotPkceForm", () => {
 
         await waitFor(() => {
             expect(api.login_start).toHaveBeenCalled();
-            expect(api.login_poll).toHaveBeenCalledWith("inst_1", "u123", "v456");
+            expect(api.login_poll).toHaveBeenCalledWith("inst_1", "u123", "login_id_789");
         });
 
         await waitFor(() => {
@@ -137,6 +137,48 @@ describe("GrokBotPkceForm", () => {
         await user.click(screen.getByText("浏览器登录授权"));
         await waitFor(() => {
             expect(screen.getByText("登录授权超时，请重试")).toBeInTheDocument();
+        });
+    });
+
+    it("cancels pending login poll when component is unmounted (A52 / AC-008)", () => {
+        const api = mock_grok_bot_api();
+        const { unmount } = render(
+            <GrokBotPkceForm
+                instance_id="inst_unmount"
+                account_name=""
+                set_account_name={() => undefined}
+                on_save={vi.fn()}
+            />,
+        );
+
+        unmount();
+
+        expect(api.login_cancel).toHaveBeenCalledWith("inst_unmount");
+    });
+
+    it("trims whitespace-only account name and falls back to default Grok Bot (A53)", async () => {
+        const user = userEvent.setup();
+        const api = mock_grok_bot_api();
+        const on_save = vi.fn().mockResolvedValue(undefined);
+
+        render(
+            <GrokBotPkceForm
+                instance_id="inst_spaces"
+                account_name="   "
+                set_account_name={() => undefined}
+                on_save={on_save}
+            />,
+        );
+
+        await user.click(screen.getByText("浏览器登录授权"));
+
+        await waitFor(() => {
+            expect(api.login_poll).toHaveBeenCalled();
+            expect(on_save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    account_name: "Grok Bot",
+                } satisfies Partial<AddAccountParams>),
+            );
         });
     });
 });

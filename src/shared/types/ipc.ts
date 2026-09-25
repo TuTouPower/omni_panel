@@ -614,20 +614,34 @@ export interface KimiSettingsApi extends KimiReadonlyApi {
 export interface GrokBotLoginStartResult {
     readonly auth_url: string;
     readonly uuid: string;
-    readonly verifier: string;
+    readonly login_id: string;
+    /** @deprecated 保留以兼容存量测试桩，生产环境 verifier 已移入主进程 */
+    readonly verifier?: string | undefined;
 }
+
+export type GrokBotErrorCode =
+    | "INVALID_ARGUMENT"
+    | "CONFLICT"
+    | "BROWSER_OPEN_FAILED"
+    | "POLL_TIMEOUT"
+    | "CANCELLED"
+    | "SAVE_FAILED"
+    | "REFRESH_FAILED"
+    | "INTERNAL_ERROR";
 
 export interface GrokBotLoginPollResult {
     readonly saved: boolean;
     readonly token?: string | undefined;
     readonly refresh_token?: string | undefined;
     readonly error?: string | undefined;
+    readonly code?: GrokBotErrorCode | undefined;
 }
 
 export interface GrokBotRefreshApiResult {
     readonly ok: boolean;
     readonly access_token?: string | undefined;
     readonly error?: string | undefined;
+    readonly code?: GrokBotErrorCode | undefined;
 }
 
 export interface GrokBotReadonlyApi {
