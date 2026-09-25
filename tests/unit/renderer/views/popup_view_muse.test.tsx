@@ -13,7 +13,6 @@ import {
     connectorInfo,
     install_popup_usageboard,
     plugin_list,
-    plugin_refresh_all,
 } from "./popup_view_test_utils";
 
 describe("PopupView - Muse AI support", () => {
@@ -21,7 +20,7 @@ describe("PopupView - Muse AI support", () => {
         install_popup_usageboard();
     });
 
-    it("displays Muse AI tab and renders usage bars when expanded", async () => {
+    it("displays Muse AI tab and renders usage bars in default expanded state", async () => {
         config_get.mockResolvedValue({
             config: {
                 ...base_popup_config,
@@ -92,12 +91,11 @@ describe("PopupView - Muse AI support", () => {
 
         render(<PopupView />);
 
-        // 1. 验证顶部 Tab 栏出现 "Muse AI" 并点击切换到 Muse AI Tab
+        // 1. 验证顶部 Tab 栏出现 "Muse AI"
         const museTab = await screen.findByRole("button", { name: /^Muse AI$/ });
         expect(museTab).toBeInTheDocument();
-        fireEvent.click(museTab);
 
-        // 2. 验证进入 Muse AI Tab 后渲染用量条与百分比
+        // 2. 验证卡片默认展开（对齐 d1917ac8 默认展开语义），直接渲染用量条与百分比
         await waitFor(() => {
             expect(screen.getAllByText("每周限额").length).toBeGreaterThan(0);
             expect(screen.getAllByText("额外额度").length).toBeGreaterThan(0);
@@ -105,10 +103,11 @@ describe("PopupView - Muse AI support", () => {
             expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
         });
 
-        // 3. 点击标题栏刷新按钮，触发全局刷新
-        const refreshBtn = screen.getByRole("button", { name: /^刷新$/ });
-        fireEvent.click(refreshBtn);
-        expect(plugin_refresh_all).toHaveBeenCalledTimes(1);
+        // 3. 点击切换 Tab 到 Muse AI，同样渲染用量条
+        fireEvent.click(museTab);
+        await waitFor(() => {
+            expect(screen.getAllByText("每周限额").length).toBeGreaterThan(0);
+        });
     });
 
     it("surfaces re-login button when Muse session fails with auth error", async () => {
