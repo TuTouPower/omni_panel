@@ -1527,4 +1527,29 @@ describe("custom provider fallback (t095)", () => {
         const known_idx = providers.indexOf("deepseek");
         expect(custom_idx).toBeGreaterThan(known_idx);
     });
+
+    it("synthesizes failed placeholder account with valid observedAt and updatedAt", () => {
+        const failed_conn = connectorInfo({
+            instanceId: "custom-conn",
+            sourceInstanceId: "custom-src",
+            name: "custom_failed",
+            displayName: "Custom Failed",
+            source: "poll",
+            supportedProviders: ["kimi"],
+            activeProviders: ["kimi"],
+            snapshot: {
+                status: "failed",
+                items: [],
+                error: "Network error",
+            },
+        });
+        const groups = build_provider_usage_groups([failed_conn]);
+        const kimi_group = groups.find((g) => g.provider === "kimi");
+        expect(kimi_group).toBeDefined();
+        const placeholder = kimi_group?.accounts.find((a) => a.accountId === "__failed__");
+        expect(placeholder).toBeDefined();
+        expect(placeholder?.observedAt).toBeGreaterThan(0);
+        expect(placeholder?.updatedAt).toBeTruthy();
+        expect(isNaN(new Date(placeholder?.updatedAt ?? "").getTime())).toBe(false);
+    });
 });

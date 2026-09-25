@@ -33,7 +33,7 @@
         "schema:export": "tsx scripts/export-schemas.ts",
         "designmd:export": "tsx scripts/designmd.ts export --format=css-tailwind",
         "designmd:check": "tsx scripts/designmd.ts check",
-        "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch",
+        "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm deadcode && pnpm arch && pnpm test",
         "security:js": "gitleaks detect --source .",
         "security:sast": "semgrep scan --config=auto src/",
         "test": "node scripts/ensure_sqlite_abi.mjs node && vitest run",

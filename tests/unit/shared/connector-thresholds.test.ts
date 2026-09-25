@@ -12,6 +12,9 @@ describe("status_for_pct", () => {
         expect(status_for_pct(75)).toBe("warning");
         expect(status_for_pct(74.9)).toBe("normal");
         expect(status_for_pct(0)).toBe("normal");
+        expect(status_for_pct(NaN)).toBe("unknown");
+        expect(status_for_pct(Infinity)).toBe("unknown");
+        expect(status_for_pct(-Infinity)).toBe("unknown");
     });
 });
 

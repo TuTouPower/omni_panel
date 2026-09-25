@@ -589,7 +589,8 @@ export function PopupView() {
     };
 
     const toggle_expand_provider = (provider: string) => {
-        const next_expanded = !(expanded_providers[provider] ?? true);
+        const default_expanded = provider === UPCOMING_RESET_CARD_ID ? false : true;
+        const next_expanded = !(expanded_providers[provider] ?? default_expanded);
         set_expanded_providers((prev) => ({ ...prev, [provider]: next_expanded }));
         // 折叠卡片强制回概览（原 ProviderCard 内部 effect 语义，t250 上提）。
         // 在 updater 外调用，避免 setState 副作用入纯函数（t250 f006）。

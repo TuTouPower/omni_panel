@@ -317,14 +317,26 @@ export function build_provider_usage_groups(
             const provider = connector.activeProviders[0];
             if (provider === undefined) continue;
             const label = connector.displayName || connector.name;
+            const now_ms = Date.now();
+            const snapshot_updated_at =
+                "updatedAt" in snapshot && typeof snapshot.updatedAt === "string"
+                    ? snapshot.updatedAt
+                    : "";
+            const valid_snapshot_time = snapshot_updated_at
+                ? new Date(snapshot_updated_at).getTime()
+                : NaN;
+            const effective_observed_at = Number.isFinite(valid_snapshot_time)
+                ? valid_snapshot_time
+                : now_ms;
+            const effective_updated_at = snapshot_updated_at || new Date(now_ms).toISOString();
             const placeholder: ProviderUsageAccount = {
                 id: `${connector.sourceInstanceId}|__failed__`,
                 sourceInstanceId: connector.sourceInstanceId,
                 accountId: "__failed__",
                 accountLabel: label,
                 status: "unknown",
-                updatedAt: "updatedAt" in snapshot ? snapshot.updatedAt : "",
-                observedAt: 0,
+                updatedAt: effective_updated_at,
+                observedAt: effective_observed_at,
                 stale: false,
                 periods: [],
                 error: snapshot.error,

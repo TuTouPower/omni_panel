@@ -88,7 +88,7 @@ OmniPanel 项目落点：
 
 - Commit message 走行业规范：`feat/fix/refactor/docs/test/chore(scope): 描述`，不受极简模式影响。
 - 一次 commit 一个连贯改动，不混入无关变更。
-- 合并前跑 `pnpm check`（typecheck + lint + format:check + deadcode + arch）与 `pnpm test`。
+- 合并前跑 `pnpm check`（typecheck + lint + format:check + deadcode + arch + test）。
 - 改代码后检查 `docs/` 与 `AGENTS.md`/`CLAUDE.md` 是否受影响，一并更新。
 
 ### 原子写

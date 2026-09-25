@@ -1,0 +1,32 @@
+{
+    "tid": "t509",
+    "attempt": 1,
+    "execution_id": "9f193764c7cf4887bf69e315268ecb56",
+    "status": "done",
+    "branch": "t509_popup_expand_fix_and_test_gate",
+    "base_sha": "a854c7bb355a887bf59a83e555e1c11638a743dd",
+    "tests": "pnpm check 全绿（含 typecheck + lint + format:check + deadcode + arch + test 零 warning 零 error）；pnpm test 全绿（325 测试套件，3944 单元/集成用例通过）",
+    "blackbox": "通过 tests/unit/renderer/views/popup_view_upcoming.test.tsx 验证 UpcomingResetCard 展开切换及顺序持久化；通过 tests/unit/renderer/views/popup_view_height.test.tsx 验证 Provider 卡片默认展开与折叠切换；通过 tests/unit/shared/connector-thresholds.test.ts 验证 status_for_pct 非有限数值 unknown 防御；通过 tests/unit/renderer/lib/utils.test.ts 验证 format_reset_time 防御",
+    "review": "single 级：review_general.md PASS（Round 1 零 finding，reviewed_scope: 982ca0a5428db7e7）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/views/popup_view_upcoming.test.tsx: persists upcoming reset card order and expansion",
+            "tests/unit/renderer/views/popup_view_upcoming.test.tsx: scrolls .scroll back to top when an upcoming-reset row is clicked"
+        ],
+        "AC-002": [
+            "全仓 pnpm test 全绿（325 test files, 3944 passed, 0 failed）"
+        ],
+        "AC-003": [
+            "package.json: check script includes pnpm test",
+            "docs/blueprint/conventions.md: check includes test"
+        ],
+        "AC-004": [
+            "tests/unit/shared/connector-thresholds.test.ts: threshold boundaries 90/75 with NaN and Infinity returning unknown"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/lib/utils.test.ts: returns -- for falsy or invalid input"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

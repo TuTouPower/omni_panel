@@ -446,17 +446,26 @@ describe("PopupView collapse + height report", () => {
     it("overview provider card expands in place showing account rows", async () => {
         render(<PopupView />);
 
-        // In overview, find the expand toggle for Claude
+        // In overview, Claude card is expanded by default
+        await waitFor(() => {
+            const collapse_btns = screen.getAllByRole("button", { name: /折叠/ });
+            expect(collapse_btns.length).toBeGreaterThan(0);
+        });
+
+        // Click collapse toggle to collapse it
+        const collapse_btn = find_live_button(/折叠/);
+        fireEvent.click(collapse_btn);
+
+        // After collapsing, expand button is visible
         await waitFor(() => {
             const expand_btns = screen.getAllByRole("button", { name: /展开/ });
             expect(expand_btns.length).toBeGreaterThan(0);
         });
 
-        // Click the live expand toggle
+        // Click expand toggle to expand it again
         const expand_btn = find_live_button(/展开/);
         fireEvent.click(expand_btn);
 
-        // After expanding, the account rows should be visible
         await waitFor(() => {
             const collapse_btns = screen.getAllByRole("button", { name: /折叠/ });
             expect(collapse_btns.length).toBeGreaterThan(0);
@@ -466,15 +475,9 @@ describe("PopupView collapse + height report", () => {
     it("preserves expand state when switching tabs without structure change", async () => {
         render(<PopupView />);
 
-        // Expand Claude in overview
+        // Claude is expanded by default in overview
         await waitFor(() => {
-            expect(screen.getAllByRole("button", { name: /展开/ }).length).toBeGreaterThan(0);
-        });
-        const expand_btn = find_live_button(/展开/);
-        fireEvent.click(expand_btn);
-
-        await waitFor(() => {
-            expect(find_live_button(/折叠/)).toBeInTheDocument();
+            expect(screen.getAllByRole("button", { name: /折叠/ }).length).toBeGreaterThan(0);
         });
 
         // Switch to Claude tab and back — structure unchanged, expand preserved
