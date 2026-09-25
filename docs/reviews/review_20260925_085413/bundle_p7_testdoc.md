@@ -1,0 +1,27 @@
+# Bundle p7_testdoc — 视角7 测试文档规格
+
+- [High][95] docs/archive/tasks/t507_grok_bot_usage_connector/spec.md:14 — grok_bot AC-001双指标实现仅单指标 [CHALLENGED→归档过期转卫生，但验收矛盾保留High降Medium]
+- [High][95] tests/integration/connector/grok_bot_connector.test.ts:67 — 实现变更旧测试就地改预期违反TDD禁令 [CHALLENGED→已声明变更同步转注记，但理由未进decision保留Medium]
+- [High][95] src/renderer/views/PopupView.tsx:591 — 上次H1翻转Bug仍有效Upcoming无法展开 [收窄仅Upcoming，降Low，见#12]
+- [High][90] connectors/muse/connector.ts:37 — muse硬编码Action测试锁死假绿 [降Low可靠性债，见#13]
+- [High][90] docs/blueprint/conventions.md:139 — grok_bot自动刷新规范与实现脱节无timer/reconcile — 修复：实现或修正文档为仅401即时
+- [Medium][85] tests/integration/scheduler/refresh-service.test.ts:624 — proxy测试超宽正则任何错都过 — 修复：本地桩断言命中数
+- [Medium][85] tests/integration/connector/opencode_go_connector.test.ts:27 — mock自身阈值不直达生产 — 修复：统一ctx_status真实现+75/90边界
+- [Medium][85] tests/unit/ipc/grok_bot_auth_ipc.test.ts:20 — IPC全mock manager伪交互 — 修复：加失败映射/sender拒绝用例
+- [Medium][80] tests/unit/renderer/views/popup_view_test_utils.ts:69 — popup全mock+存在性断言假绿 — 修复：同卡共存+点击携instanceId
+- [Medium][85] tests/integration/connector/grok_bot_connector.test.ts:101 — checksum断言过弱+401/500不分 — 修复：已知向量+畸形JWT+oauth_refresh集成
+- [Medium][80] connectors/muse/connector.ts:48 — muse解析分支不足+空订阅静默[] — 修复：补截断/多行/success:false用例
+- [Medium][85] tests/integration/scheduler/refresh-service.test.ts:366 — 并发只测同实例且不等式\<=1 — 修复：===1+异实例===2
+- [Medium][80] src/main/core/auth/grok_bot_oauth_manager.ts:151 — 登录时序race无测试cancel/超时 — 修复：补poll-reject/sleep中cancel/双await
+- [Medium][85] vitest.config.mts:66 — 覆盖率阈值15/25形同虚设 — 修复：重基线≥60或分目录阈值
+- [Medium][80] vitest.config.mts:16 — 全局60s超时掩盖挂起 — 修复：默认10-15s长用例单声明
+- [Medium][85] package.json:36 — pnpm check缺test致F002/F003漏网 — 修复：check追加test或check:full
+- [Medium][85] README.md:13 — 连接器数量三处三值16/17/20+厂商表缺新行 — 修复：改20补4行
+- [Medium][85] docs/handoff.md:1 — handoff/specs_index滞后超1月AGENTS违规 — 修复：迁archive写当前HEAD补t507/t508
+- [Medium][80] AGENTS.md:45 — 目录权责幽灵vendors/patches/todo缺失 — 修复：删或注预留
+- [Medium][80] docs/archive/tasks/t507_grok_bot_usage_connector/spec.md:53 — AC全自动测试不成立缺deploy标注 — 修复：浏览器/真网加deploy
+- [Low][80] schemas/plugin-metadata.schema.json:127 — JSON与TS双源无drift门禁+术语probe/observe分裂 — 修复：export --check门禁+统一术语
+- [Low][80] README.md:110 — 过期TODO占位+魔法数零注释+Icon console.warn — 修复：切logger+补来源注释
+- [Low][75] docs/reviews/review_20260925_084303/review_intensive.md:1 — 上次10项零闭环回路断裂 — 修复：建pending跟踪
+- [Low][75] tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx:49 — 表单缺取消/并发/校验 — 修复：补cancel/on_save失败用例
+- [Low][75] tests/unit/main/core/config/auto-seed.test.ts:151 — auto-seed缺cpa组合 — 修复：补cpa_mgmt锁定

@@ -1,0 +1,51 @@
+# Bundle p6_robust — 视角6 健壮可观测
+
+- [High][90] src/main/core/auth/grok_bot_oauth_manager.ts:68 — default_http无超时/重试/Abort永久挂起 — 修复：AbortSignal.timeout15000复用net-client装配
+- [High][90] src/main/core/auth/grok_bot_oauth_manager.ts:169 — 内层catch过宽vault写失败当poll抖动吞掉 — 修复：拆try网络重试/vault直接throw SAVE_FAILED
+- [High][90] src/main/core/auth/grok_bot_oauth_manager.ts:182 — 两步vault.set非原子失败未回滚 — 修复：事务或先refresh后access+补偿delete
+- [High][85] src/main/core/connector/runtime.ts:148 — 超时冷却按manifest.id全局拦多实例误伤 — 修复：key加instanceId [降级Medium/Low]
+- [High][85] src/main/core/scheduler/refresh-service.ts:450 — last_error原文入库透UI无脱敏 — 修复：scrub_text+截断+auth_error_display_text [降级Medium/Low]
+- [High][80] src/main/core/scheduler/refresh-service.ts:587 — with_concurrency单个reject掀翻refreshAll — 修复：fn包catch转failed [降级Medium]
+- [High][85] connectors/opencode_go/connector.ts:140 — 双catch null根因全丢排障黑盒 — 修复：catch记warn/error带message/status再降级
+- [High][80] src/shared/lib/logger.ts:22 — 脱敏覆盖洞+10k巨正则性能隐患 — 修复：加verifier/proxy/jwt/bearer,set同步register,分片/上限
+- [Medium][85] src/main/core/auth/grok_bot_oauth_manager.ts:120 — open_external失败仅warn照常返回空转180s — 修复：返error或抛BROWSER_OPEN_FAILED
+- [Medium][85] src/main/core/auth/grok_bot_oauth_manager.ts:133 — 轮询超时/间隔硬编码无抖动退避不可配 — 修复：移config+加jitter/指数退避
+- [Medium][85] src/main/core/auth/grok_bot_oauth_manager.ts:218 — refresh_now单次无重试 — 修复：网络/5xx/超时1次重试，401除外
+- [Medium][80] src/main/core/auth/grok_bot_oauth_manager.ts:258 — 服务端error verbatim进UI/日志泄漏细节 — 修复：只返码+日志记status/bytes
+- [Medium][85] src/main/ipc/grok_bot_auth_ipc.ts:112 — timeout_ms无范围致无限轮询/Map泄漏 — 修复：clamp 10s..600s非法INVALID_ARGUMENT
+- [Medium][80] src/main/ipc/grok_bot_auth_ipc.ts:139 — 同instance并发poll覆盖cancel成孤儿 — 修复：ALREADY_IN_PROGRESS或token化拒旧写
+- [Medium][85] src/main/ipc/grok_bot_auth_ipc.ts:24 — 错误码不一致+服务端零日志双判负担 — 修复：统一业务码+失败warn/error带instance
+- [Medium][85] src/main/core/connector/net-client.ts:253 — 默认15s硬编码无人覆盖一刀切 — 修复：移config/endpoint可配
+- [Medium][85] src/main/core/connector/net-client.ts:334 — 错误体丢弃+解析不记片段诊断黑洞 — 修复：记500B脱敏片段或错误码表
+- [Medium][85] src/main/core/connector/probe-executor.ts:68 — 空headers/空推导return[]掩盖配置错 — 修复：抛Probe无可用metric明错
+- [Medium][85] src/main/core/observation/observation-store.ts:227 — insert_batch单条失败仅日志调用方无感知 — 修复：返ok/failed计数
+- [Medium][80] src/main/core/scheduler/refresh-service.ts:244 — LOCK5min/尝试3/1s/2s全硬编码 — 修复：集中constants/config可配
+- [Medium][85] src/main/core/scheduler/refresh-service.ts:82 — is_connection_error子串过宽又过窄 — 修复：精确白名单去tls裸匹配加timeout正则
+- [Medium][80] src/main/core/observation/observation-store.ts:358 — query_trend无上下界可OOM — 修复：clamp days≤365 cap≤1000
+- [Medium][80] src/main/core/observation/observation-retention.ts:41 — 极小cacheMaxMb逐天prune阻塞主线程 — 修复：单DELETE限行+负值拒绝+后台分片
+- [Medium][85] src/main/core/logging.ts:201 — 写失败/清理失败静默吞运维无感知 — 修复：console.warn+计数器节流
+- [Medium][85] connectors/muse/connector.ts:58 — 逐行JSON空吞+最终无上下文 — 修复：记失败行数/首行长度+附status/bytes
+- [Medium][85] connectors/muse/connector.ts:118 — percentUsed缺失默认0画绿 — 修复：缺失走report_failed不用0兜底
+- [Medium][85] connectors/opencode_go/connector.ts:129 — 只取orgs[0]多org静默丢 — 修复：循环全org或日志声明
+- [Medium][85] src/renderer/components/forms/GrokBotPkceForm.tsx:26 — 登录无超时/卸载取消/防重+手动零校验 — 修复：显式timeout+卸载cancel+禁手动+JWT预校验
+- [Low][90] src/main/core/auth/grok_bot_oauth_manager.ts:78 — 空catch吞JSON错降级轮询180s — 修复：记status/bytes/content-type
+- [Low][85] src/main/core/connector/runtime.ts:249 — 顶层catch只存message丢stack — 修复：附stack scrub后
+- [Low][90] src/main/core/connector/runtime.ts:66 — 编译期必败错误同样3次重试空转 — 修复：NonRetryableError遇即break
+- [Low][85] src/main/core/scheduler/refresh-service.ts:335 — max_attempts动态扩界难观测 — 修复：固定+extra_attempt显式日志
+- [Low][90] src/main/core/scheduler/refresh-service.ts:356 — 裸setTimeout无取消关机拖延 — 修复：可取消sleep Abort/unref
+- [Low][90] src/main/core/scheduler/refresh-service.ts:553 — 全失败stale逐条insert非批量半stale — 修复：insert_batch
+- [Low][85] src/main/core/observation/observation-store.ts:106 — kimi purge非原子崩留标记 — 修复：包事务或先删后记
+- [Low][90] src/main/core/logging.ts:14 — 日志配额7天/50MB/10段硬编码 — 修复：移用户config
+- [Low][90] src/main/core/logging.ts:63 — exportCurrentLog未处理源缺失ENOENT — 修复：缺失返空或LOG_EMPTY
+- [Low][90] connectors/grok_bot/connector.ts:49 — parse_jwt catch空吞无日志难分脏token — 修复：记长度/段数不记值
+- [Low][85] src/renderer/components/forms/GrokBotPkceForm.tsx:63 — handle_cancel catch空吞以为取消实照跑 — 修复：失败显错保持authorizing
+- [Low][80] src/renderer/components/forms/WebLoginForm.tsx:50 — 保存失败吞成通用文案 — 修复：透错误码+日志
+- [Low][90] src/renderer/components/forms/GrokBotPkceForm.tsx:52 — account_name未trim空白穿透 — 修复：trim||fallback
+- [Low][80] src/main/core/connector/net-client.ts:41 — read_body超限destroy后池状态不明 — 修复：超限建议reset:true
+- [Low][80] src/main/core/connector/net-client.ts:101 — files.list无数量上限/EACCES无上下文 — 修复：max5000+路径上下文
+- [Low][80] src/main/core/connector/net-client.ts:466 — get_raw/post_raw多值头取首静默丢set-cookie — 修复：保留数组/拼接
+- [Low][80] src/main/core/connector/tier1-poll-executor.ts:48 — 4xx同样重试3遍 — 修复：4xx非429/408标non-retryable
+- [Low][80] src/main/core/connector/runtime.ts:90 — Abort超时识别脆弱reason丢失 — 修复：透cause/reason或统一TimeoutError
+- [Low][80] src/main/core/connector/probe-executor.ts:78 — 同类型多头首胜无日志 — 修复：重复命中记debug带头名
+- [Low][80] src/main/core/observation/observation-store.ts:123 — 读行无校验直接cast脏行直达崩 — 修复：读侧safeParse坏行跳过
+- [Low][90] connectors/opencode_go/connector.ts:48 — to_number归0/limit0画0%掩盖非法 — 修复：非法null跳过+日志

@@ -1,0 +1,29 @@
+# Bundle p2_correctness — 视角2 正确性
+
+- [High][85] src/main/core/scheduler/refresh-service.ts:587 — with_concurrency拒绝路径泄漏+中断剩余任务 — then无finally致残留，race无catch致提前抛 — 修复：finally删+race.catch(noop) [CHALLENGED部分成立→降级Medium，见交叉验证#4]
+- [High][80] src/main/core/scheduler/refresh-service.ts:371 — 失败路径stale复制语义与实现不符 — 修复：按(account,metric)取observed_at最大再插 [CHALLENGED→“无界增长”不成立，见#5，保留有界语义bug]
+- [High][80] src/main/index.ts:176 — 单实例锁竞争失败后仍继续初始化 — app.quit后不return — 修复：quit后return/exit
+- [High][85] src/main/core/auth/grok_bot_oauth_manager.ts:139 — 同instance并发poll覆盖cancel+finally误删后者 — 修复：进入冲突抛CONFLICT+finally仅删自己
+- [High][90] src/main/core/auth/grok_bot_oauth_manager.ts:218 — 缺refresh去重与注释矛盾 — 修复：Map\<instance,Promise>去重
+- [High][85] connectors/opencode_go/connector.ts:140 — 吞go/status与summary auth错误阻断自动重登 — catch转null致is_auth_error失明 — 修复：401/403直接抛会话失效，仅其他回退
+- [Medium][75] src/main/core/connector/net-client.ts:80 — canonical_path大小写归一破坏Linux守卫 — 修复：仅win/darwin lower
+- [Medium][80] src/main/core/connector/net-client.ts:538 — files.list顶层symlink绕过allowed — 修复：list先lstat+realpath再校验
+- [Medium][70] src/main/core/connector/net-client.ts:126 — metadata黑名单可绕过(尾点/十进制/IPv6) — 修复：规范化+169.254/16段拒
+- [Medium][80] connectors/muse/connector.ts:117 — 缺失用量记0%健康误报+reset_at NaN — 修复：缺失标unknown+finite校验
+- [Medium][80] connectors/opencode_go/connector.ts:58 — limit\<=0记0%+ratio回退limit:0被UI丢弃 — 修复：缺limit返null跳过
+- [Medium][75] connectors/opencode_go/connector.ts:150 — monthly用endsAt非meter resetsAt,5h/week映射可疑 — 修复：week→week,monthly优先meter resetsAt
+- [Medium][90] src/shared/lib/connector-thresholds.ts:9 — status_for_pct NaN返normal误报 — 修复：!finite返unknown
+- [Medium][75] src/renderer/components/forms/GrokBotPkceForm.tsx:26 — 无重入守卫/卸载取消/vendor切换孤儿poll — 修复：statusRef守卫+unmount cancel
+- [Medium][70] src/web/usageboard-web.ts:146 — web grok_bot logout谎报成功+interval/SSE无释放 — 修复：调真实接口或禁用+返回dispose
+- [Low][60] connectors/grok_bot/connector.ts:92 — checksum高位移位32位语义错误 — 修复：除法取字节或BigInt
+- [Low][75] src/main/core/auth/grok_bot_oauth_manager.ts:269 — logout两vault删除串行残留 — 修复：allSettled
+- [Low][70] src/main/ipc/grok_bot_auth_ipc.ts:112 — timeout_ms未钳制Infinity无限轮询 — 修复：finite+0..600000
+- [Low][65] src/renderer/lib/provider-usage.ts:320 — 失败占位observedAt:0/updatedAt空串 — 修复：显式now/null语义
+- [Low][75] src/renderer/lib/utils.ts:26 — format无效输入显示NaN时间 — 修复：isNaN守卫返--
+- [Low][70] src/main/core/connector/net-client.ts:227 — 超时0自杀+NaN bytes文案 — 修复：\<=0/!finite走default
+- [Low][60] src/renderer/components/AddAccountDialog.tsx:191 — local_cli未扫描可建空实例 — 修复：要求valid才放行
+- [Low][70] src/renderer/views/PopupView.tsx:517 — 刷新spinner自排程+sourceInstance混用 — 修复：固定interval+统一instanceId
+- [Low][60] src/main/index.ts:148 — background_serve父进程未提前返回疑双启动 — 修复：确认终结否则return
+- [Low][60] src/main/index.ts:340 — 系统代理仅识PROXY丢弃SOCKS — 修复：识别SOCKS5转socks5://
+- [Low][60] src/main/core/config/auto-seed.ts:48 — executablePath大小写敏感致Win/mac抖动 — 修复：平台规范化比较
+- [Medium][70] src/main/core/auth/grok_bot_oauth_manager.ts:110 — poll cancel断不掉在途HTTP+代理快照过期+verifier进query — 修复：AbortSignal+每轮重取proxy+POST body

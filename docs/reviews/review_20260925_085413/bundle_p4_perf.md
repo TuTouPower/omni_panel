@@ -1,0 +1,27 @@
+# Bundle p4_perf — 视角4 性能资源
+
+- [High][90] src/main/core/observation/observation-store.ts:266 — list_by_source_instance_id索引错配全表window sort — 首列provider未约束 — 修复：加idx_by_instance(source,account,metric,observed_at)
+- [High][90] src/main/core/connector/net-client.ts:41 — 50MB全量Buffer.concat常驻内存 — 5并发250MB堆 — 修复：降5-10MB+early-abort+流式 [交叉#7降级Medium，触发需恶意端点]
+- [High][90] src/main/core/scheduler/connector-scheduler.ts:32 — refresh定时过密无退避5s允许60x请求 — 修复：MIN提30-60s+指数退避+jitter+token bucket
+- [Medium][85] src/main/core/observation/observation-store.ts:245 — SELECT\* x5 over-fetching — 修复：显式列投影/covering index
+- [Medium][85] src/main/core/scheduler/refresh-service.ts:553 — 全轮失败stale逐条insert autocommit — 修复：insert_batch一次事务
+- [Medium][80] src/main/core/observation/observation-store.ts:282 — prune全表NOT IN window反连接秒级阻塞 — 修复：分批DELETE LIMIT/临时表/分片
+- [Medium][85] src/main/core/connector/net-client.ts:101 — list_dir_recursive全串行无上限 — 修复：p-limit16+5000截断
+- [Medium][85] connectors/opencode_go/connector.ts:119 — 3 RTT全串行15s\*3 — 修复：org_id memo TTL1h+并行预取+8s超时
+- [Medium][85] src/web/usageboard-web.ts:76 — get_json无timeout/Abort永久挂起 — 修复：AbortSignal.timeout15000
+- [Medium][85] src/web/usageboard-web.ts:874 — trend.getBulk无界Promise.all fan-out — 修复：限并发4-6+后端真bulk单SQL
+- [Medium][85] src/renderer/components/ProviderOverview.tsx:55 — 无memo+每渲染新建Map/Set+父内联回调致memo失效 — 修复：memo+useMemo+useCallback
+- [Medium][85] src/renderer/views/PopupView.tsx:917 — live+mirror双倍调和+测量第三遍 — 修复：mirror轻量估算+tick跳过mirror
+- [Medium][90] src/renderer/components/Icon.tsx:53 — 全量vendor logo静态import cpa229KB+getoneapi98KB进首屏 — 修复：转SVG/WebP\<30KB或动态import
+- [Medium][85] src/web/usageboard-web.ts:51 — tokenStats 10s无条件轮询无hidden守卫 — 修复：visibility暂停+后台60s
+- [Low][90] src/main/core/scheduler/refresh-service.ts:138 — build_params vault串行await — 修复：Promise.all并行取
+- [Low][90] src/renderer/lib/provider-usage.ts:117 — compare_providers内indexOf高频 — 修复：模块级Map rank
+- [Low][90] src/renderer/lib/provider-usage.ts:546 — resolve_convergent三遍遍历 — 修复：单遍min/max/sum
+- [Low][90] src/renderer/hooks/use_popup_derived.ts:78 — O(n2)排序includes+find — 修复：Set+Map建表
+- [Low][80] src/main/core/connector/runtime.ts:219 — 每observation zod.safeParse千次/轮 — 修复：fast-path先验后zod
+- [Low][85] src/main/core/connector/script-cache.ts:28 — stat/编译可击穿无LRU/去重 — 修复：错误短TTL+inflight Map+LRU50
+- [Low][80] src/main/core/connector/runtime.ts:148 — script_cooldown只增不减+connections6易排队 — 修复：过期懒删+同源提10/分桶
+- [Low][80] connectors/muse/connector.ts:48 — RSC全文split+逐行try parse — 修复：流式扫描+2MB预检
+- [Low][80] package.json:118 — echarts+lodash重依赖lodash零引用 — 修复：移除lodash,echarts保持core动态
+- [Low][90] src/renderer/views/PopupView.tsx:670 — plugins.reduce每渲染+spinner500ms自排程 — 修复：useMemo+单interval
+- [Low][85] src/renderer/hooks/use-now-tick.ts:3 — 30s tick整树重渲染 — 修复：relative_time下沉Card级订阅

@@ -1,0 +1,42 @@
+# Bundle p1_security — intensive-review 视角1 安全
+
+- [Critical][95] src/main/core/local-api/server.ts:1987 — LocalAPI绑0.0.0.0且写端点免认证，可LAN读写secret/控制进程 — check_auth仅ingest(1283)，/v1/config,/v1/secrets,/v1/control免认证 — 修复：默认127.0.0.1+全/v1/\*强制check_auth
+- [Critical][90] src/main/core/connector/manifest-loader.ts:55 — 连接器无签名任意代码+node:vm非隔离，user connectors目录即RCE入口 — 无签名/哈希校验，vm非真隔离 — 修复：user dir默认禁用+信任告警，迁移isolated-vm/utilityProcess+SHA256清单
+- [High][92] src/main/core/vault/file-vault-backend.ts:66 — Vault主密钥明文存vault旁，等价明文存储 — writeFile key无DPAPI/keychain — 修复：safeStorage加密主密钥
+- [High][90] src/main/core/connector/net-client.ts:126 — SSRF元数据blocklist仅3精确hostname+私有段放行+override可指本地 — 十进制/hex/IPv6/nip.io绕过 — 修复：dns.lookup后比对IP段+禁内网除非dev开关
+- [High][88] src/preload/index.ts:724 — popup route保留config.save真写能力，可改endpointOverrides链式SSRF — popup save为真函数 — 修复：popup改noop
+- [High][88] src/renderer/components/forms/GrokBotPkceForm.tsx:33 — Grok Bot PKCE verifier经renderer/IPC传递，XSS即劫持登录 — login_start明文返回verifier — 修复：verifier留main Map，renderer只见login_id
+- [High][85] src/main/core/connector/runtime.ts:43 — SANDBOX_ESCAPE_PATTERNS黑名单可绕过 — 仅拦5种写法 — 修复：改白名单+freeze全局+隔离进程
+- [High][82] src/main/window/window-manager.ts:240 — will-navigate放行http/https，同窗导航可劫持 — 修复：http/https同样preventDefault+openExternal
+- [High][82] src/main/core/network/effective_proxy.ts:3 — 代理URL零校验可劫持全部出站 — 修复：zod校验+禁内网+UI二次确认
+- [High][90] electron-builder.yml:38 — enableCookieEncryption:false，会话Cookie落盘明文 — 修复：true+回归登录保持
+- [High][90] docs/blueprint/architecture.md:272 — 配置导入可重定向端点并带走vault secret — 修复：endpoint变更标secret重录+预览diff+签名
+- [High][60] src/renderer/components/session-shell/session-shell.tsx:1 — react-markdown无rehype-sanitize疑XSS — 修复：rehype-sanitize+allowedElements
+- [Medium][85] src/main/core/auth/grok_bot_oauth_manager.ts:164 — Grok Bot poll verifier走GET query进日志代理 — 修复：改POST body
+- [Medium][90] src/preload/index.ts:559 — preload grok_bot全能力暴露给popup/tray/session打破分权 — 修复：建readonly/settings分档
+- [Medium][80] src/main/ipc/helpers.ts:31 — assert_valid_sender仅验origin无per-channel检查 — 修复：按senderFrame url hash做channel allowlist
+- [Medium][80] connectors/grok_bot/connector.ts:40 — account_id取自未验签JWT可伪造碰撞 — 修复：用source_instance_id或sha256(token)
+- [Medium][75] connectors/muse/connector.ts:37 — Server Action硬编码失效即重登风暴 — 修复：动态解析deployment-id+status码为主判定
+- [Medium][75] src/main/core/connector/net-client.ts:520 — files.read/list允许manifest任意~路径+TOCTOU — 修复：user连接器默认无文件权+数量上限+O_NOFOLLOW
+- [Medium][75] src/shared/lib/logger.ts:25 — verifier/proxy进日志scrub未覆盖 — 修复：verifier永不进URL+register+脱敏
+- [Medium][80] src/main/core/network/proxy-pool.ts:24 — 代理URL含账密明文进日志 — 修复：host脱敏后记
+- [Medium][85] src/main/core/local-api/server.ts:1861 — /v1/control免认证可LAN循环DoS — 修复：并入认证+速率限制
+- [Medium][65] connectors/muse/connector.ts:42 — Cookie头直接拼接vault明文无CRLF校验 — 修复：host侧[\\r\\n]拒绝
+- [Medium][60] src/main/core/connector/net-client.ts:327 — 跨origin重定向未禁用auth头跟随 — 修复：maxRedirections:0
+- [Medium][70] src/main/index.ts:340 — 系统代理WPAD/PAC自动采纳可投毒 — 修复：仅用户开启才采纳+UI展示
+- [Medium][70] src/renderer/lib/provider-usage.ts:159 — accountLabel/tier/org直渲染无约束 — 修复：zod max(64)+去控制字符
+- [Medium][85] src/main/core/config/secret_param_keys.ts:21 — build_secret_param_keys漏oauth_pkce REFRESH_TOKEN — 修复：通用化extra_fields
+- [Medium][75] src/main/core/vault/file-vault-backend.ts:43 — Windows icacls用$USERNAME可欺骗 — 修复：os.userInfo().username
+- [Low][70] connectors/grok_bot/connector.ts:84 — Math.random生成uuid/request-id可预测 — 修复：crypto.getRandomValues
+- [Low][70] src/renderer/components/AddAccountDialog.tsx:27 — generate_instance_id用Math.random+Date.now可预测 — 修复：crypto.randomUUID
+- [Low][75] src/main/security/csp.ts:20 — Electron CSP缺object-src/frame-ancestors/base-uri — 修复：补三指令
+- [Low][80] src/main/core/local-api/server.ts:734 — Web CSP connect-src放行任意ws — 修复：收紧self
+- [Low][60] src/main/index.ts:722 — verify_cookie拼用户Cookie未检CRLF/长度 — 修复：8k上限+拒绝\\r\\n
+- [Low][75] connectors/opencode_go/connector.ts:129 — 静默取orgs[0]多组织错位 — 修复：多组织提示选择+id白名单
+- [Low][70] src/main/window/window-manager.ts:220 — setWindowOpenHandler允许任意http外开 — 修复：OAuth allowlist+普通链接确认
+- [Low][55] src/renderer/components/Icon.tsx:361 — dangerouslySetInnerHTML渲染SVG — 修复：白名单+DOMPurify
+- [Low][60] src/main/core/auth/grok_bot_oauth_manager.ts:112 — shell.openExternal无allowlist — 修复：new URL origin校验
+- [Low][50] src/main/core/local-api/server.ts:251 — JSON \_\_proto\_\_可原型污染 — 修复：reviver过滤+Object.create(null)
+- [Info][95] src/main/core/auth/grok_bot_oauth_manager.ts:12 — GROK_BOT_CLIENT_ID硬编码可指纹 — public client移manifest配置
+- [Info][60] package.json:119 — lodash引入扩大原型污染面 — 修复：knip确认后删除
+- [Info][40] src/main/core/local-api/server.ts:1678 — trend/sessions参数化待复核store — 修复：全prepare ?占位

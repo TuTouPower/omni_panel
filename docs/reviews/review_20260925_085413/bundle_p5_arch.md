@@ -1,0 +1,31 @@
+# Bundle p5_arch — 视角5 架构可维护
+
+- [High][90] src/main/index.ts:1 — 上帝文件1655行承担CLI/锁/config/代理/OAuth/orchestrator/reconcile/local_api — 修复：拆bootstrap/cli_entry/config/oauth/session_history/local_api
+- [High][90] src/main/core/local-api/server.ts:1 — 第二上帝文件2052行全路由单文件 — 修复：按ipc拆routes/\*.ts
+- [High][90] src/main/core/token-stats/token-stats-store.ts:1 — 存储上帝文件1980行双轨+migration同文件 — 修复：拆records/rollup/dashboard/sessions/migrations
+- [High][90] connectors/muse/connector.ts:37 — 被拒遗产RSC指纹硬编码+account_id=default多账号collapse — 修复：抽muse_rsc+契约单测+manifest parameters
+- [Medium][85] src/preload/index.ts:200 — 霰弹preload sessionHistory三栈40行复制+route表144行 — 修复：base+withDisabled工厂+数据驱动
+- [Medium][85] src/main/core/connector/net-client.ts:268 — 数据泥团perform_request 11字段3纯日志标签 — 修复：标签由method+kind派生
+- [Medium][85] src/web/usageboard-web.ts:116 — 消息链web bridge OAuth类型混用+qs样板重复 — 修复：抽qs helper+Pick类型+Kimi\*改名
+- [Medium][85] src/renderer/lib/provider-usage.ts:141 — 依恋provider-usage承担gateway语义766行13导出 — 修复：拆group/overview/visible/errors/converge
+- [Medium][85] connectors/cpa/connector.ts:34 — 重复阈值工具副本20连接器x2函数 — 修复：runtime注入ctx.util
+- [Medium][85] src/renderer/components/AddAccountDialog.tsx:157 — 复杂度分支扇出7表单+双保存路径 — 修复：FORM_REGISTRY数据驱动
+- [Medium][85] src/renderer/lib/common-services.ts:5 — common-services三处重复19 provider手工同步 — 修复：单源provider_registry.ts
+- [Medium][85] .dependency-cruiser.cjs:1 — 边界规则不足仅4条缺connector/web/ipc约束 — 修复：加no-connector-runtime/no-web-from-renderer/no-ipc-from-localapi
+- [Medium][85] knip.json:1 — 死代码门禁无效缺entry/project仅扫files+deps — 修复：补web/collector/query-worker+exports
+- [Medium][80] src/renderer/lib/provider-usage.ts:210 — 重复Grok weekly判定双份 — 修复：抽is_weekly_like共用
+- [Medium][80] src/main/core/connector/net-client.ts:474 — 重复raw headers归一化双份13行 — 修复：抽normalize_raw_headers
+- [Medium][80] src/renderer/components/forms/:1 — 文件名目录forms与add_account双目录+hooks kebab/snake混用 — 修复：合add_account_forms+目录snake统一
+- [Medium][80] src/main/core/:1 — 目录职责dev-panel拼盘/main-panel混放/根8散文件/connectors同名 — 修复：归platform/windows+改名builtin-connectors
+- [Medium][75] src/renderer/lib/provider-usage.ts:196 — 基本类型偏执AccountKey |拼接无转义 — 修复：对象+key_string单一序列化
+- [Medium][85] src/main/core/connector/host-io.ts:46 — 投机泛化post_raw?单消费者+signal?死字段 — 修复：post_raw必填+signal实现或删
+- [Low][85] package.json:119 — 死代码lodash幽灵依赖零引用 — 修复：pnpm remove lodash
+- [Low][85] src/renderer/components/:18 — 文件名snake/kebab/Pascal混用~30处 — 修复：随触碰迁移+conventions补被拆例外
+- [Low][80] tests/:1 — tests镜像部分对齐renderer扁平/core命名无对应 — 修复：按src拆components/lib/views/hooks
+- [Low][80] src/main/core/connector/net-client.ts:126 — 安全边界好误用在导入面build_request_context导出 — 修复：改内部或注测试专用
+- [Info][85] src/main/core/auth/grok_oauth_manager.ts:44 — 薄包装Grok manager 58行一调 — 保留配置声明删重导出
+- [Info][85] src/preload/oauth_api.ts:62 — 中间人oauth工厂+select同形 — 保留合并泛型收紧unknown
+- [Info][85] src/renderer/components/Icon.tsx:75 — 复杂度三表+手绘例外364行 — 接受后续只加VENDOR_LOGOS
+- [Info][85] src/renderer/lib/utils.ts:1 — utils薄包装cn一行代理 — 保留
+- [Info][85] docs/tasks/:1 — 归档健康506项specs_index有效 — 保持
+- [Info][85] src/main/core/config/auto-seed.ts:24 — auto-seed健康108行规则清晰 — 保持
