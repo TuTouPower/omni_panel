@@ -72,7 +72,7 @@ src/
 │   ├── views/settings-view/       #   t122 拆分：sections/ + lib.ts
 │   └── views/popup-view/          #   t180 拆分：子组件（TitleBar/EmptyState/...）+ lib.ts
 └── shared/                        # 主/渲染共享：schemas/ types/ lib/ constants.ts
-connectors/                        # 17 个内置连接器（manifest.json + connector.ts）
+connectors/                        # 20 个内置连接器（manifest.json + connector.ts）
 tests/                             # unit / integration / e2e(specs/packaged) / smoke
 ```
 
@@ -96,7 +96,9 @@ CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli op
 |Connector 隔离与完整性 (t515)|独立子进程/utilityProcess 隔离执行，崩溃、OOM、死循环不拖垮主进程；内置连接器加载前逐一比对 SHA-256 完整性清单，篡改即拒绝并告警；默认禁止加载未受信的用户外部目录连接器；参数与结果经结构化 IPC 传输|
 |主进程|唯一持有密钥明文、文件系统、网络、浏览器会话|
 |IPC sender|`assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**|
-|LocalAPI|绑 `0.0.0.0`；仅 `/v1/ingest` 需 Bearer；其余 web 路由在可信 LAN 下免认证（见 `specs/web-panel.md`）|
+|LocalAPI（R7 信任模型）|绑 `0.0.0.0:18263`；定位于可信 LAN（局域网）环境，除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制路由免认证直连（见 `specs/web-panel.md`）|
+|Vault 存储模型（R8 声明）|自管 AES-256-GCM Vault，主密钥 `vault.key` 与密文同目录存放。安全边界依赖 OS 文件级权限保护（`chmod 0600`/ACL），不使用系统钥匙串|
+|会话 Cookie（R10 声明）|网页登录连接器会话 Cookie 采用明文持久化（`enableCookieEncryption: false`），规避各系统钥匙串交互弹窗与登录态失效，信任同机用户文件隔离|
 |SSRF|NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）|
 
 ## 4. 数据流（单向：采集 → 观测 → 消费）
@@ -267,10 +269,14 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 代码现状**已偏离** `docs/archive/_pre_opinit_20260705/` 的旧 SPEC 与 v2 设计愿景，以下为"现在是什么"：
 
 - **连接器执行**：旧 SPEC 说"子进程 + esbuild + SHA-256 缓存 + stdin 传 secret"；现状是 `node:vm` 同进程沙箱 + `typescript.transpileModule`，**无 esbuild、无编译缓存、无内置连接器 SHA-256 完整性清单**。
-- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 17 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
+- **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 20 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
 - **secret 默认进脚本**：v2 设想"明文默认不进沙箱"；现状连接器 secret 参数**全部** `exposeToScript:true`，明文经 `ctx.params` 进脚本。
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
-- **沙箱非真隔离**（已知安全限制）：`node:vm` 官方明示非安全边界，恶意脚本可 `(0,eval)("this")` 逃逸到主进程。缓解：禁 import/export、超时、能力受控。待办：`isolated-vm` 或子进程隔离。
+- **连接器子进程隔离与完整性保护（t515）**：已升级为独立子进程/utilityProcess 隔离执行，并通过 SHA-256 完整性清单核验内置连接器，消除了旧 `node:vm` 原型链逃逸风险。
+- **安全威胁模型与设计取舍声明（R7, R8, R10）**：
+  - **LocalAPI LAN 信任模型（R7）**：LocalAPI 默认监听 `0.0.0.0:18263`，定位为家庭/办公可信内网服务，除 `/v1/ingest` 需 Bearer 外，其余端点免认证直连，避免在内网引入复杂鉴权。
+  - **Vault 存储模型（R8）**：自管 AES-256-GCM Vault，主密钥 `vault.key` 与密文文件同级存储在应用数据目录，安全边界明确依托操作系统文件级访问权限控制（POSIX `chmod 0600`，Windows 严密 ACL 继承），不使用 OS Keyring。
+  - **会话 Cookie 明文存储（R10）**：关闭打包 Chromium Cookie 钥匙串加密（`enableCookieEncryption: false`），以保障跨平台与无窗口 CLI 下会话长效保持，不被钥匙串权限弹窗阻断。
 - **导入配置可重定向端点**（已知安全限制）：`endpointOverrides` 可被导入的恶意配置改指公网攻击主机，`apply_auth` 会把 vault secret 发过去；`assert_safe_connector_host` 只拦云元数据主机。待办：改端点后强制重录 secret。
 - **系统代理与外链安全策略（t510）**：默认采纳系统代理（含 SOCKS5 与 PAC 支持），设置中支持用户手动关闭系统代理（`proxy.useSystemProxy === false`）；窗口内所有外部 http/https 导航通过 `will-navigate` 拦截并委托系统默认浏览器打开，杜绝外部网页在应用窗口内加载。
 - **配置迁移（t510）**：`schemaVersion` 递增至 2，启动时自动清理存量未配置的交互式登录空实例。

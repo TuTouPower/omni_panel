@@ -10,15 +10,18 @@
 
 ## 支持的连接器
 
-16 个内置连接器，覆盖五种采集模式：
+20 个内置连接器，覆盖五种采集模式：
 
 |连接器|类型|采集方式|
 |---|---|---|
 |Claude|本地凭证型|读取 `~/.claude`|
 |Codex|本地凭证型|读取 `~/.codex` 会话日志|
 |Antigravity|本地凭证型|读取 `~/.antigravity/session.json`|
+|Command Code|本地凭证型 / 额度 API|读取 `~/.commandcode/auth.json`，或官方额度接口|
 |Grok|OAuth / API 轮询|OAuth 2.0 device-code 授权，或 API key（`grok_billing`）|
+|Grok Bot|浏览器授权型|浏览器 PKCE 授权登录与 Token 自动轮换|
 |Kimi|OAuth / API 轮询|OAuth 2.0 device-code 授权，或 API key（`api.kimi.com`）|
+|Kimi Web|网页登录型|受控窗口捕获 Cookie + 会话保持|
 |智谱 GLM|官方 API 轮询|余额接口|
 |MiniMax|官方 API 轮询|余额接口|
 |DeepSeek|官方 API 轮询|余额接口|
@@ -29,6 +32,7 @@
 |TikHub|官方 API 轮询|用户信息接口|
 |MiMo|网页登录型|受控窗口捕获 Cookie|
 |OpenCode Go|网页登录型|受控窗口捕获 Cookie|
+|Muse AI|网页登录型|受控窗口捕获 Cookie|
 |CPA-Manager|聚合代理|一份管理密钥代拉 Claude×N + Codex×N + Antigravity + Kimi 多账号|
 
 配套能力：多账号、账号级隐藏、provider 聚合概览、明暗主题、代理、自定义刷新间隔、数据标签映射、配置导入导出、系统托盘、悬浮 / 弹出两种主面板形态。
@@ -64,14 +68,15 @@ pnpm make:linux       # 仅打包 Linux
 
 打包产物路径：`artifacts/`。
 
-## 隐私
+## 隐私与安全模型
 
-- **完全本地运行**，无任何遥测、无上报、无云端依赖
-- 密钥存于本地 AES-256-GCM 加密 Vault（`{userData}/secrets.vault`），主密钥独立文件 `vault.key`
-- 渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**
-- 配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）
-- 网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力
-- LocalAPI 默认监听 `0.0.0.0:18263`（供局域网 web 面板访问；SSRF/认证由 NetClient 层与端点级 Bearer token 负责，详见 [platform-services-api spec](docs/specs/platform-services-api.md)。17863 为 CPA 本机管理 API 端口，刻意避开）
+- **完全本地运行**，无任何遥测、无上报、无云端依赖。
+- **Vault 存储模型**（R8）：密钥存于本地 AES-256-GCM 加密 Vault（`{userData}/secrets.vault`），主密钥独立文件 `vault.key` 位于同级目录。安全边界依托操作系统文件级访问权限（POSIX `chmod 0600` / Windows ACL），不使用系统钥匙串以保证跨平台稳定性。
+- **Cookie 存储策略**（R10）：网页登录型连接器会话 Cookie 采用明文存储在隔离 session 目录（`enableCookieEncryption: false`），消除各平台钥匙串授权弹窗与会话断流风险，依赖同机用户文件隔离。
+- **渲染进程隔离**：渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**。
+- **配置导出边界**：配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）。
+- **网络出口统一**：外部网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力，自动阻断云厂商元数据主机访问。
+- **LocalAPI 局域网信任模型**（R7）：默认监听 `0.0.0.0:18263` 服务于可信局域网环境（LAN）下的 Web 面板；仅 `/v1/ingest` 需 Bearer 凭证，其余 Web 面板与控制端点免认证直连（端口避开 CPA 默认 17863 端口）。
 
 ## 开发
 
@@ -79,7 +84,7 @@ pnpm make:linux       # 仅打包 Linux
 pnpm install          # 装依赖
 pnpm start            # 开发（electron-vite dev，读本机真实数据）
 pnpm start:test       # 测试实例（独立 userData 沙盒 + 黄图标 + 端口 17864，不碰真实数据）
-pnpm check            # typecheck + lint + format + deadcode + arch
+pnpm check            # typecheck + lint + format:check + deadcode + arch + schema:check + test
 pnpm test             # vitest 单元 + 集成
 pnpm test:e2e:web     # Playwright 测 web SPA（chromium, mock 后端, 日常）
 pnpm test:e2e:electron # Playwright Electron 驱动（专属能力, 手动跑）
@@ -108,9 +113,8 @@ pnpm test:packaged    # 打包 smoke
 ## 已知限制
 
 - **不自动检查更新**（占位 UI，未实现）
-- **不做趋势图**（SQLite 留了历史数据，但首版不出图）
-- **不做系统钥匙串 / safeStorage**（自管 Vault，威胁模型见 [secret-vault.md](docs/specs/secret-vault.md)）
-- **不为第三方开放沙箱脚本连接器**（`node:vm` 非真隔离）
+- **不做系统钥匙串 / safeStorage**（自管 Vault，威胁模型见 [secret-vault.md](docs/specs/secret-vault.md) 与 ADR 038）
+- **不为第三方开放任意沙箱连接器**（内置连接器经 SHA-256 完整性清单与独立进程隔离执行）
 - 界面语言切换、问卷、赞助入口为占位 UI，未落地
 
 ## License

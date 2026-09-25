@@ -42,7 +42,7 @@
 |`docs/archive/`|完结或终止的历史|镜像原路径；内部文件只准新增|
 |`schemas/`|跨服务接口契约|改契约走 task 流程|
 |`config/`|配置（默认 + 环境覆盖 + `.env.example`）|仅 `.env.example` 入库；真值写本地 `.env`|
-|`src/` `tests/` `scripts/` `assets/` `connectors/` `vendors/` `patches/`|源码、测试、脚本、静态源、连接器、依赖、补丁|仅在 task 执行期按 spec 修改；debug 复现不得写入|
+|`src/` `tests/` `scripts/` `assets/` `connectors/`|源码、测试、脚本、静态源、连接器|仅在 task 执行期按 spec 修改；debug 复现不得写入|
 |`.repo_template/scripts/`|模板自带 task 工具链：`task.py` 是 CLI/兼容 façade，业务实现位于 `repo_task/`，另含 pending.py/findings.py/spikes.py 等|仅模板演进时修改（repo-template-sync）；复制或维护必须保留 `task.py` 与完整 `repo_task/`，并随模板复制进新项目|
 |`artifacts/` `data/` `.scratch/`|产物、运行数据、一次性草稿|运行与草稿；debug 复现和临时实验只写 `.scratch/`（已 gitignore）；需保留的 spike 验证材料写 `docs/spikes/{sid}_{slug}/code/`|
 |`../{repo}_{tid}/`（仓库外）|task 工作副本（git worktree）|`start` 仅从主仓默认分支调用（不要求干净，主仓未提交改动保留不动）：链式拓扑以 `--base` 指向上一已完成 task 分支；active task 的实施、测试、review、finish/drop 只在自身 worktree 执行；每个 task 一个执行 commit，实施阶段写 exact identity 的 `handoff.json`，调度阶段以同一 identity 清理 worktree 并合并；本地 `.env` 软链回主仓|

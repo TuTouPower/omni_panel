@@ -341,3 +341,31 @@
     3. 默认禁止加载用户外部目录连接器，必须由用户显式配置信任放行。
 - 落地：t515。
 - 替代：继续使用 node:vm 配合静态正则黑名单拦截。
+
+## 037 Grok Bot 裁撤 ondemand 指标收敛为单 weekly（2026-09-25）
+
+- 背景：t507 实施中原设想产出 `grok_bot:weekly`（周用量）与 `grok_bot:ondemand`（按需金额）两个指标。然而 Grok Bot 官方后端未提供可靠的 ondemand 实时计数（其语义恒为空或无意义默认值），官方前端亦仅渲染每周限额与重置倒计时。若强行保留该指标会导致面板渲染出虚假零值与无意义用量条。
+- 结论：裁撤 `grok_bot:ondemand` 指标，连接器仅采集并产出 `grok_bot:weekly` 指标，并同步更新测试预期。
+- 落地：t507（commit `47f55abd` 与 `d86219e0`），A87。
+- 替代：保留无意义的 0 值 ondemand 指标。
+
+## 038 LocalAPI 局域网信任模型与免认证策略（2026-09-25）
+
+- 背景：LocalAPI 默认监听 `0.0.0.0:18263`，审阅提出未授权写端点可被 LAN 攻击者利用。
+- 结论：维持现状。OmniPanel 定位为自托管/可信 LAN 局域网服务，用户明确接受 LAN 威胁模型。除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制端点免认证直连，避免在家庭/内网环境中引入复杂的 Token 登录流程与用户打扰。
+- 落地：R7，`architecture.md`，`README.md`。
+- 替代：全量端点强制增加复杂用户认证与密码登录。
+
+## 039 Vault 主密钥明文落盘与操作系统文件权限模型（2026-09-25）
+
+- 背景：`vault.key` 与 `secrets.vault` 存放在同一目录，审阅提出未采用 OS Keyring（safeStorage）导致同机同用户可读。
+- 结论：维持现状。自管 AES-256-GCM Vault，依赖操作系统文件权限控制（POSIX `chmod 0600`，Windows 严密 ACL 继承），明确将威胁模型边界定为「防外部非同用户越权读取」而非「防同机同用户提权进程」。不使用 OS Keyring，避免跨平台（如 Linux/WSL/Headless）密钥环不可用或频繁弹出密码弹窗。
+- 落地：R8，`architecture.md`，`README.md`。
+- 替代：强依赖系统钥匙串与 safeStorage。
+
+## 040 会话 Cookie 禁用 Chromium 钥匙串加密（2026-09-25）
+
+- 背景：审阅指出 Electron `enableCookieEncryption: false` 导致 session Cookie 明文存储在磁盘。
+- 结论：维持 false。为保证跨平台（Windows / Linux / macOS）以及 Headless CLI 模式下的会话持久化与免登录稳定性，避免钥匙串弹窗阻断自动化与多进程，会话 Cookie 采用隔离目录文件明文落盘，安全依赖操作系统用户目录权限。
+- 落地：R10，t500，`architecture.md`，`README.md`。
+- 替代：开启 Chromium 钥匙串加密。

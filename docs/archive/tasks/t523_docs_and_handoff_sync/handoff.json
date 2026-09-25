@@ -1,0 +1,33 @@
+{
+    "tid": "t523",
+    "attempt": 1,
+    "execution_id": "51fc413a530b4ee586ba7a29c4b0851d",
+    "status": "done",
+    "branch": "t523_docs_and_handoff_sync",
+    "base_sha": "3b99403463ec282cbbbe1333fa1504d52ac93d91",
+    "tests": "pnpm format:check、typecheck、lint、deadcode、arch、schema:check 全绿；pnpm test 全量 332 个测试套件（4087 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "自动脚本比对 docs/specs_index.md 与 docs/specs/ 下 79 个规格文件 1:1 精确覆盖；核实 README.md 与 architecture.md 20 个连接器统计对齐",
+    "review": "single 级：verdict=PASS, reviewed_scope=707ebf5a6ac68dca",
+    "ac_evidence": {
+        "AC-001": [
+            "README.md 与 architecture.md 中的内置连接器统计数字统一更新为 20 个",
+            "README.md 厂商表补齐 Command Code、Kimi Web、Grok Bot、Muse AI，并清理过期限制"
+        ],
+        "AC-002": [
+            "docs/handoff.md 迁移旧历史至 docs/archive/handoff.md",
+            "最新节规范记录当前分支、提交与 t509 ~ t523 全量交付进展"
+        ],
+        "AC-003": [
+            "docs/specs/ 补充 commandcode_balance_connector.md、kimi_web_bearer_keepalive.md、grok_bot_usage_connector.md、muse_ai_usage_connector.md",
+            "docs/specs_index.md 完整索引 79 个生效规格"
+        ],
+        "AC-004": [
+            "AGENTS.md 目录权责表删除 vendors/ 和 patches/ 幽灵路径"
+        ],
+        "AC-005": [
+            "docs/blueprint/decisions.md 新增 ADR 037、038、039、040 完整固化 Grok Bot 指标裁撤及 LocalAPI、Vault、Cookie 威胁模型声明"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
