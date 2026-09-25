@@ -5,7 +5,7 @@
 
 **参考项目**：CPA 面板实现参考 `/home/testuser/github_repo/ai_relay/cliproxyapi-usage-dashboard`
 
----
+______________________________________________________________________
 
 ## 整体架构
 
@@ -23,15 +23,15 @@ CPA-Manager (代理服务)
 
 ai_monitor **不直接持有 OAuth token**。所有 token 由 CPA-Manager 统一管理。ai_monitor 通过 CPA-Manager 的代理接口转发请求。
 
----
+______________________________________________________________________
 
 ## CPA-Manager 连接信息
 
-| 项目     | 值                         |
-| -------- | -------------------------- |
-| 地址     | `http://<your-host>:20224` |
-| 管理密钥 | `<your-management-key>`    |
-| 超时     | 30 秒                      |
+|项目|值|
+|---|---|
+|地址|`http://<your-host>:20224`|
+|管理密钥|`<your-management-key>`|
+|超时|30 秒|
 
 配置在 `src/api.py` 第 725-728 行：
 
@@ -41,7 +41,7 @@ _CPA_MGMT_KEY = "<your-management-key>"
 _CPA_MGMT_TIMEOUT = 30
 ```
 
----
+______________________________________________________________________
 
 ## 核心流程（5 步）
 
@@ -87,11 +87,11 @@ _cpa_fetch_auth_files()
 
 从 `name` 字段提取邮箱：
 
-| provider     | name 格式                   | 提取规则                         |
-| ------------ | --------------------------- | -------------------------------- |
-| `codex`      | `codex-{email}-{plan}.json` | plan 为 `team` 时需去掉 hex 前缀 |
-| `claude`     | `claude-{email}.json`       | 直接取 email 部分                |
-| `gemini-cli` | `gemini-{email}.json`       | 直接取 email 部分                |
+|provider|name 格式|提取规则|
+|---|---|---|
+|`codex`|`codex-{email}-{plan}.json`|plan 为 `team` 时需去掉 hex 前缀|
+|`claude`|`claude-{email}.json`|直接取 email 部分|
+|`gemini-cli`|`gemini-{email}.json`|直接取 email 部分|
 
 ### 第 4 步：通过代理调用上游 API
 
@@ -152,7 +152,7 @@ _cpa_api_call(method, url, auth_index, headers, data)
 
 最终通过 `db.insert_record()` 写入 SQLite。
 
----
+______________________________________________________________________
 
 ## 三个 Provider 的详细调用方式
 
@@ -369,22 +369,22 @@ CPA URL: POST /v0/management/api-call
 
 Vertex AI（`https://aiplatform.googleapis.com`）在 CPA-Manager / CliRelay 中只实现了推理（`generateContent`、`streamGenerateContent`、`countTokens`）功能，没有配额查询端点。Google Cloud 的配额系统走的是 Cloud Console / Service Usage API，与 OAuth token 体系不同，暂时不支持通过 CPA 代理获取。
 
----
+______________________________________________________________________
 
 ## 上游 API 速查表
 
-| Provider           | API URL                                                            | 方法 | Auth 方式      |
-| ------------------ | ------------------------------------------------------------------ | ---- | -------------- |
-| Claude             | `https://api.anthropic.com/api/oauth/usage`                        | GET  | Bearer $TOKEN$ |
-| Claude Profile     | `https://api.anthropic.com/api/oauth/profile`                      | GET  | Bearer $TOKEN$ |
-| Codex              | `https://chatgpt.com/backend-api/wham/usage`                       | GET  | Bearer $TOKEN$ |
-| Gemini Code Assist | `https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist`    | POST | Bearer $TOKEN$ |
-| Gemini Quota       | `https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` | POST | Bearer $TOKEN$ |
-| Antigravity        | `/v0/management/usage`                                             | GET  | CPA mgmt key   |
-| Kimi               | `https://api.kimi.com/coding/v1/usages`                            | GET  | Bearer $TOKEN$ |
-| Vertex             | 未实现 — Google Cloud 配额走 Service Usage API                     | —    | —              |
+|Provider|API URL|方法|Auth 方式|
+|---|---|---|---|
+|Claude|`https://api.anthropic.com/api/oauth/usage`|GET|Bearer $TOKEN$|
+|Claude Profile|`https://api.anthropic.com/api/oauth/profile`|GET|Bearer $TOKEN$|
+|Codex|`https://chatgpt.com/backend-api/wham/usage`|GET|Bearer $TOKEN$|
+|Gemini Code Assist|`https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist`|POST|Bearer $TOKEN$|
+|Gemini Quota|`https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota`|POST|Bearer $TOKEN$|
+|Antigravity|`/v0/management/usage`|GET|CPA mgmt key|
+|Kimi|`https://api.kimi.com/coding/v1/usages`|GET|Bearer $TOKEN$|
+|Vertex|未实现 — Google Cloud 配额走 Service Usage API|—|—|
 
----
+______________________________________________________________________
 
 ## 配置控制
 
@@ -404,25 +404,25 @@ gemini = true
 cpa = 30  # 默认 30 分钟
 ```
 
----
+______________________________________________________________________
 
 ## 关键代码位置
 
-| 文件               | 行号      | 内容                                          |
-| ------------------ | --------- | --------------------------------------------- |
-| `src/api.py`       | 725-728   | CPA-Manager 连接配置                          |
-| `src/api.py`       | 730-750   | 上游 API URL 和 Header 常量                   |
-| `src/api.py`       | 752-775   | `_cpa_api_call()` — 代理调用封装              |
-| `src/api.py`       | 778-787   | `_cpa_fetch_auth_files()` — 获取 token 列表   |
-| `src/api.py`       | 790-842   | `_cpa_parse_codex_quota()` — Codex 响应解析   |
-| `src/api.py`       | 844-883   | `_cpa_parse_claude_quota()` — Claude 响应解析 |
-| `src/api.py`       | 885-940   | `_cpa_parse_gemini_quota()` — Gemini 响应解析 |
-| `src/api.py`       | 1010-1018 | `refresh_cpa()` — HTTP 端点入口               |
-| `src/api.py`       | 1020-1040 | `_refresh_cpa_worker()` — 后台刷新 worker     |
-| `src/api.py`       | 1042-1110 | `_refresh_cpa_inner()` — 核心刷新逻辑         |
-| `data/config.toml` | —         | `[monitor]` 和 `[refresh]` 配置               |
+|文件|行号|内容|
+|---|---|---|
+|`src/api.py`|725-728|CPA-Manager 连接配置|
+|`src/api.py`|730-750|上游 API URL 和 Header 常量|
+|`src/api.py`|752-775|`_cpa_api_call()` — 代理调用封装|
+|`src/api.py`|778-787|`_cpa_fetch_auth_files()` — 获取 token 列表|
+|`src/api.py`|790-842|`_cpa_parse_codex_quota()` — Codex 响应解析|
+|`src/api.py`|844-883|`_cpa_parse_claude_quota()` — Claude 响应解析|
+|`src/api.py`|885-940|`_cpa_parse_gemini_quota()` — Gemini 响应解析|
+|`src/api.py`|1010-1018|`refresh_cpa()` — HTTP 端点入口|
+|`src/api.py`|1020-1040|`_refresh_cpa_worker()` — 后台刷新 worker|
+|`src/api.py`|1042-1110|`_refresh_cpa_inner()` — 核心刷新逻辑|
+|`data/config.toml`|—|`[monitor]` 和 `[refresh]` 配置|
 
----
+______________________________________________________________________
 
 ## 单独拉取能力
 
@@ -436,12 +436,12 @@ CPA 支持按 provider 或按单个账号单独拉取数据，但当前 ai_monit
 
 ### 底层函数已支持单账号粒度
 
-| 函数                                                     | 作用                                                              |
-| -------------------------------------------------------- | ----------------------------------------------------------------- |
-| `_cpa_fetch_auth_files()`                                | 获取所有 auth 文件列表（含 provider、auth_index、name、disabled） |
-| `_cpa_parse_codex_quota(auth_index, email, plan_suffix)` | 拉取 **一个** Codex 账号                                          |
-| `_cpa_parse_claude_quota(auth_index, email)`             | 拉取 **一个** Claude 账号                                         |
-| `_cpa_parse_gemini_quota(auth_index, email)`             | 拉取 **一个** Gemini 账号                                         |
+|函数|作用|
+|---|---|
+|`_cpa_fetch_auth_files()`|获取所有 auth 文件列表（含 provider、auth_index、name、disabled）|
+|`_cpa_parse_codex_quota(auth_index, email, plan_suffix)`|拉取 **一个** Codex 账号|
+|`_cpa_parse_claude_quota(auth_index, email)`|拉取 **一个** Claude 账号|
+|`_cpa_parse_gemini_quota(auth_index, email)`|拉取 **一个** Gemini 账号|
 
 实现「拉取所有 Codex」或「拉取指定 Codex 账号」只需：
 
@@ -460,13 +460,13 @@ CPA 支持按 provider 或按单个账号单独拉取数据，但当前 ai_monit
 
 CPA 插件可支持三种模式：
 
-| 模式             | 触发方式                           | 行为                         |
-| ---------------- | ---------------------------------- | ---------------------------- |
-| 全量（默认）     | 无额外参数                         | 拉取所有 provider 的所有账号 |
-| 按 provider 过滤 | 参数 `monitor_codex=false`         | 跳过不需要的 provider        |
-| 按账号过滤       | 参数 `auth_index_filter=codex-xxx` | 只拉指定 auth_index 的账号   |
+|模式|触发方式|行为|
+|---|---|---|
+|全量（默认）|无额外参数|拉取所有 provider 的所有账号|
+|按 provider 过滤|参数 `monitor_codex=false`|跳过不需要的 provider|
+|按账号过滤|参数 `auth_index_filter=codex-xxx`|只拉指定 auth_index 的账号|
 
----
+______________________________________________________________________
 
 ## 复用这套方法的步骤
 

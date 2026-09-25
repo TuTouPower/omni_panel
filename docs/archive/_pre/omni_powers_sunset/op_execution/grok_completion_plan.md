@@ -13,12 +13,14 @@
 ## 步骤
 
 1. **导入 logo**
+
     - 复制官方源到 `src/renderer/assets/vendor_logos/grok_light.svg`，字节比较确认一致。
     - `grok_dark.svg` 仅把根 fill 派生为 `#fff`。
     - 先补 icon 测试，再删除 `Icon.tsx` 中不可达的 `VENDOR_MARKS.grok` fallback。
     - 验证：icon 定向单测 + 文件比较。
 
 2. **修正 connector 契约**
+
     - 先补 manifest、connector 阈值/source、`week` schema/executor 测试。
     - `manifest.json` 改为 poll capability，删除未使用的 `local.paths`。
     - `connector.ts` 改为 `source: "poll"`，warning/critical 阈值与同类 connector 对齐为 75/90。
@@ -26,11 +28,13 @@
     - 验证：manifest、Grok connector、observation schema、tier1 executor 定向测试。
 
 3. **加固 IPC sender**
+
     - 先测试五个注册 handler 拒绝未知/外部 origin，并允许 `file://` renderer。
     - 所有 Grok IPC handler 入口复用 `assert_valid_sender`。
     - 验证：Grok IPC 和 helpers 定向单测。
 
 4. **修复 OAuth 生命周期**
+
     - 先测试 logout 与 pending refresh 竞态、同实例并发 refresh 合并。
     - 增加 per-instance generation、token mutation queue、`refresh_in_flight`。
     - 保证 logout 返回后旧 refresh 不能恢复 token；同实例 refresh-token rotation 不并发。
@@ -39,6 +43,7 @@
     - 验证：OAuth manager 全部单测。
 
 5. **动态代理**
+
     - 先测试 manager 连续请求读取最新 proxy。
     - 固定 `proxy_url` 改为 `get_proxy_url()`；main 传入 `currentConfigSnapshot.proxy?.url` getter。
     - 保留现有系统代理探测支持，但避免把探测结果持久化为用户设置。
@@ -46,12 +51,14 @@
     - 验证：proxy 定向测试 + typecheck。
 
 6. **设置页组合验证**
+
     - 补 SettingsView → Grok 编辑表单 → GrokLoginSection 用户路径测试。
     - 验证 billing endpoint 不作为可编辑字段显示、主题 logo 使用图片资源。
     - 补 `verification_uri_complete = null` 回退、错误后重试、logout 失败状态测试。
     - 仅在测试暴露问题时最小修改 UI。
 
 7. **全量验收**
+
     - `pnpm check`
     - `pnpm test`
     - `pnpm build`

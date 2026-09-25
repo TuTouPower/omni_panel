@@ -182,7 +182,8 @@ describe("package-and-run proc match patterns (p223)", () => {
         const pattern = linux_proc_match_pattern();
         const packaged =
             "/home/testuser/testuser_ubuntu/omni_panel/artifacts/linux-unpacked/omni_panel --type=renderer";
-        const self_cmdline = "node /home/testuser/testuser_ubuntu/omni_panel/scripts/package-and-run.ts";
+        const self_cmdline =
+            "node /home/testuser/testuser_ubuntu/omni_panel/scripts/package-and-run.ts";
         expect(packaged.includes(pattern)).toBe(true);
         expect(self_cmdline.includes(pattern)).toBe(false);
     });

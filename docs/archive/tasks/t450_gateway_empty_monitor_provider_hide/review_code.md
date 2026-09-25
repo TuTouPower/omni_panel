@@ -15,8 +15,8 @@
 - 锚点：spec 范围「snapshot failed / loading / idle（无 items）时 gateway 保留全部 activeProviders（失败态需挂 banner）」被违反；AC-003 只覆盖 failed 无 items 形态，未覆盖真实失败形态。reviewer 已确认该非项属 spec 范围（非「有意不测」）。
 - 位置：`src/renderer/lib/provider-usage.ts:438-448`（过滤条件在 :447）
 - 问题：实现把「gateway 仅并入 items 实际出现的 provider」的过滤条件绑在 `has_items`（`items.length > 0`），而非快照状态 `status === "ready"`。但运行时失败态快照**携带上次成功 items**：refresh-service 全轮失败后 `updateState({ status: "failed", error, lastSuccess: prior })`（`src/main/core/scheduler/refresh-service.ts:575-579`），DTO 序列化把 `lastSuccess.items` 一并带出（`src/main/ipc/helpers.ts:105-119`），且 CPA 为 auto-refresh、失败态由 snapshot-cache 持久化（`snapshot-cache.ts:71-86`），是常态而非边角。
-  失败场景：CPA activeProviders=[claude,kimi]、claude 有数据、kimi 配置 monitor_kimi=true 但网关零 kimi 数据（p217 场景）→ CPA ready 态 kimi 已按本修复正确隐藏。此后某轮整连接器刷新失败（manager 宕机/网络断）→ 快照变 failed 且携带 stale items（仅 claude）。此时 `has_items=true`，kimi 仍被过滤出 `visible_providers`；而 `providerErrors` 会为 kimi 生成失败 banner（`use_popup_derived.ts:87-107`），但 ProviderOverview 只渲染 `visibleProviders` 内的卡（`ProviderOverview.tsx:83,90-127`）——kimi 卡整体消失，banner 与重试入口无处展示，tab 亦不出现。用户侧观感：刚配置好 kimi 监控即遇采集失败时，kimi 既无卡也无错误提示，与范围「失败态需挂 banner」相悖。
-  现有 AC-003 测试（`tests/unit/renderer/provider-usage.test.ts:501-511`）只覆盖 failed 且无 items（首采即失败），全部 activeProviders 保留通过；未覆盖 failed+lastSuccess items 的真实失败路径。
+    失败场景：CPA activeProviders=[claude,kimi]、claude 有数据、kimi 配置 monitor_kimi=true 但网关零 kimi 数据（p217 场景）→ CPA ready 态 kimi 已按本修复正确隐藏。此后某轮整连接器刷新失败（manager 宕机/网络断）→ 快照变 failed 且携带 stale items（仅 claude）。此时 `has_items=true`，kimi 仍被过滤出 `visible_providers`；而 `providerErrors` 会为 kimi 生成失败 banner（`use_popup_derived.ts:87-107`），但 ProviderOverview 只渲染 `visibleProviders` 内的卡（`ProviderOverview.tsx:83,90-127`）——kimi 卡整体消失，banner 与重试入口无处展示，tab 亦不出现。用户侧观感：刚配置好 kimi 监控即遇采集失败时，kimi 既无卡也无错误提示，与范围「失败态需挂 banner」相悖。
+    现有 AC-003 测试（`tests/unit/renderer/provider-usage.test.ts:501-511`）只覆盖 failed 且无 items（首采即失败），全部 activeProviders 保留通过；未覆盖 failed+lastSuccess items 的真实失败路径。
 - 建议：以快照状态而非 `has_items` 作过滤门：仅当 `connector.source === "gateway" && snapshot.status === "ready"` 时按 items 出现的 provider 收窄可见集；failed/loading/idle（含携带 lastSuccess items 的形态）一律保留全部 activeProviders，失败 banner 才可锚定。同步补一条「failed + items（含 stale items）保留全部 activeProviders」单测锚定真实失败形态。
 
 ### t450_code_f002 - snapshot items 提取逻辑在相邻两函数间复制，守卫条件不同存在漂移风险
@@ -32,15 +32,15 @@
 - 前轮 finding 复核：无（Round 1）。
 - 本轮新发现：2 条（1 important + 1 minor）。
 - 未进表的提示：
-  - 文件过大：`src/renderer/lib/provider-usage.ts` 661 行（≥400 minor 阈值）、`tests/unit/renderer/provider-usage.test.ts` 1326 行（≥600 minor 阈值），但两者在 diff 前已分别 649/1280 行，本 task 净增 ≤46 行，非本 task 堆大所致，故不进 finding 表。
-  - 圈复杂度：本 task 新增分支为单层 `if` + `continue`（`visible_providers_from_groups` 内），未触碰复杂度阈值。
-  - 范围外观察：无。
+    - 文件过大：`src/renderer/lib/provider-usage.ts` 661 行（≥400 minor 阈值）、`tests/unit/renderer/provider-usage.test.ts` 1326 行（≥600 minor 阈值），但两者在 diff 前已分别 649/1280 行，本 task 净增 ≤46 行，非本 task 堆大所致，故不进 finding 表。
+    - 圈复杂度：本 task 新增分支为单层 `if` + `continue`（`visible_providers_from_groups` 内），未触碰复杂度阈值。
+    - 范围外观察：无。
 - 总体判断：修复方向与 ready 态 AC（隐藏空 monitor provider）成立且单测有效，但「失败态保留全部 activeProviders」在真实失败形态（failed 携带 lastSuccess items）下未达成，存在未解决 important finding，本轮 FAIL。
 - AC 复验方式：
-  - AC-001：`re_verified`——运行 `npx vitest run tests/unit/renderer/provider-usage.test.ts`（60 通过），新用例「t450 AC-001」（:467-482）构造 gateway ready items=[claude]、activeProviders=[claude,kimi]，断言 visible=[claude] 且不含 kimi；与实现 `:447` 过滤逻辑核对一致。
-  - AC-002：`re_verified`——新用例「t450 AC-002」（:484-499）构造 gateway ready items=[kimi]，断言 visible=[kimi] 且不含 claude，直接验证「有数据 monitor provider 保留」。
-  - AC-003：`re_verified`（仅无 items 形态）——新用例「t450 AC-003」（:501-511）构造 failed 无 items，断言 activeProviders 全保留、与 `:439/:447` 的 `!has_items` 分支一致。**注意**：真实 CPA 失败态为 failed 携带 lastSuccess items（refresh-service + snapshot-cache 路径），该形态不在 AC-003 测试与实现保护内，即 f001 所指缺口；reviewer 未能复验「失败态挂 banner」完整语义。
-  - coverage = 3 / 3（其中 AC-003 仅覆盖无 items 子形态，真实失败形态缺口见 f001）。
+    - AC-001：`re_verified`——运行 `npx vitest run tests/unit/renderer/provider-usage.test.ts`（60 通过），新用例「t450 AC-001」（:467-482）构造 gateway ready items=[claude]、activeProviders=[claude,kimi]，断言 visible=[claude] 且不含 kimi；与实现 `:447` 过滤逻辑核对一致。
+    - AC-002：`re_verified`——新用例「t450 AC-002」（:484-499）构造 gateway ready items=[kimi]，断言 visible=[kimi] 且不含 claude，直接验证「有数据 monitor provider 保留」。
+    - AC-003：`re_verified`（仅无 items 形态）——新用例「t450 AC-003」（:501-511）构造 failed 无 items，断言 activeProviders 全保留、与 `:439/:447` 的 `!has_items` 分支一致。**注意**：真实 CPA 失败态为 failed 携带 lastSuccess items（refresh-service + snapshot-cache 路径），该形态不在 AC-003 测试与实现保护内，即 f001 所指缺口；reviewer 未能复验「失败态挂 banner」完整语义。
+    - coverage = 3 / 3（其中 AC-003 仅覆盖无 items 子形态，真实失败形态缺口见 f001）。
 - 系统性 follow-up：无既有 tid；如采纳 f001 建议方向，可考虑跟进 task（标题建议「gateway failed 态携带 stale items 时可见性收窄致 banner 丢失」，slug `gateway_failed_stale_visibility_banner`）。
 
 reviewed_scope: 8d2bd8ab92a8a3c2
@@ -69,17 +69,17 @@ verdict: FAIL
 - 前轮 finding 复核：t450_code_f001 已消除；t450_code_f002 已消除（见上，以 diff/代码核实，非采信处置表）。
 - 本轮新发现：1 条 important（t450_code_f003）；popup_view_config fixture 迁移复核无问题（见「未进表的提示」）。
 - 未进表的提示：
-  - 文件过大：`src/renderer/lib/provider-usage.ts` 667 行、`tests/unit/renderer/provider-usage.test.ts` 1343 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行均达 minor 阈值，但非本 task 堆大（provider-usage.ts 自 anchor 净增 ~18 行，测试净增为 AC/fixture 用例），不进 finding 表。
-  - 圈复杂度：新增分支为单层 `if` + `continue`，未触阈值。
-  - popup_view_config fixture 迁移复核：「saves providerOrder to config when user reorders provider tabs」用例（`popup_view_config.test.tsx:672-`）输入由 gateway ready 空 items 改为含 claude+deepseek 两条 MetricRecord 的 items，使 t450 新语义下两 provider 仍可见、拖拽排序原意图与断言保留（改输入不改断言，非把旧预期改成新实现输出）；items 字段与 `MetricRecord` 形状一致，测试跑通。无新问题。
-  - 范围外观察：无。
+    - 文件过大：`src/renderer/lib/provider-usage.ts` 667 行、`tests/unit/renderer/provider-usage.test.ts` 1343 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行均达 minor 阈值，但非本 task 堆大（provider-usage.ts 自 anchor 净增 ~18 行，测试净增为 AC/fixture 用例），不进 finding 表。
+    - 圈复杂度：新增分支为单层 `if` + `continue`，未触阈值。
+    - popup_view_config fixture 迁移复核：「saves providerOrder to config when user reorders provider tabs」用例（`popup_view_config.test.tsx:672-`）输入由 gateway ready 空 items 改为含 claude+deepseek 两条 MetricRecord 的 items，使 t450 新语义下两 provider 仍可见、拖拽排序原意图与断言保留（改输入不改断言，非把旧预期改成新实现输出）；items 字段与 `MetricRecord` 形状一致，测试跑通。无新问题。
+    - 范围外观察：无。
 - 总体判断：f001 修复方向正确、真实失败形态（failed 携带 stale items）已覆盖且有测试锚定，但修复把 spec 明确定义的「ready 空 items → 保留分支」翻转成「剔除全部」，存在未解决 important，本轮 FAIL。
 - AC 复验方式：
-  - AC-001：`re_verified`——「t450 AC-001」用例（`provider-usage.test.ts:467-482`）ready items=[claude]、active=[claude,kimi]，断言 visible=[claude] 不含 kimi，与 `:453` 过滤逻辑一致。
-  - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi]，断言 visible=[kimi] 不含 claude。
-  - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-533`，failed 携带 stale lastSuccess items）两用例共同锚定失败态全保留，覆盖真实 CPA 失败路径。
-  - 复验命令：`npx vitest run tests/unit/renderer/provider-usage.test.ts tests/unit/renderer/views/popup_view_config.test.tsx`（75 passed）；再全量 `tests/unit/renderer`（121 files / 1349 passed）确认无渲染回归。
-  - coverage = 3 / 3
+    - AC-001：`re_verified`——「t450 AC-001」用例（`provider-usage.test.ts:467-482`）ready items=[claude]、active=[claude,kimi]，断言 visible=[claude] 不含 kimi，与 `:453` 过滤逻辑一致。
+    - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi]，断言 visible=[kimi] 不含 claude。
+    - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-533`，failed 携带 stale lastSuccess items）两用例共同锚定失败态全保留，覆盖真实 CPA 失败路径。
+    - 复验命令：`npx vitest run tests/unit/renderer/provider-usage.test.ts tests/unit/renderer/views/popup_view_config.test.tsx`（75 passed）；再全量 `tests/unit/renderer`（121 files / 1349 passed）确认无渲染回归。
+    - coverage = 3 / 3
 - 系统性 follow-up：无既有 tid；无独立 follow-up 建议（f003 属本 task 范围内修复回归，应在本 task 内处置）。
 
 reviewed_scope: d87ad8acc8eab714
@@ -109,16 +109,16 @@ verdict: FAIL
 - 前轮 finding 复核：t450_code_f001 已消除且保持；t450_code_f002 已消除；t450_code_f003 已消除（以 diff/代码核实，非采信处置表）。
 - 本轮新发现：1 条 minor（t450_code_f004）。
 - 未进表的提示：
-  - 文件过大：`src/renderer/lib/provider-usage.ts` 672 行、`tests/unit/renderer/provider-usage.test.ts` 1359 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行均达 minor 阈值，但自 anchor 分别净增 ~23/79/40 行且为本 task AC/fixture 用例与 f003 修复所必需，非 task 堆大失控，不进 finding 表。
-  - 圈复杂度：新增分支为单层 `if`+`continue`（`:451-459`），未触阈值。
-  - 范围外观察：无。
+    - 文件过大：`src/renderer/lib/provider-usage.ts` 672 行、`tests/unit/renderer/provider-usage.test.ts` 1359 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行均达 minor 阈值，但自 anchor 分别净增 ~23/79/40 行且为本 task AC/fixture 用例与 f003 修复所必需，非 task 堆大失控，不进 finding 表。
+    - 圈复杂度：新增分支为单层 `if`+`continue`（`:451-459`），未触阈值。
+    - 范围外观察：无。
 - 总体判断：三个前轮 finding（2 important + 1 minor）均以代码核实真修，f003 修复未引入新 blocker；唯一遗留为注释措辞 minor。无未解决 critical/important，本轮 PASS。
 - AC 复验方式：
-  - AC-001：`re_verified`——「t450 AC-001」（`provider-usage.test.ts:467-482`）gateway ready items=[claude]、active=[claude,kimi]，断言 visible=[claude] 不含 kimi；与 `:451-458` 收窄逻辑一致。
-  - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi] 断言 visible=[kimi] 不含 claude。
-  - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-528`，failed 携带 stale lastSuccess items）共同锚定失败态全保留；「t450 f003」（`:530-544`）锚定 ready 空 items 保留分支（spec 约束的边界，f003）。
-  - 复验命令：`npx vitest run tests/unit/renderer`（121 files / 1350 tests passed，其中 provider-usage 62、popup_view_config 14）；`npx tsc --noEmit` 0 error。
-  - coverage = 3 / 3
+    - AC-001：`re_verified`——「t450 AC-001」（`provider-usage.test.ts:467-482`）gateway ready items=[claude]、active=[claude,kimi]，断言 visible=[claude] 不含 kimi；与 `:451-458` 收窄逻辑一致。
+    - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi] 断言 visible=[kimi] 不含 claude。
+    - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-528`，failed 携带 stale lastSuccess items）共同锚定失败态全保留；「t450 f003」（`:530-544`）锚定 ready 空 items 保留分支（spec 约束的边界，f003）。
+    - 复验命令：`npx vitest run tests/unit/renderer`（121 files / 1350 tests passed，其中 provider-usage 62、popup_view_config 14）；`npx tsc --noEmit` 0 error。
+    - coverage = 3 / 3
 - 系统性 follow-up：无既有 tid；无独立 follow-up 建议。
 
 reviewed_scope: 8deafcc4c425d006
@@ -143,16 +143,16 @@ verdict: PASS
 - 前轮 finding 复核：t450_code_f001 仍消除；t450_code_f002 仍消除；t450_code_f003 仍消除；t450_code_f004 本轮已修复（以 diff/代码核实，非采信处置表）。
 - 本轮新发现：0 条。
 - 未进表的提示：
-  - 文件过大：`src/renderer/lib/provider-usage.ts` 672 行、`tests/unit/renderer/provider-usage.test.ts` 1359 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行与上轮一致（本轮零代码改动），不进 finding 表。
-  - 圈复杂度：无新增分支（仅注释改动）。
-  - 范围外观察：无。
+    - 文件过大：`src/renderer/lib/provider-usage.ts` 672 行、`tests/unit/renderer/provider-usage.test.ts` 1359 行、`tests/unit/renderer/views/popup_view_config.test.tsx` 767 行与上轮一致（本轮零代码改动），不进 finding 表。
+    - 圈复杂度：无新增分支（仅注释改动）。
+    - 范围外观察：无。
 - 总体判断：上轮 3 条已消除 finding（f001/f002/f003）保持、本轮仅 f004 注释措辞修复且表述准确；无未解决 critical/important，亦无遗留 minor，本轮 PASS。
 - AC 复验方式：
-  - AC-001：`re_verified`——「t450 AC-001」（`provider-usage.test.ts:467-482`）gateway ready items=[claude]、active=[claude,kimi]，断言 `toEqual(["claude"])` 且不含 kimi；与 `:451-458` 收窄逻辑一致。
-  - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi] 断言 `toEqual(["kimi"])` 不含 claude。
-  - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-528`，failed 携带 stale lastSuccess items）共同锚定失败态全保留（真实 CPA 失败路径）；「t450 f003」（`:530-544`）锚定 ready 空 items 保留分支。
-  - 复验命令：`npx vitest run tests/unit/renderer`（121 files / 1350 tests passed，其中 provider-usage 62、popup_view_config 14）；`npx tsc --noEmit` 0 error。
-  - coverage = 3 / 3
+    - AC-001：`re_verified`——「t450 AC-001」（`provider-usage.test.ts:467-482`）gateway ready items=[claude]、active=[claude,kimi]，断言 `toEqual(["claude"])` 且不含 kimi；与 `:451-458` 收窄逻辑一致。
+    - AC-002：`re_verified`——「t450 AC-002」（`:484-499`）ready items=[kimi] 断言 `toEqual(["kimi"])` 不含 claude。
+    - AC-003：`re_verified`——「t450 AC-003」（`:501-511`，failed 无 items）与「t450 f001」（`:513-528`，failed 携带 stale lastSuccess items）共同锚定失败态全保留（真实 CPA 失败路径）；「t450 f003」（`:530-544`）锚定 ready 空 items 保留分支。
+    - 复验命令：`npx vitest run tests/unit/renderer`（121 files / 1350 tests passed，其中 provider-usage 62、popup_view_config 14）；`npx tsc --noEmit` 0 error。
+    - coverage = 3 / 3
 - 系统性 follow-up：无既有 tid；无独立 follow-up 建议。
 
 reviewed_scope: eea23940edd8f0df

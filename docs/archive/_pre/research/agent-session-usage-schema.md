@@ -105,33 +105,33 @@
 
 ## 字段速查
 
-| 字段                 | 类型              | 含义                                         |
-| -------------------- | ----------------- | -------------------------------------------- |
-| `session_id`         | string            | 会话唯一标识（UUID）；子代理消息与主会话共享 |
-| `title`              | string \| null    | 会话标题                                     |
-| `directory`          | string \| null    | 会话的工作目录（项目路径）                   |
-| `slug`               | string \| null    | 会话短可读别名                               |
-| `version`            | string \| null    | Agent 版本号                                 |
-| `parent_session_id`  | string \| null    | 父会话 ID；主会话为 null                     |
-| `message_id`         | string            | 本条消息的唯一 ID                            |
-| `parent_message_id`  | string \| null    | 父消息 ID，消息构成树状结构                  |
-| `role`               | user \| assistant | 消息角色；仅 assistant 携带 token 用量       |
-| `timestamp`          | integer           | 消息创建时间，Unix 毫秒时间戳                |
-| `model`              | string \| null    | 实际使用的模型名（仅 assistant）             |
-| `stop_reason`        | string \| null    | 调用结束原因（仅 assistant）                 |
-| `input_tokens`       | integer \| null   | 输入 token 数（不含缓存，仅 assistant）      |
-| `output_tokens`      | integer \| null   | 输出 token 数（仅 assistant）                |
-| `cache_read_tokens`  | integer \| null   | 命中缓存的输入 token 数（仅 assistant）      |
-| `cache_write_tokens` | integer \| null   | 写入缓存的 token 数（仅 assistant）          |
-| `content`            | array             | 消息内容块（见下）                           |
+|字段|类型|含义|
+|---|---|---|
+|`session_id`|string|会话唯一标识（UUID）；子代理消息与主会话共享|
+|`title`|string \| null|会话标题|
+|`directory`|string \| null|会话的工作目录（项目路径）|
+|`slug`|string \| null|会话短可读别名|
+|`version`|string \| null|Agent 版本号|
+|`parent_session_id`|string \| null|父会话 ID；主会话为 null|
+|`message_id`|string|本条消息的唯一 ID|
+|`parent_message_id`|string \| null|父消息 ID，消息构成树状结构|
+|`role`|user \| assistant|消息角色；仅 assistant 携带 token 用量|
+|`timestamp`|integer|消息创建时间，Unix 毫秒时间戳|
+|`model`|string \| null|实际使用的模型名（仅 assistant）|
+|`stop_reason`|string \| null|调用结束原因（仅 assistant）|
+|`input_tokens`|integer \| null|输入 token 数（不含缓存，仅 assistant）|
+|`output_tokens`|integer \| null|输出 token 数（仅 assistant）|
+|`cache_read_tokens`|integer \| null|命中缓存的输入 token 数（仅 assistant）|
+|`cache_write_tokens`|integer \| null|写入缓存的 token 数（仅 assistant）|
+|`content`|array|消息内容块（见下）|
 
 **content 内容块**（三种类型，按顺序组成完整消息）：
 
-| type        | 字段              | 含义                             |
-| ----------- | ----------------- | -------------------------------- |
-| `text`      | `text`            | 正文文本（用户提问或 AI 回复）   |
-| `reasoning` | `text`            | 思考/推理过程                    |
-| `tool`      | `name`, `call_id` | 一次工具调用（工具名 + 调用 ID） |
+|type|字段|含义|
+|---|---|---|
+|`text`|`text`|正文文本（用户提问或 AI 回复）|
+|`reasoning`|`text`|思考/推理过程|
+|`tool`|`name`, `call_id`|一次工具调用（工具名 + 调用 ID）|
 
 ## 示例数据
 
@@ -170,12 +170,12 @@
 
 ## 不在交集中的字段（单边特有）
 
-| 字段                                    | 仅存在于       | 说明                                                        |
-| --------------------------------------- | -------------- | ----------------------------------------------------------- |
-| `gitBranch`                             | Claude Code    | 会话所在 git 分支                                           |
-| `userType` / `entrypoint` / `requestId` | Claude Code    | 用户类型 / 启动入口 / 请求 ID                               |
-| `cost`                                  | OpenCode       | 每次调用的成本（美元）                                      |
-| `tokens.reasoning`                      | OpenCode       | 思考 token 单列（交集里 reasoning 只有文本，没有 token 数） |
-| `providerID` / `agent` / `mode`         | OpenCode       | 供应商 / 子代理名 / 运行模式                                |
-| `summary_additions/deletions/files`     | OpenCode       | 会话代码增删行统计                                          |
-| 工具调用的输入参数与执行结果细节        | 双方格式差异大 | 两边都有，但结构不一致，未纳入交集                          |
+|字段|仅存在于|说明|
+|---|---|---|
+|`gitBranch`|Claude Code|会话所在 git 分支|
+|`userType` / `entrypoint` / `requestId`|Claude Code|用户类型 / 启动入口 / 请求 ID|
+|`cost`|OpenCode|每次调用的成本（美元）|
+|`tokens.reasoning`|OpenCode|思考 token 单列（交集里 reasoning 只有文本，没有 token 数）|
+|`providerID` / `agent` / `mode`|OpenCode|供应商 / 子代理名 / 运行模式|
+|`summary_additions/deletions/files`|OpenCode|会话代码增删行统计|
+|工具调用的输入参数与执行结果细节|双方格式差异大|两边都有，但结构不一致，未纳入交集|

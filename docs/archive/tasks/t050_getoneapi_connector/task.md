@@ -26,13 +26,13 @@ note: ""
 
 ### Round 1 (2026-07-23 15:50 UTC+8)
 
-| finding_id     | severity  | status | rationale                                    | fix_ref                  |
-| -------------- | --------- | ------ | -------------------------------------------- | ------------------------ |
-| t050_code_f001 | important | 已修   | data.balance 缺失静默 0                      | connector.ts:68-70       |
-| t050_code_f002 | minor     | 撤回   | 裁决不设 default（AC 缺失->unknown，同 exa） | spec 验收补记            |
-| t050_code_f003 | minor     | 已修   | 非数 code 丢原值                             | connector.ts:60          |
-| t050_test_f001 | important | 已修   | manifest-contract 漏 getoneapi               | manifest-contract.test   |
-| t050_test_f002 | important | 已修   | data:{} 无 throw 用例                        | connector + test:142-146 |
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t050_code_f001|important|已修|data.balance 缺失静默 0|connector.ts:68-70|
+|t050_code_f002|minor|撤回|裁决不设 default（AC 缺失->unknown，同 exa）|spec 验收补记|
+|t050_code_f003|minor|已修|非数 code 丢原值|connector.ts:60|
+|t050_test_f001|important|已修|manifest-contract 漏 getoneapi|manifest-contract.test|
+|t050_test_f002|important|已修|data:{} 无 throw 用例|connector + test:142-146|
 
 ### Round 2 (2026-07-23 16:05 UTC+8)
 

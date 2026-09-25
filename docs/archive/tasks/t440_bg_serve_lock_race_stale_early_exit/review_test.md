@@ -41,11 +41,11 @@
 - 未进表的提示：① AC-001/002/004 的「父进程打印 URL / 以特定码退出 / 给日志路径」等进程级接线同样无自动测试,与 f001 同源,按任务指令豁免入打包 e2e;② ready 缺 url（pid 匹配但 url undefined）→ continue 的细分未单测,属「可加 case」扩展,不阻断;③ case4 与 case6 重复、f002 建议删除其一后 6→5 用例,不影响 coverage 判定。
 - 总体判断：单元层覆盖了 spec 测试策略预授权的 `classify_poll_result` 全部输出分支（exited / exited_code0 / ready / continue）及 core0 不再 continue 的核心修复断言,测试真实触达生产实现、断言强度合格;AC-003 文案与父进程接线层缺口按本任务指令豁免且不建议 blocking,故仅有 minor,可 PASS。严重度说明:若严格以 spec 文件「有意不测:无」为准,AC-003 缺测试可按 AC 覆盖缺口升 important;但本任务指令已声明该缺口在 spec 上下文登记、不做 blocking,故按 minor 出表,f001 建议中已给不依赖进程级的补测方向（抽文案纯函数）。
 - AC 复验方式（以 diff 与代码/测试为准,独立重跑 `pnpm vitest run tests/unit/main/cli/background_serve.test.ts` → 6 passed）：
-  - AC-001：`re_verified`——单测断言 `{exitCode:3}` → `{kind:"exited",code:3}`（`:11-16`）;父进程 exit(outcome.code) 接线读证（`background_serve.ts:139-145`）。
-  - AC-002：`re_verified`（判定层）——单测断言 code0 → `exited_code0`（`:18-22`）;父进程 exit 1 + 给日志路径仅接线代码读证、无自动测试,注:此缺口按豁免入打包 e2e。
-  - AC-003：`trust_prior`——文案无自动测试,仅接线代码人工读证 `background_serve.ts:149-150` 含「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」。
-  - AC-004：`re_verified`（判定层）——单测断言 pid+url 匹配 → ready 携 url/port（`:24-31`）;父进程打印 URL、exit 0 接线读证（`background_serve.ts:154-164`）。
-  - coverage = 3/4 re_verified
+    - AC-001：`re_verified`——单测断言 `{exitCode:3}` → `{kind:"exited",code:3}`（`:11-16`）;父进程 exit(outcome.code) 接线读证（`background_serve.ts:139-145`）。
+    - AC-002：`re_verified`（判定层）——单测断言 code0 → `exited_code0`（`:18-22`）;父进程 exit 1 + 给日志路径仅接线代码读证、无自动测试,注:此缺口按豁免入打包 e2e。
+    - AC-003：`trust_prior`——文案无自动测试,仅接线代码人工读证 `background_serve.ts:149-150` 含「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」。
+    - AC-004：`re_verified`（判定层）——单测断言 pid+url 匹配 → ready 携 url/port（`:24-31`）;父进程打印 URL、exit 0 接线读证（`background_serve.ts:154-164`）。
+    - coverage = 3/4 re_verified
 - 系统性 follow-up：建议标题「打包(build)形态下 electron dev 透传缺陷的进程级 serve 锁冲突 e2e」,slug 建议 `bg_serve_lock_e2e_build`——覆盖 AC-002/003/004 进程级行为（先起健康实例占锁再后台 serve,断言父进程秒级失败、非 0 退出、stderr 含锁冲突提示而非「等待 serve 启动超时」）,以兑现 spec「全部 AC 可自动测试」对进程级层的 claim。阻断性:非阻断。
 
 reviewed_scope: 7ffdbd5f85e9f888
@@ -79,11 +79,11 @@ Round 2 审查范围 = `git -C '/home/testuser/testuser_ubuntu/omni_panel_t440' 
 - 本轮新发现：1 条(f004,minor)。
 - 未进表的提示：① 文案用例未断言 `code=0` 字样(AC-002 判失败场景由 classify 层 toEqual 断言非 0 覆盖),不阻断;② `:47` it5 测试名「cli.json 未写入或无 pid」中「无 pid」实由 `:60-65` 覆盖,it5 输入 `cliInfo:null` 仅表未写入,名称略宽,属命名微瑕;③ 进程级接线(父进程 exit 1/exit code、打印 URL、锁冲突文案经 stderr)仍无自动测试,同 Round 1 豁免,归打包 e2e。
 - AC 复验方式(Round 2,以当前工作区 diff 与测试为准,重跑 `pnpm vitest run tests/unit/main/cli/background_serve.test.ts` → 9 passed)：
-  - AC-001：`re_verified`——it「非0退出 → exited(code 3)」+ build exited 文案断言「code=3」;父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:154-158`)。
-  - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`;build exited_code0 断言含日志路径;父进程 `exit(1)` 接线读证(`background_serve.ts:159-163`)。
-  - AC-003：`re_verified`(文案构造层,较 Round 1 由 trust_prior 转正)——build_early_exit_msg 单测断言「单实例锁冲突」「稍候重试」「启动即退出」与日志路径;引导句字面锚定缺漏见 f004。
-  - AC-004：`re_verified`(判定层)——it ready 分支携 url/port;父进程打印 URL、exit 0 接线读证(`background_serve.ts:164-174`)。
-  - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1)。
+    - AC-001：`re_verified`——it「非0退出 → exited(code 3)」+ build exited 文案断言「code=3」;父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:154-158`)。
+    - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`;build exited_code0 断言含日志路径;父进程 `exit(1)` 接线读证(`background_serve.ts:159-163`)。
+    - AC-003：`re_verified`(文案构造层,较 Round 1 由 trust_prior 转正)——build_early_exit_msg 单测断言「单实例锁冲突」「稍候重试」「启动即退出」与日志路径;引导句字面锚定缺漏见 f004。
+    - AC-004：`re_verified`(判定层)——it ready 分支携 url/port;父进程打印 URL、exit 0 接线读证(`background_serve.ts:164-174`)。
+    - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1)。
 - 总体判断：三条前轮 minor 处置核实到位、原 finding 可关闭;本轮 1 条 minor(f004)不阻断,无未解决 critical / important,verdict PASS。
 - 系统性 follow-up：同 Round 1「打包(build)形态下 electron dev 透传缺陷的进程级 serve 锁冲突 e2e」(slug `bg_serve_lock_e2e_build`),不重复报 tid。
 
@@ -115,11 +115,11 @@ Round 3 审查范围 = `git -C '/home/testuser/testuser_ubuntu/omni_panel_t440' 
 - 本轮新发现：0 条。
 - 未进表的提示：同 Round 2——① 文案用例未断言「code=0」字样,由 classify 层 code0 判 exited_code0 覆盖,不阻断;② `test:47` it5 测试名「未写入或无 pid」中「无 pid」实由 `:60-65` 承担,it5 输入 cliInfo:null 仅表未写入,命名略宽,属微瑕;③ 父进程进程级接线(exit 1/exit code、打印 URL、文案经 stderr)仍无自动测试,同 Round 1/2 豁免,归打包 e2e follow-up。
 - AC 复验方式(Round 3,以当前工作区 diff、源码与重跑测试为准,`pnpm vitest run tests/unit/main/cli/background_serve.test.ts` → 9 passed)：
-  - AC-001：`re_verified`——it「非0退出 → exited(code 3)」+ build exited 文案断言「提前退出」「code=3」;父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:150-156`)。
-  - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`;build exited_code0 断言含日志路径 `/tmp/serve.log`;父进程 `exit(1)` 接线读证(`background_serve.ts:157-161`)。
-  - AC-003：`re_verified`(文案构造层,较 Round 2 补逐字锚定)——toContain「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」均逐字命中源码 `background_serve.ts:46-47`,与源码字符串手工比对成立。
-  - AC-004：`re_verified`(判定层)——it ready 分支携 url/port;父进程打印 URL、exit 0 接线读证(`background_serve.ts:162-172`)。
-  - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1/2)。
+    - AC-001：`re_verified`——it「非0退出 → exited(code 3)」+ build exited 文案断言「提前退出」「code=3」;父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:150-156`)。
+    - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`;build exited_code0 断言含日志路径 `/tmp/serve.log`;父进程 `exit(1)` 接线读证(`background_serve.ts:157-161`)。
+    - AC-003：`re_verified`(文案构造层,较 Round 2 补逐字锚定)——toContain「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」均逐字命中源码 `background_serve.ts:46-47`,与源码字符串手工比对成立。
+    - AC-004：`re_verified`(判定层)——it ready 分支携 url/port;父进程打印 URL、exit 0 接线读证(`background_serve.ts:162-172`)。
+    - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1/2)。
 - 总体判断：f004 minor 修复到位、逐字锚定真收紧,三条历史 minor 维持已消除;无未解决 critical / important,verdict PASS。
 - 系统性 follow-up：同 Round 1「打包(build)形态下 electron dev 透传缺陷的进程级 serve 锁冲突 e2e」(slug `bg_serve_lock_e2e_build`),不重复报 tid。
 
@@ -160,11 +160,11 @@ Round 4 审查范围 = `git -C '/home/testuser/testuser_ubuntu/omni_panel_t440' 
 - 本轮新发现：0 条。
 - 未进表的提示：同 Round 2/3——① 文案用例未断言「code=0」字样,由 classify 层 code0 → exited_code0 覆盖,不阻断;② `test:47` it5 测试名「未写入或无 pid」中「无 pid」实由 `:60-65` 承担,it5 输入 cliInfo:null 仅表未写入,命名略宽,属微瑕;③ 父进程进程级接线(exit 1/exit code、打印 URL、文案经 stderr)仍无自动测试,同 Round 1~3 豁免,归打包 e2e follow-up。
 - AC 复验方式(Round 4,以当前工作区源码、测试与重跑为准,`pnpm vitest run tests/unit/main/cli/background_serve.test.ts` → 9 passed)：
-  - AC-001：`re_verified`——it「非0退出 → exited(code 3)」(`test:14-19`) + build exited 文案断言「提前退出」「code=3」(`test:78-83`);父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:153-158`)。
-  - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`(`test:21-25`);build exited_code0 断言含日志路径 `/tmp/serve.log`;父进程 `exit(1)` 接线读证(`background_serve.ts:160-163`)。
-  - AC-003：`re_verified`(文案构造层)——toContain「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」逐字命中源码 `background_serve.ts:49-50`,字符串手工比对成立。
-  - AC-004：`re_verified`(判定层)——it ready 分支携 url/port(`test:38-45`);父进程打印 URL、exit 0 接线读证(`background_serve.ts:165-174`)。
-  - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1~3)。
+    - AC-001：`re_verified`——it「非0退出 → exited(code 3)」(`test:14-19`) + build exited 文案断言「提前退出」「code=3」(`test:78-83`);父进程 `exit(outcome.code)` 接线读证(`background_serve.ts:153-158`)。
+    - AC-002：`re_verified`(判定+文案构造层)——it code0 → `exited_code0`(`test:21-25`);build exited_code0 断言含日志路径 `/tmp/serve.log`;父进程 `exit(1)` 接线读证(`background_serve.ts:160-163`)。
+    - AC-003：`re_verified`(文案构造层)——toContain「另一实例正在启动或关闭」「若刚执行过 quit 请稍候重试」逐字命中源码 `background_serve.ts:49-50`,字符串手工比对成立。
+    - AC-004：`re_verified`(判定层)——it ready 分支携 url/port(`test:38-45`);父进程打印 URL、exit 0 接线读证(`background_serve.ts:165-174`)。
+    - coverage = 4/4 re_verified(进程级接线行为仍以代码读证,进程级豁免入打包 e2e,同 Round 1~3)。
 - 总体判断：optional-chain + prettier 为语义等价机械改动,ready 判定分支逐分支核对与原判空一致,9 用例实测全绿、测试自 R3 后无逻辑改动,f001~f004 处置全数维持消除;无未解决 critical / important,verdict PASS。
 - 系统性 follow-up：同 Round 1「打包(build)形态下 electron dev 透传缺陷的进程级 serve 锁冲突 e2e」(slug `bg_serve_lock_e2e_build`),不重复报 tid。
 

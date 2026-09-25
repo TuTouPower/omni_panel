@@ -2,7 +2,7 @@
 
 > 全部任务已归档至 `docs/archive/tasks_history.md`。
 
----
+______________________________________________________________________
 
 已完成：主面板展开的卡片在上面切换厂商后就折叠了，且没有展开状态记忆。`6aa4130`：`structural_signature` 去掉 `activeTab`，tab 切换不再触发 `set_expanded_providers({})`。状态只在账号结构变化时重置。
 
@@ -37,7 +37,7 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **状态：** 已完成。
 
-**方案：** 统一用 `0` 作 sentinel 表「跟随全局」（保留 `refreshIntervalSeconds: number` 非空类型，避免序列化兼容问题）。schema 允许 0 或 [60,172800]，preprocess 不再把 0 clamp 成 60。auto-seed 新连接器写 0。orchestrator 在 connector 间隔 <= 0 时回退到 `globalRefreshIntervalSeconds`，全局也 <= 0 时用 300 default。前端 `followGlobal = refreshIntervalSeconds <= 0` 已正确，开关切换保存 0 / 具体值逻辑保留。
+**方案：** 统一用 `0` 作 sentinel 表「跟随全局」（保留 `refreshIntervalSeconds: number` 非空类型，避免序列化兼容问题）。schema 允许 0 或 [60,172800]，preprocess 不再把 0 clamp 成 60。auto-seed 新连接器写 0。orchestrator 在 connector 间隔 \<= 0 时回退到 `globalRefreshIntervalSeconds`，全局也 \<= 0 时用 300 default。前端 `followGlobal = refreshIntervalSeconds <= 0` 已正确，开关切换保存 0 / 具体值逻辑保留。
 
 **改动：** `src/main/core/config/types.ts` schema 放行 0；`src/main/index.ts:235` auto-seed 改 0；`src/main/core/scheduler/scheduler-orchestrator.ts` startAll/rebuild 用 global 回退；`src/main/core/scheduler/connector-scheduler.ts` 在 orchestrator 已 resolve 出最终值的前提下保留 MIN floor。测试覆盖 schema 放行 0、orchestrator 全局回退、auto-seed 默认 0。
 
@@ -308,12 +308,12 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **问题：** Brave connector 层已实现（`connectors/brave/`），`usageProviderSchema` 和 `PROVIDER_LABELS` 已含 `brave`，但 renderer 层多个硬编码列表漏更新：
 
-| 列表                              | 位置                      | Brave |
-| --------------------------------- | ------------------------- | ----- |
-| `PROVIDER_ORDER`                  | `provider-usage.ts:52`    | ❌ 缺 |
-| `VENDOR_AUTH_MAP`                 | `AddAccountDialog.tsx:10` | ❌ 缺 |
-| `ADD_COMMON_SERVICES`（dialog）   | `AddAccountDialog.tsx:23` | ❌ 缺 |
-| `ADD_COMMON_SERVICES`（settings） | `SettingsView.tsx:386`    | ❌ 缺 |
+|列表|位置|Brave|
+|---|---|---|
+|`PROVIDER_ORDER`|`provider-usage.ts:52`|❌ 缺|
+|`VENDOR_AUTH_MAP`|`AddAccountDialog.tsx:10`|❌ 缺|
+|`ADD_COMMON_SERVICES`（dialog）|`AddAccountDialog.tsx:23`|❌ 缺|
+|`ADD_COMMON_SERVICES`（settings）|`SettingsView.tsx:386`|❌ 缺|
 
 此外 Brave 是 `manualRefreshOnly` connector，`runtime-store` 是纯内存 Map 不从 sqlite 恢复历史数据，重启后 Brave 数据消失。
 
@@ -442,12 +442,12 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 对 MiMo、Kimi 等基于 cookie/session 的账号，应用内存在**两个完全独立的定时器**：
 
-|          | Cookie 刷新（凭证保鲜）                                                | 用量刷新（数据拉取）                                  |
-| -------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| 定时器   | `cookieRefreshHours`（全局，默认 24h）                                 | `refreshIntervalSeconds`（per-connector）             |
-| 作用     | 打开隐藏 Electron Session 窗口，访问厂商网站，抓取新 cookie 写入 vault | 用已存储的 cookie 调厂商 API 获取用量数据             |
-| 控制入口 | 全局配置 `cookieRefreshHours`（`index.ts:466-483`）                    | 账号编辑界面「刷新间隔」/「跟随全局自动刷新间隔」开关 |
-| 代码位置 | `cookie-refresh-service.ts` + `index.ts` cookie_refresh_timer          | `connector-scheduler.ts` + `refresh-service.ts`       |
+||Cookie 刷新（凭证保鲜）|用量刷新（数据拉取）|
+|---|---|---|
+|定时器|`cookieRefreshHours`（全局，默认 24h）|`refreshIntervalSeconds`（per-connector）|
+|作用|打开隐藏 Electron Session 窗口，访问厂商网站，抓取新 cookie 写入 vault|用已存储的 cookie 调厂商 API 获取用量数据|
+|控制入口|全局配置 `cookieRefreshHours`（`index.ts:466-483`）|账号编辑界面「刷新间隔」/「跟随全局自动刷新间隔」开关|
+|代码位置|`cookie-refresh-service.ts` + `index.ts` cookie_refresh_timer|`connector-scheduler.ts` + `refresh-service.ts`|
 
 **问题：** 用户在账号编辑界面看到的「刷新间隔」实际只控制**用量刷新频率**，不控制 cookie 刷新频率。如果用户把用量刷新设为 1 分钟，cookie 仍按 24h 刷新。cookie 过期后，所有用量刷新会持续失败直到下次 cookie 刷新。这个语义差异目前没有对用户说明。
 
@@ -786,7 +786,7 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 
 **修复：** 使用 WSL 官方 logo 目录中的 `lobehub_icons/svg/icons/xiaomimimo.svg`；SVG 使用 `currentColor`，不带硬编码橙色背景；MiMo 在 `VendorMark` 中内联渲染，避免 `<img>` 隔离导致 `currentColor` 不继承。OpenCode Go 使用压缩包内官方 `opencode-logo-light.svg` / `opencode-logo-dark.svg`，通过 `[data-theme="dark"]` 自动切换。
 
----
+______________________________________________________________________
 
 ## 待办（全部已完成 2026-06-14）（测试盲区审查 — 2026-06-12，27 项中已完成 26 项）
 
@@ -830,7 +830,7 @@ if (!allowedKeys) return ok(undefined);   // 静默丢弃，返回成功
 - [x] **Hash 编码不一致**：已对齐为 Buffer。
 - [x] **config-store-debounce 全部 fs 函数被 mock**：已文档化 ENOSPC/EACCES 限制。
 
----
+______________________________________________________________________
 
 ## 已完成
 

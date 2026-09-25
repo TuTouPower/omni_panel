@@ -18,13 +18,13 @@ workspace 路径经过 URL 编码，如 `%2Fhome%2Ftestuser%2Fgithub_repo` 对�
 
 排查结果：
 
-| 数据源                                                    | 内容                                       | 能否用于统计                         |
-| --------------------------------------------------------- | ------------------------------------------ | ------------------------------------ |
-| `sessions/*/updates.jsonl` 的 `_meta.totalTokens`         | 每次请求时的累积上下文大小                 | 否，是 context window 占用，非消费量 |
-| `logs/unified.jsonl` 的 `billing: fetched credits config` | `creditUsagePercent`（当前周期用量百分比） | 否，只有百分比，无绝对值             |
-| `logs/unified.jsonl` 的 `turn.complete`                   | `elapsed_ms`（回合耗时）                   | 否，无 token 计数                    |
-| `sessions/*/events.jsonl`                                 | phase_changed、tool 事件                   | 否                                   |
-| `sessions/*/summary.json`                                 | session 元信息（model、agent、cwd）        | 否                                   |
+|数据源|内容|能否用于统计|
+|---|---|---|
+|`sessions/*/updates.jsonl` 的 `_meta.totalTokens`|每次请求时的累积上下文大小|否，是 context window 占用，非消费量|
+|`logs/unified.jsonl` 的 `billing: fetched credits config`|`creditUsagePercent`（当前周期用量百分比）|否，只有百分比，无绝对值|
+|`logs/unified.jsonl` 的 `turn.complete`|`elapsed_ms`（回合耗时）|否，无 token 计数|
+|`sessions/*/events.jsonl`|phase_changed、tool 事件|否|
+|`sessions/*/summary.json`|session 元信息（model、agent、cwd）|否|
 
 ## 可用数据
 

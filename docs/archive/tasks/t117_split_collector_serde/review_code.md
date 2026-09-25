@@ -16,12 +16,12 @@
 
 ## 规格合规(实现层)
 
-| AC                                                    | 状态 | 证据                                        |
-| ----------------------------------------------------- | ---- | ------------------------------------------- |
-| `collector.ts` 行数 < 400（或接近）                   | 满足 | `wc -l`：399 行。                           |
-| `pnpm test` 全绿（collector-state 7 用例不回归）      | 满足 | 1739 pass，`collector-state.test.ts` 全绿。 |
-| `pnpm typecheck` 0 新增错误                           | 满足 | tsc --noEmit 无输出。                       |
-| serde 行为不变（load 损坏/缺失回退、save round-trip） | 满足 | 逐字迁移，见下「不变量核对」。              |
+|AC|状态|证据|
+|---|---|---|
+|`collector.ts` 行数 < 400（或接近）|满足|`wc -l`：399 行。|
+|`pnpm test` 全绿（collector-state 7 用例不回归）|满足|1739 pass，`collector-state.test.ts` 全绿。|
+|`pnpm typecheck` 0 新增错误|满足|tsc --noEmit 无输出。|
+|serde 行为不变（load 损坏/缺失回退、save round-trip）|满足|逐字迁移，见下「不变量核对」。|
 
 不变量核对（与 anchor 版逐行比对）：
 

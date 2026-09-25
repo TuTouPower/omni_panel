@@ -59,7 +59,7 @@ reviewer 判测试覆盖时核对本区；实施期可补。
 
 - **参考项目**：cc-switch（github.com/farion1231/cc-switch）`src-tauri/src/services/session_usage_grokbuild.rs`——Grok CLI 会话用量追踪，事件口径注释经 2026-07-23 单进程双 prompt 实测 + CLI 二进制逆向双重确证。
 - **数据位置**（WSL 内 `~/.grok/`，Windows 侧 UNC 可读，Electron 原生路径）：
-  `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\{enc_cwd}\{session_id}\updates.jsonl`
+    `\\wsl.localhost\{wsl_distro}\home\{wsl_user}\.grok\sessions\{enc_cwd}\{session_id}\updates.jsonl`
     - `{enc_cwd}` 是 URL-encoded 的 cwd（实测如 `%2Fhome%2Ftestuser%2Fgithub_repo`）。
     - 每个会话一个 `updates.jsonl`，session_id 形如 `019f60f4-0984-7430-8e6e-15d579c7d369`。
     - 实测本机 `~/.grok/` 下无 `archived_sessions` 目录（会话是否归档随 CLI 版本/使用方式，执行期核实）。

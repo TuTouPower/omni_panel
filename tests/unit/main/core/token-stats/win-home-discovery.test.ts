@@ -84,7 +84,9 @@ describe("discover_win_home (t438)", () => {
 
     it("④ shell 返回小写盘符也转换", () => {
         // 枚举非空但零候选（仅系统项）→ 走 shell 回退；小写盘符也转换。
-        const d = deps(["All Users", "Default"], {}, "c:\\users\\testuser", ["/mnt/c/users/testuser"]);
+        const d = deps(["All Users", "Default"], {}, "c:\\users\\testuser", [
+            "/mnt/c/users/testuser",
+        ]);
         expect(discover_win_home(d)).toBe("/mnt/c/users/testuser");
     });
 

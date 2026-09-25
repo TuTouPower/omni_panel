@@ -27,11 +27,11 @@ note: ""
 
 ### Round 1 (2026-07-23 16:15 UTC+8)
 
-| finding_id     | severity | status | rationale                         | fix_ref             |
-| -------------- | -------- | ------ | --------------------------------- | ------------------- |
-| t051_code_f001 | minor    | 已修   | balance/free_credit 重复，提 base | connector.ts base   |
-| t051_code_f002 | minor    | 已修   | code!=200 丢 message              | connector.ts:53-55  |
-| t051_test_f001 | minor    | 已修   | 阈值边界 0.1/0.2 未测             | test ratio 边界用例 |
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t051_code_f001|minor|已修|balance/free_credit 重复，提 base|connector.ts base|
+|t051_code_f002|minor|已修|code!=200 丢 message|connector.ts:53-55|
+|t051_test_f001|minor|已修|阈值边界 0.1/0.2 未测|test ratio 边界用例|
 
 ### Round 2 (2026-07-23 16:25 UTC+8)
 

@@ -2,14 +2,14 @@
 
 ## 概览
 
-| 工具        | 存储格式      | Win 路径                                          | WSL 路径                                        |
-| ----------- | ------------- | ------------------------------------------------- | ----------------------------------------------- |
-| Claude Code | JSONL         | `~/.claude/metrics/costs.jsonl`                   | 同（`/home/$USER/.claude/metrics/costs.jsonl`） |
-| Claude Code | Session JSONL | `~/.claude/projects/{project}/{session_id}.jsonl` | 同                                              |
-| OpenCode    | SQLite        | `~/.local/share/opencode/opencode.db`             | 同                                              |
-| Grok Build  | JSON/JSONL    | `~/.grok/sessions/<encoded-cwd>/<session-id>/`    | 同                                              |
+|工具|存储格式|Win 路径|WSL 路径|
+|---|---|---|---|
+|Claude Code|JSONL|`~/.claude/metrics/costs.jsonl`|同（`/home/$USER/.claude/metrics/costs.jsonl`）|
+|Claude Code|Session JSONL|`~/.claude/projects/{project}/{session_id}.jsonl`|同|
+|OpenCode|SQLite|`~/.local/share/opencode/opencode.db`|同|
+|Grok Build|JSON/JSONL|`~/.grok/sessions/<encoded-cwd>/<session-id>/`|同|
 
----
+______________________________________________________________________
 
 ## 一、Claude Code
 
@@ -65,13 +65,13 @@
 
 ### 1.3 Win vs WSL 差异
 
-| 维度               | Win                                                     | WSL                                               |
-| ------------------ | ------------------------------------------------------- | ------------------------------------------------- |
-| `costs.jsonl` 路径 | `C:\Users\{USER}\.claude\metrics\costs.jsonl`           | `/home/{USER}/.claude/metrics/costs.jsonl`        |
-| Session JSONL 路径 | `C:\Users\{USER}\.claude\projects\{C--path}\{id}.jsonl` | `/home/{USER}/.claude/projects/{path}\{id}.jsonl` |
-| 格式               | 完全相同                                                | 完全相同                                          |
-| `model` 字段       | 真实模型名                                              | 真实模型名                                        |
-| `transcript_path`  | Windows 绝对路径                                        | Linux 绝对路径                                    |
+|维度|Win|WSL|
+|---|---|---|
+|`costs.jsonl` 路径|`C:\Users\{USER}\.claude\metrics\costs.jsonl`|`/home/{USER}/.claude/metrics/costs.jsonl`|
+|Session JSONL 路径|`C:\Users\{USER}\.claude\projects\{C--path}\{id}.jsonl`|`/home/{USER}/.claude/projects/{path}\{id}.jsonl`|
+|格式|完全相同|完全相同|
+|`model` 字段|真实模型名|真实模型名|
+|`transcript_path`|Windows 绝对路径|Linux 绝对路径|
 
 Win/WSL 的 `costs.jsonl` 是**独立的**——在 Win 下使用的 session 只出现在 Win 的文件中，WSL 同理。需要合并两个文件才能得到完整统计。
 
@@ -127,7 +127,7 @@ jq -c 'select(.type=="assistant" and .message.usage!=null) |
         └── {session_id}/subagents/
 ```
 
----
+______________________________________________________________________
 
 ## 二、OpenCode
 
@@ -244,12 +244,12 @@ ORDER BY session_id, time_created;
 
 ### 2.3 Win vs WSL 差异
 
-| 维度     | Win                                               | WSL                                   |
-| -------- | ------------------------------------------------- | ------------------------------------- |
-| DB 路径  | `%USERPROFILE%\.local\share\opencode\opencode.db` | `~/.local/share/opencode/opencode.db` |
-| 格式     | 完全相同                                          | 完全相同                              |
-| 日志路径 | `%USERPROFILE%\.local\share\opencode\log\`        | `~/.local/share/opencode/log/`        |
-| 数据量   | 2 sessions / 213 messages / 1252 parts            | 130 sessions（当前环境未验证）        |
+|维度|Win|WSL|
+|---|---|---|
+|DB 路径|`%USERPROFILE%\.local\share\opencode\opencode.db`|`~/.local/share/opencode/opencode.db`|
+|格式|完全相同|完全相同|
+|日志路径|`%USERPROFILE%\.local\share\opencode\log\`|`~/.local/share/opencode/log/`|
+|数据量|2 sessions / 213 messages / 1252 parts|130 sessions（当前环境未验证）|
 
 Win/WSL 的 `opencode.db` 是**独立的**，需分别读取或合并。
 
@@ -266,7 +266,7 @@ Win/WSL 的 `opencode.db` 是**独立的**，需分别读取或合并。
 └── snapshot/            ← 项目快照
 ```
 
----
+______________________________________________________________________
 
 ## 三、Grok Build
 
@@ -367,13 +367,13 @@ Win/WSL 的 `opencode.db` 是**独立的**，需分别读取或合并。
 
 ### 3.5 相关命令
 
-| 命令                             | 用途                                             |
-| -------------------------------- | ------------------------------------------------ |
-| `/session-info`                  | 当前 session 详情（模型、context 用量、turn 数） |
-| `/usage`                         | 信用额度/计费                                    |
-| `/context`                       | 上下文窗口用量分类明细                           |
-| `grok sessions list`             | 列出当前目录的 session（SQLite FTS5 索引）       |
-| `grok sessions search "keyword"` | 搜索 session 标题和内容                          |
+|命令|用途|
+|---|---|
+|`/session-info`|当前 session 详情（模型、context 用量、turn 数）|
+|`/usage`|信用额度/计费|
+|`/context`|上下文窗口用量分类明细|
+|`grok sessions list`|列出当前目录的 session（SQLite FTS5 索引）|
+|`grok sessions search "keyword"`|搜索 session 标题和内容|
 
 **无 `/stats` 命令**（不同于 Claude Code）。无按模型/天的聚合视图。
 
@@ -418,7 +418,7 @@ Grok Build v0.2.93 被发现会将整个代码库（含 .env 密钥）静默上�
 └── version.json           ← 版本信息
 ```
 
----
+______________________________________________________________________
 
 ## 四、小时级聚合方案
 
@@ -486,7 +486,7 @@ sqlite3 /wsl.localhost/.../opencode.db "SELECT ... FROM session" \
 find ~/.grok/sessions -name "summary.json" -exec cat {} \; | jq -s '.'
 ```
 
----
+______________________________________________________________________
 
 ## 五、Session 级统计
 
@@ -532,43 +532,43 @@ find ~/.grok/sessions -name "summary.json" -exec \
        messages: .num_messages}' {} \;
 ```
 
----
+______________________________________________________________________
 
 ## 六、外部工具
 
-| 工具                                                                    | 支持                   | 用途                                    |
-| ----------------------------------------------------------------------- | ---------------------- | --------------------------------------- |
-| [ccusage](https://github.com/ryoppippi/ccusage)                         | Claude Code + OpenCode | 读取本地数据生成日报/周报               |
-| [tokscale](https://github.com/junhoyeo/tokscale)                        | 多工具                 | 跨 Claude Code/OpenCode/Codex/Gemini 等 |
-| [opencode-tokenscope](https://github.com/ramtinJ95/opencode-tokenscope) | OpenCode               | Token 分析和费用追踪                    |
-| [opencode-stats](https://lib.rs/crates/opencode-stats)                  | OpenCode               | 终端仪表盘，类似 `/stats`               |
-| [AgentsView](https://github.com/kenn-io/agentsview)                     | 多工具                 | 本地 session 搜索 + token 统计          |
+|工具|支持|用途|
+|---|---|---|
+|[ccusage](https://github.com/ryoppippi/ccusage)|Claude Code + OpenCode|读取本地数据生成日报/周报|
+|[tokscale](https://github.com/junhoyeo/tokscale)|多工具|跨 Claude Code/OpenCode/Codex/Gemini 等|
+|[opencode-tokenscope](https://github.com/ramtinJ95/opencode-tokenscope)|OpenCode|Token 分析和费用追踪|
+|[opencode-stats](https://lib.rs/crates/opencode-stats)|OpenCode|终端仪表盘，类似 `/stats`|
+|[AgentsView](https://github.com/kenn-io/agentsview)|多工具|本地 session 搜索 + token 统计|
 
----
+______________________________________________________________________
 
 ## 七、与 OmniUsage 的关系
 
 OmniUsage 的 `PluginChart` schema（`src/shared/schemas/plugin-output.ts`）已定义 `model + tokens` 按天分桶的数据结构，可直接消费上述数据源的聚合结果。
 
----
+______________________________________________________________________
 
 ## 八、可采集数据汇总
 
 ### 8.1 三端数据对比
 
-| Agent       | 平台    | 存储格式   | 最小粒度              | Token 字段                                                            | 时间字段        | Cost 字段                           | 主要限制                                                         |
-| ----------- | ------- | ---------- | --------------------- | --------------------------------------------------------------------- | --------------- | ----------------------------------- | ---------------------------------------------------------------- |
-| Claude Code | Win/WSL | JSONL      | 每次 API 调用         | `input_tokens`, `output_tokens`, `cache_*_tokens`                     | ISO 8601 字符串 | `estimated_cost_usd`（✅ 有真实值） | 需过滤 `default`/`unknown` 零值记录；约 80% 行缺 cache 字段      |
-| OpenCode    | Win/WSL | SQLite     | 每步调用（`part` 表） | `tokens_input`, `tokens_output`, `tokens_reasoning`, `tokens_cache_*` | Unix epoch ms   | `cost`（❌ 实测恒为 0）             | `part.data.tokens` 为累积值，需算增量；费用需外部定价表          |
-| Grok Build  | Win/WSL | JSON/JSONL | Session 级元数据      | **本地未找到**                                                        | ISO 8601 字符串 | **本地未找到**                      | `signals.json` 不存在；token/cost 需 headless 输出验证或外部定价 |
+|Agent|平台|存储格式|最小粒度|Token 字段|时间字段|Cost 字段|主要限制|
+|---|---|---|---|---|---|---|---|
+|Claude Code|Win/WSL|JSONL|每次 API 调用|`input_tokens`, `output_tokens`, `cache_*_tokens`|ISO 8601 字符串|`estimated_cost_usd`（✅ 有真实值）|需过滤 `default`/`unknown` 零值记录；约 80% 行缺 cache 字段|
+|OpenCode|Win/WSL|SQLite|每步调用（`part` 表）|`tokens_input`, `tokens_output`, `tokens_reasoning`, `tokens_cache_*`|Unix epoch ms|`cost`（❌ 实测恒为 0）|`part.data.tokens` 为累积值，需算增量；费用需外部定价表|
+|Grok Build|Win/WSL|JSON/JSONL|Session 级元数据|**本地未找到**|ISO 8601 字符串|**本地未找到**|`signals.json` 不存在；token/cost 需 headless 输出验证或外部定价|
 
 ### 8.2 Cost 可用性
 
-| Agent       | 本地费用数据                      | 是否可用  | 替代方案                                                  |
-| ----------- | --------------------------------- | --------- | --------------------------------------------------------- |
-| Claude Code | `estimated_cost_usd`              | ✅ 可用   | 直接用                                                    |
-| OpenCode    | `session.cost` / `part.data.cost` | ❌ 恒为 0 | 按模型 token 数 × 外部 API 定价表                         |
-| Grok Build  | 本地无                            | ❌ 无     | headless JSON 待验证；或按模型 token 数 × 外部 API 定价表 |
+|Agent|本地费用数据|是否可用|替代方案|
+|---|---|---|---|
+|Claude Code|`estimated_cost_usd`|✅ 可用|直接用|
+|OpenCode|`session.cost` / `part.data.cost`|❌ 恒为 0|按模型 token 数 × 外部 API 定价表|
+|Grok Build|本地无|❌ 无|headless JSON 待验证；或按模型 token 数 × 外部 API 定价表|
 
 ### 8.3 可聚合维度
 

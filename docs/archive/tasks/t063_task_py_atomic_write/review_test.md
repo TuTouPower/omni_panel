@@ -49,6 +49,7 @@ verdict: FAIL
 ### 前轮 finding 复核
 
 - **t063_test_f001（AC3 mock os.replace 失败单测缺失）**：**未修**。R1 后新增 `tests/unit/scripts/task_py.test.ts` 共 4 用例，无一 mock `os.replace` 失败：
+
     - 用例 1「save leaves no .tmp residue after add」：仅断言 `add` 成功后 temp_dir 无 `.tmp` 文件，是 happy path 副产物，未触发失败路径。
     - 用例 2「JSON is valid after write」：仅断言 `add` 后 JSON 可解析、长度=1；实现若退回 `path.write_text` 此断言仍通过。
     - 用例 3、4 是 AC2 恢复与正常 finish，与 AC3 无关。

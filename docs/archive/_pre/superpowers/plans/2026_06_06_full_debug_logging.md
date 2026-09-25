@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Electron main/renderer, Vitest, Playwright packaged smoke.
 
----
+______________________________________________________________________
 
 ## File Structure
 
@@ -51,13 +51,14 @@
     - Log loaded config and save payloads for setting changes.
 - Modify: `docs/test.md` or `docs/spec.md` only if implementation changes documented behavior. Expected: no docs change needed beyond this plan/spec.
 
----
+______________________________________________________________________
 
 ### Task 1: Logger raw serialization
 
 **Files:**
 
 - Modify: `src/shared/lib/logger.ts`
+
 - Modify: `tests/unit/shared/logger.test.ts`
 
 - [ ] **Step 1: Replace the redaction test with a raw-value failing test**
@@ -201,14 +202,16 @@ git add src/shared/lib/logger.ts tests/unit/shared/logger.test.ts
 git commit -m "feat: log raw debug metadata"
 ```
 
----
+______________________________________________________________________
 
 ### Task 2: Plugin runner and refresh-service full logs
 
 **Files:**
 
 - Modify: `src/main/core/plugin/runner.ts`
+
 - Modify: `src/main/core/scheduler/refresh-service.ts`
+
 - Modify: `tests/integration/scheduler/refresh-service.test.ts`
 
 - [ ] **Step 1: Add failing refresh-service log test**
@@ -401,17 +404,22 @@ git add src/main/core/plugin/runner.ts src/main/core/scheduler/refresh-service.t
 git commit -m "feat: add full plugin refresh debug logs"
 ```
 
----
+______________________________________________________________________
 
 ### Task 3: Config, secrets, and cache store logs
 
 **Files:**
 
 - Modify: `src/main/core/config/config-store.ts`
+
 - Modify: `src/main/core/config/secrets-store.ts`
+
 - Modify: `src/main/core/cache/cache-store.ts`
+
 - Modify: `tests/integration/config/config-store.test.ts`
+
 - Modify: `tests/integration/config/secrets-store.test.ts`
+
 - Modify: `tests/integration/cache/cache-store.test.ts`
 
 - [ ] **Step 1: Add failing config-store log test**
@@ -650,16 +658,20 @@ git add src/main/core/config/config-store.ts src/main/core/config/secrets-store.
 git commit -m "feat: add full storage debug logs"
 ```
 
----
+______________________________________________________________________
 
 ### Task 4: IPC full request and response logs
 
 **Files:**
 
 - Modify: `src/main/ipc/config-ipc.ts`
+
 - Modify: `src/main/ipc/plugin-ipc.ts`
+
 - Modify: `src/main/ipc/event-ipc.ts`
+
 - Modify: `src/main/ipc/log-ipc.ts`
+
 - Modify: `tests/unit/ipc/config-ipc.test.ts`
 
 - [ ] **Step 1: Add failing config IPC logging test**
@@ -754,16 +766,20 @@ git add src/main/ipc/config-ipc.ts src/main/ipc/plugin-ipc.ts src/main/ipc/event
 git commit -m "feat: add full IPC debug logs"
 ```
 
----
+______________________________________________________________________
 
 ### Task 5: Renderer usage and color calculation logs
 
 **Files:**
 
 - Modify: `src/renderer/lib/provider-usage.ts`
+
 - Modify: `src/renderer/lib/usage-colors.ts`
+
 - Modify: `src/renderer/views/PopupView.tsx`
+
 - Modify: `src/renderer/views/SettingsView.tsx`
+
 - Modify: `tests/unit/renderer/lib/usage-colors.test.ts`
 
 - [ ] **Step 1: Add failing usage-colors log test**
@@ -938,14 +954,16 @@ git add src/renderer/lib/provider-usage.ts src/renderer/lib/usage-colors.ts src/
 git commit -m "feat: add renderer usage debug logs"
 ```
 
----
+______________________________________________________________________
 
 ### Task 6: Full verification and documentation check
 
 **Files:**
 
 - Check: `docs/test.md`
+
 - Check: `docs/spec.md`
+
 - Check: `CLAUDE.md`
 
 - [ ] **Step 1: Run typecheck**
@@ -1053,7 +1071,7 @@ git commit -m "docs: document development debug logging"
 
 If no documentation changed, skip this commit.
 
----
+______________________________________________________________________
 
 ## Self-Review
 

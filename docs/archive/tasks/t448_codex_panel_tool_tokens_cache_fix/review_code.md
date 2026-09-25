@@ -32,10 +32,10 @@ reviewed_scope: 95ab0499c9a458e4
 - 前轮 finding 复核：无（Round 1）
 - 本轮新发现：2 条（均 minor，无 blocking）
 - 未进表的提示：
-  - 文件过大（达阈值且本 task 净增，按规则只列不进表）：`src/renderer/lib/token-stats/chart-data.ts` 1111 行、`src/renderer/components/token-stats/SessionTable.tsx` 414 行。均非本 task 新建，仅小幅增长。
-  - 圈复杂度：`codex-reader.ts` `parse_rollout_file`（154-313）单循环多分支，McCabe 约 15，本 task 增缓存差分分支；建议拆分每行处理函数，属提示不进表。
-  - 测试侧观察（交 test reviewer，未计入 code  finding）：`codex-reader.test.ts` AC-006 的上界断言 `input+cache+output <= 2000+cache` 可化简为 `input+output <= 2000`，在「未归一 input 但透传 cache_delta」的错实现下仍可通过（1800+200=2000 恰好等于 2000 不越界），不能独立识别 input 归一缺失；AC-006「不双重计数」目前只有实现自洽性保障。
-  - 范围外/风格：`globals.css:150-151` 在 `designmd-export:end` 下多出一个空行（与本 task 无关的空白改动）；`chart-data.ts:51` 注释「four agents」未随扩到 five 更新（纯文案）。`codex_panels_wiring.test.ts:30-32` 把 t447 旧断言（回退 primary）就地改成新断言——因 t448 设计 token 落地属语义变更，倾向整条删除旧测试更符合 TDD 约定，但语义确实被 spec 取代，未按 blocker 处理，交 test reviewer 判断。
+    - 文件过大（达阈值且本 task 净增，按规则只列不进表）：`src/renderer/lib/token-stats/chart-data.ts` 1111 行、`src/renderer/components/token-stats/SessionTable.tsx` 414 行。均非本 task 新建，仅小幅增长。
+    - 圈复杂度：`codex-reader.ts` `parse_rollout_file`（154-313）单循环多分支，McCabe 约 15，本 task 增缓存差分分支；建议拆分每行处理函数，属提示不进表。
+    - 测试侧观察（交 test reviewer，未计入 code finding）：`codex-reader.test.ts` AC-006 的上界断言 `input+cache+output <= 2000+cache` 可化简为 `input+output <= 2000`，在「未归一 input 但透传 cache_delta」的错实现下仍可通过（1800+200=2000 恰好等于 2000 不越界），不能独立识别 input 归一缺失；AC-006「不双重计数」目前只有实现自洽性保障。
+    - 范围外/风格：`globals.css:150-151` 在 `designmd-export:end` 下多出一个空行（与本 task 无关的空白改动）；`chart-data.ts:51` 注释「four agents」未随扩到 five 更新（纯文案）。`codex_panels_wiring.test.ts:30-32` 把 t447 旧断言（回退 primary）就地改成新断言——因 t448 设计 token 落地属语义变更，倾向整条删除旧测试更符合 TDD 约定，但语义确实被 spec 取代，未按 blocker 处理，交 test reviewer 判断。
 
 ### AC 复验方式
 
@@ -43,7 +43,7 @@ reviewed_scope: 95ab0499c9a458e4
 - AC-002：re_verified —— `chart-data.ts` 三套（AGENT_LABELS/BUCKET_AGENT_LABELS/ROLLUP_AGENT_LABELS 与各自 order 数组）均含 codex；单测三口径各断 codex 段独立且无「其他」分组，通过。
 - AC-003：re_verified —— DESIGN token 落库并 export（designmd:check 通过），`slots.agent_accent("codex")`/`agent_color("codex")` 返回 codex 独立 var，palette/panel 单测断言非 primary 回退，通过。注：暗色分支存在 f001 回退用亮色值的缺陷，不影响「可分、非 accent」判定，已按 minor 报。
 - AC-004：re_verified —— `server.ts` 四处 agent 收窄扩入 "codex"；integration 测试实际起 store+HTTP 断言 `agent=codex` 返回行且字段完整（input/cache_read 不丢），通过。
-- AC-005：re_verified（语义层）—— `parse_rollout_file` 改 `delta>0 ? delta : 0` + prev 推 max；AC-005 单测 1000/1000/2500 断言去重后 = 2500 且 < 4500，若回退旧代码（delta<=0 计全量）该测试会红，红绿有效。真实 rollout 数字（1356472098→196124034 量级）无法在本 worktree 独立重跑（`.scratch` 复现文件未随仓携带），该数值属 trust_prior，AC 已声明不逐字锁定。
+- AC-005：re_verified（语义层）—— `parse_rollout_file` 改 `delta>0 ? delta : 0` + prev 推 max；AC-005 单测 1000/1000/2500 断言去重后 = 2500 且 < 4500，若回退旧代码（delta\<=0 计全量）该测试会红，红绿有效。真实 rollout 数字（1356472098→196124034 量级）无法在本 worktree 独立重跑（`.scratch` 复现文件未随仓携带），该数值属 trust_prior，AC 已声明不逐字锁定。
 - AC-006：re_verified（语义层）—— cache 独立差分 + input 归一 `in_delta - cache_delta` 应用于 sums/daily/records 三处；单测断言 cache>0、逐 record cache>=0 且 input 归一后 `input+cache+output` 不上溢，通过；~0.96 缓存率来自真实文件，属 trust_prior（同上未携带 fixture）。测试上界对「不归一」错实现不敏感，见「未进表提示」。
 
 coverage = 6 / 6（语义层全部 re_verified；AC-005/006 的真实 rollout 数值口径为 trust_prior——复现 fixture 未随仓，建议合并前人工抽查该两项或回带复现文件复核）。
@@ -80,10 +80,10 @@ reviewed_scope: c4c00ae78589b579
 - 前轮 finding 复核：f001 / f002 均以 diff 与代码核实为**已消除**（未采信处置表自称；逐行验证见上）。
 - 本轮新发现：0 条。
 - 未进表的提示：
-  - f002 收敛不彻底属**前存债、非本轮新增**：buckets/rollup 的 `BUCKET_AGENT_LABELS` / `ROLLUP_AGENT_LABELS` 仍与 AGENT_LABELS 各持一份同文案 map，因键域不同（`claude_code` 下划线 vs 会话 `claude-code` 连字符）无法与 AGENT_LABELS 直接合并；t448 删除的只是本 diff 新增的 SessionTable 第五份副本，剩余三份为 t447 前已存在结构，非本 task 引入，不构成新 finding。
-  - 行为细节变化：SessionTable Badge 对**域外未知 agent** 的兜底由旧「一律显示 OpenCode」改为显示原始键（`agentDisplayLabel` 的 `?? agent`）。当前 reader/store 只产出五个已知 agent 值（claude-code/opencode/kimi-code/grok/codex，claude-reader.ts:398、opencode-reader.ts:275、kimi-reader.ts:248、grok-reader.ts:270、codex-reader.ts:286），域外不可达，无可观测缺陷；旧兜底本身是 AC-001 误标根因，新兜底更诚实，不进表。
-  - 文案遗留：`chart-data.ts:56` agentSegments JSDoc 仍写 "across the four agents"（codex 已含，应为 five）；`globals.css:150-151` designmd-export:end 下多余空行（Round 1 已提示、非本 task 引入、仍存在）。均纯风格，不进表。
-  - 文件过大 / 复杂度：与 Round 1 结论同（chart-data.ts 1116 行、SessionTable.tsx 405 行、codex-reader parse_rollout_file 分支多）；本轮修复未显著增行，只列不进表。
+    - f002 收敛不彻底属**前存债、非本轮新增**：buckets/rollup 的 `BUCKET_AGENT_LABELS` / `ROLLUP_AGENT_LABELS` 仍与 AGENT_LABELS 各持一份同文案 map，因键域不同（`claude_code` 下划线 vs 会话 `claude-code` 连字符）无法与 AGENT_LABELS 直接合并；t448 删除的只是本 diff 新增的 SessionTable 第五份副本，剩余三份为 t447 前已存在结构，非本 task 引入，不构成新 finding。
+    - 行为细节变化：SessionTable Badge 对**域外未知 agent** 的兜底由旧「一律显示 OpenCode」改为显示原始键（`agentDisplayLabel` 的 `?? agent`）。当前 reader/store 只产出五个已知 agent 值（claude-code/opencode/kimi-code/grok/codex，claude-reader.ts:398、opencode-reader.ts:275、kimi-reader.ts:248、grok-reader.ts:270、codex-reader.ts:286），域外不可达，无可观测缺陷；旧兜底本身是 AC-001 误标根因，新兜底更诚实，不进表。
+    - 文案遗留：`chart-data.ts:56` agentSegments JSDoc 仍写 "across the four agents"（codex 已含，应为 five）；`globals.css:150-151` designmd-export:end 下多余空行（Round 1 已提示、非本 task 引入、仍存在）。均纯风格，不进表。
+    - 文件过大 / 复杂度：与 Round 1 结论同（chart-data.ts 1116 行、SessionTable.tsx 405 行、codex-reader parse_rollout_file 分支多）；本轮修复未显著增行，只列不进表。
 - 门禁复跑（read-only 验证，未改代码）：`codex-reader / chart-data / palette / codex_panels_wiring / SessionTable` 单测 93 passed；`tests/integration/local-api/server.test.ts` 95 passed（含 AC-004 新用例）；`tsc --noEmit` 与 eslint（全部改动文件）零错误零 warning；`pnpm designmd:check` passed。
 
 ### AC 复验方式

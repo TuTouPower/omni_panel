@@ -2,21 +2,21 @@
 
 ## 步骤与验证
 
-1. 移动 `docs/reviews/` → `docs/archive/reviews/` → 验证：`ls docs/reviews` 为空或不存在；`ls docs/archive/reviews` 存在原内容
-2. 批量替换非归档文件中的项目名引用：
+01. 移动 `docs/reviews/` → `docs/archive/reviews/` → 验证：`ls docs/reviews` 为空或不存在；`ls docs/archive/reviews` 存在原内容
+02. 批量替换非归档文件中的项目名引用：
     - `OmniUsage` → `OmniPanel`
     - `OmniUsageTest` → `OmniPanelTest`
     - `omni_usage` → `omni_panel`
     - `omniusage` → `omnipanel`
     - `OMNI_USAGE_PORT` → `OMNI_PANEL_PORT`
-      → 验证：`grep -R "OmniUsage\|omni_usage\|OMNI_USAGE_PORT" --exclude-dir=docs/archive --exclude-dir=node_modules --exclude-dir=.git .` 无匹配
-3. 更新 `package.json`、`electron-builder.yml`、`electron-builder.test.yml` 中的 name/appId/productName → 验证：读文件确认
-4. 更新 README/AGENTS/blueprint/guides/specs 中的项目名、Release URL、路径约束 → 验证：grep 确认
-5. 更新测试中断言文本、mock 插件名、打包产物路径、临时目录前缀、fixtures 绝对路径 → 验证：`pnpm test` 通过
-6. 运行 `pnpm typecheck && pnpm lint && pnpm format:check && pnpm test` → 验证：全部通过
-7. 双审：渲染 prompts，派发 code/test reviewer → 验证：处置表填满
-8. 收尾：更新 `docs/specs/rename_to_omni_panel.md`、`docs/specs_index.md`、AGENTS.md；`scripts/task.py finish t152`
-9. 提交本 task 全部改动
+        → 验证：`grep -R "OmniUsage\|omni_usage\|OMNI_USAGE_PORT" --exclude-dir=docs/archive --exclude-dir=node_modules --exclude-dir=.git .` 无匹配
+03. 更新 `package.json`、`electron-builder.yml`、`electron-builder.test.yml` 中的 name/appId/productName → 验证：读文件确认
+04. 更新 README/AGENTS/blueprint/guides/specs 中的项目名、Release URL、路径约束 → 验证：grep 确认
+05. 更新测试中断言文本、mock 插件名、打包产物路径、临时目录前缀、fixtures 绝对路径 → 验证：`pnpm test` 通过
+06. 运行 `pnpm typecheck && pnpm lint && pnpm format:check && pnpm test` → 验证：全部通过
+07. 双审：渲染 prompts，派发 code/test reviewer → 验证：处置表填满
+08. 收尾：更新 `docs/specs/rename_to_omni_panel.md`、`docs/specs_index.md`、AGENTS.md；`scripts/task.py finish t152`
+09. 提交本 task 全部改动
 10. GitHub 远程：`gh repo rename omni_panel --repo TuTouPower/omni_usage` + `git remote set-url origin https://github.com/TuTouPower/omni_panel.git` → 验证：`git remote -v`
 11. 本地目录重命名：`mv D:/Dev/Code/omni_usage D:/Dev/Code/omni_panel` → 验证：`ls D:/Dev/Code/omni_panel`
 

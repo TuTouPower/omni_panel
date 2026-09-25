@@ -1549,7 +1549,9 @@ describe("collector", () => {
             configure(base_config);
 
             const costs_call = mock_read_costs.mock.calls.find((c: unknown[]) => c[1] === "win");
-            expect(String(costs_call![0])).toBe("/mnt/c/Users/TestUser/.claude/metrics/costs.jsonl");
+            expect(String(costs_call![0])).toBe(
+                "/mnt/c/Users/TestUser/.claude/metrics/costs.jsonl",
+            );
             const jsonl_call = mock_scan_jsonls.mock.calls.find((c: unknown[]) => c[1] === "win");
             expect(String(jsonl_call![0])).toBe("/mnt/c/Users/TestUser/.claude/projects");
             const oc_call = mock_read_opencode_sessions.mock.calls.find(

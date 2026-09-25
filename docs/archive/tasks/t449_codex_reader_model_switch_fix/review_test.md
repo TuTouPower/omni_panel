@@ -17,8 +17,8 @@
 - 改测方向复核：无。diff 未改动任何既有测试，仅新增一个 `it` 块与 task.md 状态 front matter；不存在「让断言迁就当前实现」的改测。
 - 本轮新发现：0 条。
 - 未进表的提示：
-  1. 新增测试未显式断言切换后 records/daily 的 model 归因落到 model-b（spec 范围句「model 仅作增量归因标签」的标签侧）。panel_total==2000 已覆盖不 double 计；归因断言属可选扩展，实现侧 `segment_model` 更新逻辑正确，不作 finding。
-  2. cache_read 不翻倍由 `panel_total == 末 total(2000)` 等式隐含覆盖（cache 若随切换重置翻倍则总账 3000），未单列断言 `session.cache_read_tokens == 1500`。已满足测试策略句，可选扩展。
+    1. 新增测试未显式断言切换后 records/daily 的 model 归因落到 model-b（spec 范围句「model 仅作增量归因标签」的标签侧）。panel_total==2000 已覆盖不 double 计；归因断言属可选扩展，实现侧 `segment_model` 更新逻辑正确，不作 finding。
+    2. cache_read 不翻倍由 `panel_total == 末 total(2000)` 等式隐含覆盖（cache 若随切换重置翻倍则总账 3000），未单列断言 `session.cache_read_tokens == 1500`。已满足测试策略句，可选扩展。
 - 总体判断：新增测试端到端落盘真实 jsonl、经 `scan_codex_rollouts` 触达 `parse_rollout_file` 生产实现，`toBe(2000)` 精确断言；无 mock 误用、无危险模式命中、无既有测试被改。clean review，PASS。
 - 系统性 follow-up：无。
 

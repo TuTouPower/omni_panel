@@ -8,7 +8,7 @@
 
 **Tech Stack:** Electron, React, TypeScript, Vitest, bundled plugin SDK, undici HTTP client.
 
----
+______________________________________________________________________
 
 ## File Structure
 
@@ -92,6 +92,7 @@ X-Server-Instance: server-fn:1
 **Files:**
 
 - Modify: `src/plugins/sdk/http-client.ts`
+
 - Modify: `src/plugins/sdk/index.ts`
 
 - [ ] **Step 1: Add failing integration coverage for text responses**
@@ -228,8 +229,11 @@ Expected: PASS. Existing JSON behavior must not change.
 **Files:**
 
 - Modify: `src/shared/schemas/plugin-output.ts`
+
 - Modify: `src/plugins/sdk/result.ts`
+
 - Modify: `src/renderer/lib/provider-usage.ts`
+
 - Modify: `src/renderer/components/Icon.tsx`
 
 - [ ] **Step 1: Add provider to schema**
@@ -323,7 +327,9 @@ Expected: PASS.
 **Files:**
 
 - Create: `assets/plugins/opencode-usage-plugin.ts`
+
 - Create: `tests/unit/plugin/opencode-usage-plugin.test.ts`
+
 - Modify: `tests/unit/plugin/bundled-metadata.test.ts`
 
 - [ ] **Step 1: Write the failing unit test**
@@ -807,6 +813,7 @@ Expected: PASS.
 **Files:**
 
 - Modify: `src/main/ipc/auth-ipc.ts`
+
 - Modify: `tests/unit/ipc/auth-ipc.test.ts`
 
 - [ ] **Step 1: Update auth IPC tests for provider-specific partition**
@@ -1027,8 +1034,11 @@ Expected: PASS.
 **Files:**
 
 - Modify: `src/renderer/components/AddAccountDialog.tsx`
+
 - Modify: `src/renderer/components/SettingsForm.tsx`
+
 - Modify: `src/main/core/cookie-refresh/cookie-refresh-service.ts`
+
 - Modify: `tests/unit/main/cookie-refresh-service.test.ts`
 
 - [ ] **Step 1: Register OpenCode in Add Account dialog**
@@ -1175,15 +1185,15 @@ pnpm package
 
 Manual path:
 
-1. Open Settings.
-2. Add account.
-3. Confirm OpenCode appears in common services.
-4. Select OpenCode.
-5. Click Web login.
-6. Log into OpenCode and close the login window after the OpenCode page loads.
-7. Save the account.
-8. Trigger refresh.
-9. Confirm the dashboard shows three OpenCode bars: 滚动用量, 每周用量, 每月用量.
+01. Open Settings.
+02. Add account.
+03. Confirm OpenCode appears in common services.
+04. Select OpenCode.
+05. Click Web login.
+06. Log into OpenCode and close the login window after the OpenCode page loads.
+07. Save the account.
+08. Trigger refresh.
+09. Confirm the dashboard shows three OpenCode bars: 滚动用量, 每周用量, 每月用量.
 10. Confirm values match the reference pattern when using the captured account: 10%, 85%, 42% if the live account state has not changed.
 
 Expected: packaged app launches and OpenCode can be added via Web login. If the live service has changed its SolidJS server-function layout, automated tests can still pass while packaged live verification fails; report that as a live protocol drift limitation instead of claiming full verification.

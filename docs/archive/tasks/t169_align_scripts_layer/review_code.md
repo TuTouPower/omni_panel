@@ -25,14 +25,14 @@
 
 ### 脚本移植（6 文件全量替换）
 
-| 文件                               | 行数 | 移植方式                                                                    |
-| ---------------------------------- | ---- | --------------------------------------------------------------------------- |
-| `scripts/task.py`                  | 2216 | 全量替换（旧 282 行 flat-JSON 模型 → 新 2216 行 task.md front matter 模型） |
-| `scripts/_id_scan.py`              | 220  | 新增（pending/findings 共用编号扫描）                                       |
-| `scripts/pending.py`               | 387  | 全量替换                                                                    |
-| `scripts/findings.py`              | 50   | 全量替换                                                                    |
-| `scripts/render_review_prompts.py` | 306  | 全量替换（模板路径 `docs/templates/review/` → `docs/reviews/prompts/`）     |
-| `scripts/check_review_status.py`   | 309  | 全量替换                                                                    |
+|文件|行数|移植方式|
+|---|---|---|
+|`scripts/task.py`|2216|全量替换（旧 282 行 flat-JSON 模型 → 新 2216 行 task.md front matter 模型）|
+|`scripts/_id_scan.py`|220|新增（pending/findings 共用编号扫描）|
+|`scripts/pending.py`|387|全量替换|
+|`scripts/findings.py`|50|全量替换|
+|`scripts/render_review_prompts.py`|306|全量替换（模板路径 `docs/templates/review/` → `docs/reviews/prompts/`）|
+|`scripts/check_review_status.py`|309|全量替换|
 
 ### 有意分叉（Windows 适配，非逻辑改动）
 

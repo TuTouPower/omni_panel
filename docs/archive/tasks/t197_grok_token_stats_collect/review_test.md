@@ -47,11 +47,13 @@ verdict: FAIL
 ### 前轮 finding 复核
 
 - **t197_test_f001：修不彻底，仍 important。** 实现已补两块，但只有一块有测试：
+
     1. 目录级不可读（`grok-reader.ts:387-412`：`existsSync` 为 true 时再试 `readdirSync`，抛错 → `missing=true` 整体跳过）——已实现，并有新测试覆盖：`grok-reader.test.ts:334-341`「treats an unreadable sessions path (a file, not a dir) as missing (t197 AC5)」用文件路径触发 ENOTDIR，断言 `missing=true` 与空结果。此分支实修。
     2. 文件级不可读（`grok-reader.ts:429-459`：`statSync`/`readFileSync` 抛错 → `file_unreadable=true` 跳过该文件仍采集其它，返回值 `missing: file_unreadable`，`grok-reader.ts:501`）——**已实现但零测试**。协调者修复说明声称的行为「跳过该文件仍采集其它 + missing 触发 collector warn-once」没有任何测试证据：
         - grep 全测试目录，`file_unreadable` 仅命中实现、无测试命中；ENOTDIR 测试走顶部提前返回（`grok-reader.ts:403-412`），不触达逐文件循环，`missing: file_unreadable` 与「部分采集 + missing」返回路径未被任何用例执行。
         - collector 侧既有「warns once when the grok dir missing」整块 mock 掉 `scan_grok_updates` 返回 `missing:true`，验证的是 collector 对 missing 标志的 warn-once，不验证真实 reader 文件级错误的传播。
         - 该分支另藏可观测缺陷：`readFileSync` 失败时 `mtimes` 已先写入（`grok-reader.ts:439`）而 `files` 未写入，下次扫描 mtime 未变 → `prev.mtimes.get(file) === stat.mtimeMs` 命中且 `old_entry` 为 undefined → `continue`（`grok-reader.ts:442-447`）——一次性不可读的 `updates.jsonl` 在 mtime 变化前被永久跳过，数据不再入账。AC5 明示的「`updates.jsonl` 不可读」子句无测试且此行为无人验证。
+
     - 建议：补 reader 测试，让某会话 `updates.jsonl` 的 `readFileSync` 确定性失败（`vi.spyOn(fs, "readFileSync")` 对特定路径抛错；文件系统属系统边界，可 mock）且另一会话可读；断言可读会话记录正常产出、`result.missing === true`。若「暂不可读永久跳过」非预期，同时修 mtimes 记录时机（失败时不落 mtimes，留待下轮重试）。
 
 - **t197_test_f002：已消除。** `collector.test.ts:215-219` 新增「builds WSL grok sessions path (t197)」精确断言 `\\\\wsl.localhost\\Ubuntu-22.04\\home\\testuser\\.grok\\sessions`，与 claude/opencode/kimi 路径断言惯例一致；`grok_sessions_path` 已入 import（`collector.test.ts:49`）。原 toContain 弱断言保留在 mock 调用场景（校验传给 reader 的参数），非路径构建器证据，无碍。

@@ -5,7 +5,7 @@
 - 范围：仅文档结构与工作流入口；代码层不动
 - 模板来源：`\\wsl.localhost\Ubuntu-22.04\home\testuser\testuser_ubuntu\repo_template`
 
----
+______________________________________________________________________
 
 ## Context
 
@@ -22,7 +22,7 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
 - **本地状态**：`.superpowers/` `.reasonix/` `.playwright-mcp/` 删除（都在 `.gitignore`，不影响仓库）
 - **现状**：`tasks_list.json` 空，T1-T8 已提交（`5efb68a`/`30d078b`），无 active task；`review_20260719_1433` 已走完 adoption；`decisions.md`/`progress.md` 均 0 字节。迁移零阻力。
 
----
+______________________________________________________________________
 
 ## 阶段 0：用户操作（不在助手执行范围）
 
@@ -30,25 +30,25 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
 - 用户以管理员身份建 `CLAUDE.md -> AGENTS.md` 符号链接
 - 起草完 `AGENTS.md` 全文后，内容写入 `AGENTS.md` 普通文件（若软链未建，先以普通文件落地，软链由用户随后替换）
 
----
+______________________________________________________________________
 
 ## 阶段 1：新建骨架文件（复制模板 + 填占位符）
 
 从 `repo_template` 复制以下模板文件到 OmniUsage（路径对齐，内容原样复制，占位符待填）：
 
-| 来源（repo_template）                | 目标（OmniUsage）                    | 说明                        |
-| ------------------------------------ | ------------------------------------ | --------------------------- |
-| `docs/templates/task/spec.md`        | `docs/templates/task/spec.md`        | 原样                        |
-| `docs/templates/task/plan.md`        | `docs/templates/task/plan.md`        | 原样                        |
-| `docs/templates/task/log.md`         | `docs/templates/task/log.md`         | 原样                        |
-| `docs/templates/task/task_report.md` | `docs/templates/task/task_report.md` | 原样                        |
-| `docs/templates/task/review.md`      | `docs/templates/task/review.md`      | 原样（派生 code/test 两路） |
-| `docs/templates/task/adoption.md`    | `docs/templates/task/adoption.md`    | 原样                        |
-| `docs/templates/spike/report.md`     | `docs/templates/spike/report.md`     | 原样                        |
-| `docs/blueprint/conventions.md`      | `docs/blueprint/conventions.md`      | 见阶段 2（合并）            |
-| `docs/specs_index.md`                | `docs/specs_index.md`                | 见阶段 3（录入 13 条）      |
-| `docs/tasks_index.md`                | `docs/tasks_index.md`                | 原样空表头                  |
-| `docs/handoff.md`                    | `docs/handoff.md`                    | 原样格式说明                |
+|来源（repo_template）|目标（OmniUsage）|说明|
+|---|---|---|
+|`docs/templates/task/spec.md`|`docs/templates/task/spec.md`|原样|
+|`docs/templates/task/plan.md`|`docs/templates/task/plan.md`|原样|
+|`docs/templates/task/log.md`|`docs/templates/task/log.md`|原样|
+|`docs/templates/task/task_report.md`|`docs/templates/task/task_report.md`|原样|
+|`docs/templates/task/review.md`|`docs/templates/task/review.md`|原样（派生 code/test 两路）|
+|`docs/templates/task/adoption.md`|`docs/templates/task/adoption.md`|原样|
+|`docs/templates/spike/report.md`|`docs/templates/spike/report.md`|原样|
+|`docs/blueprint/conventions.md`|`docs/blueprint/conventions.md`|见阶段 2（合并）|
+|`docs/specs_index.md`|`docs/specs_index.md`|见阶段 3（录入 13 条）|
+|`docs/tasks_index.md`|`docs/tasks_index.md`|原样空表头|
+|`docs/handoff.md`|`docs/handoff.md`|原样格式说明|
 
 新建占位空目录（放 `.gitkeep`）：`docs/specs/`、`docs/spikes/`、`docs/guides/`、`docs/tasks/`、`docs/reviews/`、`docs/archive/reviews/`、`docs/archive/specs/`、`docs/archive/spikes/`、`docs/archive/tasks/`。
 
@@ -56,7 +56,7 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
 
 新建 `docs/guides/testing.md`（template cf7fd15 暗示位置）：承载 OmniUsage 详细测试命令清单（分层/打包 smoke/契约 live/CI 复现），见阶段 2 test.md 拆分。
 
----
+______________________________________________________________________
 
 ## 阶段 2：迁移 blueprint（4 个核心文件 + 2 个拆分）
 
@@ -81,7 +81,7 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
 - 测试规范（命名/层级/回归规则/覆盖率阈值 L67-73/任务完成验证清单 L78-81）→ 并入 `docs/blueprint/conventions.md` 的 `## 编码与测试` 小节（template 该小节当前为空占位，正好填入；基线日 2026-05-30 等项目事实保留）
 - 测试分层详表（L7-30 四层表）/打包 smoke 步骤（L40-51）/完整命令清单 → 新建 `docs/guides/testing.md`（给人看的详细测试指南，AGENTS.md `{test_cmd}` 链接至此）
 
----
+______________________________________________________________________
 
 ## 阶段 3：迁移 specs（13 个 spec + 索引重写）
 
@@ -95,7 +95,7 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
     - 文件顶部加说明段：本索引迁移自 omni_powers `spec_index.md`，原"按域分类"（采集层/存储层/宿主平台/消费层/跨切面）信息见 `docs/blueprint/architecture.md` 数据流章节
 - **命名统一**：OmniUsage 原文件名 `spec_index.md`（单数）归档；新文件 `specs_index.md`（复数，对齐 template）
 
----
+______________________________________________________________________
 
 ## 阶段 4：归档（全部进 `docs/archive/`）
 
@@ -108,7 +108,7 @@ OmniUsage 当前采用 **omni_powers 工作流**（`docs/omni_powers/` 三区 `o
 - `git mv docs/omni_powers/` 整体 → `docs/archive/omni_powers_sunset/`（包含 `README.md` `index.md` `op_blueprint/{prd,test,spec_index,baselines/}` `op_execution/{tasks_list.json,issues/,leader_checkpoint.md,grok_completion_plan.md,.test_locks}` `op_record/{decisions.md,progress.md}` 原件）。迁移到 blueprint/specs 的内容是**复制**；原件保留在 sunset 目录，完整可追溯
 - 现有 `docs/archive/` 散文件（`_pre_opinit_*`、`superpowers/`、30+ 历史 md）**原位不动**
 
----
+______________________________________________________________________
 
 ## 阶段 5：清理本地状态目录
 
@@ -118,7 +118,7 @@ rm -rf .superpowers/ .reasonix/ .playwright-mcp/
 
 都在 `.gitignore`，删除不入库、不影响仓库；全局 skill 不碰。
 
----
+______________________________________________________________________
 
 ## 阶段 6：decisions.md 记录迁移
 
@@ -145,7 +145,7 @@ rm -rf .superpowers/ .reasonix/ .playwright-mcp/
 - T1-T8 历史提交 SHA：5efb68a, 30d078b（原 task 编号 T1..T8；git log --grep 仍可用原编号）
 ```
 
----
+______________________________________________________________________
 
 ## 阶段 7：README.md 更新
 
@@ -154,7 +154,7 @@ rm -rf .superpowers/ .reasonix/ .playwright-mcp/
 - 新增简短"文档结构"段指向 `AGENTS.md`（不重复 AGENTS.md 内容，符合 template 门牌原则）
 - `pnpm *` 项目命令段保留不动
 
----
+______________________________________________________________________
 
 ## AGENTS.md 起草要点（阶段 1 产出的内容）
 
@@ -172,7 +172,7 @@ rm -rf .superpowers/ .reasonix/ .playwright-mcp/
     - 末行"测试规范见 conventions.md 编码与测试小节"原样保留
 - 开发原则、开发工作流、单 task 流程（step 2/3 引用 `{test_cmd}`、step 4 引用 `{blackbox_cmd}`）、spike、handoff 段：原样复制 template
 
----
+______________________________________________________________________
 
 ## Commit 策略
 
@@ -185,24 +185,24 @@ rm -rf .superpowers/ .reasonix/ .playwright-mcp/
 
 commit subject 不挂 TNNN（本次是元重构，非产品 task）；在 `docs/blueprint/decisions.md` ADR 001 记录即可追溯。
 
----
+______________________________________________________________________
 
 ## 验证
 
-| 检查                 | 命令/方式                                                                       | 预期                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 代码未动             | `pnpm test`                                                                     | 全绿（代码层零改动）                                                                           |
-| 类型/lint            | `pnpm check`                                                                    | 通过（未改代码）                                                                               |
-| docs 树对齐          | `find docs -type d \| sort` 对照 template                                       | blueprint/tasks/specs/reviews/spikes/archive/templates/guides 齐全，omni_powers 仅存于 archive |
-| 无残留 HTML 锚点     | `grep -rn "omni_powers:" docs/blueprint docs/specs`                             | 无匹配                                                                                         |
-| 无残留 op 路径引用   | `grep -rn "op_blueprint\|op_execution\|op_record" docs/ README.md AGENTS.md`    | 仅 archive/ 内有                                                                               |
-| 归档完整             | `ls docs/archive/omni_powers_sunset/ docs/archive/tasks/ docs/archive/reviews/` | T1-T8 + review + sunset 全在                                                                   |
-| git 范围             | `git status`                                                                    | 仅 docs/ + AGENTS.md + README.md + 删除的 3 个本地状态目录                                     |
-| AGENTS.md 占位符填全 | `grep -n "{项目名}\|{test_cmd}\|{blackbox_cmd}\|{一句话介绍}" AGENTS.md`        | 无残留占位符                                                                                   |
-| testing.md 存在      | `test -f docs/guides/testing.md && echo ok`                                     | ok                                                                                             |
-| 软链（用户做）       | `cat CLAUDE.md`                                                                 | 内容 = AGENTS.md                                                                               |
+|检查|命令/方式|预期|
+|---|---|---|
+|代码未动|`pnpm test`|全绿（代码层零改动）|
+|类型/lint|`pnpm check`|通过（未改代码）|
+|docs 树对齐|`find docs -type d \| sort` 对照 template|blueprint/tasks/specs/reviews/spikes/archive/templates/guides 齐全，omni_powers 仅存于 archive|
+|无残留 HTML 锚点|`grep -rn "omni_powers:" docs/blueprint docs/specs`|无匹配|
+|无残留 op 路径引用|`grep -rn "op_blueprint\|op_execution\|op_record" docs/ README.md AGENTS.md`|仅 archive/ 内有|
+|归档完整|`ls docs/archive/omni_powers_sunset/ docs/archive/tasks/ docs/archive/reviews/`|T1-T8 + review + sunset 全在|
+|git 范围|`git status`|仅 docs/ + AGENTS.md + README.md + 删除的 3 个本地状态目录|
+|AGENTS.md 占位符填全|`grep -n "{项目名}\|{test_cmd}\|{blackbox_cmd}\|{一句话介绍}" AGENTS.md`|无残留占位符|
+|testing.md 存在|`test -f docs/guides/testing.md && echo ok`|ok|
+|软链（用户做）|`cat CLAUDE.md`|内容 = AGENTS.md|
 
----
+______________________________________________________________________
 
 ## 不在本次范围
 

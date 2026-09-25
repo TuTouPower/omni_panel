@@ -29,7 +29,7 @@
 - 本轮新发现：1 条（minor）。
 - 未进表的提示：
     - **文件过大**：`tests/unit/ipc/config-ipc.test.ts` 1270 行（测试源码，≥1200 重要阈值），本 task 净增 +8 行（14 插入 / 6 删除）。按降级规则不进 finding 表；建议后续拆分。
-    - **复杂度**：`assert_valid_sender` 手算 McCabe ≈ 8（<10），无提示。
+    - **复杂度**：`assert_valid_sender` 手算 McCabe ≈ 8（\<10），无提示。
     - **范围外观察（测试层，交 test reviewer）**：
         - `tests/unit/ipc/helpers.test.ts:200`「rejects file:// sender whose path is not index.html (I15)」——fallback 移除后该用例实际因 renderer path 未初始化（依赖 t067 describe 的 afterEach 置空）而被拒，不再是「路径非 index.html」语义；用例名与所验证行为脱节，与新增未初始化用例（40、159）冗余。建议显式设置 renderer path 后再验证 pathname 不匹配，或改用例名/删除。
         - `tests/unit/ipc/popup-ipc.test.ts:14` 与 `tests/unit/ipc/token-stats-ipc.test.ts:7` 顶层 `set_renderer_index_path` 调用冗余：beforeEach `vi.resetModules()` 丢弃该实例，测试实际只用到 beforeEach 内动态 import 后重新初始化产生的实例，顶层调用效果从未被读取。

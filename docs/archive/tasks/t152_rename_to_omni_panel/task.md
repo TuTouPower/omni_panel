@@ -27,10 +27,10 @@ note: ""
 
 ### Round 1 (2026-07-26 23:25 UTC+8)
 
-| finding_id     | severity  | status | rationale                                         | fix_ref                  |
-| -------------- | --------- | ------ | ------------------------------------------------- | ------------------------ |
-| t152_code_f001 | important | 已修   | docs/reviews/ 内容被复制到 archive 后源目录未删除 | docs/reviews/ 删除源目录 |
-| t152_test_f001 | important | 已修   | 同上                                              | docs/reviews/ 删除源目录 |
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t152_code_f001|important|已修|docs/reviews/ 内容被复制到 archive 后源目录未删除|docs/reviews/ 删除源目录|
+|t152_test_f001|important|已修|同上|docs/reviews/ 删除源目录|
 
 ## 收尾报告
 

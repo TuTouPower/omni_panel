@@ -26,12 +26,12 @@ note: ""
 
 ### Round 1 (2026-07-23 15:25 UTC+8)
 
-| finding_id     | severity  | status | rationale                                 | fix_ref                          |
-| -------------- | --------- | ------ | ----------------------------------------- | -------------------------------- |
-| t049_code_f001 | important | 已修   | parse_limit ≤0 兜底 100 致 unknown 死代码 | connector.ts:20-24,90 + manifest |
-| t049_test_f001 | critical  | 已修   | 缺非对象/HTTP 错误 throw 用例             | exa_connector.test.ts:247-270    |
-| t049_test_f002 | critical  | 已修   | LIMIT≤0 应 unknown，测试固化错误行为      | connector.ts + test:193-229      |
-| t049_test_f003 | important | 已修   | warning 阈值分支未测                      | exa_connector.test.ts:166-175    |
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t049_code_f001|important|已修|parse_limit ≤0 兜底 100 致 unknown 死代码|connector.ts:20-24,90 + manifest|
+|t049_test_f001|critical|已修|缺非对象/HTTP 错误 throw 用例|exa_connector.test.ts:247-270|
+|t049_test_f002|critical|已修|LIMIT≤0 应 unknown，测试固化错误行为|connector.ts + test:193-229|
+|t049_test_f003|important|已修|warning 阈值分支未测|exa_connector.test.ts:166-175|
 
 ### Round 2 (2026-07-23 15:35 UTC+8)
 

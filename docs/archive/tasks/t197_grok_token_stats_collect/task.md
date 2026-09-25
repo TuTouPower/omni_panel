@@ -75,11 +75,11 @@ reviewer 标注为 spec 过时的 finding（实现合理但与 spec 描述不符
 
 ### Round 3 (2026-08-04 03:40 UTC+8)
 
-| finding_id     | severity  | status | rationale                                         | fix_ref                                             |
-| -------------- | --------- | ------ | ------------------------------------------------- | --------------------------------------------------- |
-| t197_code_f001 | minor     | 已修   | missing 判定扩展 + file_unreadable 触发 warn-once | grok-reader.ts:387-412                              |
-| t197_test_f001 | important | 已修   | 文件级不可读分支补测 + mtime 时机修复防永久跳过   | grok-reader.ts:427-477, grok-reader.test.ts:362-403 |
-| t197_test_f002 | minor     | 已修   | grok_sessions_path 精确断言                       | collector.test.ts:215-219                           |
+|finding_id|severity|status|rationale|fix_ref|
+|---|---|---|---|---|
+|t197_code_f001|minor|已修|missing 判定扩展 + file_unreadable 触发 warn-once|grok-reader.ts:387-412|
+|t197_test_f001|important|已修|文件级不可读分支补测 + mtime 时机修复防永久跳过|grok-reader.ts:427-477, grok-reader.test.ts:362-403|
+|t197_test_f002|minor|已修|grok_sessions_path 精确断言|collector.test.ts:215-219|
 
 ## 收尾报告
 

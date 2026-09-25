@@ -17,7 +17,7 @@ reviewed_scope: 95ab0499c9a458e4
 - 锚点：AC-006「input 已含 cached 部分须归一，不双重计数」
 - 位置：`tests/unit/main/core/token-stats/codex-reader.test.ts:246`
 - 问题：断言 `expect(input + cache_read + output).toBeLessThanOrEqual(2000 + cache_read)` 在代数上抵消 `cache_read`，退化为 `input + output ≤ 2000`。该上界在本 fixture（total 1000→2000 单调、无重复事件）下恒成立：生产代码每事件 `in_delta + out_delta = attributable`，session 的 `input + output` 恒等于累计差分 2000，与归一是否发生无关。反例：把归一去掉（`normalized_in = in_delta`，即 codex input 已含 cache 却仍单独加 cache_read——正是 AC-006 要防的双计），本 fixture 得 input=1800、output=200、cache=1500，`1800+200 ≤ 2000` 仍通过。测试注释声称「锁不双重计数上界」，但该断言对 AC-006 核心的归一不变量没有任何判别力。
-- 建议：改用能区分双计的断言，例如 `expect(input + cache_read + output).toBe(2000)`（归一后 300+1500+200=2000；未归一则 1800+1500+200=3500，红），或精确断言 `expect(input).toBe(300)`，或断言缓存率 `cache_read/(input+cache_read)` 在 (0,1]。运行时已验证当前实现下期望值确定、无舍入抖动。
+- 建议：改用能区分双计的断言，例如 `expect(input + cache_read + output).toBe(2000)`（归一后 300+1500+200=2000；未归一则 1800+1500+200=3500，红），或精确断言 `expect(input).toBe(300)`，或断言缓存率 `cache_read/(input+cache_read)` 在 (0,1\]。运行时已验证当前实现下期望值确定、无舍入抖动。
 
 ### t448_test_f002 - AC-004 测试仅存 codex 单行，agent=codex「过滤排除非 codex」分支未被触发
 
@@ -33,17 +33,17 @@ reviewed_scope: 95ab0499c9a458e4
 - 改测方向复核：修改的既有测试仅一处——`tests/unit/renderer/lib/codex_panels_wiring.test.ts:30-32`，旧断言「codex 回退 primary（待 design token）」改为「codex 走 `var(--color-agent-codex)`」。此为 t448 AC-003 / 范围新增 DESIGN codex 品牌 token 后的规格驱动更新（旧测试自身注明待 design token），非迁就实现的改测。`codex-reader.test.ts` fixture helper 增 `cached?` 可选字段为纯增量。无「就地把旧测试预期改成新实现输出」的情形。
 - 本轮新发现：2 条（1 important、1 minor）
 - 未进表的提示：
-  - AC-005 用合成小规模 fixture（2500 量级）验证去重语义，未在真实复现量级（1356472098→196124034）上锁；spec 允许不逐字锁定且测试策略指明自造最小 fixture，不阻断。可作为可选扩展：用复现文件同形态数据跑一次量级校验。
-  - AC-001 仅测抽取出的纯函数 `agentBadgeLabel`，未做组件渲染级断言；生产代码确已在 `SessionTable.tsx:272` 调用该函数，可达性成立，够用。
-  - `codex-reader.test.ts:246` 同块含 `for (const r of result.records) expect(r.cache_read_tokens >= 0)`，为弱但无害；真正的透传证据在 `records.some(cache>0)`。
+    - AC-005 用合成小规模 fixture（2500 量级）验证去重语义，未在真实复现量级（1356472098→196124034）上锁；spec 允许不逐字锁定且测试策略指明自造最小 fixture，不阻断。可作为可选扩展：用复现文件同形态数据跑一次量级校验。
+    - AC-001 仅测抽取出的纯函数 `agentBadgeLabel`，未做组件渲染级断言；生产代码确已在 `SessionTable.tsx:272` 调用该函数，可达性成立，够用。
+    - `codex-reader.test.ts:246` 同块含 `for (const r of result.records) expect(r.cache_read_tokens >= 0)`，为弱但无害；真正的透传证据在 `records.some(cache>0)`。
 - AC 复验方式：
-  - AC-001 `re_verified`：`agentBadgeLabel("codex")==="Codex"` 及四既有文案用例实际运行绿（SessionTable.test.tsx 5 tests pass），生产组件调用点查证。
-  - AC-002 `re_verified`：records/buckets/rollup 三段独立测试实际运行绿（chart-data.test.ts 68 tests pass），chart-data 三套 labels 与顺序数组均含 codex，断言值（150/150/105）与生产 `agent_segments` 求和核对一致。
-  - AC-003 `re_verified`：palette.test 新增 codex 断言绿、fallback map toEqual 含 codex；codex_panels_wiring 断言 `var(--color-agent-codex)`；`slots.ts:167-178` AGENT_COLOR_VAR 含 codex、未知回退 primary 保留。
-  - AC-004 `re_verified`：集成测试实际运行绿（server.test.ts 95 tests pass），HTTP 返回 codex 行且 cache_read_tokens=5 字段不丢；「过滤排除」分支未触发见 f002。
-  - AC-005 `re_verified`：重复 total fixture 单测实际运行绿，`tokens===2500` 精确断言与去重差分生产逻辑核对一致；旧实现（重复计全量=3500）会红。
-  - AC-006 `re_verified`（部分）：cache>0 透传断言有判别力（旧实现 cache 恒 0 会红）；但 input 归一不变量断言无判别力，见 f001。
-  - coverage = 6 / 6
+    - AC-001 `re_verified`：`agentBadgeLabel("codex")==="Codex"` 及四既有文案用例实际运行绿（SessionTable.test.tsx 5 tests pass），生产组件调用点查证。
+    - AC-002 `re_verified`：records/buckets/rollup 三段独立测试实际运行绿（chart-data.test.ts 68 tests pass），chart-data 三套 labels 与顺序数组均含 codex，断言值（150/150/105）与生产 `agent_segments` 求和核对一致。
+    - AC-003 `re_verified`：palette.test 新增 codex 断言绿、fallback map toEqual 含 codex；codex_panels_wiring 断言 `var(--color-agent-codex)`；`slots.ts:167-178` AGENT_COLOR_VAR 含 codex、未知回退 primary 保留。
+    - AC-004 `re_verified`：集成测试实际运行绿（server.test.ts 95 tests pass），HTTP 返回 codex 行且 cache_read_tokens=5 字段不丢；「过滤排除」分支未触发见 f002。
+    - AC-005 `re_verified`：重复 total fixture 单测实际运行绿，`tokens===2500` 精确断言与去重差分生产逻辑核对一致；旧实现（重复计全量=3500）会红。
+    - AC-006 `re_verified`（部分）：cache>0 透传断言有判别力（旧实现 cache 恒 0 会红）；但 input 归一不变量断言无判别力，见 f001。
+    - coverage = 6 / 6
 - 总体判断：AC-006 归一不变量存在无判别力断言（important），需修正；余为 minor。当前有未解决 important，FAIL。
 - 系统性 follow-up：无
 
@@ -79,6 +79,7 @@ reviewed_scope: c4c00ae78589b579
 - 无（AC-005 的 `toBeLessThan(4500)` 与精确 `toBe(2500)` 并存，冗余但非弱化）。
 
 - 总体判断：Round 1 两条 finding 均已修复且判别力实证；本轮无新增 blocker。PASS。
+
 - 系统性 follow-up：无
 
 verdict: PASS

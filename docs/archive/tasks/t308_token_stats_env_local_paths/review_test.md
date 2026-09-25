@@ -42,7 +42,7 @@ verdict: PASS
 
 - round：2
 - reviewed_at：2026-08-11 18:35 UTC+8
-  reviewed_scope: 37378e73785ddda2
+    reviewed_scope: 37378e73785ddda2
 
 指纹说明：Round 1 指纹 269e7a4e8181f250 已过期。按 `check_review_status.py` 同口径（`git diff --binary a5962cfa` + 流程文件排除；task.md/review\_\*.md/handoff.json 不计入）对当前工作区重算为 `37378e73785ddda2`（脚本内部函数与手工 sha1sum 双核一致）。指纹变化仅源于 `paths.test.ts` 守卫断言迭代（code 侧 f001 新增、f002/f003 修复）；task.md 处置表虽更新但按口径排除、不影响指纹。本轮审查对象即当前工作区。
 

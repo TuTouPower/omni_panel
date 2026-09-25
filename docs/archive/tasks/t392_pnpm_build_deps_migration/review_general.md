@@ -60,18 +60,18 @@
 - 前轮 finding 复核：无（round 1）
 - 本轮新发现：5 条（f001/f002/f003 important，f004/f005 minor）
 - 未进表的提示（确认项，非 finding）：
-  - 迁移语义本身正确：`pnpm-workspace.yaml` 的 `packages: ['.']` 单包声明与锁文件 `importers: {'.': ...}` 一致；`onlyBuiltDependencies`/`overrides`/`patchedDependencies` 均为 pnpm v9/v10 pnpm-workspace.yaml 规范顶层键；overrides/patchedDependencies 与锁文件顶层记录一致，`--frozen-lockfile` 应可通过。
-  - AC-001 达成：package.json `pnpm` 字段已删（grep 0 次），worktree 内任意 pnpm 命令不可能再输出「pnpm field is no longer read」WARN。
-  - AC-003 当前态通过：`require('better-sqlite3')` 加载 OK；better-sqlite3 原生构建由 `scripts/ensure_sqlite_abi.mjs`（node-gyp 重编译）驱动，不依赖 pnpm postinstall；`patchedDependencies` 迁移正确保留补丁应用。
-  - 主仓 package.json 未迁移（pnpm 字段仍在、无 pnpm-workspace.yaml）属未合并预期，不影响本 task 判定。
-  - worktree 软链 node_modules 触发「removed from scratch」类重建提示系 symlink 环境特性，非配置缺陷。
+    - 迁移语义本身正确：`pnpm-workspace.yaml` 的 `packages: ['.']` 单包声明与锁文件 `importers: {'.': ...}` 一致；`onlyBuiltDependencies`/`overrides`/`patchedDependencies` 均为 pnpm v9/v10 pnpm-workspace.yaml 规范顶层键；overrides/patchedDependencies 与锁文件顶层记录一致，`--frozen-lockfile` 应可通过。
+    - AC-001 达成：package.json `pnpm` 字段已删（grep 0 次），worktree 内任意 pnpm 命令不可能再输出「pnpm field is no longer read」WARN。
+    - AC-003 当前态通过：`require('better-sqlite3')` 加载 OK；better-sqlite3 原生构建由 `scripts/ensure_sqlite_abi.mjs`（node-gyp 重编译）驱动，不依赖 pnpm postinstall；`patchedDependencies` 迁移正确保留补丁应用。
+    - 主仓 package.json 未迁移（pnpm 字段仍在、无 pnpm-workspace.yaml）属未合并预期，不影响本 task 判定。
+    - worktree 软链 node_modules 触发「removed from scratch」类重建提示系 symlink 环境特性，非配置缺陷。
 - 总体判断：配置迁移方向正确且 faithful（pnpm v10 规范位置、AC-001 干净达成），但核心行为 AC 证据链断裂——electron@42.2.0 无 postinstall（registry 实证）致 AC-002 机制前提不成立，AC-004 验证文件为 type-only 导入无证明力，AC-002/003 证据系迁移前过期产物；本 diff 无法证明达成「全新 install 修复 ENOENT」这一任务目标。未解决 important 3 条，FAIL。
 - 系统性 follow-up：建议建 task（slug 建议 `electron42_fresh_install_enoid_root_cause`）：真实全新 install 复现 electron@42.2.0 下 path.txt/ENOENT 行为，核实根因（惰性自下载 vs 工具链直接读 path.txt），据此修正 spec 前提并补 `.scratch/` 冒烟证据。
 
 verdict: FAIL
 reviewed_scope: c6786c3a9fe882c2
 
----
+______________________________________________________________________
 
 # Round 2
 
@@ -119,17 +119,17 @@ reviewed_scope: c6786c3a9fe882c2
 - 前轮 finding 复核：f001 已消除；f002 已修不彻底（降级为改 spec）；f003 已修但证据强度受限；f004 已消除；f005 已处理。
 - 本轮新发现：2 条（f006/f007 critical）。
 - 未进表的提示：
-  - AC-001 独立确认达成（no-frozen 场景）：install 日志无「pnpm field ignored」WARN（日志第 7 行为 deprecated 子依赖 WARN，非 pnpm field）。
-  - electron ENOENT 根因定位正确：electron@42.2.0 无 postinstall，`require('electron')` 首次调用触发 `index.js → install.js` 惰性下载，下载未触发/失败即 ENOENT path.txt——网络依赖，非配置迁移能解，`[deploy]` 合理。
-  - pnpm 9.15.4 与 pnpm-workspace.yaml overrides/patchedDependencies 的半支持是 f006/f007 共同根因；spec「不更新 pnpm 大版本」与「迁移到 pnpm-workspace.yaml（pnpm v10 规范位置）」冲突，需用户决策。
-  - worktree 软链 node_modules 触发「removed from scratch」交互提示（fresh3 对照触发，指向主仓 node_modules）确认系环境特性，非配置缺陷；该提示有误删主仓 node_modules 风险，实施/集成时避免应答 Y。
+    - AC-001 独立确认达成（no-frozen 场景）：install 日志无「pnpm field ignored」WARN（日志第 7 行为 deprecated 子依赖 WARN，非 pnpm field）。
+    - electron ENOENT 根因定位正确：electron@42.2.0 无 postinstall，`require('electron')` 首次调用触发 `index.js → install.js` 惰性下载，下载未触发/失败即 ENOENT path.txt——网络依赖，非配置迁移能解，`[deploy]` 合理。
+    - pnpm 9.15.4 与 pnpm-workspace.yaml overrides/patchedDependencies 的半支持是 f006/f007 共同根因；spec「不更新 pnpm 大版本」与「迁移到 pnpm-workspace.yaml（pnpm v10 规范位置）」冲突，需用户决策。
+    - worktree 软链 node_modules 触发「removed from scratch」交互提示（fresh3 对照触发，指向主仓 node_modules）确认系环境特性，非配置缺陷；该提示有误删主仓 node_modules 风险，实施/集成时避免应答 Y。
 - 总体判断：核心事实部分修正——AC-001 达成、electron ENOENT 根因定位正确；但迁移方案在锁定 pnpm 9.15.4 下引入 f006（frozen install 失败）与 f007（overrides/patchedDependencies 静默丢失）两个 critical 回归，直接破坏「全新 worktree install」任务目标。f006/f007 未解决，FAIL。
 - 系统性 follow-up：建议 follow-up task（slug 建议 `pnpm915_workspace_overrides_support`）：决策 pnpm 大版本升级（10+ 完整支持 workspace overrides）或回退迁移方案；若升级，re-lock 锁文件并核对 overrides/patchedDependencies 段、CI frozen install 冒烟。
 
 verdict: FAIL
 reviewed_scope: 04250d9b4c2ca625
 
----
+______________________________________________________________________
 
 # Round 3
 
@@ -162,12 +162,12 @@ reviewed_scope: 04250d9b4c2ca625
 - 前轮 finding 复核：f001 已消除；f002 已修不彻底（降级为改 spec，Round 2 判定）；f003 已修但证据受限（fresh 独立 install 复现，better-sqlite3 加载 OK）；f004 已消除；f005 已处理；f006 已消除（本轮独立 frozen 验证）；f007 已消除（本轮独立 patch 应用验证）。
 - 本轮新发现：0 条（blocking）；观察项 1 条（esbuild/unrs-resolver ignored build scripts，非回归）。
 - 未进表的提示：
-  - AC-001 达成：fresh frozen install 日志无「pnpm field ignored」WARN（grep 0 命中）。
-  - AC-002 electron ENOENT 维持 `[deploy]`：独立 `require('electron')` 复现「Downloading Electron binary...」+ ENOENT（下载未触发，网络依赖）；electron@42.2.0 无 postinstall scripts 已实测确认。非配置迁移能解，任务目标已收敛为「迁移配置 + 升级 pnpm + 放行 better-sqlite3」，electron 二进制下载属独立机制。
-  - AC-003 达成：fresh install 后 better-sqlite3 加载 OK（实库建表/读写返回正确行）；补丁放行生效（.pnpm patch_hash 变体 + 编译产物 + 源码 patch 标记三重证据）。
-  - AC-004 达成（当前态）：全量 `pnpm test` 265 files / 3154 passed / 9 skipped（1 file skipped），无 ENOENT；`pnpm typecheck` 通过。注意：worktree 的 node_modules 仍是软链指向主仓，strict「删软链真实 install」未执行，属 `[deploy]` 端到端边界，非本 task 阻断。
-  - spec 已按用户拍板更新：非范围「不更新 pnpm 大版本」改为「升级 pnpm 大版本（用户拍板豁免，pnpm 10.x 完整支持 workspace settings）」，AC-002/AC-003 措辞同步修正。与实现一致。
-  - `.gitignore` node_modules 软链忽略、`package.json` packageManager 升级均独立确认。
+    - AC-001 达成：fresh frozen install 日志无「pnpm field ignored」WARN（grep 0 命中）。
+    - AC-002 electron ENOENT 维持 `[deploy]`：独立 `require('electron')` 复现「Downloading Electron binary...」+ ENOENT（下载未触发，网络依赖）；electron@42.2.0 无 postinstall scripts 已实测确认。非配置迁移能解，任务目标已收敛为「迁移配置 + 升级 pnpm + 放行 better-sqlite3」，electron 二进制下载属独立机制。
+    - AC-003 达成：fresh install 后 better-sqlite3 加载 OK（实库建表/读写返回正确行）；补丁放行生效（.pnpm patch_hash 变体 + 编译产物 + 源码 patch 标记三重证据）。
+    - AC-004 达成（当前态）：全量 `pnpm test` 265 files / 3154 passed / 9 skipped（1 file skipped），无 ENOENT；`pnpm typecheck` 通过。注意：worktree 的 node_modules 仍是软链指向主仓，strict「删软链真实 install」未执行，属 `[deploy]` 端到端边界，非本 task 阻断。
+    - spec 已按用户拍板更新：非范围「不更新 pnpm 大版本」改为「升级 pnpm 大版本（用户拍板豁免，pnpm 10.x 完整支持 workspace settings）」，AC-002/AC-003 措辞同步修正。与实现一致。
+    - `.gitignore` node_modules 软链忽略、`package.json` packageManager 升级均独立确认。
 - 总体判断：f006/f007 两个 critical 已通过升级 pnpm 10.34.5 消除，AC-001/AC-003/AC-004 达成，AC-002 正确收敛为 `[deploy]` 网络依赖；无未解决 critical/important，仅有 minor 级观察项。PASS。
 - 系统性 follow-up：建议 follow-up task（slug 建议 `pnpm10_esbuild_approve_builds`，可选）：评估是否将 esbuild/unrs-resolver 加入 `onlyBuiltDependencies` 白名单（当前依赖 optionalDependencies 二进制，非必需），并核对 pnpm 10 升级后 CI 兼容性（corepack pin 已就位）。
 

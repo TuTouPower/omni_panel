@@ -15,10 +15,10 @@
 - 锚点：AC-004（`docs/blueprint/architecture.md`（及 domain 若写「仅 WSL」）中 grok 采集宿主描述与实现一致）
 - 位置：`docs/blueprint/architecture.md:44`、`docs/blueprint/architecture.md:151`、`docs/blueprint/domain.md:61`、`docs/blueprint/domain.md:63`
 - 问题：本 diff 实现已把 grok 改为双源（`grok_local` env=local，hosts=LOCAL_HOSTS；`grok_wsl` 保留），但 `git diff eb3fcfff…` 中 blueprint 零改动：
-  - `architecture.md:44` 仍写「reader 含 claude/opencode/kimi/grok，grok 仅 WSL t197」；
-  - `architecture.md:151` 仍写「`grok` 仅 WSL 采集（t197…）」；
-  - `domain.md:61` 仍写「仅 WSL（Windows 无 grok CLI 数据）」，且与 `domain.md:63`「非 Windows 宿主 `~/.grok/sessions/...` 走 `local` 源」自相矛盾（63 行为 t308/t309 时期遗留，本 task 未同步 61 行）。
-  - spec 上下文区「Finalization 时更新的 blueprint」明确要求修订 architecture.md 与 domain.md，AC-004 验收未达成。
+    - `architecture.md:44` 仍写「reader 含 claude/opencode/kimi/grok，grok 仅 WSL t197」；
+    - `architecture.md:151` 仍写「`grok` 仅 WSL 采集（t197…）」；
+    - `domain.md:61` 仍写「仅 WSL（Windows 无 grok CLI 数据）」，且与 `domain.md:63`「非 Windows 宿主 `~/.grok/sessions/...` 走 `local` 源」自相矛盾（63 行为 t308/t309 时期遗留，本 task 未同步 61 行）。
+    - spec 上下文区「Finalization 时更新的 blueprint」明确要求修订 architecture.md 与 domain.md，AC-004 验收未达成。
 - 建议：修订 `architecture.md:44/:151` 与 `domain.md:61` 为「Windows 宿主经 WSL UNC（grok_wsl）；Linux/mac 宿主 local `~/.grok/sessions`（grok_local，t426）」，消除 61/63 行矛盾。属实现/文档交付缺口，建议同步知会 code reviewer。
 
 ### t426_test_f002 - AC-001 测试硬编码 `/home/testuser` 依赖真实 `os.homedir()`，CI 必挂
@@ -35,9 +35,9 @@
 - 改测方向复核：3 处既有测试改写——`grok_sessions_path` 签名加 env 参数（`:252/:255`）、「wsl 禁用时 grok 不读」改为「grok_local 读 win_home 一次」（`:596-598`）、missing warn 计数 2→3 并断言 grok_local+grok_wsl 两条 warn（`:771-782`）——均由 spec 语义变更（新增 local 源）驱动，非迁就实现输出；旧断言语义确实失效（grok 不再是 WSL-only）。无实现驱动改测。
 - 本轮新发现：2 条（f001 important、f002 important）
 - 未进表的提示：
-  - `collector.test.ts:597`「skips WSL sources」`toContain("Users")` 弱断言（未断言完整 win_home 路径），但有 `calls[0][1] === "local"` 具体断言支撑、意图明确，仅提示不阻断。
-  - 危险模式逐条扫描无命中：无恒真/删/注释断言、无 `.skip`/`.only`、无静默错误指令、mock 边界符合项目惯例（collector 层 mock reader 模块、grok-reader.test.ts 用真实临时目录 fixture 扫 `updates.jsonl`），无阈值掩盖、无程序赋值替代交互。
-  - AC-006 `[deploy]` 人工验证项建议合并前抽查。
+    - `collector.test.ts:597`「skips WSL sources」`toContain("Users")` 弱断言（未断言完整 win_home 路径），但有 `calls[0][1] === "local"` 具体断言支撑、意图明确，仅提示不阻断。
+    - 危险模式逐条扫描无命中：无恒真/删/注释断言、无 `.skip`/`.only`、无静默错误指令、mock 边界符合项目惯例（collector 层 mock reader 模块、grok-reader.test.ts 用真实临时目录 fixture 扫 `updates.jsonl`），无阈值掩盖、无程序赋值替代交互。
+    - AC-006 `[deploy]` 人工验证项建议合并前抽查。
 - 总体判断：测试覆盖 AC-001/002/003 到位、可信度高，但 AC-004 文档交付缺失（f001）且 AC-001 测试存在 CI 环境必挂的硬编码（f002），2 条 important 未解决 → FAIL。
 - 系统性 follow-up：无（AC-004 为本 task 自身交付项，非跨 task 基础设施缺口）
 
@@ -68,11 +68,12 @@ verdict: FAIL
 ### 改测方向复核
 
 本轮 4 处既有测试改写均由双源语义变更驱动，旧断言语义确实失效（grok 不再 WSL-only），无迁就实现输出：
+
 - `grok_sessions_path` 签名加 env 参数（collector.test.ts:252/:255）— collector.ts:408 同名 wrapper 同步加参，接口变更配套；
 - 「wsl 禁用时 grok 不读」→「grok_local 读 win_home 一次」（:591-605）— 与 LOCAL_HOSTS 含 windows（collector.ts:239）及 t308「local=本机安装」语义一致；
 - missing warn 1→2 条并断言 grok_wsl/grok_local 两条（:770-784）— 与双源各 warn 一次的实现一致；
 - `local_statuses`/`sources_status` 4→5（:1139、:1219）— local 源清单现含 5 源，与实现一致。
-无实现驱动改测。
+    无实现驱动改测。
 
 ### 本轮新发现
 

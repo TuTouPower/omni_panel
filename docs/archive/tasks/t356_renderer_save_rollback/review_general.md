@@ -21,11 +21,11 @@
 - 锚点：AC-002「乐观更新在写盘失败后回滚到上一已确认状态，内存态与磁盘一致」，双重叠失败场景不满足
 - 位置：`src/renderer/hooks/use-config.ts:82-98`（save）、`:103-121`（update_config）
 - 问题：`previous`/`current` 捕获的是 save/update_config 调用时刻的 `config_ref.current`，不保证是「上一已确认」值。串行队列 + 引用比较守卫只防「较新乐观更新被误回滚」，防不住连续双失败：
-  1. 已确认 C0；save(A) 乐观置 A（previous_A=C0）；save(B) 乐观置 B（previous_B=A），两 save 均未落盘；
-  2. A 写盘失败 → 守卫 `config_ref.current === A`？当前为 B，跳过（:88）；
-  3. B 写盘失败 → 守卫 `config_ref.current === B`？是 → 回滚到 previous_B=A（:89-90）。
-  结果内存态 = A（从未确认），磁盘 = C0，AC-002 内存/磁盘一致性被破坏。update_config 同构（:112-114 回滚到 current=update1 的乐观值）。
-  可达路径：SettingsView `void save_config`（hide/restore account、AppearanceSection 开关，`SettingsView.tsx:183/:199`）可快速连发两次且连续写盘失败。
+    1. 已确认 C0；save(A) 乐观置 A（previous_A=C0）；save(B) 乐观置 B（previous_B=A），两 save 均未落盘；
+    2. A 写盘失败 → 守卫 `config_ref.current === A`？当前为 B，跳过（:88）；
+    3. B 写盘失败 → 守卫 `config_ref.current === B`？是 → 回滚到 previous_B=A（:89-90）。
+        结果内存态 = A（从未确认），磁盘 = C0，AC-002 内存/磁盘一致性被破坏。update_config 同构（:112-114 回滚到 current=update1 的乐观值）。
+        可达路径：SettingsView `void save_config`（hide/restore account、AppearanceSection 开关，`SettingsView.tsx:183/:199`）可快速连发两次且连续写盘失败。
 - 建议：单独维护「最后确认」引用（成功 save 后更新），回滚目标取该引用而非调用时刻的 `previous`；或回滚时沿队列取上一已确认值。单失败路径不受影响。
 
 ### t356_gen_f002 - config-debounce 失败合并回 pending 的合并方向在相同键上丢失更新
