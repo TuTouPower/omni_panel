@@ -1,6 +1,14 @@
 export const DEFAULT_TIMEOUT_MS = 15_000;
-export const MIN_REFRESH_INTERVAL_SECONDS = 5;
+// A145: 调度器最小刷新间隔提至 30s，避免频繁请求风暴
+export const MIN_REFRESH_INTERVAL_SECONDS = 30;
 export const METADATA_MAX_LINES = 80;
+
+// A132: 集中管理的刷新调度常量
+export const REFRESH_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5分钟
+export const REFRESH_DEFAULT_MAX_ATTEMPTS = 3;
+export const REFRESH_RETRY_BASE_DELAY_MS = 1000;
+export const REFRESH_RELOGIN_WAIT_MS = 2000;
+export const SCHEDULER_MAX_BACKOFF_SECONDS = 600; // 10分钟上限
 
 /** 每 origin 最大 TCP 连接数（Agent 连接池上限）。 */
 export const MAX_CONNECTIONS_PER_ORIGIN = 6;

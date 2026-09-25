@@ -138,11 +138,14 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         },
         insert_batch(obs: Observation[]) {
             inserted.push(...obs);
+            return { ok: obs.length, failed: 0 };
         },
         get_latest: vi.fn(() => null as Observation | null),
         list_latest_by_provider: vi.fn(() => [] as Observation[]),
         list_all_providers: vi.fn(() => [] as string[]),
-        list_by_source_instance_id: vi.fn(() => [] as Observation[]),
+        list_by_source_instance_id: vi.fn((id: string) =>
+            inserted.filter((o) => o.source_instance_id === id),
+        ),
         query_trend_series: vi.fn(() => [] as Observation[]),
         prune: vi.fn(() => 0),
         count_observations: vi.fn(() => 0),
@@ -2163,6 +2166,184 @@ return [{
                 expect(state.error).toContain("TLS");
             }
         } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    // A4 / AC-001: with_concurrency 拒绝路径泄漏与中断剩余任务测试
+    it("AC-001: with_concurrency isolates rejected tasks without interrupting remaining queue", async () => {
+        const { with_concurrency: with_conc } =
+            await import("../../../src/main/core/scheduler/refresh-service");
+        const executed: number[] = [];
+        const items = [1, 2, 3, 4, 5, 6, 7];
+
+        await with_conc(
+            items,
+            (item) => {
+                if (item === 3 || item === 5) {
+                    return Promise.reject(new Error(`Item ${String(item)} rejected intentionally`));
+                }
+                executed.push(item);
+                return Promise.resolve();
+            },
+            3,
+        );
+
+        // 尽管 item 3 和 5 抛错，剩余的 1, 2, 4, 6, 7 全部正常执行完毕
+        expect(executed).toEqual([1, 2, 4, 6, 7]);
+    });
+
+    // A43 / AC-007: cancellable_sleep 取消测试
+    it("AC-007: cancellable_sleep resolves immediately upon abort signal", async () => {
+        const { cancellable_sleep } =
+            await import("../../../src/main/core/scheduler/refresh-service");
+        const ac = new AbortController();
+        const start = Date.now();
+
+        // 设定 5 秒的超长等待，但在 50ms 触发取消
+        setTimeout(() => {
+            ac.abort();
+        }, 50);
+        await cancellable_sleep(5000, ac.signal);
+
+        const elapsed = Date.now() - start;
+        expect(elapsed).toBeLessThan(1000);
+    });
+
+    // A43 / AC-007: 生产 refresh 流程在传入 abort_signal 时立即中止重试休眠
+    it("AC-007: refresh service aborts retry sleep immediately upon abort_signal", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "refresh-abort-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 500: Server Error");`,
+        );
+        const ac = new AbortController();
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "abort_test",
+                        provider: "deepseek",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://example.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: make_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([
+                { ...plugin_config("abort-1", true, "deepseek"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+            abort_signal: ac.signal,
+        });
+
+        const start = Date.now();
+        // 50ms 后触发进程退出/关闭信号
+        setTimeout(() => {
+            ac.abort();
+        }, 50);
+        await service.refresh("abort-1");
+        const elapsed = Date.now() - start;
+        // 原本 3 次重试需等待 2 * 1000ms = 2000ms，在 abort 下迅速返回
+        expect(elapsed).toBeLessThan(1500);
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // A113 / A37 / AC-004: 仅复制最新成功观测 (stale=false) 且单事务批量写入
+    it("AC-004: failure path copies only recent successful observations (stale=false) via single batch", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "stale-avalanche-"));
+        await writeFile(join(tempDir, "connector.js"), `throw new Error("fail on refresh");`);
+
+        const runtimeStore = createRuntimeStore();
+        const { create_observation_store: create_real_store } =
+            await import("../../../src/main/core/observation/observation-store");
+        const obsStore = create_real_store(join(tempDir, "real_obs.db"));
+
+        // 写入初始成功观测 (stale=false)
+        obsStore.insert({
+            provider: "mimo",
+            source_instance_id: "mimo-1",
+            account_id: "acc_1",
+            account_label: "Mimo Acc",
+            metric_id: "mimo:quota",
+            raw_label: "quota",
+            normalized_label: "Quota",
+            window: "month",
+            used: 20,
+            limit: 100,
+            display_style: "percent",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1000,
+            source: "session",
+            stale: false,
+            last_error: null,
+        });
+
+        // 人为写入旧的 stale=true 副本，模拟前一轮失败产生的记录
+        obsStore.insert({
+            provider: "mimo",
+            source_instance_id: "mimo-1",
+            account_id: "acc_1",
+            account_label: "Mimo Acc",
+            metric_id: "mimo:quota",
+            raw_label: "quota",
+            normalized_label: "Quota",
+            window: "month",
+            used: 20,
+            limit: 100,
+            display_style: "percent",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1000,
+            source: "session",
+            stale: true,
+            last_error: "prior error",
+        });
+
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://example.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: obsStore,
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("mimo-1", true, "mimo"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+            const list = obsStore.list_by_source_instance_id("mimo-1");
+            expect(list).toHaveLength(1);
+            expect(list[0]?.stale).toBe(true);
+            expect(list[0]?.last_error).toContain("fail on refresh");
+
+            // 再次失败刷新一轮：验证不会基于上一轮的 stale 副本无界复制衍生雪崩
+            await service.refresh("mimo-1", { force: true });
+            const list2 = obsStore.list_by_source_instance_id("mimo-1");
+            expect(list2).toHaveLength(1);
+            // 数据库总行数保持为 2（1 条成功原观测 + 1 条最新更新的 stale 副本）
+            expect(obsStore.count_observations()).toBe(2);
+        } finally {
+            obsStore.close();
             await rm(tempDir, { recursive: true, force: true });
         }
     });

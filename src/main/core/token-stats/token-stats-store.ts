@@ -56,6 +56,8 @@ export interface TokenStatsStore {
         env?: string;
         from_date?: string;
         to_date?: string;
+        limit?: number;
+        offset?: number;
     }): TokenStatsBucket[];
     query_sessions(filters: {
         source?: string;
@@ -1454,8 +1456,14 @@ export function create_token_stats_store(
                 params["to_date"] = filters.to_date;
             }
 
+            // A126: 显式列投影与 LIMIT/OFFSET 分页保护
+            const limit = Math.max(1, Math.min(filters.limit ?? 1000, 5000));
+            const offset = Math.max(0, filters.offset ?? 0);
+            params["limit"] = limit;
+            params["offset"] = offset;
+
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-            const sql = `SELECT * FROM token_stats_buckets ${where} ORDER BY bucket_date DESC`;
+            const sql = `SELECT id, source, env, bucket_date, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, sessions, calls, updated_at FROM token_stats_buckets ${where} ORDER BY bucket_date DESC LIMIT @limit OFFSET @offset`;
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_bucket);
         },
@@ -1548,7 +1556,8 @@ export function create_token_stats_store(
                           ? "unicode_lower(COALESCE(title, ''))"
                           : "ended_at";
             const direction = filters.direction === "asc" ? "ASC" : "DESC";
-            const sql = `SELECT * FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
+            // A126: 显式列投影与分页
+            const sql = `SELECT id, source, env, model, title, directory, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, calls, started_at, ended_at, updated_at FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
             params["limit"] = limit;
             params["offset"] = offset;
 

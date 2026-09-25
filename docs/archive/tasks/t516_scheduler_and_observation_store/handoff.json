@@ -1,0 +1,43 @@
+{
+    "tid": "t516",
+    "attempt": 1,
+    "execution_id": "25c4d09a6e634ec492205ba2a0d0c839",
+    "status": "done",
+    "branch": "t516_scheduler_and_observation_store",
+    "base_sha": "9717ef55234af07ff8abf774074c198e42010be3",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 331 个测试套件（4048 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试覆盖 with_concurrency 异常隔离、调度器 30s 周期下限与指数退避随机抖动、idx_by_instance 复合索引命中、stale 批量写入与无雪崩复制、趋势参数自动钳制、分批 prune 与进程退出唤醒",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=d157acdcc8998d17",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/scheduler/refresh-service.ts 中 with_concurrency 捕获单任务异常并经 finally 维护 executing 集合",
+            "tests/integration/scheduler/refresh-service.test.ts 验证异常被隔离且剩余任务完整执行完毕"
+        ],
+        "AC-002": [
+            "src/main/core/scheduler/connector-scheduler.ts 下限提升至 30s，连续失败时按 2^failures 指数递增并加入 0~20% 随机抖动",
+            "tests/integration/scheduler/connector-scheduler.test.ts 验证 30s 下限、失败 1 次 60s、失败 2 次 120s 以及随机抖动断言"
+        ],
+        "AC-003": [
+            "src/main/core/observation/observation-store.ts 新增 idx_by_instance 复合索引，消除 list_by_source_instance_id 全表扫描",
+            "tests/integration/observation/observation-store.test.ts 验证真实生产窗口查询 SQL 命中 idx_by_instance 索引"
+        ],
+        "AC-004": [
+            "src/main/core/observation/observation-store.ts 新增 list_latest_success_by_instance(stale=0)；src/main/core/scheduler/refresh-service.ts 失败路径仅从最新成功记录生成降级副本，并单事务批量写入",
+            "tests/integration/scheduler/refresh-service.test.ts 验证多轮失败后数据库总行数保持为 2，杜绝 stale 衍生雪崩"
+        ],
+        "AC-005": [
+            "src/main/core/observation/observation-store.ts 中 query_trend_series 严格钳制 days <= 365, cap <= 1000",
+            "tests/integration/observation/observation-store.test.ts 在 1200 条样本下验证返回结果被严格钳制为 1000"
+        ],
+        "AC-006": [
+            "src/main/core/observation/observation-store.ts 实现循环 DELETE ... LIMIT 分批删除；src/main/core/observation/observation-retention.ts 限制最多 10 轮自适应步长，避免主线程长时间独占锁卡顿",
+            "tests/integration/observation/observation-store.test.ts 验证 batch_size=500 分批清理完成"
+        ],
+        "AC-007": [
+            "src/main/core/scheduler/refresh-service.ts 导出 cancellable_sleep 并注入 deps.abort_signal，应用退出或服务停止时休眠立即解除",
+            "tests/integration/scheduler/refresh-service.test.ts 验证 abort_signal 触发时重试等待立即退出"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

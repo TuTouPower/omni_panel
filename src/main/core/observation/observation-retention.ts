@@ -40,12 +40,18 @@ export function run_retention_prune(
 
     if (max_rows !== null) {
         let count = deps.count_observations();
-        // 若仍超预算，按最新观测时间向前提前阈值（每步 1 天）收紧。
-        // t398 AC-003: 空窗口（prune 返回 0）不提前 break——稀疏数据下继续推进
-        // cutoff 直至预算达成或 cutoff 达 now（既有 cutoff<now 上限兜底）。
+        // A34 / AC-006: 限制最大迭代轮次 (10轮)，自适应时间步长，避免极小 cacheMaxMb 时逐天 prune 90 轮阻塞主线程
         let cutoff = older_than_ms;
-        while (count > max_rows && cutoff < now_ms) {
-            cutoff += 24 * 60 * 60 * 1000;
+        let iterations = 0;
+        const max_iterations = 10;
+        while (count > max_rows && cutoff < now_ms && iterations < max_iterations) {
+            iterations++;
+            const remaining_iters = max_iterations - iterations + 1;
+            const step_ms = Math.max(
+                24 * 60 * 60 * 1000,
+                Math.floor((now_ms - cutoff) / remaining_iters),
+            );
+            cutoff += step_ms;
             removed += deps.prune(cutoff);
             count = deps.count_observations();
         }

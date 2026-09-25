@@ -4,8 +4,8 @@ import { createLogger, type Logger } from "../../../shared/lib/logger";
 
 export interface ObservationStore {
     insert(obs: Observation): void;
-    /** t352 AC-001: 批量写入走单事务，单条失败跳过并记日志（refresh 轮调用）。 */
-    insert_batch(observations: Observation[]): void;
+    /** A31: 批量写入走单事务，返回写入成功与失败计数。 */
+    insert_batch(observations: Observation[]): { ok: number; failed: number };
     get_latest(
         provider: string,
         account_id: string,
@@ -15,6 +15,8 @@ export interface ObservationStore {
     list_latest_by_provider(provider: string): Observation[];
     list_all_providers(): string[];
     list_by_source_instance_id(source_instance_id: string): Observation[];
+    /** A113 / AC-004: 查询指定实例每个指标的最新一条成功观测（stale=0），用于失败降级副本派生 */
+    list_latest_success_by_instance?(source_instance_id: string): Observation[];
     /**
      * 取最近 `days` 天窗口内的趋势序列（t208 语义：固定桶数 `max_points`，
      * 默认 120 桶均分窗口、每桶取 observed_at 最大一条；原始点数 ≤ max_points
@@ -35,7 +37,8 @@ export interface ObservationStore {
         days: number,
         max_points?: number,
     ): Observation[];
-    prune(older_than_ms: number): number;
+    /** A34 / AC-006: 分批安全删除数据，默认每批 500 行，防数据库锁独占卡顿 */
+    prune(older_than_ms: number, batch_size?: number): number;
     /** Total observation rows (test helper for asserting dedupe/prune row counts). */
     count_observations(): number;
     close(): void;
@@ -68,6 +71,10 @@ CREATE TABLE IF NOT EXISTS observations (
 CREATE INDEX IF NOT EXISTS idx_lookup
     ON observations(provider, account_id, metric_id, source_instance_id, observed_at);
 
+-- A9 / AC-003: 实例查询复合索引，杜绝 list_by_source_instance_id 全表扫描
+CREATE INDEX IF NOT EXISTS idx_by_instance
+    ON observations(source_instance_id, account_id, metric_id, observed_at DESC, stale DESC);
+
 -- t352 AC-003: 一次性数据清理（如 kimi:total_quota purge）的迁移批次标记。
 -- migrate 以 INSERT OR IGNORE 取号，仅首次数次时执行对应清理。
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -96,44 +103,66 @@ export function migrate_observation_schema(db: Database.Database, log: Logger): 
         log.info("Observation store migrated: added last_error column");
     }
 
-    // 清理已下线的 Kimi 总配额观测。connector 在 a03e38d4 已停止产出
-    // kimi:total_quota；本地库中的 stale 行会导致用量面板继续显示"总配额 0"。
-    // t352 AC-003: 一次性清理按迁移批次标记执行——首次打开取号执行，此后
-    // INSERT OR IGNORE 不产生新行即跳过，不再每次打开重复 DELETE。
+    // A9 / AC-003: 迁移增加 idx_by_instance 复合索引
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_by_instance
+            ON observations(source_instance_id, account_id, metric_id, observed_at DESC, stale DESC);
+    `);
+
+    // A38: Kimi purge 事务化
     db.exec(
         "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, applied INTEGER NOT NULL DEFAULT 0)",
     );
-    const mark = db
-        .prepare("INSERT OR IGNORE INTO schema_meta (key) VALUES (?)")
-        .run("kimi_total_quota_purge");
-    if (mark.changes > 0) {
-        const removed = db
-            .prepare(
-                "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
-            )
-            .run();
-        if (removed.changes > 0) {
-            log.info(
-                `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
-            );
+    const purge_tx = db.transaction(() => {
+        const mark = db
+            .prepare("INSERT OR IGNORE INTO schema_meta (key) VALUES (?)")
+            .run("kimi_total_quota_purge");
+        if (mark.changes > 0) {
+            const removed = db
+                .prepare(
+                    "DELETE FROM observations WHERE provider = 'kimi' AND metric_id = 'kimi:total_quota'",
+                )
+                .run();
+            if (removed.changes > 0) {
+                log.info(
+                    `Observation store migrated: removed ${String(removed.changes)} stale kimi:total_quota rows`,
+                );
+            }
         }
-    }
+    });
+    purge_tx();
 }
 
-function row_to_observation(row: Record<string, unknown>): Observation {
+// A45: 读行数据安全检查，遇到畸变脏数据行过滤跳过并记录告警
+function row_to_observation(row: Record<string, unknown>): Observation | null {
+    if (
+        typeof row["provider"] !== "string" ||
+        !row["provider"] ||
+        typeof row["source_instance_id"] !== "string" ||
+        !row["source_instance_id"] ||
+        typeof row["account_id"] !== "string" ||
+        !row["account_id"] ||
+        typeof row["metric_id"] !== "string" ||
+        !row["metric_id"]
+    ) {
+        createLogger("observation-store").warn(
+            "Corrupted observation row encountered in database, skipping",
+            row,
+        );
+        return null;
+    }
     const normalized =
         (row["normalized_label"] as string | undefined) ??
         (row["name"] as string | undefined) ??
-        (row["metric_id"] as string | undefined) ??
-        "";
+        row["metric_id"];
     const display_label = row["display_label"] as string | undefined;
     const name = row["name"] as string | undefined;
     const obs: Observation = {
-        provider: row["provider"] as string,
-        source_instance_id: row["source_instance_id"] as string,
-        account_id: row["account_id"] as string,
-        account_label: row["account_label"] as string,
-        metric_id: row["metric_id"] as string,
+        provider: row["provider"],
+        source_instance_id: row["source_instance_id"],
+        account_id: row["account_id"],
+        account_label: (row["account_label"] as string | undefined) ?? row["account_id"],
+        metric_id: row["metric_id"],
         raw_label: (row["raw_label"] as string | undefined) ?? normalized,
         normalized_label: normalized,
         ...(display_label !== undefined && { display_label }),
@@ -224,32 +253,47 @@ export function create_observation_store(db_path: string): ObservationStore {
         });
     }
 
-    const batch_tx = db.transaction((observations: Observation[]) => {
-        for (const obs of observations) {
-            try {
-                insert_one(obs);
-            } catch (err: unknown) {
-                // 坏条目跳过并记 per-obs 错误日志，不中断整批事务（t352 回退策略）。
-                log.error(
-                    `Failed to insert observation ${obs.provider}/${obs.account_id}/${obs.metric_id}: ${
-                        err instanceof Error ? err.message : String(err)
-                    }`,
-                );
+    // A31: 事务批量写入，统计成功与失败项
+    const batch_tx = db.transaction(
+        (observations: Observation[]): { ok: number; failed: number } => {
+            let ok = 0;
+            let failed = 0;
+            for (const obs of observations) {
+                try {
+                    insert_one(obs);
+                    ok++;
+                } catch (err: unknown) {
+                    failed++;
+                    log.error(
+                        `Failed to insert observation ${obs.provider}/${obs.account_id}/${obs.metric_id}: ${
+                            err instanceof Error ? err.message : String(err)
+                        }`,
+                    );
+                }
             }
-        }
-    });
+            return { ok, failed };
+        },
+    );
+
+    // A112: 显式列投影定义，避免 SELECT * 隐式泄露或开销
+    const OBS_SELECT_COLUMNS = `
+        provider, source_instance_id, account_id, account_label,
+        metric_id, raw_label, normalized_label, display_label, name,
+        window, used, "limit", display_style, reset_at, status,
+        observed_at, source, stale, last_error
+    `;
 
     // t174: stale 副本与原观测同 observed_at 时，stale DESC 让副本（stale=1）
     // 优先，latest 选择唯一确定（"已过期"标记优先于原始数据行）。
     const get_latest_stmt = db.prepare(`
-        SELECT * FROM observations
+        SELECT ${OBS_SELECT_COLUMNS} FROM observations
         WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ?
         ORDER BY observed_at DESC, stale DESC LIMIT 1
     `);
 
     const list_latest_by_provider_stmt = db.prepare(`
-        SELECT * FROM (
-            SELECT *, ROW_NUMBER() OVER (
+        SELECT ${OBS_SELECT_COLUMNS} FROM (
+            SELECT ${OBS_SELECT_COLUMNS}, ROW_NUMBER() OVER (
                 PARTITION BY provider, account_id, metric_id, source_instance_id
                 ORDER BY observed_at DESC, stale DESC
             ) AS rn
@@ -261,11 +305,10 @@ export function create_observation_store(db_path: string): ObservationStore {
 
     const list_providers_stmt = db.prepare("SELECT DISTINCT provider FROM observations");
 
-    // t096 perf: 旧写法用相关子查询（每行算 MAX），64k 行下 53s。
-    // 改 window function 走 idx_lookup 覆盖索引，语义不变（每 (account_id, metric_id) 最新行），39ms。
+    // A9 / AC-003: 走 idx_by_instance 复合索引，消除全表扫描
     const list_by_instance_stmt = db.prepare(`
-        SELECT * FROM (
-            SELECT *, ROW_NUMBER() OVER (
+        SELECT ${OBS_SELECT_COLUMNS} FROM (
+            SELECT ${OBS_SELECT_COLUMNS}, ROW_NUMBER() OVER (
                 PARTITION BY account_id, metric_id
                 ORDER BY observed_at DESC, stale DESC
             ) AS rn
@@ -275,33 +318,38 @@ export function create_observation_store(db_path: string): ObservationStore {
         WHERE rn = 1
     `);
 
-    // t186: prune 保留每键最新一行（observed_at DESC, stale DESC），与 latest
-    // 查询的 tie-breaker 一致。旧版用 MAX(o2.observed_at) 子查询，同 ts 下原观测
-    // 与 stale 副本都命中「最新」保护，该键行不收敛（p016）。改 ROW_NUMBER 选每键
-    // 唯一保留行后，删 observed_at < older_than 的其余行（含同 ts 冗余原观测）。
-    const prune_stmt = db.prepare(
-        "DELETE FROM observations WHERE observed_at < ? AND id NOT IN (" +
+    // A113 / AC-004: 仅查 stale=0 的最新成功观测，杜绝基于旧 stale 副本二次衍生
+    const list_latest_success_by_instance_stmt = db.prepare(`
+        SELECT ${OBS_SELECT_COLUMNS} FROM (
+            SELECT ${OBS_SELECT_COLUMNS}, ROW_NUMBER() OVER (
+                PARTITION BY account_id, metric_id
+                ORDER BY observed_at DESC
+            ) AS rn
+            FROM observations
+            WHERE source_instance_id = ? AND stale = 0
+        )
+        WHERE rn = 1
+    `);
+
+    // A34 / AC-006: 分批安全删除，每次删除最多 LIMIT 行，避免长时间独占数据库写锁
+    const prune_batch_stmt = db.prepare(
+        "DELETE FROM observations WHERE id IN (" +
+            "SELECT id FROM observations WHERE observed_at < ? AND id NOT IN (" +
             "SELECT id FROM (" +
             "SELECT id, ROW_NUMBER() OVER (" +
             "PARTITION BY provider, account_id, metric_id, source_instance_id " +
             "ORDER BY observed_at DESC, stale DESC" +
             ") AS rn FROM observations" +
             ") WHERE rn = 1" +
+            ") LIMIT ?" +
             ")",
     );
 
     // Sparkline: per-day latest observation within (now-days, now].
-    // t214: 加 source_instance_id 过滤，隔离多账号 provider（account_id 塌成同一值时）。
-    // t351 AC-001: 分桶下推 SQL——按 cap 桶均分窗口、每桶 ROW_NUMBER 取
-    // observed_at 最新一条，LIMIT cap，避免全窗口物化后 JS 分桶。bucket_idx
-    // 用 CASE 钳制到 cap-1（对齐原 JS 的 Math.min(cap-1, ...)）。
-    // 注意 CAST((observed_at-?)/? AS INTEGER)：better-sqlite3 把 number 一律
-    // 绑成 REAL，不做 CAST 时 bucket_idx 为浮点（如 3.7），PARTITION BY 每点
-    // 独立分区、聚合失效，整窗按 ASC LIMIT 返回最旧 cap 行（p?/F1 回归）。截断
-    // 对非负值等同 Math.floor，语义对齐原 JS 分桶。
+    // A33 / AC-005: 显式列投影与分桶下推
     const query_trend_stmt = db.prepare(`
         WITH bucketed AS (
-            SELECT *,
+            SELECT ${OBS_SELECT_COLUMNS},
                    CASE WHEN CAST((observed_at - ?) / ? AS INTEGER) >= ?
                         THEN ? - 1
                         ELSE CAST((observed_at - ?) / ? AS INTEGER)
@@ -310,8 +358,8 @@ export function create_observation_store(db_path: string): ObservationStore {
             WHERE provider = ? AND account_id = ? AND metric_id = ? AND source_instance_id = ?
               AND observed_at >= ?
         )
-        SELECT * FROM (
-            SELECT *, ROW_NUMBER() OVER (
+        SELECT ${OBS_SELECT_COLUMNS} FROM (
+            SELECT ${OBS_SELECT_COLUMNS}, ROW_NUMBER() OVER (
                 PARTITION BY bucket_idx ORDER BY observed_at DESC
             ) AS rn
             FROM bucketed
@@ -328,11 +376,10 @@ export function create_observation_store(db_path: string): ObservationStore {
             log.debug(`Inserted observation: ${obs.provider}/${obs.account_id}/${obs.metric_id}`);
         },
 
-        // t352 AC-001: refresh 一轮观测批量写入走单事务，替代逐条 autocommit。
-        // 事务内单条失败记 per-obs 错误日志并跳过，不拖垮整批；整批原子提交。
-        insert_batch(observations: Observation[]): void {
-            if (observations.length === 0) return;
-            batch_tx(observations);
+        // A31: 批量写入单事务，返回写入成功与失败计数
+        insert_batch(observations: Observation[]): { ok: number; failed: number } {
+            if (observations.length === 0) return { ok: 0, failed: 0 };
+            return batch_tx(observations);
         },
 
         get_latest(provider, account_id, metric_id, source_instance_id) {
@@ -342,7 +389,7 @@ export function create_observation_store(db_path: string): ObservationStore {
 
         list_latest_by_provider(provider) {
             const rows = list_latest_by_provider_stmt.all(provider) as Record<string, unknown>[];
-            return rows.map(row_to_observation);
+            return rows.map(row_to_observation).filter((o): o is Observation => o !== null);
         },
 
         list_all_providers() {
@@ -352,24 +399,33 @@ export function create_observation_store(db_path: string): ObservationStore {
 
         list_by_source_instance_id(source_instance_id: string) {
             const rows = list_by_instance_stmt.all(source_instance_id) as Record<string, unknown>[];
-            return rows.map(row_to_observation);
+            return rows.map(row_to_observation).filter((o): o is Observation => o !== null);
         },
 
+        list_latest_success_by_instance(source_instance_id: string) {
+            const rows = list_latest_success_by_instance_stmt.all(source_instance_id) as Record<
+                string,
+                unknown
+            >[];
+            return rows.map(row_to_observation).filter((o): o is Observation => o !== null);
+        },
+
+        // A33 / AC-005: 限制 days <= 365, cap <= 1000，防止无界大查询
         query_trend_series(provider, account_id, metric_id, source_instance_id, days, max_points) {
-            if (days <= 0) return [];
+            const clamped_days = Math.max(0, Math.min(days, 365));
+            if (clamped_days <= 0) return [];
             const TREND_MAX_POINTS = 120;
-            const cap = max_points && max_points > 0 ? max_points : TREND_MAX_POINTS;
+            const target_cap = max_points && max_points > 0 ? max_points : TREND_MAX_POINTS;
+            const clamped_cap = Math.max(1, Math.min(target_cap, 1000));
             const now = Date.now();
             const day_ms = 24 * 60 * 60 * 1000;
-            const start_ms = now - days * day_ms;
-            const bucket_width = (now - start_ms) / cap;
-            // t351 AC-001: 分桶下推 SQL——每桶取最新一条，LIMIT cap 兜底，
-            // 返回行数 ≤ cap，避免全窗口物化后 JS 分桶。
+            const start_ms = now - clamped_days * day_ms;
+            const bucket_width = (now - start_ms) / clamped_cap;
             const rows = query_trend_stmt.all(
                 start_ms,
                 bucket_width,
-                cap,
-                cap,
+                clamped_cap,
+                clamped_cap,
                 start_ms,
                 bucket_width,
                 provider,
@@ -377,19 +433,25 @@ export function create_observation_store(db_path: string): ObservationStore {
                 metric_id,
                 source_instance_id,
                 start_ms,
-                cap,
+                clamped_cap,
             ) as Record<string, unknown>[];
-            return rows.map(row_to_observation);
+            return rows.map(row_to_observation).filter((o): o is Observation => o !== null);
         },
 
-        prune(older_than_ms) {
-            const result = prune_stmt.run(older_than_ms);
-            if (result.changes > 0) {
+        prune(older_than_ms, batch_size = 500) {
+            let total_pruned = 0;
+            const limit = Math.max(1, batch_size);
+            for (;;) {
+                const result = prune_batch_stmt.run(older_than_ms, limit);
+                total_pruned += result.changes;
+                if (result.changes < limit) break;
+            }
+            if (total_pruned > 0) {
                 log.debug(
-                    `Pruned ${String(result.changes)} observations older than ${String(older_than_ms)}ms`,
+                    `Pruned ${String(total_pruned)} observations older than ${String(older_than_ms)}ms in batches of ${String(limit)}`,
                 );
             }
-            return result.changes;
+            return total_pruned;
         },
 
         count_observations() {
