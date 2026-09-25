@@ -67,8 +67,26 @@ async function handle_task(task: WorkerTaskPayload): Promise<WorkerResponsePaylo
     }
 }
 
-// 独立进程 IPC 消息监听
-if (process.send) {
+// 独立进程 IPC 消息监听：双模兼容 Electron utilityProcess 与 Node child_process
+interface ParentPortLike {
+    postMessage(message: unknown): void;
+    on(event: "message", listener: (e: { data: unknown }) => void): void;
+}
+
+const parent_port = (process as unknown as { parentPort?: ParentPortLike }).parentPort;
+
+if (parent_port) {
+    parent_port.on("message", (e: { data: unknown }) => {
+        void (async () => {
+            const raw = e.data;
+            if (!raw || typeof raw !== "object") return;
+            const task = raw as WorkerTaskPayload;
+            if (!task.id) return;
+            const response = await handle_task(task);
+            parent_port.postMessage(response);
+        })();
+    });
+} else if (process.send) {
     process.on("message", (msg: unknown) => {
         void (async () => {
             if (!msg || typeof msg !== "object") return;

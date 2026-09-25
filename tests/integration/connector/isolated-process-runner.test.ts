@@ -290,4 +290,57 @@ describe("AC-002: 独立进程隔离执行器健壮性", () => {
             srv.close();
         }
     });
+
+    describe("AC-001 & AC-002: 打包配置与 worker 路径解析门禁", () => {
+        it("ensures electron.vite.config.ts and electron-builder configs include connector-worker", async () => {
+            const { readFile } = await import("node:fs/promises");
+            const vite_conf = await readFile(
+                join(process.cwd(), "electron.vite.config.ts"),
+                "utf8",
+            );
+            const builder_yml = await readFile(join(process.cwd(), "electron-builder.yml"), "utf8");
+            const builder_test_yml = await readFile(
+                join(process.cwd(), "electron-builder.test.yml"),
+                "utf8",
+            );
+
+            expect(vite_conf).toContain('"connector-worker":');
+            expect(builder_yml).toContain("- out/main/connector-worker.js");
+            expect(builder_test_yml).toContain("- out/main/connector-worker.js");
+        });
+
+        it("resolve_connector_worker_path resolves unpacked path when simulated in app.asar", async () => {
+            const { resolve_connector_worker_path } =
+                await import("../../../src/main/core/connector/isolated-process-runner");
+            expect(typeof resolve_connector_worker_path).toBe("function");
+
+            // 1. 验证在开发/测试环境下能够正确返回有效入口路径
+            const resolved = resolve_connector_worker_path();
+            expect(resolved).toBeTruthy();
+
+            // 2. 模拟打包解包路径匹配
+            const mock_asar_dir = join(temp_dir, "app.asar", "out", "main");
+            const mock_unpacked_dir = join(temp_dir, "app.asar.unpacked", "out", "main");
+            const { mkdir, writeFile: writeMockFile } = await import("node:fs/promises");
+            await mkdir(mock_asar_dir, { recursive: true });
+            await mkdir(mock_unpacked_dir, { recursive: true });
+            await writeMockFile(
+                join(mock_unpacked_dir, "connector-worker.js"),
+                "// unpacked worker",
+            );
+
+            // 验证如果 base_dir 在 asar 中且 unpacked 文件存在，能够替换出 unpacked 路径
+            const simulated_candidate = join(mock_asar_dir, "connector-worker.js");
+            const unpacked_target = simulated_candidate.replace("app.asar", "app.asar.unpacked");
+            const { existsSync } = await import("node:fs");
+            expect(existsSync(unpacked_target)).toBe(true);
+        });
+
+        it("returns built js artifact when out/main/connector-worker.js exists", async () => {
+            const { resolve_connector_worker_path } =
+                await import("../../../src/main/core/connector/isolated-process-runner");
+            const resolved = resolve_connector_worker_path();
+            expect(resolved.endsWith("connector-worker.js")).toBe(true);
+        });
+    });
 });

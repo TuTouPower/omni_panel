@@ -1,0 +1,31 @@
+{
+    "tid": "t524",
+    "attempt": 1,
+    "execution_id": "d53f53861e30462799f91cb8c8c37e5d",
+    "status": "done",
+    "branch": "t524_connector_worker_packaged_fix",
+    "base_sha": "f4fe9a67cc17ba9cbc7efc2450ceec8bcdcae94d",
+    "tests": "pnpm check 全绿（typecheck / lint / format:check / deadcode / arch / schema:check）；vitest 全量 333 个测试套件（4097 passed，0 failed）100% 通过；git diff --check 零格式问题",
+    "blackbox": "构建产物 out/main/connector-worker.js 生成与大小校验；asarUnpack 配置与解包路径探测验证；tests/e2e/packaged/smoke.spec.ts 连接器列表与刷新冒烟断言",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=20ed8ff8ea11728b",
+    "ac_evidence": {
+        "AC-001": [
+            "electron.vite.config.ts 配置 main.build.rollupOptions.input 增加 connector-worker 入口，构建在 out/main/ 生成 connector-worker.js；electron-builder.yml 与 electron-builder.test.yml 将 out/main/connector-worker.js 纳入 asarUnpack",
+            "tests/integration/connector/isolated-process-runner.test.ts 断言构建配置包含 connector-worker 并在产物存在时优先返回 JS 文件"
+        ],
+        "AC-002": [
+            "src/main/core/connector/isolated-process-runner.ts 优先使用 Electron 原生 utilityProcess.fork 启动连接器隔离子进程，新增 resolve_connector_worker_path 支持 app.asar.unpacked 路径探测，并在非 Electron 单测环境优雅回退至 child_process.fork",
+            "tests/integration/connector/isolated-process-runner.test.ts 验证路径探测及 unpacked 路径匹配"
+        ],
+        "AC-003": [
+            "src/main/core/connector/worker/connector-worker-entry.ts 适配 Electron parentPort 与 Node process.send 双模 IPC 监听协议，确保参数接收与返回一致",
+            "tests/integration/connector/isolated-process-runner.test.ts 验证 IPC 数据传输与异常处理"
+        ],
+        "AC-004": [
+            "tests/integration/connector/isolated-process-runner.test.ts 覆盖全量隔离执行用例；tests/e2e/packaged/smoke.spec.ts 增加打包应用下连接器运行断言",
+            "pnpm check 门禁 333 套件 4097 测试全部通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

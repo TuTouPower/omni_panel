@@ -1,5 +1,7 @@
-import { fork, type ChildProcess } from "node:child_process";
-import { resolve } from "node:path";
+import { app, utilityProcess, type UtilityProcess } from "electron";
+import { fork, type ChildProcess, type Serializable } from "node:child_process";
+import * as fs from "node:fs";
+import { join, resolve } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { ConnectorRunResult } from "./runtime";
@@ -21,6 +23,153 @@ export interface RunIsolatedOptions {
 }
 
 /**
+ * 解析连接器隔离子进程 worker 入口文件路径。
+ * 生产/打包态优先查找 app.asar.unpacked/out/main/connector-worker.js；
+ * 未打包态查找 out/main/connector-worker.js 或源码 ts 路径。
+ */
+export function resolve_connector_worker_path(base_dir: string = __dirname): string {
+    const candidate = join(base_dir, "connector-worker.js");
+    try {
+        if (app.isPackaged) {
+            const unpacked = candidate.replace("app.asar", "app.asar.unpacked");
+            if (fs.existsSync(unpacked)) return unpacked;
+        }
+    } catch {
+        // 忽略非 Electron 环境
+    }
+    if (fs.existsSync(candidate)) return candidate;
+
+    // 尝试工作区 out/main/connector-worker.js
+    const out_main_candidate = resolve(process.cwd(), "out/main/connector-worker.js");
+    if (fs.existsSync(out_main_candidate)) return out_main_candidate;
+
+    // 源码回退（开发/单测环境）
+    const ts_source = resolve(base_dir, "./worker/connector-worker-entry.ts");
+    if (fs.existsSync(ts_source)) return ts_source;
+
+    const cwd_source = resolve(
+        process.cwd(),
+        "src/main/core/connector/worker/connector-worker-entry.ts",
+    );
+    if (fs.existsSync(cwd_source)) return cwd_source;
+
+    return candidate;
+}
+
+interface ProcessHandle {
+    send(msg: Serializable): void;
+    kill(): void;
+    onMessage(fn: (msg: unknown) => void): void;
+    onExit(fn: (code: number | null, signal: string | null) => void): void;
+    onError(fn: (err: Error) => void): void;
+    cleanup(): void;
+}
+
+function spawn_worker_process(worker_path: string): ProcessHandle {
+    const is_ts = worker_path.endsWith(".ts");
+    let can_use_utility = false;
+    try {
+        can_use_utility = !is_ts && typeof utilityProcess.fork === "function";
+    } catch {
+        can_use_utility = false;
+    }
+
+    if (can_use_utility) {
+        const child: UtilityProcess = utilityProcess.fork(worker_path, [], {
+            stdio: ["ignore", "pipe", "pipe"],
+            serviceName: "connector-worker",
+        });
+
+        child.stderr?.on("data", (data: Buffer) => {
+            const line = data.toString().trim();
+            if (line) log.error(`[connector-worker] ${line}`);
+        });
+
+        child.stdout?.on("data", (data: Buffer) => {
+            const line = data.toString().trim();
+            if (line) log.info(`[connector-worker] ${line}`);
+        });
+
+        return {
+            send: (msg) => {
+                child.postMessage(msg);
+            },
+            kill: () => {
+                try {
+                    child.kill();
+                } catch {
+                    // ignore
+                }
+            },
+            onMessage: (fn) => {
+                child.on("message", fn);
+            },
+            onExit: (fn) => {
+                child.on("exit", (code) => {
+                    fn(code, null);
+                });
+            },
+            onError: (fn) => {
+                child.on("error", (err: unknown) => {
+                    fn(err instanceof Error ? err : new Error(String(err)));
+                });
+            },
+            cleanup: () => {
+                try {
+                    child.kill();
+                } catch {
+                    // ignore
+                }
+            },
+        };
+    }
+
+    const child: ChildProcess = fork(worker_path, [], {
+        execArgv: is_ts ? ["--import=tsx"] : [],
+        stdio: ["ignore", "inherit", "inherit", "ipc"],
+    });
+
+    return {
+        send: (msg) => {
+            child.send(msg);
+        },
+        kill: () => {
+            try {
+                child.kill("SIGTERM");
+                setTimeout(() => {
+                    try {
+                        child.kill("SIGKILL");
+                    } catch {
+                        // ignore
+                    }
+                }, 200);
+            } catch {
+                // ignore
+            }
+        },
+        onMessage: (fn) => {
+            child.on("message", fn);
+        },
+        onExit: (fn) => {
+            child.on("exit", (code, signal) => {
+                fn(code, signal);
+            });
+        },
+        onError: (fn) => {
+            child.on("error", fn);
+        },
+        cleanup: () => {
+            child.removeAllListeners();
+            try {
+                child.kill();
+            } catch {
+                // ignore
+            }
+        },
+    };
+}
+
+/**
  * AC-002: 在独立隔离子进程（utilityProcess/ChildProcess）中执行连接器
  * 隔离进程的崩溃、OOM 或无限死循环由父进程超时终止，绝对不拖垮主进程
  */
@@ -28,23 +177,17 @@ export async function run_connector_isolated(
     options: RunIsolatedOptions,
 ): Promise<ConnectorRunResult> {
     const task_id = `task_${String(Date.now())}_${Math.random().toString(36).slice(2, 8)}`;
-    const worker_path =
-        options.worker_entry_path ?? resolve(__dirname, "./worker/connector-worker-entry.ts");
+    const worker_path = options.worker_entry_path ?? resolve_connector_worker_path();
 
     return new Promise<ConnectorRunResult>((resolve_result) => {
-        let child: ChildProcess | null = null;
+        let handle: ProcessHandle | null = null;
         let settled = false;
 
         const cleanup = () => {
             clearTimeout(timer);
-            if (child) {
-                child.removeAllListeners();
-                try {
-                    child.kill();
-                } catch {
-                    // ignore
-                }
-                child = null;
+            if (handle) {
+                handle.cleanup();
+                handle = null;
             }
         };
 
@@ -61,20 +204,7 @@ export async function run_connector_isolated(
             log.warn(
                 `Connector "${options.manifest.id}" timed out in isolated process after ${String(timeout_limit)}ms, killing process`,
             );
-            if (child) {
-                try {
-                    child.kill("SIGTERM");
-                    setTimeout(() => {
-                        try {
-                            child?.kill("SIGKILL");
-                        } catch {
-                            // ignore
-                        }
-                    }, 200);
-                } catch {
-                    // ignore
-                }
-            }
+            handle?.kill();
             finish({
                 observations: [],
                 failed_accounts: [],
@@ -83,11 +213,7 @@ export async function run_connector_isolated(
         }, timeout_limit);
 
         try {
-            // 在开发/测试环境下使用 tsx 运行 ts 脚本，否则直接 node 运行
-            child = fork(worker_path, [], {
-                execArgv: worker_path.endsWith(".ts") ? ["--import=tsx"] : [],
-                stdio: ["ignore", "inherit", "inherit", "ipc"],
-            });
+            handle = spawn_worker_process(worker_path);
         } catch (spawn_err: unknown) {
             const msg = spawn_err instanceof Error ? spawn_err.message : String(spawn_err);
             log.error(`Failed to spawn connector worker: ${msg}`);
@@ -100,7 +226,7 @@ export async function run_connector_isolated(
         }
 
         // 监听进程异常崩溃或意外退出
-        child.on("exit", (code, signal) => {
+        handle.onExit((code, signal) => {
             if (settled) return;
             log.error(
                 `Connector worker process exited prematurely with code=${String(code)}, signal=${String(signal)}`,
@@ -112,7 +238,7 @@ export async function run_connector_isolated(
             });
         });
 
-        child.on("error", (err) => {
+        handle.onError((err) => {
             if (settled) return;
             log.error(`Connector worker process emitted error: ${err.message}`);
             finish({
@@ -123,7 +249,7 @@ export async function run_connector_isolated(
         });
 
         // 监听子进程返回消息
-        child.on("message", (raw: unknown) => {
+        handle.onMessage((raw: unknown) => {
             if (!raw || typeof raw !== "object") return;
             const res = raw as WorkerResponsePayload;
             if (res.id !== task_id) return;
@@ -152,6 +278,6 @@ export async function run_connector_isolated(
             endpoint_overrides: options.endpoint_overrides,
         };
 
-        child.send(payload);
+        handle.send(payload);
     });
 }

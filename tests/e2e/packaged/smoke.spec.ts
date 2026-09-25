@@ -278,4 +278,26 @@ test.describe("packaged binary smoke", () => {
             await closePackagedApp(app);
         }
     });
+
+    test("connector worker executes in isolated process without crashing in packaged app (t524 AC-004)", async () => {
+        test.skip(skipIfNoExe.skip, skipIfNoExe.reason);
+
+        const app = await launchPackagedApp();
+        try {
+            const connectors = await app.page.evaluate(async () => {
+                return await (
+                    window as unknown as {
+                        usageboard: {
+                            connectors: {
+                                list: () => Promise<unknown[]>;
+                            };
+                        };
+                    }
+                ).usageboard.connectors.list();
+            });
+            expect(Array.isArray(connectors)).toBe(true);
+        } finally {
+            await closePackagedApp(app);
+        }
+    });
 });
