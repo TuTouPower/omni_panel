@@ -118,12 +118,10 @@ describe("run_retention_prune（t343）", () => {
         );
         // 空窗口 prune 全部返回 0 → removed 仅首步日期阈值 0，行数预算未达成。
         expect(removed).toBe(0);
-        // 但循环继续推进：cutoff 从 older_than_ms 逐步 +1 天直至 >= NOW（上限兜底），
-        // 而非遇首个空窗口提前 break（修复前 calls.length 远小于此）。
-        const older_than = NOW - DEFAULT_RETENTION_DAYS * DAY_MS;
-        const expected_steps = Math.ceil((NOW - older_than) / DAY_MS);
-        expect(calls.length).toBeGreaterThanOrEqual(expected_steps);
-        // 最后一次调用 cutoff 已推进到 >= NOW（循环终止条件）。
+        // A34 / AC-006: 稀疏数据下循环自适应推进至 >= NOW，且受 max_iterations=10 保护不阻塞主线程
+        expect(calls.length).toBeLessThanOrEqual(11);
+        expect(calls.length).toBeGreaterThan(0);
+        // 最后一次调用 cutoff 已推进到 >= NOW - DAY_MS（推进至当前窗口边界）。
         expect(calls[calls.length - 1]).toBeDefined();
         if (calls[calls.length - 1] === undefined) throw new Error("calls 越界");
         expect(calls[calls.length - 1]).toBeGreaterThanOrEqual(NOW - DAY_MS);

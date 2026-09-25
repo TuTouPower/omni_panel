@@ -11,6 +11,7 @@ import type {
     GrokBotLoginStartResult,
     GrokBotLoginPollResult,
     GrokBotRefreshApiResult,
+    GrokBotReadonlyApi,
     GrokBotSettingsApi,
 } from "../shared/types/ipc";
 
@@ -133,8 +134,20 @@ export function create_kimi_oauth_apis(deps: OAuthApiFactoryDeps): OAuthApis<Kim
     });
 }
 
-export function create_grok_bot_oauth_apis(deps: OAuthApiFactoryDeps): GrokBotSettingsApi {
-    return {
+export function create_grok_bot_oauth_apis(deps: OAuthApiFactoryDeps): {
+    readonly readonly_api: GrokBotReadonlyApi;
+    readonly settings_api: GrokBotSettingsApi;
+} {
+    const disabled_err = () =>
+        Promise.reject(new Error("Grok Bot OAuth login is only available from settings"));
+    const readonly_api: GrokBotReadonlyApi = {
+        login_start: disabled_err,
+        login_poll: disabled_err,
+        login_cancel: disabled_err,
+        logout: disabled_err,
+        refresh: disabled_err,
+    };
+    const settings_api: GrokBotSettingsApi = {
         login_start: () => deps.invoke<GrokBotLoginStartResult>(IPC_CHANNELS.GROK_BOT_LOGIN_START),
         login_poll: (instance_id, uuid, verifier, timeout_ms) =>
             deps.invoke<GrokBotLoginPollResult>(
@@ -151,4 +164,5 @@ export function create_grok_bot_oauth_apis(deps: OAuthApiFactoryDeps): GrokBotSe
         refresh: (instance_id) =>
             deps.invoke<GrokBotRefreshApiResult>(IPC_CHANNELS.GROK_BOT_REFRESH, instance_id),
     };
+    return { readonly_api, settings_api };
 }

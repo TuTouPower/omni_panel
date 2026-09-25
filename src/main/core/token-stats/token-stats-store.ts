@@ -28,6 +28,10 @@ import type {
     TokenStatsSessionUpsert,
 } from "../../../shared/types/token-stats";
 import { createLogger } from "../../../shared/lib/logger";
+import { run_schema_and_migrations } from "./token-stats-migrations";
+import { legacy_env_from_directory } from "./token-stats-env";
+
+export { legacy_env_from_directory };
 
 /**
  * Default cap on records returned by query_records when the caller omits an
@@ -56,6 +60,8 @@ export interface TokenStatsStore {
         env?: string;
         from_date?: string;
         to_date?: string;
+        limit?: number;
+        offset?: number;
     }): TokenStatsBucket[];
     query_sessions(filters: {
         source?: string;
@@ -134,139 +140,6 @@ export interface TokenStatsStore {
     sources_status(): TokenStatsSourceStatus[];
     close(): void;
 }
-
-/**
- * t192: bounded incremental hour rollup schema plus single-row data-version and
- * readiness tables. Shared by INIT_SQL (fresh databases) and migration v6
- * (existing databases) so the derived-table DDL cannot drift between paths.
- */
-const ROLLUP_INIT_SQL = `
--- t192: bounded incremental hour rollup. One row per (session, hour, model,
--- directory) group, aggregated from token_stats_records. Reads for arbitrary
--- windows split into whole local hours (this table) plus the window's partial
--- edge hours (records), so dashboard reads scale with hour×group count, not
--- per-message records. directory and agent participate in the PK so a session
--- that changes directory (or a query filtering by agent) splits into its own
--- groups, matching the records rollup grouping exactly.
-CREATE TABLE IF NOT EXISTS token_stats_hour_rollup (
-    source TEXT NOT NULL,
-    env TEXT NOT NULL,
-    session_id TEXT NOT NULL,
-    hour_start INTEGER NOT NULL,
-    model TEXT NOT NULL,
-    directory TEXT,
-    agent TEXT NOT NULL,
-    calls INTEGER NOT NULL DEFAULT 0,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (source, env, session_id, hour_start, model, directory, agent)
-);
-
--- t192: single-row monotonic data version. Bumped once per committed collector
--- batch so renderer caches can decide staleness without trusting local clocks.
-CREATE TABLE IF NOT EXISTS token_stats_data_version (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    version INTEGER NOT NULL DEFAULT 0
-);
-INSERT INTO token_stats_data_version (id, version) VALUES (1, 0)
-    ON CONFLICT(id) DO NOTHING;
-
--- t192: single-row aggregate readiness flag. hour_rollup_ready flips to 1
--- only after a full backfill from token_stats_records; before that dashboard
--- reads fall back to the records path so a partially-filled rollup can never
--- serve incomplete data.
-CREATE TABLE IF NOT EXISTS token_stats_meta (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    hour_rollup_ready INTEGER NOT NULL DEFAULT 0
-);
-INSERT INTO token_stats_meta (id, hour_rollup_ready) VALUES (1, 0)
-    ON CONFLICT(id) DO NOTHING;
-`;
-
-const INIT_SQL = `
-CREATE TABLE IF NOT EXISTS token_stats_buckets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,
-    env TEXT NOT NULL,
-    bucket_date TEXT NOT NULL,
-    model TEXT NOT NULL,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    sessions INTEGER NOT NULL DEFAULT 0,
-    calls INTEGER NOT NULL DEFAULT 0,
-    updated_at INTEGER NOT NULL,
-    UNIQUE(source, env, bucket_date, model)
-);
-
-CREATE TABLE IF NOT EXISTS token_stats_sessions (
-    id TEXT NOT NULL,
-    source TEXT NOT NULL,
-    env TEXT NOT NULL,
-    model TEXT NOT NULL,
-    title TEXT,
-    directory TEXT,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    calls INTEGER NOT NULL DEFAULT 0,
-    started_at INTEGER NOT NULL,
-    ended_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (id, source, env)
-);
-
-CREATE TABLE IF NOT EXISTS token_stats_daily (
-    id TEXT NOT NULL,
-    source TEXT NOT NULL,
-    env TEXT NOT NULL,
-    date TEXT NOT NULL,
-    model TEXT NOT NULL,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    calls INTEGER NOT NULL DEFAULT 0,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (id, source, env, date, model)
-);
-
-CREATE TABLE IF NOT EXISTS token_stats_records (
-    source TEXT NOT NULL,
-    env TEXT NOT NULL,
-    session_id TEXT NOT NULL,
-    title TEXT,
-    directory TEXT,
-    slug TEXT,
-    version TEXT,
-    parent_session_id TEXT,
-    message_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    timestamp INTEGER NOT NULL,
-    model TEXT NOT NULL,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    agent TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (message_id, source, env)
-);
-
--- query_records filters by (env, timestamp range) with ORDER BY timestamp DESC.
--- Without this index the planner full-scans token_stats_records, which reaches
--- hundreds of thousands of rows. Composite (env, timestamp DESC) serves both the
--- range predicate and the ordering direction.
-CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_records_ts ON token_stats_records(timestamp);
-CREATE INDEX IF NOT EXISTS idx_records_session_ts
-    ON token_stats_records(source, env, session_id, timestamp DESC);
-${ROLLUP_INIT_SQL}`;
 
 // Buckets are fully derived from the daily usage table: rebuilt on every
 // upsert batch so partial deltas can never drop or double-count usage.
@@ -357,150 +230,6 @@ function row_to_record(row: Record<string, unknown>): AgentSessionUsage {
 
 function safe_int(v: unknown): number {
     return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
-}
-
-// --- Migration v8 helpers (t437: env `local`/`win` → platform labels) ---
-
-/** t437: legacy `local`/`win` 行的目标 env（纯函数，可单测）。
- *  directory：盘符形（`D:\…`/`D:/…`）→ win；`/Users/` 前缀 → mac；其他非
- *  NULL → linux；NULL → 宿主默认。 */
-export function legacy_env_from_directory(
-    directory: string | null,
-    host_default: "win" | "mac" | "linux",
-): "win" | "mac" | "linux" {
-    if (directory === null) return host_default;
-    if (/^[A-Za-z]:[\\/]/.test(directory)) return "win";
-    if (directory.startsWith("/Users/")) return "mac";
-    return "linux";
-}
-
-/** 宿主默认 env（迁移中 directory 不可判定的行用）。 */
-function host_default_env(): "win" | "mac" | "linux" {
-    if (process.platform === "win32") return "win";
-    if (process.platform === "darwin") return "mac";
-    return "linux";
-}
-
-type LegacyRow = Record<string, unknown>;
-
-/**
- * t437: 逐表迁移 env IN ('local','win') 的行。按 classify 算目标 env 后分组
- * （主键含新 env），同组多行（理论：pre-t308 `win` 行与 `local` 行判到同一
- * 目标）merge——token 计数/calls 取 MAX、started_at 取 MIN、ended_at 取 MAX、
- * 其余字段首个非 NULL 优先、updated_at 取 MAX——然后整体 DELETE 源行再 INSERT，
- * 天然规避逐行 UPDATE 的 PK 冲突。
- */
-function migrate_legacy_table(
-    db: Database.Database,
-    table: string,
-    options: {
-        pk: readonly string[];
-        classify: (row: LegacyRow) => "win" | "mac" | "linux";
-        token_cols: readonly string[];
-        started_at_col?: string;
-        ended_at_col?: string;
-    },
-): void {
-    const rows = db
-        .prepare(`SELECT * FROM ${table} WHERE env IN ('local','win')`)
-        .all() as LegacyRow[];
-    if (rows.length === 0) return;
-
-    const merged = new Map<string, LegacyRow>();
-    for (const row of rows) {
-        const target_env = options.classify(row);
-        const key = options.pk
-            .map((col) =>
-                col === "env" ? target_env : typeof row[col] === "string" ? row[col] : "",
-            )
-            .join("\u0000");
-        const existing = merged.get(key);
-        if (existing === undefined) {
-            merged.set(key, { ...row, env: target_env });
-            continue;
-        }
-        for (const col of options.token_cols) {
-            existing[col] = Math.max(Number(existing[col] ?? 0), Number(row[col] ?? 0));
-        }
-        if (options.started_at_col) {
-            existing[options.started_at_col] = Math.min(
-                Number(existing[options.started_at_col] ?? Number.MAX_SAFE_INTEGER),
-                Number(row[options.started_at_col] ?? Number.MAX_SAFE_INTEGER),
-            );
-        }
-        if (options.ended_at_col) {
-            existing[options.ended_at_col] = Math.max(
-                Number(existing[options.ended_at_col] ?? 0),
-                Number(row[options.ended_at_col] ?? 0),
-            );
-        }
-        for (const [col, value] of Object.entries(row)) {
-            existing[col] ??= value;
-        }
-        existing["updated_at"] = Math.max(
-            Number(existing["updated_at"] ?? 0),
-            Number(row["updated_at"] ?? 0),
-        );
-    }
-
-    const columns = Object.keys(merged.values().next().value ?? {});
-    if (columns.length === 0) return;
-    const insert = db.prepare(
-        `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
-    );
-    db.prepare(`DELETE FROM ${table} WHERE env IN ('local','win')`).run();
-    for (const row of merged.values()) {
-        insert.run(columns.map((col) => row[col]));
-    }
-}
-
-/** t437: v8 迁移主体。daily 先于 sessions 迁移（daily 无 directory，按 (id,
- *  source) join 迁移前 sessions 取 directory；join 不到 → 宿主默认）。 */
-function migrate_legacy_envs(db: Database.Database, host_default: "win" | "mac" | "linux"): void {
-    const classify_dir = (directory: string | null): "win" | "mac" | "linux" =>
-        legacy_env_from_directory(directory, host_default);
-
-    // 迁移前 sessions 的 (id, source) → directory 映射（daily 用）。
-    const session_dirs = new Map<string, string | null>();
-    for (const row of db
-        .prepare(
-            "SELECT id, source, directory FROM token_stats_sessions WHERE env IN ('local','win')",
-        )
-        .all() as { id: string; source: string; directory: string | null }[]) {
-        const key = `${row.id}|${row.source}`;
-        if (!session_dirs.has(key)) session_dirs.set(key, row.directory);
-    }
-
-    migrate_legacy_table(db, "token_stats_daily", {
-        pk: ["id", "source", "env", "date", "model"],
-        classify: (row) =>
-            classify_dir(session_dirs.get(`${String(row["id"])}|${String(row["source"])}`) ?? null),
-        token_cols: [
-            "input_tokens",
-            "output_tokens",
-            "cache_read_tokens",
-            "cache_write_tokens",
-            "calls",
-        ],
-    });
-    migrate_legacy_table(db, "token_stats_sessions", {
-        pk: ["id", "source", "env"],
-        classify: (row) => classify_dir(row["directory"] as string | null),
-        token_cols: [
-            "input_tokens",
-            "output_tokens",
-            "cache_read_tokens",
-            "cache_write_tokens",
-            "calls",
-        ],
-        started_at_col: "started_at",
-        ended_at_col: "ended_at",
-    });
-    migrate_legacy_table(db, "token_stats_records", {
-        pk: ["message_id", "source", "env"],
-        classify: (row) => classify_dir(row["directory"] as string | null),
-        token_cols: ["input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"],
-    });
 }
 
 type DashboardRollupRow = TokenStatsRollupRow & { env: TokenStatsEnv };
@@ -1093,83 +822,7 @@ export function create_token_stats_store(
     if (!readonly) {
         db.pragma("journal_mode = WAL");
         db.pragma("wal_autocheckpoint = 1000");
-        db.exec(INIT_SQL);
-    }
-    // Migration v2: (1) daily `date` switched from collector-local to UTC
-    // bucketing — local-dated rows would linger next to UTC rows and
-    // double-count; (2) sessions of deleted transcript files were kept
-    // forever, inflating per-window session counts. Both are derived data:
-    // wipe once, the collector's full rescan on startup repopulates them.
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 2) {
-        db.exec(
-            "DELETE FROM token_stats_daily; DELETE FROM token_stats_buckets; DELETE FROM token_stats_sessions;",
-        );
-        db.pragma("user_version = 2");
-    }
-    // Migration v3: add per-message records table. Records are fully
-    // re-emitted by the collector on each rescan, so wipe legacy rows once.
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 3) {
-        db.exec("DELETE FROM token_stats_records;");
-        db.pragma("user_version = 3");
-    }
-    // Migration v4: add idx_records_env_ts so query_records' (env, timestamp)
-    // range + ORDER BY timestamp DESC uses an index seek instead of a full
-    // scan. CREATE INDEX IF NOT EXISTS is idempotent; INIT_SQL already creates
-    // it on fresh DBs, this branch backfills existing installs.
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 4) {
-        db.exec(
-            "CREATE INDEX IF NOT EXISTS idx_records_env_ts ON token_stats_records(env, timestamp DESC);",
-        );
-        db.pragma("user_version = 4");
-    }
-    // Migration v5: add timestamp and session lookup indexes used by the
-    // bounded dashboard aggregate queries on existing databases.
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 5) {
-        db.exec(
-            "CREATE INDEX IF NOT EXISTS idx_records_ts ON token_stats_records(timestamp);" +
-                "CREATE INDEX IF NOT EXISTS idx_records_session_ts ON token_stats_records(source, env, session_id, timestamp DESC);",
-        );
-        db.pragma("user_version = 5");
-    }
-    // Migration v6: create the t192 hour rollup plus single-row data-version
-    // and readiness tables on existing databases (INIT_SQL covers only fresh
-    // DBs). The rollup stays empty and unready here; the store backfills it
-    // asynchronously after open, and dashboard reads fall back to records
-    // until `hour_rollup_ready` flips.
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 6) {
-        db.exec(ROLLUP_INIT_SQL);
-        db.pragma("user_version = 6");
-    }
-    // Migration v7 (t308, 历史): env 枚举曾以 `win` 表示 Windows 原生源，t308 将
-    // 其改写为 `local`（当时的命名哲学：local = 进程所在 OS 的数据）。该命名
-    // 已被 t437 (v8) 逆转废止——此处仅保留迁移链兼容，不再表述「Windows 原生源
-    // 叫 local」。幂等（WHERE env='win'），行数与聚合不变。
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 7) {
-        db.exec(
-            "UPDATE token_stats_records SET env='local' WHERE env='win';" +
-                "UPDATE token_stats_sessions SET env='local' WHERE env='win';" +
-                "UPDATE token_stats_daily SET env='local' WHERE env='win';" +
-                "UPDATE token_stats_buckets SET env='local' WHERE env='win';" +
-                "UPDATE token_stats_hour_rollup SET env='local' WHERE env='win';",
-        );
-        db.pragma("user_version = 7");
-    }
-    // Migration v8 (t437): env 枚举废除 `local`，统一为平台标签 `win|wsl|linux|mac`
-    // （按 agent 数据所在平台，非「进程在哪」）。历史 `local` 行（及任何残留
-    // `win` 行）按 directory 分类：盘符形（D:\…）→ win；/Users/ 前缀 → mac；
-    // 其他非 NULL → linux；NULL 与 daily 孤儿行 → 宿主默认（win32→win、
-    // darwin→mac、其他→linux）。同主键的 local+win 行判到同一目标 env 时
-    // merge（token 计数取 MAX、started_at 取 MIN、ended_at 取 MAX）后删源行；
-    // buckets 整体重建、hour_rollup 清空置 unready 走现成异步回填。
-    if (!readonly && (db.pragma("user_version", { simple: true }) as number) < 8) {
-        db.transaction(() => {
-            migrate_legacy_envs(db, host_default_env());
-            db.prepare(DELETE_BUCKETS_SQL).run();
-            db.prepare(INSERT_BUCKETS_SQL).run({ now: Date.now() });
-            db.prepare("DELETE FROM token_stats_hour_rollup").run();
-            db.prepare("UPDATE token_stats_meta SET hour_rollup_ready = 0 WHERE id = 1").run();
-            db.pragma("user_version = 8");
-        })();
+        run_schema_and_migrations(db);
     }
     if (readonly) {
         log.debug(`Token stats read-only store initialized: ${db_path}`);
@@ -1454,8 +1107,14 @@ export function create_token_stats_store(
                 params["to_date"] = filters.to_date;
             }
 
+            // A126: 显式列投影与 LIMIT/OFFSET 分页保护
+            const limit = Math.max(1, Math.min(filters.limit ?? 1000, 5000));
+            const offset = Math.max(0, filters.offset ?? 0);
+            params["limit"] = limit;
+            params["offset"] = offset;
+
             const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-            const sql = `SELECT * FROM token_stats_buckets ${where} ORDER BY bucket_date DESC`;
+            const sql = `SELECT id, source, env, bucket_date, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, sessions, calls, updated_at FROM token_stats_buckets ${where} ORDER BY bucket_date DESC LIMIT @limit OFFSET @offset`;
             const rows = db.prepare(sql).all(params) as Record<string, unknown>[];
             return rows.map(row_to_bucket);
         },
@@ -1548,7 +1207,8 @@ export function create_token_stats_store(
                           ? "unicode_lower(COALESCE(title, ''))"
                           : "ended_at";
             const direction = filters.direction === "asc" ? "ASC" : "DESC";
-            const sql = `SELECT * FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
+            // A126: 显式列投影与分页
+            const sql = `SELECT id, source, env, model, title, directory, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, calls, started_at, ended_at, updated_at FROM token_stats_sessions ${where} ORDER BY ${order_expr} ${direction}, ended_at DESC LIMIT @limit OFFSET @offset`;
             params["limit"] = limit;
             params["offset"] = offset;
 

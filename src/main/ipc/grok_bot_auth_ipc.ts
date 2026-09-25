@@ -24,7 +24,10 @@ export async function handle_grok_bot_login_start(
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         log.error(`login_start failed: ${message}`);
-        return fail("INTERNAL_ERROR", message);
+        const code = message.includes("BROWSER_OPEN_FAILED")
+            ? "BROWSER_OPEN_FAILED"
+            : "INTERNAL_ERROR";
+        return fail(code, message);
     }
 }
 
@@ -41,7 +44,8 @@ export async function handle_grok_bot_login_poll(
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         log.error(`login_poll failed for ${instance_id}: ${message}`);
-        return fail("OAUTH_ERROR", message);
+        const code = message.includes("CONFLICT") ? "CONFLICT" : "OAUTH_ERROR";
+        return fail(code, message);
     }
 }
 
@@ -49,8 +53,11 @@ export function handle_grok_bot_login_cancel(
     deps: GrokBotAuthIpcDeps,
     instance_id: string,
 ): IpcResult<void> {
+    if (!instance_id || instance_id.trim() === "") {
+        return fail("INVALID_ARGUMENT", "instance_id is required");
+    }
     try {
-        deps.manager.cancel_login(instance_id);
+        deps.manager.cancel_login(instance_id.trim());
         return ok(undefined);
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -62,8 +69,11 @@ export async function handle_grok_bot_logout(
     deps: GrokBotAuthIpcDeps,
     instance_id: string,
 ): Promise<IpcResult<{ logged_out: boolean }>> {
+    if (!instance_id || instance_id.trim() === "") {
+        return fail("INVALID_ARGUMENT", "instance_id is required");
+    }
     try {
-        await deps.manager.logout(instance_id);
+        await deps.manager.logout(instance_id.trim());
         return ok({ logged_out: true });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -109,7 +119,21 @@ export function registerGrokBotAuthIpc(deps: GrokBotAuthIpcDeps): void {
             if (typeof verifier !== "string" || !verifier.trim()) {
                 return fail("INVALID_ARGUMENT", "verifier must be a non-empty string");
             }
-            const parsed_timeout = typeof timeout_ms === "number" ? timeout_ms : undefined;
+            let parsed_timeout: number | undefined;
+            if (timeout_ms !== undefined) {
+                if (
+                    typeof timeout_ms !== "number" ||
+                    !Number.isFinite(timeout_ms) ||
+                    timeout_ms < 10_000 ||
+                    timeout_ms > 600_000
+                ) {
+                    return fail(
+                        "INVALID_ARGUMENT",
+                        "timeout_ms must be a finite number between 10000 and 600000",
+                    );
+                }
+                parsed_timeout = timeout_ms;
+            }
             return handle_grok_bot_login_poll(deps, instance_id, uuid, verifier, parsed_timeout);
         },
     );

@@ -6,6 +6,10 @@ import {
     defaultLogLevelForEnv,
     exportCurrentLog,
     initLogging,
+    cleanupOldLogs,
+    record_write_error,
+    record_cleanup_error,
+    reset_logging_error_stats_for_testing,
 } from "../../../src/main/core/logging";
 import { createLogger } from "../../../src/shared/lib/logger";
 import { get_local_date_string } from "../../../src/shared/lib/local-time";
@@ -239,5 +243,93 @@ describe("initLogging", () => {
         } finally {
             local_date_mock.date = "";
         }
+    });
+
+    it("AC-001: warns to console with throttling when log write fails", () => {
+        reset_logging_error_stats_for_testing();
+        const warn_spy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            record_write_error(new Error("ENOSPC: no space left on device"));
+            record_write_error(new Error("ENOSPC: no space left on device"));
+            record_write_error(new Error("ENOSPC: no space left on device"));
+
+            expect(warn_spy).toHaveBeenCalledTimes(1);
+            expect(warn_spy).toHaveBeenCalledWith(
+                expect.stringContaining("Failed to write log file (count=1): ENOSPC"),
+            );
+        } finally {
+            warn_spy.mockRestore();
+            reset_logging_error_stats_for_testing();
+        }
+    });
+
+    it("AC-001: warns to console with throttling when log cleanup fails", () => {
+        reset_logging_error_stats_for_testing();
+        const warn_spy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+            record_cleanup_error(new Error("EACCES: permission denied"));
+            record_cleanup_error(new Error("EACCES: permission denied"));
+
+            expect(warn_spy).toHaveBeenCalledTimes(1);
+            expect(warn_spy).toHaveBeenCalledWith(
+                expect.stringContaining("Failed to cleanup old logs (count=1): EACCES"),
+            );
+        } finally {
+            warn_spy.mockRestore();
+            reset_logging_error_stats_for_testing();
+        }
+    });
+
+    it("AC-002: exportCurrentLog returns empty without throwing when log directory or file is missing", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-empty-"));
+        const target = join(temp_dir, "exported.log");
+
+        const result = await exportCurrentLog(temp_dir, target);
+        expect(result.exported).toBe(false);
+        expect(result.empty).toBe(true);
+
+        const s = await stat(target);
+        expect(s.isFile()).toBe(true);
+        expect(s.size).toBe(0);
+    });
+
+    it("AC-003: custom maxAgeDays cleans up logs according to configured threshold", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-quota-"));
+        const log_dir = join(temp_dir, "logs");
+        await mkdir(log_dir, { recursive: true });
+
+        const four_days_ago = get_local_date_string(new Date(Date.now() - 4 * 24 * 60 * 60 * 1000));
+        const four_day_file = join(log_dir, `app-${four_days_ago}.log`);
+        await writeFile(four_day_file, "4-day-old log\n", "utf8");
+        const four_day_time = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
+        await utimes(four_day_file, four_day_time, four_day_time);
+
+        await cleanupOldLogs(log_dir, 7);
+        let files = await readdir(log_dir);
+        expect(files).toContain(`app-${four_days_ago}.log`);
+
+        await cleanupOldLogs(log_dir, 3);
+        files = await readdir(log_dir);
+        expect(files).not.toContain(`app-${four_days_ago}.log`);
+    });
+
+    it("AC-003: initLogging respects configured maxLogFileBytes and maxSegments from config", async () => {
+        temp_dir = await mkdtemp(join(tmpdir(), "omni-panel-logs-config-"));
+        remove_logging = await initLogging(temp_dir, {
+            logLevel: "debug",
+            maxLogFileBytes: 80,
+            maxSegments: 2,
+        });
+
+        const log_dir = join(temp_dir, "logs");
+        const date = get_local_date_string();
+        for (let i = 0; i < 20; i++) {
+            createLogger("test").info(`line ${String(i)} extra content to overflow`);
+        }
+        await cleanup_logging();
+
+        const files = await readdir(log_dir);
+        expect(files).toContain(`app-${date}.1.log`);
+        expect(files).not.toContain(`app-${date}.2.log`);
     });
 });

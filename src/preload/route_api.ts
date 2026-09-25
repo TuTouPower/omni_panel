@@ -3,6 +3,8 @@ import type {
     GrokSettingsApi,
     KimiReadonlyApi,
     KimiSettingsApi,
+    GrokBotReadonlyApi,
+    GrokBotSettingsApi,
     SessionHistoryApi,
     TrendApi,
 } from "../shared/types/ipc";
@@ -24,6 +26,17 @@ export function select_kimi_api(
     readonly_api: KimiReadonlyApi,
     settings_api: KimiSettingsApi,
 ): KimiReadonlyApi | KimiSettingsApi {
+    return route === "setting" ? settings_api : readonly_api;
+}
+
+/**
+ * Grok Bot OAuth 分权 (A144 / 原 D7)：仅设置窗口具有高阶操作权限，低权窗口使用 disabled 存根。
+ */
+export function select_grok_bot_api(
+    route: string,
+    readonly_api: GrokBotReadonlyApi,
+    settings_api: GrokBotSettingsApi,
+): GrokBotReadonlyApi | GrokBotSettingsApi {
     return route === "setting" ? settings_api : readonly_api;
 }
 
@@ -63,4 +76,25 @@ export function select_session_history_api<T extends SessionHistoryApi>(
     if (route === "session" || route === "agent") return full_api;
     if (route === "usage" || route === "tray") return open_api;
     return disabled_api;
+}
+
+/**
+ * Config API 分权工厂 (A95 & A140)。
+ * - setting: 完整管理能力 (full)
+ * - popup (usage): 受白名单保护的持久化能力 (popup)
+ * - tray / session: 纯只读存根 (readonly)
+ */
+export function select_config_api<T>(route: string, full_api: T, popup_api: T, readonly_api: T): T {
+    if (route === "setting") return full_api;
+    if (route === "tray" || route === "session") return readonly_api;
+    return popup_api;
+}
+
+/**
+ * Session 登录 API 分权 (A144)。
+ * - setting: 具备交互式登录与静默重登能力
+ * - 其他窗口: 禁用
+ */
+export function select_session_api<T>(route: string, settings_api: T, disabled_api: T): T {
+    return route === "setting" ? settings_api : disabled_api;
 }

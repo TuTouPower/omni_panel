@@ -75,6 +75,7 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         }),
         insert_batch: vi.fn((obs: Observation[]) => {
             inserted.push(...obs);
+            return { ok: obs.length, failed: 0 };
         }),
         get_latest: vi.fn(() => null),
         list_latest_by_provider: vi.fn(() => []),
@@ -375,6 +376,7 @@ describe("refresh-service oauth immediate refresh (t172)", () => {
             throw new Error("stale insert boom");
         });
         observationStore.insert = insert_mock;
+        observationStore.insert_batch = insert_mock;
         const service = createRefreshService({
             definitions: [definition()],
             observationStore,

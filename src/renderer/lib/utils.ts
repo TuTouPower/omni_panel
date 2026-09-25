@@ -24,7 +24,9 @@ export function relative_time(timestamp: string | number): string {
 
 /** Format resetAt epoch-ms or ISO string as "今天 13:10" / "明天 13:10" / "后天 13:10" or "5/18 21:00". */
 export function format_reset_time(timestamp: string | number): string {
+    if (!timestamp) return "--";
     const d = typeof timestamp === "number" ? new Date(timestamp) : new Date(timestamp);
+    if (!Number.isFinite(d.getTime())) return "--";
     const now = new Date();
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");

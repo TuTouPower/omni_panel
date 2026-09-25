@@ -1,14 +1,18 @@
+import type { Dirent } from "node:fs";
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import * as os from "node:os";
 import { join, normalize, resolve } from "node:path";
 import { request as undici_request, Agent, setGlobalDispatcher } from "undici";
+import { z } from "zod/v3";
 import { keyFor } from "../config/secrets-store";
-import { createLogger, withLogContext, type Logger } from "../../../shared/lib/logger";
+import { createLogger, withLogContext, scrubber, type Logger } from "../../../shared/lib/logger";
 import {
     status_for_pct,
     status_for_ratio,
     status_for_balance,
 } from "../../../shared/lib/connector-thresholds";
+
+export { status_for_pct, status_for_ratio, status_for_balance };
 import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
 import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
@@ -17,9 +21,12 @@ import type { ConnectorContext, HttpOpts } from "./host-io";
 
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
-const MAX_RESPONSE_BYTES = 50 * 1024 * 1024; // 50MB
-// t372 AC-002: 错误响应只需计数/日志，小上限读取即可，避免 4xx+大 body 白读 50MB。
+// A10 / A130: 响应体上限从 50MB 降至 10MB，避免并发放大
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB
+// t372 AC-002: 错误响应只需计数/日志，小上限读取即可，避免 4xx+大 body 白读 10MB。
 const MAX_ERROR_BODY_BYTES = 1 * 1024 * 1024; // 1MB
+// A11 / A114: 目录遍历最大文件项数量上限
+const MAX_LIST_FILES = 5000;
 
 /**
  * 创建并注册全局 undici Agent（每 origin 连接上限 + keepAlive 复用）。
@@ -98,20 +105,50 @@ function is_within_allowed(path: string, allowed: readonly string[]): boolean {
     return false;
 }
 
-async function list_dir_recursive(dir: string, depth = 0, max_depth = 10): Promise<string[]> {
-    if (depth > max_depth) return [];
-    const entries = await readdir(dir, { withFileTypes: true });
+async function list_dir_recursive(
+    dir: string,
+    allowed: readonly string[],
+    depth = 0,
+    max_depth = 10,
+    counter = { count: 0 },
+): Promise<string[]> {
+    if (depth > max_depth || counter.count >= MAX_LIST_FILES) return [];
+    let entries: Dirent[];
+    try {
+        entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+        return [];
+    }
+
     const results: string[] = [];
-    for (const entry of entries) {
+    // A114: 并发化遍历子目录
+    const tasks = entries.map(async (entry) => {
+        if (counter.count >= MAX_LIST_FILES) return [];
         const full = join(dir, entry.name);
-        const stat = await lstat(full);
-        if (stat.isSymbolicLink()) continue;
-        if (stat.isDirectory()) {
-            const sub = await list_dir_recursive(full, depth + 1, max_depth);
-            results.push(...sub);
-        } else if (stat.isFile()) {
-            results.push(full);
+        try {
+            const stat = await lstat(full);
+            if (stat.isSymbolicLink()) {
+                // A11: 软链跳过，防御逃逸与循环引用
+                return [];
+            }
+            if (stat.isDirectory()) {
+                return await list_dir_recursive(full, allowed, depth + 1, max_depth, counter);
+            }
+            if (stat.isFile()) {
+                if (counter.count < MAX_LIST_FILES) {
+                    counter.count++;
+                    return [full];
+                }
+            }
+        } catch {
+            // 忽略文件读取瞬时异常
         }
+        return [];
+    });
+
+    const sub_results = await Promise.all(tasks);
+    for (const sub of sub_results) {
+        results.push(...sub);
     }
     return results;
 }
@@ -199,7 +236,8 @@ export interface BuildRequestContextOptions {
     timeout_ms?: number | undefined;
 }
 
-export async function build_request_context(
+// A109: 安全边界函数内部化，仅通过 __test__ 导出用于单测
+async function build_request_context(
     manifest: Manifest,
     endpoint_name: string,
     vault: VaultBackend,
@@ -224,7 +262,11 @@ export async function build_request_context(
     await apply_request_auth(manifest, vault, instance_id, url, headers);
     const all_headers = { ...headers, ...(options.extra_headers ?? {}) };
 
-    const effective_timeout = options.timeout_ms ?? options.default_timeout_ms;
+    // A61 / A131: <= 0 或非有限值回退至默认值，防止自杀
+    const raw_timeout = options.timeout_ms ?? options.default_timeout_ms;
+    const effective_timeout =
+        Number.isFinite(raw_timeout) && raw_timeout > 0 ? raw_timeout : options.default_timeout_ms;
+
     const abort_controller = new AbortController();
     const timeout_id = setTimeout(() => {
         // t371 AC-002: abort reason 带明确 timeout 字样——下游 is_timeout_error 分类
@@ -260,25 +302,28 @@ export function create_connector_context(
     type RawResponse = Awaited<ReturnType<typeof undici_request>>;
     type ResponseHeaders = Record<string, string | string[] | undefined>;
 
-    // do_request 与 get_raw 共享的请求执行体：请求前奏（URL 构造/安全校验/auth
-    // 注入/timeout 装配）已由 build_request_context 抽取；此处收敛「request_options
-    // 构造 + 请求执行 + timeout/abort 清理 + ≥400 错误分类」。成功路径差异由
-    // transform_response 表达；do_request 专属的 content-length 大包预检经
-    // pre_read_guard 在读取响应体前执行，不泄漏进 get_raw 路径。
-    async function perform_request<T>(params: {
+    // A103 / A134: 统一抽离 raw headers 归一化逻辑，保留多值头数组
+    function normalize_raw_headers(
+        response_headers: ResponseHeaders,
+    ): Record<string, string | string[]> {
+        const raw_headers: Record<string, string | string[]> = {};
+        for (const [key, value] of Object.entries(response_headers)) {
+            if (value !== undefined) {
+                raw_headers[key.toLowerCase()] = Array.isArray(value) ? [...value] : value;
+            }
+        }
+        return raw_headers;
+    }
+
+    // A96: perform_request 参数收敛为对象，log 标签由 kind/method 派生
+    interface PerformRequestOptions<T> {
+        kind: "json" | "raw";
         method: "GET" | "POST";
         endpoint_key: string;
         path: string;
         body?: unknown;
         opts?: HttpOpts | undefined;
         initial_headers?: Record<string, string> | undefined;
-        /** 请求行 debug 前缀（do_request 传 method，get_raw 传 "GET RAW"）。 */
-        log_prefix: string;
-        /** 收到响应后的 debug 前缀；get_raw 无此行则省略该参数。 */
-        response_log_prefix?: string;
-        /** ≥400 错误分类 debug 行中嵌入的标签（do_request 空串，get_raw " get_raw"）。 */
-        error_log_label: string;
-        /** 读取响应体前的前置守卫（do_request 的 content-length 大包预检）。 */
         pre_read_guard?: (response: RawResponse) => void;
         transform_response: (
             status: number,
@@ -287,7 +332,13 @@ export function create_connector_context(
             request_log: Logger,
             url: URL,
         ) => T;
-    }): Promise<T> {
+    }
+
+    async function perform_request<T>(params: PerformRequestOptions<T>): Promise<T> {
+        const is_raw = params.kind === "raw";
+        const log_prefix = is_raw ? `${params.method} RAW` : params.method;
+        const error_log_label = is_raw ? ` ${params.method.toLowerCase()}_raw` : "";
+
         const ctx = await build_request_context(manifest, params.endpoint_key, vault, instance_id, {
             path: params.path,
             endpoint_overrides: config.endpoint_overrides,
@@ -305,7 +356,7 @@ export function create_connector_context(
         } = ctx;
 
         const request_reset = params.opts?.reset ?? reset;
-        request_log.debug(`${params.log_prefix} ${url.origin}${url.pathname}`);
+        request_log.debug(`${log_prefix} ${url.origin}${url.pathname}`);
         const request_options = {
             method: params.method,
             headers: all_headers,
@@ -325,14 +376,12 @@ export function create_connector_context(
         };
         try {
             const response = await undici_request(url, request_options);
-            if (params.response_log_prefix !== undefined) {
-                request_log.debug(
-                    `${params.response_log_prefix} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
-                );
-            }
+            request_log.debug(
+                `${log_prefix} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
+            );
 
             if (response.statusCode >= 400) {
-                // t372 AC-002: 错误响应不读满 50MB。length 优先从 content-length 头取：
+                // t372 AC-002: 错误响应不读满 10MB。length 优先从 content-length 头取：
                 // 已声明超大 body 直接 destroy 不读（保留 HTTP 状态语义），未声明/小 body
                 // 才小上限读取，超限即破坏流（read_body_with_limit 内部处理）。
                 const content_length_header = response.headers["content-length"];
@@ -345,7 +394,7 @@ export function create_connector_context(
                 if (declared_bytes !== undefined && declared_bytes > MAX_ERROR_BODY_BYTES) {
                     response.body.destroy();
                     request_log.debug(
-                        `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(declared_bytes)} bytes)`,
+                        `HTTP ${String(response.statusCode)}${error_log_label} response (${String(declared_bytes)} bytes)`,
                     );
                     throw new Error(
                         `HTTP ${String(response.statusCode)}: request failed (${String(declared_bytes)} bytes)`,
@@ -353,11 +402,25 @@ export function create_connector_context(
                 }
                 const error_body = await read_body_with_limit(response.body, MAX_ERROR_BODY_BYTES);
                 const byte_count = declared_bytes ?? Buffer.byteLength(error_body);
+
+                // A29 / AC-003: 4xx 客户端异常保留前 500B 脱敏片段用于诊断；5xx 保持紧凑状态
+                let snippet_str = "";
+                if (response.statusCode >= 400 && response.statusCode < 500) {
+                    const raw_snippet = error_body
+                        .slice(0, 500)
+                        .replace(/[\r\n\t\s]+/g, " ")
+                        .trim();
+                    const scrubbed_snippet = scrubber.scrub_text(raw_snippet);
+                    if (scrubbed_snippet.length > 0) {
+                        snippet_str = ` [${scrubbed_snippet}]`;
+                    }
+                }
+
                 request_log.debug(
-                    `HTTP ${String(response.statusCode)}${params.error_log_label} response (${String(byte_count)} bytes)`,
+                    `HTTP ${String(response.statusCode)}${error_log_label} response (${String(byte_count)} bytes)${snippet_str}`,
                 );
                 throw new Error(
-                    `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)`,
+                    `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)${snippet_str}`,
                 );
             }
 
@@ -384,15 +447,13 @@ export function create_connector_context(
         opts?: HttpOpts,
     ): Promise<unknown> {
         return perform_request({
+            kind: "json",
             method,
             endpoint_key,
             path,
             body,
             opts,
             initial_headers: { "Content-Type": "application/json" },
-            log_prefix: method,
-            response_log_prefix: method,
-            error_log_label: "",
             pre_read_guard: (response) => {
                 const content_length_header = response.headers["content-length"];
                 const content_length = Array.isArray(content_length_header)
@@ -425,8 +486,9 @@ export function create_connector_context(
                     );
                 }
 
+                let data: unknown;
                 try {
-                    return JSON.parse(text) as unknown;
+                    data = JSON.parse(text) as unknown;
                 } catch (parse_error) {
                     // 不打响应体原文：错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
                     req_log.warn(`JSON parse failed for ${url.origin}${url.pathname}`, {
@@ -436,12 +498,31 @@ export function create_connector_context(
                     });
                     throw parse_error;
                 }
+
+                // A128 / AC-007: 外部网络输入边界 zod safeParse 防御
+                if (opts?.schema) {
+                    const parsed = opts.schema.safeParse(data);
+                    if (!parsed.success) {
+                        const detail = parsed.error.issues
+                            .slice(0, 3)
+                            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+                            .join("; ");
+                        req_log.warn(
+                            `Response schema validation failed for ${url.origin}${url.pathname}: ${detail}`,
+                        );
+                        throw new Error(`Response schema validation failed: ${detail}`);
+                    }
+                    return parsed.data;
+                }
+
+                return data;
             },
         });
     }
 
     return {
         ...(config.trace_id ? { trace_id: config.trace_id } : {}),
+        instance_id,
         log: {
             debug: (message: string, meta?: unknown) => {
                 connector_log.debug(`[${manifest.id}] ${message}`, meta);
@@ -465,24 +546,15 @@ export function create_connector_context(
             },
             async get_raw(endpoint_key: string, path: string, opts?: HttpOpts) {
                 return perform_request({
+                    kind: "raw",
                     method: "GET",
                     endpoint_key,
                     path,
                     opts,
-                    log_prefix: "GET RAW",
-                    error_log_label: " get_raw",
                     transform_response(status, text, response_headers) {
-                        const raw_headers: Record<string, string> = {};
-                        for (const [key, value] of Object.entries(response_headers)) {
-                            if (value !== undefined) {
-                                raw_headers[key.toLowerCase()] = Array.isArray(value)
-                                    ? (value[0] ?? "")
-                                    : value;
-                            }
-                        }
                         return {
                             status,
-                            headers: raw_headers,
+                            headers: normalize_raw_headers(response_headers),
                             body: text,
                         };
                     },
@@ -490,26 +562,17 @@ export function create_connector_context(
             },
             async post_raw(endpoint_key: string, path: string, body: unknown, opts?: HttpOpts) {
                 return perform_request({
+                    kind: "raw",
                     method: "POST",
                     endpoint_key,
                     path,
                     body,
                     opts,
                     initial_headers: { "Content-Type": "text/plain;charset=UTF-8" },
-                    log_prefix: "POST RAW",
-                    error_log_label: " post_raw",
                     transform_response(status, text, response_headers) {
-                        const raw_headers: Record<string, string> = {};
-                        for (const [key, value] of Object.entries(response_headers)) {
-                            if (value !== undefined) {
-                                raw_headers[key.toLowerCase()] = Array.isArray(value)
-                                    ? (value[0] ?? "")
-                                    : value;
-                            }
-                        }
                         return {
                             status,
-                            headers: raw_headers,
+                            headers: normalize_raw_headers(response_headers),
                             body: text,
                         };
                     },
@@ -517,23 +580,19 @@ export function create_connector_context(
             },
         },
         files: {
-            read(path_pattern: string) {
+            async read(path_pattern: string) {
                 const allowed = manifest.local?.paths ?? [];
                 const expanded = expand_home(path_pattern);
                 const resolved_path = resolve(expanded);
                 if (!is_within_allowed(resolved_path, allowed)) {
-                    return Promise.reject(new Error("Local file path is not allowed"));
+                    throw new Error("Local file path is not allowed");
                 }
-                return (async () => {
-                    const stat = await lstat(resolved_path);
-                    if (stat.isSymbolicLink()) {
-                        const real = await realpath(resolved_path);
-                        if (!is_within_allowed(real, allowed)) {
-                            throw new Error("symlink target outside allowed directories");
-                        }
-                    }
-                    return readFile(resolved_path, "utf8");
-                })();
+                // A11: 解析真实路径，彻底杜绝中间软链与 TOCTOU 逃逸
+                const real = await realpath(resolved_path);
+                if (!is_within_allowed(real, allowed)) {
+                    throw new Error("symlink target outside allowed directories");
+                }
+                return readFile(real, "utf8");
             },
             async list(dir_pattern: string) {
                 const allowed = manifest.local?.paths ?? [];
@@ -541,7 +600,12 @@ export function create_connector_context(
                 if (!is_within_allowed(resolved_dir, allowed)) {
                     throw new Error("Local directory is not allowed");
                 }
-                return list_dir_recursive(resolved_dir);
+                // A11: 顶层目录真实路径校验
+                const real_dir = await realpath(resolved_dir);
+                if (!is_within_allowed(real_dir, allowed)) {
+                    throw new Error("Local directory is not allowed");
+                }
+                return list_dir_recursive(real_dir, allowed);
             },
         },
         params: config.params ?? {},
@@ -550,9 +614,39 @@ export function create_connector_context(
             for_ratio: status_for_ratio,
             for_balance: status_for_balance,
         },
-        // 实际收集由 run_connector 注入的 wrapper 负责；此处仅为满足
-        // ConnectorContext 契约，脚本不会直接走到此 no-op（script 路径必经
-        // run_connector 包装）。
+        z,
+        // A99: 注入统一工具函数，消除跨连接器私有重复代码
+        util: {
+            to_number: (value: unknown, fallback = 0): number => {
+                const parsed = typeof value === "number" ? value : Number(value ?? fallback);
+                return Number.isFinite(parsed) ? parsed : fallback;
+            },
+            to_pct: (value: unknown): number => {
+                const raw = typeof value === "number" ? value : Number(value ?? 0);
+                const pct = raw <= 1 && raw > 0 ? raw * 100 : raw;
+                return Math.round(Math.max(0, Math.min(pct, 100)) * 10) / 10;
+            },
+            to_reset_at: (value: unknown): number | null => {
+                if (typeof value !== "string" || !value) return null;
+                const ts = Date.parse(value);
+                return Number.isFinite(ts) ? ts : null;
+            },
+            clamp: (value: number, min: number, max: number): number => {
+                return Math.max(min, Math.min(value, max));
+            },
+        },
         report_failed_account: () => undefined,
     };
 }
+
+// A109: 测试专用导出命名空间，收敛内部安全边界函数
+export const __test__ = {
+    build_request_context,
+    assert_safe_connector_host,
+    is_within_allowed,
+    list_dir_recursive,
+    read_body_with_limit,
+    MAX_RESPONSE_BYTES,
+    MAX_ERROR_BODY_BYTES,
+    MAX_LIST_FILES,
+};

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AddAccountParams } from "../AddAccountDialog";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -23,7 +23,22 @@ export function GrokBotPkceForm({
     const [manual_token, set_manual_token] = useState("");
     const [manual_refresh, set_manual_refresh] = useState("");
 
+    const status_ref = useRef(status);
+    status_ref.current = status;
+
+    // A52: 组件卸载时自动通知主进程取消正在进行的轮询，避免后台孤儿任务残留
+    useEffect(() => {
+        return () => {
+            void window.usageboard.grok_bot.login_cancel(instance_id).catch(() => undefined);
+        };
+    }, [instance_id]);
+
     const handle_browser_login = useCallback(async () => {
+        // A52: 重入守卫
+        if (status_ref.current === "authorizing" || status_ref.current === "saving") {
+            return;
+        }
+
         set_status("authorizing");
         set_error_msg(null);
 
@@ -31,7 +46,8 @@ export function GrokBotPkceForm({
 
         try {
             const start = await api.login_start();
-            const poll_res = await api.login_poll(instance_id, start.uuid, start.verifier);
+            // A12: 仅传 login_id，不在前端和 IPC 链路流转 verifier 明文
+            const poll_res = await api.login_poll(instance_id, start.uuid, start.login_id);
 
             if (!poll_res.saved || !poll_res.token) {
                 set_status("error");
@@ -47,9 +63,12 @@ export function GrokBotPkceForm({
                 secrets["REFRESH_TOKEN"] = poll_res.refresh_token;
             }
 
+            // A53: 账号名 trim 规范化，防空白字符串穿透
+            const safe_name = account_name.trim() || "Grok Bot";
+
             await on_save({
                 vendor_id: "grok_bot",
-                account_name: account_name || "Grok Bot",
+                account_name: safe_name,
                 auth_method: "oauth_pkce",
                 parameter_values: {},
                 secrets,
@@ -63,11 +82,11 @@ export function GrokBotPkceForm({
     const handle_cancel = useCallback(async () => {
         try {
             await window.usageboard.grok_bot.login_cancel(instance_id);
-        } catch {
-            // ignore
+            set_status("idle");
+            set_error_msg(null);
+        } catch (err) {
+            set_error_msg(`取消操作失败: ${err instanceof Error ? err.message : String(err)}`);
         }
-        set_status("idle");
-        set_error_msg(null);
     }, [instance_id]);
 
     const handle_manual_save = useCallback(async () => {
@@ -88,9 +107,11 @@ export function GrokBotPkceForm({
                 secrets["REFRESH_TOKEN"] = manual_refresh.trim();
             }
 
+            const safe_name = account_name.trim() || "Grok Bot";
+
             await on_save({
                 vendor_id: "grok_bot",
-                account_name: account_name || "Grok Bot",
+                account_name: safe_name,
                 auth_method: "oauth_pkce",
                 parameter_values: {},
                 secrets,

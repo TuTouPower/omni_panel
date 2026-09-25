@@ -18,7 +18,7 @@ export function build_secret_param_keys(
                 .map((parameter) => parameter.name) ?? [],
         );
         const auth = definition?.manifest.auth;
-        if (auth?.method === "oauth_device") {
+        if (auth?.method === "oauth_device" || auth?.method === "oauth_pkce") {
             keys.add(auth.secret_name);
             keys.add(OAUTH_REFRESH_TOKEN_KEY);
             keys.add(OAUTH_EXPIRES_AT_KEY);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { create_web_usageboard } from "../../../src/web/usageboard-web";
+import { create_web_usageboard, build_query_string } from "../../../src/web/usageboard-web";
 
 /** 桥测试用假 EventSource：捕获连接与监听器，供订阅/推送/注销断言。 */
 class FakeEventSource {
@@ -803,6 +803,99 @@ describe("web usageboard bridge", () => {
         expect(url).toContain("sourceInstanceId=inst-a");
     });
 
+    it("trend.getBulk uses /v1/trend/bulk when available (A116 / AC-006)", async () => {
+        const fetch_mock = vi.fn<typeof fetch>().mockResolvedValue(
+            mock_response({
+                results: [{ metric_id: "claude:acc-a:5h", series: [] }],
+            }),
+        );
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const res = await api.trend.getBulk({
+            provider: "claude",
+            account_id: "acc-a",
+            source_instance_id: "inst-a",
+            periods: [{ metric_id: "claude:acc-a:5h" }],
+        });
+        expect(fetch_mock).toHaveBeenCalledWith(expect.stringContaining("/v1/trend/bulk"));
+        expect(res.series).toHaveLength(1);
+    });
+
+    it("AC-004: HTTP requests enforce 15s timeout", async () => {
+        vi.useFakeTimers();
+        try {
+            const fetch_mock = vi.fn<typeof fetch>().mockImplementation(
+                () =>
+                    new Promise(() => {
+                        /* never resolve */
+                    }),
+            );
+            vi.stubGlobal("fetch", fetch_mock);
+
+            const api = create_web_usageboard();
+            const promise = api.tokenStats.getRecords({});
+
+            vi.advanceTimersByTime(15_000);
+
+            await expect(promise).rejects.toThrow("Network request timed out after 15000ms");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("AC-005: stops polling token stats when page is hidden and resumes when visible", () => {
+        vi.useFakeTimers();
+        try {
+            const api = create_web_usageboard();
+            const cb = vi.fn();
+            api.tokenStats.onUpdated(cb);
+
+            // Initially visible, 10s poll runs
+            vi.advanceTimersByTime(10_000);
+            expect(cb).toHaveBeenCalledTimes(1);
+
+            // Hide document
+            Object.defineProperty(document, "hidden", { configurable: true, value: true });
+            document.dispatchEvent(new Event("visibilitychange"));
+
+            // Polling in background should be paused
+            vi.advanceTimersByTime(30_000);
+            expect(cb).toHaveBeenCalledTimes(1);
+
+            // Show document again
+            Object.defineProperty(document, "hidden", { configurable: true, value: false });
+            document.dispatchEvent(new Event("visibilitychange"));
+
+            // Immediately triggered on visible
+            expect(cb).toHaveBeenCalledTimes(2);
+
+            // Polling resumes
+            vi.advanceTimersByTime(10_000);
+            expect(cb).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("A64: grok_bot logout posts to backend logout endpoint", async () => {
+        const fetch_mock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(mock_response({ logged_out: true }));
+        vi.stubGlobal("fetch", fetch_mock);
+
+        const api = create_web_usageboard();
+        const res = await api.grok_bot.logout("inst-grok");
+        expect(res).toEqual({ logged_out: true });
+        expect(fetch_mock).toHaveBeenCalledWith(
+            "/v1/auth/grok_bot/logout",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ instance_id: "inst-grok" }),
+            }),
+        );
+    });
+
     it("sessionHistory.open switches to the session hash route (t259 AC2)", async () => {
         const api = create_web_usageboard();
         await api.sessionHistory.open("claude_code", "win", "sess-1");
@@ -1476,5 +1569,18 @@ describe("web usageboard bridge", () => {
             const api = create_web_usageboard();
             expect(api.platform).toBe(expected);
         }
+    });
+
+    it("A97: build_query_string converts typed object to query string omitting null/undefined", () => {
+        expect(build_query_string({})).toBe("");
+        expect(
+            build_query_string({
+                provider: "claude",
+                days: 7,
+                active: true,
+                ignored: undefined,
+                empty: null,
+            }),
+        ).toBe("?provider=claude&days=7&active=true");
     });
 });

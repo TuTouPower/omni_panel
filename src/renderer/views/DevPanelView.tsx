@@ -89,15 +89,44 @@ export function DevPanelView() {
         }
     }, []);
 
+    // A71 / AC-004: 自适应状态轮询并在窗口隐藏时暂停，节省主进程唤醒
     useEffect(() => {
         void refresh_status();
-        const timer = window.setInterval(() => {
-            void refresh_status();
-        }, 1000);
-        return () => {
-            window.clearInterval(timer);
+
+        let is_visible = typeof document !== "undefined" ? !document.hidden : true;
+        let timer: number | undefined;
+
+        const schedule_poll = () => {
+            if (timer) window.clearInterval(timer);
+            if (!is_visible) return;
+            const interval = state.status === "running" ? 1000 : 10_000;
+            timer = window.setInterval(() => {
+                if (is_visible) {
+                    void refresh_status();
+                }
+            }, interval);
         };
-    }, [refresh_status]);
+
+        const handle_visibility = () => {
+            is_visible = !document.hidden;
+            if (is_visible) {
+                void refresh_status();
+            }
+            schedule_poll();
+        };
+
+        schedule_poll();
+        if (typeof document !== "undefined") {
+            document.addEventListener("visibilitychange", handle_visibility);
+        }
+
+        return () => {
+            if (timer) window.clearInterval(timer);
+            if (typeof document !== "undefined") {
+                document.removeEventListener("visibilitychange", handle_visibility);
+            }
+        };
+    }, [refresh_status, state.status]);
 
     const configuration = useMemo<DevPanelConfiguration>(
         () => ({

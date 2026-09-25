@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ConnectorConfiguration } from "../../../shared/types/config";
+import type { AppConfiguration, ConnectorConfiguration } from "../../../shared/types/config";
 import type { ConnectorDefinition } from "../connector/manifest-loader";
 
 // Sentinel: refreshIntervalSeconds <= 0 means "follow global refresh interval".
@@ -11,6 +11,7 @@ export const DEFAULT_FALLBACK_REFRESH_SECONDS = 300;
 interface AutoSeedResult {
     seeded: ConnectorConfiguration[];
     updatedExisting: ConnectorConfiguration[];
+    cleanedInstanceIds?: string[];
     changed: boolean;
 }
 
@@ -26,11 +27,38 @@ export function auto_seed_connectors(
     definitions: readonly ConnectorDefinition[],
     removed_ids?: ReadonlySet<string>,
 ): AutoSeedResult {
-    const existing_by_id = new Map<string, ConnectorConfiguration[]>();
+    const definitions_by_id = new Map(definitions.map((def) => [def.manifest.id, def]));
+    const cleanedInstanceIds: string[] = [];
+    const valid_existing: ConnectorConfiguration[] = [];
+
+    // t510 / A79: 清理存量未配置的交互式登录空实例（早期误自动生成的空壳）
     for (const connector of existing) {
-        // manifestId is the only identity key. Paths and display names are
-        // platform-local/user-editable and must never resurrect or merge an
-        // instance after a move.
+        const def = definitions_by_id.get(connector.manifestId);
+        if (!def) {
+            valid_existing.push(connector);
+            continue;
+        }
+        const auth_method = def.manifest.auth?.method;
+        const is_interactive =
+            auth_method === "oauth_pkce" ||
+            auth_method === "oauth_device" ||
+            auth_method === "web_login" ||
+            auth_method === "cpa_mgmt";
+        const is_default_empty =
+            is_interactive &&
+            connector.name === def.manifest.id.toUpperCase() &&
+            Object.values(connector.parameterValues).every((v) => v === "") &&
+            Object.keys(connector.endpointOverrides).length === 0;
+
+        if (is_default_empty) {
+            cleanedInstanceIds.push(connector.instanceId);
+            continue;
+        }
+        valid_existing.push(connector);
+    }
+
+    const existing_by_id = new Map<string, ConnectorConfiguration[]>();
+    for (const connector of valid_existing) {
         const matches = existing_by_id.get(connector.manifestId) ?? [];
         matches.push(connector);
         existing_by_id.set(connector.manifestId, matches);
@@ -38,15 +66,19 @@ export function auto_seed_connectors(
 
     const seeded: ConnectorConfiguration[] = [];
     const updatedExisting: ConnectorConfiguration[] = [];
-    let changed = false;
+    let changed = cleanedInstanceIds.length > 0;
     for (const def of definitions) {
-        // t038：tombstone 内的 manifest id 不复活。删除内置连接器后记 id 到
-        // config.removedConnectorIds，重启 auto-seed 跳过，避免账号"复活"。
         if (removed_ids?.has(def.manifest.id)) continue;
         const existing_matches = existing_by_id.get(def.manifest.id);
         if (existing_matches && existing_matches.length > 0) {
             for (const existing_match of existing_matches) {
-                if (existing_match.executablePath === def.executablePath) continue;
+                // A63: Win / macOS 下可执行路径比较忽略大小写差异
+                const is_same_path =
+                    process.platform === "win32" || process.platform === "darwin"
+                        ? existing_match.executablePath.toLowerCase() ===
+                          def.executablePath.toLowerCase()
+                        : existing_match.executablePath === def.executablePath;
+                if (is_same_path) continue;
                 updatedExisting.push({
                     ...existing_match,
                     manifestId: def.manifest.id,
@@ -61,7 +93,8 @@ export function auto_seed_connectors(
         if (
             auth_method === "oauth_pkce" ||
             auth_method === "oauth_device" ||
-            auth_method === "web_login"
+            auth_method === "web_login" ||
+            auth_method === "cpa_mgmt"
         ) {
             continue;
         }
@@ -84,7 +117,7 @@ export function auto_seed_connectors(
         });
     }
 
-    return { seeded, updatedExisting, changed };
+    return { seeded, updatedExisting, cleanedInstanceIds, changed };
 }
 
 /**
@@ -105,4 +138,40 @@ export function resolve_refresh_interval(
         return global_refresh_interval_seconds;
     }
     return DEFAULT_FALLBACK_REFRESH_SECONDS;
+}
+
+/**
+ * 执行 auto_seed 与存量空实例清理迁移，并在发生数据结构变动时安全递增 schemaVersion。
+ */
+export function apply_auto_seed_and_migrate(
+    latest_config: AppConfiguration,
+    definitions: readonly ConnectorDefinition[],
+): {
+    updatedConfig: AppConfiguration;
+    seededPlugins: ConnectorConfiguration[];
+    changed: boolean;
+} {
+    const { seeded, updatedExisting, cleanedInstanceIds } = auto_seed_connectors(
+        latest_config.plugins,
+        definitions,
+        new Set(latest_config.removedConnectorIds ?? []),
+    );
+    const has_cleaned = Boolean(cleanedInstanceIds && cleanedInstanceIds.length > 0);
+    if (seeded.length === 0 && updatedExisting.length === 0 && !has_cleaned) {
+        return { updatedConfig: latest_config, seededPlugins: [], changed: false };
+    }
+    const cleaned_set = new Set(cleanedInstanceIds ?? []);
+    const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
+    const filtered = latest_config.plugins.filter((p) => !cleaned_set.has(p.instanceId));
+    const merged = filtered.map((p) => updatedById.get(p.instanceId) ?? p);
+    const next_schema_version = Math.max(latest_config.schemaVersion, 2);
+    return {
+        updatedConfig: {
+            ...latest_config,
+            schemaVersion: next_schema_version,
+            plugins: [...merged, ...seeded],
+        },
+        seededPlugins: seeded,
+        changed: true,
+    };
 }

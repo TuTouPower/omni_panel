@@ -1,6 +1,8 @@
 import vm from "node:vm";
+import { randomUUID } from "node:crypto";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
-import { createLogger, withLogContext } from "../../../shared/lib/logger";
+import { z } from "zod/v3";
+import { createLogger, withLogContext, scrubber } from "../../../shared/lib/logger";
 import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import { script_observation_schema } from "../../../shared/schemas/observation";
@@ -10,6 +12,49 @@ import type { ConnectorContext } from "./host-io";
 const log = createLogger("connector-runtime");
 const TIMEOUT_ERROR = "Connector script execution timeout";
 
+// A40 / A42: 不可重试错误基类与判断函数
+export class NonRetryableError extends Error {
+    readonly non_retryable = true;
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, options);
+        this.name = "NonRetryableError";
+    }
+}
+
+export function is_non_retryable_error(error: unknown): boolean {
+    if (!error) return false;
+    if (typeof error === "object" && "non_retryable" in error && Boolean(error.non_retryable)) {
+        return true;
+    }
+    if (error instanceof SyntaxError || (error instanceof Error && error.name === "SyntaxError")) {
+        return true;
+    }
+    const msg =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : typeof error === "object" && "message" in error && typeof error.message === "string"
+                ? error.message
+                : "";
+    if (
+        /SyntaxError/i.test(msg) ||
+        /Connector script rejected/i.test(msg) ||
+        /Connector scripts cannot use import or export statements/i.test(msg)
+    ) {
+        return true;
+    }
+    const http_status_match = /HTTP\s+(\d{3})/i.exec(msg);
+    if (http_status_match?.[1]) {
+        const status = Number.parseInt(http_status_match[1], 10);
+        // 4xx 中排除 408 Request Timeout 与 429 Too Many Requests
+        if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            return true;
+        }
+    }
+    return false;
+}
+
 export interface ConnectorRunResult {
     readonly observations: ScriptObservation[];
     readonly failed_accounts: FailedAccount[];
@@ -18,12 +63,16 @@ export interface ConnectorRunResult {
 
 export function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
     if (value !== null && typeof value === "object") {
-        if (seen.has(value)) return value;
+        if (seen.has(value) || value === (z as unknown)) return value;
         seen.add(value);
         for (const child of Object.values(value as Record<string, unknown>)) {
             deep_freeze(child, seen);
         }
-        Object.freeze(value);
+        try {
+            Object.freeze(value);
+        } catch {
+            // 忽略包含不可配置 getter 的第三方对象冻结异常
+        }
     }
     return value;
 }
@@ -31,7 +80,15 @@ export function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
 function create_sandbox_context(ctx: ConnectorContext): vm.Context {
     return vm.createContext(
         Object.freeze({
-            ctx: deep_freeze(ctx),
+            ctx: deep_freeze({
+                ...ctx,
+                z,
+            }),
+            z,
+            // A75: 注入安全的 crypto.randomUUID 供连接器调用
+            crypto: Object.freeze({
+                randomUUID: () => randomUUID(),
+            }),
         }),
     );
 }
@@ -129,6 +186,49 @@ function race_with_timeout<T>(promise: Promise<T>, timeout_ms: number): Promise<
     });
 }
 
+// A122: 高性能 observation 快速结构前置校验，减轻大规模 safeParse 压力
+function is_fast_valid_observation(item: unknown): item is ScriptObservation {
+    if (typeof item !== "object" || item === null) return false;
+    const o = item as Record<string, unknown>;
+    return (
+        typeof o["provider"] === "string" &&
+        o["provider"].length > 0 &&
+        typeof o["account_id"] === "string" &&
+        o["account_id"].length > 0 &&
+        typeof o["account_label"] === "string" &&
+        typeof o["metric_id"] === "string" &&
+        o["metric_id"].length > 0 &&
+        typeof o["raw_label"] === "string" &&
+        o["raw_label"].length > 0 &&
+        typeof o["normalized_label"] === "string" &&
+        o["normalized_label"].length > 0 &&
+        (o["window"] === "second" ||
+            o["window"] === "day" ||
+            o["window"] === "week" ||
+            o["window"] === "month" ||
+            o["window"] === "total") &&
+        (o["used"] === null || (typeof o["used"] === "number" && Number.isFinite(o["used"]))) &&
+        (o["limit"] === null || (typeof o["limit"] === "number" && Number.isFinite(o["limit"]))) &&
+        (o["display_style"] === "percent" || o["display_style"] === "ratio") &&
+        (o["reset_at"] === null ||
+            (typeof o["reset_at"] === "number" && Number.isFinite(o["reset_at"]))) &&
+        (o["status"] === "normal" ||
+            o["status"] === "warning" ||
+            o["status"] === "critical" ||
+            o["status"] === "unknown") &&
+        typeof o["observed_at"] === "number" &&
+        Number.isFinite(o["observed_at"]) &&
+        (o["source"] === "poll" ||
+            o["source"] === "local" ||
+            o["source"] === "session" ||
+            o["source"] === "wrapper" ||
+            o["source"] === "probe" ||
+            o["source"] === "gateway") &&
+        typeof o["stale"] === "boolean" &&
+        (o["last_error"] === null || typeof o["last_error"] === "string")
+    );
+}
+
 export async function run_connector(
     manifest: Manifest,
     script_code: string,
@@ -140,11 +240,9 @@ export async function run_connector(
         return { observations: [], failed_accounts: [], error: "No script defined in manifest" };
     }
 
-    // t371 AC-001: 超时冷却——vm timeout 只断同步执行，超时结算后 VM 内异步残留
-    // promise 可能继续打上游（生命周期不可知）。冷却期内（2x timeout）拒绝同
-    // manifest 新执行，避免残留与重试叠加；正常完成的执行不设冷却，同 manifest
-    // 多实例并发不受影响（in-flight 互斥会误伤 refreshAll 的多账号并发）。
-    const until = script_cooldown_until.get(manifest.id);
+    // A93 / AC-004: 冷却 key 结合 source_instance_id，隔离同一连接器的多账号实例
+    const cooldown_key = ctx.instance_id ? `${manifest.id}:${ctx.instance_id}` : manifest.id;
+    const until = script_cooldown_until.get(cooldown_key);
     if (until !== undefined) {
         if (Date.now() < until) {
             return {
@@ -153,21 +251,21 @@ export async function run_connector(
                 error: `Connector ${manifest.id} is cooling down after a previous timeout (residual script work may still be running)`,
             };
         }
-        script_cooldown_until.delete(manifest.id);
+        script_cooldown_until.delete(cooldown_key);
     }
 
     const result = await run_connector_inner(manifest, script_code, ctx, timeout_ms, compiled_code);
     if (result.error !== null && is_timeout_error(result.error)) {
         const cooldown = timeout_ms * 2;
-        script_cooldown_until.set(manifest.id, Date.now() + cooldown);
+        script_cooldown_until.set(cooldown_key, Date.now() + cooldown);
         log.warn(
-            `Connector ${manifest.id} timed out; cooling down for ${String(cooldown)}ms before next execution`,
+            `Connector ${manifest.id} (instance ${ctx.instance_id ?? "default"}) timed out; cooling down for ${String(cooldown)}ms before next execution`,
         );
     }
     return result;
 }
 
-// t371 AC-001: manifest.id → 冷却截止时间戳（模块级，跨刷新共享）。
+// A93: cooldown_key → 冷却截止时间戳（模块级，跨刷新共享）。
 const script_cooldown_until = new Map<string, number>();
 
 async function run_connector_inner(
@@ -217,6 +315,11 @@ async function run_connector_inner(
 
         const observations: ScriptObservation[] = [];
         for (const item of result) {
+            // A122: fast-path 优先校验，命中直接跳过 full zod parse
+            if (is_fast_valid_observation(item)) {
+                observations.push(item);
+                continue;
+            }
             const parsed = script_observation_schema.safeParse(item);
             if (!parsed.success) {
                 // t371 AC-003: 校验失败不再静默丢条——report_failed_account 计入
@@ -248,8 +351,11 @@ async function run_connector_inner(
         return { observations, failed_accounts, error: null };
     } catch (error) {
         const message = get_error_message(error);
+        const raw_stack = error instanceof Error ? error.stack : undefined;
+        // A39: 附带脱敏后 stack 记录排障信息
+        const scrubbed_stack = raw_stack ? scrubber.scrub_text(raw_stack) : undefined;
         const normalized = is_timeout_error(message) ? `${TIMEOUT_ERROR}: ${message}` : message;
-        runtime_log.error(`Connector execution failed: ${normalized}`);
+        runtime_log.error(`Connector execution failed: ${normalized}`, { stack: scrubbed_stack });
         return { observations: [], failed_accounts, error: normalized };
     }
 }

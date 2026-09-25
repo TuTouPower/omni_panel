@@ -18,7 +18,7 @@ import { CLI_HELP_TEXT } from "./cli/help-text";
 import { open_connectors_dir } from "./core/open-connectors-dir";
 import { createConfigStore, run_config_transaction } from "./core/config/config-store";
 import { build_secret_param_keys } from "./core/config/secret_param_keys";
-import { auto_seed_connectors } from "./core/config/auto-seed";
+import { apply_auto_seed_and_migrate } from "./core/config/auto-seed";
 import {
     getConfigPath,
     getDataRoot,
@@ -26,7 +26,6 @@ import {
     getUserConnectorsDir,
     get_tray_icon_path,
     get_app_icon_path,
-    is_test_build,
     get_observations_db_path,
     get_token_stats_db_path,
     get_snapshot_cache_path,
@@ -37,6 +36,7 @@ import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
 import { create_file_vault_backend } from "./core/vault/file-vault-backend";
 import { create_session_manager, is_valid_opencode_login } from "./core/session/session-manager";
+import { is_safe_cookie_string } from "../shared/lib/cookie";
 import { create_observation_store } from "./core/observation/observation-store";
 import {
     create_retention_scheduler,
@@ -93,7 +93,11 @@ import { create_grok_oauth_manager } from "./core/auth/grok_oauth_manager";
 import { create_kimi_oauth_manager } from "./core/auth/kimi_oauth_manager";
 import { create_grok_bot_oauth_manager } from "./core/auth/grok_bot_oauth_manager";
 import { registerGrokBotAuthIpc } from "./ipc/grok_bot_auth_ipc";
-import { resolve_effective_proxy_url, proxy_config_changed } from "./core/network/effective_proxy";
+import {
+    resolve_effective_proxy_url,
+    proxy_config_changed,
+    parse_pac_proxy_result,
+} from "./core/network/effective_proxy";
 import { close_all_proxy_agents } from "./core/network/proxy-pool";
 import { registerLogIpc } from "./ipc/log-ipc";
 import { registerBuildInfoIpc } from "./ipc/build-info-ipc";
@@ -111,90 +115,17 @@ import type { MainPanelController } from "./core/main-panel/main-panel-types";
 import { clear_dock_badge } from "./core/dock-badge";
 import { apply_dock_visibility } from "./core/dock-visibility";
 import { cleanup_temp_files } from "./core/storage/write-json";
-import { extract_user_argv, resolve_entry, type CliArgs } from "./cli/args";
-import { run_background_serve_parent } from "./cli/background_serve";
 import { import_config_file } from "./cli/import-config";
 import { write_cli_json } from "./cli/cli-json";
 import { is_e2e_headless } from "./e2e-headless";
 
-const process_log = createLogger("process");
+import { bootstrap_cli_and_locks } from "./bootstrap/cli_init";
+import { active_instance_ids_for_provider } from "./bootstrap/active_instances";
 
-// Suppress EPIPE when stdout pipe is closed (e.g. launched from script with broken pipe)
-process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EPIPE") return;
-    process_log.error("Uncaught exception", err);
-});
-
-process.on("unhandledRejection", (reason: unknown) => {
-    process_log.error(
-        "Unhandled promise rejection",
-        reason instanceof Error ? reason : String(reason),
-    );
-});
-
-// 单一入口：用户 argv → help / gui / cli（含 serve 默认后台）。
-const entry = resolve_entry(extract_user_argv(process.argv), {
-    stdout_is_tty: process.stdout.isTTY,
-});
-if (entry.kind === "help") {
-    process.stdout.write(CLI_HELP_TEXT);
-    process.exit(0);
-}
-if (entry.kind === "invalid") {
-    process.stderr.write(`OmniPanel: ${entry.message}\n`);
-    process.stdout.write(CLI_HELP_TEXT);
-    process.exit(1);
-}
-if (entry.kind === "cli" && entry.background_serve && entry.command.type === "serve") {
-    run_background_serve_parent(entry.command.options);
-}
-const cli_args: CliArgs =
-    entry.kind === "cli" ? { cli: true, command: entry.command } : { cli: false };
-const cliMode = cli_args.cli;
-
-// Prevent white screen on systems where GPU process crashes
-app.disableHardwareAcceleration();
-
-// 测试构建：setName 让单实例锁与 userData 独立于正常实例。
-// app.name 决定 requestSingleInstanceLock 的锁标识与 %APPDATA%/<name> 目录。
-if (is_test_build()) {
-    app.setName("OmniPanelTest");
-}
-
-// t322: serve 支持 `--user-data-dir <path>` 覆盖 userData 目录。
-// app.setPath 需在 getDataRoot()（whenReady 内）之前调用，否则 dataRoot、
-// 单实例锁与 cli.json 均落在默认目录。
-if (cliMode && cli_args.command?.type === "serve" && cli_args.command.options.userDataDir) {
-    app.setPath("userData", cli_args.command.options.userDataDir);
-}
-
-// Single-instance lock — prevent duplicate app instances.
-// t276: CLI 控制子命令是瘦客户端，需访问运行中实例，不能持有锁（否则自锁
-// 无法连上自身）；跳过锁直接执行 HTTP 请求。
-const is_thin_client =
-    cliMode && cli_args.command !== undefined && cli_args.command.type !== "serve";
-if (!is_thin_client) {
-    const gotTheLock = app.requestSingleInstanceLock();
-    if (!gotTheLock) {
-        app.quit();
-    }
-}
+const { cliMode, cli_args, has_single_instance_lock } = bootstrap_cli_and_locks();
 
 function getPreloadPath(): string {
     return join(__dirname, "../preload/index.js");
-}
-
-/** t360: 取某 provider 的所有启用实例 id（enabled && manifestId 匹配该 def）。 */
-function active_instance_ids_for_provider(
-    allDefinitions: ConnectorDefinition[],
-    plugins: AppConfiguration["plugins"],
-    provider: string,
-): string[] {
-    const def = allDefinitions.find((d) => d.manifest.provider === provider);
-    if (!def) return [];
-    return plugins
-        .filter((plugin) => plugin.enabled && plugin.manifestId === def.manifest.id)
-        .map((plugin) => plugin.instanceId);
 }
 
 const windowManager = createWindowManager({
@@ -212,6 +143,10 @@ let local_api: LocalAPIServer | null = null;
 
 void app.whenReady().then(async () => {
     try {
+        // A3: 单实例锁竞争失败后立即中止，不进入后续初始化
+        if (!has_single_instance_lock) {
+            return;
+        }
         // help 已在进程入口处理；此处兜底。
         if (cliMode && cli_args.command?.type === "help") {
             process.stdout.write(CLI_HELP_TEXT);
@@ -259,25 +194,24 @@ void app.whenReady().then(async () => {
             new Set(allDefinitions.map((definition) => definition.manifest.id)),
         );
         const seed_result = await run_config_transaction(configStore, async (latest, commit) => {
-            const { seeded: seededPlugins, updatedExisting } = auto_seed_connectors(
-                latest.plugins,
+            const { updatedConfig, seededPlugins, changed } = apply_auto_seed_and_migrate(
+                latest,
                 allDefinitions,
-                new Set(latest.removedConnectorIds ?? []),
             );
-            if (seededPlugins.length === 0 && updatedExisting.length === 0) {
-                return { config: latest, seededPlugins };
+            if (!changed) {
+                return { config: latest, seededPlugins: [] };
             }
-            const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
-            const mergedPlugins = latest.plugins.map((p) => updatedById.get(p.instanceId) ?? p);
-            const updated = { ...latest, plugins: [...mergedPlugins, ...seededPlugins] };
-            await commit(updated);
-            return { config: updated, seededPlugins };
+            await commit(updatedConfig);
+            return { config: updatedConfig, seededPlugins };
         });
         const { config: seededConfig, seededPlugins } = seed_result;
         currentConfig = seededConfig;
 
         const cleanupLogging = await initLogging(dataRoot, {
             logLevel: currentConfig.logLevel ?? defaultLogLevelForEnv(),
+            maxAgeDays: currentConfig.logging?.maxAgeDays,
+            maxLogFileBytes: currentConfig.logging?.maxLogFileBytes,
+            maxSegments: currentConfig.logging?.maxSegments,
             // t277+: CLI 模式 stdout 保持干净——只留 t275 AC2 的
             // "OmniPanel CLI mode listening on ..." 一行，日志全落文件。
             consoleOutput: !cliMode,
@@ -340,9 +274,8 @@ void app.whenReady().then(async () => {
         const detect_system_proxy = async (): Promise<string | undefined> => {
             try {
                 const proxyInfo = await session.defaultSession.resolveProxy("https://auth.x.ai");
-                const match = /PROXY\s+([^\s;]+)/.exec(proxyInfo);
-                if (match?.[1]) {
-                    const proxy = `http://${match[1]}`;
+                const proxy = parse_pac_proxy_result(proxyInfo);
+                if (proxy) {
                     log.info(`Detected system proxy: ${proxy}`);
                     return proxy;
                 }
@@ -377,6 +310,7 @@ void app.whenReady().then(async () => {
                 resolve_effective_proxy_url(
                     currentConfigSnapshot.proxy?.url,
                     detected_system_proxy,
+                    currentConfigSnapshot.proxy?.useSystemProxy !== false,
                 ),
         });
 
@@ -387,6 +321,7 @@ void app.whenReady().then(async () => {
                 resolve_effective_proxy_url(
                     currentConfigSnapshot.proxy?.url,
                     detected_system_proxy,
+                    currentConfigSnapshot.proxy?.useSystemProxy !== false,
                 ),
         });
 
@@ -397,8 +332,19 @@ void app.whenReady().then(async () => {
                 resolve_effective_proxy_url(
                     currentConfigSnapshot.proxy?.url,
                     detected_system_proxy,
+                    currentConfigSnapshot.proxy?.useSystemProxy !== false,
                 ),
+            on_token_expired: (instanceId, reason) => {
+                log.warn(`Grok Bot token expired for instance ${instanceId}: ${reason}`);
+            },
         });
+
+        // A149: 启动时自动为已有启用的 grok_bot 实例调度后台定时换票
+        for (const p of currentConfig.plugins) {
+            if (p.enabled && p.manifestId === "grok_bot") {
+                grokBotOAuthManager.schedule_refresh?.(p.instanceId);
+            }
+        }
 
         const refreshService = createRefreshService({
             definitions: allDefinitions,
@@ -407,7 +353,11 @@ void app.whenReady().then(async () => {
             configStore,
             vault,
             resolve_proxy_url: (config) =>
-                resolve_effective_proxy_url(config.proxy?.url, detected_system_proxy),
+                resolve_effective_proxy_url(
+                    config.proxy?.url,
+                    detected_system_proxy,
+                    config.proxy?.useSystemProxy !== false,
+                ),
             sessionLogin: async (instanceId: string) => {
                 // Try silent refresh first (no window popup).
                 // trySilentCookieRefresh 内部从 definitions + config 查 provider 与 cookieNames。
@@ -423,6 +373,7 @@ void app.whenReady().then(async () => {
                             resolve_effective_proxy_url(
                                 currentConfigSnapshot.proxy?.url,
                                 detected_system_proxy,
+                                currentConfigSnapshot.proxy?.useSystemProxy !== false,
                             ),
                     },
                     instanceId,
@@ -720,6 +671,12 @@ void app.whenReady().then(async () => {
                 Boolean(process.env["DISPLAY"] ?? process.env["WAYLAND_DISPLAY"]),
             // t337/t506: 捕获 cookie 后有效性探测——优先探测 /console/api/orgs，回退探测 login_url。
             verify_cookie: async (cookie: string, login_url: string) => {
+                if (!is_safe_cookie_string(cookie)) {
+                    log.warn(
+                        "verify_cookie: cookie failed safety check (invalid format, length > 8KB or CRLF detected)",
+                    );
+                    return false;
+                }
                 try {
                     const controller = new AbortController();
                     const timer = setTimeout(() => {

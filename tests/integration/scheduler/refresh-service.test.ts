@@ -138,11 +138,14 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         },
         insert_batch(obs: Observation[]) {
             inserted.push(...obs);
+            return { ok: obs.length, failed: 0 };
         },
         get_latest: vi.fn(() => null as Observation | null),
         list_latest_by_provider: vi.fn(() => [] as Observation[]),
         list_all_providers: vi.fn(() => [] as string[]),
-        list_by_source_instance_id: vi.fn(() => [] as Observation[]),
+        list_by_source_instance_id: vi.fn((id: string) =>
+            inserted.filter((o) => o.source_instance_id === id),
+        ),
         query_trend_series: vi.fn(() => [] as Observation[]),
         prune: vi.fn(() => 0),
         count_observations: vi.fn(() => 0),
@@ -370,7 +373,23 @@ describe("refresh-service", () => {
             // 非 force 两轮并发：锁短路只执行一轮。
             await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-1")]);
 
-            expect(observationStore.inserted.length).toBeLessThanOrEqual(1);
+            // A92 / AC-001: 同实例精确断言等于 1，杜绝 <= 1 弱断言
+            expect(observationStore.inserted.length).toBe(1);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("A92 / AC-001: allows concurrent refresh for different instances and inserts both", async () => {
+        const { tempDir, service, observationStore } = await create_service([
+            plugin_config("deepseek-1"),
+            plugin_config("deepseek-2"),
+        ]);
+
+        try {
+            await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-2")]);
+            // 异实例并发各执行一次，精确等于 2
+            expect(observationStore.inserted.length).toBe(2);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }
@@ -621,7 +640,8 @@ return [{
             const state = runtime_store.getSnapshot("deepseek-1");
             expect(state.status).toBe("failed");
             if (state.status !== "failed") throw new Error("expected failed state");
-            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
+            // A88 / AC-001: 精确断言代理连接拒绝错误，避免超宽通配正则假绿
+            expect(state.error).toMatch(/ECONNREFUSED/);
         } finally {
             await rm(temp_dir, { recursive: true, force: true });
         }
@@ -689,7 +709,8 @@ return [{
             // Error should indicate proxy/connection failure, NOT a direct
             // connection to the real endpoint (which would succeed or give
             // a different error).
-            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
+            // A88 / AC-001: 精确断言 ECONNREFUSED
+            expect(state.error).toMatch(/ECONNREFUSED/);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }
@@ -1240,6 +1261,59 @@ return [{
                 (m) => m.includes("attempt") && m.includes("failed"),
             );
             expect(attempt_logs).toHaveLength(3);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            remove_transport();
+            setLogLevel(previous_level);
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("short-circuits retries on non-retryable 4xx or syntax error (only 1 attempt) (A40 / A42 / AC-003)", async () => {
+        const previous_level = getLogLevel();
+        const log_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, module, message) {
+                if (module === "refresh-service") {
+                    log_messages.push(message);
+                }
+            },
+        });
+        setLogLevel("debug");
+
+        const tempDir = await mkdtemp(join(tmpdir(), "retry-non-retryable-"));
+        // 抛出 400 客户端错误（非 401/403 认证类，如参数错误，不可重试）
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 400: Bad Request [bad_parameter]");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore: make_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("deepseek-1"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            const attempt_logs = log_messages.filter(
+                (m) => m.includes("attempt") && m.includes("failed"),
+            );
+            // 4xx 不可重试错误只执行 1 次，不进行第 2、3 次重试
+            expect(attempt_logs).toHaveLength(1);
+            expect(
+                log_messages.some(
+                    (m) =>
+                        m.includes("Non-retryable error") &&
+                        m.includes("aborting remaining retries"),
+                ),
+            ).toBe(true);
             const state = runtimeStore.getSnapshot("deepseek-1");
             expect(state.status).toBe("failed");
         } finally {
@@ -2110,6 +2184,184 @@ return [{
                 expect(state.error).toContain("TLS");
             }
         } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    // A4 / AC-001: with_concurrency 拒绝路径泄漏与中断剩余任务测试
+    it("AC-001: with_concurrency isolates rejected tasks without interrupting remaining queue", async () => {
+        const { with_concurrency: with_conc } =
+            await import("../../../src/main/core/scheduler/refresh-service");
+        const executed: number[] = [];
+        const items = [1, 2, 3, 4, 5, 6, 7];
+
+        await with_conc(
+            items,
+            (item) => {
+                if (item === 3 || item === 5) {
+                    return Promise.reject(new Error(`Item ${String(item)} rejected intentionally`));
+                }
+                executed.push(item);
+                return Promise.resolve();
+            },
+            3,
+        );
+
+        // 尽管 item 3 和 5 抛错，剩余的 1, 2, 4, 6, 7 全部正常执行完毕
+        expect(executed).toEqual([1, 2, 4, 6, 7]);
+    });
+
+    // A43 / AC-007: cancellable_sleep 取消测试
+    it("AC-007: cancellable_sleep resolves immediately upon abort signal", async () => {
+        const { cancellable_sleep } =
+            await import("../../../src/main/core/scheduler/refresh-service");
+        const ac = new AbortController();
+        const start = Date.now();
+
+        // 设定 5 秒的超长等待，但在 50ms 触发取消
+        setTimeout(() => {
+            ac.abort();
+        }, 50);
+        await cancellable_sleep(5000, ac.signal);
+
+        const elapsed = Date.now() - start;
+        expect(elapsed).toBeLessThan(1000);
+    });
+
+    // A43 / AC-007: 生产 refresh 流程在传入 abort_signal 时立即中止重试休眠
+    it("AC-007: refresh service aborts retry sleep immediately upon abort_signal", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "refresh-abort-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 500: Server Error");`,
+        );
+        const ac = new AbortController();
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "abort_test",
+                        provider: "deepseek",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://example.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: make_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([
+                { ...plugin_config("abort-1", true, "deepseek"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+            abort_signal: ac.signal,
+        });
+
+        const start = Date.now();
+        // 50ms 后触发进程退出/关闭信号
+        setTimeout(() => {
+            ac.abort();
+        }, 50);
+        await service.refresh("abort-1");
+        const elapsed = Date.now() - start;
+        // 原本 3 次重试需等待 2 * 1000ms = 2000ms，在 abort 下迅速返回
+        expect(elapsed).toBeLessThan(1500);
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    // A113 / A37 / AC-004: 仅复制最新成功观测 (stale=false) 且单事务批量写入
+    it("AC-004: failure path copies only recent successful observations (stale=false) via single batch", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "stale-avalanche-"));
+        await writeFile(join(tempDir, "connector.js"), `throw new Error("fail on refresh");`);
+
+        const runtimeStore = createRuntimeStore();
+        const { create_observation_store: create_real_store } =
+            await import("../../../src/main/core/observation/observation-store");
+        const obsStore = create_real_store(join(tempDir, "real_obs.db"));
+
+        // 写入初始成功观测 (stale=false)
+        obsStore.insert({
+            provider: "mimo",
+            source_instance_id: "mimo-1",
+            account_id: "acc_1",
+            account_label: "Mimo Acc",
+            metric_id: "mimo:quota",
+            raw_label: "quota",
+            normalized_label: "Quota",
+            window: "month",
+            used: 20,
+            limit: 100,
+            display_style: "percent",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1000,
+            source: "session",
+            stale: false,
+            last_error: null,
+        });
+
+        // 人为写入旧的 stale=true 副本，模拟前一轮失败产生的记录
+        obsStore.insert({
+            provider: "mimo",
+            source_instance_id: "mimo-1",
+            account_id: "acc_1",
+            account_label: "Mimo Acc",
+            metric_id: "mimo:quota",
+            raw_label: "quota",
+            normalized_label: "Quota",
+            window: "month",
+            used: 20,
+            limit: 100,
+            display_style: "percent",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1000,
+            source: "session",
+            stale: true,
+            last_error: "prior error",
+        });
+
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "mimo",
+                        provider: "mimo",
+                        capabilities: ["session"],
+                        parameters: [],
+                        endpoints: { default: "https://example.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore: obsStore,
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("mimo-1", true, "mimo"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("mimo-1", { force: true });
+            const list = obsStore.list_by_source_instance_id("mimo-1");
+            expect(list).toHaveLength(1);
+            expect(list[0]?.stale).toBe(true);
+            expect(list[0]?.last_error).toContain("fail on refresh");
+
+            // 再次失败刷新一轮：验证不会基于上一轮的 stale 副本无界复制衍生雪崩
+            await service.refresh("mimo-1", { force: true });
+            const list2 = obsStore.list_by_source_instance_id("mimo-1");
+            expect(list2).toHaveLength(1);
+            // 数据库总行数保持为 2（1 条成功原观测 + 1 条最新更新的 stale 副本）
+            expect(obsStore.count_observations()).toBe(2);
+        } finally {
+            obsStore.close();
             await rm(tempDir, { recursive: true, force: true });
         }
     });

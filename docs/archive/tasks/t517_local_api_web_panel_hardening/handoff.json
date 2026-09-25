@@ -1,0 +1,39 @@
+{
+    "tid": "t517",
+    "attempt": 1,
+    "execution_id": "859ff225686b4493afcb0f027f58dcea",
+    "status": "done",
+    "branch": "t517_local_api_web_panel_hardening",
+    "base_sha": "02cdb642c5c5814a3a21593617ffc67573d8d952",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 331 个测试套件（4059 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试覆盖 effective_proxy 协议白名单校验、safe_json_reviver 原型链防污染、proxy-pool 日志账密脱敏、Web fetch 15s 超时控制、后台标签页轮询暂停与恢复、/v1/trend/bulk 批量聚合端点",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=b1659898056b569a",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/network/effective_proxy.ts 校验 URL 合法性与协议白名单（http/https/socks5）",
+            "tests/unit/main/effective_proxy.test.ts 验证非法协议与畸变 URL 返回 undefined"
+        ],
+        "AC-002": [
+            "src/main/core/local-api/server.ts 中 safe_json_reviver 过滤 __proto__, constructor, prototype",
+            "tests/unit/local-api/server.test.ts 验证攻击载荷解析后不污染 Object.prototype"
+        ],
+        "AC-003": [
+            "src/main/core/network/proxy-pool.ts 中 sanitize_proxy_url 遮罩用户名与密码为 ***",
+            "tests/unit/network/proxy-pool.test.ts 验证日志中代理 URL 凭据被遮罩"
+        ],
+        "AC-004": [
+            "src/web/usageboard-web.ts 中 fetch_with_timeout 施加 15s 超时保护",
+            "tests/unit/web/usageboard-web.test.ts 验证请求超时触发终止与网络错误"
+        ],
+        "AC-005": [
+            "src/web/usageboard-web.ts 监听 visibilitychange 事件，页面不可见时停止轮询，恢复可见时触发刷新",
+            "tests/unit/web/usageboard-web.test.ts 验证后台标签页轮询停止与前台恢复"
+        ],
+        "AC-006": [
+            "src/main/core/local-api/server.ts 提供 /v1/trend/bulk 端点，src/web/usageboard-web.ts 中 trend.getBulk 优先走批量查询",
+            "tests/integration/local-api/server.test.ts 验证批量端点单次响应多指标，tests/unit/web/usageboard-web.test.ts 验证前端优先调用批量端点"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

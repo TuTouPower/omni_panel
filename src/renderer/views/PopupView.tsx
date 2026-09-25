@@ -45,10 +45,26 @@ export { record_bool_equal } from "./popup-view/lib";
 // refresh_actions_ref / refresh_fired_at_ref 两表）。
 const ALL_REFRESH_KEY = "__refresh_all__";
 
+// A125: 下沉相对时间更新 tick 到局部组件，避免 30s 整树重绘
+function RelativeTimeDisplay({ timestamp }: { timestamp: string | null }) {
+    useNowTick();
+    if (!timestamp) return null;
+    const footerTime = relative_time(timestamp);
+    if (!footerTime) return null;
+    return (
+        <span
+            className="ml-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
+            title="上次更新时间"
+            data-testid="popup-time"
+        >
+            {footerTime}
+        </span>
+    );
+}
+
 export function PopupView() {
     useTheme();
     const navigate = use_panel_navigation();
-    useNowTick();
     const { plugins, loading, error, refreshAll, reload } = use_plugins();
     const [refreshing, setRefreshing] = useState(false);
     const [refreshing_providers, set_refreshing_providers] = useState<Set<string>>(new Set());
@@ -589,7 +605,8 @@ export function PopupView() {
     };
 
     const toggle_expand_provider = (provider: string) => {
-        const next_expanded = !(expanded_providers[provider] ?? true);
+        const default_expanded = provider === UPCOMING_RESET_CARD_ID ? false : true;
+        const next_expanded = !(expanded_providers[provider] ?? default_expanded);
         set_expanded_providers((prev) => ({ ...prev, [provider]: next_expanded }));
         // 折叠卡片强制回概览（原 ProviderCard 内部 effect 语义，t250 上提）。
         // 在 updater 外调用，避免 setState 副作用入纯函数（t250 f006）。
@@ -667,12 +684,18 @@ export function PopupView() {
         setActiveTab,
     });
 
-    const lastUpdated = plugins.reduce<string | null>((latest, p) => {
-        if (p.snapshot.status !== "ready" && p.snapshot.status !== "failed") return latest;
-        if (!p.snapshot.updatedAt) return latest;
-        return latest === null || p.snapshot.updatedAt > latest ? p.snapshot.updatedAt : latest;
-    }, null);
-    const footerTime = relative_time(lastUpdated ?? "");
+    // A125: useMemo 化 lastUpdated 聚合
+    const lastUpdated = useMemo(
+        () =>
+            plugins.reduce<string | null>((latest, p) => {
+                if (p.snapshot.status !== "ready" && p.snapshot.status !== "failed") return latest;
+                if (!p.snapshot.updatedAt) return latest;
+                return latest === null || p.snapshot.updatedAt > latest
+                    ? p.snapshot.updatedAt
+                    : latest;
+            }, null),
+        [plugins],
+    );
 
     // Phase 20.5: titlebar drag is platform-dependent.
     // macOS popups are anchored to the tray icon and must not be user-draggable.
@@ -700,15 +723,7 @@ export function PopupView() {
                 <PanelTitleBar
                     panel="Usage"
                     title_extra={
-                        footerTime && (
-                            <span
-                                className="ml-2 whitespace-nowrap text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]"
-                                title="上次更新时间"
-                                data-testid="popup-time"
-                            >
-                                {footerTime}
-                            </span>
-                        )
+                        is_live ? <RelativeTimeDisplay timestamp={lastUpdated} /> : undefined
                     }
                     refreshing={refreshing}
                     is_live={is_live}

@@ -47,6 +47,9 @@ describe("build_csp_header", () => {
         expect(header).toContain(
             "connect-src 'self' http://localhost:5173 ws://localhost:5173 wss://localhost:5173",
         );
+        expect(header).toContain("object-src 'none'");
+        expect(header).toContain("frame-ancestors 'none'");
+        expect(header).toContain("base-uri 'self'");
     });
 
     it("dev header with null host falls back to wildcard ws/wss in connect-src", () => {
@@ -58,5 +61,8 @@ describe("build_csp_header", () => {
         const header = build_csp_header(null, null);
         expect(header).toContain("script-src 'self';");
         expect(header).not.toMatch(/unsafe-inline.*localhost/);
+        expect(header).toContain("object-src 'none'");
+        expect(header).toContain("frame-ancestors 'none'");
+        expect(header).toContain("base-uri 'self'");
     });
 });

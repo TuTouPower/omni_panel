@@ -4,6 +4,7 @@ import type { DevPanelConfiguration } from "./dev-panel";
 export interface ProxyConfiguration {
     readonly url: string;
     readonly noProxy?: readonly string[];
+    readonly useSystemProxy?: boolean;
 }
 
 export type MainPanelMode = "system" | "popup" | "floating";
@@ -33,15 +34,26 @@ export interface AccountOverrides {
 
 export type AccountLabels = Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>;
 
+/** A133: 日志保留配额配置 */
+export interface LoggingConfiguration {
+    readonly maxAgeDays?: number;
+    readonly maxLogFileBytes?: number;
+    readonly maxSegments?: number;
+}
+
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
     readonly plugins: readonly ConnectorConfiguration[];
     readonly launchAtLogin: boolean;
+    /** AC-003: 未开启外部连接器信任开关时默认禁止加载用户外部目录连接器 */
+    readonly allowUserConnectors?: boolean;
     readonly proxy?: ProxyConfiguration;
     readonly accentColor?: string;
     readonly theme?: "light" | "dark" | "system";
     readonly logLevel?: LogLevel;
+    /** A133: 日志保留配额配置 */
+    readonly logging?: LoggingConfiguration;
     readonly pinToTop?: boolean;
     readonly minimizeToTray?: boolean;
     /** p254: 为 true 时 macOS Dock 不显示图标，仅保留菜单栏图标。缺省显示。 */

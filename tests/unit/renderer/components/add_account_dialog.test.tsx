@@ -411,6 +411,14 @@ describe("AddAccountDialog descriptor-driven routing", () => {
     });
 
     it("renders local scan form and auth_method local_cli for local source", async () => {
+        const scan_mock = vi.fn().mockResolvedValue({
+            status: "found",
+            details: { valid: true, email: "claude@example.com" },
+        });
+        (window as unknown as { usageboard?: unknown }).usageboard = {
+            auth: { scanLocal: scan_mock },
+        };
+
         const plugin: PluginInfo = make_plugin({
             instanceId: "claude-1",
             name: "Claude",
@@ -432,8 +440,11 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(screen.getByText(/正在扫描本地授权文件/)).toBeInTheDocument();
         expect(screen.getByText("~/.claude/.credentials.json")).toBeInTheDocument();
 
-        const save_btn = screen.getByText("导入账号").closest("button");
-        expect(save_btn).toBeEnabled();
+        const save_btn = await vi.waitFor(() => {
+            const btn = screen.getByText("导入账号").closest("button");
+            expect(btn).toBeEnabled();
+            return btn;
+        });
         if (save_btn) {
             await user.click(save_btn);
         }
@@ -952,5 +963,28 @@ describe("AddAccountDialog open connectors dir (t094)", () => {
             expect(screen.getByText("添加失败：网络错误")).toBeInTheDocument();
         });
         expect(on_close).not.toHaveBeenCalled();
+    });
+
+    it("AC-001: disables import button and prevents save when local_cli scan has not produced valid credentials", async () => {
+        const user = userEvent.setup();
+        const on_close = vi.fn();
+        const on_save = vi.fn();
+        const plugin = make_plugin({
+            instanceId: "claude-1",
+            name: "Claude",
+            source: "local",
+            supportedProviders: ["claude"],
+            activeProviders: ["claude"],
+            metadata: {
+                name: "claude",
+                auth: { method: "local_cli", secret_name: "CREDENTIALS" },
+            },
+        });
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("Claude"));
+        const importBtn = screen.getByRole("button", { name: "导入账号" });
+        expect(importBtn).toBeDisabled();
+        expect(on_save).not.toHaveBeenCalled();
     });
 });

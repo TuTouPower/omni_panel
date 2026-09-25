@@ -38,7 +38,7 @@ function make_definition(
     executable_path: string,
     options: {
         readonly id: string;
-        readonly auth_method?: "apikey" | "oauth_device";
+        readonly auth_method?: "apikey" | "oauth_device" | "oauth_pkce";
         readonly auth_secret?: string;
         readonly secret_parameters?: readonly string[];
     },
@@ -85,6 +85,25 @@ describe("build_secret_param_keys", () => {
             "OAUTH_EXPIRES_AT",
             "OAUTH_REFRESH_TOKEN",
             "OAUTH_TOKEN",
+        ]);
+    });
+
+    it("allows the complete OAuth token set for oauth_pkce connectors (A72)", () => {
+        const plugin = make_plugin("grok-bot-instance", "connectors/grok_bot");
+        const definitions = [
+            make_definition("connectors/grok_bot", {
+                id: "grok_bot",
+                auth_method: "oauth_pkce",
+                auth_secret: "ACCESS_TOKEN",
+            }),
+        ];
+
+        const keys = build_secret_param_keys(make_config([plugin]), definitions);
+
+        expect([...(keys.get("grok-bot-instance") ?? [])].sort()).toEqual([
+            "ACCESS_TOKEN",
+            "OAUTH_EXPIRES_AT",
+            "OAUTH_REFRESH_TOKEN",
         ]);
     });
 

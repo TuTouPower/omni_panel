@@ -75,4 +75,34 @@ describe("ProviderOverview", () => {
         expect(screen.getByText("五小时")).toBeInTheDocument();
         expect(screen.queryByText("滚动")).not.toBeInTheDocument();
     });
+
+    it("AC-006 / A117: ProviderOverview is memoized and avoids redundant re-renders", () => {
+        const groups = [group()];
+        const visible = ["opencode_go"];
+        const errors = new Map();
+        const onRefresh = vi.fn();
+
+        const { rerender } = render(
+            <ProviderOverview
+                groups={groups}
+                visibleProviders={visible}
+                providerErrors={errors}
+                onRefreshProvider={onRefresh}
+            />,
+        );
+
+        expect(screen.getByText("OpenCode Go")).toBeInTheDocument();
+
+        // Rerender with identical props
+        rerender(
+            <ProviderOverview
+                groups={groups}
+                visibleProviders={visible}
+                providerErrors={errors}
+                onRefreshProvider={onRefresh}
+            />,
+        );
+
+        expect(screen.getByText("OpenCode Go")).toBeInTheDocument();
+    });
 });

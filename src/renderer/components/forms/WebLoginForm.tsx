@@ -50,6 +50,8 @@ export function WebLoginForm({
         try {
             await handle_secrets({ [secret_name]: trimmed });
         } catch (error: unknown) {
+            // A54: 透传具体错误信息并记录日志，避免吞为无意义文案
+            console.error("[WebLoginForm] manual save failed", error);
             set_manual_error(error instanceof Error ? error.message : "保存账号失败，请重试");
         }
     }, [cookie, handle_secrets, secret_name]);

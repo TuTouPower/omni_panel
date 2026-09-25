@@ -1,0 +1,31 @@
+{
+    "tid": "t521",
+    "attempt": 1,
+    "execution_id": "1d4ffae186f245689fd36eea1d64f4e9",
+    "status": "done",
+    "branch": "t521_schema_contract_governance",
+    "base_sha": "172efd2eee8186dbd4ea103471ea2fd185546b4c",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch / schema:check）全绿；pnpm test 全量 332 个测试套件（4075 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与脚本测试覆盖 pluginResultSchema safeParse 脏数据拦截、schema:check 防漂移退出码检测以及 .env.example 20 厂商覆盖率",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=218b3d49c780fc49",
+    "ac_evidence": {
+        "AC-001": [
+            "scripts/export-schemas.ts 基于 Zod 统一生成 JSON Schema 并格式化输出",
+            "tests/unit/schemas/plugin-metadata.test.ts 验证 schema 契约与 manifest 规范一致"
+        ],
+        "AC-002": [
+            "src/main/core/scheduler/refresh-service.ts 调用 pluginResultSchema.safeParse 拦截非契约格式数据",
+            "tests/unit/schemas/plugin-metadata.test.ts 验证非法字段值被精准拦截且不进入存储"
+        ],
+        "AC-003": [
+            "scripts/export-schemas.ts 支持 --check 参数并在 package.json 配置 schema:check 门禁",
+            "运行 pnpm schema:check 验证与当前 Zod 代码完全一致"
+        ],
+        "AC-004": [
+            "config/env/.env.example 补齐全部 20 个连接器的配置指引说明",
+            "tests/unit/schemas/plugin-metadata.test.ts 验证包含所有厂商指示"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

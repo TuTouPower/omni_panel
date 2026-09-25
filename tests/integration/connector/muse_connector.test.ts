@@ -20,6 +20,11 @@ function context(
     return {
         params: { SESSION_COOKIE: cookie },
         http: {
+            get_raw: vi.fn().mockResolvedValue({
+                status: 200,
+                headers: {},
+                body: '<script>var d = { deploymentId: "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3", actionId: "407c800bb93d1539e5152b02e7f8ed6a82a7729a86" };</script>',
+            }),
             post_raw: vi.fn().mockResolvedValue({
                 status,
                 headers: { "content-type": "text/x-component" },
@@ -27,7 +32,6 @@ function context(
             }),
             post_json: vi.fn(),
             get_json: vi.fn(),
-            get_raw: vi.fn(),
         },
         files: { read: vi.fn(), list: vi.fn() },
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -138,5 +142,83 @@ describe("muse connector", () => {
 
         expect(result.observations).toHaveLength(0);
         expect(result.error).toMatch(/SESSION_COOKIE/);
+    });
+
+    it("throws MUSE_ACTION_STALE when HTML does not contain action or deployment ID (A146 / AC-006)", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const ctx = context("{}");
+        // mock 页面不包含有效 Action/Deployment ID
+        ctx.http.get_raw = vi.fn().mockResolvedValue({
+            status: 200,
+            headers: {},
+            body: "<html><body>no ids here</body></html>",
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toMatch(/MUSE_ACTION_STALE/);
+        expect(result.observations).toHaveLength(0);
+    });
+
+    it("rejects cookie with CRLF injection characters (A48 / AC-007)", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const ctx = context("{}", "hatch_sess=val\r\nSet-Cookie: evil=1");
+        const get_raw = vi.fn();
+        const post_raw = vi.fn();
+        ctx.http.get_raw = get_raw;
+        ctx.http.post_raw = post_raw;
+
+        const result = await run_connector(manifest, await code(), ctx);
+
+        expect(result.error).toMatch(/CRLF/);
+        expect(result.observations).toHaveLength(0);
+        expect(get_raw).not.toHaveBeenCalled();
+        expect(post_raw).not.toHaveBeenCalled();
+    });
+
+    it("reports failed account when percentUsed is missing instead of defaulting to 0 (A46 / AC-005)", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        // subscription 中的 usage 没有 percentUsed
+        const raw_rsc =
+            '1:{"subscription":{"tier":{"name":"Muse Pro"},"usage":{"state":"active"}}}';
+        const ctx = context(raw_rsc);
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        // 缺少 percentUsed 时不生成 weekly 假正常指标，而是上报 failed_accounts
+        expect(result.observations.find((o) => o.metric_id === "muse:weekly")).toBeUndefined();
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.provider).toBe("muse");
+        expect(result.failed_accounts[0]?.account_label).toBe("Muse Pro");
+        expect(result.failed_accounts[0]?.error).toContain("percentUsed");
+    });
+
+    it("A138 / AC-003: handles empty subscription gracefully without throwing unhandled error", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const raw_rsc = '1:{"subscription":null}';
+        const ctx = context(raw_rsc);
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toContain("未能找到 subscription 节点");
+        expect(result.observations).toHaveLength(0);
+    });
+
+    it("A138 / AC-003: handles truncated/malformed RSC stream gracefully", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const malformed_rsc = '1:{"subscription":{"tier":{"name":"Broken';
+        const ctx = context(malformed_rsc);
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toContain("未能找到 subscription 节点");
+        expect(result.observations).toHaveLength(0);
     });
 });

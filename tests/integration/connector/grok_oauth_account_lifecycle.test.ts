@@ -49,6 +49,7 @@ function create_observation_store(): ObservationStore & { inserted: Observation[
         },
         insert_batch(observations: Observation[]) {
             inserted.push(...observations);
+            return { ok: observations.length, failed: 0 };
         },
         get_latest: vi.fn(() => null as Observation | null),
         list_latest_by_provider: vi.fn(() => [] as Observation[]),

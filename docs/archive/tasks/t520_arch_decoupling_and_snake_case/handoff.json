@@ -1,0 +1,34 @@
+{
+    "tid": "t520",
+    "attempt": 1,
+    "execution_id": "e26bdaa452ed4b22889d6e2de1920970",
+    "status": "done",
+    "branch": "t520_arch_decoupling_and_snake_case",
+    "base_sha": "36b749b5361d9dc78a3542938a297040c57ed137",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 332 个测试套件（4073 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试覆盖三大上帝文件解耦后的 LocalAPI 全部路由端点、TokenStatsStore 会话合并与迁移逻辑、CLI 启动编排，以及 dependency-cruiser 架构跨层边界校验",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=4f9fd36c1b1f75b3",
+    "ac_evidence": {
+        "AC-001": [
+            "package.json 与 knip.json 彻底移除 lodash 依赖",
+            "knip deadcode 检查通过，全量回归测试 0 失败"
+        ],
+        "AC-002": [
+            "src/main/core/local-api/server.ts 拆分至 routes/* 及 http_helpers.ts；token-stats-store.ts 拆分 DDL 与迁移至 token-stats-schema.ts / token-stats-migrations.ts / token-stats-env.ts；index.ts 拆分至 bootstrap/cli_init.ts",
+            "tests/integration/local-api/server.test.ts 与 tests/unit/main/core/token-stats/token-stats-store.test.ts 全部通过"
+        ],
+        "AC-003": [
+            "新建拆分文件与目录统一采用 snake_case 命名风格",
+            "仓库检查无格式与命名违规"
+        ],
+        "AC-004": [
+            ".dependency-cruiser.cjs 补充 no-web-from-renderer、no-renderer-from-main、no-preload-from-renderer、no-renderer-from-shared、no-preload-from-shared 规则",
+            "pnpm arch 运行验证 399 个模块零违规"
+        ],
+        "AC-005": [
+            "pnpm check（tsc、eslint、prettier、knip、arch、test）全量通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

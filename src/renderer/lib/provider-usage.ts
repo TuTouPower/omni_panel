@@ -2,6 +2,9 @@ import { createLogger } from "../../shared/lib/logger";
 import type { MetricRecord, UsageSource } from "../../shared/schemas/plugin-output";
 import type { AccountLabels, AccountOverrides } from "../../shared/types/config";
 import type { ConnectorInfo } from "../../shared/types/ipc";
+import { PROVIDER_ORDER, PROVIDER_ORDER_MAP, PROVIDER_LABELS } from "./provider_registry";
+
+export { PROVIDER_ORDER, PROVIDER_LABELS };
 
 export interface ProviderUsagePeriod {
     id: string;
@@ -60,52 +63,18 @@ export interface ProviderUsageGroup {
     accounts: ProviderUsageAccount[];
 }
 
-export const PROVIDER_ORDER: readonly string[] = [
-    "claude",
-    "codex",
-    "antigravity",
-    "kimi",
-    "kimi_web",
-    "glm",
-    "minimax",
-    "deepseek",
-    "getoneapi",
-    "tavily",
-    "firecrawl",
-    "exa",
-    "tikhub",
-    "mimo",
-    "opencode_go",
-    "grok",
-    "grok_bot",
-    "commandcode",
-    "muse",
-];
-
-export const PROVIDER_LABELS: Record<string, string> = {
-    claude: "Claude",
-    codex: "Codex",
-    antigravity: "Antigravity",
-    kimi: "Kimi",
-    kimi_web: "Kimi Web",
-    glm: "GLM",
-    minimax: "MiniMax",
-    deepseek: "DeepSeek",
-    getoneapi: "GetOneAPI",
-    tavily: "Tavily",
-    firecrawl: "Firecrawl",
-    exa: "Exa",
-    tikhub: "TikHub",
-    mimo: "MiMo",
-    opencode_go: "OpenCode Go",
-    grok: "Grok",
-    grok_bot: "Grok Bot",
-    commandcode: "Command Code",
-    muse: "Muse AI",
-};
-
 const log = createLogger("renderer:provider-usage");
 const should_log_raw = import.meta.env.DEV;
+
+// A76: 远端字符串 64 字符上限与控制字符过滤
+export function sanitize_remote_string(
+    value: string | null | undefined,
+    max_len = 64,
+): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const clean = value.replace(/[\x00-\x1F\x7F]/g, "").trim();
+    return clean.length > max_len ? clean.slice(0, max_len) : clean;
+}
 
 const STATUS_RANK: Record<MetricRecord["status"], number> = {
     normal: 0,
@@ -114,13 +83,13 @@ const STATUS_RANK: Record<MetricRecord["status"], number> = {
     critical: 3,
 };
 
-function compare_providers(a: string, b: string): number {
-    // 未知 provider 的 indexOf 为 -1；映射为 +∞ 使其排在已知 provider 之后（末尾）。
-    const rank = (p: string): number => {
-        const idx = PROVIDER_ORDER.indexOf(p);
-        return idx === -1 ? Number.POSITIVE_INFINITY : idx;
-    };
-    return rank(a) - rank(b);
+// A120: 使用 Map rank 进行 O(1) 比较，消除热路径 indexOf O(N) 遍历
+export function compare_providers(a: string, b: string): number {
+    if (a === b) return 0;
+    const rankA = PROVIDER_ORDER_MAP.get(a) ?? Number.POSITIVE_INFINITY;
+    const rankB = PROVIDER_ORDER_MAP.get(b) ?? Number.POSITIVE_INFINITY;
+    if (rankA === rankB) return a.localeCompare(b);
+    return rankA - rankB;
 }
 
 function latest_timestamp(a: string, b: string): string {
@@ -157,14 +126,16 @@ function to_period(
         // 直连账号备注（ConnectorConfiguration.displayName）覆盖采集层默认名。
         // CPA displayName 属于数据源备注，不能覆盖其子账号标签。
         accountLabel:
-            item.source !== "gateway" &&
-            connector.displayName &&
-            connector.displayName !== connector.name
-                ? connector.displayName
-                : item.accountLabel,
-        name: item.normalized_label,
-        raw_label: item.raw_label,
-        display_label: item.display_label,
+            sanitize_remote_string(
+                item.source !== "gateway" &&
+                    connector.displayName &&
+                    connector.displayName !== connector.name
+                    ? connector.displayName
+                    : item.accountLabel,
+            ) ?? item.accountLabel,
+        name: sanitize_remote_string(item.normalized_label) ?? item.normalized_label,
+        raw_label: sanitize_remote_string(item.raw_label) ?? item.raw_label,
+        display_label: sanitize_remote_string(item.display_label),
         used: item.used,
         limit: item.limit,
         displayStyle: item.displayStyle,
@@ -187,17 +158,37 @@ function to_period(
  * the canonical rule instead of re-deriving it.
  */
 export interface AccountKeyInput {
-    source: UsageSource;
+    source?: UsageSource | undefined;
     sourceInstanceId: string;
     accountId: string;
-    accountLabel: string;
+    accountLabel?: string | undefined;
+}
+
+// A106: 结构化 AccountKey 对象
+export interface AccountKeyObject {
+    readonly isGateway: boolean;
+    readonly key: string;
+    readonly sourceInstanceId: string;
+    readonly accountId: string;
+    readonly accountLabel?: string | undefined;
+}
+
+export function to_account_key_object(item: AccountKeyInput): AccountKeyObject {
+    const isGateway = item.source === "gateway";
+    const key = isGateway
+        ? `${item.sourceInstanceId}|label|${item.accountLabel ?? ""}`
+        : `${item.sourceInstanceId}|${item.accountId}`;
+    return {
+        isGateway,
+        key,
+        sourceInstanceId: item.sourceInstanceId,
+        accountId: item.accountId,
+        accountLabel: item.accountLabel,
+    };
 }
 
 export function accountKey(item: AccountKeyInput): string {
-    if (item.source === "gateway") {
-        return `${item.sourceInstanceId}|label|${item.accountLabel}`;
-    }
-    return `${item.sourceInstanceId}|${item.accountId}`;
+    return to_account_key_object(item).key;
 }
 
 const ANTIGRAVITY_PERIOD_ORDER = [
@@ -207,18 +198,20 @@ const ANTIGRAVITY_PERIOD_ORDER = [
     "claude_weekly",
 ] as const;
 
-function is_grok_weekly_period(period: ProviderUsagePeriod): boolean {
-    // Grok's current connector calls the weekly quota `credits`; the label map
-    // may render it as either "额度" or "一周". Keep the ordering contract
-    // based on both the stable raw key and the human-facing fallbacks.
-    const raw_label = period.raw_label.toLowerCase();
+// A102: Grok weekly 判定单源提取，供各处共用
+export function is_weekly_like(period: {
+    raw_label?: string | null | undefined;
+    name: string;
+    display_label?: string | null | undefined;
+}): boolean {
+    const raw = (period.raw_label ?? "").toLowerCase();
     return (
-        raw_label === "credits" ||
-        raw_label === "credit" ||
-        raw_label === "weekly" ||
-        raw_label === "seven_day" ||
-        raw_label === "7d" ||
-        raw_label.includes("week") ||
+        raw === "credits" ||
+        raw === "credit" ||
+        raw === "weekly" ||
+        raw === "seven_day" ||
+        raw === "7d" ||
+        raw.includes("week") ||
         period.name.includes("一周") ||
         period.name.includes("周") ||
         period.display_label?.includes("一周") === true ||
@@ -233,7 +226,7 @@ function usage_period_order(provider: string, period: ProviderUsagePeriod): numb
         );
         return index >= 0 ? index : ANTIGRAVITY_PERIOD_ORDER.length;
     }
-    return provider === "grok" && is_grok_weekly_period(period) ? 1 : 0;
+    return provider === "grok" && is_weekly_like(period) ? 1 : 0;
 }
 
 function order_usage_periods(
@@ -317,14 +310,26 @@ export function build_provider_usage_groups(
             const provider = connector.activeProviders[0];
             if (provider === undefined) continue;
             const label = connector.displayName || connector.name;
+            const now_ms = Date.now();
+            const snapshot_updated_at =
+                "updatedAt" in snapshot && typeof snapshot.updatedAt === "string"
+                    ? snapshot.updatedAt
+                    : "";
+            const valid_snapshot_time = snapshot_updated_at
+                ? new Date(snapshot_updated_at).getTime()
+                : NaN;
+            const effective_observed_at = Number.isFinite(valid_snapshot_time)
+                ? valid_snapshot_time
+                : now_ms;
+            const effective_updated_at = snapshot_updated_at || new Date(now_ms).toISOString();
             const placeholder: ProviderUsageAccount = {
                 id: `${connector.sourceInstanceId}|__failed__`,
                 sourceInstanceId: connector.sourceInstanceId,
                 accountId: "__failed__",
                 accountLabel: label,
                 status: "unknown",
-                updatedAt: "updatedAt" in snapshot ? snapshot.updatedAt : "",
-                observedAt: 0,
+                updatedAt: effective_updated_at,
+                observedAt: effective_observed_at,
                 stale: false,
                 periods: [],
                 error: snapshot.error,
@@ -543,41 +548,53 @@ export function get_visible_providers(connectors: readonly ConnectorInfo[]): str
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
+// A120: resolve_convergent_time 单遍遍历查找 min/max 与最新时刻
 export function resolve_convergent_time(
     timestamps: (string | null | undefined)[],
     thresholdMs?: number,
 ): string | null {
-    const valid = timestamps
-        .map((t) => (t ? { raw: t, time: new Date(t).getTime() } : null))
-        .filter((t): t is { raw: string; time: number } => t !== null && Number.isFinite(t.time));
-    const [first] = valid;
-    if (!first) return null;
-    if (valid.length === 1) return first.raw;
+    let earliest = Number.POSITIVE_INFINITY;
+    let latest = Number.NEGATIVE_INFINITY;
+    let latest_raw: string | null = null;
+    let count = 0;
 
-    const earliest = valid.reduce((min, item) => Math.min(min, item.time), first.time);
-    const latest = valid.reduce((max, item) => Math.max(max, item.time), first.time);
+    for (const t of timestamps) {
+        if (!t) continue;
+        const time = new Date(t).getTime();
+        if (!Number.isFinite(time)) continue;
+        count += 1;
+        if (time < earliest) earliest = time;
+        if (time > latest) {
+            latest = time;
+            latest_raw = t;
+        }
+    }
 
+    if (count === 0) return null;
+    if (count === 1) return latest_raw;
     if (latest - earliest > (thresholdMs ?? TEN_MINUTES_MS)) return null;
-
-    return valid.find((t) => t.time === latest)?.raw ?? null;
+    return latest_raw;
 }
 
+// A120: resolve_convergent_epoch 单遍遍历查找 min/max
 export function resolve_convergent_epoch(
-    epochs: (number | null)[],
+    epochs: (number | null | undefined)[],
     thresholdMs?: number,
 ): number | null {
-    const valid = epochs.filter((t): t is number => t !== null);
-    if (valid.length === 0) return null;
-    const first = valid[0];
-    if (first === undefined) return null;
-    const rest = valid.slice(1);
-    if (rest.length === 0) return first;
+    let earliest = Number.POSITIVE_INFINITY;
+    let latest = Number.NEGATIVE_INFINITY;
+    let count = 0;
 
-    const earliest = rest.reduce((min, item) => Math.min(min, item), first);
-    const latest = rest.reduce((max, item) => Math.max(max, item), first);
+    for (const t of epochs) {
+        if (t === null || t === undefined || !Number.isFinite(t)) continue;
+        count += 1;
+        if (t < earliest) earliest = t;
+        if (t > latest) latest = t;
+    }
 
+    if (count === 0) return null;
+    if (count === 1) return latest;
     if (latest - earliest > (thresholdMs ?? TEN_MINUTES_MS)) return null;
-
     return latest;
 }
 
@@ -665,22 +682,10 @@ export function build_overview_for_group(
     // The overview path rebuilds rows from a Map keyed by the rendered label,
     // so it must apply the provider ordering again. Otherwise Grok's `credits`
     // row can move back to the position dictated by the API response order.
+    // A102: 使用统一的 is_weekly_like 判定
     result.sort((a, b) => {
         if (group.provider !== "grok") return 0;
-        const is_weekly = (period: OverviewWindow): boolean => {
-            const raw_label = period.raw_label.toLowerCase();
-            return (
-                raw_label === "credits" ||
-                raw_label === "credit" ||
-                raw_label === "weekly" ||
-                raw_label === "seven_day" ||
-                raw_label === "7d" ||
-                raw_label.includes("week") ||
-                period.name.includes("一周") ||
-                period.name.includes("周")
-            );
-        };
-        return Number(is_weekly(a)) - Number(is_weekly(b));
+        return Number(is_weekly_like(a)) - Number(is_weekly_like(b));
     });
 
     if (should_log_raw) {

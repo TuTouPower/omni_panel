@@ -172,16 +172,12 @@ describe("VendorMark", () => {
         expect(image).not.toHaveAttribute("height");
     });
 
-    it("renders MiMo as inline SVG so currentColor can inherit", () => {
+    // A68 / AC-003: MiMo 改走统一资产 VENDOR_REGISTRY (logo img)，消除内联 SVG 分支；旧测试要求 inline SVG 语义已由 A68 替代
+    it("AC-003: renders MiMo using unified asset logo instead of inline SVG (A68)", () => {
         const { container } = render(<VendorMark id="mimo" />);
-        const svg = container.querySelector('[data-testid="vendor-mark"] svg');
         const image = container.querySelector('[data-testid="vendor-mark"] img');
-
-        expect(svg).toBeInTheDocument();
-        expect(image).not.toBeInTheDocument();
-        expect(svg?.getAttribute("fill")).toBe("currentColor");
-        expect(svg?.querySelector("title")?.textContent).toBe("XiaomiMiMo");
-        expect(svg?.querySelector("rect")).not.toBeInTheDocument();
+        expect(image).toBeInTheDocument();
+        expect(image?.getAttribute("src")).toContain("mimo");
     });
 
     it("uses the official XiaomiMiMo logo asset without a fixed orange background", () => {

@@ -7,6 +7,7 @@ export type ThresholdStatus = "normal" | "warning" | "critical" | "unknown";
 
 /** 正向百分比（pct 0-100）：>=90 critical / >=75 warning。 */
 export function status_for_pct(pct: number): ThresholdStatus {
+    if (!Number.isFinite(pct)) return "unknown";
     if (pct >= 90) return "critical";
     if (pct >= 75) return "warning";
     return "normal";

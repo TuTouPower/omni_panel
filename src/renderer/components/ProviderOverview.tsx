@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import type { ProviderUsageGroup } from "../lib/provider-usage";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
 import { ProviderCard } from "./ProviderCard";
@@ -52,7 +52,8 @@ interface ProviderOverviewProps {
     providerForcePercent?: Readonly<Partial<Record<string, boolean>>> | undefined;
 }
 
-export function ProviderOverview({
+// A117: memo 化 ProviderOverview 并在内部 useMemo 衍生 Map/Set，杜绝无谓重渲
+export const ProviderOverview = memo(function ProviderOverview({
     groups,
     visibleProviders,
     overviewCardOrder,
@@ -78,9 +79,12 @@ export function ProviderOverview({
     desensitizeRemarks = false,
     providerForcePercent,
 }: ProviderOverviewProps) {
-    const groupsByProvider = new Map(groups.map((group) => [group.provider, group]));
+    const groupsByProvider = useMemo(
+        () => new Map(groups.map((group) => [group.provider, group])),
+        [groups],
+    );
     const card_order = overviewCardOrder ?? visibleProviders;
-    const visible_provider_set = new Set(visibleProviders);
+    const visible_provider_set = useMemo(() => new Set(visibleProviders), [visibleProviders]);
 
     return (
         <div
@@ -128,4 +132,4 @@ export function ProviderOverview({
             })}
         </div>
     );
-}
+});

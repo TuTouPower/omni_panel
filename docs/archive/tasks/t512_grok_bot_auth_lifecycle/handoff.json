@@ -1,0 +1,47 @@
+{
+    "tid": "t512",
+    "attempt": 1,
+    "execution_id": "feee876b38c44b4fa964375d22d9d87c",
+    "status": "done",
+    "branch": "t512_grok_bot_auth_lifecycle",
+    "base_sha": "d674991949f363348a47745d91960b4c0a98903b",
+    "tests": "pnpm check 全绿（含 typecheck + lint + format:check + deadcode + arch + test 零 warning 零 error）；pnpm test 全绿（331 测试套件，4012 单元/集成用例通过）",
+    "blackbox": "通过 tests/unit/auth/grok_bot_oauth_manager.test.ts 验证 PKCE 启动、主进程 verifier 保密管理、并发 poll 互斥取消、refresh Promise 去重、两步写入原子补偿回滚、后台定时刷新调度及失效告警回调；通过 tests/unit/ipc/grok_bot_auth_ipc.test.ts 验证 timeout_ms 边界钳制与 GrokBotErrorCode 错误码映射；通过 tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx 验证组件卸载自动取消在途轮询与账号名 trim 处理；通过 tests/integration/connector/grok_bot_connector.test.ts 验证连接器 401 抛错触发换票、JWT 解析健壮性与 BigInt checksum 移位无溢出",
+    "review": "full 级：review_code.md PASS（Round 2）；review_test.md PASS（Round 1，reviewed_scope: 3d31df186390570b，check_review_status overall=PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: start_login generates valid PKCE params and calls open_external",
+            "tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx: clicking browser login starts flow and calls on_save when completed"
+        ],
+        "AC-002": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: cancels prior active poll when same instance starts new poll (A5 / AC-002)"
+        ],
+        "AC-003": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: deduplicates concurrent refresh_now calls for the same instance (A6 / AC-003)"
+        ],
+        "AC-004": [
+            "tests/integration/connector/grok_bot_connector.test.ts: throws session expired error on 401 to trigger refresh (A7 / AC-004)"
+        ],
+        "AC-005": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: throws BROWSER_OPEN_FAILED when open_external fails (A24 / AC-005)",
+            "tests/unit/ipc/grok_bot_auth_ipc.test.ts: handles login_start browser open failure error code (A24 / A127)"
+        ],
+        "AC-006": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: handles vault save failures gracefully with atomic rollback (A22, A23 / AC-006)",
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: logout cleans up secrets from vault"
+        ],
+        "AC-007": [
+            "tests/unit/ipc/grok_bot_auth_ipc.test.ts: registers IPC handlers and validates arguments clamp (A28 / AC-007)"
+        ],
+        "AC-008": [
+            "tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx: cancels pending login poll when component is unmounted (A52 / AC-008)",
+            "tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx: trims whitespace-only account name and falls back to default Grok Bot (A53)"
+        ],
+        "AC-009": [
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: schedules background refresh and cleans up on shutdown (A149 / AC-009)",
+            "tests/unit/auth/grok_bot_oauth_manager.test.ts: notifies on_token_expired when scheduled refresh fails (AC-009)"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

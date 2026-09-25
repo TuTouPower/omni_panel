@@ -68,8 +68,12 @@ import minimax_svg from "../assets/vendor_logos/minimax.svg";
 import opencode_go_dark_svg from "../assets/vendor_logos/opencode_go_dark.svg";
 import opencode_go_light_svg from "../assets/vendor_logos/opencode_go_light.svg";
 import muse_png from "../assets/vendor_logos/muse.png";
+import mimo_svg from "../assets/vendor_logos/mimo.svg";
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
 import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
+import { createLogger } from "../../shared/lib/logger";
+
+const log = createLogger("renderer:icon");
 
 // 操作/导航图标统一来自 lucide-react（t274 收口手绘 SVG 图标集）。
 const UI_ICONS = {
@@ -188,7 +192,8 @@ export function Icon({
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!IconComponent) {
         if (import.meta.env.DEV) {
-            console.warn(`Icon: unregistered name "${name}"`);
+            // A69: 替换 console.warn 为统一的 renderer:icon logger
+            log.warn(`Icon: unregistered name "${name}"`);
         }
         // 未知 name：保持空 SVG、不崩溃。
         return (
@@ -219,100 +224,45 @@ export function Icon({
     );
 }
 
-/* ── Vendor marks (SVG placeholder icons, used when no official logo available) ── */
-const VENDOR_THEME_LOGOS: Partial<Record<string, { light: string; dark: string }>> = {
-    exa: {
-        light: exa_light_png,
-        dark: exa_dark_png,
-    },
-    opencode_go: {
-        light: opencode_go_light_svg,
-        dark: opencode_go_dark_svg,
-    },
-    grok: {
-        light: grok_light_svg,
-        dark: grok_dark_svg,
-    },
-    grok_bot: {
-        light: grok_light_svg,
-        dark: grok_dark_svg,
-    },
-};
+// A110: Icon 单源注册表重构，消除三表分离与特例维护
+export type VendorRegistryEntry =
+    | { type: "theme"; light: string; dark: string }
+    | { type: "logo"; src: string }
+    | { type: "mark"; render: (s: number) => string };
 
-const VENDOR_LOGOS: Record<string, string> = {
-    claude: claude_svg,
-    codex: codex_svg,
-    commandcode: commandcode_svg,
-    antigravity: antigravity_svg,
-    kimi: kimi_svg,
-    kimi_web: kimi_svg,
-    glm: glm_svg,
-    deepseek: deepseek_svg,
-    getoneapi: getoneapi_png,
-    minimax: minimax_svg,
-    tavily: tavily_svg,
-    firecrawl: firecrawl_svg,
-    tikhub: tikhub_jpeg,
-    cpa: cpa_png,
-    muse: muse_png,
-};
+export const VENDOR_REGISTRY: Record<string, VendorRegistryEntry> = {
+    // Theme logos
+    exa: { type: "theme", light: exa_light_png, dark: exa_dark_png },
+    opencode_go: { type: "theme", light: opencode_go_light_svg, dark: opencode_go_dark_svg },
+    grok: { type: "theme", light: grok_light_svg, dark: grok_dark_svg },
+    grok_bot: { type: "theme", light: grok_light_svg, dark: grok_dark_svg },
 
-const VENDOR_MARKS: Record<string, (s: number) => string> = {
-    overview: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
-        `<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2"/>` +
-        `<rect x="3.5" y="13" width="7.5" height="7.5" rx="2"/><rect x="13" y="13" width="7.5" height="7.5" rx="2"/></svg>`,
-    claude: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2" stroke-linecap="round">` +
-        `<line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>` +
-        `<line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/>` +
-        `<line x1="12" y1="2.5" x2="12" y2="21.5" transform="rotate(22.5 12 12)"/>` +
-        `<line x1="12" y1="2.5" x2="12" y2="21.5" transform="rotate(67.5 12 12)"/></g>` +
-        `<circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>`,
-    codex: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
-        `<path d="M12 2.6l8 4.4v9.9l-8 4.5-8-4.5V7z" fill="#eef1ff" stroke="#6172f3" stroke-width="1.4"/>` +
-        `<path d="M12 12.4l8-4.6M12 12.4v9.1M12 12.4L4 7.8" stroke="#6172f3" stroke-width="1.4" stroke-linejoin="round"/>` +
-        `<path d="M12 2.6l8 4.4-8 5.4-8-5.4z" fill="#8b9bff"/></svg>`,
-    commandcode: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 144 144" fill="none">` +
-        `<rect width="144" height="144" rx="32" fill="currentColor" fill-opacity="0.12"/>` +
-        `<path d="M98.8049 27.6163C89.3295 27.6163 81.6214 35.3243 81.6214 44.7997V52.1641H61.9832V44.7997C61.9832 35.3243 54.2752 27.6163 44.7997 27.6163C35.3243 27.6163 27.6163 35.3243 27.6163 44.7997C27.6163 54.2752 35.3243 61.9832 44.7997 61.9832H52.1641V81.6214H44.7997C35.3243 81.6214 27.6163 89.3295 27.6163 98.8049C27.6163 108.28 35.3243 115.988 44.7997 115.988C54.2752 115.988 61.9832 108.28 61.9832 98.8049V91.4406H81.6214V98.8049C81.6214 108.28 89.3295 115.988 98.8049 115.988C108.28 115.988 115.988 108.28 115.988 98.8049C115.988 89.3295 108.28 81.6214 98.8049 81.6214H91.4406V61.9832H98.8049C108.28 61.9832 115.988 54.2752 115.988 44.7997C115.988 35.3243 108.28 27.6163 98.8049 27.6163ZM91.4406 52.1641V44.7997C91.4406 40.7248 94.73 37.4354 98.8049 37.4354C102.88 37.4354 106.169 40.7248 106.169 44.7997C106.169 48.8747 102.88 52.1641 98.8049 52.1641H91.4406ZM44.7997 52.1641C40.7248 52.1641 37.4354 48.8747 37.4354 44.7997C37.4354 40.7248 40.7248 37.4354 44.7997 37.4354C48.8747 37.4354 52.1641 40.7248 52.1641 44.7997V52.1641H44.7997ZM61.9832 81.6214V61.9832H81.6214V81.6214H61.9832ZM98.8049 106.169C94.73 106.169 91.4406 102.88 91.4406 98.8049V91.4406H98.8049C102.88 91.4406 106.169 94.73 106.169 98.8049C106.169 102.88 102.88 106.169 98.8049 106.169ZM44.7997 106.169C40.7248 106.169 37.4354 102.88 37.4354 98.8049C37.4354 94.73 40.7248 91.4406 44.7997 91.4406H52.1641V98.8049C52.1641 102.88 48.8747 106.169 44.7997 106.169Z" fill="currentColor"/>` +
-        `</svg>`,
-    antigravity: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
-        `<circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M4 12c2-5 14-5 16 0M4 12c2 5 14 5 16 0"/>` +
-        `<path d="M12 4c5 2 5 14 0 16M12 4c-5 2-5 14 0 16"/></svg>`,
-    kimi: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
-        `<rect x="4" y="4" width="16" height="16" rx="5" fill="#111827"/>` +
-        `<path d="M8 16V8h2v3l3-3h2.5l-3.4 3.6L16 16h-2.7l-2.6-3.2-.7.7V16z" fill="#fff"/></svg>`,
-    glm: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="#3d7afd">` +
-        `<circle cx="12" cy="4" r="1.5"/><circle cx="12" cy="20" r="1.5"/>` +
-        `<circle cx="4" cy="8" r="1.5"/><circle cx="20" cy="8" r="1.5"/>` +
-        `<circle cx="4" cy="16" r="1.5"/><circle cx="20" cy="16" r="1.5"/>` +
-        `<circle cx="12" cy="12" r="2.4"/><circle cx="7" cy="12" r="1.2" opacity=".6"/><circle cx="17" cy="12" r="1.2" opacity=".6"/></svg>`,
-    deepseek: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none">` +
-        `<path d="M3 13c2.5 0 4-1.2 5-3 .8 2.4 3 4 6 4 2.2 0 4-.7 5.5-2-.3 4-3.8 6.8-8 6.8-3.7 0-6.8-2.4-8.5-5.8z" fill="#4d6bfe"/>` +
-        `<circle cx="15.5" cy="10.5" r="1.1" fill="#fff"/></svg>`,
-    minimax: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">` +
-        `<path d="M3 12c1.5 0 1.5-5 3-5s1.5 11 3 11 1.5-13 3-13 1.5 9 3 9 1.5-3 3-3"/></svg>`,
-    tavily: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
-        `<path d="M12 21V8"/><path d="M12 8l-4 4M12 8l4 4"/>` +
-        `<path d="M12 3l5 4"/><path d="M5 9l5-2.5"/></svg>`,
-    mimo: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="currentColor">` +
-        `<title>XiaomiMiMo</title><path d="M.958 15.936a.459.459 0 01.459.44v2.729a.46.46 0 01-.918 0v-2.729a.459.459 0 01.459-.44zm4.814-2.035a.46.46 0 01.553.45v4.754a.458.458 0 11-.918 0V15.48L3.74 17.202a.462.462 0 01-.655.016.462.462 0 01-.065-.082L.628 14.67a.459.459 0 01.658-.637l2.124 2.187 2.127-2.188a.46.46 0 01.235-.13zm2.068.004a.46.46 0 01.458.445v4.755a.46.46 0 01-.458.458.459.459 0 01-.458-.458V14.35a.459.459 0 01.458-.445zm1.973 2.014a.46.46 0 01.46.457v2.729a.46.46 0 01-.784.324.46.46 0 01-.134-.324v-2.729a.46.46 0 01.458-.458zm.002-2.045a.458.458 0 01.328.157l2.127 2.19 2.125-2.19a.459.459 0 01.784.318v4.756a.46.46 0 01-.455.458.46.46 0 01-.458-.458V15.48l-1.667 1.723a.46.46 0 01-.65.008l-.005-.005c0-.002-.002-.002-.004-.003l-2.455-2.534a.46.46 0 01-.008-.667.461.461 0 01.338-.128zm6.797 1.206a.46.46 0 01.53.651A1.966 1.966 0 0019.81 18.4a.462.462 0 01.623.18.46.46 0 01-.181.624 2.863 2.863 0 01-1.38.353l-.142-.004a2.88 2.88 0 01-2.393-4.263.461.461 0 01.274-.21zm.864-.931a2.884 2.884 0 013.915 3.914.46.46 0 01-.402.24l-.057-.004a.458.458 0 01-.164-.055.46.46 0 01-.182-.622 1.967 1.967 0 00-2.669-2.67.459.459 0 11-.441-.803zM9.59 6.368c1.481 0 1.696 1.202 1.696 1.654v2.648h-.917v-.432c-.26.346-.792.535-1.36.535-.133 0-1.289-.03-1.384-1.136-.082-.932.675-1.61 2.053-1.61h.691c0-.563-.367-.886-.983-.886-.44.013-.864.174-1.2.458l-.36-.664c.484-.379 1.012-.567 1.764-.567zm4.427.1c1.263 0 2.082.97 2.083 2.15 0 1.181-.824 2.154-2.083 2.154-1.26 0-2.084-.972-2.084-2.152 0-1.18.82-2.153 2.084-2.153zm6.801.015c.68 0 1.202.465 1.197 1.548v2.642H21.1V8.29c0-.312-.002-.98-.63-.98s-.628.667-.628.838v2.524h-.89V8.148c0-.17-.001-.838-.63-.838-.628 0-.628.668-.628.98v2.383h-.917v-4.03h.917V7a1.22 1.22 0 01.947-.516c.398 0 .76.193.982.686a1.321 1.321 0 011.195-.686zm-18.093.872l1.457-1.772H5.32L3.311 8.07l2.14 2.602H4.24L2.725 8.796 1.21 10.672H0L2.138 8.07.13 5.583h1.138l1.458 1.772zm4.149 3.317h-.916V6.644h.916v4.028zm16.99 0h-.916V6.644h.916v4.028zM9.925 8.71c-1.055 0-1.359.412-1.326.742.032.329.324.537.757.537a1.013 1.013 0 001.014-.968l.002-.31h-.447zM14.018 7.3c-.663 0-1.184.487-1.184 1.32 0 .832.52 1.32 1.184 1.32.662 0 1.182-.49 1.182-1.32 0-.832-.52-1.32-1.182-1.32zM6.417 5.001a.568.568 0 01.587.582.588.588 0 01-1.175 0A.57.57 0 016.417 5zm16.991 0a.57.57 0 01.592.582.588.588 0 01-1.174 0 .57.57 0 01.357-.542.572.572 0 01.225-.04z"></path></svg>`,
-    cpa: (s) =>
-        `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4.2">` +
-        `<path d="M12 5A7 7 0 0 1 19 12"/>` +
-        `<path d="M19 12A7 7 0 0 1 12 19"/>` +
-        `<path d="M12 19A7 7 0 0 1 5 12"/>` +
-        `<path d="M5 12A7 7 0 0 1 12 5"/></svg>`,
+    // Static logos (A68: mimo 已归位统一使用 mimo_svg 资产文件)
+    claude: { type: "logo", src: claude_svg },
+    codex: { type: "logo", src: codex_svg },
+    commandcode: { type: "logo", src: commandcode_svg },
+    antigravity: { type: "logo", src: antigravity_svg },
+    kimi: { type: "logo", src: kimi_svg },
+    kimi_web: { type: "logo", src: kimi_svg },
+    glm: { type: "logo", src: glm_svg },
+    deepseek: { type: "logo", src: deepseek_svg },
+    getoneapi: { type: "logo", src: getoneapi_png },
+    minimax: { type: "logo", src: minimax_svg },
+    tavily: { type: "logo", src: tavily_svg },
+    firecrawl: { type: "logo", src: firecrawl_svg },
+    tikhub: { type: "logo", src: tikhub_jpeg },
+    cpa: { type: "logo", src: cpa_png },
+    muse: { type: "logo", src: muse_png },
+    mimo: { type: "logo", src: mimo_svg },
+
+    // SVG marks fallback
+    overview: {
+        type: "mark",
+        render: (s) =>
+            `<svg width="${String(s)}" height="${String(s)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
+            `<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2"/>` +
+            `<rect x="3.5" y="13" width="7.5" height="7.5" rx="2"/><rect x="13" y="13" width="7.5" height="7.5" rx="2"/></svg>`,
+    },
 };
 
 export type VendorId = string;
@@ -332,33 +282,32 @@ export function VendorMark({ id, size = 28, color }: VendorMarkProps) {
     // 同层（(0,1,0)），同层后声明的 hidden 才能正确覆盖 display。
     const wrap = "flex shrink-0 items-center justify-center [&_svg]:block";
     const logo_img = "block h-full w-full object-contain";
-    const theme_logo = VENDOR_THEME_LOGOS[id];
-    if (theme_logo) {
+    const entry = VENDOR_REGISTRY[id] ?? VENDOR_REGISTRY["overview"];
+    if (!entry) return null;
+
+    if (entry.type === "theme") {
         return (
             <span className={wrap} style={{ width: size, height: size }} data-testid="vendor-mark">
-                <img className={logo_img + " dark:hidden"} src={theme_logo.light} alt="" />
-                <img className={logo_img + " hidden dark:block"} src={theme_logo.dark} alt="" />
+                <img className={logo_img + " dark:hidden"} src={entry.light} alt="" />
+                <img className={logo_img + " hidden dark:block"} src={entry.dark} alt="" />
             </span>
         );
     }
 
-    const logo = VENDOR_LOGOS[id];
-    if (logo) {
+    if (entry.type === "logo") {
         return (
             <span className={wrap} style={{ width: size, height: size }} data-testid="vendor-mark">
-                <img className={logo_img} src={logo} alt="" />
+                <img className={logo_img} src={entry.src} alt="" />
             </span>
         );
     }
 
-    const render = VENDOR_MARKS[id] ?? VENDOR_MARKS["overview"];
-    if (!render) return null;
     return (
         <span
             className={wrap}
             style={{ width: size, height: size, color: color ?? undefined }}
             data-testid="vendor-mark"
-            dangerouslySetInnerHTML={{ __html: render(size) }}
+            dangerouslySetInnerHTML={{ __html: entry.render(size) }}
         />
     );
 }

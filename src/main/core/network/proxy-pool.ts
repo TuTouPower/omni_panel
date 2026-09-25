@@ -13,6 +13,20 @@ const log = createLogger("proxy-pool");
 // for the process lifetime and closing them together at shutdown.
 const pool = new Map<string, ProxyAgent>();
 
+// A73 / AC-003: 代理 URL 脱敏，防止账密明文落入日志
+export function sanitize_proxy_url(proxy_url: string): string {
+    try {
+        const u = new URL(proxy_url);
+        if (u.username || u.password) {
+            u.username = u.username ? "***" : "";
+            u.password = u.password ? "***" : "";
+        }
+        return u.toString();
+    } catch {
+        return proxy_url.replace(/:\/\/([^:]+):([^@]+)@/, "://***:***@");
+    }
+}
+
 export function get_proxy_agent(proxy_url: string): ProxyAgent {
     let agent = pool.get(proxy_url);
     if (!agent) {
@@ -21,7 +35,7 @@ export function get_proxy_agent(proxy_url: string): ProxyAgent {
             connections: MAX_CONNECTIONS_PER_ORIGIN,
         });
         pool.set(proxy_url, agent);
-        log.debug(`proxy-pool: created ProxyAgent for ${proxy_url}`);
+        log.debug(`proxy-pool: created ProxyAgent for ${sanitize_proxy_url(proxy_url)}`);
     }
     return agent;
 }

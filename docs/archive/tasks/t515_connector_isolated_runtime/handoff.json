@@ -1,0 +1,31 @@
+{
+    "tid": "t515",
+    "attempt": 1,
+    "execution_id": "7b9c3ed2d9d341b79d61f893b0aec702",
+    "status": "done",
+    "branch": "t515_connector_isolated_runtime",
+    "base_sha": "522ae58667804923c2a484792be1027322063682",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 331 个测试套件（4037 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试覆盖 SHA-256 完整性清单拒绝与告警、外部目录信任开关过滤、子进程崩溃与死循环超时终结、子进程 OOM 内存溢出韧性及观测真实入库查询",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=0b5cee07f0e5b15e",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/connector/connector-integrity.ts 计算连接器目录代码与配置文件的 SHA-256 哈希并在 manifest-loader.ts 启动时逐一比对基线清单，篡改即拒绝并记录安全告警",
+            "tests/integration/connector/isolated-process-runner.test.ts 验证篡改连接器在 discover 阶段被安全剔除"
+        ],
+        "AC-002": [
+            "src/main/core/connector/isolated-process-runner.ts 与 worker/connector-worker-entry.ts 建立独立隔离子进程执行宿主与 IPC 通信，父进程通过超时看门狗和异常监听防止子进程崩溃、死循环或 OOM 拖垮主进程",
+            "tests/integration/connector/isolated-process-runner.test.ts 验证子进程 crash、超时死循环及 OOM 场景下主进程保持健康"
+        ],
+        "AC-003": [
+            "src/main/core/connector/manifest-loader.ts 在 discover_connector_definitions 中默认跳过外部用户连接器目录，仅在 options.allow_user_connectors 显式启用时放行；src/shared/types/config.ts 与 types.ts 接入 allowUserConnectors 信任开关",
+            "tests/integration/connector/isolated-process-runner.test.ts 与 tests/unit/main/core/connector/manifest-loader.test.ts 验证未开启信任开关时外部未知脚本不被加载"
+        ],
+        "AC-004": [
+            "src/main/core/scheduler/refresh-service.ts 中 execute_connector 正式接入 run_connector_isolated 隔离执行器；生产 37 个调度测试跑在独立子进程中 100% 通过",
+            "tests/integration/connector/isolated-process-runner.test.ts 验证真实连接器指标经 IPC 回传并存入 SQLite 观测数据库"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

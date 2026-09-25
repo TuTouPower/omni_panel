@@ -50,6 +50,7 @@ const connectorConfigurationSchema = z.object({
 const proxyConfigurationSchema = z.object({
     url: z.string().min(1),
     noProxy: z.array(z.string()).optional(),
+    useSystemProxy: z.boolean().optional(),
 });
 
 const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);
@@ -76,15 +77,27 @@ export const devPanelConfigurationSchema = z.object({
     currentUserOnly: z.boolean(),
 });
 
+export const loggingConfigurationSchema = z.object({
+    maxAgeDays: z.number().int().min(1).max(365).optional(),
+    maxLogFileBytes: z
+        .number()
+        .int()
+        .min(1024 * 1024)
+        .optional(),
+    maxSegments: z.number().int().min(1).max(100).optional(),
+});
+
 export const appConfigurationSchema = z.object({
     schemaVersion: z.number().int(),
     language: appLanguageSchema,
     plugins: z.array(connectorConfigurationSchema),
     launchAtLogin: z.boolean(),
+    allowUserConnectors: z.boolean().default(false).optional(),
     proxy: proxyConfigurationSchema.optional(),
     accentColor: z.string().optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
     logLevel: logLevelSchema.optional(),
+    logging: loggingConfigurationSchema.optional(),
     pinToTop: z.boolean().optional(),
     minimizeToTray: z.boolean().optional(),
     hideDockIcon: z.boolean().optional(),
@@ -156,6 +169,12 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     language: "zh-Hans",
     plugins: [],
     launchAtLogin: false,
+    allowUserConnectors: false,
+    logging: {
+        maxAgeDays: 7,
+        maxLogFileBytes: 50 * 1024 * 1024,
+        maxSegments: 10,
+    },
     devPanel: {
         scanRoots: ["~/kar/code"],
         commitCutoff: "2026-03-20",

@@ -73,10 +73,12 @@ export function use_popup_derived(params: UsePopupDerivedParams): UsePopupDerive
     );
 
     // Apply persisted order to visible providers
+    // A121: Set 查找消除 O(n²) 模式
     const orderedProviders = useMemo(() => {
         if (provider_order.length === 0) return visibleProviders;
+        const visibleSet = new Set(visibleProviders);
         const orderSet = new Set(provider_order);
-        const ordered = provider_order.filter((p) => visibleProviders.includes(p));
+        const ordered = provider_order.filter((p) => visibleSet.has(p));
         const remaining = visibleProviders.filter((p) => !orderSet.has(p));
         return [...ordered, ...remaining];
     }, [visibleProviders, provider_order]);

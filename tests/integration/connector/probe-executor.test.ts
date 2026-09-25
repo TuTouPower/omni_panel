@@ -170,7 +170,8 @@ describe("probe-executor", () => {
         expect(first2.limit).toBe(100);
     });
 
-    it("returns empty array when no numeric headers found", async () => {
+    // A30: 旧测试「无数值头静默返回空数组」语义由 A30 废弃并升级为显式抛错与 failed_accounts 上报
+    it("throws explicit error and reports failed account when no numeric headers found (A30)", async () => {
         const manifest = {
             ...create_manifest(),
             observe: {
@@ -178,10 +179,22 @@ describe("probe-executor", () => {
                 probe: { endpoint: "default", path: "/probe-no-numeric" },
             },
         };
-        const ctx = create_ctx();
-        const observations = await execute_probe(manifest, ctx);
+        const failed_accounts: { provider: string; account_id: string; error: string }[] = [];
+        const ctx = {
+            ...create_ctx(),
+            report_failed_account: (
+                provider: string,
+                account_id: string,
+                _account_label: string,
+                error: string,
+            ) => {
+                failed_accounts.push({ provider, account_id, error });
+            },
+        };
 
-        expect(observations).toEqual([]);
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow("Probe 无可用 metric");
+        expect(failed_accounts).toHaveLength(1);
+        expect(failed_accounts[0]?.error).toContain("Probe 无可用 metric");
     });
 
     it("throws error when probe request fails", async () => {
@@ -210,7 +223,8 @@ describe("probe-executor", () => {
         await expect(execute_probe(manifest, ctx)).rejects.toThrow("has no observe.probe config");
     });
 
-    it("handles missing headers gracefully", async () => {
+    // A30: 缺失全部关注头时，抛出明确错误而非静默返回空
+    it("throws explicit error when configured headers are missing (A30)", async () => {
         const manifest = {
             ...create_manifest(),
             observe: {
@@ -219,12 +233,10 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, ctx);
-
-        expect(observations).toEqual([]);
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow("Probe 无可用 metric");
     });
 
-    it("returns empty when header not present in response", async () => {
+    it("throws explicit error when header not present in response (A30)", async () => {
         const manifest = {
             ...create_manifest(),
             observe: {
@@ -233,18 +245,48 @@ describe("probe-executor", () => {
             },
         };
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, ctx);
-
-        expect(observations).toEqual([]);
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow("Probe 无可用 metric");
     });
 
-    it("does not fabricate `used` from a numeric header not in the observe list", async () => {
+    it("does not fabricate `used` from a numeric header not in the observe list and throws (A30)", async () => {
         // Server sends an unlisted numeric header; manifest only whitelists x-ratelimit-remaining.
         const manifest = create_manifest(["x-definitely-not-sent-by-server"]);
         const ctx = create_ctx();
-        const observations = await execute_probe(manifest, ctx);
-        // The listed header is never sent -> no recognized value -> empty result
-        // (regression: previously fabricated from the first numeric header found).
-        expect(observations).toEqual([]);
+        await expect(execute_probe(manifest, ctx)).rejects.toThrow("Probe 无可用 metric");
+    });
+
+    it("logs debug when multiple headers match the same metric type (A44)", async () => {
+        const manifest = {
+            ...create_manifest(),
+            observe: {
+                headers: ["x-ratelimit-limit", "x-rate-limit"],
+                probe: { endpoint: "default", path: "/probe-duplicate" },
+            },
+        };
+        // 模拟返回两个同属 limit 的头
+        const debug_spy = vi.fn();
+        const ctx = {
+            ...create_ctx(),
+            log: { ...create_ctx().log, debug: debug_spy },
+            http: {
+                ...create_ctx().http,
+                get_raw: () =>
+                    Promise.resolve({
+                        status: 200,
+                        headers: {
+                            "x-ratelimit-limit": "1000",
+                            "x-rate-limit": "1200",
+                        },
+                        body: "{}",
+                    }),
+            },
+        };
+
+        const obs = await execute_probe(manifest, ctx);
+        expect(obs).toHaveLength(1);
+        expect(obs[0]?.limit).toBe(1000);
+        expect(debug_spy).toHaveBeenCalledWith(
+            expect.stringContaining('duplicate for "limit", using first match'),
+        );
     });
 });

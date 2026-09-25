@@ -4,12 +4,13 @@ import type { ConnectorContext } from "./host-io";
 import { build_single_observation } from "./observation-factory";
 
 function extract_numeric_headers(
-    headers: Record<string, string>,
+    headers: Record<string, string | string[]>,
     header_names: readonly string[],
 ): Map<string, number> {
     const result = new Map<string, number>();
     for (const name of header_names) {
-        const value = headers[name.toLowerCase()];
+        const raw_val = headers[name.toLowerCase()];
+        const value = Array.isArray(raw_val) ? raw_val[0] : raw_val;
         if (value !== undefined) {
             const num = Number(value);
             if (Number.isFinite(num)) {
@@ -53,7 +54,7 @@ export async function execute_probe(
     }
 
     const { probe, headers: header_names } = manifest.observe;
-    let response_headers: Record<string, string>;
+    let response_headers: Record<string, string | string[]>;
 
     try {
         ctx.log.debug(`Probing ${manifest.id}: ${probe.endpoint}${probe.path}`);
@@ -68,21 +69,49 @@ export async function execute_probe(
     const numeric_headers = extract_numeric_headers(response_headers, header_names);
     if (numeric_headers.size === 0) {
         ctx.log.warn(`No numeric headers found for ${manifest.id}`);
-        return [];
+        // A30: 抛明确错误并上报失败账号，不再静默返回 []
+        ctx.report_failed_account(
+            manifest.provider,
+            "default",
+            manifest.provider,
+            `Probe 无可用 metric: manifest ${manifest.id} 未能从响应头解析出任何有效数值指标`,
+        );
+        throw new Error(
+            `Probe 无可用 metric: manifest ${manifest.id} 未能从响应头解析出任何有效数值指标`,
+        );
     }
 
     let used: number | null = null;
     let limit: number | null = null;
     let remaining: number | null = null;
 
+    // A44: 同类型多头首胜记 debug 日志
     for (const [name, value] of numeric_headers) {
         const type = detect_metric_type(name);
-        if (type === "remaining" && remaining === null) {
-            remaining = value;
-        } else if (type === "used" && used === null) {
-            used = value;
-        } else if (type === "limit" && limit === null) {
-            limit = value;
+        if (type === "remaining") {
+            if (remaining === null) {
+                remaining = value;
+            } else {
+                ctx.log.debug(
+                    `Probe ${manifest.id}: header "${name}" duplicate for "remaining", using first match`,
+                );
+            }
+        } else if (type === "used") {
+            if (used === null) {
+                used = value;
+            } else {
+                ctx.log.debug(
+                    `Probe ${manifest.id}: header "${name}" duplicate for "used", using first match`,
+                );
+            }
+        } else if (type === "limit") {
+            if (limit === null) {
+                limit = value;
+            } else {
+                ctx.log.debug(
+                    `Probe ${manifest.id}: header "${name}" duplicate for "limit", using first match`,
+                );
+            }
         }
     }
 
@@ -92,7 +121,16 @@ export async function execute_probe(
     }
 
     if (used === null && limit === null) {
-        return [];
+        // A30: 推导失败抛明确错误并上报失败账号
+        ctx.report_failed_account(
+            manifest.provider,
+            "default",
+            manifest.provider,
+            `Probe 无可用 metric: manifest ${manifest.id} 未能推导出 used 或 limit 指标`,
+        );
+        throw new Error(
+            `Probe 无可用 metric: manifest ${manifest.id} 未能推导出 used 或 limit 指标`,
+        );
     }
 
     ctx.log.debug(`Probe for ${manifest.id}: used=${String(used)}, limit=${String(limit)}`);

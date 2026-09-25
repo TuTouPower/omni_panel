@@ -8,7 +8,8 @@ import type {
     ScriptObservation,
     FailedAccount,
 } from "../../../shared/types/observation";
-import { observations_to_ready_state } from "./observation-mapping";
+import { observations_to_ready_state, observation_to_metric_record } from "./observation-mapping";
+import { pluginResultSchema } from "../../../shared/schemas/plugin-output";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import { is_auth_error } from "../../../shared/lib/auth-error";
@@ -18,7 +19,15 @@ import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
-import { run_connector } from "../connector/runtime";
+import { run_connector, is_non_retryable_error } from "../connector/runtime";
+import { run_connector_isolated } from "../connector/isolated-process-runner";
+import {
+    DEFAULT_TIMEOUT_MS,
+    REFRESH_LOCK_TIMEOUT_MS,
+    REFRESH_DEFAULT_MAX_ATTEMPTS,
+    REFRESH_RETRY_BASE_DELAY_MS,
+    REFRESH_RELOGIN_WAIT_MS,
+} from "../../../shared/constants";
 import { create_script_cache } from "../connector/script-cache";
 import type { ObservationStore } from "../observation/observation-store";
 import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
@@ -29,6 +38,8 @@ export interface RefreshServiceDeps {
     runtimeStore: RuntimeStore;
     configStore: AppConfigStore;
     vault: VaultBackend;
+    /** A43 / AC-007: 允许调度器服务在关闭或退出时传递 abort 信号唤醒重试 sleep */
+    abort_signal?: AbortSignal;
     /**
      * 会话连接器重登入口。`credential_changed` 表示重登是否真的换到了新凭据：
      * 未换到时不得计入成功重登（t492 AC-003），否则等于用同一份失效凭据空转重试。
@@ -79,18 +90,35 @@ function last_success_snapshot(state: ConnectorSnapshotState): SnapshotSuccess |
     return undefined;
 }
 
+// A32: 严密化连接错误正则，裸 tls/ssl 要求词界，避免包含这些子串的普通词误判
 export function is_connection_error(message: string): boolean {
     const lower = message.toLowerCase();
     return (
-        lower.includes("econnreset") ||
-        lower.includes("eproto") ||
-        lower.includes("etimedout") ||
+        /\b(econnreset|eproto|etimedout|econnrefused|ehostunreach|enetunreach|und_err_socket|und_err_connect)\b/i.test(
+            lower,
+        ) ||
         lower.includes("socket hang up") ||
-        lower.includes("und_err_socket") ||
-        lower.includes("und_err_connect") ||
-        lower.includes("tls") ||
-        lower.includes("ssl")
+        /\b(tls|ssl)\b/i.test(lower)
     );
+}
+
+// A43 / AC-007: 支持 AbortSignal 取消的休眠函数，停止流程中立即唤醒
+export function cancellable_sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+        if (signal?.aborted) {
+            resolve();
+            return;
+        }
+        const timer = setTimeout(resolve, ms);
+        signal?.addEventListener(
+            "abort",
+            () => {
+                clearTimeout(timer);
+                resolve();
+            },
+            { once: true },
+        );
+    });
 }
 
 function resolve_script_path(definition: ConnectorDefinition): string {
@@ -135,33 +163,22 @@ async function build_params(
         definition.manifest.parameters.filter((p) => p.type === "secret").map((p) => p.name),
     );
     const params: Record<string, string> = {};
-    for (const param of definition.manifest.parameters) {
+    // A119: Promise.all 并行从 vault 取数，消除串行微任务开销
+    const tasks = definition.manifest.parameters.map(async (param) => {
         const configured = String(
             connector_config.parameterValues[param.name] ?? param.default ?? "",
         );
         if (param.type !== "secret") {
-            params[param.name] = configured;
-            continue;
+            return { name: param.name, value: configured };
         }
-        if (!param.exposeToScript) continue;
+        if (!param.exposeToScript) return null;
         const stored = await vault.get(keyFor(connector_config.instanceId, param.name));
         if (stored !== null) {
-            params[param.name] = stored;
-            continue;
+            return { name: param.name, value: stored };
         }
         if (configured !== "") {
-            params[param.name] = configured;
-            continue;
+            return { name: param.name, value: configured };
         }
-        // Required secret is genuinely missing (no vault entry, no configured
-        // value, no default). Failing here is deliberate: silently sending an
-        // empty credential would produce an unauthenticated API request that
-        // usually returns a misleading 401/403 instead of a clear "missing
-        // secret" error. Optional secrets with no value are allowed through as
-        // empty strings — some connectors have genuinely optional auth.
-        //
-        // p241: 这是配置缺口而非采集故障——带类型抛出，调用方据此不再做无意义重试，
-        // 并给出可操作中文文案（英文内部串对用户不可用）。
         if (param.required) {
             throw new MissingRequiredSecretError(
                 connector_config.name,
@@ -169,7 +186,14 @@ async function build_params(
                 param["label@zh-Hans"] ?? param.label ?? param.name,
             );
         }
-        params[param.name] = "";
+        return { name: param.name, value: "" };
+    });
+
+    const results = await Promise.all(tasks);
+    for (const res of results) {
+        if (res) {
+            params[res.name] = res.value;
+        }
     }
     const safe_params: Record<string, string> = {};
     for (const [key, value] of Object.entries(params)) {
@@ -189,6 +213,14 @@ async function execute_connector(
     reset?: boolean,
 ): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
     const params = await build_params(connector_config, definition, vault, trace_id);
+    const auth_secret_name = definition.manifest.poll?.request.auth?.secret;
+    if (auth_secret_name) {
+        const val = await vault.get(keyFor(connector_config.instanceId, auth_secret_name));
+        if (val) {
+            params[auth_secret_name] = val;
+            params[keyFor(connector_config.instanceId, auth_secret_name)] = val;
+        }
+    }
     const endpoint_overrides = { ...connector_config.endpointOverrides };
     if (definition.manifest.provider === "grok") {
         delete endpoint_overrides["grok_billing"];
@@ -206,7 +238,20 @@ async function execute_connector(
     if (definition.manifest.script) {
         // t195: 脚本 transpile 结果按 mtime 缓存，文本未变不重读盘、不重编译。
         const { code, compiled } = await script_cache.get_script(resolve_script_path(definition));
-        const result = await run_connector(definition.manifest, code, ctx, undefined, compiled);
+        // t515 / AC-002: 连接器脚本在独立隔离子进程执行，防拖垮主进程；单元测试可通过 OMNI_IN_PROCESS_CONNECTOR 回退
+        const result =
+            process.env["OMNI_IN_PROCESS_CONNECTOR"] === "1"
+                ? await run_connector(definition.manifest, code, ctx, undefined, compiled)
+                : await run_connector_isolated({
+                      manifest: definition.manifest,
+                      script_code: code,
+                      compiled_code: compiled,
+                      timeout_ms: DEFAULT_TIMEOUT_MS,
+                      params,
+                      instance_id: connector_config.instanceId,
+                      proxy_url,
+                      endpoint_overrides,
+                  });
         if (result.error) throw new Error(result.error);
         raw_observations = result.observations;
         failed_accounts = result.failed_accounts;
@@ -241,7 +286,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
      */
     const missing_config_reported = new Map<string, string>();
     let lock_seq = 0;
-    const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+    const LOCK_TIMEOUT_MS = REFRESH_LOCK_TIMEOUT_MS;
     const run_connector = deps.execute_connector ?? execute_connector;
 
     function is_locked(instanceId: string): boolean {
@@ -294,12 +339,13 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             });
 
             let last_error = "";
+            let last_raw_error: unknown = null;
             let session_relogin_done = false;
             let oauth_refresh_done = false;
             let force_fresh_connection = false;
             let connection_error_count = 0;
-            let max_attempts = 3;
-            const retry_delay_ms = 1000;
+            let max_attempts = REFRESH_DEFAULT_MAX_ATTEMPTS;
+            const retry_delay_ms = REFRESH_RETRY_BASE_DELAY_MS;
 
             // t172: OAuth(poll) 连接器 401/403 时的即时 token 刷新，成功/失败各调用至多一次。
             // 返回 true 表示已刷新成功，调用方应继续重试采集。
@@ -352,10 +398,33 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     );
                     if (auth_failed && (await try_oauth_refresh())) {
                         max_attempts += 1;
+                        trace_log.info(
+                            `Extending max_attempts to ${String(max_attempts)} for ${connector_config.name}`,
+                        );
                         if (attempt < max_attempts - 1) {
-                            await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
+                            await cancellable_sleep(retry_delay_ms, deps.abort_signal);
                         }
                         continue;
+                    }
+
+                    // A78 / AC-002: 在输出消费边界调用 pluginResultSchema.safeParse，拦截非契约脏数据
+                    const mapped_items = observations.map((obs) =>
+                        observation_to_metric_record(obs),
+                    );
+                    const output_payload = {
+                        success: true,
+                        schemaVersion: 2,
+                        updatedAt: new Date().toISOString(),
+                        items: mapped_items,
+                    };
+                    const validated_output = pluginResultSchema.safeParse(output_payload);
+                    if (!validated_output.success) {
+                        trace_log.warn(
+                            `pluginResultSchema validation failed for ${instanceId}: ${validated_output.error.message}`,
+                        );
+                        throw new Error(
+                            `pluginResultSchema rejected output for ${instanceId}: ${validated_output.error.message}`,
+                        );
                     }
 
                     // t352 AC-001: refresh 一轮观测批量写入走单事务（insert_batch
@@ -370,7 +439,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     // 相对时间反映数据真实年龄，不再每轮失败刷新成"几分钟前"。
                     const stale_observations: Observation[] = [];
                     if (failed_accounts.length > 0) {
-                        const prior = deps.observationStore.list_by_source_instance_id(instanceId);
+                        // A113 / AC-004: 部分账号失败路径亦严格基于最新成功观测 (stale=0) 生成降级副本并更新最新错误
+                        const prior = deps.observationStore.list_latest_success_by_instance
+                            ? deps.observationStore.list_latest_success_by_instance(instanceId)
+                            : deps.observationStore.list_by_source_instance_id(instanceId);
                         for (const failed of failed_accounts) {
                             for (const obs of prior) {
                                 if (obs.account_id !== failed.account_id) continue;
@@ -448,6 +520,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     );
                     return;
                 } catch (error: unknown) {
+                    last_raw_error = error;
                     last_error = error instanceof Error ? error.message : String(error);
                     // p241: 缺必填配置不会因重试而消失——warn 一次并立即放弃，
                     // 避免每轮 3 次无意义重试与 error 级噪音。
@@ -482,7 +555,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                                     trace_log.info(
                                         `Re-login succeeded for ${connector_config.name}, waiting before retry`,
                                     );
-                                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                                    await cancellable_sleep(
+                                        REFRESH_RELOGIN_WAIT_MS,
+                                        deps.abort_signal,
+                                    );
                                     relogin_ok = true;
                                 } else if (result.saved) {
                                     // t492: 重登「成功」但凭据没变——用同一份失效凭据重试
@@ -499,9 +575,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
                             if (relogin_ok) {
                                 if (attempt < max_attempts - 1) {
-                                    await new Promise((resolve) =>
-                                        setTimeout(resolve, retry_delay_ms),
-                                    );
+                                    await cancellable_sleep(retry_delay_ms, deps.abort_signal);
                                 }
                                 continue;
                             }
@@ -511,8 +585,11 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         // （非 script 的 tier-1 poll 401 会 throw 到这里）。
                         if (await try_oauth_refresh()) {
                             max_attempts += 1;
+                            trace_log.info(
+                                `Extending max_attempts to ${String(max_attempts)} for ${connector_config.name}`,
+                            );
                             if (attempt < max_attempts - 1) {
-                                await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
+                                await cancellable_sleep(retry_delay_ms, deps.abort_signal);
                             }
                             continue;
                         }
@@ -520,6 +597,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         // Auth error and either (a) not a session connector, or (b) re-login
                         // already attempted/failed: give up immediately to avoid hammering the
                         // server and tripping IP bans (t155).
+                        break;
+                    }
+
+                    // A40 / A42 / AC-003: 不可重试错误（4xx、语法/编译必败错误等）立即短路，不再浪费后续尝试
+                    if (is_non_retryable_error(last_raw_error ?? last_error)) {
+                        trace_log.warn(
+                            `Non-retryable error for ${connector_config.name}, aborting remaining retries: ${last_error}`,
+                        );
                         break;
                     }
 
@@ -538,7 +623,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     }
 
                     if (attempt < max_attempts - 1) {
-                        await new Promise((resolve) => setTimeout(resolve, retry_delay_ms));
+                        await cancellable_sleep(retry_delay_ms, deps.abort_signal);
                     }
                 }
             }
@@ -550,17 +635,22 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             // t370 AC-002: 全轮失败后的 stale 副本插入包 try/catch——insert/list 抛错
             // 仅告警，确保 updateState(failed) 无条件执行（否则 store 卡 loading）。
             try {
-                const prior_observations =
-                    deps.observationStore.list_by_source_instance_id(instanceId);
-                for (const obs of prior_observations) {
-                    deps.observationStore.insert({
-                        ...obs,
-                        stale: true,
-                        last_error: last_error,
-                    });
+                // A113 / AC-004: 严格基于最新成功观测 (stale=0) 生成降级副本，消除多轮连续失败 stale 衍生雪崩
+                const successful_priors = deps.observationStore.list_latest_success_by_instance
+                    ? deps.observationStore.list_latest_success_by_instance(instanceId)
+                    : deps.observationStore
+                          .list_by_source_instance_id(instanceId)
+                          .filter((o) => !o.stale);
+                const stale_copies: Observation[] = successful_priors.map((obs) => ({
+                    ...obs,
+                    stale: true,
+                    last_error: last_error,
+                }));
+                if (stale_copies.length > 0) {
+                    deps.observationStore.insert_batch(stale_copies);
                 }
                 trace_log.info(
-                    `Marked ${String(prior_observations.length)} observation(s) stale for ${instanceId}`,
+                    `Marked ${String(stale_copies.length)} observation(s) stale for ${instanceId}`,
                 );
             } catch (stale_err: unknown) {
                 trace_log.warn(
@@ -584,24 +674,6 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
         }
     }
 
-    async function with_concurrency<T>(
-        items: T[],
-        fn: (item: T) => Promise<void>,
-        limit: number,
-    ): Promise<void> {
-        const executing = new Set<Promise<void>>();
-        for (const item of items) {
-            const p = fn(item).then(() => {
-                executing.delete(p);
-            });
-            executing.add(p);
-            if (executing.size >= limit) {
-                await Promise.race(executing);
-            }
-        }
-        await Promise.allSettled(executing);
-    }
-
     async function refreshAll(): Promise<void> {
         const config = await deps.configStore.load();
         const enabled_connectors = config.plugins.filter((p: ConnectorConfiguration) => p.enabled);
@@ -614,4 +686,31 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     }
 
     return { refresh, refreshAll };
+}
+
+// A4 / AC-001: 单源导出 with_concurrency，彻底消除生产与测试平行副本
+export async function with_concurrency<T>(
+    items: T[],
+    fn: (item: T) => Promise<void>,
+    limit: number,
+): Promise<void> {
+    const executing = new Set<Promise<void>>();
+    for (const item of items) {
+        const p: Promise<void> = (async () => {
+            try {
+                await fn(item);
+            } catch (err: unknown) {
+                createLogger("refresh-service").error(
+                    `with_concurrency task failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+            }
+        })().finally(() => {
+            executing.delete(p);
+        });
+        executing.add(p);
+        if (executing.size >= limit) {
+            await Promise.race(executing);
+        }
+    }
+    await Promise.allSettled(executing);
 }

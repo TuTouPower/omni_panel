@@ -8,6 +8,7 @@ import type { ConnectorInfo } from "../../../src/shared/types/ipc";
 import type { ProviderUsageGroup } from "../../../src/renderer/lib/provider-usage";
 import {
     accountKey,
+    to_account_key_object,
     apply_account_labels,
     apply_account_overrides,
     build_provider_usage_groups,
@@ -16,6 +17,9 @@ import {
     get_visible_providers,
     resolve_convergent_epoch,
     resolve_convergent_time,
+    compare_providers,
+    sanitize_remote_string,
+    is_weekly_like,
     PROVIDER_ORDER,
     PROVIDER_LABELS,
 } from "../../../src/renderer/lib/provider-usage";
@@ -1526,5 +1530,94 @@ describe("custom provider fallback (t095)", () => {
         const custom_idx = providers.indexOf("my_vendor");
         const known_idx = providers.indexOf("deepseek");
         expect(custom_idx).toBeGreaterThan(known_idx);
+    });
+
+    it("synthesizes failed placeholder account with valid observedAt and updatedAt", () => {
+        const failed_conn = connectorInfo({
+            instanceId: "custom-conn",
+            sourceInstanceId: "custom-src",
+            name: "custom_failed",
+            displayName: "Custom Failed",
+            source: "poll",
+            supportedProviders: ["kimi"],
+            activeProviders: ["kimi"],
+            snapshot: {
+                status: "failed",
+                items: [],
+                error: "Network error",
+            },
+        });
+        const groups = build_provider_usage_groups([failed_conn]);
+        const kimi_group = groups.find((g) => g.provider === "kimi");
+        expect(kimi_group).toBeDefined();
+        const placeholder = kimi_group?.accounts.find((a) => a.accountId === "__failed__");
+        expect(placeholder).toBeDefined();
+        expect(placeholder?.observedAt).toBeGreaterThan(0);
+        expect(placeholder?.updatedAt).toBeTruthy();
+        expect(isNaN(new Date(placeholder?.updatedAt ?? "").getTime())).toBe(false);
+    });
+
+    it("A76: sanitize_remote_string strips control characters and caps at max_len", () => {
+        expect(sanitize_remote_string("valid string")).toBe("valid string");
+        expect(sanitize_remote_string("hello\x00\x1fworld\x7f")).toBe("helloworld");
+        const longStr = "a".repeat(100);
+        const capped = sanitize_remote_string(longStr, 64);
+        expect(capped?.length).toBe(64);
+        expect(sanitize_remote_string(null)).toBeUndefined();
+        expect(sanitize_remote_string(undefined)).toBeUndefined();
+    });
+
+    it("A102: is_weekly_like identifies all weekly-equivalent quota periods", () => {
+        expect(is_weekly_like({ raw_label: "credits", name: "额度" })).toBe(true);
+        expect(is_weekly_like({ raw_label: "weekly", name: "每周" })).toBe(true);
+        expect(is_weekly_like({ raw_label: "7d", name: "7天" })).toBe(true);
+        expect(is_weekly_like({ name: "一周用量" })).toBe(true);
+        expect(is_weekly_like({ raw_label: "daily", name: "当天" })).toBe(false);
+    });
+
+    it("A106: to_account_key_object creates structured key representation", () => {
+        const direct = to_account_key_object({
+            source: "poll",
+            sourceInstanceId: "inst-1",
+            accountId: "acc-1",
+            accountLabel: "Direct",
+        });
+        expect(direct.isGateway).toBe(false);
+        expect(direct.key).toBe("inst-1|acc-1");
+
+        const gw = to_account_key_object({
+            source: "gateway",
+            sourceInstanceId: "cpa-1",
+            accountId: "monitored-1",
+            accountLabel: "Monitored Acc",
+        });
+        expect(gw.isGateway).toBe(true);
+        expect(gw.key).toBe("cpa-1|label|Monitored Acc");
+    });
+
+    it("A120: compare_providers uses O(1) Map rank and ranks unknown vendors last", () => {
+        expect(compare_providers("claude", "codex")).toBeLessThan(0);
+        expect(compare_providers("codex", "claude")).toBeGreaterThan(0);
+        expect(compare_providers("claude", "unknown_vendor")).toBeLessThan(0);
+        expect(compare_providers("unknown_vendor", "claude")).toBeGreaterThan(0);
+        expect(compare_providers("same", "same")).toBe(0);
+    });
+
+    it("A120: resolve_convergent_time correctly finds latest within threshold in single pass", () => {
+        const t1 = "2026-01-01T12:00:00Z";
+        const t2 = "2026-01-01T12:05:00Z";
+        const t3 = "2026-01-01T12:08:00Z";
+        expect(resolve_convergent_time([t1, t2, t3], 10 * 60 * 1000)).toBe(t3);
+
+        const tooFar = "2026-01-01T12:30:00Z";
+        expect(resolve_convergent_time([t1, tooFar], 10 * 60 * 1000)).toBeNull();
+    });
+
+    it("A120: resolve_convergent_epoch correctly finds latest within threshold in single pass", () => {
+        const e1 = 1000;
+        const e2 = 2000;
+        const e3 = 3000;
+        expect(resolve_convergent_epoch([e1, e2, e3], 5000)).toBe(3000);
+        expect(resolve_convergent_epoch([e1, 10000], 5000)).toBeNull();
     });
 });

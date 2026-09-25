@@ -1,0 +1,39 @@
+{
+    "tid": "t519",
+    "attempt": 1,
+    "execution_id": "9177373d17f347a5a95959d246aeedc6",
+    "status": "done",
+    "branch": "t519_renderer_components_and_perf",
+    "base_sha": "c127319fb420179c7585bea71de14df7b3878270",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 332 个测试套件（4073 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与组件测试覆盖 AddAccountDialog local_cli 未就绪禁用、FORM_REGISTRY 注册表驱动表单、统一 VENDOR_REGISTRY 图标渲染、DevPanel 后台暂停轮询、provider-usage 算法等价性及 ProviderOverview 与 PopupView memo 局部渲染",
+    "review": "single 级：general_verdict=PASS, reviewed_scope=6de68e2db2f86491",
+    "ac_evidence": {
+        "AC-001": [
+            "src/renderer/components/AddAccountDialog.tsx 校验 is_local_cli_invalid 并禁用保存按钮",
+            "tests/unit/renderer/components/add_account_dialog.test.tsx 验证 local_cli 未扫描出有效授权时按钮禁用"
+        ],
+        "AC-002": [
+            "src/renderer/components/add_account/form_registry.tsx 集中注册表单匹配与渲染，AddAccountDialog 统一通过注册表调度",
+            "tests/unit/renderer/components/add_account_dialog.test.tsx 验证各类型表单由注册表驱动渲染并正确保存"
+        ],
+        "AC-003": [
+            "src/renderer/components/Icon.tsx 统一三表为 VENDOR_REGISTRY，mimo 改走 mimo.svg，告警接入 logger",
+            "tests/unit/renderer/components/icon.test.tsx 验证 mimo 使用统一资产文件且无裸控制台警告"
+        ],
+        "AC-004": [
+            "src/renderer/views/DevPanelView.tsx 依据 running 状态自适应轮询并在 visibilitychange 隐藏时暂停",
+            "tests/unit/renderer/views/dev_panel_view.test.tsx 验证后台标签页暂停 IPC 轮询及前台恢复"
+        ],
+        "AC-005": [
+            "src/renderer/lib/provider_registry.ts 单源注册厂商，src/renderer/lib/provider-usage.ts 采用 Map rank 与单遍遍历并清洗远端字段",
+            "tests/unit/renderer/provider-usage.test.ts 验证 74 项测试全部等价通过，清洗与单遍算法正确"
+        ],
+        "AC-006": [
+            "src/renderer/components/ProviderOverview.tsx 实施 memo，src/renderer/views/PopupView.tsx 将 useNowTick 下沉至 RelativeTimeDisplay 局部组件",
+            "tests/unit/renderer/components/provider_overview.test.tsx 验证 ProviderOverview memo 防抖有效"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

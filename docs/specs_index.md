@@ -16,7 +16,7 @@
 
 |slug|验证方式|task 清单|最后固化时间|
 |---|---|---|---|
-|add-account-auto-refresh|Web|t306|2026-08-11|
+|add_account_auto_refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
 |session-library|API / Web / Desktop|t476，t484：会话历史查询契约、Command Code 提取与宿主 resume|2026-09-14|
@@ -52,18 +52,16 @@
 |elevation_layering_unify|Web+Desktop|t415 阴影变量翻转、z 五层、logo-drop-shadow、SelectionDock 去 blur；t452 裸层级类换任意值+正向门禁|2026-09-05|
 |usage_color_single_source|Web+Desktop|t418 九色/accent 预设/about tint 收口单一 token 来源|2026-08-16|
 |ui-views-web|Web|拆自 ui-views（t037），t040/t041/t046/t100/t101/t102/t104/t105/t106，t215，t330|2026-08-13|
-|design-tokens-foundation|Desktop|t268|2026-08-09|
 |ui-component-library|Desktop|t269，t301，t303，t420，t421，t422，t423|2026-08-16|
 |ui_selection_controls_adopt|Web / Desktop|t421|2026-08-16|
 |semantic_pattern_utilities|Web / Desktop|t422 告警条/code chip/徽章/toast 复合模式唯一实现|2026-08-16|
-|ui-component-theme-contrast|Web|t283，t298，t302，t301|2026-08-11|
+|ui_component_theme_contrast|Web|t283，t298，t302，t301|2026-08-11|
 |legacy_css_cleanup|Web+Desktop|t274，t419|2026-08-16|
 |ui-views-desktop|Desktop|拆自 ui-views（t037），t153|2026-07-27|
-|cli-mode|Desktop|t275, t285, t322, t335, t399, t400|2026-08-16|
 |desktop_cli_json_discovery|Desktop|t459|2026-09-08|
 |cli_help_unify|Desktop|t400|2026-08-16|
 |cli-import-config|API|t285|2026-08-10|
-|vendor-forms-oauth-weblogin|Web|t109|2026-07-25|
+|vendor_forms_oauth_weblogin|Web|t109|2026-07-25|
 |fix_add_account_wiring|Desktop|t110|2026-07-25|
 |web-panel|Web|迁移自 omni_powers，无，t325；t414 一页一条 EventSource；t474 宿主自启控制端点|2026-09-14|
 |web_config_parity|API + Web + Desktop|t277，t480|2026-09-14|
@@ -87,7 +85,7 @@
 |session-shell|Desktop|t223，t224，t245，t326，t327，t328，t334|2026-08-13|
 |workspace|Desktop|t224，t225，t226，t227，t228，t248，t243，t246，t244，t247，t263，t297，t323，t324，t329，t405，t407，t409，t410，t411，t439，t458|2026-09-08|
 |draggable_provider_tabs|Web|t242|2026-08-07|
-|provider-tab-active-state|Web|t305|2026-08-11|
+|provider_tab_active_state|Web|t305|2026-08-11|
 |renderer-bundle-code-split|Web+Desktop|t249|2026-08-07|
 |session-path-index|Desktop|t254，t264，t310，t438|2026-08-23|
 |session-summary-head-read|Desktop|t255|2026-08-07|
@@ -98,5 +96,9 @@
 |session_message_click_expand|Web+Desktop|t408|2026-08-16|
 |e2e_synthetic_fixture|Web|t281|2026-08-10|
 |web_cookie_login_anon_poll_parity|Web + Desktop|t282|2026-08-10|
+|commandcode_balance_connector|API + Web|t489|2026-09-25|
+|kimi_web_bearer_keepalive|API + Desktop|t492|2026-09-25|
+|grok_bot_usage_connector|API + Desktop + Web|t507|2026-09-25|
+|muse_ai_usage_connector|API + Desktop + Web|t508|2026-09-25|
 
 替代旧需求可在备注 `supersedes: <old_slug>`。

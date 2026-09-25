@@ -1,0 +1,43 @@
+{
+    "tid": "t513",
+    "attempt": 1,
+    "execution_id": "69e0fa06db00489d86f3c124f0ba4f64",
+    "status": "done",
+    "branch": "t513_opencode_muse_connectors_upgrade",
+    "base_sha": "4bd77fa81393da8382018ab23107d570fa7deaf5",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 330 个测试套件（4011 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "集成测试模拟 OpenCode Go 和 Muse 连接器各种边界场景（401 报错、缺失 limit、全 org 采集与隔离、org memo 跨轮询周期缓存、动态提取 Action ID 与 Deployment ID、CRLF 安全校验、缺失用量上报等）；零失败",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=26928818f0aad6ef",
+    "ac_evidence": {
+        "AC-001": [
+            "connectors/opencode_go/connector.ts 中 fetch_orgs、fetch_go_status、fetch_usage_summary 遇到 401/403 明确抛出「OpenCode 会话已失效，请重新登录」",
+            "tests/integration/connector/opencode_go_connector.test.ts 验证 401 拦截并断言命中 is_auth_error"
+        ],
+        "AC-002": [
+            "connectors/opencode_go/connector.ts 中 meter_to_pct 在 limitMicroCents 为空或 <=0 时记录 warn 日志并返回 null",
+            "tests/integration/connector/opencode_go_connector.test.ts 验证 limit 无效时指标跳过不输出假 0% 并断言 warn 日志"
+        ],
+        "AC-003": [
+            "connectors/opencode_go/connector.ts 中 monthly 重置时间优先取 meters.month.resetsAt，回退到 endsAt",
+            "tests/integration/connector/opencode_go_connector.test.ts 显式验证 resetsAt 正确映射到 reset_at"
+        ],
+        "AC-004": [
+            "connectors/opencode_go/connector.ts 循环采集所有关联组织，account_id 带有 org.id 隔离；通过宿主原型空间持有 1 小时 TTL memo 缓存",
+            "tests/integration/connector/opencode_go_connector.test.ts 验证多组织采集隔离，并通过多轮执行断言相同 Cookie 缓存命中（网络计数为 1）与不同 Cookie 缓存未命中（网络计数为 2）"
+        ],
+        "AC-005": [
+            "connectors/muse/connector.ts 中 percentUsed 缺失或非有效数值时，调用 ctx.report_failed_account 上报异常，不生成 0% 正常指标",
+            "tests/integration/connector/muse_connector.test.ts 验证 percentUsed 缺失时生成 failed_accounts 且无 weekly 伪正常指标"
+        ],
+        "AC-006": [
+            "connectors/muse/connector.ts 中 resolve_dynamic_action_ids 动态请求主页并限定正则属性上下文提取 actionId 与 deploymentId，未找到时抛出 MUSE_ACTION_STALE",
+            "tests/integration/connector/muse_connector.test.ts 验证未找到 ID 时抛出 MUSE_ACTION_STALE 错误"
+        ],
+        "AC-007": [
+            "connectors/muse/connector.ts 中 required_cookie 对 SESSION_COOKIE 校验禁止包含 \\r 或 \\n，且限制长度不超过 8KB",
+            "tests/integration/connector/muse_connector.test.ts 验证包含 CRLF 时抛出错误且断言 get_raw/post_raw 未被调用"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

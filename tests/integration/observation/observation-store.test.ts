@@ -417,5 +417,120 @@ describe("observation-store", () => {
                 check.close();
             }
         });
+
+        // A9 / AC-003: 验证生产真实 list_by_source_instance_id 命中 idx_by_instance 复合索引，消除全表扫描
+        it("AC-003: hits idx_by_instance index for instance queries without full table scan", () => {
+            store.insert(make_observation({ observed_at: Date.now() }));
+            const check = new Database(join(temp_dir, "test.db"));
+            try {
+                // 生产真实窗口查询 SQL
+                const plan = check
+                    .prepare(
+                        "EXPLAIN QUERY PLAN SELECT * FROM (" +
+                            "SELECT *, ROW_NUMBER() OVER (" +
+                            "PARTITION BY account_id, metric_id " +
+                            "ORDER BY observed_at DESC, stale DESC" +
+                            ") AS rn FROM observations WHERE source_instance_id = ?" +
+                            ") WHERE rn = 1",
+                    )
+                    .all("tavily-1") as { detail: string }[];
+                const details = plan.map((row) => row.detail).join("\n");
+                expect(details).toMatch(/USING INDEX idx_by_instance\b/);
+                expect(details).not.toMatch(/SCAN TABLE observations\b/);
+            } finally {
+                check.close();
+            }
+        });
+
+        // A31: 验证 insert_batch 返回 ok / failed 状态
+        it("A31: returns ok and failed counts from insert_batch", () => {
+            const obs1 = make_observation({ observed_at: 1000 });
+            const obs2 = make_observation({ observed_at: 2000 });
+            const res = store.insert_batch([obs1, obs2]);
+            expect(res).toEqual({ ok: 2, failed: 0 });
+        });
+
+        // A33 / AC-005: 插入超量样本 (1200条) 分布于整窗，真实验证 query_trend_series cap 上限钳制到 1000
+        it("AC-005: clamps trend parameters (days <= 365, cap <= 1000)", () => {
+            const now = Date.now();
+            const days = 365;
+            const start_ms = now - days * 24 * 60 * 60 * 1000;
+            const bucket_width = (now - start_ms) / 1000;
+            const bulk: Observation[] = [];
+            // 在 1000 个桶的时间跨度上均匀插入 1200 个数据点
+            for (let i = 0; i < 1200; i++) {
+                bulk.push(
+                    make_observation({
+                        observed_at: Math.floor(start_ms + i * bucket_width),
+                        used: i,
+                    }),
+                );
+            }
+            store.insert_batch(bulk);
+
+            // 传入超大 days (10000) 和超大 cap (50000)，结果被严格钳制在 1000 点
+            const res = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                10000,
+                50000,
+            );
+            expect(res).toHaveLength(1000);
+
+            // 传入 <= 0 的 days 返回空
+            const empty_res = store.query_trend_series(
+                "tavily",
+                "default",
+                "tavily:monthly_usage",
+                "tavily-1",
+                0,
+            );
+            expect(empty_res).toEqual([]);
+        });
+
+        // A34 / AC-006: 验证数据清理分批删除机制 (DELETE ... LIMIT)
+        it("AC-006: prunes observations in batches without long lock contention", () => {
+            const now = Date.now();
+            const old_time = 1000;
+            const bulk: Observation[] = [];
+            // 同一键插入 1 条最新观测 + 1200 条历史旧观测
+            bulk.push(make_observation({ observed_at: now }));
+            for (let i = 0; i < 1200; i++) {
+                bulk.push(
+                    make_observation({
+                        observed_at: old_time - (i + 1) * 1000,
+                    }),
+                );
+            }
+            store.insert_batch(bulk);
+            expect(store.count_observations()).toBe(1201);
+
+            // 指定 batch_size=500 分批清理 1200 条历史行
+            const removed = store.prune(old_time + 10000, 500);
+            expect(removed).toBe(1200);
+            // 保留最新的 1 条有效观测
+            expect(store.count_observations()).toBe(1);
+        });
+
+        // A45: 验证读行遇到畸变脏数据时安全过滤并记录 warning
+        it("A45: skips corrupted observation rows safely", () => {
+            const raw_db = new Database(join(temp_dir, "test.db"));
+            try {
+                // 直接插入一条破坏了必填字段的脏数据行
+                raw_db
+                    .prepare(
+                        "INSERT INTO observations (provider, source_instance_id, account_id, account_label, metric_id, raw_label, normalized_label, window, display_style, status, observed_at, source, stale) " +
+                            "VALUES ('', 'inst-bad', '', 'bad', '', 'bad', 'bad', 'month', 'percent', 'normal', 1000, 'poll', 0)",
+                    )
+                    .run();
+            } finally {
+                raw_db.close();
+            }
+
+            const list = store.list_by_source_instance_id("inst-bad");
+            expect(list).toEqual([]);
+        });
     });
 });

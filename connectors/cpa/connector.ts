@@ -35,19 +35,22 @@ function is_record(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
+// A99: 委托给宿主注入的 ctx.util 统一阈值与转换工具（带安全兜底）
 function to_number(value: unknown): number {
+    if (ctx.util?.to_number) return ctx.util.to_number(value);
     const parsed = typeof value === "number" ? value : Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function to_pct(value: unknown): number {
+    if (ctx.util?.to_pct) return ctx.util.to_pct(value);
     const raw = to_number(value);
-    const pct = raw <= 1 ? raw * 100 : raw;
-    // t361 AC-002: 钳制 [0,100]，负值/超 100 不再出现。
+    const pct = raw <= 1 && raw > 0 ? raw * 100 : raw;
     return Math.round(Math.max(0, Math.min(pct, 100)) * 10) / 10;
 }
 
 function to_reset_at(value: unknown): number | null {
+    if (ctx.util?.to_reset_at) return ctx.util.to_reset_at(value);
     if (typeof value !== "string" || !value) return null;
     const ts = Date.parse(value);
     return Number.isFinite(ts) ? ts : null;

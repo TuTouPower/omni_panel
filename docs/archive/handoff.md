@@ -145,3 +145,26 @@ ______________________________________________________________________
     - `docs/blueprint/testing.md` 建立（门禁类别清单：单测/typecheck/lint/build 全绿）。
 - 注意：`docs/bugs.md` 与 `docs/legacy_backlog.md` 已迁 `docs/archive/`（`bugs_2026_07.md` / `legacy_backlog_2026_07.md`），本文件历史节中的旧引用指向归档位置。
 - 后续：首个真实 worktree task 执行时实测 pnpm + node_modules + better-sqlite3 ABI 适配（见 `docs/blueprint/testing.md` worktree 节）。
+
+## 2026-08-16 CDP 9223 浏览器访问面板挂起（未解决，待接手）
+
+- branch：`main`（诊断全程只读，无代码改动，无 commit）
+- head_commit：`eb9bb45d`（诊断开始前 main HEAD）
+- 现象（用户报告 + 实测）：
+    - 9223 CDP 浏览器（playwright-mcp 启动的 Chrome，profile `~/.cache/ms-playwright-mcp/mcp-chrome-6dd8310`）打开面板 `http://localhost:18263/`（OmniPanel `--cli serve` web 面板，会话视图 `#session`）。
+    - 浏览器整页刷新后**转圈 5 分钟+**，再点刷新有时恢复；点「最近会话 → 最近 4 个」后同样卡死。
+    - 实测：页面同源 `fetch('/v1/sessions?limit=6')` 挂起 >6s 无响应；CDP `Runtime.evaluate` 偶发超时（主线程长任务占用）。
+    - 已多次用 CDP `Page.navigate` 强制重载恢复页面（恢复后页面正常、数据在），但**之后会复发**。
+- 已确认事实（均实测）：
+    - **服务端正常**：`omni_panel --cli serve`（PID 599798，`artifacts/linux-unpacked/omni_panel`，监听 `0.0.0.0:18263`）CPU 0%；`/v1/sessions` 2ms、`/v1/sessionHistory` 40ms 返回 HTTP 200。
+    - **代理正常**：WSL 全局代理 `http_proxy=http://127.0.0.1:7890`（clash，Windows 侧；`ss -tln` 看不到 LISTEN 但可连）。`curl -x http://127.0.0.1:7890 http://localhost:18263/` 1.9ms 返回——clash 对 localhost 转发正常。curl 因 `no_proxy` 含 localhost 默认直连。
+    - **无头 Chrome 对照正常**：`/home/testuser/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome --headless --no-sandbox --disable-gpu --dump-dom http://localhost:18263/` 秒回（带/不带 `--no-proxy-server` 都正常）。
+    - **浏览器外网请求正常**：about:blank tab 里 `fetch('https://www.google.com/', {mode:'no-cors'})` 625ms、baidu 56ms 成功（走代理）。**仅对 localhost:18263 的页面 fetch 挂**。
+    - **浏览器网络栈对 18263 的具体表现**：`Network` 事件链只有 `requestWillBeSent`，无 `requestWillBeSentExtraInfo`、无 `responseReceived`、无 `loadingFailed`——请求生成后**未建立 TCP 连接**（服务端侧无新连接），但页面 HTML/JS 加载正常（导航请求可完成）。
+    - **杀 network service 无效**：kill PID 622756（network.mojom）后 Chrome 自动重建（841816），问题依旧。
+    - **页面主线程**：renderer 622806/622807 主线程平时 `futex_do_wait`（空闲态），622807 有周期性 CPU 爆发（约每 10s +100 ticks ≈ 1s CPU，疑似 tokenStats 10s 轮询渲染）；CDP `evaluate '1+1'` 多数秒回。
+    - **DNS**：`/etc/resolv.conf` → `100.100.100.100` + `fd7a:115c:a1e0::53`（Tailscale MagicDNS）；`localhost` 解析为 `::1`；omni_panel 只监听 IPv4。
+    - **页面 CSP**：`connect-src 'self' ws: wss:`（server.ts 内联），同源 fetch 不受限。
+    - **扩展**：4 个 service_worker 扩展（含 Dark Reader `eimadpbcbfnmbkopoojfekhnkhdbieeh` 等），**Dark Reader 未注入页面**（无 darkreader DOM/style 痕迹），profile Preferences 无自定义代理。
+- 已排除假设：服务端处理慢、代理转发 localhost 不通、系统 DNS 解析挂、浏览器全局网络栈挂（外网通）、页面 JS 主线程死锁（CDP 多数响应）、Dark Reader 注入阻塞、profile 代理覆盖。
+- 工具与代码定位见原诊断记录。

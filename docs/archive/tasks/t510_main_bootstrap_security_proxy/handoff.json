@@ -1,0 +1,50 @@
+{
+    "tid": "t510",
+    "attempt": 1,
+    "execution_id": "8c28c681059241118ead2f9d1481d42c",
+    "status": "done",
+    "branch": "t510_main_bootstrap_security_proxy",
+    "base_sha": "a3e79022df8b9f6d172e9cd04d908de976b23b74",
+    "tests": "pnpm check 全绿（含 typecheck + lint + format:check + deadcode + arch + test 零 warning 零 error）；pnpm test 全绿（329 测试套件，3974 单元/集成用例通过）",
+    "blackbox": "通过 tests/unit/main/single_instance.test.ts 验证单实例锁冲突提前退出与启动短路；通过 tests/unit/main/window_manager.test.ts 验证外部导航拦截与协议白名单；通过 tests/unit/main/security/csp.test.ts 验证 CSP 指令补充；通过 tests/unit/shared/cookie.test.ts 验证 Cookie CRLF 与 8KB 长度防御；通过 tests/unit/main/vault_permissions.test.ts 验证 Windows 真实用户名防环境变量劫持；通过 tests/unit/main/core/config/auto-seed.test.ts 验证路径大小写兼容、空实例清理与版本递增；通过 tests/unit/config/secret_param_keys.test.ts 验证 PKCE refresh 密钥覆盖；通过 tests/unit/main/effective_proxy.test.ts 验证代理开关与 SOCKS5 解析",
+    "review": "full 级：review_code.md PASS（Round 3）；review_test.md PASS（Round 3，reviewed_scope: 93a5f20fd9e3388b，check_review_status overall=PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/single_instance.test.ts: check_single_instance_lock returns false and calls on_conflict when lock fails",
+            "tests/unit/main/single_instance.test.ts: run_with_single_instance_lock aborts initialization on lock conflict"
+        ],
+        "AC-002": [
+            "tests/unit/main/window_manager.test.ts: A15/A16: will-navigate intercepts external http(s) and delegates to shell.openExternal"
+        ],
+        "AC-003": [
+            "tests/unit/main/window_manager.test.ts: blocks non-http(s) URLs from window-open (t156)",
+            "tests/unit/main/window_manager.test.ts: blocks malformed URLs from window-open without throwing (p125)"
+        ],
+        "AC-004": [
+            "tests/unit/main/security/csp.test.ts: dev header composes all directives with unsafe-inline in script-src",
+            "tests/unit/main/security/csp.test.ts: prod header keeps strict self script-src without unsafe-inline"
+        ],
+        "AC-005": [
+            "tests/unit/shared/cookie.test.ts: rejects cookie containing CRLF characters",
+            "tests/unit/shared/cookie.test.ts: rejects cookie exceeding maximum length"
+        ],
+        "AC-006": [
+            "tests/unit/main/vault_permissions.test.ts: uses default resolver to fetch real userInfo username even when USERNAME env is spoofed"
+        ],
+        "AC-007": [
+            "tests/unit/main/core/config/auto-seed.test.ts: case-insensitively compares executablePath on windows/darwin (A63)"
+        ],
+        "AC-008": [
+            "tests/unit/main/core/config/auto-seed.test.ts: apply_auto_seed_and_migrate cleans empty instances and bumps schemaVersion to 2 (A79 / AC-008)"
+        ],
+        "AC-009": [
+            "tests/unit/config/secret_param_keys.test.ts: allows the complete OAuth token set for oauth_pkce connectors (A72)"
+        ],
+        "AC-010": [
+            "tests/unit/main/effective_proxy.test.ts: ignores detected system proxy when use_system_proxy is false",
+            "tests/unit/main/effective_proxy.test.ts: parses SOCKS5 and SOCKS PAC results"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

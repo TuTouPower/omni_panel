@@ -1,0 +1,43 @@
+{
+    "tid": "t514",
+    "attempt": 1,
+    "execution_id": "c49d8551187546b59ed6eef7f9bec41e",
+    "status": "done",
+    "branch": "t514_connector_runtime_netclient_hardening",
+    "base_sha": "3219e1164269617313ed7068d15382d879181764",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 330 个测试套件（4026 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试覆盖超 10MB 响应中断、软链与目录超量截断、4xx/语法错误短路重试、账号实例冷却隔离、共享工具 ctx.util 以及外部边界 zod 拦截",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=78052c56e50b925c",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/connector/net-client.ts 中 MAX_RESPONSE_BYTES 降至 10MB，read_body_with_limit 在流超过 10MB 时立即调用 body.destroy() 并抛出异常，无全量内存拼接",
+            "tests/integration/connector/net-client.test.ts 验证大响应流中断与 destroy 调用"
+        ],
+        "AC-002": [
+            "src/main/core/connector/net-client.ts 中 files.read 与 files.list 统一经 realpath 解析并断言 is_within_allowed；list_dir_recursive 并发化遍历子目录且在 5000 项安全截断",
+            "tests/integration/connector/net-client.test.ts 验证软链逃逸拦截与 5000 项安全截断"
+        ],
+        "AC-003": [
+            "src/main/core/connector/net-client.ts 遇到 4xx 状态码时提取前 500B 脱敏片段注入错误文案；src/main/core/connector/runtime.ts 定义 is_non_retryable_error；src/main/core/scheduler/refresh-service.ts 遇到不可重试错误立即短路不再重试",
+            "tests/integration/scheduler/refresh-service.test.ts 验证 4xx 错误在调度器层短路只尝试 1 次"
+        ],
+        "AC-004": [
+            "src/main/core/connector/runtime.ts 中 script_cooldown_until 键名结合 ctx.instance_id，单账号实例超时冷却不影响同连接器的其他账号实例",
+            "tests/integration/connector/runtime.test.ts 验证多实例冷却隔离"
+        ],
+        "AC-005": [
+            "src/main/core/connector/host-io.ts 与 net-client.ts 注入 ctx.util 工具（to_number, to_pct, to_reset_at, clamp），cpa、claude、glm、kimi、opencode_go、tavily 等连接器私有重复代码已消除并委托至 ctx.util",
+            "tests/integration/connector/net-client.test.ts 验证 ctx.util 各工具函数"
+        ],
+        "AC-006": [
+            "src/main/core/connector/script-cache.ts 实现 LRU(50) 淘汰与并发 inflight Promise 去重",
+            "tests/integration/connector/script-cache.test.ts 验证并发编译去重与 LRU 驱逐"
+        ],
+        "AC-007": [
+            "src/main/core/connector/host-io.ts 中 HttpOpts 支持 schema: ZodType，net-client.ts do_request 自动执行 opts.schema.safeParse 并拦截非规范数据；grok_bot 接入 sand_usage_schema",
+            "tests/integration/connector/net-client.test.ts 与 grok_bot_connector.test.ts 验证非规范网络数据被 zod 校验拦截"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

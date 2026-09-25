@@ -50,6 +50,20 @@ import { get_local_date_string } from "../shared/lib/local-time";
 
 const POLL_MS = 10_000;
 
+// A97: 封装 Web 端查询参数 helper 并规范类型
+export function build_query_string(
+    params: Record<string, string | number | boolean | null | undefined>,
+): string {
+    const search_params = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+            search_params.set(key, String(value));
+        }
+    }
+    const qs = search_params.toString();
+    return qs ? `?${qs}` : "";
+}
+
 function response_error_message(value: unknown): string | undefined {
     if (typeof value !== "object" || value === null) return undefined;
     const record = value as Record<string, unknown>;
@@ -73,18 +87,42 @@ async function throw_http_error(res: Response, method: string, path: string): Pr
     throw new Error(`${method} ${path} failed: ${detail ?? String(res.status)}`);
 }
 
-async function get_json<T>(path: string): Promise<T> {
-    const res = await fetch(path);
+// A65 / AC-004: 带 15s 超时控制的 fetch 包装器
+async function fetch_with_timeout(
+    input: string | URL | Request,
+    init?: RequestInit,
+    timeout_ms = 15_000,
+): Promise<Response> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout_promise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            reject(new Error(`Network request timed out after ${String(timeout_ms)}ms`));
+        }, timeout_ms);
+    });
+
+    const fetch_promise = init !== undefined ? fetch(input, init) : fetch(input);
+    return Promise.race([
+        fetch_promise.finally(() => {
+            if (timer) clearTimeout(timer);
+        }),
+        timeout_promise,
+    ]);
+}
+
+// A65 / AC-004: get_json 增加 15s 超时控制
+async function get_json<T>(path: string, signal?: AbortSignal): Promise<T> {
+    const res = await fetch_with_timeout(path, signal ? { signal } : undefined);
     if (!res.ok) await throw_http_error(res, "GET", path);
     return res.json() as Promise<T>;
 }
 
+// A65 / AC-004: post_json 增加 15s 超时控制
 async function post_json(path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
-    const res = await fetch(path, {
+    const res = await fetch_with_timeout(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        ...(signal !== undefined ? { signal } : {}),
+        ...(signal ? { signal } : {}),
     });
     if (!res.ok) await throw_http_error(res, "POST", path);
     return res.json();
@@ -150,7 +188,11 @@ function create_web_grok_bot_api(): GrokBotSettingsApi {
         login_poll: () =>
             Promise.reject(new Error("Grok Bot OAuth login is only supported in desktop mode")),
         login_cancel: () => Promise.resolve(),
-        logout: () => Promise.resolve({ logged_out: true }),
+        // A64: 真实调用后端注销接口，禁止假成功
+        logout: (instance_id: string) =>
+            post_json("/v1/auth/grok_bot/logout", { instance_id }) as Promise<{
+                logged_out: boolean;
+            }>,
         refresh: () => Promise.resolve({ ok: false, error: "Not supported in web mode" }),
     };
 }
@@ -187,10 +229,21 @@ export function create_web_usageboard(): UsageboardApi {
     const settings_navigate_callbacks = new Set<(context: SettingsOpenContext) => void>();
     const pause_state_callbacks = new Set<(paused: boolean) => void>();
     const autostart_state_callbacks = new Set<(enabled: boolean) => void>();
+    // A66 / AC-005: 监听 visibilitychange，在页面后台/非激活时停止无谓轮询
+    let is_page_visible = typeof document !== "undefined" ? !document.hidden : true;
+    if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", () => {
+            is_page_visible = !document.hidden;
+            if (is_page_visible) {
+                // 切回前台立即触发一次刷新
+                for (const cb of token_stats_callbacks) cb(0);
+            }
+        });
+    }
+
     setInterval(() => {
-        // Web build has no push channel for committed data versions; polled
-        // dashboards carry their own data_version, so events pass 0 (no-op
-        // for version-based staleness, still triggers a refresh request).
+        // A66 / AC-005: 页面不可见时停止轮询，节省资源
+        if (!is_page_visible) return;
         for (const cb of token_stats_callbacks) cb(0);
     }, POLL_MS);
 
@@ -863,14 +916,33 @@ export function create_web_usageboard(): UsageboardApi {
                     `/v1/trend?${params.toString()}`,
                 );
             },
-            // t196 AC5: web 后端走 LocalAPI /v1/trend 单周期等价；bulk 按各周期
-            // 依次取（web 面不常用，保持契约兼容）。
+            // A116 / AC-006: 优先调用 /v1/trend/bulk 单请求获取全量趋势数据，杜绝并发风暴
             getBulk: async (payload: {
                 provider: string;
                 account_id: string;
                 source_instance_id: string;
                 periods: { metric_id: string; days?: number }[];
             }) => {
+                const params = new URLSearchParams({
+                    provider: payload.provider,
+                    accountId: payload.account_id,
+                    sourceInstanceId: payload.source_instance_id,
+                    periods: JSON.stringify(payload.periods),
+                });
+                try {
+                    const bulk_res = await get_json<{
+                        results?: {
+                            metric_id: string;
+                            series: ({ date: string; percent: number } | null)[];
+                        }[];
+                    }>(`/v1/trend/bulk?${params.toString()}`);
+                    if (Array.isArray(bulk_res.results)) {
+                        return { series: bulk_res.results };
+                    }
+                } catch {
+                    // 回退到逐条查询保障极端兼容
+                }
+
                 const series = await Promise.all(
                     payload.periods.map(async (period) => ({
                         metric_id: period.metric_id,

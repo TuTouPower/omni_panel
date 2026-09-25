@@ -288,4 +288,122 @@ describe("connector-runtime", () => {
         expect(result.error).toBeNull();
         expect(result.observations).toEqual([]);
     });
+
+    describe("t514 runtime hardening", () => {
+        it("identifies non-retryable errors correctly (A40 / A42 / AC-003)", async () => {
+            const { NonRetryableError, is_non_retryable_error } =
+                await import("../../../src/main/core/connector/runtime");
+            expect(is_non_retryable_error(new NonRetryableError("custom non-retryable"))).toBe(
+                true,
+            );
+            expect(is_non_retryable_error(new Error("HTTP 400: Bad Request"))).toBe(true);
+            expect(is_non_retryable_error(new Error("HTTP 401: Unauthorized"))).toBe(true);
+            expect(is_non_retryable_error(new Error("HTTP 403: Forbidden"))).toBe(true);
+            expect(is_non_retryable_error(new Error("HTTP 404: Not Found"))).toBe(true);
+
+            // 408 (timeout) 与 429 (rate-limit) 允许重试
+            expect(is_non_retryable_error(new Error("HTTP 408: Request Timeout"))).toBe(false);
+            expect(is_non_retryable_error(new Error("HTTP 429: Too Many Requests"))).toBe(false);
+
+            // 5xx 服务端错误允许重试
+            expect(is_non_retryable_error(new Error("HTTP 500: Internal Server Error"))).toBe(
+                false,
+            );
+            expect(is_non_retryable_error(new Error("HTTP 502: Bad Gateway"))).toBe(false);
+
+            // 语法与沙箱必败错误不可重试
+            expect(is_non_retryable_error(new SyntaxError("Unexpected token"))).toBe(true);
+            expect(
+                is_non_retryable_error(
+                    new Error("Connector script rejected: sandbox escape vector (eval)"),
+                ),
+            ).toBe(true);
+            expect(
+                is_non_retryable_error(
+                    new Error("Connector scripts cannot use import or export statements"),
+                ),
+            ).toBe(true);
+        });
+
+        it("isolates cooldown by instance_id, allowing other instances of same connector (A93 / AC-004)", async () => {
+            const hanging_script = `await new Promise(() => {});`;
+            const normal_script = `return [];`;
+
+            const ctx_inst1: ConnectorContext = {
+                ...stub_ctx,
+                instance_id: "inst_alpha",
+            };
+            const ctx_inst2: ConnectorContext = {
+                ...stub_ctx,
+                instance_id: "inst_beta",
+            };
+
+            // inst1 超时
+            const res1 = await run_connector(poll_manifest, hanging_script, ctx_inst1, 100);
+            expect(res1.error).toContain("timeout");
+
+            // inst1 再次调用触发冷却
+            const res1_cooldown = await run_connector(poll_manifest, normal_script, ctx_inst1, 100);
+            expect(res1_cooldown.error).toContain("cooling down");
+
+            // inst2 属于不同实例，不应被冷却拦截
+            const res2 = await run_connector(poll_manifest, normal_script, ctx_inst2, 100);
+            expect(res2.error).toBeNull();
+        });
+
+        it("validates observations via fast-path without degradation (A122)", async () => {
+            const script = `
+                return [{
+                    provider: "test",
+                    account_id: "default",
+                    account_label: "Test",
+                    metric_id: "test:fast",
+                    raw_label: "fast",
+                    normalized_label: "Fast",
+                    window: "day",
+                    used: 10,
+                    limit: 100,
+                    display_style: "percent",
+                    reset_at: 1790000000000,
+                    status: "normal",
+                    observed_at: 1000,
+                    source: "poll",
+                    stale: false,
+                    last_error: null,
+                }];
+            `;
+            const result = await run_connector(poll_manifest, script, stub_ctx);
+            expect(result.error).toBeNull();
+            expect(result.observations).toHaveLength(1);
+            expect(result.observations[0]?.metric_id).toBe("test:fast");
+        });
+
+        it("rejects deformed observation missing reset_at via fallback schema check (A122 / f004)", async () => {
+            // 缺少 reset_at 字段，fast-path 应该判定无效，回退至 safeParse 并在失败时计入 failed_accounts
+            const script = `
+                return [{
+                    provider: "test",
+                    account_id: "default",
+                    account_label: "Test",
+                    metric_id: "test:deformed",
+                    raw_label: "deformed",
+                    normalized_label: "Deformed",
+                    window: "day",
+                    used: 10,
+                    limit: 100,
+                    display_style: "percent",
+                    status: "normal",
+                    observed_at: 1000,
+                    source: "poll",
+                    stale: false,
+                    last_error: null,
+                }];
+            `;
+            const result = await run_connector(poll_manifest, script, stub_ctx);
+            expect(result.error).toBeNull();
+            expect(result.observations).toHaveLength(0);
+            expect(result.failed_accounts).toHaveLength(1);
+            expect(result.failed_accounts[0]?.error).toContain("reset_at");
+        });
+    });
 });

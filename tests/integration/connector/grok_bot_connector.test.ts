@@ -150,7 +150,29 @@ describe("grok_bot connector", () => {
         expect(weekly?.account_label).toBe("Grok Bot");
     });
 
-    it("reports failed account when both calls fail", async () => {
+    it("throws session expired error on 401 to trigger refresh (A7 / AC-004)", async () => {
+        const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
+
+        const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.reject(new Error("unexpected")),
+                post_json: () => Promise.reject(new Error("401 Unauthorized")),
+                get_raw: () => Promise.reject(new Error("unexpected")),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: {},
+            status: ctx_status,
+            report_failed_account: vi.fn(),
+        };
+
+        const result = await run_connector(test_manifest, script, ctx);
+        // A7: 401 必须抛出错误，使上层 refresh-service 能够捕获并触发 oauth_refresh
+        expect(result.error).toMatch(/Grok Bot 会话已失效 \(401\)/);
+        expect(result.observations).toHaveLength(0);
+    });
+
+    it("reports failed account when service returns non-auth error (500)", async () => {
         const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
         const report_fn = vi.fn();
 
@@ -158,7 +180,7 @@ describe("grok_bot connector", () => {
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),
-                post_json: () => Promise.reject(new Error("401 Unauthorized")),
+                post_json: () => Promise.reject(new Error("500 Internal Server Error")),
                 get_raw: () => Promise.reject(new Error("unexpected")),
             },
             files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
@@ -172,6 +194,70 @@ describe("grok_bot connector", () => {
         expect(result.observations).toHaveLength(0);
         expect(result.failed_accounts).toHaveLength(1);
         expect(result.failed_accounts[0]?.provider).toBe("grok_bot");
-        expect(result.failed_accounts[0]?.error).toMatch(/401 Unauthorized/);
+        expect(result.failed_accounts[0]?.error).toMatch(/500 Internal Server Error/);
+    });
+
+    it("falls back to derived account_id when JWT sub is empty or spaces (A13 / t512_code_f002)", async () => {
+        const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
+        const empty_sub_payload = Buffer.from(
+            JSON.stringify({ sub: "   ", email: "   " }),
+        ).toString("base64url");
+        const token = `eyJhbGciOiJIUzI1NiJ9.${empty_sub_payload}.sig`;
+
+        const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.reject(new Error("unexpected")),
+                post_json: () => Promise.resolve(mock_sand_response),
+                get_raw: () => Promise.reject(new Error("unexpected")),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: { ACCESS_TOKEN: token },
+            status: ctx_status,
+            report_failed_account: vi.fn(),
+        };
+
+        const result = await run_connector(test_manifest, script, ctx);
+        expect(result.observations).toHaveLength(1);
+        const obs = result.observations[0];
+        expect(obs?.account_id).not.toBe("");
+        expect(obs?.account_id).toMatch(/^grok_bot_/);
+        expect(obs?.account_label).toBe("Grok Bot");
+    });
+
+    it("rejects malformed external network response with zod safeParse validation (A128 / AC-007)", async () => {
+        const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
+        const report_fn = vi.fn();
+        const ctx: ConnectorContext = {
+            log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+            http: {
+                get_json: () => Promise.reject(new Error("unexpected")),
+                // 模拟外部接口返回非规范 JSON（字段类型错误导致 safeParse 失败）
+                post_json: (_ep, _path, _body, opts) => {
+                    if (opts?.schema) {
+                        const parsed = opts.schema.safeParse({ usagePercent: "not_a_number" });
+                        if (!parsed.success) {
+                            return Promise.reject(
+                                new Error(
+                                    `Response schema validation failed: ${parsed.error.message}`,
+                                ),
+                            );
+                        }
+                    }
+                    return Promise.resolve({ usagePercent: "not_a_number" });
+                },
+                get_raw: () => Promise.reject(new Error("unexpected")),
+            },
+            files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
+            params: {},
+            status: ctx_status,
+            report_failed_account: report_fn,
+        };
+
+        const result = await run_connector(test_manifest, script, ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(0);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.error).toContain("Response schema validation failed");
     });
 });

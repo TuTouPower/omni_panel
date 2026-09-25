@@ -889,8 +889,8 @@ describe("net-client", () => {
 
     describe("build_request_context", () => {
         it("exists and returns { url, headers, abort_controller, timeout_id } structure", async () => {
-            const { build_request_context } =
-                await import("../../../src/main/core/connector/net-client");
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            const build_request_context = __test__.build_request_context;
             expect(typeof build_request_context).toBe("function");
 
             const ctx = await build_request_context(
@@ -931,8 +931,8 @@ describe("net-client", () => {
         });
 
         it("applies per-request timeout_ms override over default", async () => {
-            const { build_request_context } =
-                await import("../../../src/main/core/connector/net-client");
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            const build_request_context = __test__.build_request_context;
             const ctx = await build_request_context(
                 get_test_manifest(),
                 "default",
@@ -949,8 +949,8 @@ describe("net-client", () => {
         });
 
         it("merges extra_headers from opts over initial headers", async () => {
-            const { build_request_context } =
-                await import("../../../src/main/core/connector/net-client");
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            const build_request_context = __test__.build_request_context;
             const ctx = await build_request_context(
                 get_test_manifest(),
                 "default",
@@ -971,8 +971,8 @@ describe("net-client", () => {
         });
 
         it("refuses metadata host via override", async () => {
-            const { build_request_context } =
-                await import("../../../src/main/core/connector/net-client");
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            const build_request_context = __test__.build_request_context;
             await expect(
                 build_request_context(get_test_manifest(), "default", vault, "test-1", {
                     path: "/latest/meta-data/",
@@ -980,6 +980,184 @@ describe("net-client", () => {
                     endpoint_overrides: { default: "http://169.254.169.254" },
                 }),
             ).rejects.toThrow(/Refusing connector request to metadata host/);
+        });
+
+        it("falls back to default timeout when timeout_ms is <= 0 or NaN (A61 / AC-001)", async () => {
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            const build_request_context = __test__.build_request_context;
+
+            const ctx1 = await build_request_context(
+                get_test_manifest(),
+                "default",
+                vault,
+                "test-1",
+                {
+                    path: "/usage",
+                    default_timeout_ms: 15_000,
+                    timeout_ms: 0,
+                },
+            );
+            expect(ctx1.effective_timeout).toBe(15_000);
+            clearTimeout(ctx1.timeout_id);
+
+            const ctx2 = await build_request_context(
+                get_test_manifest(),
+                "default",
+                vault,
+                "test-1",
+                {
+                    path: "/usage",
+                    default_timeout_ms: 15_000,
+                    timeout_ms: Number.NaN,
+                },
+            );
+            expect(ctx2.effective_timeout).toBe(15_000);
+            clearTimeout(ctx2.timeout_id);
+        });
+    });
+
+    describe("t514 hardening additions", () => {
+        it("captures and scrubs 500B snippet on HTTP 4xx error (A29 / AC-003)", async () => {
+            const bad = createServer((_req, res) => {
+                res.writeHead(400, { "Content-Type": "application/json" });
+                res.end(
+                    JSON.stringify({
+                        error: "invalid_param",
+                        message: "token is required and bad",
+                    }),
+                );
+            });
+            try {
+                await new Promise<void>((r) => bad.listen(0, "127.0.0.1", r));
+                const addr = bad.address() as { port: number };
+                const ctx = create_connector_context(
+                    {
+                        ...get_test_manifest(),
+                        endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                    },
+                    vault,
+                    "test-1",
+                    {},
+                );
+                await expect(ctx.http.get_json("default", "/usage")).rejects.toThrow(
+                    /HTTP 400: request failed.*\[.*invalid_param.*\]/,
+                );
+            } finally {
+                bad.close();
+            }
+        });
+
+        it("preserves multi-value headers as array in get_raw (A103 / A134)", async () => {
+            const srv = createServer((_req, res) => {
+                res.writeHead(200, {
+                    "Content-Type": "text/plain",
+                    "Set-Cookie": ["sess_a=1; Path=/", "sess_b=2; Path=/"],
+                });
+                res.end("ok");
+            });
+            try {
+                await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+                const addr = srv.address() as { port: number };
+                const ctx = create_connector_context(
+                    {
+                        ...get_test_manifest(),
+                        endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                    },
+                    vault,
+                    "test-1",
+                    {},
+                );
+                const raw = await ctx.http.get_raw("default", "/test");
+                expect(Array.isArray(raw.headers["set-cookie"])).toBe(true);
+                expect(raw.headers["set-cookie"]).toEqual(["sess_a=1; Path=/", "sess_b=2; Path=/"]);
+            } finally {
+                srv.close();
+            }
+        });
+
+        it("provides ctx.util methods for numbers, percentages, and timestamps (A99 / AC-005)", () => {
+            const ctx = create_connector_context(get_test_manifest(), vault, "test-1", {});
+            expect(ctx.util).toBeDefined();
+            const util = ctx.util;
+            if (!util) throw new Error("Expected ctx.util to be defined");
+            expect(util.to_number("42")).toBe(42);
+            expect(util.to_number(undefined, 10)).toBe(10);
+            expect(util.to_pct(0.75)).toBe(75);
+            expect(util.to_pct(120)).toBe(100);
+            expect(util.to_pct(-5)).toBe(0);
+            expect(util.to_reset_at("2026-10-01T00:00:00.000Z")).toBe(1790812800000);
+            expect(util.to_reset_at("invalid")).toBeNull();
+            expect(util.clamp(150, 0, 100)).toBe(100);
+        });
+
+        it("aborts response stream exceeding 10MB limit (A10 / AC-001)", async () => {
+            const { Readable } = await import("node:stream");
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            let destroyed = false;
+            const fake_stream = new Readable({
+                read() {
+                    // 每次 push 2MB chunk
+                    this.push(Buffer.alloc(2 * 1024 * 1024, "a"));
+                },
+                destroy(err, callback) {
+                    destroyed = true;
+                    callback(err);
+                },
+            });
+
+            await expect(
+                __test__.read_body_with_limit(
+                    fake_stream as unknown as Parameters<typeof __test__.read_body_with_limit>[0],
+                    10 * 1024 * 1024,
+                ),
+            ).rejects.toThrow(/Response body exceeds 10485760 bytes/);
+            expect(destroyed).toBe(true);
+        });
+
+        it("truncates files.list at MAX_LIST_FILES (5000 items) concurrently (AC-002 / A11 / A114)", async () => {
+            const { __test__ } = await import("../../../src/main/core/connector/net-client");
+            // 构造模拟超过 5000 项的目录结构
+            const fake_dir = join(temp_dir, "large_dir");
+            await mkdir(fake_dir, { recursive: true });
+            // 生成 5050 个虚拟文件并并发读取
+            const create_tasks: Promise<void>[] = [];
+            for (let i = 0; i < 5050; i++) {
+                create_tasks.push(writeFile(join(fake_dir, `f_${String(i)}.txt`), "x", "utf8"));
+            }
+            await Promise.all(create_tasks);
+
+            const items = await __test__.list_dir_recursive(fake_dir, [fake_dir]);
+            expect(items).toHaveLength(5000);
+        });
+
+        it("validates external JSON response with zod schema and rejects invalid payload (A128 / AC-007)", async () => {
+            const { z } = await import("zod/v3");
+            const srv = createServer((_req, res) => {
+                res.writeHead(200, { "Content-Type": "application/json" });
+                // 外部返回非规范数据（期待 number，实际返回 string）
+                res.end(JSON.stringify({ usagePercent: "invalid_string" }));
+            });
+            try {
+                await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+                const addr = srv.address() as { port: number };
+                const ctx = create_connector_context(
+                    {
+                        ...get_test_manifest(),
+                        endpoints: { default: `http://127.0.0.1:${String(addr.port)}` },
+                    },
+                    vault,
+                    "test-1",
+                    {},
+                );
+                const schema = z.object({
+                    usagePercent: z.number(),
+                });
+                await expect(ctx.http.get_json("default", "/usage", { schema })).rejects.toThrow(
+                    /Response schema validation failed/,
+                );
+            } finally {
+                srv.close();
+            }
         });
     });
 });
