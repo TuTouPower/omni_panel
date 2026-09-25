@@ -307,4 +307,46 @@ describe("grok_bot_oauth_manager", () => {
             vi.useRealTimers();
         }
     });
+
+    it("A138 / AC-003: cancel_login aborts pending await_completion and returns CANCELLED code", async () => {
+        const vault = create_in_memory_vault();
+        const http_get = vi.fn().mockResolvedValue({ status: 404, data: {} });
+        const open_external = vi.fn().mockResolvedValue(undefined);
+        const manager = create_grok_bot_oauth_manager({ vault, http_get, open_external });
+        const start = await manager.start_login();
+
+        const promise = manager.await_completion("inst_cancel_race", start.uuid, start.login_id);
+        manager.cancel_login("inst_cancel_race");
+
+        const res = await promise;
+        expect(res.saved).toBe(false);
+        expect(res.code).toBe("CANCELLED");
+    });
+
+    it("A138 / AC-003: re-entrant await_completion cancels previous and resolves second", async () => {
+        const vault = create_in_memory_vault();
+        let call_count = 0;
+        const http_get = vi.fn().mockImplementation(() => {
+            call_count++;
+            if (call_count < 2) {
+                return Promise.resolve({ status: 404, data: {} });
+            }
+            return Promise.resolve({
+                status: 200,
+                data: { accessToken: "token-2", refreshToken: "ref-2" },
+            });
+        });
+        const open_external = vi.fn().mockResolvedValue(undefined);
+        const manager = create_grok_bot_oauth_manager({ vault, http_get, open_external });
+        const start1 = await manager.start_login();
+        const start2 = await manager.start_login();
+
+        const p1 = manager.await_completion("inst_reenter", start1.uuid, start1.login_id);
+        const p2 = manager.await_completion("inst_reenter", start2.uuid, start2.login_id);
+
+        const [r1, r2] = await Promise.all([p1, p2]);
+        expect(r1.code).toBe("CANCELLED");
+        expect(r2.saved).toBe(true);
+        expect(r2.token).toBe("token-2");
+    });
 });

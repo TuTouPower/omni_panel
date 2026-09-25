@@ -1,0 +1,33 @@
+{
+    "tid": "t522",
+    "attempt": 1,
+    "execution_id": "c091f64c273d48068f56e4bcded5af8a",
+    "status": "done",
+    "branch": "t522_test_suite_hardening_and_gates",
+    "base_sha": "c91fd214f3df9fd27d9163cd5f53967b6d8bf8fc",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch / schema:check）全绿；pnpm test 全量 332 个测试套件（4087 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元与集成测试验证全局 15s 超时下所有用例迅速通过、覆盖率基线达标、代理/并发/阈值/IPC/表单重入与取消断言精确成立",
+    "review": "single 级：verdict=PASS, reviewed_scope=652b9723de7e18a6",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/scheduler/refresh-service.test.ts 代理错误精确匹配 ECONNREFUSED，并发刷新断言同实例为 1、异实例为 2",
+            "tests/integration/connector/opencode_go_connector.test.ts 接入生产阈值并断言 74/75% 与 89/90% 边界",
+            "tests/unit/ipc/grok_bot_auth_ipc.test.ts 校验 origin 白名单与空参数拒绝",
+            "tests/unit/renderer/views/popup_view.test.tsx 验证多卡共存与点击重新登录透传真实 instanceId"
+        ],
+        "AC-002": [
+            "vitest.config.mts 将全局 testTimeout 与 hookTimeout 收紧至 15s",
+            "全量运行 332 个测试套件无超时、无挂起、无死锁"
+        ],
+        "AC-003": [
+            "tests/integration/connector/muse_connector.test.ts 覆盖空 subscription 与异常 RSC 流容错",
+            "tests/unit/renderer/components/forms/grok_bot_pkce_form.test.tsx 与 tests/unit/auth/grok_bot_oauth_manager.test.ts 覆盖 OAuth 授权重入防护与中途取消行为",
+            "src/main/core/config/auto-seed.ts 与对应测试确认跳过交互式 connector 自动生成空实例"
+        ],
+        "AC-004": [
+            "vitest.config.mts statements, branches, functions, lines 覆盖率基线拉升至 50%"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

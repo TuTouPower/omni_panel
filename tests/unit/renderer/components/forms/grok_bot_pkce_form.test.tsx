@@ -181,4 +181,32 @@ describe("GrokBotPkceForm", () => {
             );
         });
     });
+
+    it("A138 / AC-003: prevents re-entrant browser login while authorizing and supports cancel", async () => {
+        const user = userEvent.setup();
+        const api = mock_grok_bot_api({
+            login_poll: vi.fn().mockImplementation(
+                () =>
+                    new Promise((resolve) => {
+                        void resolve;
+                    }),
+            ),
+        });
+
+        render(
+            <GrokBotPkceForm
+                instance_id="inst_reenter"
+                account_name="Grok Reenter"
+                set_account_name={() => undefined}
+                on_save={vi.fn()}
+            />,
+        );
+
+        await user.click(screen.getByText("浏览器登录授权"));
+        expect(api.login_start).toHaveBeenCalledTimes(1);
+
+        // Cancel authorization while in-flight
+        await user.click(screen.getByText("取消"));
+        expect(api.login_cancel).toHaveBeenCalledWith("inst_reenter");
+    });
 });

@@ -11,6 +11,8 @@ import {
     status_for_ratio,
     status_for_balance,
 } from "../../../shared/lib/connector-thresholds";
+
+export { status_for_pct, status_for_ratio, status_for_balance };
 import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
 import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";

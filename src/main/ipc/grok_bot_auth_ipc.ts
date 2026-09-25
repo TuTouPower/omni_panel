@@ -53,8 +53,11 @@ export function handle_grok_bot_login_cancel(
     deps: GrokBotAuthIpcDeps,
     instance_id: string,
 ): IpcResult<void> {
+    if (!instance_id || instance_id.trim() === "") {
+        return fail("INVALID_ARGUMENT", "instance_id is required");
+    }
     try {
-        deps.manager.cancel_login(instance_id);
+        deps.manager.cancel_login(instance_id.trim());
         return ok(undefined);
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -66,8 +69,11 @@ export async function handle_grok_bot_logout(
     deps: GrokBotAuthIpcDeps,
     instance_id: string,
 ): Promise<IpcResult<{ logged_out: boolean }>> {
+    if (!instance_id || instance_id.trim() === "") {
+        return fail("INVALID_ARGUMENT", "instance_id is required");
+    }
     try {
-        await deps.manager.logout(instance_id);
+        await deps.manager.logout(instance_id.trim());
         return ok({ logged_out: true });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

@@ -1,8 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
+import {
+    status_for_ratio,
+    status_for_pct,
+    status_for_balance,
+} from "../../../src/main/core/connector/net-client";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
 const manifest: Manifest = {
@@ -28,12 +33,12 @@ function make_ctx(
         },
         files: { read: () => Promise.resolve(""), list: () => Promise.resolve([]) },
         params: { SESSION_COOKIE: cookie },
+        // A89 / AC-001: 直达生产环境真实的阈值计算实现，杜绝测试私自 mock 阈值掩盖漂移
         status: {
-            for_ratio: (used: number, limit: number) =>
-                used / limit > 0.75 ? "critical" : used / limit > 0.5 ? "warning" : "normal",
-            for_pct: () => "normal",
-            for_balance: (balance: number) => (balance <= 0 ? "warning" : "normal"),
-        } as unknown as ConnectorContext["status"],
+            for_ratio: status_for_ratio,
+            for_pct: status_for_pct,
+            for_balance: status_for_balance,
+        },
         report_failed_account: () => undefined,
         warn_spy,
     };
@@ -318,5 +323,41 @@ describe("opencode_go connector (t506 console REST API)", () => {
         const result3 = await run_connector(manifest, script, ctx3);
         expect(result3.error).toBeNull();
         expect(orgs_request_count).toBe(2);
+    });
+
+    it("A89 / AC-001: verifies real production thresholds at 75% and 90% boundaries", async () => {
+        const script = await readFile(join("connectors", "opencode_go", "connector.ts"), "utf8");
+
+        const test_usage = async (used: string, limit: string) => {
+            const get_json = vi
+                .fn<ConnectorContext["http"]["get_json"]>()
+                .mockImplementation((_endpoint, path) => {
+                    if (path === "/console/api/orgs")
+                        return Promise.resolve([{ id: "org_bound", name: "Org" }]);
+                    if (path === "/console/api/go/status") {
+                        return Promise.resolve({
+                            access: {
+                                meters: {
+                                    fiveHour: { limitMicroCents: limit, usedMicroCents: used },
+                                },
+                            },
+                        });
+                    }
+                    return Promise.resolve({});
+                });
+            const ctx = make_ctx(get_json);
+            const res = await run_connector(manifest, script, ctx);
+            expect(res.error).toBeNull();
+            return res.observations.find((o) => o.metric_id === "opencode_go:rolling")?.status;
+        };
+
+        // 74% -> normal
+        expect(await test_usage("740", "1000")).toBe("normal");
+        // 75% -> warning
+        expect(await test_usage("750", "1000")).toBe("warning");
+        // 89% -> warning
+        expect(await test_usage("890", "1000")).toBe("warning");
+        // 90% -> critical
+        expect(await test_usage("900", "1000")).toBe("critical");
     });
 });

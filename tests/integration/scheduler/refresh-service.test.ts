@@ -373,7 +373,23 @@ describe("refresh-service", () => {
             // 非 force 两轮并发：锁短路只执行一轮。
             await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-1")]);
 
-            expect(observationStore.inserted.length).toBeLessThanOrEqual(1);
+            // A92 / AC-001: 同实例精确断言等于 1，杜绝 <= 1 弱断言
+            expect(observationStore.inserted.length).toBe(1);
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("A92 / AC-001: allows concurrent refresh for different instances and inserts both", async () => {
+        const { tempDir, service, observationStore } = await create_service([
+            plugin_config("deepseek-1"),
+            plugin_config("deepseek-2"),
+        ]);
+
+        try {
+            await Promise.all([service.refresh("deepseek-1"), service.refresh("deepseek-2")]);
+            // 异实例并发各执行一次，精确等于 2
+            expect(observationStore.inserted.length).toBe(2);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }
@@ -624,7 +640,8 @@ return [{
             const state = runtime_store.getSnapshot("deepseek-1");
             expect(state.status).toBe("failed");
             if (state.status !== "failed") throw new Error("expected failed state");
-            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
+            // A88 / AC-001: 精确断言代理连接拒绝错误，避免超宽通配正则假绿
+            expect(state.error).toMatch(/ECONNREFUSED/);
         } finally {
             await rm(temp_dir, { recursive: true, force: true });
         }
@@ -692,7 +709,8 @@ return [{
             // Error should indicate proxy/connection failure, NOT a direct
             // connection to the real endpoint (which would succeed or give
             // a different error).
-            expect(state.error).toMatch(/connect|ECONNREFUSED|proxy|fetch/i);
+            // A88 / AC-001: 精确断言 ECONNREFUSED
+            expect(state.error).toMatch(/ECONNREFUSED/);
         } finally {
             await rm(tempDir, { recursive: true, force: true });
         }

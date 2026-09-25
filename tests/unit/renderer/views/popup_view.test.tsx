@@ -489,6 +489,65 @@ describe("PopupView", () => {
         // 移除后账号列表（ProviderAccountList → ProviderAccountRow）不再渲染 bar-watch。
         expect(container.querySelectorAll('[data-testid="bar-watch"]')).toHaveLength(0);
     });
+
+    it("A91 / AC-001: allows multiple cards to coexist and passes exact instanceId on interactive action", async () => {
+        plugin_list.mockResolvedValue([
+            connectorInfo({
+                instanceId: "kimi-inst-card-1",
+                source: "poll",
+                sourceInstanceId: "kimi-inst-card-1",
+                name: "kimi",
+                displayName: "Kimi Personal",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: {
+                    status: "failed",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    error: "401 Unauthorized",
+                    items: [],
+                },
+            }),
+            connectorInfo({
+                instanceId: "kimi-inst-card-2",
+                source: "poll",
+                sourceInstanceId: "kimi-inst-card-2",
+                name: "kimi",
+                displayName: "Kimi Team",
+                supportedProviders: ["kimi"],
+                activeProviders: ["kimi"],
+                snapshot: {
+                    status: "failed",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    error: "403 Forbidden",
+                    items: [],
+                },
+            }),
+        ]);
+
+        const settings_open = vi.fn();
+        window.usageboard.settings.open = settings_open;
+
+        render(<PopupView />);
+
+        // Switch to Kimi tab
+        const kimiTab = await screen.findByRole("button", { name: /^Kimi$/ });
+        fireEvent.click(kimiTab);
+
+        const reLoginButtons = await screen.findAllByText("重新登录");
+        expect(reLoginButtons).toHaveLength(2);
+
+        // Click first re-login button
+        const btn0 = reLoginButtons[0];
+        if (!btn0) throw new Error("first re-login button not found");
+        fireEvent.click(btn0);
+        expect(settings_open).toHaveBeenCalledWith({ instanceId: "kimi-inst-card-1" });
+
+        // Click second re-login button
+        const btn1 = reLoginButtons[1];
+        if (!btn1) throw new Error("second re-login button not found");
+        fireEvent.click(btn1);
+        expect(settings_open).toHaveBeenCalledWith({ instanceId: "kimi-inst-card-2" });
+    });
 });
 
 describe("record_bool_equal", () => {

@@ -197,4 +197,28 @@ describe("muse connector", () => {
         expect(result.failed_accounts[0]?.account_label).toBe("Muse Pro");
         expect(result.failed_accounts[0]?.error).toContain("percentUsed");
     });
+
+    it("A138 / AC-003: handles empty subscription gracefully without throwing unhandled error", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const raw_rsc = '1:{"subscription":null}';
+        const ctx = context(raw_rsc);
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toContain("未能找到 subscription 节点");
+        expect(result.observations).toHaveLength(0);
+    });
+
+    it("A138 / AC-003: handles truncated/malformed RSC stream gracefully", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const malformed_rsc = '1:{"subscription":{"tier":{"name":"Broken';
+        const ctx = context(malformed_rsc);
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toContain("未能找到 subscription 节点");
+        expect(result.observations).toHaveLength(0);
+    });
 });

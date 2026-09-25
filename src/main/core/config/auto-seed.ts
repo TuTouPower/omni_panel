@@ -42,7 +42,8 @@ export function auto_seed_connectors(
         const is_interactive =
             auth_method === "oauth_pkce" ||
             auth_method === "oauth_device" ||
-            auth_method === "web_login";
+            auth_method === "web_login" ||
+            auth_method === "cpa_mgmt";
         const is_default_empty =
             is_interactive &&
             connector.name === def.manifest.id.toUpperCase() &&
@@ -92,7 +93,8 @@ export function auto_seed_connectors(
         if (
             auth_method === "oauth_pkce" ||
             auth_method === "oauth_device" ||
-            auth_method === "web_login"
+            auth_method === "web_login" ||
+            auth_method === "cpa_mgmt"
         ) {
             continue;
         }

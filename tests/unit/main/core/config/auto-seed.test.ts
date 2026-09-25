@@ -240,6 +240,14 @@ describe("auto_seed_connectors", () => {
             Object.defineProperty(process, "platform", { value: orig_platform });
         }
     });
+
+    it("A138 / AC-003: auto_seed skips CPA manager connector which requires user-configured management endpoint", () => {
+        const cpa_def = make_definition("cpa", {
+            auth: { method: "cpa_mgmt", secret_name: "CPA_MGMT_KEY" },
+        });
+        const result = auto_seed_connectors([], [cpa_def]);
+        expect(result.seeded).toHaveLength(0);
+    });
 });
 
 describe("resolve_refresh_interval", () => {

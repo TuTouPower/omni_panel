@@ -195,4 +195,42 @@ describe("grok_bot_auth_ipc handlers", () => {
             expect(res.error.code).toBe("CONFLICT");
         }
     });
+
+    it("A90 / AC-001: rejects untrusted senderFrame origin", async () => {
+        const { manager } = create_mock_manager();
+        registerGrokBotAuthIpc({ manager });
+        const calls = (ipcMain.handle as ReturnType<typeof vi.fn>).mock.calls as [
+            string,
+            (...args: unknown[]) => unknown,
+        ][];
+        const found = calls.find(([c]) => c === IPC_CHANNELS.GROK_BOT_LOGIN_START);
+        if (!found) throw new Error("start_handler not registered");
+        const start_handler = found[1];
+
+        const malicious_event = { senderFrame: { url: "https://evil.attacker.com" } };
+        await expect(start_handler(malicious_event)).rejects.toThrow("Invalid sender protocol");
+    });
+
+    it("A90 / AC-001: maps generic manager failure to INTERNAL_ERROR with descriptive message", async () => {
+        const { manager, start_login } = create_mock_manager();
+        start_login.mockRejectedValueOnce(new Error("network failure: 503 Service Unavailable"));
+
+        const res = await handle_grok_bot_login_start({ manager });
+        expect(res.ok).toBe(false);
+        if (!res.ok) {
+            expect(res.error.code).toBe("INTERNAL_ERROR");
+            expect(res.error.message).toContain("503");
+        }
+    });
+
+    it("A90 / AC-001: rejects empty instance_id on cancel or logout", async () => {
+        const { manager } = create_mock_manager();
+        const cancel_res = handle_grok_bot_login_cancel({ manager }, "");
+        expect(cancel_res.ok).toBe(false);
+        if (!cancel_res.ok) expect(cancel_res.error.code).toBe("INVALID_ARGUMENT");
+
+        const logout_res = await handle_grok_bot_logout({ manager }, "   ");
+        expect(logout_res.ok).toBe(false);
+        if (!logout_res.ok) expect(logout_res.error.code).toBe("INVALID_ARGUMENT");
+    });
 });
