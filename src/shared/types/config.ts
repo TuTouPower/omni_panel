@@ -4,6 +4,7 @@ import type { DevPanelConfiguration } from "./dev-panel";
 export interface ProxyConfiguration {
     readonly url: string;
     readonly noProxy?: readonly string[];
+    readonly useSystemProxy?: boolean;
 }
 
 export type MainPanelMode = "system" | "popup" | "floating";

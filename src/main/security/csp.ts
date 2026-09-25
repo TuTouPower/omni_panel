@@ -20,5 +20,5 @@ export function build_csp_connect_src(dev_origin: string | null, dev_host: strin
 export function build_csp_header(dev_origin: string | null, dev_host: string | null): string {
     const script_src = build_csp_script_src(dev_origin);
     const connect_src = build_csp_connect_src(dev_origin, dev_host);
-    return `default-src 'self'; script-src ${script_src}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${connect_src};`;
+    return `default-src 'self'; script-src ${script_src}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${connect_src}; object-src 'none'; frame-ancestors 'none'; base-uri 'self';`;
 }

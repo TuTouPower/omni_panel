@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { access, chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import os from "node:os";
 import { createLogger, scrubber } from "../../../shared/lib/logger";
 import { get_vault_key_path, get_vault_path } from "../paths";
 import { writeJsonAtomic } from "../storage/write-json";
@@ -38,22 +39,37 @@ function decrypt_value(key: Buffer, entry: VaultEntry): string {
     return decipher.update(ciphertext, undefined, "utf8") + decipher.final("utf8");
 }
 
+export function build_icacls_args(
+    path: string,
+    user_resolver: () => string = () => {
+        try {
+            return os.userInfo().username;
+        } catch {
+            return process.env["USERNAME"] ?? process.env["USER"] ?? "";
+        }
+    },
+): string[] | null {
+    const username = user_resolver();
+    if (!username) return null;
+    return [path, "/inheritance:r", "/grant:r", `${username}:F`];
+}
+
 async function set_file_permissions(path: string): Promise<void> {
     try {
         if (process.platform === "win32") {
-            const username = process.env["USERNAME"] ?? process.env["USER"] ?? "";
+            const args = build_icacls_args(path);
+            if (!args) {
+                log.warn(`Cannot resolve username for icacls permission on ${path}`);
+                return;
+            }
             await new Promise<void>((resolve, reject) => {
-                execFile(
-                    "icacls",
-                    [path, "/inheritance:r", "/grant:r", `${username}:F`],
-                    (error) => {
-                        if (error) {
-                            reject(new Error(error.message));
-                            return;
-                        }
-                        resolve();
-                    },
-                );
+                execFile("icacls", args, (error) => {
+                    if (error) {
+                        reject(new Error(error.message));
+                        return;
+                    }
+                    resolve();
+                });
             });
             return;
         }

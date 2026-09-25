@@ -270,4 +270,5 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
 - **沙箱非真隔离**（已知安全限制）：`node:vm` 官方明示非安全边界，恶意脚本可 `(0,eval)("this")` 逃逸到主进程。缓解：禁 import/export、超时、能力受控。待办：`isolated-vm` 或子进程隔离。
 - **导入配置可重定向端点**（已知安全限制）：`endpointOverrides` 可被导入的恶意配置改指公网攻击主机，`apply_auth` 会把 vault secret 发过去；`assert_safe_connector_host` 只拦云元数据主机。待办：改端点后强制重录 secret。
-- **schemaVersion 摆设**：config 有 `schemaVersion` 字段但无版本分支迁移引擎，仅 load 时做零散字段修补。
+- **系统代理与外链安全策略（t510）**：默认采纳系统代理（含 SOCKS5 与 PAC 支持），设置中支持用户手动关闭系统代理（`proxy.useSystemProxy === false`）；窗口内所有外部 http/https 导航通过 `will-navigate` 拦截并委托系统默认浏览器打开，杜绝外部网页在应用窗口内加载。
+- **配置迁移（t510）**：`schemaVersion` 递增至 2，启动时自动清理存量未配置的交互式登录空实例。

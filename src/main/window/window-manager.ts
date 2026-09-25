@@ -129,6 +129,22 @@ export interface WindowManager {
  * Preload path and icon path are passed in (they are app-path helpers that
  * depend on the app root, not on window logic) to avoid __dirname coupling.
  */
+export function is_safe_external_url(url: URL): boolean {
+    return url.protocol === "http:" || url.protocol === "https:";
+}
+
+export function is_internal_navigation(target: URL, current_url_str: string): boolean {
+    if (target.protocol === "file:") return true;
+    if (!current_url_str) return false;
+    try {
+        const current = new URL(current_url_str);
+        if (current.protocol === "file:") return target.protocol === "file:";
+        return target.origin === current.origin;
+    } catch {
+        return false;
+    }
+}
+
 export function createWindowManager(opts: {
     getPreloadPath: () => string;
     getIconPath: () => string;
@@ -225,7 +241,7 @@ export function createWindowManager(opts: {
                 log.warn(`Blocked window-open for malformed URL: ${url}`);
                 return { action: "deny" };
             }
-            if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+            if (is_safe_external_url(parsed)) {
                 void shell.openExternal(url);
             } else {
                 log.warn(`Blocked window-open for non-http(s) URL: ${url}`);
@@ -234,9 +250,7 @@ export function createWindowManager(opts: {
         });
 
         // t297: 面板窗口自身导航守卫。消息内容不可信，若 <a href> 未走外部打开
-        // 路径而触发同窗口导航，will-navigate 兜底拒绝非白名单导航。file: 放行
-        // （渲染入口为 file://，SettingsView 配置导入后的 location.reload() 属同
-        // 入口 reload，见 SettingsView.tsx:296）；http(s) 放行（外部打开路径）。
+        // 路径而触发同窗口导航，will-navigate 拦截外部导航走系统浏览器，内部导航放行。
         win.webContents.on("will-navigate", (event, url) => {
             let parsed: URL;
             try {
@@ -246,12 +260,16 @@ export function createWindowManager(opts: {
                 log.warn(`Blocked navigation to malformed URL: ${url}`);
                 return;
             }
-            if (
-                parsed.protocol !== "http:" &&
-                parsed.protocol !== "https:" &&
-                parsed.protocol !== "file:"
-            ) {
-                event.preventDefault();
+            const current =
+                typeof win.webContents.getURL === "function" ? win.webContents.getURL() : "";
+            if (is_internal_navigation(parsed, current)) {
+                return;
+            }
+            // 外部导航阻止在当前窗口加载，安全 URL 调起系统浏览器打开（A15, A16）
+            event.preventDefault();
+            if (is_safe_external_url(parsed)) {
+                void shell.openExternal(url);
+            } else {
                 log.warn(`Blocked navigation to non-whitelist URL: ${url}`);
             }
         });

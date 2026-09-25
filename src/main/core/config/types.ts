@@ -50,6 +50,7 @@ const connectorConfigurationSchema = z.object({
 const proxyConfigurationSchema = z.object({
     url: z.string().min(1),
     noProxy: z.array(z.string()).optional(),
+    useSystemProxy: z.boolean().optional(),
 });
 
 const mainPanelModeSchema = z.enum(["system", "popup", "floating"]);

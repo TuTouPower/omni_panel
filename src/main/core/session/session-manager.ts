@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { is_safe_cookie_string } from "../../../shared/lib/cookie";
 import { createLogger } from "../../../shared/lib/logger";
 import { keyFor } from "../config/secrets-store";
 import type { VaultBackend } from "../vault/vault-backend";
@@ -320,6 +321,11 @@ export function create_session_manager(
                         if (!captured_cookie) {
                             log.warn(`No matching cookies captured for ${login_id}`);
                             resolve({ saved: false, reason: "no_cookie" });
+                            return;
+                        }
+                        if (!is_safe_cookie_string(captured_cookie)) {
+                            log.warn(`Captured cookie failed safety validation for ${login_id}`);
+                            resolve({ saved: false, reason: "invalid_cookie" });
                             return;
                         }
 

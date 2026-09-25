@@ -18,6 +18,7 @@ describe("createWindowManager", () => {
                 return {
                     webContents: {
                         setWindowOpenHandler,
+                        getURL: vi.fn().mockReturnValue("file:///renderer/index.html"),
                         on: vi.fn((event: string, listener: NavigateListener) => {
                             if (event === "will-navigate") willNavigateListeners.push(listener);
                         }),
@@ -162,7 +163,9 @@ describe("createWindowManager", () => {
         expect(prevented2).toHaveBeenCalledTimes(1);
     });
 
-    it("will-navigate guard allows http(s) and file:// (reload) navigation (t297)", async () => {
+    // 注：t297 旧测试「will-navigate guard allows http(s)...」因安全缺陷 A15/A16 被废止删除。
+    // 旧行为直接在同窗口放行外部 http(s) 网页，新行为一律 preventDefault 并交由外部系统浏览器打开。
+    it("A15/A16: will-navigate intercepts external http(s) and delegates to shell.openExternal", async () => {
         const manager = await load_manager();
         manager.createWindowFor("setting", { load: false });
 
@@ -171,12 +174,21 @@ describe("createWindowManager", () => {
 
         const prevented = vi.fn();
         listener({ preventDefault: prevented }, "https://example.com/usage");
-        expect(prevented).not.toHaveBeenCalled();
+        expect(prevented).toHaveBeenCalledTimes(1);
+        expect(openExternal).toHaveBeenCalledWith("https://example.com/usage");
+    });
 
-        // file:// 渲染入口 reload（SettingsView 导入后 location.reload()）不得被拦。
-        const prevented2 = vi.fn();
-        listener({ preventDefault: prevented2 }, "file:///renderer/index.html?route#setting");
-        expect(prevented2).not.toHaveBeenCalled();
+    it("A15/A16: will-navigate permits internal file:// navigation for reload", async () => {
+        const manager = await load_manager();
+        manager.createWindowFor("setting", { load: false });
+
+        const listener = willNavigateListeners[0];
+        if (!listener) throw new Error("will-navigate handler not registered");
+
+        // file:// 渲染入口 reload（SettingsView 导入后 location.reload()）不被拦截
+        const prevented = vi.fn();
+        listener({ preventDefault: prevented }, "file:///renderer/index.html?route#setting");
+        expect(prevented).not.toHaveBeenCalled();
     });
 
     it("getRendererUrl 附带 route_query 参数并 URL 编码（t210 OPEN 初始定位）", async () => {
