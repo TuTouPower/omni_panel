@@ -2,5 +2,22 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t524",
+            "slug": "connector_worker_packaged_fix",
+            "title": "修复打包后连接器隔离子进程崩溃与全量采集失败",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源: p259",
+            "dir": "docs/tasks/t524_connector_worker_packaged_fix"
+        }
+    ]
 }
