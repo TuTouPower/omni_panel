@@ -36,7 +36,7 @@ describe("add-account common services", () => {
         expect(ADD_COMMON_SERVICES).toContainEqual({ id: "kimi_web", label: "Kimi Web" });
     });
 
-    it("labels the muse entry as Muse AI", () => {
-        expect(ADD_COMMON_SERVICES).toContainEqual({ id: "muse", label: "Muse AI" });
+    it("labels the muse entry as Muse", () => {
+        expect(ADD_COMMON_SERVICES).toContainEqual({ id: "muse", label: "Muse" });
     });
 });

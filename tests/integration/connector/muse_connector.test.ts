@@ -144,18 +144,35 @@ describe("muse connector", () => {
         expect(result.error).toMatch(/SESSION_COOKIE/);
     });
 
-    it("throws MUSE_ACTION_STALE when HTML does not contain action or deployment ID (A146 / AC-006)", async () => {
+    it("falls back to baseline action and deployment IDs when HTML does not contain them", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("muse manifest missing");
 
-        const ctx = context("{}");
-        // mock 页面不包含有效 Action/Deployment ID
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
         ctx.http.get_raw = vi.fn().mockResolvedValue({
             status: 200,
             headers: {},
             body: "<html><body>no ids here</body></html>",
         });
 
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "407c800bb93d1539e5152b02e7f8ed6a82a7729a86",
+            "x-deployment-id": "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3",
+        });
+    });
+
+    it("throws MUSE_ACTION_STALE when server rejects action ID with 404 or Invalid Server Action (A146 / AC-006)", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const ctx = context("Invalid Server Action", "hatch_sess=valid", 404);
         const result = await run_connector(manifest, await code(), ctx);
         expect(result.error).toMatch(/MUSE_ACTION_STALE/);
         expect(result.observations).toHaveLength(0);

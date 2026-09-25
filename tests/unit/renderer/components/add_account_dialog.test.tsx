@@ -204,7 +204,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(get_saved_params(on_save).secrets).toEqual({ SESSION_COOKIE: "mimo-cookie" });
     });
 
-    it("renders WebLoginForm for Muse AI and triggers session login with muse domains and cookies", async () => {
+    it("renders WebLoginForm for Muse and triggers session login with muse domains and cookies", async () => {
         const session = {
             login: vi
                 .fn()
@@ -214,8 +214,8 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         (window as unknown as { usageboard: unknown }).usageboard = { session };
         const plugin: PluginInfo = make_plugin({
             instanceId: "muse-1",
-            name: "Muse AI",
-            displayName: "Muse AI",
+            name: "Muse",
+            displayName: "Muse",
             source: "session",
             supportedProviders: ["muse"],
             activeProviders: ["muse"],
@@ -241,7 +241,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         const user = userEvent.setup();
         render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
 
-        await user.click(screen.getByText("Muse AI"));
+        await user.click(screen.getByText("Muse"));
         expect(screen.getByText("网页登录")).toBeInTheDocument();
 
         await user.click(screen.getByText("网页登录"));

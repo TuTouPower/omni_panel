@@ -29,7 +29,7 @@ export const PROVIDER_DEFINITIONS: readonly ProviderMeta[] = [
     { id: "grok", label: "Grok", order: 15 },
     { id: "grok_bot", label: "Grok Bot", order: 16 },
     { id: "commandcode", label: "Command Code", order: 17 },
-    { id: "muse", label: "Muse AI", order: 18 },
+    { id: "muse", label: "Muse", order: 18 },
     { id: "cpa", label: "CPA", addServiceLabel: "CPA Manager", order: 19 },
 ];
 

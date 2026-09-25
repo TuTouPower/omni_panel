@@ -91,8 +91,8 @@ describe("PopupView - Muse AI support", () => {
 
         render(<PopupView />);
 
-        // 1. 验证顶部 Tab 栏出现 "Muse AI"
-        const museTab = await screen.findByRole("button", { name: /^Muse AI$/ });
+        // 1. 验证顶部 Tab 栏出现 "Muse"
+        const museTab = await screen.findByRole("button", { name: /^Muse$/ });
         expect(museTab).toBeInTheDocument();
 
         // 2. 验证卡片默认展开（对齐 d1917ac8 默认展开语义），直接渲染用量条与百分比
@@ -103,7 +103,7 @@ describe("PopupView - Muse AI support", () => {
             expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
         });
 
-        // 3. 点击切换 Tab 到 Muse AI，同样渲染用量条
+        // 3. 点击切换 Tab 到 Muse，同样渲染用量条
         fireEvent.click(museTab);
         await waitFor(() => {
             expect(screen.getAllByText("每周限额").length).toBeGreaterThan(0);
