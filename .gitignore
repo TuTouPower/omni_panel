@@ -81,6 +81,8 @@ docs/archive/reviews/review_*/_meta/
 # 垃圾/临时文件
 report
 PixPin_*.png
+assets/wsl/
+assets/win/
 *.tmp
 
 # 运行时控制面（attempt 账本/goal 队列，仅主仓、不入库）
