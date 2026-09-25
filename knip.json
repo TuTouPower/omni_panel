@@ -15,7 +15,6 @@
         "eslint-plugin-security",
         "eslint-plugin-sonarjs",
         "eslint-plugin-unicorn",
-        "lodash",
         "tailwindcss",
         "tslib"
     ]
