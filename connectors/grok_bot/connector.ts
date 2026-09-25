@@ -90,11 +90,8 @@ function to_base64url_6bytes(b: Uint8Array): string {
 }
 
 function generate_uuid(): string {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+    // A75: 使用标准安全随机器代替 Math.random
+    return crypto.randomUUID();
 }
 
 function generate_checksum(mid: string, now = Date.now()): string {

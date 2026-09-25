@@ -9,15 +9,8 @@ import {
     resolve_auth_method,
     type ResolvedAuthMethod,
 } from "../lib/auth-flow-registry";
-import { OAuthDeviceForm } from "./forms/OAuthDeviceForm";
-import { WebLoginForm } from "./forms/WebLoginForm";
-import { GrokBotPkceForm } from "./forms/GrokBotPkceForm";
-import { CpaMgmtForm } from "./forms/CpaMgmtForm";
-import { ExaServiceKeyForm } from "./forms/ExaServiceKeyForm";
 import { VendorPicker } from "./add_account/VendorPicker";
-import { ApiKeyForm } from "./add_account/ApiKeyForm";
-import { SessionForm } from "./add_account/SessionForm";
-import { LocalScanForm } from "./add_account/LocalScanForm";
+import { resolve_form_renderer, type FormContext } from "./add_account/form_registry";
 import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import type { AddAccountParams } from "./add_account/add_account_params";
@@ -25,7 +18,8 @@ import type { AddAccountParams } from "./add_account/add_account_params";
 export type { AddAccountParams } from "./add_account/add_account_params";
 
 function generate_instance_id(vendor_id: AddServiceId): string {
-    return `${vendor_id}-${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
+    // A75: 使用标准安全随机器代替 Math.random
+    return `${vendor_id}-${crypto.randomUUID()}`;
 }
 
 interface AddAccountDialogProps {
@@ -153,13 +147,53 @@ export function AddAccountDialog({
     const title = vendor_id ? `添加 ${vendor_label} 账号` : "添加账号";
     const sub = vendor_id ? sub_by_auth[auth_method] : "";
     const wide = auth_method === "local_cli";
-    const has_extra_fields = (auth_descriptor?.extra_fields?.length ?? 0) > 0;
-    const form_handles_save =
-        auth_method === "oauth_device" ||
-        auth_method === "oauth_pkce" ||
-        auth_method === "web_login" ||
-        auth_method === "cpa_mgmt" ||
-        (auth_method === "apikey" && vendor_id === "exa" && has_extra_fields);
+
+    // AC-001 / A62: 校验 local_cli 是否已完成扫描且凭据有效
+    const is_local_cli_invalid = auth_method === "local_cli" && !local_scan_result?.details?.valid;
+
+    const handle_form_save = useCallback(
+        async (params: AddAccountParams) => {
+            await on_save({
+                ...params,
+                ...(selected_manifest_id ? { manifest_id: selected_manifest_id } : {}),
+                ...(selected_connector?.instanceId
+                    ? { source_instance_id: selected_connector.instanceId }
+                    : {}),
+            });
+            on_close();
+        },
+        [on_save, on_close, selected_connector, selected_manifest_id],
+    );
+
+    const form_context = useMemo<FormContext | null>(() => {
+        if (!vendor_id) return null;
+        return {
+            vendor_id,
+            account_name,
+            set_account_name,
+            auth_descriptor,
+            selected_connector,
+            api_form_ref,
+            session_form_ref,
+            local_scan_result,
+            set_local_scan_result,
+            oauth_instance_id: oauth_instance_id_ref.current,
+            on_save: handle_form_save,
+        };
+    }, [
+        vendor_id,
+        account_name,
+        auth_descriptor,
+        selected_connector,
+        local_scan_result,
+        handle_form_save,
+    ]);
+
+    // A100 / AC-002: 注册表驱动表单渲染与保存代理判定
+    const form_renderer = form_context
+        ? resolve_form_renderer(auth_method, form_context)
+        : undefined;
+    const form_handles_save = form_renderer?.handles_save ?? false;
 
     // ESC to close
     useEffect(() => {
@@ -191,8 +225,8 @@ export function AddAccountDialog({
     const handle_save = useCallback(async () => {
         if (!vendor_id || saving) return;
         if (form_handles_save) return;
-        if (auth_method === "local_cli" && local_scan_result && !local_scan_result.details?.valid) {
-            set_error_message(local_scan_result.details?.error ?? "未找到有效的本地授权凭据");
+        if (is_local_cli_invalid) {
+            set_error_message(local_scan_result?.details?.error ?? "未找到有效的本地授权凭据");
             return;
         }
         set_error_message(null);
@@ -248,24 +282,11 @@ export function AddAccountDialog({
         vendor_label,
         saving,
         form_handles_save,
+        is_local_cli_invalid,
         local_scan_result,
         on_save,
         on_close,
     ]);
-
-    const handle_form_save = useCallback(
-        async (params: AddAccountParams) => {
-            await on_save({
-                ...params,
-                ...(selected_manifest_id ? { manifest_id: selected_manifest_id } : {}),
-                ...(selected_connector?.instanceId
-                    ? { source_instance_id: selected_connector.instanceId }
-                    : {}),
-            });
-            on_close();
-        },
-        [on_save, on_close, selected_connector, selected_manifest_id],
-    );
 
     return (
         <Dialog
@@ -340,7 +361,7 @@ export function AddAccountDialog({
                             variant="primary"
                             size="sm"
                             type="button"
-                            disabled={saving}
+                            disabled={saving || is_local_cli_invalid}
                             onClick={() => {
                                 void handle_save();
                             }}
@@ -352,107 +373,7 @@ export function AddAccountDialog({
             }
         >
             {step === "vendor" && <VendorPicker on_select={handle_select_vendor} />}
-            {step === "auth" && vendor_id && (
-                <>
-                    {auth_method === "apikey" && !has_extra_fields && (
-                        <ApiKeyForm
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            form_ref={api_form_ref}
-                        />
-                    )}
-                    {auth_method === "session" && (
-                        <SessionForm
-                            provider={vendor_id}
-                            secret_name={
-                                auth_descriptor?.secret_name ??
-                                fallback_secret_name(selected_connector)
-                            }
-                            login_url={
-                                selected_connector?.metadata?.login_url ??
-                                selected_connector?.metadata?.endpoints?.["login"] ??
-                                undefined
-                            }
-                            cookie_names={selected_connector?.metadata?.cookie_names}
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            form_ref={session_form_ref}
-                        />
-                    )}
-                    {auth_method === "local_cli" && (
-                        <LocalScanForm
-                            vendor_id={vendor_id}
-                            on_scan_result={(res) => {
-                                set_local_scan_result(res);
-                                if (res.details?.email && !account_name) {
-                                    set_account_name(res.details.email);
-                                }
-                            }}
-                        />
-                    )}
-                    {auth_method === "oauth_device" && (
-                        <OAuthDeviceForm
-                            key={vendor_id}
-                            instance_id={oauth_instance_id_ref.current}
-                            vendor={vendor_id === "kimi" ? "kimi" : "grok"}
-                            vendor_id={vendor_id}
-                            secret_name={
-                                auth_descriptor?.secret_name ??
-                                fallback_secret_name(selected_connector)
-                            }
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            on_save={handle_form_save}
-                        />
-                    )}
-                    {auth_method === "oauth_pkce" && (
-                        <GrokBotPkceForm
-                            key={vendor_id}
-                            instance_id={oauth_instance_id_ref.current}
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            on_save={handle_form_save}
-                        />
-                    )}
-                    {auth_method === "web_login" && auth_descriptor?.login_url && (
-                        <WebLoginForm
-                            key={vendor_id}
-                            provider={vendor_id}
-                            login_url={auth_descriptor.login_url}
-                            secret_name={auth_descriptor.secret_name}
-                            cookie_names={selected_connector?.metadata?.cookie_names}
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            on_save={handle_form_save}
-                        />
-                    )}
-                    {auth_method === "cpa_mgmt" && (
-                        <CpaMgmtForm
-                            key={vendor_id}
-                            vendor_id={vendor_id}
-                            default_endpoint={
-                                selected_connector?.metadata?.endpoints?.["default"] ?? undefined
-                            }
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            on_save={handle_form_save}
-                        />
-                    )}
-                    {auth_method === "apikey" && vendor_id === "exa" && has_extra_fields && (
-                        <ExaServiceKeyForm
-                            key={vendor_id}
-                            vendor_id={vendor_id}
-                            secret_name={
-                                auth_descriptor?.secret_name ??
-                                fallback_secret_name(selected_connector)
-                            }
-                            account_name={account_name}
-                            set_account_name={set_account_name}
-                            on_save={handle_form_save}
-                        />
-                    )}
-                </>
-            )}
+            {step === "auth" && form_renderer && form_context && form_renderer.render(form_context)}
         </Dialog>
     );
 }

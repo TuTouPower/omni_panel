@@ -1,4 +1,5 @@
 import vm from "node:vm";
+import { randomUUID } from "node:crypto";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { z } from "zod/v3";
 import { createLogger, withLogContext, scrubber } from "../../../shared/lib/logger";
@@ -84,6 +85,10 @@ function create_sandbox_context(ctx: ConnectorContext): vm.Context {
                 z,
             }),
             z,
+            // A75: 注入安全的 crypto.randomUUID 供连接器调用
+            crypto: Object.freeze({
+                randomUUID: () => randomUUID(),
+            }),
         }),
     );
 }
