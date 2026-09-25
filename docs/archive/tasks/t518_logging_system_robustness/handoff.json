@@ -1,0 +1,27 @@
+{
+    "tid": "t518",
+    "attempt": 1,
+    "execution_id": "5964e7f553694d98b6b7167a2f274685",
+    "status": "done",
+    "branch": "t518_logging_system_robustness",
+    "base_sha": "ae1d5c870650bcb248e8602e76e79435f5460529",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch）全绿；pnpm test 全量 331 个测试套件（4064 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "单元测试覆盖写盘失败节流警告、清理异常节流保护、缺失日志文件导出安全回退及自定义天数和容量配额清理策略",
+    "review": "single 级：general_verdict=PASS, reviewed_scope=3445523354011fc0",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/logging.ts 中 record_write_error 与 record_cleanup_error 实现 5s 节流警告，写与清理失败时输出 console.warn",
+            "tests/unit/main/logging.test.ts 验证写失败与清理失败产生受节流控制的控制台警告"
+        ],
+        "AC-002": [
+            "src/main/core/logging.ts 中 exportCurrentLog 增加文件存在性检查，缺失时创建空文件并返回 empty: true",
+            "tests/unit/main/logging.test.ts 验证缺失日志文件导出不抛出 ENOENT 并正常返回空结果"
+        ],
+        "AC-003": [
+            "src/shared/types/config.ts 与 src/main/core/config/types.ts 增加 logging 配额配置；src/main/core/logging.ts 中 cleanupOldLogs 与 initLogging 动态应用配置阈值",
+            "tests/unit/main/logging.test.ts 验证根据配置的天数清理过期日志及根据配置的单文件容量和段数执行轮转"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

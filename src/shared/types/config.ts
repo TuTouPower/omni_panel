@@ -34,6 +34,13 @@ export interface AccountOverrides {
 
 export type AccountLabels = Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>;
 
+/** A133: 日志保留配额配置 */
+export interface LoggingConfiguration {
+    readonly maxAgeDays?: number;
+    readonly maxLogFileBytes?: number;
+    readonly maxSegments?: number;
+}
+
 export interface AppConfiguration {
     readonly schemaVersion: number;
     readonly language: AppLanguage;
@@ -45,6 +52,8 @@ export interface AppConfiguration {
     readonly accentColor?: string;
     readonly theme?: "light" | "dark" | "system";
     readonly logLevel?: LogLevel;
+    /** A133: 日志保留配额配置 */
+    readonly logging?: LoggingConfiguration;
     readonly pinToTop?: boolean;
     readonly minimizeToTray?: boolean;
     /** p254: 为 true 时 macOS Dock 不显示图标，仅保留菜单栏图标。缺省显示。 */

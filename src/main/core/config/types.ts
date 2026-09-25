@@ -77,6 +77,16 @@ export const devPanelConfigurationSchema = z.object({
     currentUserOnly: z.boolean(),
 });
 
+export const loggingConfigurationSchema = z.object({
+    maxAgeDays: z.number().int().min(1).max(365).optional(),
+    maxLogFileBytes: z
+        .number()
+        .int()
+        .min(1024 * 1024)
+        .optional(),
+    maxSegments: z.number().int().min(1).max(100).optional(),
+});
+
 export const appConfigurationSchema = z.object({
     schemaVersion: z.number().int(),
     language: appLanguageSchema,
@@ -87,6 +97,7 @@ export const appConfigurationSchema = z.object({
     accentColor: z.string().optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
     logLevel: logLevelSchema.optional(),
+    logging: loggingConfigurationSchema.optional(),
     pinToTop: z.boolean().optional(),
     minimizeToTray: z.boolean().optional(),
     hideDockIcon: z.boolean().optional(),
@@ -159,6 +170,11 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     plugins: [],
     launchAtLogin: false,
     allowUserConnectors: false,
+    logging: {
+        maxAgeDays: 7,
+        maxLogFileBytes: 50 * 1024 * 1024,
+        maxSegments: 10,
+    },
     devPanel: {
         scanRoots: ["~/kar/code"],
         commitCutoff: "2026-03-20",

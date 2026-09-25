@@ -287,6 +287,9 @@ void app.whenReady().then(async () => {
 
         const cleanupLogging = await initLogging(dataRoot, {
             logLevel: currentConfig.logLevel ?? defaultLogLevelForEnv(),
+            maxAgeDays: currentConfig.logging?.maxAgeDays,
+            maxLogFileBytes: currentConfig.logging?.maxLogFileBytes,
+            maxSegments: currentConfig.logging?.maxSegments,
             // t277+: CLI 模式 stdout 保持干净——只留 t275 AC2 的
             // "OmniPanel CLI mode listening on ..." 一行，日志全落文件。
             consoleOutput: !cliMode,

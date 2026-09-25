@@ -11,9 +11,50 @@ import {
 import { get_local_date_string } from "../../shared/lib/local-time";
 import { get_logs_dir } from "./paths";
 
-const MAX_LOG_AGE_DAYS = 7;
-const MAX_LOG_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
-const MAX_SEGMENTS = 10;
+// A133: 日志保留配额默认值常量收敛
+export const DEFAULT_MAX_LOG_AGE_DAYS = 7;
+export const DEFAULT_MAX_LOG_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+export const DEFAULT_MAX_SEGMENTS = 10;
+
+// A35 / AC-001: 错误节流记录，避免写/清理异常时刷屏与递归触发日志自增殖
+let write_error_count = 0;
+let last_write_warn_time = 0;
+const WRITE_WARN_INTERVAL_MS = 5000;
+
+export function record_write_error(err: unknown): void {
+    write_error_count += 1;
+    const now = Date.now();
+    if (now - last_write_warn_time >= WRITE_WARN_INTERVAL_MS) {
+        last_write_warn_time = now;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+            `[logging] Failed to write log file (count=${String(write_error_count)}): ${msg}`,
+        );
+    }
+}
+
+let cleanup_error_count = 0;
+let last_cleanup_warn_time = 0;
+const CLEANUP_WARN_INTERVAL_MS = 5000;
+
+export function record_cleanup_error(err: unknown): void {
+    cleanup_error_count += 1;
+    const now = Date.now();
+    if (now - last_cleanup_warn_time >= CLEANUP_WARN_INTERVAL_MS) {
+        last_cleanup_warn_time = now;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+            `[logging] Failed to cleanup old logs (count=${String(cleanup_error_count)}): ${msg}`,
+        );
+    }
+}
+
+export function reset_logging_error_stats_for_testing(): void {
+    write_error_count = 0;
+    last_write_warn_time = 0;
+    cleanup_error_count = 0;
+    last_cleanup_warn_time = 0;
+}
 
 export function getLogDir(userDataPath: string): string {
     return get_logs_dir(userDataPath);
@@ -39,20 +80,34 @@ async function getCurrentSegmentCount(logDir: string, logFile: string): Promise<
     return max;
 }
 
-async function cleanupOldLogs(logDir: string): Promise<void> {
+export async function cleanupOldLogs(
+    logDir: string,
+    maxAgeDays = DEFAULT_MAX_LOG_AGE_DAYS,
+): Promise<void> {
     try {
         const files = await readdir(logDir);
-        const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
         for (const file of files) {
             if (!file.endsWith(".log")) continue;
             const filePath = join(logDir, file);
             const s = await stat(filePath);
             if (s.mtimeMs < cutoff) {
-                await unlink(filePath).catch(() => undefined);
+                await unlink(filePath).catch((err: unknown) => {
+                    record_cleanup_error(err);
+                });
             }
         }
-    } catch {
-        // Directory may not exist yet
+    } catch (err: unknown) {
+        if (
+            typeof err === "object" &&
+            err !== null &&
+            "code" in err &&
+            (err as { code: string }).code === "ENOENT"
+        ) {
+            // Directory may not exist yet
+            return;
+        }
+        record_cleanup_error(err);
     }
 }
 
@@ -60,30 +115,51 @@ export function defaultLogLevelForEnv(env: NodeJS.ProcessEnv = process.env): Log
     return env["NODE_ENV"] === "production" ? "info" : "debug";
 }
 
-export async function exportCurrentLog(userDataPath: string, targetPath: string): Promise<void> {
+export interface ExportLogResult {
+    exported: boolean;
+    empty: boolean;
+}
+
+export async function exportCurrentLog(
+    userDataPath: string,
+    targetPath: string,
+): Promise<ExportLogResult> {
     // Export the currently active log segment only. Historical segments are
     // named app-<date>.N.log and remain in the logs directory.
     // t502 AC-002: 与写路径同一本地日期文件严格同步（均经 get_local_date_string）。
     const logFile = getLogFilePath(getLogDir(userDataPath));
+    const exists = await stat(logFile)
+        .then((s) => s.isFile() && s.size > 0)
+        .catch(() => false);
+    if (!exists) {
+        // A36 / AC-002: 源文件缺失或为空时，写入空文件并返回明确结果，杜绝裸抛 ENOENT
+        await open(targetPath, "w")
+            .then((fd) => fd.close())
+            .catch(() => undefined);
+        return { exported: false, empty: true };
+    }
     await copyFile(logFile, targetPath);
+    return { exported: true, empty: false };
 }
 
 export async function initLogging(
     userDataPath: string,
     options: {
-        logLevel?: LogLevel;
-        maxLogFileBytes?: number;
-        maxSegments?: number;
+        logLevel?: LogLevel | undefined;
+        maxAgeDays?: number | undefined;
+        maxLogFileBytes?: number | undefined;
+        maxSegments?: number | undefined;
         /** 是否把日志同时输出到 stdout（开发默认 true；CLI 模式 false 保持 stdout 干净）。 */
-        consoleOutput?: boolean;
+        consoleOutput?: boolean | undefined;
     } = {},
 ): Promise<() => Promise<void>> {
     const logDir = getLogDir(userDataPath);
     await mkdir(logDir, { recursive: true });
 
     const logFile = getLogFilePath(logDir);
-    const maxLogFileBytes = options.maxLogFileBytes ?? MAX_LOG_FILE_BYTES;
-    const maxSegments = options.maxSegments ?? MAX_SEGMENTS;
+    const maxLogFileBytes = options.maxLogFileBytes ?? DEFAULT_MAX_LOG_FILE_BYTES;
+    const maxSegments = options.maxSegments ?? DEFAULT_MAX_SEGMENTS;
+    const maxAgeDays = options.maxAgeDays ?? DEFAULT_MAX_LOG_AGE_DAYS;
 
     let currentSegment = await getCurrentSegmentCount(logDir, logFile);
     // t502: 常驻进程跨午夜写时轮转——跟踪当前活跃日期与文件，写时比对本地日期。
@@ -198,7 +274,9 @@ export async function initLogging(
                         }
                         await fd.write(payload);
                         cached_size += Buffer.byteLength(payload);
-                    } catch {
+                    } catch (err: unknown) {
+                        // A35 / AC-001: 写错误不静默吞，记录告警与节流保护
+                        record_write_error(err);
                         // 写错误忽略；fd 可能失效（如磁盘满后重试），close 后下次重开，
                         // 避免持续失败下每次泄漏一个 OS fd。
                         await close_log_fd();
@@ -220,7 +298,7 @@ export async function initLogging(
 
     createLogger("logging").info(`Logging initialized: ${logFile}`);
 
-    const cleanup_promise = cleanupOldLogs(logDir);
+    const cleanup_promise = cleanupOldLogs(logDir, maxAgeDays);
 
     return async () => {
         await cleanup_promise;
