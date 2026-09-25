@@ -89,10 +89,11 @@ describe("connector-scheduler", () => {
     });
 
     it("stopAll cancels pending jitter refreshes (A12)", () => {
+        vi.spyOn(Math, "random").mockReturnValue(0.5);
         const refresh = vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
         const scheduler = createConnectorScheduler({ refresh });
         scheduler.start("p1", 10);
-        scheduler.start("p2", 10); // jittered
+        scheduler.start("p2", 10); // jittered 1500ms
         scheduler.stopAll();
         vi.advanceTimersByTime(5_000);
         const p2_calls = refresh.mock.calls.filter((c) => c[0] === "p2").length;

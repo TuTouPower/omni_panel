@@ -1,0 +1,33 @@
+{
+    "tid": "t511",
+    "attempt": 1,
+    "execution_id": "007a33bbe3fd45f392314034b08944cf",
+    "status": "done",
+    "branch": "t511_preload_permission_matrix",
+    "base_sha": "17f960cdeeb30c9b6ab447ce31b2033f58b3e4e2",
+    "tests": "pnpm check 全绿（含 typecheck + lint + format:check + deadcode + arch + test 零 warning 零 error）；pnpm test 全绿（331 测试套件，3999 单元/集成用例通过）",
+    "blackbox": "通过 tests/unit/preload/preload_permission_matrix.test.ts 验证 setting / usage / tray / session 窗口权限暴露矩阵与 Popup config.save 真实过滤调用；通过 tests/unit/preload/config_filter.test.ts 验证白名单过滤规则；通过 tests/unit/preload/oauth_api.test.ts 验证 grok_bot readonly 存根拒绝与 settings API 真实调用",
+    "review": "full 级：review_code.md PASS（Round 3）；review_test.md PASS（Round 3，reviewed_scope: 76ed9600b5dbdb43，check_review_status overall=PASS）",
+    "ac_evidence": {
+        "AC-001": [
+            "src/preload/index.ts: data-driven assembly replaces 144 lines of switch-case duplication",
+            "tests/unit/preload/preload_permission_matrix.test.ts: create_preload_api constructs exact route APIs"
+        ],
+        "AC-002": [
+            "tests/unit/preload/preload_permission_matrix.test.ts: popup (usage) window receives whitelisted config save and rejects grok_bot login",
+            "tests/unit/preload/oauth_api.test.ts: creates Grok Bot oauth APIs with rejecting readonly stubs and functioning settings APIs"
+        ],
+        "AC-003": [
+            "tests/unit/preload/config_filter.test.ts: allows whitelisted UI fields to be updated",
+            "tests/unit/preload/config_filter.test.ts: drops non-whitelisted sensitive fields like plugins and proxy",
+            "tests/unit/preload/preload_permission_matrix.test.ts: end-to-end popup config.save filter assertion"
+        ],
+        "AC-004": [
+            "tests/unit/preload/preload_permission_matrix.test.ts: setting window receives full management capabilities",
+            "tests/unit/preload/preload_permission_matrix.test.ts: tray window receives readonly config and rejects high-privilege methods",
+            "tests/unit/preload/preload_permission_matrix.test.ts: session window receives full sessionHistory but readonly config and disabled grok_bot"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

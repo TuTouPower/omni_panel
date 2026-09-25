@@ -630,6 +630,19 @@ export interface GrokBotRefreshApiResult {
     readonly error?: string | undefined;
 }
 
+export interface GrokBotReadonlyApi {
+    login_start(): Promise<GrokBotLoginStartResult>;
+    login_poll(
+        instance_id: string,
+        uuid: string,
+        verifier: string,
+        timeout_ms?: number,
+    ): Promise<GrokBotLoginPollResult>;
+    login_cancel(instance_id: string): Promise<void>;
+    logout(instance_id: string): Promise<{ logged_out: boolean }>;
+    refresh(instance_id: string): Promise<GrokBotRefreshApiResult>;
+}
+
 export interface GrokBotSettingsApi {
     login_start(): Promise<GrokBotLoginStartResult>;
     login_poll(

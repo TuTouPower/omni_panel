@@ -64,8 +64,10 @@ src/
 │   └── window/window-manager.ts   # 窗口目录 + 工厂（见 specs/window-management.md）
 ├── preload/                       # contextBridge 白名单 + route capability 策略
 │   ├── index.ts                   # contextBridge 暴露 + route-based 分权
+│   ├── api_factory.ts             # 数据驱动能力矩阵装配工厂 (t511)
+│   ├── config_filter.ts           # Popup 窗口配置白名单过滤 (t511)
 │   ├── log-throttle.ts            # preload 侧 100条/秒日志限流
-│   └── route_api.ts               # route 能力查询辅助
+│   └── route_api.ts               # route 能力查询辅助与各域分流器 (t511)
 ├── renderer/                      # React：views/ components/ hooks/ lib/ styles/
 │   ├── views/settings-view/       #   t122 拆分：sections/ + lib.ts
 │   └── views/popup-view/          #   t180 拆分：子组件（TitleBar/EmptyState/...）+ lib.ts
@@ -272,3 +274,4 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 - **导入配置可重定向端点**（已知安全限制）：`endpointOverrides` 可被导入的恶意配置改指公网攻击主机，`apply_auth` 会把 vault secret 发过去；`assert_safe_connector_host` 只拦云元数据主机。待办：改端点后强制重录 secret。
 - **系统代理与外链安全策略（t510）**：默认采纳系统代理（含 SOCKS5 与 PAC 支持），设置中支持用户手动关闭系统代理（`proxy.useSystemProxy === false`）；窗口内所有外部 http/https 导航通过 `will-navigate` 拦截并委托系统默认浏览器打开，杜绝外部网页在应用窗口内加载。
 - **配置迁移（t510）**：`schemaVersion` 递增至 2，启动时自动清理存量未配置的交互式登录空实例。
+- **Preload 路由矩阵与分权（t511）**：Preload API 采用工厂驱动（`create_preload_api`），消除了三栈复制与大 switch 分支；Grok Bot OAuth 高阶能力仅限 setting 窗口，低权窗口全部注入 rejected 存根；Popup 窗口的 `config.save` 施加白名单保护（`filter_popup_config_save`），越权篡改核心敏感配置被安全忽略并恢复现值。

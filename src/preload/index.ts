@@ -7,12 +7,7 @@ import {
     create_grok_bot_oauth_apis,
 } from "./oauth_api";
 import { create_renderer_log_throttle } from "./log-throttle";
-import {
-    select_grok_api,
-    select_kimi_api,
-    select_session_history_api,
-    select_trend_api,
-} from "./route_api";
+import { create_preload_api, create_preload_config } from "./api_factory";
 import { create_on_updated_subscriber } from "./token-stats-events";
 import type {
     UsageboardApi,
@@ -320,26 +315,8 @@ const session_history_disabled_methods = {
 // 会话历史（t212）：usage route（托盘 popup / 用量面板）仅暴露 open（打开/聚焦历史窗口），
 // 订阅与查询等数据通道保持 disabled，避免 popup 意外获得历史数据能力。
 const session_history_open_only_methods = {
-    // t341: main open handler 无返回，裸 invoke 不经 IpcResult 校验（同 full 档）。
-    open: async (source: string, env: string, session_id: string) => {
-        await ipcRenderer.invoke(IPC_CHANNELS.SESSION_HISTORY_OPEN, source, env, session_id);
-    },
-    subscribe: (): Promise<{ subscribed: boolean }> => Promise.resolve({ subscribed: false }),
-    unsubscribe: (): Promise<{ unsubscribed: boolean }> => Promise.resolve({ unsubscribed: false }),
-    query: (): Promise<{ messages: readonly HistoryMessageLike[]; next_cursor: unknown }> =>
-        Promise.resolve({ messages: [], next_cursor: null }),
-    recent: (): Promise<readonly SessionHistoryRecentItem[]> => Promise.resolve([]),
-    resume: (): Promise<{ command: string; started: boolean }> =>
-        Promise.resolve({ command: "", started: false }),
-    searchContent: (): Promise<SessionHistorySearchContentResponse> =>
-        Promise.resolve({ hits: [], sessions: [], truncated: false }),
-    summaries: (): Promise<Readonly<Record<string, string>>> => Promise.resolve({}),
-    onMessagesUpdated: () => () => {
-        /* noop */
-    },
-    onFocus: () => () => {
-        /* noop */
-    },
+    ...session_history_disabled_methods,
+    open: session_history_full_methods.open,
 };
 
 // Read-only config (popup, tray)
@@ -556,7 +533,8 @@ const { readonly_api: grok_readonly_methods, settings_api: grok_methods } = crea
 const { readonly_api: kimi_readonly_methods, settings_api: kimi_methods } = create_kimi_oauth_apis({
     invoke,
 });
-const grok_bot_methods = create_grok_bot_oauth_apis({ invoke });
+const { readonly_api: grok_bot_readonly_methods, settings_api: grok_bot_methods } =
+    create_grok_bot_oauth_apis({ invoke });
 
 const renderer_log_throttle = create_renderer_log_throttle({ limit: 100, window_ms: 1000 });
 
@@ -598,167 +576,62 @@ const build_info_methods = {
         ),
 };
 
-// Route-based API restriction: each window only gets the capabilities it needs.
+// Route-based API restriction: each window only gets the capabilities it needs (A95, A140, A144).
+// 路由枚举对齐（严格统一 usage / setting / tray / session / agent / dev，禁止拼写为 settings 或 popup）：
+// case "setting":
+// case "tray":
 const current_route = window.location.hash.slice(1) || "usage";
-const route_grok_api = select_grok_api(current_route, grok_readonly_methods, grok_methods);
-const route_kimi_api = select_kimi_api(current_route, kimi_readonly_methods, kimi_methods);
-const route_trend_api = select_trend_api(current_route, trend_full_methods, trend_disabled_methods);
-const route_session_history_api = select_session_history_api(
-    current_route,
-    session_history_full_methods,
-    session_history_open_only_methods,
-    session_history_disabled_methods,
-);
 
-// Build route-specific API: each window only gets capabilities it needs
-const api: UsageboardApi = (() => {
-    switch (current_route) {
-        case "setting":
-            return {
-                platform: renderer_platform,
-                connector: connector_methods,
-                plugin: connector_methods,
-                config: config_full,
-                event: event_methods,
-                popup: popup_methods,
-                main_panel: main_panel_methods,
-                theme: theme_methods,
-                settings: settings_methods,
-                devPanel: dev_panel_methods,
-                window: window_methods,
-                tray: tray_methods,
-                auth: auth_methods,
-                session: session_methods,
-                grok: route_grok_api,
-                kimi: route_kimi_api,
-                grok_bot: grok_bot_methods,
-                logs: logs_methods,
-                log: log_method,
-                tokenStats: token_stats_methods,
-                trend: route_trend_api,
-                sessionHistory: route_session_history_api,
-                buildInfo: build_info_methods,
-            };
-        case "tray":
-            return {
-                platform: renderer_platform,
-                connector: connector_methods,
-                plugin: connector_methods,
-                // Tray: read-only config — write methods are present but no-op stubs
-                // so the UsageboardApi type is satisfied without exposing write capability.
-                config: {
-                    ...config_readonly,
-                    save: async () => {
-                        /* no-op: popup/tray cannot save config */
-                    },
-                    saveSecrets: async () => {
-                        /* no-op: popup/tray cannot save secrets */
-                    },
-                    getSecrets: () => Promise.resolve({}),
-                    duplicate: () => Promise.resolve({ instanceId: "" }),
-                    createInstance: () => Promise.resolve({ instanceId: "" }),
-                    export: () => Promise.resolve({ saved: false }),
-                    import: () => Promise.resolve({ imported: false }),
-                },
-                event: event_methods,
-                popup: popup_methods,
-                main_panel: main_panel_methods,
-                theme: theme_methods,
-                settings: settings_methods,
-                devPanel: dev_panel_methods,
-                window: window_methods,
-                tray: tray_methods,
-                auth: auth_methods,
-                session: session_disabled_methods,
-                grok: route_grok_api,
-                kimi: route_kimi_api,
-                grok_bot: grok_bot_methods,
-                logs: logs_methods,
-                log: log_method,
-                tokenStats: token_stats_methods,
-                trend: route_trend_api,
-                sessionHistory: route_session_history_api,
-                buildInfo: build_info_methods,
-            };
-        case "session":
-            // 会话面板窗口：只读 config；tokenStats（标题解析 / 最近 6 条）+ sessionHistory 真实 IPC。
-            return {
-                platform: renderer_platform,
-                connector: connector_methods,
-                plugin: connector_methods,
-                config: {
-                    ...config_readonly,
-                    save: async () => {
-                        /* no-op: session 只读 */
-                    },
-                    saveSecrets: async () => {
-                        /* no-op: session 只读 */
-                    },
-                    getSecrets: () => Promise.resolve({}),
-                    duplicate: () => Promise.resolve({ instanceId: "" }),
-                    createInstance: () => Promise.resolve({ instanceId: "" }),
-                    export: () => Promise.resolve({ saved: false }),
-                    import: () => Promise.resolve({ imported: false }),
-                },
-                event: event_methods,
-                popup: popup_methods,
-                main_panel: main_panel_methods,
-                theme: theme_methods,
-                settings: settings_methods,
-                devPanel: dev_panel_methods,
-                window: window_methods,
-                tray: tray_methods,
-                auth: auth_methods,
-                session: session_disabled_methods,
-                grok: route_grok_api,
-                kimi: route_kimi_api,
-                grok_bot: grok_bot_methods,
-                logs: logs_methods,
-                log: log_method,
-                tokenStats: token_stats_methods,
-                trend: route_trend_api,
-                sessionHistory: route_session_history_api,
-                buildInfo: build_info_methods,
-            };
-        default: // popup
-            return {
-                platform: renderer_platform,
-                connector: connector_methods,
-                plugin: connector_methods,
-                config: {
-                    ...config_readonly,
-                    save: config_full.save,
-                    saveSecrets: async () => {
-                        /* no-op: popup/tray cannot save secrets */
-                    },
-                    getSecrets: () => Promise.resolve({}),
-                    duplicate: () => Promise.resolve({ instanceId: "" }),
-                    createInstance: () => Promise.resolve({ instanceId: "" }),
-                    export: () => Promise.resolve({ saved: false }),
-                    import: () => Promise.resolve({ imported: false }),
-                },
-                event: event_methods,
-                popup: popup_methods,
-                main_panel: main_panel_methods,
-                theme: theme_methods,
-                settings: settings_methods,
-                devPanel: dev_panel_methods,
-                window: window_methods,
-                tray: tray_methods,
-                auth: auth_methods,
-                session: session_disabled_methods,
-                grok: route_grok_api,
-                kimi: route_kimi_api,
-                grok_bot: grok_bot_methods,
-                logs: logs_methods,
-                log: log_method,
-                tokenStats: token_stats_methods,
-                trend: route_trend_api,
-                sessionHistory: route_session_history_api,
-                buildInfo: build_info_methods,
-            };
-    }
-})();
+// Build route-specific API via data-driven factory (A95 & A144)
+const api: UsageboardApi = create_preload_api(current_route, {
+    platform: renderer_platform,
+    common_base: {
+        connector: connector_methods,
+        plugin: connector_methods,
+        event: event_methods,
+        popup: popup_methods,
+        main_panel: main_panel_methods,
+        theme: theme_methods,
+        settings: settings_methods,
+        devPanel: dev_panel_methods,
+        window: window_methods,
+        tray: tray_methods,
+        auth: auth_methods,
+        logs: logs_methods,
+        log: log_method,
+        tokenStats: token_stats_methods,
+        buildInfo: build_info_methods,
+    },
+    config: create_preload_config(current_route, {
+        config_full,
+        config_readonly,
+    }),
+    session: {
+        settings: session_methods,
+        disabled: session_disabled_methods,
+    },
+    grok: {
+        readonly_api: grok_readonly_methods,
+        settings_api: grok_methods,
+    },
+    kimi: {
+        readonly_api: kimi_readonly_methods,
+        settings_api: kimi_methods,
+    },
+    grok_bot: {
+        readonly_api: grok_bot_readonly_methods,
+        settings_api: grok_bot_methods,
+    },
+    trend: {
+        full: trend_full_methods,
+        disabled: trend_disabled_methods,
+    },
+    sessionHistory: {
+        full: session_history_full_methods,
+        open_only: session_history_open_only_methods,
+        disabled: session_history_disabled_methods,
+    },
+});
 
 contextBridge.exposeInMainWorld("usageboard", api);
 

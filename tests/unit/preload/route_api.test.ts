@@ -2,14 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import {
     select_grok_api,
     select_kimi_api,
+    select_grok_bot_api,
     select_session_history_api,
     select_trend_api,
+    select_config_api,
+    select_session_api,
 } from "../../../src/preload/route_api";
 import type {
     GrokReadonlyApi,
     GrokSettingsApi,
     KimiReadonlyApi,
     KimiSettingsApi,
+    GrokBotReadonlyApi,
+    GrokBotSettingsApi,
     SessionHistoryApi,
     TrendApi,
 } from "../../../src/shared/types/ipc";
@@ -106,6 +111,50 @@ describe("select_grok_api", () => {
             const api = select_grok_api(route, readonly_api, settings_api);
 
             expect(Object.keys(api)).toEqual(["login_status"]);
+        },
+    );
+});
+
+describe("select_grok_bot_api (A144 / AC-002)", () => {
+    function create_grok_bot_apis(): {
+        readonly readonly_api: GrokBotReadonlyApi;
+        readonly settings_api: GrokBotSettingsApi;
+    } {
+        const disabled_err = () =>
+            Promise.reject(new Error("Grok Bot OAuth login is only available from settings"));
+        const readonly_api: GrokBotReadonlyApi = {
+            login_start: disabled_err,
+            login_poll: disabled_err,
+            login_cancel: disabled_err,
+            logout: disabled_err,
+            refresh: disabled_err,
+        };
+        const settings_api: GrokBotSettingsApi = {
+            login_start: vi.fn(),
+            login_poll: vi.fn(),
+            login_cancel: vi.fn(),
+            logout: vi.fn(),
+            refresh: vi.fn(),
+        };
+        return { readonly_api, settings_api };
+    }
+
+    it("exposes the full Grok Bot API to setting", () => {
+        const { readonly_api, settings_api } = create_grok_bot_apis();
+
+        const api = select_grok_bot_api("setting", readonly_api, settings_api);
+
+        expect(api).toBe(settings_api);
+    });
+
+    it.each(["usage", "agent", "tray", "session", "unknown"])(
+        "exposes readonly Grok Bot API to %s",
+        (route) => {
+            const { readonly_api, settings_api } = create_grok_bot_apis();
+
+            const api = select_grok_bot_api(route, readonly_api, settings_api);
+
+            expect(api).toBe(readonly_api);
         },
     );
 });
@@ -245,6 +294,40 @@ describe("select_session_history_api", () => {
             });
             await expect(api.recent("c", "win", 6)).resolves.toEqual([]);
             expect(open_spy).not.toHaveBeenCalled();
+        },
+    );
+});
+
+describe("select_config_api (A95 & A140 / AC-001/003)", () => {
+    const full_api = { name: "full" };
+    const popup_api = { name: "popup" };
+    const readonly_api = { name: "readonly" };
+
+    it("returns full config api for setting route", () => {
+        expect(select_config_api("setting", full_api, popup_api, readonly_api)).toBe(full_api);
+    });
+
+    it.each(["tray", "session"])("returns readonly config api for %s route", (route) => {
+        expect(select_config_api(route, full_api, popup_api, readonly_api)).toBe(readonly_api);
+    });
+
+    it.each(["usage", "unknown"])("returns popup config api for %s route", (route) => {
+        expect(select_config_api(route, full_api, popup_api, readonly_api)).toBe(popup_api);
+    });
+});
+
+describe("select_session_api (A144 / AC-002)", () => {
+    const settings_api = { name: "settings_session" };
+    const disabled_api = { name: "disabled_session" };
+
+    it("returns settings session api for setting route", () => {
+        expect(select_session_api("setting", settings_api, disabled_api)).toBe(settings_api);
+    });
+
+    it.each(["usage", "tray", "session", "agent", "unknown"])(
+        "returns disabled session api for %s route",
+        (route) => {
+            expect(select_session_api(route, settings_api, disabled_api)).toBe(disabled_api);
         },
     );
 });
