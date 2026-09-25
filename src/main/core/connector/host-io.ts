@@ -1,24 +1,30 @@
-export interface HttpOpts {
-    readonly headers?: Record<string, string>;
-    readonly timeout_ms?: number;
+import type { ZodType, z } from "zod/v3";
+
+export interface HttpOpts<T = unknown> {
+    readonly headers?: Record<string, string> | undefined;
+    readonly timeout_ms?: number | undefined;
     /** 跳过连接池，强制新建 TCP+TLS 连接。重试连接级错误时使用。 */
-    readonly reset?: boolean;
+    readonly reset?: boolean | undefined;
+    /** A128 / AC-007: 外部网络响应边界 Zod Schema 校验 */
+    readonly schema?: ZodType<T> | undefined;
 }
 
 export interface RawHttpResponse {
     readonly status: number;
-    readonly headers: Record<string, string>;
+    readonly headers: Record<string, string | string[]>;
     readonly body: string;
+}
+
+export interface ConnectorUtils {
+    to_number(value: unknown, fallback?: number): number;
+    to_pct(value: unknown): number;
+    to_reset_at(value: unknown): number | null;
+    clamp(value: number, min: number, max: number): number;
 }
 
 export interface ConnectorContext {
     readonly trace_id?: string;
-    /**
-     * t371 预留：脚本执行超时信号。当前 runtime 未填充（vm timeout 只断同步执行，
-     * 异步残留 promise 不可经 signal 取消），AC-001 由 runtime 的超时冷却机制
-     * 实现（超时结算后冷却期内拒绝同 manifest 新执行）。
-     */
-    readonly signal?: AbortSignal;
+    readonly instance_id?: string;
     readonly log: {
         debug(message: string, meta?: unknown): void;
         info(message: string, meta?: unknown): void;
@@ -34,6 +40,8 @@ export interface ConnectorContext {
         for_ratio(used: number, limit: number): "normal" | "warning" | "critical" | "unknown";
         for_balance(balance: number, limit: number): "normal" | "warning" | "critical" | "unknown";
     };
+    readonly util?: ConnectorUtils;
+    readonly z?: typeof z;
     readonly http: {
         get_json(endpoint_key: string, path: string, opts?: HttpOpts): Promise<unknown>;
         post_json(

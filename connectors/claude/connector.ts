@@ -32,12 +32,14 @@ function get_token(credentials: unknown): string {
 }
 
 function to_reset_at(value: string | undefined): number | null {
+    if (ctx.util?.to_reset_at) return ctx.util.to_reset_at(value);
     if (!value) return null;
     const timestamp = Date.parse(value);
     return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function pct(value: number | undefined): number {
+    if (ctx.util?.to_pct) return ctx.util.to_pct(value);
     const number = value ?? 0;
     return Math.round(Math.min(number, 100) * 10) / 10;
 }

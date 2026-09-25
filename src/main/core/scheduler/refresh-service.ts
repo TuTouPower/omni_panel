@@ -18,7 +18,7 @@ import type { ConnectorDefinition } from "../connector/manifest-loader";
 import { create_connector_context } from "../connector/net-client";
 import { execute_poll } from "../connector/tier1-poll-executor";
 import { execute_probe } from "../connector/probe-executor";
-import { run_connector } from "../connector/runtime";
+import { run_connector, is_non_retryable_error } from "../connector/runtime";
 import { create_script_cache } from "../connector/script-cache";
 import type { ObservationStore } from "../observation/observation-store";
 import type { ConnectorSnapshotState, SnapshotSuccess } from "./types";
@@ -294,6 +294,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             });
 
             let last_error = "";
+            let last_raw_error: unknown = null;
             let session_relogin_done = false;
             let oauth_refresh_done = false;
             let force_fresh_connection = false;
@@ -448,6 +449,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     );
                     return;
                 } catch (error: unknown) {
+                    last_raw_error = error;
                     last_error = error instanceof Error ? error.message : String(error);
                     // p241: 缺必填配置不会因重试而消失——warn 一次并立即放弃，
                     // 避免每轮 3 次无意义重试与 error 级噪音。
@@ -520,6 +522,14 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         // Auth error and either (a) not a session connector, or (b) re-login
                         // already attempted/failed: give up immediately to avoid hammering the
                         // server and tripping IP bans (t155).
+                        break;
+                    }
+
+                    // A40 / A42 / AC-003: 不可重试错误（4xx、语法/编译必败错误等）立即短路，不再浪费后续尝试
+                    if (is_non_retryable_error(last_raw_error ?? last_error)) {
+                        trace_log.warn(
+                            `Non-retryable error for ${connector_config.name}, aborting remaining retries: ${last_error}`,
+                        );
                         break;
                     }
 

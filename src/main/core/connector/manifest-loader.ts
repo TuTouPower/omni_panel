@@ -42,9 +42,10 @@ async function load_definitions_from_dir(
         const directory = join(dir, entry.name);
         const manifest = await load_manifest(directory);
         if (!manifest) continue;
+        // A129: manifest 为 provider 权威单一来源，仅校验 snake_case 命名格式
         if (!connectorProviderSchema.safeParse(manifest.provider).success) {
             log.warn(
-                `Skipping connector ${entry.name}: provider "${manifest.provider}" not in connectorProviderSchema`,
+                `Skipping connector ${entry.name}: manifest-declared provider "${manifest.provider}" does not match snake_case pattern`,
             );
             continue;
         }

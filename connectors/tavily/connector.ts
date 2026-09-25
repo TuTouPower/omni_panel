@@ -19,6 +19,7 @@ interface UsagePayload {
 }
 
 function to_number(value: unknown): number {
+    if (ctx.util?.to_number) return ctx.util.to_number(value);
     const parsed = typeof value === "number" ? value : Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
 }

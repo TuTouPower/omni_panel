@@ -76,6 +76,7 @@ function meter_to_pct(metric_name: string, meter?: MeterWindow): number | null {
 }
 
 function parse_ts(value: string | undefined): number | null {
+    if (ctx.util?.to_reset_at) return ctx.util.to_reset_at(value);
     if (!value) return null;
     const ts = Date.parse(value);
     return Number.isFinite(ts) ? ts : null;

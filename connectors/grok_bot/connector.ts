@@ -150,12 +150,22 @@ async function main(): Promise<ScriptObservation[]> {
     let sand_res: SandUsageResponse | null = null;
     let sand_err: string | null = null;
 
+    // A128 / AC-007: 外部网络输入边界 zod safeParse 防御
+    const sand_usage_schema = ctx.z?.object({
+        usagePercent: ctx.z.number(),
+        hasAvailableUsage: ctx.z.boolean().optional(),
+        nextResetTimestampUtc: ctx.z.string().optional(),
+        grokPlanLabel: ctx.z.string().optional(),
+    });
+
+    const sand_opts = sand_usage_schema ? { headers, schema: sand_usage_schema } : { headers };
+
     try {
         sand_res = (await ctx.http.post_json(
             ENDPOINT_KEY,
             SAND_PATH,
             {},
-            { headers },
+            sand_opts,
         )) as SandUsageResponse;
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

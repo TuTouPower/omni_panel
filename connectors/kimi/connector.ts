@@ -32,11 +32,13 @@ interface KimiUsageResponse {
 }
 
 function to_number(value: string | undefined): number {
+    if (ctx.util?.to_number) return ctx.util.to_number(value);
     const parsed = Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function parse_reset_time(iso: string | undefined): number | null {
+    if (ctx.util?.to_reset_at) return ctx.util.to_reset_at(iso);
     if (!iso) return null;
     const ts = new Date(iso).getTime();
     return Number.isFinite(ts) ? ts : null;

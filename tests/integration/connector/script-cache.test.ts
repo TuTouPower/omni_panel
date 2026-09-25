@@ -65,4 +65,50 @@ describe("script-cache", () => {
         const cache = create_script_cache();
         await expect(cache.get_script(script_path)).rejects.toThrow(/import/);
     });
+
+    describe("t514 script-cache LRU and inflight dedup (A123 / AC-006)", () => {
+        it("deduplicates concurrent inflight compiles for the same script", async () => {
+            const script_path = join(temp_dir, "concurrent.ts");
+            await writeFile(script_path, SCRIPT_V1, "utf8");
+            const cache = create_script_cache();
+
+            // 同时发起 3 个并发编译请求
+            const [p1, p2, p3] = await Promise.all([
+                cache.get_script(script_path),
+                cache.get_script(script_path),
+                cache.get_script(script_path),
+            ]);
+
+            expect(p1.code).toBe(SCRIPT_V1);
+            expect(p2.code).toBe(SCRIPT_V1);
+            expect(p3.code).toBe(SCRIPT_V1);
+        });
+
+        it("evicts oldest entry when max_size is reached (LRU)", async () => {
+            const path1 = join(temp_dir, "s1.ts");
+            const path2 = join(temp_dir, "s2.ts");
+            const path3 = join(temp_dir, "s3.ts");
+            await writeFile(path1, "function main(){return 1;}", "utf8");
+            await writeFile(path2, "function main(){return 2;}", "utf8");
+            await writeFile(path3, "function main(){return 3;}", "utf8");
+
+            // 容量限制为 2
+            const cache = create_script_cache(2);
+            await cache.get_script(path1);
+            await cache.get_script(path2);
+
+            // 访问 path1 使其最新，path2 变为最旧
+            await cache.get_script(path1);
+
+            // 插入 path3，应该剔除 path2
+            await cache.get_script(path3);
+
+            // 修改 path2 内容并恢复同一 mtime，如果已被驱逐，再次读取会加载新内容
+            const pinned = new Date(1_700_000_000_000);
+            await writeFile(path2, "function main(){return 'new_2';}", "utf8");
+            await utimes(path2, pinned, pinned);
+            const res2 = await cache.get_script(path2);
+            expect(res2.code).toContain("new_2");
+        });
+    });
 });

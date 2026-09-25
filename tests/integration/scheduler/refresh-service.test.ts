@@ -1249,6 +1249,59 @@ return [{
         }
     });
 
+    it("short-circuits retries on non-retryable 4xx or syntax error (only 1 attempt) (A40 / A42 / AC-003)", async () => {
+        const previous_level = getLogLevel();
+        const log_messages: string[] = [];
+        const remove_transport = addTransport({
+            write(_level, module, message) {
+                if (module === "refresh-service") {
+                    log_messages.push(message);
+                }
+            },
+        });
+        setLogLevel("debug");
+
+        const tempDir = await mkdtemp(join(tmpdir(), "retry-non-retryable-"));
+        // 抛出 400 客户端错误（非 401/403 认证类，如参数错误，不可重试）
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("HTTP 400: Bad Request [bad_parameter]");`,
+        );
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [definition(tempDir)],
+            observationStore: make_store(),
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("deepseek-1"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+        });
+
+        try {
+            await service.refresh("deepseek-1", { force: true });
+
+            const attempt_logs = log_messages.filter(
+                (m) => m.includes("attempt") && m.includes("failed"),
+            );
+            // 4xx 不可重试错误只执行 1 次，不进行第 2、3 次重试
+            expect(attempt_logs).toHaveLength(1);
+            expect(
+                log_messages.some(
+                    (m) =>
+                        m.includes("Non-retryable error") &&
+                        m.includes("aborting remaining retries"),
+                ),
+            ).toBe(true);
+            const state = runtimeStore.getSnapshot("deepseek-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            remove_transport();
+            setLogLevel(previous_level);
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("session connector succeeds within 3-attempt loop after re-login", async () => {
         const tempDir = await mkdtemp(join(tmpdir(), "session-retry-loop-"));
         const session_script = `
