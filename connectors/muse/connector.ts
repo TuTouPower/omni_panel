@@ -34,8 +34,8 @@ interface SubscriptionResponse {
     readonly subscription?: SubscriptionData;
 }
 
-const BASELINE_ACTION_ID = "407c800bb93d1539e5152b02e7f8ed6a82a7729a86";
-const BASELINE_DEPLOYMENT_ID = "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3";
+const BASELINE_ACTION_ID = "400d35d4ad8f6fec1fbe6afab3702db6fc9b789860";
+const BASELINE_DEPLOYMENT_ID = "dpl_ANdjwDWFehCiiGEKhQivsceJogig";
 const DEFAULT_ROUTER_STATE_TREE =
     "%5B%22%22%2C%7B%22children%22%3A%5B%22(authenticated)%22%2C%7B%22children%22%3A%5B%22(shell)%22%2C%7B%22children%22%3A%5B%5B%22path%22%2C%22%22%2C%22oc%22%2Cnull%5D%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4112%5D";
 
@@ -57,39 +57,53 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
     action_id: string;
     deployment_id: string;
 }> {
+    const param_action = (ctx.params["ACTION_ID"] ?? "").trim();
+    const param_dpl = (ctx.params["DEPLOYMENT_ID"] ?? "").trim();
+    if (param_action && param_dpl) {
+        return { action_id: param_action, deployment_id: param_dpl };
+    }
+
     let html = "";
     try {
         const res = await ctx.http.get_raw("default", "/", { headers });
-        if (
-            res.status === 401 ||
-            res.status === 403 ||
-            /Authentication required/i.test(res.body) ||
-            /Forbidden/i.test(res.body)
-        ) {
+        if (res.status === 401 || res.status === 403) {
             throw new Error(`Muse 会话已失效，请重新登录 (HTTP ${String(res.status)})`);
+        }
+        if (
+            res.status >= 300 &&
+            res.status < 400 &&
+            typeof res.headers["location"] === "string" &&
+            res.headers["location"].includes("auth.muse.ai")
+        ) {
+            throw new Error("Muse 会话已失效，请重新登录: Redirected to auth");
         }
         html = res.body;
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (/401|403|Authentication required|Forbidden|会话已失效/i.test(msg)) {
+        if (/401|403|Authentication required|会话已失效/i.test(msg)) {
             throw new Error(`Muse 会话已失效，请重新登录: ${msg}`);
         }
         ctx.log.warn(`Failed to fetch Muse home page for dynamic IDs: ${msg}`);
     }
 
-    // 匹配 x-deployment-id (如 data-dpl-id="dpl_..." 或 dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3)
+    // 匹配 x-deployment-id (如 data-dpl-id="dpl_..." 或 dpl=dpl_... 或 dpl_ANdjwDWFehCiiGEKhQivsceJogig)
     const dpl_match =
         /data-dpl-id=["'](dpl_[A-Za-z0-9]+)["']/.exec(html) ??
+        /dpl=(dpl_[A-Za-z0-9]+)/.exec(html) ??
         /"(dpl_[A-Za-z0-9]+)"/.exec(html) ??
         /deploymentId[:=]\s*["']([^"']+)["']/.exec(html);
 
-    // 匹配 next-action ID (32~64位十六进制哈希，需严格带有 action 属性或键名前缀上下文防误命)
+    // 匹配 next-action ID (32~64位十六进制哈希)
     const action_match =
         /actionId[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
-        /["'](?:next-action|actionId|action)["']\s*[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html);
+        /["'](?:next-action|actionId|action)["']\s*[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
+        /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/i.exec(
+            html,
+        );
 
-    const deployment_id = dpl_match?.[1] ?? BASELINE_DEPLOYMENT_ID;
-    const action_id = action_match?.[1] ?? BASELINE_ACTION_ID;
+    const deployment_id = param_dpl !== "" ? param_dpl : (dpl_match?.[1] ?? BASELINE_DEPLOYMENT_ID);
+    const action_id =
+        param_action !== "" ? param_action : (action_match?.[1] ?? BASELINE_ACTION_ID);
 
     return { action_id, deployment_id };
 }
@@ -162,7 +176,7 @@ async function main(): Promise<ScriptObservation[]> {
         );
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (/401|403|Authentication required|Forbidden|会话已失效/i.test(msg)) {
+        if (/401|403|Authentication required|会话已失效/i.test(msg)) {
             throw new Error(`Muse 会话已失效，请重新登录: ${msg}`);
         }
         throw new Error(`Muse 用量网络请求失败: ${msg}`);
@@ -170,12 +184,7 @@ async function main(): Promise<ScriptObservation[]> {
 
     const { status, body } = raw_res;
 
-    if (
-        status === 401 ||
-        status === 403 ||
-        /Authentication required/i.test(body) ||
-        /Forbidden/i.test(body)
-    ) {
+    if (status === 401 || status === 403 || /Authentication required/i.test(body)) {
         throw new Error("Muse 会话已失效，请重新登录: Authentication required");
     }
 

@@ -15,6 +15,22 @@
             "label": "Muse Session Cookie",
             "label@zh-Hans": "Muse 会话 Cookie",
             "exposeToScript": true
+        },
+        {
+            "name": "ACTION_ID",
+            "type": "string",
+            "required": false,
+            "label": "Next.js Server Action ID override",
+            "label@zh-Hans": "Server Action ID 覆盖（可选）",
+            "exposeToScript": true
+        },
+        {
+            "name": "DEPLOYMENT_ID",
+            "type": "string",
+            "required": false,
+            "label": "Next.js Deployment ID override",
+            "label@zh-Hans": "Deployment ID 覆盖（可选）",
+            "exposeToScript": true
         }
     ],
     "endpoints": {

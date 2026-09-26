@@ -23,7 +23,7 @@ function context(
             get_raw: vi.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                body: '<script>var d = { deploymentId: "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3", actionId: "407c800bb93d1539e5152b02e7f8ed6a82a7729a86" };</script>',
+                body: '<script>var d = { deploymentId: "dpl_ANdjwDWFehCiiGEKhQivsceJogig", actionId: "400d35d4ad8f6fec1fbe6afab3702db6fc9b789860" };</script>',
             }),
             post_raw: vi.fn().mockResolvedValue({
                 status,
@@ -107,13 +107,13 @@ describe("muse connector", () => {
         expect(post_raw.mock.calls[0]?.[1]).toBe("/");
         expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
             Accept: "text/x-component",
-            "next-action": "407c800bb93d1539e5152b02e7f8ed6a82a7729a86",
+            "next-action": "400d35d4ad8f6fec1fbe6afab3702db6fc9b789860",
             Origin: "https://muse.ai",
             Referer: "https://muse.ai/",
             "Sec-Fetch-Site": "same-origin",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Dest": "empty",
-            "x-deployment-id": "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3",
+            "x-deployment-id": "dpl_ANdjwDWFehCiiGEKhQivsceJogig",
             Cookie: "hatch_sess=test-session-token",
         });
     });
@@ -163,8 +163,45 @@ describe("muse connector", () => {
         // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
         const post_raw = vi.mocked(ctx.http.post_raw!);
         expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
-            "next-action": "407c800bb93d1539e5152b02e7f8ed6a82a7729a86",
-            "x-deployment-id": "dpl_8qUvxpGTkFRhdjPKF4KXaVBdQCk3",
+            "next-action": "400d35d4ad8f6fec1fbe6afab3702db6fc9b789860",
+            "x-deployment-id": "dpl_ANdjwDWFehCiiGEKhQivsceJogig",
+        });
+    });
+
+    it("does not false-trigger session expiration when 200 OK HTML contains forbidden router metadata", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+        ctx.http.get_raw = vi.fn().mockResolvedValue({
+            status: 200,
+            headers: {},
+            body: '<html><script>self.__next_f.push([1,"{\\"notFound\\":\\"$undefined\\",\\"forbidden\\":\\"$undefined\\"}"])</script></html>',
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+    });
+
+    it("supports ACTION_ID and DEPLOYMENT_ID overrides from parameters", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+        ctx.params["ACTION_ID"] = "custom_action_hash_override";
+        ctx.params["DEPLOYMENT_ID"] = "dpl_custom_override";
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "custom_action_hash_override",
+            "x-deployment-id": "dpl_custom_override",
         });
     });
 
