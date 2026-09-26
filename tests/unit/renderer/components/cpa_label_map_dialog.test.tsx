@@ -128,7 +128,7 @@ describe("CpaLabelMapDialog（t397 AC-003）", () => {
         const input = screen.getAllByRole("textbox")[0] as HTMLInputElement;
         await user.clear(input);
         await user.type(input, "新提供商标签");
-        await user.click(screen.getByText("保存映射"));
+        await user.click(screen.getByText("保存设置"));
 
         await waitFor(() => {
             expect(on_save_config).toHaveBeenCalled();
@@ -145,12 +145,28 @@ describe("CpaLabelMapDialog（t397 AC-003）", () => {
         const input = screen.getAllByRole("textbox")[0] as HTMLInputElement;
         await user.clear(input);
         await user.type(input, "新账户标签");
-        await user.click(screen.getByText("保存映射"));
+        await user.click(screen.getByText("保存设置"));
 
         await waitFor(() => {
             expect(on_save_config).toHaveBeenCalled();
             const payload = on_save_config.mock.calls[0]?.[0] as AppConfiguration | undefined;
             expect(payload?.accountLabelMaps).toEqual({ "cpa-1": { five_hour: "新账户标签" } });
+        });
+        expect(on_close).toHaveBeenCalled();
+    });
+
+    it("t526 AC-003: save_target=provider 时保存 providerHiddenLabels", async () => {
+        const user = await render_dialog("provider");
+        const hide_buttons = screen.getAllByRole("button", { name: "隐藏该数据标签" });
+        const first_btn = hide_buttons[0];
+        if (!first_btn) throw new Error("missing hide button");
+        await user.click(first_btn);
+        await user.click(screen.getByText("保存设置"));
+
+        await waitFor(() => {
+            expect(on_save_config).toHaveBeenCalled();
+            const payload = on_save_config.mock.calls[0]?.[0] as AppConfiguration | undefined;
+            expect(payload?.providerHiddenLabels).toEqual({ claude: ["five_hour"] });
         });
         expect(on_close).toHaveBeenCalled();
     });

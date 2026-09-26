@@ -431,7 +431,7 @@ describe("CpaConnectorSettings", () => {
         });
 
         // Label map buttons in sync scope rows (one per MONITOR)
-        const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
+        const tag_buttons = screen.getAllByTitle("编辑数据标签设置");
         expect(tag_buttons.length).toBe(4);
     });
 
@@ -460,7 +460,7 @@ describe("CpaConnectorSettings", () => {
 
         // All 5 monitor toggles should be present in sync scope
         expect(screen.getByText("同步范围")).toBeInTheDocument();
-        const tag_buttons = screen.getAllByTitle("编辑数据标签映射");
+        const tag_buttons = screen.getAllByTitle("编辑数据标签设置");
         expect(tag_buttons.length).toBe(4);
     });
 
@@ -518,7 +518,7 @@ describe("CpaConnectorSettings", () => {
         const onEditLabelMap = vi.fn();
         await renderSettings({ onEditLabelMap });
 
-        const claude_btn = screen.getAllByTitle("编辑数据标签映射")[0];
+        const claude_btn = screen.getAllByTitle("编辑数据标签设置")[0];
         if (!claude_btn) return;
         await user.click(claude_btn);
         expect(onEditLabelMap).toHaveBeenCalledWith("claude");

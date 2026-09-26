@@ -54,6 +54,10 @@ interface SettingsFormProps {
     onSaveLabelMap?:
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
         | undefined;
+    existingHiddenLabels?: readonly string[] | undefined;
+    onSaveHiddenLabels?:
+        | ((instanceId: string, hidden: readonly string[]) => Promise<void>)
+        | undefined;
     forcePercent?: boolean | undefined;
     onForcePercentChange?: ((provider: string, force: boolean) => Promise<void>) | undefined;
     /** t048: upcomingResetWatched 查表（来自 config.accountOverrides）。 */
@@ -81,6 +85,8 @@ export function SettingsForm({
     onDuplicate,
     existingLabelMap,
     onSaveLabelMap,
+    existingHiddenLabels,
+    onSaveHiddenLabels,
     forcePercent = false,
     onForcePercentChange,
     watchedMetrics,
@@ -93,6 +99,13 @@ export function SettingsForm({
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
     const [labelLoading, setLabelLoading] = useState(false);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
+    const [hiddenLabels, setHiddenLabels] = useState<Set<string>>(
+        () => new Set(existingHiddenLabels ?? []),
+    );
+
+    useEffect(() => {
+        setHiddenLabels(new Set(existingHiddenLabels ?? []));
+    }, [existingHiddenLabels]);
     const [followGlobal, setFollowGlobal] = useState(() => refreshIntervalSeconds <= 0);
     const [syncInterval, setSyncInterval] = useState(
         refresh_seconds_to_label(refreshIntervalSeconds || 300),
@@ -164,6 +177,18 @@ export function SettingsForm({
         setLabelEdits((prev) => ({ ...prev, [raw]: value }));
     };
 
+    const toggle_hidden_label = (raw: string) => {
+        setHiddenLabels((prev) => {
+            const next = new Set(prev);
+            if (next.has(raw)) {
+                next.delete(raw);
+            } else {
+                next.add(raw);
+            }
+            return next;
+        });
+    };
+
     const perform_save = useCallback(
         async (
             nonSecrets: Record<string, string>,
@@ -195,6 +220,9 @@ export function SettingsForm({
                         map[raw] = display;
                     }
                     await onSaveLabelMap(instanceId, map);
+                }
+                if (onSaveHiddenLabels) {
+                    await onSaveHiddenLabels(instanceId, Array.from(hiddenLabels));
                 }
                 if (providerId && onForcePercentChange && force_percent_local !== forcePercent) {
                     await onForcePercentChange(providerId, force_percent_local);
@@ -233,6 +261,8 @@ export function SettingsForm({
             onSave,
             labelEdits,
             onSaveLabelMap,
+            hiddenLabels,
+            onSaveHiddenLabels,
             providerId,
             onForcePercentChange,
             force_percent_local,
@@ -615,7 +645,7 @@ export function SettingsForm({
             {onSaveLabelMap && providerId && (
                 <div className="flex flex-col gap-2">
                     <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
-                        数据标签映射
+                        数据标签设置
                     </label>
                     <div className="mt-2">
                         {labelLoading ? (
@@ -624,7 +654,7 @@ export function SettingsForm({
                             </div>
                         ) : labelRows.length === 0 ? (
                             <div className="text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
-                                暂无可映射的数据标签
+                                暂无可设置的数据标签
                             </div>
                         ) : (
                             <>
@@ -634,20 +664,23 @@ export function SettingsForm({
                                 </div>
                                 {labelRows.map((r) => {
                                     const v = labelEdits[r.raw] ?? r.display;
+                                    const is_hidden = hiddenLabels.has(r.raw);
                                     const provider_watched = watchedMetrics?.[providerId];
                                     const watched = r.account_keys.every(
                                         (k) => provider_watched?.[k]?.includes(r.raw) ?? false,
                                     );
                                     return (
                                         <div className="flex items-center gap-2" key={r.raw}>
-                                            <CodeChip className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                                            <CodeChip
+                                                className={`min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${is_hidden ? "opacity-50" : ""}`}
+                                            >
                                                 {r.raw}
                                             </CodeChip>
                                             <span className="shrink-0 text-[var(--color-on-surface-muted)]">
                                                 <Icon name="chevron" size={14} />
                                             </span>
                                             <Input
-                                                className="h-8 min-w-0 flex-1 font-[var(--font-code-md)] text-[length:var(--text-label-md)]"
+                                                className={`h-8 min-w-0 flex-1 font-[var(--font-code-md)] text-[length:var(--text-label-md)] ${is_hidden ? "opacity-60" : ""}`}
                                                 value={v}
                                                 placeholder={r.raw}
                                                 spellCheck={false}
@@ -657,6 +690,28 @@ export function SettingsForm({
                                                     handle_label_edit(r.raw, e.target.value);
                                                 }}
                                             />
+                                            <Button
+                                                variant="icon"
+                                                size="sm"
+                                                className="h-7 w-7 shrink-0 p-0"
+                                                title={
+                                                    is_hidden ? "显示该数据标签" : "隐藏该数据标签"
+                                                }
+                                                aria-label={
+                                                    is_hidden ? "显示该数据标签" : "隐藏该数据标签"
+                                                }
+                                                aria-pressed={!is_hidden}
+                                                type="button"
+                                                onClick={() => {
+                                                    toggle_hidden_label(r.raw);
+                                                }}
+                                            >
+                                                <Icon
+                                                    name={is_hidden ? "eye_off" : "eye"}
+                                                    size={14}
+                                                    style={{ opacity: is_hidden ? 0.5 : 1 }}
+                                                />
+                                            </Button>
                                             {onToggleWatched && (
                                                 <Button
                                                     variant="icon"

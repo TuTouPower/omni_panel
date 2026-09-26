@@ -11,6 +11,7 @@ import {
     to_account_key_object,
     apply_account_labels,
     apply_account_overrides,
+    apply_hidden_metric_labels,
     build_provider_usage_groups,
     build_overview_for_group,
     format_usage_period_label,
@@ -1619,5 +1620,61 @@ describe("custom provider fallback (t095)", () => {
         const e3 = 3000;
         expect(resolve_convergent_epoch([e1, e2, e3], 5000)).toBe(3000);
         expect(resolve_convergent_epoch([e1, 10000], 5000)).toBeNull();
+    });
+
+    describe("apply_hidden_metric_labels (t526 AC-004)", () => {
+        const sample_connectors = [
+            connectorInfo({
+                instanceId: "conn-1",
+                source: "poll",
+                supportedProviders: ["claude"],
+                activeProviders: ["claude"],
+                snapshot: {
+                    status: "ready",
+                    updatedAt: "2026-01-01T12:00:00Z",
+                    items: [
+                        usageItem({
+                            id: "claude-5h",
+                            provider: "claude",
+                            source: "poll",
+                            sourceInstanceId: "conn-1",
+                            accountId: "acc-1",
+                            raw_label: "five_hour",
+                            name: "Claude Pro · 5小时",
+                        }),
+                        usageItem({
+                            id: "claude-week",
+                            provider: "claude",
+                            source: "poll",
+                            sourceInstanceId: "conn-1",
+                            accountId: "acc-1",
+                            raw_label: "weekly",
+                            name: "Claude Pro · 每周",
+                        }),
+                    ],
+                },
+            }),
+        ];
+
+        it("returns unchanged when hidden configs are undefined", () => {
+            const groups = build_provider_usage_groups(sample_connectors);
+            const res = apply_hidden_metric_labels(groups, undefined, undefined);
+            expect(res[0]?.periods).toHaveLength(2);
+            expect(res[0]?.accounts[0]?.periods).toHaveLength(2);
+        });
+
+        it("filters periods matching providerHiddenLabels", () => {
+            const groups = build_provider_usage_groups(sample_connectors);
+            const res = apply_hidden_metric_labels(groups, { claude: ["five_hour"] }, undefined);
+            expect(res[0]?.periods.map((p) => p.raw_label)).toEqual(["weekly"]);
+            expect(res[0]?.accounts[0]?.periods.map((p) => p.raw_label)).toEqual(["weekly"]);
+        });
+
+        it("filters periods matching accountHiddenLabels", () => {
+            const groups = build_provider_usage_groups(sample_connectors);
+            const res = apply_hidden_metric_labels(groups, undefined, { "conn-1": ["weekly"] });
+            expect(res[0]?.periods.map((p) => p.raw_label)).toEqual(["five_hour"]);
+            expect(res[0]?.accounts[0]?.periods.map((p) => p.raw_label)).toEqual(["five_hour"]);
+        });
     });
 });

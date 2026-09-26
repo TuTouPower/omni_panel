@@ -230,8 +230,8 @@ describe("SettingsForm", () => {
             </StrictMode>,
         );
 
-        expect(screen.getByText("数据标签映射")).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "数据标签映射" })).not.toBeInTheDocument();
+        expect(screen.getByText("数据标签设置")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "数据标签设置" })).not.toBeInTheDocument();
         expect(await screen.findByDisplayValue("滚动")).toBeInTheDocument();
     });
 
@@ -279,7 +279,7 @@ describe("SettingsForm", () => {
             />,
         );
 
-        expect(await screen.findByText("暂无可映射的数据标签")).toBeInTheDocument();
+        expect(await screen.findByText("暂无可设置的数据标签")).toBeInTheDocument();
     });
 
     it("submits form and calls onSave with correct arguments", async () => {
@@ -1020,7 +1020,7 @@ describe("SettingsForm label-map watch bell (t048)", () => {
                 onToggleWatched={vi.fn()}
             />,
         );
-        await user.click(screen.getByText("数据标签映射"));
+        await user.click(screen.getByText("数据标签设置"));
         return user;
     }
 
@@ -1045,7 +1045,7 @@ describe("SettingsForm label-map watch bell (t048)", () => {
                 watchedMetrics={{ claude: { "inst-1|acc-a": ["five_hour"] } }}
             />,
         );
-        await user.click(screen.getByText("数据标签映射"));
+        await user.click(screen.getByText("数据标签设置"));
         expect(
             screen.queryByRole("button", { name: "监控该数据标签的即将重置" }),
         ).not.toBeInTheDocument();
@@ -1079,7 +1079,7 @@ describe("SettingsForm label-map watch bell (t048)", () => {
                 onToggleWatched={vi.fn()}
             />,
         );
-        await user.click(screen.getByText("数据标签映射"));
+        await user.click(screen.getByText("数据标签设置"));
         const bells = await screen.findAllByRole("button", { name: "监控该数据标签的即将重置" });
         // five_hour row bell: partial watched -> false
         expect(bells[0]).toHaveAttribute("aria-pressed", "false");
@@ -1102,11 +1102,50 @@ describe("SettingsForm label-map watch bell (t048)", () => {
                 onToggleWatched={on_toggle_watched}
             />,
         );
-        await user.click(screen.getByText("数据标签映射"));
+        await user.click(screen.getByText("数据标签设置"));
         const bells = await screen.findAllByRole("button", { name: "监控该数据标签的即将重置" });
         const first = bells[0];
         if (!first) throw new Error("bell not rendered");
         await user.click(first);
         expect(on_toggle_watched).toHaveBeenCalledWith("five_hour");
+    });
+
+    it("t526 AC-003: renders visibility toggle buttons and calls onSaveHiddenLabels on save", async () => {
+        const onSaveHiddenLabels = vi.fn().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="inst-1"
+                providerId="claude"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+                onSaveLabelMap={vi.fn().mockResolvedValue(undefined)}
+                existingHiddenLabels={["five_hour"]}
+                onSaveHiddenLabels={onSaveHiddenLabels}
+            />,
+        );
+
+        // five_hour is currently hidden (eye_off / title="显示该数据标签")
+        const show_btn = await screen.findByRole("button", { name: "显示该数据标签" });
+        expect(show_btn).toBeInTheDocument();
+        expect(show_btn).toHaveAttribute("aria-pressed", "false");
+
+        // seven_day is currently visible (eye / title="隐藏该数据标签")
+        const hide_btn = screen.getByRole("button", { name: "隐藏该数据标签" });
+        expect(hide_btn).toBeInTheDocument();
+        expect(hide_btn).toHaveAttribute("aria-pressed", "true");
+
+        // Toggle five_hour to visible
+        await user.click(show_btn);
+        expect(screen.queryByRole("button", { name: "显示该数据标签" })).not.toBeInTheDocument();
+
+        // Save
+        await user.click(screen.getByTestId("settings-save-btn-inst-1"));
+        await waitFor(() => {
+            expect(onSaveHiddenLabels).toHaveBeenCalledWith("inst-1", []);
+        });
     });
 });

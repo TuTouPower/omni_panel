@@ -6,7 +6,7 @@ import { SettingsPage } from "../pages/settings_page";
 /**
  * Electron 专属 settings case：
  * - accounts 页 config forms（依赖 `[data-testid="account-row"]`/`account-card` DOM，web SPA 无）
- * - CPA 连接设置内 per-provider 数据标签映射对话框（web SPA 无）
+ * - CPA 连接设置内 per-provider 数据标签设置对话框（web SPA 无）
  * 其余 sidebar / appearance 颜色样式 case 已迁 web/settings_view.spec.ts。
  */
 test.describe("settings view (electron 专属)", () => {
@@ -56,15 +56,15 @@ test.describe("settings view (electron 专属)", () => {
 
         // The label map feature moved from a global appearance field to a
         // per-provider dialog inside the connector settings (24ae7d78).
-        await sPage.locator('button[title="编辑数据标签映射"]').first().click();
+        await sPage.locator('button[title="编辑数据标签设置"]').first().click();
 
-        const dialog = sPage.getByRole("dialog", { name: "数据标签映射" });
+        const dialog = sPage.getByRole("dialog", { name: "数据标签设置" });
         await expect(dialog).toBeVisible({ timeout: 10_000 });
-        await expect(dialog.getByText("数据标签映射")).toBeVisible();
+        await expect(dialog.getByText("数据标签设置")).toBeVisible();
 
         // Without a live CPA sync there are no raw labels; the dialog still
         // renders its empty state and can be dismissed.
-        await expect(dialog.getByText("该服务暂无可映射的数据标签")).toBeVisible();
+        await expect(dialog.getByText("该服务暂无可设置的数据标签")).toBeVisible();
         await dialog.getByRole("button", { name: "关闭" }).click();
         await expect(dialog).toBeHidden();
     });

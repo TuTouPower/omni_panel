@@ -646,6 +646,39 @@ export function SettingsView() {
                                 },
                             });
                         }}
+                        existingHiddenLabels={(() => {
+                            if (!dialog.instanceId) return undefined;
+                            const provider = pluginInfos.find(
+                                (plugin) => plugin.instanceId === dialog.instanceId,
+                            )?.activeProviders[0];
+                            const acc_hidden =
+                                config.accountHiddenLabels?.[dialog.instanceId] ?? [];
+                            const prov_hidden = provider
+                                ? (config.providerHiddenLabels?.[provider] ?? [])
+                                : [];
+                            return Array.from(new Set([...acc_hidden, ...prov_hidden]));
+                        })()}
+                        onSaveHiddenLabels={async (id, hidden) => {
+                            const provider = pluginInfos.find((plugin) => plugin.instanceId === id)
+                                ?.activeProviders[0];
+                            if (provider) {
+                                await save_config({
+                                    ...config,
+                                    providerHiddenLabels: {
+                                        ...(config.providerHiddenLabels ?? {}),
+                                        [provider]: hidden,
+                                    },
+                                });
+                                return;
+                            }
+                            await save_config({
+                                ...config,
+                                accountHiddenLabels: {
+                                    ...(config.accountHiddenLabels ?? {}),
+                                    [id]: hidden,
+                                },
+                            });
+                        }}
                         globalIntervalLabel={interval_label}
                         forcePercent={(() => {
                             if (!dialog.instanceId) return false;

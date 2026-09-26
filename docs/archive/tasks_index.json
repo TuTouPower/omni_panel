@@ -8370,6 +8370,22 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/archive/tasks/t525_muse_dynamic_action_resolution_fix"
+        },
+        {
+            "tid": "t526",
+            "slug": "metric_label_settings_visibility",
+            "title": "数据标签设置重命名与标签显隐开关",
+            "status": "done",
+            "branch": "t526_metric_label_settings_visibility",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "4b333ae939df49534011341782a185fd83fea4a2",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t526_metric_label_settings_visibility"
         }
     ]
 }

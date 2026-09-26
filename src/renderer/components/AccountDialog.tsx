@@ -24,6 +24,8 @@ export function AccountDialog({
     onClose,
     existingLabelMap,
     onSaveLabelMap,
+    existingHiddenLabels,
+    onSaveHiddenLabels,
     globalIntervalLabel,
     forcePercent,
     onForcePercentChange,
@@ -54,10 +56,14 @@ export function AccountDialog({
     onSaveLabelMap?:
         | ((instanceId: string, map: Record<string, string>) => Promise<void>)
         | undefined;
+    existingHiddenLabels?: readonly string[] | undefined;
+    onSaveHiddenLabels?:
+        | ((instanceId: string, hidden: readonly string[]) => Promise<void>)
+        | undefined;
     globalIntervalLabel: string;
     forcePercent?: boolean | undefined;
     onForcePercentChange?: ((provider: string, force: boolean) => Promise<void>) | undefined;
-    /** t048: upcomingResetWatched 查表，透传给 SettingsForm 数据标签映射 bell。 */
+    /** t048: upcomingResetWatched 查表，透传给 SettingsForm 数据标签设置 bell。 */
     watchedMetrics?: AccountOverrides["upcomingResetWatched"];
     /** t048: 切换某 raw_label 的监控（account_keys 聚合由上层算）。 */
     onToggleWatched?: (raw_label: string) => void;
@@ -152,6 +158,8 @@ export function AccountDialog({
                             onDuplicate={onDuplicate}
                             existingLabelMap={existingLabelMap}
                             onSaveLabelMap={onSaveLabelMap}
+                            existingHiddenLabels={existingHiddenLabels}
+                            onSaveHiddenLabels={onSaveHiddenLabels}
                             forcePercent={forcePercent}
                             onForcePercentChange={onForcePercentChange}
                             watchedMetrics={watchedMetrics}

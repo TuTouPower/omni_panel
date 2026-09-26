@@ -26,6 +26,10 @@ export function CpaLabelMapDialog({
         save_target === "provider"
             ? (config.providerLabelMaps?.[vendor_id] ?? {})
             : (config.accountLabelMaps?.[instance_id] ?? {});
+    const existing_hidden =
+        save_target === "provider"
+            ? (config.providerHiddenLabels?.[vendor_id] ?? [])
+            : (config.accountHiddenLabels?.[instance_id] ?? []);
 
     return (
         <LabelMapDialog
@@ -33,14 +37,19 @@ export function CpaLabelMapDialog({
             vendor_id={vendor_id}
             account_name={account_name}
             existing_map={existing_map}
+            existing_hidden={existing_hidden}
             watched_metrics={watched_metrics}
-            on_save={async (target_instance_id, map) => {
+            on_save={async (target_instance_id, map, hidden) => {
                 if (save_target === "provider") {
                     await on_save_config({
                         ...config,
                         providerLabelMaps: {
                             ...(config.providerLabelMaps ?? {}),
                             [vendor_id]: map,
+                        },
+                        providerHiddenLabels: {
+                            ...(config.providerHiddenLabels ?? {}),
+                            [vendor_id]: hidden,
                         },
                     });
                 } else {
@@ -49,6 +58,10 @@ export function CpaLabelMapDialog({
                         accountLabelMaps: {
                             ...(config.accountLabelMaps ?? {}),
                             [target_instance_id]: map,
+                        },
+                        accountHiddenLabels: {
+                            ...(config.accountHiddenLabels ?? {}),
+                            [target_instance_id]: hidden,
                         },
                     });
                 }

@@ -18,6 +18,8 @@ export interface PopupUiConfig {
     provider_label_maps:
         | Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
         | undefined;
+    provider_hidden_labels: Readonly<Partial<Record<string, readonly string[]>>> | undefined;
+    account_hidden_labels: Readonly<Record<string, readonly string[]>> | undefined;
     ui_desensitize_remarks: boolean;
     provider_force_percent: Readonly<Partial<Record<string, boolean>>> | undefined;
     token_panel_collapsed: boolean;
@@ -32,6 +34,12 @@ export interface PopupUiConfig {
     ) => void;
     set_provider_label_maps: (
         maps: Readonly<Partial<Record<string, Readonly<Record<string, string>>>>> | undefined,
+    ) => void;
+    set_provider_hidden_labels: (
+        labels: Readonly<Partial<Record<string, readonly string[]>>> | undefined,
+    ) => void;
+    set_account_hidden_labels: (
+        labels: Readonly<Record<string, readonly string[]>> | undefined,
     ) => void;
     set_ui_desensitize_remarks: (value: boolean) => void;
     set_provider_force_percent: (
@@ -57,6 +65,12 @@ export function usePopupUiConfig(): PopupUiConfig {
     >(undefined);
     const [provider_label_maps, set_provider_label_maps] = useState<
         Readonly<Partial<Record<string, Readonly<Record<string, string>>>>> | undefined
+    >(undefined);
+    const [provider_hidden_labels, set_provider_hidden_labels] = useState<
+        Readonly<Partial<Record<string, readonly string[]>>> | undefined
+    >(undefined);
+    const [account_hidden_labels, set_account_hidden_labels] = useState<
+        Readonly<Record<string, readonly string[]>> | undefined
     >(undefined);
     const [ui_desensitize_remarks, set_ui_desensitize_remarks] = useState(false);
     const [provider_force_percent, set_provider_force_percent] = useState<
@@ -94,6 +108,8 @@ export function usePopupUiConfig(): PopupUiConfig {
         account_labels,
         account_label_maps,
         provider_label_maps,
+        provider_hidden_labels,
+        account_hidden_labels,
         ui_desensitize_remarks,
         provider_force_percent,
         token_panel_collapsed,
@@ -105,6 +121,8 @@ export function usePopupUiConfig(): PopupUiConfig {
         set_account_labels,
         set_account_label_maps,
         set_provider_label_maps,
+        set_provider_hidden_labels,
+        set_account_hidden_labels,
         set_ui_desensitize_remarks,
         set_provider_force_percent,
         set_token_panel_collapsed,

@@ -146,7 +146,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
+            expect(screen.getByText("该服务暂无可设置的数据标签")).toBeInTheDocument();
         });
     });
 
@@ -169,7 +169,7 @@ describe("LabelMapDialog", () => {
         const inputs = screen.getAllByRole("textbox");
         expect((inputs[0] as HTMLInputElement).value).toBe("5小时");
         expect((inputs[1] as HTMLInputElement).value).toBe("一周");
-        expect(screen.getByText("保存映射")).toBeInTheDocument();
+        expect(screen.getByText("保存设置")).toBeInTheDocument();
     });
 
     it("applies existing_map keyed by raw_label", async () => {
@@ -363,7 +363,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("保存映射")).toBeInTheDocument();
+            expect(screen.getByText("保存设置")).toBeInTheDocument();
         });
 
         const inputs = screen.getAllByRole("textbox");
@@ -371,12 +371,16 @@ describe("LabelMapDialog", () => {
         const first = inputs[0] as HTMLInputElement;
         await user.clear(first);
         await user.type(first, "新名称");
-        await user.click(screen.getByText("保存映射"));
+        await user.click(screen.getByText("保存设置"));
 
         await waitFor(() => {
-            expect(on_save).toHaveBeenCalledWith("cpa-1", {
-                five_hour: "新名称",
-            });
+            expect(on_save).toHaveBeenCalledWith(
+                "cpa-1",
+                {
+                    five_hour: "新名称",
+                },
+                [],
+            );
         });
     });
 
@@ -447,7 +451,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
+            expect(screen.getByText("该服务暂无可设置的数据标签")).toBeInTheDocument();
         });
         window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
         expect(on_close).toHaveBeenCalled();
@@ -466,7 +470,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
+            expect(screen.getByText("该服务暂无可设置的数据标签")).toBeInTheDocument();
         });
         const scrim = screen.getByTestId("label-map-dialog-backdrop");
         fireEvent.click(scrim);
@@ -486,7 +490,7 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("该服务暂无可映射的数据标签")).toBeInTheDocument();
+            expect(screen.getByText("该服务暂无可设置的数据标签")).toBeInTheDocument();
         });
         const dialog = screen.getByRole("dialog");
         fireEvent.mouseDown(dialog);
@@ -686,19 +690,55 @@ describe("LabelMapDialog", () => {
             />,
         );
         await waitFor(() => {
-            expect(screen.getByText("保存映射")).toBeInTheDocument();
+            expect(screen.getByText("保存设置")).toBeInTheDocument();
         });
 
         const inputs = screen.getAllByRole("textbox");
         const first = inputs[0] as HTMLInputElement;
         await user.clear(first);
         await user.type(first, "新名称");
-        await user.click(screen.getByText("保存映射"));
+        await user.click(screen.getByText("保存设置"));
 
         // 失败显示可见错误，且 on_close 不被调用（对话框不关闭）。
         await waitFor(() => {
             expect(screen.getByText("disk full")).toBeInTheDocument();
         });
         expect(on_close).not.toHaveBeenCalled();
+    });
+
+    it("t526 AC-003: renders visibility toggle buttons and passes hidden array to on_save", async () => {
+        const user = userEvent.setup();
+        mock_get_state.mockResolvedValue(mock_ready_state(sample_items()));
+        render(
+            <LabelMapDialog
+                instance_id="cpa-1"
+                vendor_id="claude"
+                account_name="CPA · Claude"
+                existing_map={{}}
+                existing_hidden={["five_hour"]}
+                on_save={on_save}
+                on_close={on_close}
+            />,
+        );
+        await waitFor(() => {
+            expect(screen.getByText("five_hour")).toBeInTheDocument();
+        });
+
+        // five_hour is currently hidden
+        const show_btn = screen.getByRole("button", { name: "显示该数据标签" });
+        expect(show_btn).toHaveAttribute("aria-pressed", "false");
+
+        // seven_day is currently visible
+        const hide_btn = screen.getByRole("button", { name: "隐藏该数据标签" });
+        expect(hide_btn).toHaveAttribute("aria-pressed", "true");
+
+        // Toggle seven_day to hidden
+        await user.click(hide_btn);
+
+        // Click save
+        await user.click(screen.getByText("保存设置"));
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledWith("cpa-1", {}, ["five_hour", "seven_day"]);
+        });
     });
 });

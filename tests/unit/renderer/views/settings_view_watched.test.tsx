@@ -89,8 +89,8 @@ describe("SettingsView", () => {
             const deepseek_edit = edit_buttons[0];
             if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
             await user.click(deepseek_edit);
-            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
-            await user.click(screen.getByText("数据标签映射"));
+            await waitFor(() => expect(screen.getByText("数据标签设置")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签设置"));
             const bell = await screen.findByRole("button", {
                 name: "监控该数据标签的即将重置",
             });
@@ -171,8 +171,8 @@ describe("SettingsView", () => {
             const deepseek_edit = edit_buttons[0];
             if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
             await user.click(deepseek_edit);
-            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
-            await user.click(screen.getByText("数据标签映射"));
+            await waitFor(() => expect(screen.getByText("数据标签设置")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签设置"));
 
             // 初始未监控（upcomingResetWatched 为空）：铃铛带斜杠标记。
             const bell = await screen.findByRole("button", {
@@ -202,8 +202,8 @@ describe("SettingsView", () => {
             const deepseek_edit = edit_buttons[0];
             if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
             await user.click(deepseek_edit);
-            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
-            await user.click(screen.getByText("数据标签映射"));
+            await waitFor(() => expect(screen.getByText("数据标签设置")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签设置"));
 
             const bell = await screen.findByRole("button", {
                 name: "监控该数据标签的即将重置",
@@ -221,8 +221,8 @@ describe("SettingsView", () => {
             const deepseek_edit = edit_buttons[0];
             if (!deepseek_edit) throw new Error("missing DeepSeek edit button");
             await user.click(deepseek_edit);
-            await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
-            await user.click(screen.getByText("数据标签映射"));
+            await waitFor(() => expect(screen.getByText("数据标签设置")).toBeInTheDocument());
+            await user.click(screen.getByText("数据标签设置"));
 
             // 初始未监控：铃铛带斜杠。
             const bell = await screen.findByRole("button", {

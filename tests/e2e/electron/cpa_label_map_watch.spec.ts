@@ -81,7 +81,7 @@ test("CPA label-map bell toggles every account for one raw label", async ({ omni
         .first();
     await expect(cpa_card).toBeVisible();
     await cpa_card.getByTitle("编辑（连接设置）").click();
-    await settings_page.getByTitle("编辑数据标签映射").first().click();
+    await settings_page.getByTitle("编辑数据标签设置").first().click();
 
     const bell = settings_page.getByRole("button", {
         name: "监控该数据标签的即将重置",

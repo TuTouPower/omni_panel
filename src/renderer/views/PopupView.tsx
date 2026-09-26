@@ -107,6 +107,8 @@ export function PopupView() {
         account_labels,
         account_label_maps,
         provider_label_maps,
+        provider_hidden_labels,
+        account_hidden_labels,
         ui_desensitize_remarks,
         provider_force_percent,
         token_panel_collapsed,
@@ -118,6 +120,8 @@ export function PopupView() {
         set_account_labels,
         set_account_label_maps,
         set_provider_label_maps,
+        set_provider_hidden_labels,
+        set_account_hidden_labels,
         set_ui_desensitize_remarks,
         set_provider_force_percent,
     } = usePopupUiConfig();
@@ -147,6 +151,8 @@ export function PopupView() {
             set_convergent_time_minutes(config.convergentTimeMinutes);
             set_account_label_maps(config.accountLabelMaps);
             set_provider_label_maps(config.providerLabelMaps);
+            set_provider_hidden_labels(config.providerHiddenLabels);
+            set_account_hidden_labels(config.accountHiddenLabels);
             set_ui_desensitize_remarks(config.uiDesensitizeRemarks === true);
             set_provider_force_percent(config.providerForcePercent);
             set_account_overrides(config.accountOverrides);
@@ -211,6 +217,8 @@ export function PopupView() {
             set_convergent_time_minutes,
             set_account_label_maps,
             set_provider_label_maps,
+            set_provider_hidden_labels,
+            set_account_hidden_labels,
             set_ui_desensitize_remarks,
             set_provider_force_percent,
             set_account_overrides,
@@ -364,6 +372,8 @@ export function PopupView() {
         provider_order,
         active_tab: activeTab,
         account_orders,
+        provider_hidden_labels,
+        account_hidden_labels,
     });
     // t041：阈值非空时才挂载即将重置卡片。
     const show_upcoming = upcoming_reset_threshold_percent != null;

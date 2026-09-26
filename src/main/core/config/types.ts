@@ -118,6 +118,8 @@ export const appConfigurationSchema = z.object({
     // for now because config is user-authored locally, not from untrusted input.
     providerLabelMaps: z.record(z.record(z.string())).optional(),
     accountLabelMaps: z.record(z.record(z.string())).optional(),
+    providerHiddenLabels: z.record(z.array(z.string())).optional(),
+    accountHiddenLabels: z.record(z.array(z.string())).optional(),
     labelMapSync: z.boolean().optional(),
     uiDesensitizeRemarks: z.boolean().optional(),
     providerForcePercent: z.record(z.boolean()).optional(),
