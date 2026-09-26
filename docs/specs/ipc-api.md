@@ -2,9 +2,11 @@
 
 > 验证方式：API。拆自 ipc（t037）。
 
-主进程 ↔ 渲染进程通信契约（API 可验证部分）。channel 真相源 `src/shared/types/ipc.ts`；安全边界见 `architecture.md` §3。这些 channel 在 web SPA（out/web）经 LocalAPI 端点等价暴露，可程序化 / web 验证。
+主进程 ↔ 渲染进程通信契约（API 可验证部分）。channel 真相源 `src/shared/types/ipc.ts`；安全边界见 `../blueprint/architecture.md` §3。这些 channel 在 web SPA（out/web）经 LocalAPI 端点等价暴露，可程序化 / web 验证。
 
 ## 通道分组（`IPC_CHANNELS`）
+
+> 节选——全量通道、字段与方法签名以 `src/shared/types/ipc.ts` 为准。
 
 |组|channel|用途|
 |---|---|---|

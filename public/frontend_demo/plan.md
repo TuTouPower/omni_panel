@@ -1,5 +1,7 @@
 # Coding Agent 会话历史查看工具 — 前端 Demo 计划
 
+> **状态（计划文档，非现行规范）**：Stage 1–3 已执行，成果在 [`app/`](./app/)；本文为当时计划，首次提交 `75cf1aa6`（2026-08-06）。与现状差异：实现细节以 `app/` 代码为准，本文不约束现行行为。
+
 ## 目标
 
 一个前端 demo：查看多种 Coding Agent（claude code、grok build、opencode、codex、cursor、aider 等模拟数据）的会话历史。
@@ -9,7 +11,7 @@
 
 ## Stage 1 — 读取技能
 
-加载 `vibecoding-webapp-swarm`（React 设计优先流程），只读本阶段需要的文件。
+加载 `vibecoding-webapp-swarm`（外部技能/工具，非本仓；React 设计优先流程），只读本阶段需要的文件。
 
 ## Stage 2 — 构建（委托 coder 子代理或主线实现）
 
@@ -30,4 +32,4 @@
 ## Stage 3 — 验证与交付
 
 - 构建通过（vite build）
-- 用 website_version_manager build_version 交付版本卡片
+- 用 `website_version_manager`（外部工具，非本仓）build_version 交付版本卡片

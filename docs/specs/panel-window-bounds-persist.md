@@ -19,11 +19,11 @@
 
 ## 验收标准
 
-- [x] AC1：调整代理面板窗口的位置与大小后关闭再打开（或重启应用），窗口恢复到上次的位置与大小。
-- [x] AC2：会话面板窗口满足同样的保存与恢复；两个窗口的 bounds 互不影响。
-- [x] AC3：保存的 bounds 落在已不可见的显示区域时，恢复结果被钳制到可见工作区内。
-- [x] AC4：配置中无对应键（旧配置）时，首次打开按现状默认尺寸位置显示，不产生错误。
-- [x] AC5：现有测试与 e2e 全部通过，无回归。
+- [x] AC-001：调整代理面板窗口的位置与大小后关闭再打开（或重启应用），窗口恢复到上次的位置与大小。
+- [x] AC-002：会话面板窗口满足同样的保存与恢复；两个窗口的 bounds 互不影响。
+- [x] AC-003：保存的 bounds 落在已不可见的显示区域时，恢复结果被钳制到可见工作区内。
+- [x] AC-004：配置中无对应键（旧配置）时，首次打开按现状默认尺寸位置显示，不产生错误。
+- [x] AC-005：现有测试与 e2e 全部通过，无回归。
 
 ## 实现要点
 
@@ -35,6 +35,6 @@
 ## 测试覆盖
 
 - `tests/unit/main/window-bounds.test.ts`：钳制纯函数 8 例（可见/负坐标/超右界/最小尺寸/超大收缩/副屏/displayId 失效/无 displayId）+ get_saved_bounds 3 例。
-- `tests/e2e/electron/panel_window_bounds.spec.ts`：agent 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（AC1）；history 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（t262，AC2）。
+- `tests/e2e/electron/panel_window_bounds.spec.ts`：agent 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（AC-001）；history 窗口移动/调整大小 → 关闭 → 重开恢复 bounds（t262，AC-002）。
 - `tests/unit/main/window_manager.test.ts`：setting/agent/history 窗口创建配置断言 minWidth/minHeight=480x360（t262，与 `window-bounds.ts` 最小尺寸钳制一致）。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + `pnpm test:packaged`。

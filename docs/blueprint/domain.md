@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 |连接器|connector|目录 `manifest.json` + `connector.ts`|采集逻辑的声明式定义，内置只读|一类接入一份定义|
 |数据源|data source|`ConnectorConfiguration` / `instanceId`|用户配置的一份连接实例 = 设置页一行|见 §2|
-|厂商|provider|`provider`|AI 服务商，UI 聚合维度|开放 snake\*case 命名空间（`^[a-z]a-z0-9*]\*$`，t095）；内置：`claude` `codex` `antigravity` `kimi` `glm` `minimax` `deepseek` `tavily` `firecrawl` `mimo` `opencode_go` `grok` `getoneapi` `exa` `tikhub`，用户可自定义任意 snake_case provider；`cpa` 为聚合渠道，不单独作为 provider 出现|
+|厂商|provider|`provider`|AI 服务商，UI 聚合维度|开放 `snake_case` 命名空间（`^[a-z][a-z0-9_]*$`，`connectorProviderSchema`，t095）；内置 19 个 usage provider：`claude` `codex` `antigravity` `kimi` `kimi_web` `glm` `minimax` `deepseek` `getoneapi` `tavily` `firecrawl` `exa` `tikhub` `mimo` `opencode_go` `grok` `grok_bot` `commandcode` `muse`，用户可自定义任意 snake_case provider；`cpa` 为聚合渠道，不单独作为 provider 出现|
 |账号|account|`accountId` / `accountLabel`（显示名，不得含 secret）|某厂商下一个真实账号|一厂商可多账号|
 |用量|usage|某 account 下全部 observation 的集合|一个账号的用量数据集|一账号 = 一份用量|
 |用量条|metric|`metricId` / `metricName`|用量里的单条指标|一账号多条（Claude 5小时+一周=2条）|
@@ -39,18 +39,14 @@
 |---|---|---|---|
 |`poll`|轮询|按声明发 HTTP 拉官方用量 API|Tavily、Firecrawl、DeepSeek、GLM、MiniMax、CPA|
 |`local`|本地|读本地凭证/用量文件|Claude（`~/.claude`）、Codex（`~/.codex`）|
-|`session`|会话|受控网页登录，捕获 Cookie 后采集；捕获后有效性探测（t337：/auth 3xx+workspace 才落库）|MiMo、OpenCode Go、Kimi|
+|`session`|会话|受控网页登录，捕获 Cookie 后采集；捕获后有效性探测（t337：/auth 3xx+workspace 才落库）|MiMo、OpenCode Go、Kimi Web|
 |`observe`|探测|发最小请求从响应头提取用量|Brave 型（有运行时代码，无内置连接器）|
 
 `source` 取值：`poll` / `local` / `session` / `probe` / `wrapper` / `gateway`（CPA 走 `gateway`）。
 
-### 3.3 token-stats 源级状态（t309）
-
-token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailable|failed, lastError?}`，经 `TokenStatsUpdate.sources_status` 同步主进程与面板。语义：源路径解析为 `null`（如非 Windows 宿主的 wsl 源）→ `unavailable` + 原因；读取抛错（如 ENOENT）→ `failed` + 错误信息；正常读取 → `ok`。不可用/失败源输出 warn 日志（含 source/env/原因），采集失败不再无解释。面板 status 区（新鲜度旁）渲染非 ok 源的原因标记；`ok` 源不显示额外标记，正常源行为不变。
-
 ## 3.1 Kimi 用量字段口径（t113）
 
-`connectors/kimi/connector.ts` 解析 `/coding/v1/usages` 响应，参考实现 `vendors/KimiCodeBar/macOS/KimiCodeBar/KimiCodeBarQuotaService.swift`：
+`connectors/kimi/connector.ts` 解析 `/coding/v1/usages` 响应，口径参考外部项目 KimiCodeBar 的 macOS 实现 `KimiCodeBarQuotaService.swift`（不在本仓）：
 
 - **周用量 / 5 小时限额**：沿用既有 `usage` 与 `limits[].duration==300`。
 - **加油包余额 `kimi:booster_balance`**：取自顶层 `boosterWallet`。仅当 `status`（uppercase）∈ {`STATUS_ACTIVE`, `STATUS_ENABLED`} 时 `balance.amountLeft` 为真余额；其余状态（含 `STATUS_UNKNOWN`）返回的 `amountLeft` 是「月度上限 − 月度消费」误导值，必须显示 0。`amountLeft` 单位 **1e-8 元**（`315250700 = ¥3.15`），`balance_yuan = max(0, amountLeft / 1e8)`。display_style `ratio` + limit=0（复用 t097 显示原值），不参与 warning/critical 阈值。
@@ -64,6 +60,10 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 - **事件口径**：`turn_completed` 事件的 `usage` 是【该 user prompt 一轮的独立总量】，跨 inference loop 累加、下一轮从零起算，**勿用相邻事件差分**（会把每轮总量误当累计快照造成巨量漏记）。`reasoningTokens ⊂ outputTokens` 不计费，output 直接映射、reasoning 不单独记账。`costUsdTicks` 不入账。
 - **records agent 值约定**：kebab-case，`agent="grok"`，与 `source="grok"` 一致。
 - **展示层映射**（t198）：label `"Grok"`、color `#b687f0`（紫），records 侧 `AGENT_*` 与 buckets/rollup 侧 `BUCKET_AGENT_*`/`ROLLUP_AGENT_*` 三组映射同构扩展；`AgentFilter` 含 `"grok"`；SessionTable chip class `gk`。展示层权威映射在 `src/renderer/lib/token-stats/chart-data.ts` 与 `src/renderer/views/TokenStatsView.tsx` 的 `AGENT_OPTIONS`。
+
+## 3.3 token-stats 源级状态（t309）
+
+token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailable|failed, lastError?}`，经 `TokenStatsUpdate.sources_status` 同步主进程与面板。语义：源路径解析为 `null`（如非 Windows 宿主的 wsl 源）→ `unavailable` + 原因；读取抛错（如 ENOENT）→ `failed` + 错误信息；正常读取 → `ok`。不可用/失败源输出 warn 日志（含 source/env/原因），采集失败不再无解释。面板 status 区（新鲜度旁）渲染非 ok 源的原因标记；`ok` 源不显示额外标记，正常源行为不变。
 
 ## 3.4 token-stats env 平台标签（t437）
 
@@ -107,9 +107,9 @@ token-stats 采集管线新增第 4 个 source `grok`（枚举：`claude_code` /
 ## 6. 产品边界（明确不做）
 
 - 不做完整多维趋势图 UI（柱状/热力/区间选择仍归 TokenStats 独立窗口）；账号展开区出近 7 天 sparkline 迷你走势（T006），SQLite 历史已用于此时序聚合。
-- 不做通用开放代理（LocalAPI 只白名单 ingest + health）。
+- 不做通用开放代理（LocalAPI 端点限于本产品面板与控制面：`/v1/health`、`/v1/events`、`/v1/ingest` 及 config / connector / sessionHistory / tokenStats / trend / control / auth / devPanel / logs 端点组；信任模型见 `architecture.md` §3「LocalAPI（R7 信任模型）」）。
 - 不做系统钥匙串/safeStorage（自管 Vault，见 `specs/secret-vault.md` 威胁模型）。
-- 用户自定义连接器在 `node:vm` 沙箱执行（t095 开放 `userData/connectors` 自定义脚本），`node:vm` 非真隔离，见 `architecture.md` §6 已知限制；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
+- 用户自定义连接器（t095 开放 `userData/connectors` 自定义脚本）**默认禁用**，须经 `allowUserConnectors` 显式信任放行（`src/main/core/connector/manifest-loader.ts`）；脚本在隔离子进程内的 `node:vm` 中执行，`node:vm` 非真隔离，安全取舍见 `decisions.md` ADR 036；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
 - 界面语言切换、检查更新、问卷、赞助入口当前为占位，未落地实现。
 
 ## 开发面板 Git 活动（t481）

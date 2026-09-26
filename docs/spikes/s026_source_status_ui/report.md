@@ -1,4 +1,4 @@
-# Spike report
+# s026 source_status_ui spike report
 
 ## 问题
 
@@ -28,3 +28,10 @@
 - UI 形态：面板 status 区（新鲜度旁）渲染源状态列表——`ok` 不显示额外标记（正常源行为不变）；`unavailable`/`failed` 显示原因文本标记（含 source/env）。renderer 单测断言状态元素存在与文案；视觉像素细节留人工。
 - 状态数据流：collector 每轮产出源状态数组，随 `TokenStatsUpdate` 上抛；主进程透传至 store/IPC；面板经 dashboard/status 查询读取。
 - 实现路径：collector `sources[]` 声明式（hosts 数据化 + 过滤）+ 每轮产出 `{source,env,status,lastError}`；`TokenStatsUpdate` 新增字段；renderer status 区渲染。
+- findings 已记 d034
+
+## 是否采纳
+
+- 决定：是
+- 理由：状态数据流（collector → postMessage → 主进程 → IPC → renderer）链路完整，面板 status 区可直接扩展源级标记，`TokenStatsUpdate` 仅新增字段兼容既有消费方。
+- 后续 task：t309

@@ -9,5 +9,3 @@
 - 影响：7d/30d + 小时粒度柱状图可走该聚合，替代 `query_records` 10 万级明细进渲染层；与 day buckets / heatmap 聚合并列。
 
 - 现状：有效
-
-- 现状：有效

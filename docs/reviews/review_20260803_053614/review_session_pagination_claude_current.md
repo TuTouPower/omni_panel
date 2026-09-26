@@ -1,5 +1,7 @@
 # session_pagination 效率审阅
 
+> 元信息：审阅日期 2026-08-03（目录名）；被审对象 token-stats session pagination 效率（API/SQL response size、IPC DTO、renderer query/merge 的当前 diff）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 审阅范围：当前 git diff 中 token-stats session pagination、API/SQL response size、IPC DTO、renderer query/merge。仅列高置信 Efficiency 候选；未审 correctness/security/style。
 
 ## 1. Dashboard 单次请求重复扫描同一时间范围

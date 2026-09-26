@@ -1,4 +1,4 @@
-# Spike report
+# s033 wsl_win_home_discovery spike report
 
 ## 问题
 
@@ -29,6 +29,7 @@ WSL/Linux 宿主上如何零配置自动发现 Windows 用户 home（t438 未知
 4. 全部失败 → win 源 unavailable（AC-005）。
 
 可信度：高（本机实测）。限制：非标准挂载点（非 /mnt/c）与企业定制 profile 目录不覆盖——走 AC-005 回退，可选配置覆盖作逃生舱（spec 非范围允许）。
+findings 已记 d049
 
 ## 是否采纳
 

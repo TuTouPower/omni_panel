@@ -373,7 +373,7 @@ OmniPanel 是一个常驻桌面的用量监控工具：它把多个 AI 服务商
 
 全项目样式收敛到 Tailwind CSS v4 的 CSS-first 模型，本文件是其上游真相源。架构分四层，每层职责唯一：
 
-1. **Token 层（本文件 → `@theme`）。** front matter 中的 token 经 `designmd export --format css-tailwind` 导出为 `@theme` 块，落入唯一的全局样式入口。导出是唯一同步方式：由脚本执行并配 drift check（导出产物与库内文件不一致即测试失败），禁止手工改写导出区。任何视觉值（颜色、字号、圆角、间距、阴影、motion、z-index）必须能追溯到 token，禁止在组件里写散落的字面量。
+1. **Token 层（本文件 → `@theme`）。** front matter 中的 token 经 `pnpm designmd:export`（`tsx scripts/designmd.ts export --format=css-tailwind`）导出为 `@theme` 块，落入唯一的全局样式入口。导出是唯一同步方式：由脚本执行并配 drift check（导出产物与库内文件不一致即测试失败），禁止手工改写导出区。任何视觉值（颜色、字号、圆角、间距、阴影、motion、z-index）必须能追溯到 token，禁止在组件里写散落的字面量。
 2. **语义变量层。** 明暗双主题不在工具类里复制，而是走 CSS 变量翻转：`@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *))`，`@theme inline` 把语义名（`--color-surface`、`--color-on-surface`…）指向随 `data-theme` 切换的底层变量。组件只写 `bg-surface text-on-surface`，不写 `dark:bg-xxx`——主题分支只存在于变量定义一处。唯一例外：封装在组件内部的主题资产切换（vendor logo 明暗双份），允许使用 `dark:` 变体，不得扩散到颜色以外的用途。
 3. **组件层（React + utility class）。** 按钮、卡片、输入框、开关、对话框等实现为统一目录下的 React 组件，类名由 token 工具类组合（`clsx` + `tailwind-merge`）。出现三次以上的复合模式才允许沉淀为 `@utility`（如 `glass-menu`、`metric-num`），一次性的布局直接写在 JSX 里。
 4. **清零手写 CSS。** BEM 风手写类整体退役；全局样式入口只保留 token 定义、`@utility` 与极少量无法工具化的基础样式。session-shell / token-stats 两套作用域色板随组件改造一并删除，桥接变量不保留。
@@ -440,7 +440,7 @@ Inter Variable 的字重轴用 450/550/600/650/700 五档。数字一律 `tabula
 
 ## Layout
 
-四种窗口形态共享一套布局语言，差异只在尺寸与 chrome：
+五种窗口形态共享一套布局语言，差异只在尺寸与 chrome：
 
 |窗口|默认尺寸|形态|
 |---|---|---|

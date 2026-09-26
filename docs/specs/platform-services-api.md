@@ -6,7 +6,7 @@
 
 ## LocalAPI（`src/main/core/local-api`）
 
-监听 `0.0.0.0`，端口默认 `18263`（被占则回退 `0` 由系统分配），启动后把 port/token 交给宿主展示。Bearer token 仅用于受保护的 producer ingest；绑 `0.0.0.0` 是 web-panel 决策--为局域网内其它设备访问 web 面板。
+监听 `0.0.0.0`，端口默认 `17863`（被占则回退 `0` 由系统分配），启动后把 port/token 交给宿主展示。Bearer token 仅用于受保护的 producer ingest；绑 `0.0.0.0` 是 web-panel 决策--为局域网内其它设备访问 web 面板。
 
 ### 共享权限基线（t473）
 

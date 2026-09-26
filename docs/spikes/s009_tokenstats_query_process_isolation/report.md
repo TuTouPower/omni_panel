@@ -1,4 +1,4 @@
-# Spike report
+# s009 tokenstats_query_process_isolation spike report
 
 ## 问题
 
@@ -50,6 +50,7 @@ utilityProcess 打包兼容性：manager.ts 已 fork collector（`resolve_collec
 1. **执行端选 utilityProcess**。它是唯一能保证「查询端异常退出不崩主进程」（AC3）且支持受控重启（AC5）的选项；worker_threads 线程 native 崩溃会带崩整个 Electron 进程，不满足 AC3。打包路径由 collector 先例背书。
 2. **只读访问 WAL 库并发行为全部符合预期**：读提交数据、快照隔离、无锁残留、拒写。query worker 以 `readonly: true` 打开同一 `usage.db` 与主进程写连接并发安全。
 3. **权限边界为应用层保证**：utilityProcess 与主进程同用户权限，非 OS 级沙箱。AC7「只读统计库、不读 secret」靠主进程只传 `db_path` + 查询参数实现，不向 worker 传递 vault/connector secret 或配置明文。此限制如实记录，不宣称 OS 沙箱。
+    findings 已记 d011
 
 ## 是否采纳
 

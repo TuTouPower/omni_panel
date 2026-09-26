@@ -1,5 +1,7 @@
 # session_meta 迁至 renderer/lib 消除反向依赖
 
+> **状态（非当前契约）**：`src/renderer/lib/session_meta.ts` 已于 c74b6fa8（t358 死代码清理）删除；`login_url` / `cookie_names` 现取自连接器 metadata 与 auth descriptor（`add_account/form_registry.tsx`）。本文正文为 t124 当时的迁移记录，仅作历史留存。
+
 ## 背景
 
 `session_meta` 原定义在 `src/renderer/views/settings-view/lib.ts`，被 `src/renderer/components/AccountDialog.tsx` 导入，形成 `components → views` 反向依赖，破坏分层（components 不应依赖具体 view 的 lib）。

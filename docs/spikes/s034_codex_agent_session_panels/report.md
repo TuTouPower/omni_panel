@@ -1,4 +1,4 @@
-# Spike report
+# s034 codex_agent_session_panels spike report
 
 ## 问题
 
@@ -58,9 +58,10 @@
 - 会话面板：rollout JSONL 字段路径明确（message/input_text|output_text），有 timestamp + ordinal（增量游标可用 byte_offset；timestamp 非空优于 grok）。唯一注意是 user 大信封过滤（8/45 含环境注入）与 tools/reasoning 行剔除。
 - 代理面板：token_count 累计语义确认（差分归因），可按会话落明细接现有 agent='codex' 查询链路；cacheRate 按 0。
 - 可信度高（40 文件/2154 行真实数据 + CLI `--help` 实测）。限制：采样仅本机 linux 单 model_provider=cpa；`archived_sessions` 不存在；session_index.jsonl 仅 38 行样本，其作为标题/索引源为可选优化。
+- findings 已记 d051
 
 ## 是否采纳
 
 - 决定：是
 - 理由：正文路径、用量语义、接入点全部实测确认，可直接拆 task。
-- 后续 task：无（待 task-create 拆分：codex token-stats reader、codex session-history extractor+locator、AgentFilter/HistorySource/resume 接线）
+- 后续 task：t445（codex token-stats reader）、t446（codex session-history extractor+locator）、t447（AgentFilter/HistorySource/resume 两面板接线）

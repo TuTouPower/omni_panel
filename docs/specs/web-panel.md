@@ -4,7 +4,7 @@
 
 ## 1. 定位
 
-- 桌面 app（Electron）启动时拉起 `local-api` HTTP server，默认绑 `0.0.0.0:18263`（被占则回退系统随机端口）。
+- 桌面 app（Electron）启动时拉起 `local-api` HTTP server，默认绑 `0.0.0.0:17863`（被占则回退系统随机端口）。
 - 同一份 React UI 编译为浏览器可加载的 SPA（`pnpm build:web` → `out/web/`），由 local-api 静态托管。
 - 浏览器里的 `window.usageboard` 由 `src/web/usageboard-web.ts` 提供，fetch local-api REST 端点。
 - 托盘菜单「网页访问」项用系统浏览器打开 `http://localhost:<port>/`，走 `tray:openWeb` 通道（`src/shared/types/ipc.ts` `TRAY_OPEN_WEB`）。
@@ -32,6 +32,8 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 **决策：维持 A 不变**（2026-08-11 用户确认）。上述新增面与 §2/§2.1 同一风险接受前提（可信 LAN）；restart/quit 属控制面风险，一并接受。若部署环境变化或需要不可信网络访问，重评 §2.1 方案 B/C/D 时须覆盖本节新增端点。
 
 ## 3. 端点
+
+> 节选——完整端点、方法与认证语义以 `platform-services-api.md` 与 `src/main/core/local-api/routes/` 为准（本表为 t054 时期清单）。
 
 |方法|路径|说明|认证|
 |---|---|---|---|
@@ -75,7 +77,9 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 
 ## 8. 未做 / 后续
 
-- connector/session 写端点（账号增删、登录、刷新触发）：T7。
-- SettingsView 窗口控制按钮的 `is_web` 精细化隐藏（当前 native 按钮在 web 点击为 no-op，不崩）。
+> 状态：本节为 t054 时期清单。已落地项按现状标注；其余为后续范围（非当前契约，目标范围与验收待定）。
+
+- connector/session 写端点（账号增删、登录、刷新触发）：已落地——`POST /v1/auth/*`、`/v1/session/*`、`/v1/control/*`、`POST /v1/connectors/:id/refresh`（见 `platform-services-api.md`）。
+- 窗口控制按钮的 `is_web` 隐藏：已落地——自绘控制按钮组件在 web 整体不渲染（`src/renderer/components/ui/PanelTitleBar.tsx` `is_web()` → `null`），不存在「点击 no-op」。
 - HTTPS / 跨网段访问 / 认证增强：按当前「局域网不考虑安全」决策不做。
 - review_20260723_opus C1 评估（t054）：4 方案对比后决策 A 保持现状，风险接受说明见 §2.1。

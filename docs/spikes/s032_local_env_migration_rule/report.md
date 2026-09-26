@@ -1,4 +1,4 @@
-# Spike report
+# s032 local_env_migration_rule spike report
 
 ## 问题
 
@@ -34,6 +34,7 @@
 7. 目标枚举与既有 `wsl` 行不重叠，sessions/records/daily 逐行 UPDATE 无 PK 冲突；唯一理论冲突是同一 (id,source) 同时存在残留 `win` 与 `local` 行且都判 `win`——按 merge（计数取 MAX、started_at 取 MIN、ended_at 取 MAX）后删源行处理。
 
 可信度：高（全量统计，非抽样）。限制：本机库无 `/Users/` 与 UNC 形态 local 行，mac 规则靠路径约定推断；Windows 宿主库的 wsl 行不受影响（env 已是 wsl）。
+findings 已记 d048
 
 ## 是否采纳
 

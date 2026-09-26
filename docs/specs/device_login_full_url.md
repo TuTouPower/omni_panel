@@ -26,15 +26,15 @@ Grok/Kimi 添加账号时的 OAuth 设备码登录界面，「请访问」链接
 
 ## 依赖与约束
 
-- 依赖 `vendor_forms_oauth_weblogin` 提供的 `OAuthDeviceForm` / `GrokLoginSection`。
+- 依赖 `vendor_forms_oauth_weblogin` 提供的 `OAuthDeviceForm`；设备码登录段已由 t157 统一为 `DeviceLoginSection`。
 - 约束：`setWindowOpenHandler` 只允许 http(s) 外链走 `openExternal`，其余一律 `deny`。
 
-## 实现摘要（t156 固化）
+## 实现要点
 
 - 新增 `src/renderer/lib/device-login-url.ts`：`build_device_login_url` 优先返回 `verification_uri_complete`，否则按 `?user_code=` 拼接。
-- `OAuthDeviceForm.tsx` 与 `GrokLoginSection.tsx` 的链接文本与 href 均改用 `build_device_login_url(device_code)`；`device_code.user_code` 非空时隐藏「输入代码」行，为空时保留兜底。
+- `OAuthDeviceForm.tsx` 与 `DeviceLoginSection.tsx`（原 `GrokLoginSection`，t157 更名）的链接文本与 href 均改用 `build_device_login_url(device_code)`；`device_code.user_code` 非空时隐藏「输入代码」行，为空时保留兜底。
 - `src/main/window/window-manager.ts` 的 `createWindowFor` 中为每扇窗口注册 `setWindowOpenHandler`，仅 http/https 调用 `shell.openExternal`。
 - 新增/更新测试：
     - `tests/unit/renderer/components/forms/oauth_device_form.test.tsx`
-    - `tests/unit/renderer/components/grok-login-section.test.tsx`
+    - `tests/unit/renderer/components/device_login_section.test.tsx`
     - `tests/unit/main/window_manager.test.ts`

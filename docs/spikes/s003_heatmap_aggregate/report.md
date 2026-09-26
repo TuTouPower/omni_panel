@@ -1,4 +1,4 @@
-# Spike report
+# s003 heatmap_aggregate spike report
 
 ## 问题
 
@@ -34,6 +34,7 @@
 - SQLite `strftime` + `'+8 hours'` 对 epoch ms 的 weekday（0=周日）/hour 提取与 UTC+8 语义完全一致，边界无误。
 - 方案 A 聚合返回 ≤168 格，数据量固定；30d 聚合耗时与现路径相当（磁盘 I/O 下会略高于内存值，但量级一致），renderer 不再拉 10 万行 records。
 - 方案 A 成立。
+- findings 已记 d002
 
 ## 是否采纳
 

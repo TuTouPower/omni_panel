@@ -1,13 +1,13 @@
 # 调度器（scheduler）
 
-四个协作模块，各司其职。术语见 `domain.md`；运行时执行见 `connector-runtime.md`。
+四个协作模块，各司其职。术语见 `../blueprint/domain.md`；运行时执行见 `connector-runtime.md`。
 
 ## 模块职责
 
 ### connector-scheduler.ts — 低层定时引擎
 
 - 接口：`start(instanceId, intervalSeconds, {immediate?})` / `stop` / `stopAll` / `refreshNow` / `isRunning`。**无** suspend/resume/rebuild。
-- 每实例 `setTimeout` 递归自调度，间隔 `max(intervalSeconds, MIN_REFRESH_INTERVAL_SECONDS=5) * 1000`。
+- 每实例 `setTimeout` 递归自调度，间隔 `max(intervalSeconds, MIN_REFRESH_INTERVAL_SECONDS=30) * 1000`（A145：下限 30s，避免请求风暴）。
 - `start` 先 `stop`（幂等重启），除非 `immediate:false` 否则立即刷一次。
 - **启动交错**：`immediate:true` 且已有其他实例运行（`timers.size > 0`）时，首次刷新加 `0 ~ STAGGER_MAX_MS(3000ms)` 随机抖动。防止多实例同时对同 host 发起 TLS 握手触发服务端限流（如 10 个 OpenCode Go → `opencode.ai`）。首个实例无抖动，立即启动。
 - fire-and-forget：`void refresh(id).catch(...)`——挂死的连接器不阻塞定时循环。

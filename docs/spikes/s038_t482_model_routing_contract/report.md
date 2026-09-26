@@ -1,4 +1,4 @@
-# Spike report
+# s038 t482_model_routing_contract spike report
 
 ## 问题
 
@@ -24,6 +24,7 @@
 ## 结论
 
 采用以下实现边界：渠道列表按 `data.items` 读取并用 `p` 分页；`status` / `group` 仅作为读取字段；PUT 只发送可写字段；自检解析覆盖 `model` 与 `reasoning_content.model`。真实 New API 版本差异和真实模型回复仍属于部署环境人工复核项，不能由本地 mock 证明。
+结论由 t482 内消化，不入 findings
 
 ## 是否采纳
 

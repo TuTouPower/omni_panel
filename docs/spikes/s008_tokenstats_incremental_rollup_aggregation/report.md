@@ -1,4 +1,4 @@
-# Spike report
+# s008 tokenstats_incremental_rollup_aggregation spike report
 
 ## 问题
 
@@ -56,6 +56,7 @@ density=2500 records=500000 agg_rows=1000   records_rollup_groups=1000   agg_tim
 1. **聚合粒度选 C：per (source, env, session_id, hour_start, model, directory) 的 session-hour 表**。它是能精确重建全部 dashboard 维度（含 distinct session 计数、hour 粒度、project/directory 维度）的最小粒度；A 缺 hour 粒度（heatmap 与 hour 轴不可重建），B 缺 session 维度导致 sessions 计数跨小时重复。C 行数随 session×hour×model 组合增长，不随 per-message records 增长。
 2. **title/directory 不存入聚合表**。session 分页与 session 轴需要的最新 title/directory 由 collector 维护的 `token_stats_sessions` 表提供（该表已存每 session 最新 title/directory，增量更新），聚合表只存可加和的数值列；避免 title 重命名导致的聚合重建风暴。
 3. **回填选后台回填 + 旧路径 fallback**。迁移 v6 对已有数据库同步全量回填会阻塞启动；改为：启动后异步全量回填聚合表，回填完成前 dashboard 查询走现有 records 查询路径（t191），回填完成后切换聚合读取。records 保留为真相源，中断可重试、可重建。
+    findings 已记 d010
 
 ## 是否采纳
 

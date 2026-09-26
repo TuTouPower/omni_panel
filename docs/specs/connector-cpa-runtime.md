@@ -2,7 +2,7 @@
 
 > 验证方式：API。拆自 connector-cpa（t037）。
 
-唯一聚合型连接器。运行时契约见 `connector-runtime.md`；术语（直连 vs 聚合）见 `domain.md`。
+唯一聚合型连接器。运行时契约见 `connector-runtime.md`；术语（直连 vs 聚合）见 `../blueprint/domain.md`。
 
 ## 定位
 
@@ -34,7 +34,7 @@ CPA 脚本逐账号 try，产出观测各自带状态。失败归属决定显示
 
 **核心约束**：Kimi 拉失败不能让整个 CPA 挂掉、连累 Claude。
 
-**失败上报协议**：CPA 脚本在 per-account 循环里 catch 到错误时，调 `ctx.report_failed_account(provider, account_id, account_label, error)` 把该账号失败信息交给 runtime（`connectors/cpa/connector.ts` 约 533）。runtime 收集到 `ConnectorRunResult.failed_accounts` 后，由 refresh-service 从 observation-store 取该账号上次成功观测并复制为 stale 副本（domain.md 不变量 5）。脚本能继续跑后续账号，不被异常中断。
+**失败上报协议**：CPA 脚本在 per-account 循环里 catch 到错误时，调 `ctx.report_failed_account(provider, account_id, account_label, error)` 把该账号失败信息交给 runtime（`connectors/cpa/connector.ts` 约 533）。runtime 收集到 `ConnectorRunResult.failed_accounts` 后，由 refresh-service 从 observation-store 取该账号上次成功观测并复制为 stale 副本（`../blueprint/domain.md` 不变量 5）。脚本能继续跑后续账号，不被异常中断。
 
 ## 聚合计算
 

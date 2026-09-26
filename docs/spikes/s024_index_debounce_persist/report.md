@@ -1,4 +1,4 @@
-# Spike report
+# s024 index_debounce_persist spike report
 
 ## 问题
 
@@ -32,6 +32,7 @@ debounce 到期后写盘次数: 1（显著 < N=50）
 - 机制可行：dirty 标记 + debounce flush 满足批量窗口合并（N=50 → 1 次写）、未命中不变零写、显式 flush 保证持久性、单 miss 内合并。
 - 异步语义：debounce 窗口内 resolve 同步返回后索引未必已落盘；需调用方不依赖「resolve 后立即 existsSync」的既有测试语义，改 flush 后断言或写盘计数断言。
 - 退出前保证：需在退出路径显式 `flush()`（before-quit 已存在 flush 挂点）。
+- findings 已记 d027
 
 ## 是否采纳
 

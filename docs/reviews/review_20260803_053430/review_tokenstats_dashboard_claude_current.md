@@ -1,5 +1,7 @@
 # tokenstats_dashboard
 
+> 元信息：审阅日期 2026-08-03（目录名）；被审对象 tokenstats_dashboard：token-stats dashboard query API 及其 main/core、IPC、preload、shared DTO、local API、renderer、web 调用链（omni_usage_t191 工作副本）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 ## 审阅范围
 
 仅审 `D:/Dev/Code/omni_usage_t191` 当前目标 diff：token-stats dashboard query API 及其 main/core、IPC、preload、shared DTO、local API、renderer、web 调用链。未运行构建或测试。

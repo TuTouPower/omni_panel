@@ -1,4 +1,4 @@
-# Spike report
+# s017 opencode_vendor_logo_id spike report
 
 ## 问题
 
@@ -25,6 +25,7 @@
 ## 结论
 
 `opencode` 会话 source 应映射为 `opencode_go`。直接传入 `opencode` 会因没有对应资源键而使用通用 `overview` 兜底图形。结论由仓库内静态资源和既有测试交叉验证，可信度足够。
+findings 已记 d023
 
 ## 是否采纳
 

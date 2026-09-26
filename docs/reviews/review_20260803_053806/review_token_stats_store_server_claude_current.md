@@ -1,5 +1,7 @@
 # Efficiency 审查
 
+> 元信息：审阅日期 2026-08-03（目录名）；被审对象 token-stats store/local-api 的查询效率（`src/main/core/token-stats/token-stats-store.ts`、`src/main/core/local-api/server.ts` 的 diff，含 `TokenStatsView.tsx` 调用上下文）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 ## 范围
 
 `git diff HEAD` 中 `src/main/core/token-stats/token-stats-store.ts`、`src/main/core/local-api/server.ts`，并读取 `TokenStatsView.tsx` 的调用上下文。只报告重复 I/O、全量查询、串行瓶颈；未修改源文件，未运行长测试。

@@ -2,7 +2,7 @@
 
 # ui-views-desktop
 
-`src/renderer/views/`。IPC 见 `ipc.md`；窗口承载见 `window-management.md`；术语见 `domain.md`。
+`src/renderer/views/`。IPC 见 `ipc-electron.md`；窗口承载见 `window-management.md`；术语见 `../blueprint/domain.md`。
 
 ## 视图
 

@@ -1,4 +1,4 @@
-# Spike report
+# s029 cli_help_share_source spike report
 
 ## 问题
 
@@ -29,6 +29,7 @@
 候选 A **可行**：主进程 import `scripts/cli_help.mjs` 时，electron-vite/rollup 会在构建期把帮助文本打进 `out/main`，打包运行时不依赖 `scripts/`。Type 面用并列 `.d.mts`（与 `cli_arg_translate.d.mts` 同模式）。launcher 运行时直接 `import` 同文件，单一真相源。
 
 可信度：高（实测 esbuild + vite/rollup 两路内联；electron-vite main 即 vite+rollup）。
+findings 已记 d038
 
 ## 是否采纳
 

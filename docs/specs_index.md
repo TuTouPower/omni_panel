@@ -6,7 +6,7 @@
 
 |方式|含义|验证手段|
 |---|---|---|
-|**API**|后端数据层 / LocalAPI HTTP 端点 / 连接器脚本契约，程序化可验|`curl http://localhost:<port>/v1/*`、vitest 单元/集成（真实 better-sqlite3）、`pnpm test:contract:live`|
+|**API**|后端数据层 / LocalAPI HTTP 端点 / 连接器脚本契约，程序化可验|`curl http://localhost:<port>/v1/*`、vitest 单元/集成（真实 better-sqlite3）|
 |**Web**|web SPA（`out/web`）可渲染验证，不需 Electron 桌面端|`pnpm test:e2e:web`（chromium + mock local-api）、浏览器访问 `http://localhost:<port>/`|
 |**Desktop**|必须 Electron 桌面端（BrowserWindow/Tray/utilityProcess/webRequest/nativeTheme/powerMonitor）|`pnpm test:e2e:electron`（真实 Electron）、`pnpm test:packaged`（CDP 连 exe）|
 
@@ -63,7 +63,7 @@
 |cli-import-config|API|t285|2026-08-10|
 |vendor_forms_oauth_weblogin|Web|t109|2026-07-25|
 |fix_add_account_wiring|Desktop|t110|2026-07-25|
-|web-panel|Web|迁移自 omni_powers，无，t325；t414 一页一条 EventSource；t474 宿主自启控制端点|2026-09-14|
+|web-panel|Web|迁移自 omni_powers（迁移时无 task），t325；t414 一页一条 EventSource；t474 宿主自启控制端点|2026-09-14|
 |web_config_parity|API + Web + Desktop|t277，t480|2026-09-14|
 |dev-panel|API + Web + Desktop|t481/t482：开发面板 Git 扫描、热力图、New API 模型路由与 Web/桌面同权限通路|2026-09-15|
 |window-management|Desktop|迁移自 omni_powers，t099，t194，t297|2026-08-11|

@@ -7,18 +7,18 @@ OmniPanel 测试命令、分层、覆盖率与打包 smoke 指南。硬约束入
 ```bash
 pnpm test                 # 单元 + 集成（vitest run）
 pnpm test:coverage        # 覆盖率
-pnpm test:e2e:web        # Playwright chromium 测 web SPA（日常, mock local-api）
-pnpm test:e2e:electron   # Playwright Electron 驱动（托盘/多窗口等专属, 手动跑）
-pnpm test:e2e:cli        # Playwright chromium 驱动真实 --cli serve 无头实例（全栈无弹窗）
+pnpm test:e2e:web         # Playwright chromium 测 web SPA（日常，恒 synthetic mock fixture）
+pnpm test:e2e:electron    # Playwright Electron 驱动（托盘/多窗口等专属, 手动跑，须许可）
+pnpm test:e2e:cli         # Playwright chromium 驱动真实无窗口 serve 实例（全栈无弹窗）
 pnpm package              # 打包
-pnpm test:packaged        # 打包 smoke（CDP 连 exe）
-./artifacts/win-unpacked/OmniPanel.exe   # 打包后真实启动
-pnpm test:contract:live   # 连接器 live 契约测试（打真实上游）
-pnpm typecheck && pnpm lint && pnpm check
-python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 pnpm test）
+pnpm test:packaged        # 打包 smoke（CDP 连 exe，须许可）
+./artifacts/win-unpacked/OmniPanel.exe   # Windows 产物：先 pnpm package，仓库根目录运行
+pnpm test:contract:live   # 连接器 live 契约：当前无用例（tests/contract_live/ 仅剩 README，运行即无匹配文件退出 1）
+pnpm check                # typecheck + lint + format:check + deadcode + arch + schema:check + test
+python3 -m pytest .repo_template/tests/ # 模板工具链 Python 测试（task.py 等），独立于 pnpm test
 ```
 
-`E2E_HEADLESS=1 pnpm test:e2e:electron` 跑 headless：窗口 `show:false` 不弹屏，依赖可见窗口/焦点/尺寸的 spec 标「仅 headed」自动跳过（清单见 t280 spec）。
+`E2E_HEADLESS=1 pnpm test:e2e:electron` 跑 headless：窗口 `show:false` 不弹屏，依赖可见窗口/焦点/尺寸的 spec 标「仅 headed」自动跳过（清单见 `docs/archive/tasks/t280_e2e_headless_gate/spec.md`）。
 
 调试入口：打包 smoke 以 `--remote-debugging-port=0` 启动 Electron，从隔离 user-data 目录的 `DevToolsActivePort` 读取动态 CDP 端口后连接；连接器脚本日志打 `connector-sandbox` logger。
 
@@ -28,8 +28,8 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 
 |维度|正常实例 `pnpm start`|测试实例 `pnpm start:test`|
 |---|---|---|
-|userData|`%APPDATA%/omni_panel`|`.scratch/test-instance/`（gitignore）|
-|LocalAPI 端口|`18263`|`17864`（`OMNI_PANEL_PORT` env 覆盖）|
+|userData|`%APPDATA%/OmniPanel`|`.scratch/test-instance/`（gitignore）|
+|LocalAPI 端口|`17863`|`17864`（`OMNI_PANEL_PORT` env 覆盖）|
 |图标|蓝色（`assets/icon.*`）|黄色（`assets/icon-test.*`，`TEST_INSTANCE=1` 切换）|
 |视觉区分|—|托盘/窗口黄色|
 
@@ -39,10 +39,12 @@ python -m pytest scripts/ # Python 脚本测试（task.py 等工具，独立于 
 
 两个 dev 实例共享 `out/` 编译目录会冲突，不能同时 `pnpm start` + `pnpm start:test`。同时运行方案：
 
-- **正常实例**：`pnpm make:win` 后跑 `artifacts/win-unpacked/OmniPanel.exe`（占 18263、蓝图标）
+- **正常实例**：Windows 下 `pnpm make:win` 后运行 `artifacts/win-unpacked/OmniPanel.exe`（占 17863、蓝图标）
 - **测试实例**：`pnpm start:test`（占 17864、黄图标、沙盒数据）
 
 端口被占时 local-api 有回退机制（`EADDRINUSE` → 系统 0 分配），但测试实例固定 17864 避免回退随机端口，便于 web 面板/调试工具直连。
+
+**17864 互斥**：`pnpm cli:serve`（见 `docs/guides/cli-mode.md`）同样固定 17864 + 独立沙盒 userData，与 `pnpm start:test` 争用同一端口，二者不能同时运行——后启动者会经 `EADDRINUSE` 回退到随机端口，`cli:quit --port 17864` 将打不到该实例。
 
 ### 重新生成测试图标
 
@@ -67,38 +69,40 @@ pnpm icons:test   # 从 assets/logo-test.svg 渲染 icon-test.png/ico + tray-ico
 - E2E 验证**功能正确性**：用户看到 Dashboard、填了 API Key、点了刷新看到数据。**不直接调 `window.usageboard` 绕过 UI**。
 - 打包 smoke 验证**产物可用性**：exe 能否启动、渲染是否白屏、托盘是否出现、`extraResource` 连接器是否加载。
 
-## web e2e 录制与 CI 策略
+## web e2e 录制与运行
 
-web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后端 mock 回放录的本机真实响应（`tests/e2e/fixtures/data/responses.json`，gitignore）。
+web e2e（`tests/e2e/web/`）由 Playwright chromium 驱动 `out/web` SPA，后端 mock 回放录的本机真实响应（`tests/e2e/fixtures/data/responses.json`，gitignore）或入库 synthetic fixture。
 
 ### 录制 fixture（一次性，本地）
 
-1. 启动 OmniPanel 提供 local-api :18263（择一）：
-    - packaged：先 `pnpm package`，再 `./artifacts/win-unpacked/OmniPanel.exe`
+1. 启动 OmniPanel 提供 local-api :17863（择一）：
+    - packaged：Windows 下先 `pnpm package`，再 `./artifacts/win-unpacked/OmniPanel.exe`
     - dev：`pnpm start`（electron-vite dev）
-        两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:18263/v1/health` 返回 `{"status":"ok"}` 后继续。
+        两者均读本机 `%APPDATA%/OmniPanel` 真实数据。确认 `curl http://localhost:17863/v1/health` 返回 `{"status":"ok"}` 后继续。
 2. `pnpm e2e:gen-data` → 录全部 responses 到 `tests/e2e/fixtures/data/responses.json`（不入库；secrets 黑名单正则脱敏 `***`）。响应数随本机 instance 数变化（T010 基线 61）。
-3. `pnpm test:e2e:web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放
+3. `pnpm exec playwright test --config=playwright.config.ts --project=web` → chromium 驱动，`vite preview` 内嵌 `mock_api_plugin` 回放刚录的 real responses（`MOCK_FIXTURE` 未设 → real）。
 
-**synthetic seed fixture（入库，CI 用）**：`pnpm e2e:gen-synthetic` 从真实 responses 取 3 instance 脱敏子集（`demo_*@example.com`）→ `tests/e2e/fixtures/synthetic.json`（入库）；脚本额外固化注入 `synthetic-kimi-failed` / `synthetic-opencode-go`，写出对齐仓库 prettier（tabWidth=4）。mock local-api 在 `sync_connectors()` 时保留这两类无 config 匹配的 synthetic-only connector。CI 用 `MOCK_FIXTURE=synthetic pnpm test:e2e:web` 跑 smoke；本地开发用 real（默认）。connector 清单变化后重跑 gen-synthetic 刷新入库版。
+**fixture 选择（权威 = `package.json`）**：`test:e2e:web` 脚本内固定 `MOCK_FIXTURE=synthetic`，即 `pnpm test:e2e:web` **恒用 synthetic**；要跑 real 只能用上一步的 `pnpm exec playwright test --config=playwright.config.ts --project=web`，前置为已执行 `pnpm e2e:gen-data`——缺 `responses.json` 时 mock server 报错退出 1。
 
-### CI 策略
+**synthetic seed fixture（入库）**：`pnpm e2e:gen-synthetic` 从真实 responses 取 3 instance 脱敏子集（`demo_*@example.com`）→ `tests/e2e/fixtures/synthetic.json`（入库），前置同样是 `pnpm e2e:gen-data`；脚本额外固化注入 `synthetic-kimi-failed` / `synthetic-opencode-go`，写出对齐仓库 prettier（tabWidth=4）。mock local-api 在 `sync_connectors()` 时保留这两类无 config 匹配的 synthetic-only connector。connector 清单变化后重跑 gen-synthetic 刷新入库版。
 
-CI 跑（`ci.yml`）：
+### CI 状态：已移除（本地门禁如下）
 
-- `pnpm test`（vitest 单元 + 集成）
-- `MOCK_FIXTURE=synthetic pnpm test:e2e:web`（web SPA smoke，synthetic 脱敏 fixture 入库）
-- `pnpm test:packaged`（打包 smoke）
+`.github/workflows/` 仅剩 `release.yml`；`ci.yml` 与 `nightly.yml` 已在 `db5a8f60`（2026-09-20，`fix(test): align dock-badge test with p258, rm github CI workflows`）删除，当前**无 CI 门禁**。等价的本地门禁：
 
-Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixture（本机真实账号）仅本地，不入库。
+- `pnpm check`（typecheck + lint + format:check + deadcode + arch + schema:check + test）
+- `pnpm test:e2e:web`（web SPA smoke，synthetic fixture）
+- `pnpm test:packaged`（打包 smoke，须许可）
+
+Electron 驱动 `pnpm test:e2e:electron` 本地手动跑（须许可，无 CI nightly）；real fixture（本机真实响应）仅本地，不入库。
 
 ### 三路 e2e project 对照
 
 |project|目录|驱动|何时跑|
 |---|---|---|---|
 |web|`tests/e2e/web/`|chromium + mock local-api|本地日常（首次需先录 fixture，见上节）|
-|electron|`tests/e2e/electron/`|Electron（真实进程）|本地手动 / nightly|
-|packaged|`tests/e2e/packaged/`|CDP 连 exe|CI + 本地|
+|electron|`tests/e2e/electron/`|Electron（真实进程）|本地手动（须许可）|
+|packaged|`tests/e2e/packaged/`|CDP 连 exe|本地（须许可；CI 已移除）|
 
 ## 通用原则
 
@@ -125,21 +129,23 @@ Electron 驱动 `pnpm test:e2e:electron` 在 nightly 跑（Xvfb）；real fixtur
 自动化不能单独宣称已解决：
 
 - `OmniPanel.exe` 首次启动；托盘真实显示、popup 位置。
-- Popup 根容器填满窗口高度（防底部背景空白）；动态高度跟随 `popup:reportContentHeight`、不超 100% 工作区（t081 起 `MAX_HEIGHT_RATIO=1.0`）、无额外底部留白（多显示器/DPI 下 `setBounds` 只能人工验收）。
+- Popup 根容器填满窗口高度（防底部背景空白）；动态高度跟随 `popup:reportContentHeight`、不超 100% 工作区（t081 起 `MAX_HEIGHT_RATIO=1.0`，见 `docs/archive/tasks/t081_popup_height_full_workarea/spec.md`）、无额外底部留白（多显示器/DPI 下 `setBounds` 只能人工验收）。
 - 渲染进程正常加载（白屏即失败）；ASAR 内资源路径可访问。
 
 修复涉及打包产物的任务，完成报告必须含：自动化结果 + 打包真实启动验证结果。没有真实 smoke 只能写“自动化路径通过，packaged 行为未验证”，不能写“已修复”。
 
 ## 覆盖率阈值
 
+权威 = `vitest.config.mts` 的 `coverage.thresholds`（本表为同步副本，改阈值只改该文件）：
+
 |指标|阈值|
 |---|---|
-|Statements|15%|
-|Branches|25%|
-|Functions|25%|
-|Lines|15%|
+|Statements|50%|
+|Branches|50%|
+|Functions|50%|
+|Lines|50%|
 
-> 基线日期 2026-05-30，阈值 = 基线 − 5%。
+> `3b994034`（t522，2026-09-25）起为 50/50/50/50；此前的「基线 − 5%」口径已作废。
 
 ## 任务完成验证清单
 

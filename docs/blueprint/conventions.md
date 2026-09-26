@@ -8,7 +8,7 @@
 - task 编号：占位 `{tid}`，值小写 `t001`、`t042`…。目录 / 分支 / finding / worktree：`docs/tasks/{tid}_{slug}/`、`{tid}_{slug}`、`{tid}_code_fNNN`、`../{repo}_{tid}`。
 - spike 编号：占位 `{sid}`，值小写 `s001`、`s003`…。目录：`docs/spikes/{sid}_{slug}/`。
 - 总账编号：待办与发现均为一条目一文件，文件名 `pNNN_{slug}.md` / `dNNN_{slug}.md`，编号来自文件名。条目只经 `.repo_template/scripts/pending.py new` 与 `findings.py new` 创建——脚本在 git 公共目录的排他锁内完成「扫描全部本地分支与 worktree 取号 → 建文件」，并发执行不会撞号。`pNNN` 跨 `docs/pending/todo/`、`docs/pending/parked/`、`docs/archive/pending/` 共享全局序列，`dNNN` 在 `docs/findings/` 内递增；历史编号均不复用，不维护索引文件。spike 是目录型条目（`docs/spikes/sNNN_{slug}/`），由 `.repo_template/scripts/spikes.py new` 同法锁内分配，`sNNN` 与 `docs/archive/spikes/` 共享序列。
-- AC 编号：spec 验收标准每条行为 AC 用 `AC-NNN`（三位十进制，task 内从 1 顺序编号）。编号一旦分配永久归属，删除后不复用（允许断号，不强制连续），新增用下一个编号。`handoff.json` 的 `ac_evidence` 键引用同一编号，须精确覆盖 spec 验收标准全部 AC——缺或多都阻断合入。编号规范属 spec 模板门禁，见 `docs/tasks/task_template/spec.md`。
+- AC 编号：spec 验收标准每条行为 AC 用 `AC-NNN`（三位十进制，task 内从 1 顺序编号）。编号一旦分配永久归属，删除后不复用（允许断号，不强制连续），新增用下一个编号。`handoff.json` 的 `ac_evidence` 键引用同一编号，须精确覆盖 spec 验收标准全部 AC——缺或多都阻断合入。编号规范属 spec 模板门禁，见 `.repo_template/docs/task_template/spec.md`。
 - 占位示例（模板、示例行）不得占用真实 `tid` / `sid` / `pNNN`，也不得当作 active 工作项执行。
 - Markdown 嵌套内容缩进 4 空格，禁止 tab。
 - 非归档 Markdown 统一用 md_kx 格式化（`.repo_template/scripts/md_format.py`），表用 `compact`（`|a|b|`）。改完 md 后跑 `python3 .repo_template/scripts/md_format.py --changed`（或点名路径）；commit 前 `--check` 为绿。格式由 `.md_kx.toml` 统一，禁止 prettier / 按列 pad。
@@ -81,14 +81,14 @@ OmniPanel 项目落点：
 - **少 mock，多真实**：外部服务用本地可控桩；本地能力（连接器发现、TS 编译、配置读写、SQLite、cookie 捕获）真实测。
 - **断言期望行为**：测试断言“应该怎样”，不锁死历史错误行为。
 - **真实定时器用例优先伪时钟或显式 timeout**（p049/p051 系统性 flaky）：被测逻辑用 `setTimeout` 的用例优先 `vi.useFakeTimers()`；伪时钟不可行（真实子进程/真实 sqlite/负向等待）时保留真实定时器并给明确 timeout（`describe`/`it(name, fn, timeout)`），断言窗口按脚本超时内放宽；固定时长负向等待须在测试策略说明理由。阈值/超时增大掩盖问题属危险模式（review important）。
-- 覆盖率阈值（基线 2026-05-30，阈值 = 基线 − 5%）：Statements 15% / Branches 25% / Functions 25% / Lines 15%。
+- 覆盖率阈值（权威 = `vitest.config.mts`，t522 拉升）：Statements 50% / Branches 50% / Functions 50% / Lines 50%。
 - 涉及打包/渲染：修复报告必须含自动化结果 + 打包真实启动验证结果；没有真实 smoke 只能写“自动化路径通过，packaged 行为未验证”，不能写“已修复”。
 
 ### 提交 & 质量门
 
 - Commit message 走行业规范：`feat/fix/refactor/docs/test/chore(scope): 描述`，不受极简模式影响。
 - 一次 commit 一个连贯改动，不混入无关变更。
-- 合并前跑 `pnpm check`（typecheck + lint + format:check + deadcode + arch + test）。
+- 合并前跑 `pnpm check`（typecheck + lint + format:check + deadcode + arch + schema:check + test，组成与 `package.json` 的 `scripts.check` 一致）。
 - 改代码后检查 `docs/` 与 `AGENTS.md`/`CLAUDE.md` 是否受影响，一并更新。
 
 ### 原子写

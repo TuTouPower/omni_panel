@@ -9,7 +9,7 @@
 - `PaneMessageRow`：移除「展开」「收起」按钮；点击消息本体在完整内容与单行折叠间切换；仅超行消息可切换。
 - 用户消息整行 `primary-container` 背景；Agent 无底。
 - checkbox 只改选中；文本拖选不触发展开切换。
-- 修订 `session-pane-display-adjust` AC9/AC10（并补 AC13 用户底色）。
+- 修订 `session-pane-display-adjust` AC-009/AC-010（并补 AC-013 用户底色）。
 
 ## 非范围
 
@@ -25,7 +25,7 @@
 - [x] AC-004：点击 checkbox 只切换选中态，不改变展开/折叠。
 - [x] AC-005：文本拖选后松开不触发展开/收起切换。
 - [x] AC-006：不超单行消息点击无折叠变化。
-- [x] AC-007：`session-pane-display-adjust` AC9/AC10 修订为点击本体语义。
+- [x] AC-007：`session-pane-display-adjust` AC-009/AC-010 修订为点击本体语义。
 - [x] AC-008：相关单测更新并通过。
 
 ## 实现要点

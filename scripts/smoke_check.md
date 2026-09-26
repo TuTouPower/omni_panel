@@ -2,6 +2,8 @@
 
 每次 `pnpm package` 后必须执行以下检查，确认产物可用。
 
+前置（通篇适用）：工作目录 = 仓库根目录；`artifacts/win-unpacked/` 为 **Windows** 产物（macOS/Linux 对应 `*-unpacked/` 目录），须先 `pnpm package`。第 7 步会启动并控制常驻实例，可能触碰正在运行的实例——按 `docs/blueprint/testing.md`「用户干扰分级」须先取得用户明确许可。
+
 ## 检查步骤
 
 1. **启动应用**
@@ -43,8 +45,11 @@
 
 7. **CLI serve**
 
-    - 运行 `omni_panel --cli serve`，确认无窗口常驻服务启动、无崩溃
-    - 通过 `--cli open` / `--cli refresh-all` 等子命令连接，确认返回可读结果
+    - 用法：`omni_panel <子命令>`（单一二进制入口，无 `--cli` 前缀；`omni_panel` 指 PATH 中的打包产物或 `artifacts/*-unpacked/` 内可执行文件）。本步会启动/控制常驻实例，可能触碰运行实例，须先取得用户许可（见文首前置）。
+    - 运行 `omni_panel serve`，确认无窗口常驻服务启动、无崩溃（默认后台，日志落 `<dataRoot>/logs/serve-<时间戳>.log`）
+    - 通过 `omni_panel open` / `omni_panel refresh-all` 等子命令连接，确认返回可读结果
+    - 导出配置：`omni_panel export [--include-secrets]`，确认输出可读配置
+    - 停止服务：`omni_panel quit --port <n>`
     - Web 面板：`pnpm build:web` 后浏览器打开 `out/web/index.html`，确认用量/面板渲染正常
 
 8. **退出**
@@ -55,6 +60,6 @@
 ## 快速命令
 
 ```bash
-# 打包并启动
+# Windows、仓库根目录下：打包并启动
 pnpm package && ./artifacts/win-unpacked/OmniPanel.exe
 ```

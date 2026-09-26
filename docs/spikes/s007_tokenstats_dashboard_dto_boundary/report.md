@@ -1,4 +1,4 @@
-# Spike report
+# s007 tokenstats_dashboard_dto_boundary spike report
 
 ## 问题
 
@@ -12,7 +12,13 @@
 - 明确正常 dashboard 路径是否还需要 `getRecords`。
 - 明确 SessionTable 首屏摘要字段与可延迟详情边界。
 
-## 映射实验
+## 尝试
+
+- 逐一映射 `TokenStatsView` 当前子组件的输入字段，标注首屏必要性与 DTO 归属（下「映射实验」表）。
+- 用现有 renderer 纯函数与 shared schema 逐字段判定能否由有界聚合结果重建，给出最小字段覆盖清单。
+- 判定三个边界：dashboard 主请求是否含 status/freshness、正常路径是否还需 `getRecords`、SessionTable 首屏摘要与可延迟详情的分界。
+
+### 映射实验
 
 ### 当前组件输入
 
@@ -96,6 +102,7 @@ DTO 中的 `summary`、`chart` 和 `heatmap` 均为有界聚合结果；字段�
 采用单一 `TokenStatsDashboardDto`：主进程按统一 query 规范化后直接返回 summary、chart、heatmap、session summary、status 和 freshness。代理面板正常路径删除 `getRecords`、`getBuckets`、`getHourBuckets`、`getRangeRollup`、`getHeatmap`、`getSessions`、`getStatus` 的多路调用，改为一次 dashboard IPC。旧入口继续保留兼容其他调用方；会话详情另设按 session 的按需查询边界。
 
 可信度：组件字段边界高；纯函数可重建性高；主进程 SQL 聚合字段的最终实现需由 t191 集成测试与完整 raw records 对照验证。
+findings 已记 d008
 
 ## 是否采纳
 

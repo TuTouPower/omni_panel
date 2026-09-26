@@ -2,7 +2,7 @@
 
 ## 背景
 
-`docs/bugs.md` 记录的「config 数据丢失：fallback 路径绕过 P0 保护，auto_seed 覆盖账号」根因链：
+`../archive/bugs_2026_07.md` 记录的「config 数据丢失：fallback 路径绕过 P0 保护，auto_seed 覆盖账号」根因链：
 
 1. `writeBakAtomic` 在 `writeFile` 阶段进程被强杀，`config.json.bak` 的 tmp 只剩预分配 null 字节，rename 后变成纯 `\0` 文件。
 2. 重启时主 `config.json` 解析失败，去读 `.bak` 也是 null 字节损坏。

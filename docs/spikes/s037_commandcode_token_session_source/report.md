@@ -1,4 +1,4 @@
-# Spike report
+# s037 commandcode_token_session_source spike report
 
 ## 问题
 
@@ -56,4 +56,4 @@ Command Code 本地源**同时满足 token 统计与会话历史**，可直接�
 
 - 决定：是（拆 task 接入）
 - 理由：源齐备、字段明确、语义已实测标定，无 blocker；对标 codex 两面板可直接复用。
-- 后续 task：无（待 task-create 拆分：token-stats reader、session-history extractor、两面板接线；findings 已记 d059）
+- 后续 task：t483（token-stats reader）、t484（session-history extractor 与两面板接线）；findings 已记 d059

@@ -1,4 +1,4 @@
-# Spike report
+# s015 session_history_source_formats spike report
 
 ## 问题
 
@@ -57,6 +57,7 @@
 - claude_code：现有 jsonl reader + 过滤。
 
 可信度高（真实数据采样）。
+findings 已记 d017
 
 ## 是否采纳
 

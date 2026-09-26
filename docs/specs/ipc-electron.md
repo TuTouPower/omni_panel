@@ -2,7 +2,7 @@
 
 > 验证方式：Desktop。拆自 ipc（t037）。
 
-主进程 ↔ 渲染进程通信契约（Electron-only 部分）。channel 真相源 `src/shared/types/ipc.ts`；安全边界见 `architecture.md` §3。这些 channel 仅在 Electron 主进程注册；web SPA（out/web）对应路径隐藏或 no-op。
+主进程 ↔ 渲染进程通信契约（Electron-only 部分）。channel 真相源 `src/shared/types/ipc.ts`；安全边界见 `../blueprint/architecture.md` §3。这些 channel 仅在 Electron 主进程注册；web SPA（out/web）对应路径隐藏或 no-op。
 
 ## 通道分组（`IPC_CHANNELS`）
 

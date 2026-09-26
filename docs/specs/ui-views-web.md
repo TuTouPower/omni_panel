@@ -2,7 +2,7 @@
 
 # ui-views-web
 
-`src/renderer/views/`。IPC 见 `ipc.md`；窗口承载见 `window-management.md`；术语见 `domain.md`。
+`src/renderer/views/`。IPC 见 `ipc-api.md`；窗口承载见 `window-management.md`；术语见 `../blueprint/domain.md`。
 
 ## 视图
 
@@ -101,7 +101,7 @@
 - `SessionTable` — 会话列表
 - `Segmented` / `RangePicker` — 分段与时间范围筛选
 
-数据管线（`lib/token-stats`）：`filtered` / `aggregate` / `chart-data`（agentSegments / compositionSegments / modelSegments / projectSegments）。过滤维度：agent / platform（win/wsl）/ range（24h/7d/30d）/ metric / xAxis。详见 `specs/ai-cli-token-stats-ui.md`。
+数据管线（`lib/token-stats`）：`filtered` / `aggregate` / `chart-data`（agentSegments / compositionSegments / modelSegments / projectSegments）。过滤维度：agent / platform（win/wsl）/ range（24h/7d/30d）/ metric / xAxis。详见 `ai-cli-token-stats-ui.md`。
 
 ## 共性
 

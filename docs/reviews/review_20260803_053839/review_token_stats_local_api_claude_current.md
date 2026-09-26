@@ -1,5 +1,7 @@
 # Efficiency 审阅报告
 
+> 元信息：审阅日期 2026-08-03（目录名）；被审对象 token-stats 本地 API 查询路径（`token-stats-store.ts`、`local-api/server.ts`，辅助 `token-stats-ipc.ts` 的 diff）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 ## 审阅范围
 
 - `D:/Dev/Code/omni_usage_t191/src/main/core/token-stats/token-stats-store.ts`

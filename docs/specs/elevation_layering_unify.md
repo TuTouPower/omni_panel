@@ -26,7 +26,7 @@
 ## 验证
 
 - 单测：`tests/unit/renderer/styles/elevation_layering.test.ts` 源码扫描 + 变量翻转断言。
-- 门禁：`pnpm designmd:check`（本 task 未改 `@theme` 导出数值）；`pnpm test`。
+- 门禁：`pnpm designmd:check`（本 spec 只改工具类用法，不改 `@theme` 导出数值）；`pnpm test`。
 - 暗色目检标 [deploy]。
 
 ## 补充落位（t452）

@@ -1,4 +1,4 @@
-# Spike report
+# s018 code_split_dynamic_import spike report
 
 ## 问题
 
@@ -43,6 +43,7 @@ web 构建产物（`out/web/`）：
 
 - electron-vite renderer 对 `React.lazy` 动态 import 的分割行为正常：各 route 页面与 echarts 运行时均从首屏入口剥离，成为独立 chunk；web 与 Electron renderer 两个入口同时生效。file:// 下 chunk 加载需 `pnpm test:packaged` 真机黑盒，属 AC4/AC5 黑盒验证范围，未在本 spike 单独打包验证。
 - echarts 整包动态加载后 web 端独立 chunk 1,128 kB 超 Vite 默认 500 kB 阈值仍告警；改用 `echarts/core` 按需注册后，web 端所有 chunk < 500 kB，web 构建不再输出 chunk size 警告；renderer 端 echarts 按子模块拆分为独立 chunk（最大约 655 kB），electron-vite 构建不输出 chunk size 警告，AC1 原样满足。按需注册需要 spec「非范围」去掉「不做 ECharts 模块级裁剪」条款（用户已确认无警告为达成目标）。
+- findings 已记 d024
 
 ## 是否采纳
 

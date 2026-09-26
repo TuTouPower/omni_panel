@@ -8,7 +8,7 @@ Electron 主进程的会话采集能力。运行时消费见 `connector-runtime.
 
 受控网页登录态复用平台能力（MiMo 链路验证过并通用化）。详见 `connector-session.md`。
 
-- 受控 BrowserWindow，每 provider 独立持久分区 `persist:<provider>-login`
+- 受控 BrowserWindow，每个账号实例独立持久分区 `persist:session-login:{instance_id}`（添加账号阶段用一次性匿名分区 `session-login:anonymous:{uuid}`；契约细节见 `connector-session.md`）
 - `webRequest` 捕获实际发出的目标接口请求头（Cookie），不从 cookie jar 猜拼
 - 凭据写 SecretsVault
-- 后台续期：**未实现**。`cookieRefreshHours`（0/6/12/24h）复用分区刷新当前未落地。
+- 后台续期：**当前契约不含**。`cookieRefreshHours`（0/6/12/24h）复用分区刷新属未来范围，非当前契约，目标范围与验收待定。

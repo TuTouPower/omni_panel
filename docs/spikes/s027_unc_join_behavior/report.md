@@ -1,4 +1,4 @@
-# Spike report
+# s027 unc_join_behavior spike report
 
 ## 问题
 
@@ -24,3 +24,10 @@ Windows 宿主上 `path.join`（win32）与 UNC 前缀的组合行为——t310 
 ## 结论
 
 - locator 复用 t308 路径层即可获得正确行为：`local` 源 `path.join` + `homedir()`（宿主本机分隔符），`wsl` 源仅 `host==='windows'` 且 `wsl_user` 非空时 `path.win32.join` 构造 UNC，否则不可用（null）。与 d033/t308 结论一致，无新增事实；Windows 真机行为留 `[deploy]`。
+- findings 已记 d035
+
+## 是否采纳
+
+- 决定：是
+- 理由：`path.win32.join` 对 UNC/盘符/空用户名片段行为实测明确，locator 复用 t308 路径层即得正确行为，与 d033/t308 结论一致（无新增事实，Windows 真机行为留 `[deploy]`）。
+- 后续 task：t310

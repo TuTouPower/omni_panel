@@ -88,6 +88,8 @@ provider 同时是用量卡片分组键，建议与目录名一致。内置 prov
 
 脚本在 vm sandbox 执行，**无 `import`/`export`，通过 `declare const ctx` 取上下文**，须 `async function main(): Promise<ScriptObservation[]>` 返回观测值。
 
+安全边界：`node:vm` 沙箱**非真隔离**（非安全边界，见 `docs/blueprint/domain.md`「产品边界」与 ADR 036），恶意脚本可逃逸宿主；因此用户目录连接器**默认禁用**，仅在显式传入信任开关时加载（`src/main/core/connector/manifest-loader.ts` 的 `allow_user_connectors`，config 默认 `allowUserConnectors: false`）。
+
 ```ts
 declare const ctx: ConnectorContext;
 

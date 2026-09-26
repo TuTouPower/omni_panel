@@ -19,7 +19,7 @@
 - `opts.reset`：跳过 undici 全局连接池，强制新建 TCP+TLS 连接。由 refresh-service 在连续两次连接级错误后自动注入，连接器脚本一般不需直接使用。
 - `ctx.files.read(pathPattern) → Promise<string>`；`list(pathPattern) → Promise<readonly string[]>`（异步，脚本需 `await`）。
 - `ctx.params: Record<string,string>`（非 secret 参数 + `exposeToScript:true` 的 secret 明文）。
-- `ctx.report_failed_account(provider, account_id, account_label, error) → void`：脚本在 per-account 循环里 catch 到错误时调此上报失败账号。runtime 用 wrapper 收集到 `ConnectorRunResult.failed_accounts`，交给 refresh-service 把该账号上次成功观测复制为 stale 副本（domain.md 不变量 5）。脚本只调方法、不感知收集细节。
+- `ctx.report_failed_account(provider, account_id, account_label, error) → void`：脚本在 per-account 循环里 catch 到错误时调此上报失败账号。runtime 用 wrapper 收集到 `ConnectorRunResult.failed_accounts`，交给 refresh-service 把该账号上次成功观测复制为 stale 副本（`../blueprint/domain.md` 不变量 5）。脚本只调方法、不感知收集细节。
 - `ctx.log.debug/info/warn/error`；`ctx.trace_id?`。
 
 ### 脚本输出（`script_observation_schema`，snake_case，无 `source_instance_id`）
@@ -32,16 +32,16 @@
 
 ## 行为（现在是什么）
 
-- **沙箱**：`node:vm`（`vm.createContext` + `runInContext`），非 isolated-vm。`ctx` 经 `deep_freeze`。**非真隔离**（见 `architecture.md` §6）。
+- **执行隔离**：连接器脚本默认跑在独立隔离子进程（`refresh-service.execute_connector` → `run_connector_isolated`，utilityProcess/ChildProcess；t515 AC-002），子进程崩溃 / OOM / 死循环由父进程看门狗超时终止，不拖垮主进程；仅 `OMNI_IN_PROCESS_CONNECTOR=1`（单测回退）改在主进程内执行。隔离层内部仍以 **`node:vm` 沙箱**执行脚本（`vm.createContext` + `runInContext`，`worker/connector-worker-entry.ts` 调 `run_connector`），非 isolated-vm；`ctx` 经 `deep_freeze`。vm **非真隔离**（见 `../blueprint/architecture.md` §6）。
 - **编译**：`typescript.transpileModule`（CommonJS/ES2022），非 esbuild，**无 SHA-256 缓存**。编译前正则剥 `import type`/`declare const`；含 `import`/`export` 语句即抛错；包裹成 `(async()=>{...; if(typeof main==="function") return await main();})()`。
 - **超时**：`DEFAULT_TIMEOUT_MS = 15_000`（15s），双重（vm 同步超时 + Promise race）。
 - **能力分发**（`refresh-service.execute_connector`）：有 `script` → 跑脚本；否则 `poll` → `tier1-poll-executor`（宿主发 HTTP，`resolve_json_path` 取 `map`，盖 `observed_at`/`source:"poll"`）；否则 `observe.probe` → `probe-executor`（取响应头，`source:"probe"`）；否则报错。`local`/`session` 无独立 executor——都靠 script 分支 + `ctx.files`/vault cookie。
 - **observedAt 盖章**：poll/probe 路径宿主 `Date.now()`；script 路径脚本自填。`source_instance_id` 一律宿主盖（= `connector_config.instanceId`）。
 - **secret 注入**：`build_params` 仅 `exposeToScript:true` 的 secret 从 vault 取明文进 `ctx.params`；其余 secret 走 `ctx.http` 宿主侧 `apply_request_auth`（bearer/header/query），脚本看不到。
-- **完整性校验**：**未实现**（无 SHA-256 清单/签名）。现有两层编译/加载期防护：
+- **完整性校验**：内置连接器 SHA-256 清单校验已实现（t515 AC-001）——`connector-integrity.ts` 计算/比对目录内 `.json`/`.ts`/`.js` 文件哈希，`manifest-loader.ts` 在发现内置连接器时用 `generate_builtin_integrity(bundledDir)` 的基线逐一 `verify_connector_integrity`，不匹配即拒绝加载并记安全告警。基线在加载时由内置目录本身生成（无构建期固化清单），故只覆盖加载时刻之后的改动。**未实现**：签名与第三方（用户目录）连接器清单校验——非当前契约，目标范围与验收待定。现有两层编译/加载期防护：
     - **路径逃逸检查**（`refresh-service.resolve_script_path`）：script 路径不得逃出连接器目录，逃出则抛 "script path escapes connector directory"。
     - **沙箱逃逸正则**（`runtime.detect_sandbox_escape`，编译期）：拒绝 `eval`（含间接 eval）、`new Function` / `Function(`、`.constructor.constructor` 链、`process.binding`，命中即抛 "sandbox escape vector (...)"。
-        两者均为短期缓解，非真隔离（见 `architecture.md` §6）。
+        两者均为短期缓解，非真隔离（见 `../blueprint/architecture.md` §6）。
 
 ## NetClient（`net-client.ts`，undici）
 
@@ -52,7 +52,7 @@
 - 错误归一：status ≥ 400 抛 `HTTP <status>`；`text/html` 响应抛"possible interception page"；空 body 返回 null。
 - **响应体日志收敛（t295）**：JSON 解析失败日志只记 status/content-type/body 长度，≥400 响应日志记 body 长度，均不打响应体原文——错误页/拦截页/类 JSON 响应可能含凭据、会话或 PII。
 - **origin 约束（t294）**：请求 URL 由 `new URL(path, base)` 构造后强制 `url.origin` 等于解析后 endpoint base origin；不同 origin 的绝对 URL 或 `//` protocol-relative path 在 auth 注入前抛错拒绝，防止 vault 凭据被发往其它主机。do_request（get_json/post_json）与 get_raw 均经 `build_request_context` 单点校验。
-- SSRF：`assert_safe_connector_host` 拦云元数据主机（`169.254.169.254`/`metadata.google.internal`/`metadata.azure.com`），**不拦公网/私有主机**（见 `architecture.md` §6 已知限制）。
+- SSRF：`assert_safe_connector_host` 拦云元数据主机（`169.254.169.254`/`metadata.google.internal`/`metadata.azure.com`），**不拦公网/私有主机**（见 `../blueprint/architecture.md` §6 已知限制）。
 
 ## 数据模型映射
 

@@ -1,4 +1,4 @@
-# Spike report
+# s030 search_content_incremental_ipc spike report
 
 ## 问题
 
@@ -43,6 +43,7 @@ renderer 默认 `limit=64` 循环至 `progress.done`，合并 sessions、展示�
 可信度高：不改匹配逻辑，复用 abort/extract_cache，HTTP/IPC 同形。
 
 限制：每批重跑 `query_all_sessions`（SQLite，4000 级可忽略）；不解决 extract_cache 跨进程持久化（非范围）。
+findings 已记 d039
 
 ## 是否采纳
 

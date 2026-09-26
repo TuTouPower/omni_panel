@@ -1,4 +1,4 @@
-# Spike report
+# s010 popup_hide_resource spike report
 
 ## 问题
 
@@ -43,6 +43,7 @@ t194 要把 popup 关闭从 `close()` 改为 `hide()`。需确认隐藏窗口在
 Windows 实测确认 hide() 满足 t194 AC1/AC2/AC3 的机制前提：进程存活、内存保留、隐藏期 0% CPU（Chromium 节流兜底），show 复用不重建。跨平台：hide()/show() 是 Electron 原生窗口 API，webContents 生命周期三平台一致（同进程、同加载状态）；floating 模式已在生产跨平台使用同一 hide 路径。macOS/Linux 仅 OS 层 GPU 合成停顿存在平台差异，属 spec「有意不测」。
 
 限制：空状态 renderer（无 connector 数据）未跑轮询/刷新定时器，可见期 CPU 也接近 0；t194 的 AC3「隐藏期前台计时器/轮询降级」仍需实现层显式暂停应用级定时器，spike 证明的是 hide 本身已停渲染、机制不误伤。
+结论由 t194 内消化，不入 findings
 
 ## 是否采纳
 

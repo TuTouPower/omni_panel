@@ -1,4 +1,4 @@
-# Spike report
+# s036 kimi_web_quota_pump spike report
 
 ## 问题
 
@@ -47,6 +47,8 @@ cookie: <REDACTED_COOKIE_HEADER>
 - 续期：token pump——实例 partition 复用现有 `on_before_send_headers` 拦截 `apiv2/*` 的 `authorization` 头写 vault；connector 读 vault；401 走现有自动重登链。无需找隐藏刷新接口。
 - 限制/可信度：拦截点为现成 API（高）；空闲无流量时无新 Bearer 可抄，需后台导航触发一次（中，留 t464 验证）；页面改版风险同 opencode_go 类（低影响，有失败可见性）。
 - QR-status 轮询下发 hypothesis 已废弃（pump 更直接）。
+- **勘误（2026-09-15）**：上条「续期：token pump——……无需找隐藏刷新接口」被 s039 推翻——Kimi 登录态为 refresh-token 型会话，`POST https://auth.kimi.com/api/account.gateway.v1.AuthService/RefreshToken` 纯 HTTP 即可续期 Bearer，无需 partition 监听与后台导航。现行方案见 `docs/spikes/s039_kimi_web_bearer_mint_probe/report.md` 与 d060；原 pump 结论保留为历史。「是否采纳：是」仅对 quota 契约部分仍成立，续期路径已不成立。
+- findings 已记 d057（token pump 结论已被 d060 勘误推翻，见「勘误」）
 
 ## 是否采纳
 

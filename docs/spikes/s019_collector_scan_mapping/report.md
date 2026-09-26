@@ -1,4 +1,4 @@
-# Spike report
+# s019 collector_scan_mapping spike report
 
 ## 问题
 
@@ -27,6 +27,7 @@ collector 扫描结果中是否已持有可用的 session_id → 路径映射可
 ## 结论
 
 collector 扫描**持有** file→session_id 映射且已持久化，但直接复用为 locator 索引有两处障碍：(1) 反向 + subagent 多文件歧义，需额外选主 transcript 逻辑；(2) 只覆盖「有 usage 数据」的会话，冷启动时未含全部会话文件。故索引层采用 **locator 扫描结果自建持久索引**（本 task 主方案）：新增 `session_id(+env) → file_path/extractor_kind` 持久表，locator 冷定位先查索引，命中即免扫描；未命中回退现有扫描并回填索引。collector scan-state 不作索引源（避免耦合），但 collector 扫描新会话时可通过已有事件链路触发索引更新（AC3）。
+结论由 t254 内消化，不入 findings
 
 ## 是否采纳
 

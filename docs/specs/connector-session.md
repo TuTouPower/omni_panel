@@ -1,6 +1,6 @@
 # session 型连接器（受控网页登录）
 
-复用网页登录态做采集。运行时契约见 `connector-runtime.md`；平台能力见 `platform-services.md`（SessionManager）。
+复用网页登录态做采集。运行时契约见 `connector-runtime.md`；平台能力见 `platform-services-electron.md`（SessionManager）。
 
 ## 定位
 

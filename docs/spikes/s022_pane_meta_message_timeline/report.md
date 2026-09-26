@@ -1,4 +1,4 @@
-# Spike report
+# s022 pane_meta_message_timeline spike report
 
 ## 问题
 
@@ -25,6 +25,7 @@ spec t257 两项 UNVERIFIED-SPIKE：(1)「最后一条消息的精确时间」�
 
 - **SPIKE 1（时间来源充足）**：pane 内 `messages.at(-1)?.timestamp` 即为最后一条消息精确时间（毫秒），前端格式化含年月日时分秒即可。无需穿透 store/IPC 扩展字段。
 - **SPIKE 2（动态行高受支持）**：虚拟列表测量行高，折叠/展开行高变化经 ResizeObserver 重测，不会渲染错乱；AC11 的滚动位置由 compute_message_offsets + prepend 补偿保证。
+- 结论由 t257 内消化，不入 findings
 
 ## 是否采纳
 

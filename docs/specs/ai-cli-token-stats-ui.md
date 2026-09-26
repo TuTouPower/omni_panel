@@ -4,7 +4,7 @@
 
 本地 AI CLI Token 统计的前端层：独立窗口主视图 `TokenStatsView` 及组件（KPI / 趋势图 / Session 列表 / 筛选栏 / 设置项）。不含数据模型 / reader / 聚合（见 `-api`），不含子进程 fork / IPC / 窗口注册（见 `-desktop`）。
 
-前端设计参考 `ai-cli-token-stats-frontend-design.md`（独立设计文档）。
+前端设计原参考 `ai-cli-token-stats-frontend-design.md`（独立设计文档，未入库，仓内不存在）；设计与行为以本篇为准。
 
 ## 1. 窗口布局
 
@@ -126,7 +126,8 @@ Session 列表 `SessionTable` 虚拟滚动；长列表按可视高度分段渲�
 |文件|改动|Task|
 |---|---|---|
 |`src/renderer/views/TokenStatsView.tsx`|新建：独立窗口主视图|5.3|
-|`src/renderer/components/TokenStatsPanel/`|新建：KPI + 图 + 列表组件|5.3–5.5|
+|`src/renderer/components/token-stats/`|新建：图与列表组件（`BarChart` / `SessionTable` / `RangePicker` / `MetricDonut` / `Heatmap`）|5.3–5.5|
+|`src/renderer/components/ui/Kpi.tsx`|KPI 卡片|5.3|
 
 ## 11. 明确不做（本版，UI 层）
 
@@ -182,6 +183,8 @@ collector 更新会使已有条目标记 stale，当前可见结果继续展示�
 前置 5.1 / 5.2 见 `-desktop`。
 
 ## 14. 后续可扩展（UI 层）
+
+> 本节为未来范围，非当前契约；目标范围与验收待定。
 
 - 日历方块图 + 小时热力图
 - Session 详情（逐次调用时间线）

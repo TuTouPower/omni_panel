@@ -1,4 +1,4 @@
-# Spike report
+# s020 summary_head_window spike report
 
 ## 问题
 
@@ -24,6 +24,7 @@
 ## 结论
 
 本机真实 claude 会话首条用户消息 100% 出现在 64KB 头部窗口内，限量头部读取可行性高。选 64KB 为头部读取上限：单文件最多读 64KB，与文件总大小（可达数十 MB）解耦，满足 AC2。回退策略：64KB 内未找到 user → 返回空摘要（现状 extract\_\*\_first_user 的既有行为，不抛错）。限制：采样仅 win claude；WSL/kimi/grok 命中率未实测，但结构上前部即会话开头，风险低。
+结论由 t255 内消化，不入 findings
 
 ## 是否采纳
 

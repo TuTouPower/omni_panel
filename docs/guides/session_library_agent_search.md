@@ -4,7 +4,7 @@ OmniPanel 把各家 coding agent 的会话索引到 LocalAPI。仓库提供一�
 
 ## 前置
 
-1. OmniPanel 已运行（桌面托盘 / GUI，或 `omni-panel serve`）。
+1. OmniPanel 已运行（桌面托盘 / GUI，或 `omni_panel serve`）。
 2. 实例发现文件存在：`<dataRoot>/cli.json`（GUI 与 serve 启动后都会写；见 [cli-mode.md](./cli-mode.md)）。
 3. Agent 只访问 `http://127.0.0.1:<port>`。
 
@@ -22,14 +22,14 @@ Skill 源文件：仓库根目录 `skills/session_library_search/SKILL.md`。
 
 ### Claude Code
 
-把整个目录拷到项目或用户 skills 目录，例如：
+Claude Code 只加载项目级 `.claude/skills/` 与个人级 `~/.claude/skills/`（`.agents/skills/` 不是它的加载路径）。项目级拷入示例：
 
 ```bash
-mkdir -p .agents/skills
-cp -R skills/session_library_search .agents/skills/
+mkdir -p .claude/skills
+cp -R skills/session_library_search .claude/skills/
 ```
 
-或拷到 Claude 用户 skills 路径（以本机 Claude Code 文档为准）。重启 / 新开会话后，description 命中时会加载该 skill。不需要添加 MCP server。
+个人级同理，拷或软链到 `~/.claude/skills/session_library_search`（`ln -s "$PWD/skills/session_library_search" ~/.claude/skills/session_library_search`）。重启 / 新开会话后，description 命中时会加载该 skill。不需要添加 MCP server。
 
 ### Cursor
 

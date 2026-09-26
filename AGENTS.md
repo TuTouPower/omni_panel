@@ -20,7 +20,7 @@
 |`docs/specs_index.md`|当前生效 spec 清单（在表即生效）|task 收尾时更新；废弃删除行|
 |`docs/specs/<slug>.md`|需求级 spec（按已完成 task 累积）|task 收尾时累积更新；废弃移入 `docs/archive/specs/`|
 |`docs/tasks/{tid}_{slug}/`|task 工作区兼**状态权威**（backlog 起即存在）|`spec.md` / `task.md` 正文由实现侧写；`task.md` front matter 只经 `.repo_template/scripts/task.py`；reviewer 写 `review_code.md` / `review_test.md`（`single` 级写 `review_general.md`）；`finish`/`drop` 由脚本移入 `docs/archive/tasks/{tid}_{slug}/`|
-|`docs/tasks/task_template/`|task 文件模板（非工作项）|只改模板本身|
+|`.repo_template/docs/task_template/`|task 文件模板（`spec.md` / `task.md`；`task.py` 实际读取点）|只改模板本身（随模板演进，见下方 `.repo_template/scripts/` 行）|
 |`docs/archive/tasks/{tid}_{slug}/`|已归档 task 工作区|仅由 `.repo_template/scripts/task.py finish` / `drop` 从 `docs/tasks/` 移入；内部文件只准新增|
 |`docs/tasks_index.json` / `docs/archive/tasks_index.json`|活跃/归档 task 派生索引|工作区可由 `add`/`edit`/`rewind`/`purge` 重建；入库 commit：维护期随操作提交，集成时由 `integrate` / `integrate-chain` 重建并放入同一个 merge commit；`list` 只读，`list --rebuild` 手动重建；不进 task worktree 的执行 commit|
 |`docs/archive/tasks_audit.log`|rewind/purge 审计（append-only）|仅 `.repo_template/scripts/task.py rewind` / `purge` 独占 append，禁止 agent 手动修改|
@@ -31,13 +31,14 @@
 |`docs/findings/dNNN_{slug}.md`|已验证的技术发现（一条目一文件，跨 task 复用，`dNNN`）|条目创建只经 `.repo_template/scripts/findings.py`；只新增与就地修订，不迁 archive；spike 收尾或日常验证出的事实写入|
 |`docs/archive/pending/pNNN_{slug}.md`|已闭环待办|仅由 `.repo_template/scripts/pending.py archive` 迁入；只准新增|
 |`docs/archive/handoff.md`|handoff 的过时历史|只追加；由对应 skill 在用户调用时迁入|
-|`docs/blueprint/`|当前长期真相：架构、领域、约定、决策、测试|finalization 时更新；写代码或文档前读`conventions.md`，改跨模块行为前读 `architecture.md`，历史取舍读 `decisions.md`。门禁命令在 `testing.md` 的 `## doctor_cmd` / `## test_cmd` / `## blackbox_verify` 章节。`architecture.md` / `domain.md` 是模板仓占位符，**消费项目复制后自行填充**，未填充前不视为权威。`conventions.md` / `testing.md` 是模板默认，复制后按技术栈修改，不是空壳|
+|`docs/blueprint/`|当前长期真相：架构、领域、约定、决策、测试|finalization 时更新；写代码或文档前读`conventions.md`，改跨模块行为前读 `architecture.md`，历史取舍读 `decisions.md`。门禁命令在 `testing.md` 的 `## doctor_cmd` / `## test_cmd` / `## blackbox_verify` 章节。`architecture.md` / `domain.md` 为本项目权威；`conventions.md` / `testing.md` 源自模板默认、已按本仓技术栈改写维护|
 |`docs/reviews/prompts/`|review prompt 模板|改审查标准时更新|
 |`docs/reviews/review_*/`|多路 review 会话产物（my-review 等外部评审生成）|报告 `review_*.md` 入库；`_meta/` 过程文件已 gitignore；确认过时由 `repo-hygiene` 迁 `docs/archive/reviews/`|
-|`docs/spikes/report_template.md`|spike 报告模板|只改模板本身|
+|`.repo_template/docs/spike_report_template.md`|spike 报告模板|只改模板本身|
 |`docs/spikes/{sid}_{slug}/`|当前 spike（`report.md` 必需；有实验代码建 `code/`）|目录创建只经 `.repo_template/scripts/spikes.py new`；流程见 `task-work`“实施”中的未知契约处理；结论入 `docs/findings/`；完结由 `repo-hygiene` 迁 `docs/archive/spikes/`|
-|`.agents/skills/`|项目 skill 正文|改 skill 走文档纪律；不放业务代码|
-|`.claude/skills/`|指向 `.agents/skills/` 的软链|只维护软链|
+|`.agents/skills/`|项目 skill 目录（真实目录，条目为指向 `../../.repo_template/skills/*` 的软链；skill 正文在模板仓）|改 skill 走文档纪律，随模板演进；不放业务代码|
+|`.claude/skills/`|真实目录，条目同样为指向 `../../.repo_template/skills/*` 的软链|只维护软链|
+|`skills/`|仓库根可拷贝源（如 `skills/session_library_search`），非 agent 加载路径|拷贝分发用，不被 skill 加载器读取|
 |`docs/guides/`|给人看的使用指南|给人读，不写 agent 行为规则|
 |`docs/archive/`|完结或终止的历史|镜像原路径；内部文件只准新增|
 |`schemas/`|跨服务接口契约|改契约走 task 流程|

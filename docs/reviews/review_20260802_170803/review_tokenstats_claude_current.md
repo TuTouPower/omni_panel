@@ -1,5 +1,7 @@
 # tokenstats 审阅报告
 
+> 元信息：审阅日期 2026-08-02（目录名）；被审对象 tokenstats 查询缓存与状态（`query-cache.ts`、`TokenStatsView.tsx` 及对应测试）；被审 commit `fd910318fab9cdc0e025bdbdf02db51d0c0cc4a7`。本文为历史审阅记录，结论以当时代码为准。
+
 - 本路模型标识：Claude current（具体模型 ID 未知）
 - 基线：`fd910318fab9cdc0e025bdbdf02db51d0c0cc4a7`
 - 审阅范围：`src/renderer/lib/token-stats/query-cache.ts`、`src/renderer/views/TokenStatsView.tsx` 及对应测试文件

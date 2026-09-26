@@ -1,4 +1,4 @@
-# Spike report
+# s004 deepseek_mixed_protocol_cache spike report
 
 ## 问题
 
@@ -27,7 +27,7 @@ deepseek 模型在用户环境并存两种上游取数协议（OpenAI 上游 `in
 
 `cache_creation_input_tokens` 在所有 deepseek 行恒为 0（Win v4-flash 1117/1117、v4-pro 2223/2223；WSL v4-flash 4941/4941 均 `cc==0`），不存在「`cc>0` ⇒ Anthropic 接入」的正例。
 
-WSL 2026-07-31 分窗判决（`code/analyze.py ~/.claude/projects 2026-07-31 20:00 20:40`，仅 `cr>0` 行参与误判统计）：
+WSL 2026-07-31 分窗判决（`code/analyze.py ~/.claude/projects 2026-07-31 20:00 20:40`——命令参数为 UTC+8 时刻，即 2026-07-31 20:00+08:00 与 20:40+08:00，脚本按本机时区分窗；仅 `cr>0` 行参与误判统计）：
 
 ```text
 deepseek-v4-flash {n=4941, cc==0=4941, input<cache_read=4351, input>=cache_read=326}
@@ -44,6 +44,7 @@ OpenAI 窗减法结果非负且合理：`inp - cache_read` 得 119–776 的新�
 2. **现有守卫 `inp >= cache_read` 在已知协议窗口的真实混合数据上零误判**：Anthropic 互斥窗 4034 行全落 `inp<cr` 被正确拦下未减；OpenAI 含 cache 窗 135 行全落 `inp>=cr` 被正确减去。分流依据是 `input` 与 `cache_read` 的数值关系，而非模型名或 `cache_creation`。
 3. 该数值判别对 OpenAI 语义是**数学恒真**的（OpenAI `prompt_tokens >= cached_tokens` 定义保证，故 OpenAI 行必满足 `inp>=cr`，必被减，漏判率 ≈0）。残余风险仅在 Anthropic 互斥语义行出现 `inp>=cr`（新输入超过缓存命中）时会误减；本机 4034 行互斥样本中该情形 0 次，实测误判率 0%，但理论非恒 0。
 4. 限制：GAP 过渡期（20:00–20:40）new-api 上游正在切换，两种签名混出（191 SUB / 317 KEEP），无正确基准，不计误判。结论基于 deepseek-v4-flash 单日单模型；v4-pro 主体亦呈 `inp>=cr`（OpenAI 语义）被正确减。
+    findings 已记 d004
 
 ## 是否采纳
 

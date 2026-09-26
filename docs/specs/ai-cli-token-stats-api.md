@@ -2,7 +2,7 @@
 
 > 验证方式：API。拆自 ai-cli-token-stats（t037）。
 
-本地 AI CLI Token 统计的数据采集层：只读读取 Claude Code / OpenCode / Kimi Code 本地文件，按天按模型聚合后落入复用的 `usage.db`（`token_stats_*` 表），并通过 LocalAPI HTTP 端点对外提供查询。不含子进程 fork / IPC / 窗口（见 `-desktop`），不含 React 组件（见 `-ui`）。
+本地 AI CLI Token 统计的数据采集层：只读读取 Claude Code / OpenCode / Kimi Code 本地文件，按天按模型聚合后落入复用的 `observations.sqlite`（`token_stats_*` 表，与 observation store 同库，`get_token_stats_db_path` 别名同一路径），并通过 LocalAPI HTTP 端点对外提供查询。不含子进程 fork / IPC / 窗口（见 `-desktop`），不含 React 组件（见 `-ui`）。
 
 ## 1. 定位
 
@@ -37,7 +37,7 @@
 
 **Session JSONL**：`type: "assistant"` 的记录含 `message.usage`（逐次调用精确用量）。
 
-**去重策略**：同 `(timestamp, input_tokens, output_tokens)` 的多条记录来自 streaming 中间快照。去重键用 `(timestamp, input_tokens, output_tokens, cache_read_input_tokens)`，冲突概率更低。同键多条取最后一条。**Spike 0.8 需验证哪种策略更接近真实数据**。
+**去重策略**：同 `(timestamp, input_tokens, output_tokens)` 的多条记录来自 streaming 中间快照。去重键用 `(timestamp, input_tokens, output_tokens, cache_read_input_tokens)`，冲突概率更低。同键多条取最后一条。
 
 **字段完整性**：约 80% 的 costs.jsonl 行缺 `cache_*` 和 `transcript_path` 字段。
 
@@ -100,7 +100,7 @@ src/main/core/token-stats/
 ├── kimi-reader.ts         # Kimi Code wire.jsonl + session_index 读取
 ├── grok-reader.ts         # Grok updates.jsonl 读取（双源：WSL UNC + 本机平台源，t426/t437）
 ├── win-home-discovery.ts  # WSL/Linux 宿主 Windows 用户目录自动发现（t438，注入式纯逻辑）
-├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 usage.db）
+├── token-stats-store.ts   # token_stats_* 表建表 + 读写（复用 observations.sqlite）
 └── manager.ts             # 主进程侧：fork / 生命周期 / IPC 接收（见 -desktop）
 ```
 
@@ -146,7 +146,7 @@ interface TokenStatsConfig {
 
 ### 6.1 新建 SQLite 表
 
-复用现有 `usage.db` 文件路径，新建独立 `token-stats-store.ts` 模块管理建表和读写，不侵入 `observation-store.ts`。
+复用现有 `observations.sqlite` 文件路径（`get_token_stats_db_path` 返回同一文件），新建独立 `token-stats-store.ts` 模块管理建表和读写，不侵入 `observation-store.ts`。
 
 ```sql
 -- 按天按模型的 token 聚合（趋势图数据源；由 daily 表派生重建）
@@ -299,7 +299,7 @@ collector 启动时会做 full rescan，wipe 后自然重建。
 - **单次窗口读取（t201）**：dashboard 把当前窗口物化一次为 `TEMP TABLE window_rows`（rollup 就绪 = 中段聚合表 UNION ALL 边界 records；未就绪 = 整窗 records），metric_buckets / session_buckets / heatmap / rollup 各展示区域从该临时表派生，previous 窗口独立二次物化（只喂 summary delta）；per-session 元数据用单一窗口级 latest-per-group `session_meta` 查询取齐，替代每 session 相关子查询。records/rollup 双轨统一为单一 window source。
 - **模型筛选（t204）**：dashboard / dashboard/sessions 查询 schema 增可选 `model`；store 的窗口物化（union 两侧 `AND model=@model`）、records fallback、`build_dashboard_conditions`、heatmap/range_rollup/sessions 聚合全部按 `model` 过滤；local-api 与 IPC 透传。模型下拉选项须取**全窗口**（agent/platform/range，不含 model）distinct model——单独物化 `TEMP TABLE window_models`（从 records 按 agent/platform/range 查 `SELECT DISTINCT model`），与 window_rows 解耦，避免选中模型后下拉坍缩。
 - **data version**：`upsert_records` 事务内对每成功提交批次 `version + 1`（sessions/daily 不推进——records 是 dashboard 数据源）。失败/回滚整批回退不推进；空批次不推进。dashboard DTO 的 `data_version` 字段与 `TOKEN_STATS_UPDATED` 更新事件携带同一已提交版本。
-- **freshness.stale（t201）**：查询开始/结束各读一次 `data_version`，`stale = end_version > start_version`（聚合期间有已提交新批次）；返回 `data_version` 用结束版本，renderer 按下述 AC4 语义 mark_stale + revalidate。
+- **freshness.stale（t201）**：查询开始/结束各读一次 `data_version`，`stale = end_version > start_version`（聚合期间有已提交新批次）；返回 `data_version` 用结束版本，renderer 按 t192 的 AC-004 语义 mark_stale + revalidate。
 - **renderer 缓存失效**：TokenStatsView 记录最近一次已见版本（`last_data_version`），事件版本 ≤ 该值时缓存仍有效直接复用；更新版本触发 `mark_stale` + 静默 revalidate。查询竞态沿用 request_id guard，旧响应不覆盖新数据。web 构建无推送通道，事件版本传 0（视为新数据，轮询刷新照常）。
 - **回填与重建**：manager.start 后 `setImmediate` 后台全量回填，完成前置 `hour_rollup_ready`；回填前 dashboard 走 records 路径。`backfill_hour_rollup` 幂等（DELETE 全表 + 重建），中断重跑收敛同表；聚合损坏/版本不兼容时重跑即可恢复，records 不受影响。
 
@@ -338,7 +338,7 @@ interface TokenStatsUpdate {
 
 - **执行端**：`query-worker.js`（electron-vite 多入口，asarUnpack 后 `resolve_worker_path` 从 `app.asar.unpacked` 定位）。打开 `{ readonly: true }` 的 WAL 连接读已提交数据，写事务进行中读快照不阻塞；聚合表损坏时由 manager 后台回填恢复，worker 只读不受影响。
 - **调度**：`query-dispatcher` 持单 worker；并发上限 1 active + 1 queued（超上限的旧请求以受控 superseded 错误拒绝），单请求 10s 超时，崩溃后 `restart_delay` 受控重启（间隙内新请求即时 spawn 且 restart timer 不再双 fork），`stop()` 先发 `close` 释放只读连接再 `kill`。
-- **契约不变**：错误映射、data version 与隔离前一致（见 §7）；worker 只接收 `db_path` + 已校验 query + status 快照，不获得 vault/connector secret 或任意文件访问（AC7）。
+- **契约不变**：错误映射、data version 与隔离前一致（见 §7）；worker 只接收 `db_path` + 已校验 query + status 快照，不获得 vault/connector secret 或任意文件访问（t193 的 AC-007）。
 
 ### 6.6 AgentSessionUsage 类型
 
@@ -378,9 +378,9 @@ interface TokenStatsUpdate {
 
 |文件|改动|Task|
 |---|---|---|
-|`scripts/token-stats-spike.ts`|新建：Phase 0 验证脚本（一次性）|0|
+|`scripts/token-stats-spike.ts`|新建：数据源可行性验证 spike 脚本（一次性）|—|
 |`src/shared/types/token-stats.ts`|新建：共享类型 + Zod schema（含 `AgentSessionUsage` / `TokenStatsDailyUpsert`）|1.1|
-|`src/main/core/token-stats/token-stats-store.ts`|新建：token*stats*\* 表建表 + 读写（复用 usage.db），含 user_version v2/v3 迁移|1.2|
+|`src/main/core/token-stats/token-stats-store.ts`|新建：token*stats*\* 表建表 + 读写（复用 observations.sqlite），含 user_version v2/v3 迁移|1.2|
 |`src/main/core/token-stats/claude-reader.ts`|新建：costs.jsonl + session JSONL 解析|2.1, 2.2|
 |`src/main/core/token-stats/opencode-reader.ts`|新建：opencode.db 只读查询|3.1|
 |`src/main/core/token-stats/kimi-reader.ts`|新建：Kimi Code wire.jsonl + session_index 解析|3.2|
@@ -411,56 +411,12 @@ UI 层、桌面层的「不做」分别见 `-ui` 与 `-desktop`。
 
 ## 11. 实施顺序
 
-### Phase 0: Spike — 数据源可行性验证（必须先做，不可行则停止）
-
-**目标**：用真实数据验证两个数据源的字段完整性、可用性、Win/WSL 路径可达性。**不可行则立即向用户报告**，不做后续 Phase。
-
-**验证项**：
-
-|#|验证|通过标准|不可行时的报告内容|
-|---|---|---|---|
-|0.1|Win costs.jsonl 可读、JSONL 解析成功|至少 1 行含 `session_id` + `model` + `input_tokens` + `output_tokens`|文件不存在 / 格式不符 / 字段缺失|
-|0.2|Win costs.jsonl session 聚合|按 `session_id` 分组后，取最后一条，至少 1 个非 default session 含非零 token|全部为 default/unknown 零值记录|
-|0.3|Win session JSONL 可读|至少 1 个 `*.jsonl` 文件含 `type: "assistant"` + `message.usage` 记录|目录为空 / 格式不符 / 无 usage 字段|
-|0.4|Win opencode.db 只读打开|`new Database(path, { readonly: true })` 成功，`SELECT COUNT(*) FROM session` 返回 > 0|文件不存在 / 版本不兼容 / 表结构不符|
-|0.5|Win opencode.db session 字段|查询 `id, json_extract(model,'$.id'), tokens_input, tokens_output, title, time_created`，至少 1 行有效|model JSON 结构不符预期 / tokens 全为 0|
-|0.6|WSL UNC 路径可达|`\\wsl.localhost\Ubuntu-22.04\home\testuser\.claude\metrics\costs.jsonl` 可 `fs.access`|WSL 未运行 / UNC 路径不可达 / 权限不足|
-|0.7|WSL opencode.db 只读查询|同 0.4/0.5，路径为 UNC|同上|
-|0.8|Claude Code session JSONL 去重|按 `(timestamp, input_tokens, output_tokens)` 去重后，数据量合理（非爆炸式重复）|去重率 < 10%（说明字段组合不唯一）|
-
-**执行方式**：写一个独立 spike 脚本 `scripts/token-stats-spike.ts`（`npx tsx` 运行），不做 UI、不做子进程、不做表。只读源文件、打印关键字段、输出统计摘要。输出示例：
-
-```
-=== Claude Code (Win) ===
-costs.jsonl: 2847 行, 45 个 session (去 default), 模型: [claude-sonnet-4, deepseek-v4-pro, ...]
-session JSONL: 12 个文件, 380 条 assistant 记录, 去重后 320 条
-
-=== OpenCode (Win) ===
-session 表: 13 行, 模型: [deepseek-v4-pro, claude-sonnet-4], tokens_input 总计: 1,234,567
-
-=== WSL ===
-UNC 路径可达: ✓ / ✗
-costs.jsonl: ...行
-opencode.db: ...行
-
-=== 结论 ===
-可行性: ✓ / ✗
-阻塞问题: (无 / 列出)
-```
-
-**阻塞判定**：任一核心项（0.1-0.5）不通过 → 立即向用户报告，附 spike 脚本输出，暂停后续 Phase。
-
-**Spike 额外验证**（非阻塞，记录发现即可）：
-
-- 0.9 costs.jsonl 行序是否严格按 timestamp 单调递加（验证 `max_by` vs `last` 的必要性）
-- 0.10 Session JSONL 去重键对比：`(timestamp, input_tokens, output_tokens)` vs 加 `cache_read_input_tokens` vs 加 `model`，统计冲突率
-
 ### Phase 1: 数据层
 
 |Task|Commit 前缀|内容|前置|
 |---|---|---|---|
 |1.1|`feat(token-stats): add shared types`|`src/shared/types/token-stats.ts` — `TokenStatsBucket`、`TokenStatsSession`、`TokenStatsUpdate`、`IncrementalState`、`TokenStatsConfig` 接口 + Zod schema|—|
-|1.2|`feat(token-stats): add token stats store`|`src/main/core/token-stats/token-stats-store.ts` — 独立模块，复用 `usage.db` 路径，`CREATE TABLE IF NOT EXISTS` 建表 + `INSERT OR REPLACE` / 查询方法。不侵入 `observation-store.ts`|1.1|
+|1.2|`feat(token-stats): add token stats store`|`src/main/core/token-stats/token-stats-store.ts` — 独立模块，复用 `observations.sqlite` 路径，`CREATE TABLE IF NOT EXISTS` 建表 + `INSERT OR REPLACE` / 查询方法。不侵入 `observation-store.ts`|1.1|
 
 ### Phase 2: Claude Code reader
 
@@ -495,6 +451,8 @@ Task 4.3（manager）见 `-desktop`。
 ```
 
 ## 12. 后续可扩展（数据采集层）
+
+> 本节为未来范围，非当前契约；目标范围与验收待定。
 
 - Grok Build token 统计（待本地数据可靠后）
 - 小时粒度聚合

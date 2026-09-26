@@ -1,4 +1,4 @@
-# Spike report
+# s021 main_unblock spike report
 
 ## 问题
 
@@ -25,6 +25,7 @@ spec t256 两项 UNVERIFIED-SPIKE：(1) 摘要/定位链路改异步后 watcher�
 
 - **SPIKE 1（异步化安全）**：summaries 任务体改 `await setImmediate` 让出事件循环（每个任务读前让出），缓存读写仍同步原子，无竞态。IPC handler 的 resolve 循环本身快（命中持久索引），摘要 fs 读让出后主进程不再长阻塞。
 - **SPIKE 2（分批让路安全）**：collector 回填改分批 setImmediate（每批 ≤ 某行数），每批独立 tx + 全量重建 buckets 语义不变，批次间让出事件循环供查询响应。最终数据与现状一致（每批重建是幂等全量）。
+- 结论由 t256 内消化，不入 findings
 
 ## 是否采纳
 

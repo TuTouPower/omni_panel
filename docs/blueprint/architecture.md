@@ -1,6 +1,6 @@
 # OmniPanel 架构
 
-本文是**技术栈、目录结构、模块划分、数据流、跨模块契约的唯一真相源**。命名/编码风格见 `conventions.md`；业务不变量与术语见 `domain.md`；测试见 `test.md`。
+本文是**技术栈、目录结构、模块划分、数据流、跨模块契约的唯一真相源**。命名/编码风格见 `conventions.md`；业务不变量与术语见 `domain.md`；测试见 `testing.md`。
 
 ## 1. 技术栈
 
@@ -12,10 +12,10 @@
 |打包|**electron-builder 26**|Windows/macOS/Linux；连接器目录随 `extraResource` 进 `resources/connectors`|
 |UI|**React 19** + **Tailwind CSS 4** + lucide-react + clsx/tailwind-merge|渲染进程|
 |校验|**Zod 4**（v3 兼容 API）|manifest / observation / config / plugin-output 四处运行时 schema|
-|观测存储|**better-sqlite3 12**|同步 API，WAL 模式，单文件 `usage.db`|
+|观测存储|**better-sqlite3 12**|同步 API，WAL 模式，单文件 `observations.sqlite`|
 |HTTP|**undici 8**|宿主统一出口 NetClient，ProxyAgent 支持代理|
-|连接器脚本编译|**TypeScript `transpileModule`**|非 esbuild（package.json 中 esbuild 为 electron-vite 传递依赖）；无 SHA-256 缓存|
-|测试|Vitest 3 + Playwright + jsdom + Testing Library|见 `test.md`|
+|连接器脚本编译|**TypeScript `transpileModule`**|非 esbuild（package.json 中 esbuild 为 electron-vite 传递依赖）；无 SHA-256 编译缓存|
+|测试|Vitest 3 + Playwright + jsdom + Testing Library|见 `testing.md`|
 |质量门|eslint 9 / prettier / knip（deadcode）/ dependency-cruiser（arch）|`pnpm check` 聚合|
 
 ## 2. 目录结构
@@ -25,14 +25,15 @@ src/
 ├── main/                          # 主进程（唯一持有密钥/文件/网络/会话）
 │   ├── index.ts                   # 应用引导：窗口/托盘/IPC 注册/生命周期
 │   ├── core/
-│   │   ├── connector/             # 连接器运行时（见 specs/connector-runtime.md）
+│   │   ├── connector/             # 连接器运行时（见 docs/specs/connector-runtime.md）
 │   │   │   ├── runtime.ts         #   node:vm 沙箱 + transpileModule 编译
+│   │   │   ├── script-cache.ts    #   脚本 mtime 缓存（t195）
 │   │   │   ├── manifest-loader.ts #   discover + zod 校验 manifest
 │   │   │   ├── net-client.ts      #   undici HTTP 出口 + ctx 构造 + auth 注入
 │   │   │   ├── host-io.ts         #   ConnectorContext 契约
 │   │   │   ├── tier1-poll-executor.ts  # 声明式 poll 执行
 │   │   │   └── probe-executor.ts  #   observe.probe 执行
-│   │   ├── scheduler/             # 调度（见 specs/scheduler.md）
+│   │   ├── scheduler/             # 调度（见 docs/specs/scheduler.md）
 │   │   │   ├── connector-scheduler.ts     # per-instance setTimeout 引擎
 │   │   │   ├── scheduler-orchestrator.ts  # startAll/rebuild/suspend/resume/shutdown
 │   │   │   ├── refresh-service.ts         # 单次刷新：锁/并发/执行/写库/映射；脚本读取走 script-cache（mtime 缓存 readFile+transpile，t195）
@@ -40,13 +41,12 @@ src/
 │   │   │   ├── observation-mapping.ts     # Observation → MetricRecord
 │   │   │   ├── endpoint-resolver.ts       # 子进程 env 路径解析
 │   │   │   └── types.ts                   # 调度器内部类型定义
-│   │   ├── observation/observation-store.ts  # SQLite（见 specs/observation-store.md）
-│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 双源：Windows WSL UNC + Linux/mac 本机平台源，t426/t437）；env 枚举 `win|wsl|linux|mac`（t437 废除 t308 的 `local`，按数据所在平台标注），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 linux/mac 源、win_home 只服务 win 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records；手动刷新（t434）经 `manager.force_collect()` 重发 config 消息触发一轮 collect 并以 `poll_interval_ms` 重置自动采集计时；linux 宿主经 `win-home-discovery.ts` 自动发现 `/mnt/c/Users/<u>` 作 `win_home_wsl` 采 Windows 侧五源为 env=win（t438，与 Windows 宿主采 wsl 对称；发现失败 win 源 unavailable，失败结果按轮负缓存重探自愈）
+│   │   ├── observation/observation-store.ts  # SQLite（见 docs/specs/observation-store.md）
+│   │   ├── token-stats/           # collector utilityProcess + readers + store（见 docs/specs/ai-cli-token-stats-*.md；reader 含 claude/opencode/kimi/grok，grok 双源：Windows WSL UNC + Linux/mac 本机平台源，t426/t437）；env 枚举 `win|wsl|linux|mac`（t437 废除 t308 的 `local`，按数据所在平台标注），路径解析收敛到平台感知层 `paths.ts`（`(host, env, cfg) -> path|null`，host 由 process.platform 映射，homedir 只服务 linux/mac 源、win_home 只服务 win 源）；源清单声明式（SourceDef.hosts 按 host 过滤，t309），每轮采集产出源级状态 `{source,env,status:ok|unavailable|failed,lastError?}` 经 `TokenStatsUpdate.sources_status` 同步到主进程与面板（t309）；collector 扫描状态（mtime + session facts，丢弃 records）持久化到 `data/token-stats-scan-state.json`，重启增量恢复（t114）；serde 抽到 `scan-state.ts`（t117），collector 薄 wrapper 保持测试透明；store 暴露有界 SQL 聚合（hour buckets / heatmap / window rollup），24h preset 的 KPI/donut/项目/会话轴走 rollup 而非受 LIMIT 截断的 records；手动刷新（t434）经 `manager.force_collect()` 重发 config 消息触发一轮 collect 并以 `poll_interval_ms` 重置自动采集计时；linux 宿主经 `win-home-discovery.ts` 自动发现 `/mnt/c/Users/<u>` 作 `win_home_wsl` 采 Windows 侧五源为 env=win（t438，与 Windows 宿主采 wsl 对称；发现失败 win 源 unavailable，失败结果按轮负缓存重探自愈）
 │   │   ├── config/                # config-store（内存缓存 + save 唯一写入口，t195）/ secrets-store / auto-seed / types
 │   │   ├── dev-panel/             # t481：只读 Git discovery/log 聚合与单飞扫描状态
 │   │   ├── storage/               # write-json（原子写 JSON）
 │   │   ├── vault/                 # file-vault-backend（内存镜像，t195）+ VaultBackend 接口
-│   │   ├── connector/             # script-cache（脚本 mtime 缓存，t195）+ runtime/net-client/manifest-loader
 │   │   ├── session/session-manager.ts        # 登录窗 + cookie/Bearer/refresh token 捕获
 │   │   ├── local-api/server.ts    # 0.0.0.0 local-api，仅 /v1/ingest 需 Bearer，其余 web 路由在可信 LAN 下免认证
 │   │   ├── cli/                   # CLI 模式（t275）：argv 解析 + --config 导入 + cli.json 实例发现
@@ -60,8 +60,8 @@ src/
 │   │   ├── auth/oauth_helpers.ts               # OAuth 共享常量、类型与纯函数（Layer 1）
 │   │   ├── network/effective_proxy.ts           # configured/detected proxy 运行时合并
 │   │   ├── logging.ts / paths.ts / settings-close-action.ts
-│   ├── ipc/                       # 按域拆的 IPC handler（见 specs/ipc-api.md + ipc-electron.md）
-│   └── window/window-manager.ts   # 窗口目录 + 工厂（见 specs/window-management.md）
+│   ├── ipc/                       # 按域拆的 IPC handler（见 docs/specs/ipc-api.md + docs/specs/ipc-electron.md）
+│   └── window/window-manager.ts   # 窗口目录 + 工厂（见 docs/specs/window-management.md）
 ├── preload/                       # contextBridge 白名单 + route capability 策略
 │   ├── index.ts                   # contextBridge 暴露 + route-based 分权
 │   ├── api_factory.ts             # 数据驱动能力矩阵装配工厂 (t511)
@@ -86,9 +86,9 @@ tests/                             # unit / integration / e2e(specs/packaged) / 
 
 ## 3. 进程与安全边界
 
-CLI 模式（`--cli serve`，t275）是同一 Electron 进程的启动分支：跳过全部窗口/托盘创建，仅起 configStore/vault/observationStore/scheduler/refreshService/local-api 服务，stdout 打印面板 URL 并把实例发现信息（端口、URL、pid）写入 `<dataRoot>/cli.json` 供瘦客户端读取。`--config <path>` 在启动时把文件内容覆盖写入规范 config.json（走 `.bak` 原子写与 zod 校验），明文 secret 转存 vault，落盘配置只保留非 secret 参数。CLI 启动失败（含导入失败）向 stderr 写可读错误后非零退出，不弹 GUI 对话框。
+CLI 模式（`serve`，t275；`--cli` 开关已移除，残留前缀仍被参数解析容忍）是同一 Electron 进程的启动分支：跳过全部窗口/托盘创建，仅起 configStore/vault/observationStore/scheduler/refreshService/local-api 服务，stdout 打印面板 URL 并把实例发现信息（端口、URL、pid）写入 `<dataRoot>/cli.json` 供瘦客户端读取。`--config <path>` 在启动时把文件内容覆盖写入规范 config.json（走 `.bak` 原子写与 zod 校验），明文 secret 转存 vault，落盘配置只保留非 secret 参数。CLI 启动失败（含导入失败）向 stderr 写可读错误后非零退出，不弹 GUI 对话框。
 
-CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli open|refresh-all|pause|resume|restart|quit|autostart`）：跳过单实例锁（否则与 serve 同 userData 时自锁无法连接），whenReady 早期读 `<dataRoot>/cli.json`（或 `--port` 覆盖）经 local-api 控制端点作用于运行中实例后 `app.exit`。控制端点组 `/v1/control/*`（POST，免认证）复用 main 侧 refreshService/orchestrator/app 能力，与 tray 纯 main 动作同一状态面；`restart` 用 `app.relaunch()` 保持原 argv（含 `--cli serve --port --user-data-dir`）重启。
+CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`open|refresh-all|pause|resume|restart|quit|autostart`）：跳过单实例锁（否则与 serve 同 userData 时自锁无法连接），whenReady 早期读 `<dataRoot>/cli.json`（或 `--port` 覆盖）经 local-api 控制端点作用于运行中实例后 `app.exit`。控制端点组 `/v1/control/*`（POST，免认证）复用 main 侧 refreshService/orchestrator/app 能力，与 tray 纯 main 动作同一状态面；`restart` 用 `app.relaunch()` 保持原 argv（含 `serve --port --user-data-dir`）重启。
 
 |边界|规则|
 |---|---|
@@ -96,7 +96,7 @@ CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`--cli op
 |Connector 隔离与完整性 (t515/t524)|生产与打包环境统一运行于 Electron utilityProcess 隔离子进程，优先通过 app.asar.unpacked 读取构建后 connector-worker.js，纯 Node 单测环境回退至 child_process.fork；隔离进程崩溃、OOM、死循环不拖垮主进程；内置连接器加载前逐一比对 SHA-256 完整性清单，篡改即拒绝并告警；默认禁止加载未受信的用户外部目录连接器；参数与结果经结构化 IPC 传输|
 |主进程|唯一持有密钥明文、文件系统、网络、浏览器会话|
 |IPC sender|`assert_valid_sender` 按 URL 协议白名单校验（`file://` 或 dev renderer URL），**不依赖 NODE_ENV**|
-|LocalAPI（R7 信任模型）|绑 `0.0.0.0:18263`；定位于可信 LAN（局域网）环境，除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制路由免认证直连（见 `specs/web-panel.md`）|
+|LocalAPI（R7 信任模型）|绑 `0.0.0.0:17863`；定位于可信 LAN（局域网）环境，除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制路由免认证直连（见 `docs/specs/web-panel.md`）|
 |Vault 存储模型（R8 声明）|自管 AES-256-GCM Vault，主密钥 `vault.key` 与密文同目录存放。安全边界依赖 OS 文件级权限保护（`chmod 0600`/ACL），不使用系统钥匙串|
 |会话 Cookie（R10 声明）|网页登录连接器会话 Cookie 采用明文持久化（`enableCookieEncryption: false`），规避各系统钥匙串交互弹窗与登录态失效，信任同机用户文件隔离|
 |SSRF|NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）|
@@ -201,7 +201,7 @@ open_or_focus（重开）   → show_panel()
 
 ### 4.5 会话历史窗口（t211；t224 起为槽位模型）
 
-route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceView`，见 `specs/workspace.md`），下述 t211 决策为被取代前 6 栏平铺的能力来源：消息渲染/推送/分页/选择/复制语义仍生效，宿主迁至 `WorkspaceView` 的 `HistoryColumn`。
+route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceView`，见 `docs/specs/workspace.md`），下述 t211 决策为被取代前 6 栏平铺的能力来源：消息渲染/推送/分页/选择/复制语义仍生效，宿主迁至 `WorkspaceView` 的 `HistoryColumn`。
 
 - **打开与定位**：明细表（t212）/ onFocus 事件经 `SESSION_HISTORY_OPEN` 打开窗口；renderer 读 URL `loc` query 或收 `SESSION_HISTORY_FOCUS` 定位。t224 起定位装入工作台槽位（`open_session`：已开聚焦、槽满 toast 拒绝）。
 
@@ -209,7 +209,7 @@ route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceV
 
 - **超 6 处理（决策 4）**：打开第 7 个弹模态框列出现有 6 个会话（agent + 标题 + 打开时间），用户至少关 1 个才入栏，可取消。容量检查用同步 `opened_count_ref`（React 19 批处理下 render-fresh ref 在批量 open 循环内会 stale，超 6 直接挂载）。
 
-- **消息选择（决策 8，t226 起为摘选系统）**：选择 store 跨页签共享（`specs/workspace.md`「摘选系统」），Shift 连选/Space 选中 hover 消息、底部托盘三格式复制、顶栏计数徽标；旧 `build_copy_markdown` 单一 Markdown 复制已删。
+- **消息选择（决策 8，t226 起为摘选系统）**：选择 store 跨页签共享（`docs/specs/workspace.md`「摘选系统」），Shift 连选/Space 选中 hover 消息、底部托盘三格式复制、顶栏计数徽标；旧 `build_copy_markdown` 单一 Markdown 复制已删。
 
 - **消息渲染（决策 11）**：纯文本 + `<pre>` 保留换行缩进，零新依赖；时间戳显示到分钟、悬停完整时间。
 
@@ -225,11 +225,11 @@ route `history` 单窗口。t224 把工作台改为 8 槽位模型（`WorkspaceV
 
 ### 4.6 会话窗口外壳与工作台（t223/t224）
 
-route `history`/`session` 渲染根组件为 `SessionShell`（见 `specs/session-shell.md`）。P6：默认会话库 + 同屏查看；顶栏无工作台/会话库页签；外部 open/focus 进入同屏。
+route `history`/`session` 渲染根组件为 `SessionShell`（见 `docs/specs/session-shell.md`）。P6：默认会话库 + 同屏查看；顶栏无工作台/会话库页签；外部 open/focus 进入同屏。
 
 - **槽位模型**：8 槽纯函数 store（`src/renderer/lib/workspace/slots.ts`），组件内「state + 同步 ref」双维护（t211 同款批处理 stale 坑）。打开入口（onFocus/URL loc/picker/recent）统一走 `open_session` 装入；同 loc 查重防双槽、槽满 toast 拒绝、`confirm_recent` 替换前退订旧槽防 watcher 泄漏。
 - **布局**：`effective_columns(layout, width)` 按 `MIN_COLUMN_WIDTH=375` 降档，`cols = min(effective_columns, 占用数)` 写 `.slot-grid --cols`；工具条保留「最近会话」「清空」「视图」，会话排布通过「视图」菜单选择。
-- **设计系统**：demo 语义色 token（canvas/panel/raised/inset、subtle/strong 边框、primary/secondary/muted 文本、lime 强调、danger）作用域限定 `.session-shell`，暗色默认，`html[data-theme="light"] .session-shell` 覆盖浅色；内部桥接旧 token 名（`--win-bg/--text/--card-bg/--accent/--bg-hover/--border` 等）让会话历史样式直接继承 demo 视觉；agent 识别色 `--agent-{claude,grok,opencode,kimi,codex,cursor,aider}` 明暗两套。字体走系统等价回退，零新增资产。
+- **设计系统**：会话窗口与其它窗口共用全局设计 token 与 `components/ui` 组件（`PanelTitleBar`、`Toast` 等）；t223 期的 `.session-shell` 作用域 demo 色板与 `--win-bg` 等旧 token 桥接已删除（见 `DESIGN.md`「Tailwind 架构」）。agent 识别色用全局 `--color-agent-{claude,grok,opencode,kimi,codex,commandcode}`（明暗成对，未知源回退 `primary`），消费映射在 `src/renderer/lib/workspace/slots.ts` 的 `AGENT_COLOR_VAR`。
 - **主题跟随全局**：`SessionShell` 调用共享 `useTheme()`，通过 `config.get` 与 `onThemeChange` 使用全局主题；首帧由 preload 的 `ou_theme` 参数设置。会话窗口不再维护 `omni_session_theme` 独立存储，也不提供独立主题切换按钮。
 - **会话库视图（t227，t248，t439）**：「会话库」页签由 `SessionLibrary`（`src/renderer/components/session-library/`）渲染：左侧边栏（`library-sidebar`，对齐 demo 顺序）顶部统计（`library-count` 当前 / 总量 条会话；统计加载中/失败分别标注加载中/总量未知）+ 网格/列表切换 → 排序分段（字段 时间/Token/轮次/标题 + 独立升降，点同字段切换方向，`order_by` 白名单含 `title` → `unicode_lower(COALESCE(title, ''))`）→ 搜索（图标输入 + 清除 X +「包含消息内容」开关并集正文搜索，后端候选筛选分页、序号守卫防迟到覆盖）→ 标题独立筛选 +「添加目录」chips（`DirectoryChipsFilter`：回车添加、去重、末级名 + X 移除，走 `directories[]` 精确匹配 OR；分页与正文搜索透传，计入重置条件；`filter_sessions` 客户端同口径补过滤）→ 时间预设分段 + 日历弹层（自定义生效后为主色胶囊：区间 + 重选 + 清除）→ agent logo 行多选（纯 logo 方块，未选中半透明、选中 accent 色边，无数量角标/「全部」按钮）→ Token 数/轮次数轴区间（双滑杆：灰底轨道 + 区间主色填充段，常显区间值、上限端带「+」，拖到端点回传 undefined；上限取 `session_stats.max_tokens/max_calls`，300ms 防抖提交后端参数；内容搜索命中集走 `filter_sessions` 客户端补过滤）→「同屏最近 2/4/6/8」内联行（按 ended_at desc 拉取后 clear→逐个 open→切工作台，替换语义）→ 底部「N 个条件生效」+ 重置（0 条件禁用）；网格按内容区宽度自适应，一行最多 5 列（最小列宽 280px，窄于单列时允许收缩）；卡片对齐 demo 三行结构：行1 徽标 + 时间区间 + 悬停勾选框（已选常显），行2 目录末级名 · tokens · N 轮 · IdChip（点击复制完整 session id，短显 8 位），行3 末条 user 摘要（`summaries` mode=last），无标题行、无续接命令复制；主区为网格/列表、加载更多分页、预览抽屉（前 5 条）、SelectionBar（已选 n 条 / 全选结果 / 清空 / 同屏查看 →）进入 `CompareView`；单独打开与同屏最近亦进入同屏查看（P6，不再装工作台槽位）。筛选/排序为纯函数 `lib/session-library/filter.ts`；勾选身份用 `source|env|id` 主键；首条用户消息摘要与内容搜索经 session-history 批量接口读源文件消息（只读）。
 - **会话库查询路径（t227，t248）**：main 侧 `query_session_stats` 独立聚合全量会话数、Agent 数、tokens、最大总 tokens / 最大轮次（`max_tokens`/`max_calls`，会话库数轴筛选的上限）与 source 计数；`query_sessions` 按 `sources[]`/`search`/`directory`（子串）/`directories[]`（精确匹配 OR，IPC/HTTP 共用校验：≤32 个非空串、每项 ≤1024 字符，非法 `INVALID_DIRECTORIES`（HTTP 400；空查询项仍忽略））/`start_at`/`end_at`/`min_tokens`/`max_tokens`/`min_calls`/`max_calls`（tokens/轮次区间，含边界）/`order_by`/`direction` 做白名单 SQL 过滤与分页，renderer 只持有当前已加载页；IPC 侧校验区间边界为非负整数，非法返回 `INVALID_RANGE`。内容搜索合并后端元信息命中与正文命中，摘要只请求当前可见会话。
@@ -237,16 +237,16 @@ route `history`/`session` 渲染根组件为 `SessionShell`（见 `specs/session
 
 ## 5. 跨模块契约
 
-- **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `specs/observation-store.md`。
+- **观测契约**：脚本产出 `script_observation_schema`（snake_case，无 `source_instance_id`）；宿主 extend 出 `observation_schema`。字段语义见 `docs/specs/observation-store.md`。
 - **instance identity 归宿主**：脚本运行时发现 account/metric，但不知自己在哪个实例下；`source_instance_id` 只由 `refresh-service` 盖，防同 provider 多实例在下游 collapse。
 - **重新登录按 instanceId 路由（t158）**：401/认证错误触发的「重新登录」入口（overview banner + 每行）必须把 `instanceId` 透传到 `settings.open({ instanceId })`——多账号场景下不能用 `activeProviders.includes(provider)` 模糊匹配第一个 connector，否则会打开错账号。`AccountError.sourceInstanceId` / `ProviderError.instanceIds` 字段须贯穿到 renderer 链路。
 - **采集失败区分凭证失效（t172）**：账号行「重新登录」按钮只对凭证失效类错误显示（`is_auth_error` 唯一口径在 `src/shared/lib/auth-error.ts`，renderer 与 refresh-service 共用）；OAuth(poll) 连接器（`auth.method = oauth_device`）采集因 auth 错误失败时，`refresh-service` 经 `oauth_refresh` deps 对该实例即时 `refresh_now` 一次，成功则重试采集（补一次尝试预算），失败则维持现有 stale 标记；每轮至多一次即时刷新，与定时自动刷新并发安全。
 - **vault 命名空间**：`keyFor(instanceId, name) = ${instanceId}:${name}`，`secrets-store` / `session-manager` / `net-client` 均经此，不内联拼接。
 - **endpoint 解析优先级**：用户 `endpointOverrides` > manifest `endpoints`；`requireExplicitEndpoints` 为真时无 override 即报错（CPA 用）。
 - **认证方式描述符**：manifest 可显式声明 `auth` 块（`method` + `secret_name` + 可选 `extra_fields`/`login_url`/`require_endpoint`）作为认证方式的唯一真相；渲染层通过 `src/renderer/lib/auth-flow-registry.ts` 的 `resolve_auth_method` 读取 descriptor，未声明时按 connector `source` 回退到 `session`/`local_cli`/`apikey`，不再硬编码厂商映射（t107/t108）。
-- **manifest catalog（t121）**：`connector:catalog` IPC 从已发现 manifest 出目录，**不读 `config.plugins` / `removedConnectorIds` / 密钥**；添加账号对话框优先按 catalog 解析 auth（`find_vendor` 两阶段：先 `manifest_id` 精确，再 `supported_providers`），保证墓碑内或无实例的 vendor 仍能渲染正确表单。详见 `specs/add-account-catalog.md`。
+- **manifest catalog（t121）**：`connector:catalog` IPC 从已发现 manifest 出目录，**不读 `config.plugins` / `removedConnectorIds` / 密钥**；添加账号对话框优先按 catalog 解析 auth（`find_vendor` 两阶段：先 `manifest_id` 精确，再 `supported_providers`），保证墓碑内或无实例的 vendor 仍能渲染正确表单。详见 `docs/specs/add-account-catalog.md`。
 - **添加账号落盘（t121）**：`config:createInstance` IPC 按 `manifest_id` 直接建实例（形状同 `auto_seed_connectors`：follow-global refresh、`manualDefault` → `manualRefreshOnly`、非 secret 默认参数），同时从 `removedConnectorIds` 仅清目标 id；`savePluginSettings` 合并而非替换 `parameterValues`，保留 manifest 默认参数。
-- **厂商子表单实现**：grok 与 kimi 的添加账号表单由 `OAuthDeviceForm` 实现 device-code 登录流程，表单按 `vendor` prop（"grok" | "kimi"）选用对应 `useGrokDeviceLogin` / `useKimiDeviceLogin` hook；opencode_go 的添加账号表单由 `WebLoginForm` 实现网页登录流程（t109/t112）。device-code 登录在 temp instance id 下完成；real instance 的 OAuth 三键持久化成功后才清理 temp namespace，清理异常必须传回调用方而不能标记添加成功。完整密钥白名单与流程见 `specs/connector-auth.md`（t159）。
+- **厂商子表单实现**：grok 与 kimi 的添加账号表单由 `OAuthDeviceForm` 实现 device-code 登录流程，表单按 `vendor` prop（"grok" | "kimi"）选用对应 `useGrokDeviceLogin` / `useKimiDeviceLogin` hook；opencode_go 的添加账号表单由 `WebLoginForm` 实现网页登录流程（t109/t112）。device-code 登录在 temp instance id 下完成；real instance 的 OAuth 三键持久化成功后才清理 temp namespace，清理异常必须传回调用方而不能标记添加成功。完整密钥白名单与流程见 `docs/specs/connector-auth.md`（t159）。
 - **web 认证链路（t278/t282）**：local-api 提供 grok/kimi OAuth 六端点（login_start / login_poll / status / logout / refresh）与 cookie 登录触发/状态组（`/v1/auth/cookieLogin`、`/v1/auth/cookieLogin/status`）；web bridge（`src/web/usageboard-web.ts`）与 preload 同步暴露，设置页 device-code 在页面内展示 URL+码并轮询。cookie 登录（**有 instance_id 的编辑路径**）为立即触发 + `cookieLoginStatus` 轮询，共享实现 `src/renderer/lib/cookie_login_poll.ts`（250ms 间隔 / 120s 超时 / 中文冲突与超时文案），由 `SettingsForm` 与 `WebLoginSection` 共用。cookie 捕获复用 session-manager 隔离 partition 的可见 BrowserWindow（CLI/桌面同代码路径），捕获成功后密钥落 vault、web 编辑路径重读 secrets 并刷新 connector；无 display 时在创建窗口前返回可读错误，设置页提供手动粘贴 Cookie 回退（与自动捕获共用 secrets 保存链路）。**t337 捕获后有效性探测**：session-manager 调宿主注入 `verify_cookie(cookie, login_url)`（fetch login_url，3xx 且 `Location` 为 `/workspace/<id>` 判定有效，10s 超时，对齐 opencode_go connector /auth 判定），失败返回 `saved:false, reason:"invalid_cookie"` 不落库，UI 显示「登录态无效」；web 编辑路径经 `startCookieLogin` 按 reason 区分文案。\*\*web 添加账号（无 instance_id）\*\*不能走 vault 状态端点（尚无配置实例）：仍用阻塞式 `session.login` 匿名捕获，UI 展示「登录期间请勿刷新；中断后手动粘贴 Cookie」降级指引 + 手动粘贴恢复；冲突/超时错误经 `format_cookie_login_error` 统一为中文。桌面版 cookie 登录仍走 `session.login`（含匿名返回 cookie、实例写 vault）。认证全流程日志脱敏（cookie/token 不落日志，开发期同样生效）。已知降级：web/headless 下无静默 cookie 续期，过期需重新登录或重新粘贴。
 - **web 实时推送（t279/t414）**：SSE 通道（`GET /v1/events`）承载 runtimeStore state、`config`、`theme` 与会话历史 `messagesUpdated`。**t414：每 web 页一条 EventSource**（`?connectionId=`，UUID），多会话经同一连接登记；不再每会话开专属流（旧 `?subscriberId=` 仍兼容）。bridge 在连接 `open`/重连后对仍打开的会话 POST `/v1/sessionHistory/subscribe`（body 含 `connection_id` + `subscriber_id`，同 id 幂等只换 on_update），服务端把 watcher 增量只推给持有该订阅的连接；`unsubscribe` 不关共享流；连接关闭时 cleanup 清该连接上全部会话订阅（映射/client 双身份校验，防重连竞态误删）。注册/重挂失败由 renderer 5s 轮询兜底。日志导出：`GET /v1/logs/export` 流式输出当前活跃日志段（`<userData>/logs/app-<date>.log`，chunked 无 Content-Length），`Content-Disposition` 触发浏览器下载，web bridge `logs.export` 与桌面保存对话框语义对齐。
 - **config-store 损坏处理（t111）**：主文件 schema 失败、空文件/仅空白字符、IO 错误等非 ENOENT 情况均不 fallback 到 `DEFAULT_CONFIGURATION`；ENOENT 时仅当配置目录不存在才返回 defaults 并允许 auto_seed，目录存在但 `config.json` 缺失视为异常抛错。`writeFileAtomic` 采用 tmp → `fsync` → `close` → `rename` 顺序，避免进程强杀后产生 null padding。
@@ -268,13 +268,13 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 
 代码现状**已偏离** `docs/archive/_pre_opinit_20260705/` 的旧 SPEC 与 v2 设计愿景，以下为"现在是什么"：
 
-- **连接器执行**：旧 SPEC 说"子进程 + esbuild + SHA-256 缓存 + stdin 传 secret"；现状是 `node:vm` 同进程沙箱 + `typescript.transpileModule`，**无 esbuild、无编译缓存、无内置连接器 SHA-256 完整性清单**。
+- **连接器执行**：旧 SPEC 说"子进程 + esbuild + SHA-256 缓存 + stdin 传 secret"；现状是 `typescript.transpileModule` 编译（script-cache 按 mtime 缓存读取与编译，t195）+ 隔离子进程内 `node:vm` 执行 + secret 经 `ctx.params` 注入，**无 esbuild、无基于 SHA-256 的编译缓存**；子进程隔离、内置连接器 SHA-256 完整性清单与用户外部目录连接器默认禁用的取舍见下条与 ADR 036。
 - **Tier 1 纯声明式未落地**：v2 设想简单 poll 连接器零代码；现状 20 个连接器**全部**带 `connector.ts`，`poll.map` 均为空，解析都在脚本里。
 - **secret 默认进脚本**：v2 设想"明文默认不进沙箱"；现状连接器 secret 参数**全部** `exposeToScript:true`，明文经 `ctx.params` 进脚本。
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
 - **连接器子进程隔离与完整性保护（t515）**：已升级为独立子进程/utilityProcess 隔离执行，并通过 SHA-256 完整性清单核验内置连接器，消除了旧 `node:vm` 原型链逃逸风险。
 - **安全威胁模型与设计取舍声明（R7, R8, R10）**：
-    - **LocalAPI LAN 信任模型（R7）**：LocalAPI 默认监听 `0.0.0.0:18263`，定位为家庭/办公可信内网服务，除 `/v1/ingest` 需 Bearer 外，其余端点免认证直连，避免在内网引入复杂鉴权。
+    - **LocalAPI LAN 信任模型（R7）**：LocalAPI 默认监听 `0.0.0.0:17863`，定位为家庭/办公可信内网服务，除 `/v1/ingest` 需 Bearer 外，其余端点免认证直连，避免在内网引入复杂鉴权。
     - **Vault 存储模型（R8）**：自管 AES-256-GCM Vault，主密钥 `vault.key` 与密文文件同级存储在应用数据目录，安全边界明确依托操作系统文件级访问权限控制（POSIX `chmod 0600`，Windows 严密 ACL 继承），不使用 OS Keyring。
     - **会话 Cookie 明文存储（R10）**：关闭打包 Chromium Cookie 钥匙串加密（`enableCookieEncryption: false`），以保障跨平台与无窗口 CLI 下会话长效保持，不被钥匙串权限弹窗阻断。
 - **导入配置可重定向端点**（已知安全限制）：`endpointOverrides` 可被导入的恶意配置改指公网攻击主机，`apply_auth` 会把 vault secret 发过去；`assert_safe_connector_host` 只拦云元数据主机。待办：改端点后强制重录 secret。

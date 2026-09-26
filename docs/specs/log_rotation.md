@@ -30,10 +30,10 @@
 - 写入路径已是串行 `pending_write` Promise 链，轮转逻辑在同一链上执行，避免并发 rename/append 竞态。
 - 只允许在总段数不超过上限时执行 rename；rename 失败时不继续追加。
 
-## 实现摘要（t154 固化）
+## 实现要点
 
 - `src/main/core/logging.ts`：
-    - 新增 `MAX_SEGMENTS = 10` 常量。
+    - `DEFAULT_MAX_SEGMENTS = 10` 常量。
     - `initLogging` 新增可选参数 `maxLogFileBytes`、`maxSegments`。
     - 启动时扫描现有 `app-<date>.N.log` 得到 `currentSegment`。
     - 每行写入前 `stat` 当前文件；越限时若 `currentSegment < maxSegments - 1` 则生成 `app-<date>.(currentSegment+1).log` 并 `rename`，否则 warn 并跳过写入。

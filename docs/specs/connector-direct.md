@@ -1,6 +1,6 @@
 # 直连连接器（direct connectors）
 
-一对一型：一实例 = 一账号 = 一 provider。运行时契约见 `connector-runtime.md`。术语见 `domain.md`。
+一对一型：一实例 = 一账号 = 一 provider。运行时契约见 `connector-runtime.md`。术语见 `../blueprint/domain.md`。
 
 ## 内置清单（`connectors/<id>/`）
 
@@ -32,7 +32,7 @@
 ## poll 型行为
 
 - manifest `poll.request`（endpoint/path/method/auth/body）+ `poll.map`（used/limit/remaining 须 `$` 开头）。
-- secret 经 `apply_auth`（bearer/header/query）注入宿主请求，**不进沙箱**。
+- secret 经 `apply_request_auth`（bearer/header/query）注入宿主请求，**不进沙箱**。
 - 例：tavily / firecrawl / deepseek / glm / minimax / exa（脚本读 `total_cost_usd`+`cost_breakdown`，成本正向 status，无远端 limit）。
 
 ## local 型行为

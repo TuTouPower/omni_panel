@@ -1,4 +1,4 @@
-# Spike report
+# s035 google_antigravity_support spike report
 
 ## 问题
 
@@ -48,9 +48,10 @@
 - 会话面板可接入：索引（summaries db）、用户正文（history.jsonl + steps field19）、时间戳齐备；assistant 文本需在 extractor 实现期做 protobuf field 映射（文本明文，难度中）。可信度中高。
 - 代理面板不可直接接入：无 token-count 来源是硬 blocker；protobuf RE 或降级为配额展示需另行决策。可信度高（89 消息文件 + 151 history 行 + 全库表结构实测）。
 - 限制：采样仅本机 CLI 单环境；无 Antigravity GUI（`state.vscdb` 路径未验证）。范围只做 CLI（用户确认）。
+- findings 已记 d054
 
 ## 是否采纳
 
 - 决定：部分采纳（会话面板是 / 代理面板否）
 - 理由：会话源齐备可拆 task；代理缺用量字段，硬做只能造假数据。
-- 后续 task：无（待 task-create 拆分：antigravity session-history extractor+locator、AgentFilter/HistorySource/resume 接线；代理面板待 protobuf usage 反推另起 spike 或直接不做）
+- 后续 task：t455（antigravity session-history extractor+locator）、t456（AgentFilter/HistorySource/resume 会话面板接线）；代理面板待 protobuf usage 反推另起 spike 或直接不做（未建 task）

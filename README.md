@@ -76,7 +76,7 @@ pnpm make:linux       # 仅打包 Linux
 - **渲染进程隔离**：渲染进程永远只拿 `hasSecret` 布尔，**不见明文密钥**。
 - **配置导出边界**：配置导入导出含明文密钥，用户自行负责导出文件的安全（详见 [secret-vault spec](docs/specs/secret-vault.md)）。
 - **网络出口统一**：外部网络请求仅由主进程宿主统一发出（[net-client](src/main/core/connector/net-client.ts)），连接器沙箱无直接出网能力，自动阻断云厂商元数据主机访问。
-- **LocalAPI 局域网信任模型**（R7）：默认监听 `0.0.0.0:18263` 服务于可信局域网环境（LAN）下的 Web 面板；仅 `/v1/ingest` 需 Bearer 凭证，其余 Web 面板与控制端点免认证直连（端口避开 CPA 默认 17863 端口）。
+- **LocalAPI 局域网信任模型**（R7）：默认监听 `0.0.0.0:17863` 服务于可信局域网环境（LAN）下的 Web 面板；仅 `/v1/ingest` 需 Bearer 凭证，其余 Web 面板与控制端点免认证直连。
 
 ## 开发
 
@@ -93,7 +93,7 @@ pnpm test:packaged    # 打包 smoke
 
 详见 [测试指南](docs/guides/testing.md)。
 
-测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（18263、蓝图标、`%APPDATA%/omni_panel`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
+测试实例与正常实例可同时运行：测试实例数据写 `.scratch/test-instance/`、LocalAPI 用 17864、托盘/窗口黄色图标（`TEST_INSTANCE=1`），与正常实例（17863、蓝图标、`%APPDATA%/omni_panel`）互不干扰。注意两个 dev 实例共享 `out/` 编译目录会冲突，同时跑时正常实例用打包 exe、测试用 `pnpm start:test`。
 
 ## 架构与文档
 
@@ -106,14 +106,14 @@ pnpm test:packaged    # 打包 smoke
 - [`docs/blueprint/domain.md`](docs/blueprint/domain.md) — 术语表 / 业务不变量 / 产品边界（明确不做）
 - [`docs/blueprint/conventions.md`](docs/blueprint/conventions.md) — 命名 / 风格 / 日志 / 测试 / 新增连接器步骤
 - [`docs/blueprint/decisions.md`](docs/blueprint/decisions.md) — 已确认的非显然决策（ADR）
-- [`docs/specs_index.md`](docs/specs_index.md) — 已实现功能清单 → `docs/specs/<slug>.md`
+- [`docs/specs_index.md`](docs/specs_index.md) — 当前生效 spec 清单（在表即生效）→ `docs/specs/<slug>.md`
 - [`docs/guides/testing.md`](docs/guides/testing.md) — 测试命令 / 分层 / 覆盖率 / 打包 smoke
 - [`docs/guides/session_library_agent_search.md`](docs/guides/session_library_agent_search.md) — 拷贝 skill，让 coding agent 经 LocalAPI 搜会话库（不配 MCP）
 
 ## 已知限制
 
 - **不自动检查更新**（占位 UI，未实现）
-- **不做系统钥匙串 / safeStorage**（自管 Vault，威胁模型见 [secret-vault.md](docs/specs/secret-vault.md) 与 ADR 038）
+- **不做系统钥匙串 / safeStorage**（自管 Vault，威胁模型见 [secret-vault.md](docs/specs/secret-vault.md) 与 ADR 039）
 - **不为第三方开放任意沙箱连接器**（内置连接器经 SHA-256 完整性清单与独立进程隔离执行）
 - 界面语言切换、问卷、赞助入口为占位 UI，未落地
 

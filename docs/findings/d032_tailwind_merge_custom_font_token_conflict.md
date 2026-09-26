@@ -1,5 +1,9 @@
 # d032 tailwind-merge 误判自定义字号 token 为颜色类
 
+- 来源：t283（2026-08-10 随 commit `b99fbdb0`「ui 组件明暗主题对比度抽查与 DESIGN 对照修复」入库；实测复现见「验证」节）
+- 影响：t283 已按「规避」修复受影响组件（e2e 对比度断言 3.13:1）；后续 t298（Button 字号）与 t302（组件库批量清理自定义字号类）为同类修复。凡未按规避写法的 `cn()` 组合（自定义字号 + 颜色类）仍会静默丢颜色，新组件须遵守该约束。
+- 现状：有效
+
 ## 事实
 
 - `tailwind-merge` 的 `text-*` 冲突组同时承载 font-size 与 text-color 两个子组；对**不在其内置 scale 中的自定义字号 token**（如 `text-label-md`、`text-body-md`，来自 `--text-*` 主题变量），twMerge 会把它归入 text-color 子组，与同组的 `text-[var(--color-on-*)]` 颜色任意值冲突合并，后者被丢弃。

@@ -1,5 +1,7 @@
 # TokenStats cleanup review
 
+> 元信息：审阅日期 2026-08-02（目录名）；被审对象 TokenStats cleanup 的缓存/查询正确性（`TokenStatsView.tsx`、`query-cache.ts`）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 仅列会影响可观察缓存/查询正确性候选。
 
 ## 1. cache miss 仍由全屏 loading 门控，旧结果无法保留

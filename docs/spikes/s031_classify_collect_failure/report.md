@@ -1,4 +1,4 @@
-# Spike report
+# s031 classify_collect_failure spike report
 
 ## 问题
 
@@ -26,6 +26,7 @@
 - 第一个未知契约已验证：renderer 判定需补齐 HTTP 401/403 及现有调度层认证错误语义，同时保持连接超时与普通 5xx 为非认证错误。
 - 第二个未知契约已验证：现有依赖注入通道不存在，但可在 `RefreshServiceDeps` 注入按 connector definition/instance id 调用 `refresh_now` 的回调；主进程已有 manager 实例且创建顺序满足接线。
 - OAuth script 连接器的即时刷新触发点必须覆盖 `failed_accounts` 路径；不能只改 `catch` 中的 auth 分支。
+- 结论由 t172 内消化，不入 findings
 
 ## 是否采纳
 

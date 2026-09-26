@@ -1,4 +1,4 @@
-# Spike report
+# s011 tokenstats_chart_render_derive spike report
 
 ## 问题
 
@@ -40,6 +40,7 @@ t200 的 UNVERIFIED-SPIKE：把 dashboard 查询缓存 key 中的展示维度（
     - sessions metric 恒走 time 轴（`effective_xaxis`），故 rollup 仅服务 tokens/calls。
 - **查询缓存 key 可剥离 metric/xaxis/gran**：同一 `[start,end)` + 筛选下，chart_data 与 summary/heatmap/sessions 都 metric 无关，切换展示维度纯本地派生，不触发 IPC。
 - **会话分页需独立通道**：DTO 的 `sessions.items` 是首页；翻页请求会连同 summary/chart/heatmap 一起重算（p029）。最小契约：新增 `get_dashboard_sessions` IPC（入参含 session_offset/limit，返回 { items, total, has_more }），主 dashboard 查询只回首页；renderer 翻页只发该通道、缓存 key 不含 session_offset。
+- findings 已记 d012
 
 ## 是否采纳
 

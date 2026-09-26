@@ -1,6 +1,6 @@
 # 观测存储（observation store）
 
-数据脊柱。术语与不变量见 `domain.md`；产出观测的运行时见 `connector-runtime.md`。
+数据脊柱。术语与不变量见 `../blueprint/domain.md`；产出观测的运行时见 `connector-runtime.md`。
 
 ## 数据模型（观测字段）
 
@@ -52,4 +52,4 @@
 ## 边界
 
 - 两套 label 模型并存：legacy `name`（deprecated 别名） vs 新三层 `raw_label`/`normalized_label`/`display_label`，DB 与 schema 仍带 `name` 兼容。
-- DB 路径由引导层传入（不在 `paths.ts` 集中）。
+- DB 路径由 `src/main/core/paths.ts` 的 `get_observations_db_path()` 集中定义（`{userData}/observations.sqlite`），`src/main/index.ts` 构造 store 时注入 `create_observation_store(...)`。

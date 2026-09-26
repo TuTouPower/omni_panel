@@ -17,7 +17,7 @@
 
 - 背景：OmniPanel 原用 omni_powers 三区工作流（`op_blueprint`/`op_execution`/`op_record`）+ 全局 skill（`/opintake` 等），与用户维护的 `repo_template` 通用仓库模板不兼容。
 - 选项：A) 保留 omni_powers；B) 全量迁移到 repo_template 纯文档工作流（`AGENTS.md` + `blueprint/tasks/specs/reviews/spikes/archive`）。
-- 结论：选 B。废弃 omni_powers 三区（整体归档至 `docs/archive/omni_powers_sunset/`），引入 `AGENTS.md` + `blueprint/tasks/specs/reviews/spikes/archive` 结构。task ID 从 T001 起编。本次元重构本身不挂 TNNN，由本 ADR 追溯。
+- 结论：选 B。废弃 omni_powers 三区（整体归档至 `docs/archive/_pre/omni_powers_sunset/`），引入 `AGENTS.md` + `blueprint/tasks/specs/reviews/spikes/archive` 结构。task ID 从 T001 起编。本次元重构本身不挂 TNNN，由本 ADR 追溯。
 - 替代：无
 
 路径映射（供 `git log -S` 与旧路径追溯）：
@@ -80,7 +80,7 @@
 
 ## 007 web e2e 用 mock local-api 回放录的真实响应，不开桌面 app（2026-07-21）
 
-- 背景：T009 改名后 e2e 仍靠 Electron 驱动（开桌面 app），平台绑定、慢、CI 重。用户要求日常 e2e 跑浏览器测网站。web SPA（`out/web`）数据全来自 local-api（端口 18263），后端必须有。
+- 背景：T009 改名后 e2e 仍靠 Electron 驱动（开桌面 app），平台绑定、慢、CI 重。用户要求日常 e2e 跑浏览器测网站。web SPA（`out/web`）数据全来自 local-api（端口 17863），后端必须有。
 - 选项：A) Electron 后端（浏览器前端 + 真实 Electron 提供 local-api，仍开桌面 app）；B) mock local-api（录本机真实响应，Playwright chromium 纯浏览器驱动）；C) 读 config/snapshot 文件合成 mock（零 Electron 但合成逻辑要复刻 local-api）。
 - 结论：选 B。A 仍开桌面 app 违背初衷；C 合成逻辑易漏字段。B 录真实响应 100% 保真，mock 回放零 Electron、跨平台、CI 友好（fixture gitignore，CI 策略另定）。
 - 子决策：
@@ -346,12 +346,12 @@
 
 - 背景：t507 实施中原设想产出 `grok_bot:weekly`（周用量）与 `grok_bot:ondemand`（按需金额）两个指标。然而 Grok Bot 官方后端未提供可靠的 ondemand 实时计数（其语义恒为空或无意义默认值），官方前端亦仅渲染每周限额与重置倒计时。若强行保留该指标会导致面板渲染出虚假零值与无意义用量条。
 - 结论：裁撤 `grok_bot:ondemand` 指标，连接器仅采集并产出 `grok_bot:weekly` 指标，并同步更新测试预期。
-- 落地：t507（commit `47f55abd` 与 `d86219e0`），A87。
+- 落地：t507（commit `47f55abd` 与 `d86219e0`），A87（来源：`docs/reviews/review_20260925_085413/adoption_decision.md`）。
 - 替代：保留无意义的 0 值 ondemand 指标。
 
 ## 038 LocalAPI 局域网信任模型与免认证策略（2026-09-25）
 
-- 背景：LocalAPI 默认监听 `0.0.0.0:18263`，审阅提出未授权写端点可被 LAN 攻击者利用。
+- 背景：LocalAPI 默认监听 `0.0.0.0:17863`，审阅提出未授权写端点可被 LAN 攻击者利用。
 - 结论：维持现状。OmniPanel 定位为自托管/可信 LAN 局域网服务，用户明确接受 LAN 威胁模型。除 `/v1/ingest` 需 Bearer 外，其余 Web 面板与控制端点免认证直连，避免在家庭/内网环境中引入复杂的 Token 登录流程与用户打扰。
 - 落地：R7，`architecture.md`，`README.md`。
 - 替代：全量端点强制增加复杂用户认证与密码登录。

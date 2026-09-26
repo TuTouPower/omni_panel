@@ -21,7 +21,7 @@
 ## 测试
 
 - `tests/e2e/electron/desktop_cli_json.spec.ts`：GUI 启动读 cli.json 全字段 + 文件端口健康检查（AC-001/004）；cli.json 预置为目录 + `OMNI_PANEL_PORT` 固定端口验证写失败不阻断（AC-003）。
-- serve 回归：`tests/e2e/electron/cli_serve.spec.ts`（AC1/AC2 端口一致）。
+- serve 回归：`tests/e2e/electron/cli_serve.spec.ts`（serve --foreground 无窗口、local-api 响应、stdout 打印 URL、cli.json 端口与实际监听一致）。
 
 ## 非范围
 

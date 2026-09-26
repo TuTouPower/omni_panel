@@ -19,11 +19,11 @@ web 与 Electron renderer 两个入口共用同一个 `App`，首屏 bundle 拖�
 
 ## 验收标准
 
-- [x] AC1：web 构建产物中 echarts 运行时代码位于独立 chunk，不在首屏入口 chunk 内；构建输出不再出现超过默认阈值的 chunk size 警告。
-- [x] AC2：Electron renderer 构建产物中，会话库（SessionShell 子树）与 echarts 运行时代码分别位于独立 chunk，不在首屏入口 chunk 内。
-- [x] AC3：各 route（popup / setting / tray / agent / history）页面功能与视觉与现状一致，现有 e2e 全部通过。
-- [x] AC4：进入图表页面后图表正常渲染（含窗口 resize 后重绘）；快速切换离开图表页面不产生未捕获错误。
-- [x] AC5：route 切换触发懒加载期间页面呈现加载占位而非白屏。
+- [x] AC-001：web 构建产物中 echarts 运行时代码位于独立 chunk，不在首屏入口 chunk 内；构建输出不再出现超过默认阈值的 chunk size 警告。
+- [x] AC-002：Electron renderer 构建产物中，会话库（SessionShell 子树）与 echarts 运行时代码分别位于独立 chunk，不在首屏入口 chunk 内。
+- [x] AC-003：各 route（popup / setting / tray / agent / history）页面功能与视觉与现状一致，现有 e2e 全部通过。
+- [x] AC-004：进入图表页面后图表正常渲染（含窗口 resize 后重绘）；快速切换离开图表页面不产生未捕获错误。
+- [x] AC-005：route 切换触发懒加载期间页面呈现加载占位而非白屏。
 
 ## 实现要点
 

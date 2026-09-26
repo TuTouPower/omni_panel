@@ -1,6 +1,6 @@
 # 配置管理（config store）
 
-密钥见 `secret-vault.md`；字段的业务含义见 `domain.md`。
+密钥见 `secret-vault.md`；字段的业务含义见 `../blueprint/domain.md`。
 
 ## 数据模型
 
@@ -41,8 +41,8 @@
 
 ## 内存缓存与健康检查抽离（t195）
 
-- **内存缓存**：`load()` 首次读盘 + zod parse 后缓存，后续命中缓存不重读磁盘。`save` / `scheduleSave` / `flushPendingSave` 是唯一写入口，均经 `enqueueSave → doSave`，写盘成功后刷新缓存——读到的始终是最新已保存配置（AC1/AC2）。
-- **健康检查抽离**：`prune_invalid_plugins`（孤儿插件、非法 provider 清理并持久化）从 load 抽出为 `prune_unhealthy_plugins(allowed_manifest_ids?)`，启动期（auto_seed 前）与 config 导入后各执行一次；运行期 load 不再做逐插件 manifest stat（AC1）。
+- **内存缓存**：`load()` 首次读盘 + zod parse 后缓存，后续命中缓存不重读磁盘。`save` / `scheduleSave` / `flushPendingSave` 是唯一写入口，均经 `enqueueSave → doSave`，写盘成功后刷新缓存——读到的始终是最新已保存配置（AC-001/AC-002）。
+- **健康检查抽离**：`prune_invalid_plugins`（孤儿插件、非法 provider 清理并持久化）从 load 抽出为 `prune_unhealthy_plugins(allowed_manifest_ids?)`，启动期（auto_seed 前）与 config 导入后各执行一次；运行期 load 不再做逐插件 manifest stat（AC-001）。
 - **manifest 身份迁移（t471）**：读取旧配置时，缺少 `manifestId` 的条目用 `executablePath` 的跨平台尾段匹配本机 `manifest.id`，回填 `manifestId` 并刷新本机 `executablePath`；同一 manifest 下的多个 `instanceId` 独立保留。已有未知 manifest 且路径尾段也无法匹配的条目被移除，逐条记录 `instanceId`、manifestId（若有）、原路径和原因，并在摘要记录移除数量；迁移前原文件写入 `.bak`。桌面、LocalAPI/Web 与 CLI 导入在校验 manifestId 后同样按本机 definition 重算 `executablePath`，不落地外部机器路径。
 
 ## 行为（现在是什么）
@@ -61,5 +61,5 @@
 
 ## 边界
 
-- `schemaVersion` 字段存在但**无版本分支迁移引擎**（`architecture.md` §6）。
-- 导入导出见本节、`ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，**密钥明文导出**，权限完全开放给用户）与 `secret-vault.md`。
+- `schemaVersion` 字段存在但**无版本分支迁移引擎**（`../blueprint/architecture.md` §6）。
+- 导入导出见本节、`ipc-api.md`/`ipc-electron.md`（`CONFIG_EXPORT`/`CONFIG_IMPORT`，导出默认省略 `secrets`、显式 `includeSecrets` 才写入明文密钥）与 `secret-vault.md`。

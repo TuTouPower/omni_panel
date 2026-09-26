@@ -18,10 +18,10 @@
 
 ## 验收标准
 
-- [x] AC1：各来源会话的摘要（首条用户消息）显示内容与现状一致。
-- [x] AC2：生成单个会话摘要时读取的字节数不超过明确上限，与文件总大小解耦。
-- [x] AC3：头部窗口内找不到用户消息的文件按定义行为处理（回退或空摘要），不抛错、不阻塞其他会话摘要。
-- [x] AC4：现有测试与 e2e 全部通过，无回归。
+- [x] AC-001：各来源会话的摘要（首条用户消息）显示内容与现状一致。
+- [x] AC-002：生成单个会话摘要时读取的字节数不超过明确上限，与文件总大小解耦。
+- [x] AC-003：头部窗口内找不到用户消息的文件按定义行为处理（回退或空摘要），不抛错、不阻塞其他会话摘要。
+- [x] AC-004：现有测试与 e2e 全部通过，无回归。
 
 ## 实现要点
 
@@ -32,7 +32,7 @@
 
 ## 测试覆盖
 
-- `tests/unit/main/core/session-history/head-read.test.ts`：AC1 顶部 user 返回文本、AC2 大文件 readSync 字节 ≤READ_CAP 且未整文件读（readFileSync spy）、AC3 窗口内无 user 空串、user 窗口外裁剪、跨窗口行补全、多字节边界无 U+FFFD、损坏行、缺失文件、grok/kimi 复用。
+- `tests/unit/main/core/session-history/head-read.test.ts`：AC-001 顶部 user 返回文本、AC-002 大文件 readSync 字节 ≤READ_CAP 且未整文件读（readFileSync spy）、AC-003 窗口内无 user 空串、user 窗口外裁剪、跨窗口行补全、多字节边界无 U+FFFD、损坏行、缺失文件、grok/kimi 复用。
 - `tests/unit/main/core/session-history/claude-code-extractor.test.ts` 等既有 extractor 测试回归未动。
 - `pnpm test` 全量 + `pnpm test:e2e:electron` + `pnpm test:packaged`。
 

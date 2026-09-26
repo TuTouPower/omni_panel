@@ -1,4 +1,4 @@
-# Spike report
+# s005 tokenstats_hour_agg spike report
 
 ## 问题
 
@@ -25,6 +25,7 @@
 - `(timestamp - ((timestamp + 28800000) % 3600000))` 正确给出 UTC+8 本地整点小时起点，与渲染层 bucketize（主机 UTC+8）对齐；首偏小时桶映射正确。
 - 聚合行数 = hour×model（7d 428），无 LIMIT 截断，可完全消除 10 万级明细进渲染层。
 - 过滤条件与 `query_heatmap` 同构（agent + env + start/end），可照搬其 WHERE 构造。
+- findings 已记 d005
 
 ## 是否采纳
 

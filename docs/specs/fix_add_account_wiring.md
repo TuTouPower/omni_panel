@@ -22,7 +22,7 @@ t107-t109 完成 descriptor、registry、表单组件后，需要修复 `Setting
 
 ## 非范围
 
-- 不改 `GrokLoginSection` 复用 `OAuthDeviceForm`（后续优化）。
+- 设备码登录段与 `OAuthDeviceForm` 的结构统一不在本 spec 范围（`GrokLoginSection` 后已演进为 `DeviceLoginSection`，见 `unify_account_auth_forms`）。
 - 不改其他 12 个 connector 的 manifest（无 auth 块，走 fallback）。
 
 ## 验收标准

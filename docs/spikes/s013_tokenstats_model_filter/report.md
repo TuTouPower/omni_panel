@@ -1,4 +1,4 @@
-# Spike report
+# s013 tokenstats_model_filter spike report
 
 ## 问题
 
@@ -30,6 +30,7 @@ t204 代理面板模型筛选需先核实两个契约：
 - 模型列表来源：从 `token_stats_records` 按 agent/platform/range 过滤查 `SELECT DISTINCT model ORDER BY model` 即可（records 全窗口 distinct = union 窗口 distinct，均 19）。注意该查询**不得含 model 过滤条件**——模型下拉需保持全窗口模型列表，选中某模型后仍能直接切换其他模型（AC1）。
 - model 过滤：在 `dashboard_window_union_builder` 的 rollup_part 与 records_part 两侧 WHERE 各加 `AND model = @model`（与 agent/env 过滤并列），并在 `dashboard_records_source`（rollup 未就绪路径）与 `build_dashboard_conditions` 同步加条件；聚合语义与全窗口过滤一致。
 - 实验脚本初版（WITH CTE + 全列 SELECT）出现过 sess=1 的误结果，复现 store 的子查询结构后一致——以 store 结构为验证基准。
+- findings 已记 d013
 
 ## 是否采纳
 

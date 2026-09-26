@@ -1,3 +1,5 @@
+> 元信息：审阅日期 2026-08-11（目录名）；被审对象 OmniPanel 全仓生产面（src/、connectors/、schemas/、scripts/ 及根安全相关配置：IPC 边界、local-api、vault、connector、config/secret 处理）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 ## Summary
 
 OmniPanel’s desktop IPC boundary is generally solid: `contextIsolation`/`sandbox`/`nodeIntegration:false`, sender URL allowlisting, route-gated `CONFIG_GET_SECRETS`, secret stripping in `CONFIG_GET`, vault AES-GCM with atomic writes, and scrubber registration on decrypt. The dominant risk is **LocalAPI bound to `0.0.0.0` with almost the entire control plane and secret surface unauthenticated**—LAN peers can read/write vault secrets, export config with secrets, quit/restart the app, and drive auth flows. Secondary high-confidence issues: broken concurrent config conflict detection (memory cache), connector HTTP absolute-path URL override after host auth injection, and response-body logging that can leak credentials.

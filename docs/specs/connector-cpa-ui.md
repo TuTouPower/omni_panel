@@ -2,7 +2,7 @@
 
 > 验证方式：Web。拆自 connector-cpa（t037）。
 
-CPA 账号的 UI 展示与交互。运行时契约见 `connector-cpa-runtime.md`；术语（直连 vs 聚合）见 `domain.md`。
+CPA 账号的 UI 展示与交互。运行时契约见 `connector-cpa-runtime.md`；术语（直连 vs 聚合）见 `../blueprint/domain.md`。
 
 ## 所有权（CPA 隐藏，直连删除）
 

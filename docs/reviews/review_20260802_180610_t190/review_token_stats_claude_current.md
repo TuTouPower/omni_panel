@@ -1,5 +1,7 @@
 # TokenStats 查询缓存与状态审阅
 
+> 元信息：审阅日期 2026-08-02（目录名）；被审对象 TokenStats 查询缓存与状态（`src/renderer/views/TokenStatsView.tsx`、`src/renderer/lib/token-stats/query-cache.ts`，omni_usage_t190 工作副本）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 ## 1. 静默刷新抢占首次加载后，`loading` 永久保持 true
 
 - **路径**：`D:\Dev\Code\omni_usage_t190\src\renderer\views\TokenStatsView.tsx`

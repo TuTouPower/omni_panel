@@ -1,5 +1,7 @@
 # tokenstats_query_swr_cache 生产代码审阅
 
+> 元信息：审阅日期 2026-08-02（目录名）；被审对象 tokenstats_query_swr_cache 缓存复用（`src/renderer/lib/token-stats/query-cache.ts`、`src/renderer/views/TokenStatsView.tsx` 及其生产调用链）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 审阅范围：`src/renderer/lib/token-stats/query-cache.ts`、`src/renderer/views/TokenStatsView.tsx` 及关联生产调用链。仅报告 reuse 造成可观测 correctness 分叉。
 
 ## 发现

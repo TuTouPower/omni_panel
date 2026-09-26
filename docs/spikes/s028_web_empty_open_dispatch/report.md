@@ -1,4 +1,4 @@
-# Spike report
+# s028 web_empty_open_dispatch spike report
 
 ## 问题
 
@@ -21,3 +21,10 @@ web 端 `sessionHistory.open("","","")` 在无具体会话时对 onFocus 订阅�
 ## 结论
 
 - 空 loc 分发无可见副作用（仅 onFocus 通知 + hash 切换），t311 改为 `<a href>` 后左键由浏览器原生导航（hash 变化触发既有路由挂载），open 桥仅在中键新标签页场景不被调用——符合 AC-004 预期。无新增事实。
+- findings 已记 d036
+
+## 是否采纳
+
+- 决定：是
+- 理由：空 loc 分发无可见副作用（仅 onFocus 通知 + hash 切换），`<a href>` 左键原生导航、中键新标签页不经 JS onClick，符合 AC-004 预期（无新增事实）。
+- 后续 task：t311

@@ -1,4 +1,4 @@
-# Spike report
+# s039 kimi_web_bearer_mint_probe spike report
 
 ## 问题
 
@@ -14,7 +14,7 @@ kimi_web（Kimi 网页版）的 quota 认证凭证是 15 分钟寿命的 Bearer 
 
 ## 尝试
 
-- 有头 Chrome（Playwright `launchPersistentContext`，`channel: chrome`）真实扫码登录 `https://www.kimi.com/`，全量抓 `request`/`response` 事件并**读取响应体**（上一轮 `data/capture_20260909_*.zip` 的响应体未落袋，这是此前漏掉令牌下发点的直接原因）。脚本 `code/probe.mjs`，抓包窗口 20 分钟。
+- 有头 Chrome（Playwright `launchPersistentContext`，`channel: chrome`）真实扫码登录 `https://www.kimi.com/`，全量抓 `request`/`response` 事件并**读取响应体**（2026-09-09 首次抓包未保存响应体，因而漏掉令牌下发点；本轮全量读取响应体）。脚本 `code/probe.mjs`，抓包窗口 20 分钟。
 - 从抓包产物提取凭据到 gitignore 目录，离线复现刷新：`code/extract_secrets.mjs` → `code/refresh_probe.mjs`。
 - 轮换语义与 quota 认证需求：`code/quota_probe.mjs`。
 - 负样本（证明接口真的校验令牌，而非一律 200）：`code/negative_probe.mjs`。
@@ -152,6 +152,7 @@ kimi_web（Kimi 网页版）的 quota 认证凭证是 15 分钟寿命的 Bearer 
 - **s036/d057 的 token pump 方案作废**：不需要 partition 常驻监听，也不需要后台导航触发。
 - 限制与可信度：实测为本机真实账号、单次会话；refreshToken 的 90 天期限与轮换的长期行为未做长时验证（中）；服务端字段名与端点属实测事实（高），若前端改版可能变更（低影响，失败可见）。
 - 遗留待 t492 决定的问题：登录窗口现在只捕获 Bearer（不含 refresh token）。本 spike 已验证取法可行（第 6 节），t492 需选定实现路径并落地——候选：登录成功后对登录窗执行 `webContents.executeJavaScript("localStorage.getItem('refresh_token')")`，或从 `GetLoginQRCodeStatus` 响应体取；具体时机与失败回退由 t492 决定。
+- findings 已记 d060（token pump 作废见 d057/s036 勘误）
 
 ## 是否采纳
 

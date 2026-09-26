@@ -1,4 +1,4 @@
-# Spike report
+# s025 platform_host_env_path spike report
 
 ## 问题
 
@@ -25,3 +25,10 @@
 ## 结论
 
 - 路径层以 `process.platform` 映射 host（`win32→windows`、`linux→linux`、`darwin→macos`），`local` 源用 `path.join`（宿主本机分隔符）+ `homedir()`；`wsl` 源仅 `host === 'windows'` 且 `wsl_user` 非空时用 `path.win32.join` 构造 UNC，否则返回 `null`。注入 host 的单测可等价覆盖三平台，不依赖真实宿主。
+- findings 已记 d033
+
+## 是否采纳
+
+- 决定：是
+- 理由：`process.platform` 映射 host 与 `path.join`/`path.win32.join` 分隔符行为实测明确，注入 host 的单测可等价覆盖三平台，路径层据此实现。
+- 后续 task：t308

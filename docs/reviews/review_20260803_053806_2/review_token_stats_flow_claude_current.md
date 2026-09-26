@@ -1,5 +1,7 @@
 # Efficiency 审查
 
+> 元信息：审阅日期 2026-08-03（目录名）；被审对象 token_stats_flow 效率（token-stats-store/server 变更及其 callers/callees、IPC/web 端点）；被审 commit 未记录。本文为历史审阅记录，结论以当时代码为准。
+
 - 模块：`token_stats_flow`
 - 范围：`git diff HEAD` 中 token-stats-store/server 变更及其 callers/callees、IPC/web 端点
 - 结论：以下 6 个候选均来自静态调用链追踪；未修改源文件，未运行长测试。

@@ -1,4 +1,4 @@
-# Spike report
+# s016 session_shell_global_theme spike report
 
 ## 问题
 
@@ -27,6 +27,7 @@
 ## 结论
 
 会话窗口应移除 `useSessionShellTheme`，改为调用共享的 `useTheme()`。首帧继续由 preload 的 `ou_theme` 参数处理，挂载后由全局 `config.get` 与 `onThemeChange` 负责配置读取和运行时同步。该路径无需新增 IPC 或独立存储。
+findings 已记 d022
 
 ## 是否采纳
 

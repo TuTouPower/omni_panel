@@ -1,5 +1,7 @@
 # TokenStatsView / query-cache 效率与生命周期审阅
 
+> 元信息：审阅日期 2026-08-02（目录名）；被审对象 TokenStatsView / query-cache 的效率与生命周期（`src/renderer/views/TokenStatsView.tsx`、`src/renderer/lib/token-stats/query-cache.ts`）；被审 commit `fd910318fab9cdc0e025bdbdf02db51d0c0cc4a`。本文为历史审阅记录，结论以当时代码为准。
+
 - 审阅基线：`fd910318fab9cdc0e025bdbdf02db51d0c0cc4a`
 - 范围：仅 `src/renderer/views/TokenStatsView.tsx` 与新增 `src/renderer/lib/token-stats/query-cache.ts`
 - 模型判断依据：未知
