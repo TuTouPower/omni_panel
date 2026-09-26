@@ -303,4 +303,20 @@ describe("appConfigurationSchema", () => {
         expect(appConfigurationSchema.parse(base).hideDockIcon).toBeUndefined();
         expect(() => appConfigurationSchema.parse({ ...base, hideDockIcon: "yes" })).toThrow();
     });
+
+    it("t526 AC-002: accepts providerHiddenLabels and accountHiddenLabels", () => {
+        const base = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [],
+        };
+        const parsed = appConfigurationSchema.parse({
+            ...base,
+            providerHiddenLabels: { claude: ["five_hour", "weekly"] },
+            accountHiddenLabels: { "conn-1": ["session_tokens"] },
+        });
+        expect(parsed.providerHiddenLabels).toEqual({ claude: ["five_hour", "weekly"] });
+        expect(parsed.accountHiddenLabels).toEqual({ "conn-1": ["session_tokens"] });
+    });
 });

@@ -26,8 +26,13 @@ interface LabelMapDialogProps {
     vendor_id: string;
     account_name: string;
     existing_map: Readonly<Record<string, string>>;
+    existing_hidden?: readonly string[] | undefined;
     watched_metrics?: Readonly<Partial<Record<string, readonly string[]>>> | undefined;
-    on_save: (instance_id: string, map: Record<string, string>) => Promise<void>;
+    on_save: (
+        instance_id: string,
+        map: Record<string, string>,
+        hidden: readonly string[],
+    ) => Promise<void>;
     on_close: () => void;
     on_toggle_watched?: ((raw_label: string, account_keys: readonly string[]) => void) | undefined;
 }
@@ -37,6 +42,7 @@ export function LabelMapDialog({
     vendor_id,
     account_name,
     existing_map,
+    existing_hidden,
     watched_metrics,
     on_save,
     on_close,
@@ -44,9 +50,14 @@ export function LabelMapDialog({
 }: LabelMapDialogProps) {
     const [rows, set_rows] = useState<LabelMapRow[]>([]);
     const [map, set_map] = useState<Record<string, string>>({});
+    const [hidden, set_hidden] = useState<Set<string>>(() => new Set(existing_hidden ?? []));
     const [loading, set_loading] = useState(true);
     const [synced, set_synced] = useState<string | null>(null);
     const [save_error, set_save_error] = useState<string | null>(null);
+
+    useEffect(() => {
+        set_hidden(new Set(existing_hidden ?? []));
+    }, [existing_hidden]);
 
     // Fetch raw labels from plugin state
     useEffect(() => {
@@ -72,7 +83,26 @@ export function LabelMapDialog({
     }, [instance_id, vendor_id, existing_map]);
 
     const effective = (r: LabelMapRow) => map[r.raw] ?? r.display;
-    const changed_count = rows.filter((r) => effective(r) !== r.default).length;
+    const hidden_changed = (() => {
+        const orig = new Set(existing_hidden ?? []);
+        if (orig.size !== hidden.size) return true;
+        for (const h of hidden) if (!orig.has(h)) return true;
+        return false;
+    })();
+    const changed_count =
+        rows.filter((r) => effective(r) !== r.default).length + (hidden_changed ? 1 : 0);
+
+    const toggle_hidden = (raw: string) => {
+        set_hidden((prev) => {
+            const next = new Set(prev);
+            if (next.has(raw)) {
+                next.delete(raw);
+            } else {
+                next.add(raw);
+            }
+            return next;
+        });
+    };
 
     const set_value = (raw: string, v: string) => {
         set_map((m) => ({ ...m, [raw]: v }));
@@ -88,6 +118,7 @@ export function LabelMapDialog({
             next[r.raw] = r.default;
         }
         set_map(next);
+        set_hidden(new Set());
     };
 
     const handle_save = async () => {
@@ -102,7 +133,7 @@ export function LabelMapDialog({
         try {
             // t356 AC-001: 保存失败显示可见错误，不再静默。
             set_save_error(null);
-            await on_save(instance_id, merged);
+            await on_save(instance_id, merged, Array.from(hidden));
         } catch (err) {
             set_save_error(err instanceof Error ? err.message : "保存失败");
             throw err;
@@ -125,7 +156,7 @@ export function LabelMapDialog({
             open
             onClose={on_close}
             width={420}
-            ariaLabel="数据标签映射"
+            ariaLabel="数据标签设置"
             backdropTestId="label-map-dialog-backdrop"
             title={
                 <div className="flex min-w-0 items-center gap-3">
@@ -134,7 +165,7 @@ export function LabelMapDialog({
                     </span>
                     <div className="min-w-0">
                         <div className="text-[length:var(--text-title-sm)] font-semibold">
-                            数据标签映射
+                            数据标签设置
                         </div>
                         <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
                             {vendor_id} · {account_name}
@@ -179,7 +210,7 @@ export function LabelMapDialog({
                             void handle_save().catch(() => undefined);
                         }}
                     >
-                        保存映射
+                        保存设置
                     </Button>
                 </>
             }
@@ -202,7 +233,7 @@ export function LabelMapDialog({
                         <Icon name="tag" size={20} />
                     </span>
                     <div className="mb-1 text-[length:var(--text-body-md)] font-semibold text-[var(--color-on-surface-variant)]">
-                        该服务暂无可映射的数据标签
+                        该服务暂无可设置的数据标签
                     </div>
                     <div className="max-w-[260px] text-[length:var(--text-body-sm)] leading-relaxed text-[var(--color-on-surface-muted)]">
                         完成一次成功同步后，接口返回的标签会显示在这里。
@@ -223,6 +254,7 @@ export function LabelMapDialog({
                         {rows.map((r) => {
                             const v = effective(r);
                             const changed = v !== r.default;
+                            const is_hidden = hidden.has(r.raw);
                             const watched =
                                 r.account_keys.length > 0 &&
                                 r.account_keys.every(
@@ -232,7 +264,7 @@ export function LabelMapDialog({
                             return (
                                 <div className="flex items-center gap-2" key={r.raw}>
                                     <CodeChip
-                                        className="min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+                                        className={`min-w-[120px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${is_hidden ? "opacity-50" : ""}`}
                                         title={r.raw}
                                     >
                                         {r.raw}
@@ -242,7 +274,7 @@ export function LabelMapDialog({
                                     </span>
                                     <div className="relative w-[140px] shrink-0">
                                         <Input
-                                            className="h-8 pr-8 font-[var(--font-code-md)] text-[length:var(--text-label-md)]"
+                                            className={`h-8 pr-8 font-[var(--font-code-md)] text-[length:var(--text-label-md)] ${is_hidden ? "opacity-60" : ""}`}
                                             spellCheck={false}
                                             autoCorrect="off"
                                             autoCapitalize="off"
@@ -268,6 +300,24 @@ export function LabelMapDialog({
                                             </Button>
                                         )}
                                     </div>
+                                    <Button
+                                        variant="icon"
+                                        size="sm"
+                                        className="h-7 w-7 shrink-0 p-0"
+                                        title={is_hidden ? "显示该数据标签" : "隐藏该数据标签"}
+                                        aria-label={is_hidden ? "显示该数据标签" : "隐藏该数据标签"}
+                                        aria-pressed={!is_hidden}
+                                        type="button"
+                                        onClick={() => {
+                                            toggle_hidden(r.raw);
+                                        }}
+                                    >
+                                        <Icon
+                                            name={is_hidden ? "eye_off" : "eye"}
+                                            size={14}
+                                            style={{ opacity: is_hidden ? 0.5 : 1 }}
+                                        />
+                                    </Button>
                                     {watched_metrics && on_toggle_watched && (
                                         <Button
                                             variant="icon"

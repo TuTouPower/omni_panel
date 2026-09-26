@@ -6,10 +6,12 @@
 
 ### AppConfiguration（`src/shared/types/config.ts` + `appConfigurationSchema`，Zod）
 
-`schemaVersion`、`language`（zh-Hans|en）、`plugins: ConnectorConfiguration[]`、`launchAtLogin`，及可选：`proxy{url,noProxy?}`、`accentColor`、`theme`、`logLevel`、`pinToTop`、`minimizeToTray`、`hideDockIcon`（p254，为 true 时 macOS Dock 不显示图标，仅保留菜单栏）、`globalRefreshIntervalSeconds`、`pauseAutoRefresh`、`providerOrder`、`accountOrders`、`cacheMaxMb`、`mainPanelMode`（`system|popup|floating`，见 `window-management.md`）、`floatingHeightMode`、`usageBarColorScheme`、`usageBarStyle`、`providerLabelMaps`、`accountLabelMaps`、`labelMapSync`、`uiDesensitizeRemarks`、`providerForcePercent`、`settingsBounds`、`floatingBounds`、`collapsedAccounts`、`expandedProviders`、`convergentTimeMinutes`、`accountLabels`、`dirAliases`、`modelAliases`、`sparklineWindowDays`（t222，账号展开区 sparkline 窗口偏好 1/7/30 天，全局共享，缺省 7）、`resumeCommandTemplates`（t401，source → 续接命令模板，含 `{session_id}`；见 `resume_command_template.md`）。
+`schemaVersion`、`language`（zh-Hans|en）、`plugins: ConnectorConfiguration[]`、`launchAtLogin`，及可选：`proxy{url,noProxy?}`、`accentColor`、`theme`、`logLevel`、`pinToTop`、`minimizeToTray`、`hideDockIcon`（p254，为 true 时 macOS Dock 不显示图标，仅保留菜单栏）、`globalRefreshIntervalSeconds`、`pauseAutoRefresh`、`providerOrder`、`accountOrders`、`cacheMaxMb`、`mainPanelMode`（`system|popup|floating`，见 `window-management.md`）、`floatingHeightMode`、`usageBarColorScheme`、`usageBarStyle`、`providerLabelMaps`、`accountLabelMaps`、`providerHiddenLabels`（t526）、`accountHiddenLabels`（t526）、`labelMapSync`、`uiDesensitizeRemarks`、`providerForcePercent`、`settingsBounds`、`floatingBounds`、`collapsedAccounts`、`expandedProviders`、`convergentTimeMinutes`、`accountLabels`、`dirAliases`、`modelAliases`、`sparklineWindowDays`（t222，账号展开区 sparkline 窗口偏好 1/7/30 天，全局共享，缺省 7）、`resumeCommandTemplates`（t401，source → 续接命令模板，含 `{session_id}`；见 `resume_command_template.md`）。
 
 - `uiDesensitizeRemarks`：为 true 时用量面板与设置账号列表隐藏备注/displayName。
 - `providerForcePercent`：`Partial<Record<string, boolean>>`，厂商级强制用量数字显示为百分比。
+- `providerHiddenLabels`：`Partial<Record<string, string[]>>`，厂商级被用户关闭/隐藏的数据标签列表（raw_label）。
+- `accountHiddenLabels`：`Record<string, string[]>`，账号实例级被用户关闭/隐藏的数据标签列表（raw_label）。
 
 > `accountOverrides` 已纳入 Zod schema（`accountOverridesSchema`，结构 `{ hidden?: Record<provider, string[]>, upcomingResetWatched?: Record<provider, Record<accountKey, raw_label[]>> }`）；`accountLabels`、`dirAliases`（default `[]`）、`modelAliases`（default `[]`）同样在 schema 内。
 

@@ -187,9 +187,9 @@ describe("SettingsView", () => {
         const deepseekEditButton = editButtons[0];
         if (!deepseekEditButton) throw new Error("missing DeepSeek edit button");
         await user.click(deepseekEditButton);
-        await waitFor(() => expect(screen.getByText("数据标签映射")).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText("数据标签设置")).toBeInTheDocument());
 
-        await user.click(screen.getByText("数据标签映射"));
+        await user.click(screen.getByText("数据标签设置"));
         const input = await screen.findByDisplayValue("滚动");
         await user.clear(input);
         await user.type(input, "5 小时");

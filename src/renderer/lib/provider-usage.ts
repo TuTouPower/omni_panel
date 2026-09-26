@@ -457,6 +457,56 @@ export function apply_account_labels(
     });
 }
 
+/**
+ * t526: 过滤被用户关闭/隐藏的数据标签（raw_label）。
+ * 同时过滤 account.periods 与 group.periods。
+ */
+export function apply_hidden_metric_labels(
+    groups: ProviderUsageGroup[],
+    provider_hidden_labels?: Readonly<Partial<Record<string, readonly string[]>>>,
+    account_hidden_labels?: Readonly<Record<string, readonly string[]>>,
+): ProviderUsageGroup[] {
+    if (!provider_hidden_labels && !account_hidden_labels) return groups;
+    return groups.map((group) => {
+        const provider_hidden = new Set(provider_hidden_labels?.[group.provider] ?? []);
+        const filtered_accounts = group.accounts.map((account) => {
+            const instance_id = account.sourceInstanceId;
+            const account_hidden = new Set(account_hidden_labels?.[instance_id] ?? []);
+            const periods = account.periods.filter((p) => {
+                if (provider_hidden.has(p.raw_label)) return false;
+                if (account_hidden.has(p.raw_label)) return false;
+                if (
+                    p.connectorInstanceId &&
+                    account_hidden_labels?.[p.connectorInstanceId]?.includes(p.raw_label)
+                ) {
+                    return false;
+                }
+                return true;
+            });
+            return {
+                ...account,
+                periods,
+            };
+        });
+        const filtered_periods = group.periods.filter((p) => {
+            if (provider_hidden.has(p.raw_label)) return false;
+            if (account_hidden_labels?.[p.sourceInstanceId]?.includes(p.raw_label)) return false;
+            if (
+                p.connectorInstanceId &&
+                account_hidden_labels?.[p.connectorInstanceId]?.includes(p.raw_label)
+            ) {
+                return false;
+            }
+            return true;
+        });
+        return {
+            ...group,
+            accounts: filtered_accounts,
+            periods: filtered_periods,
+        };
+    });
+}
+
 export interface AccountError {
     provider: string;
     /**

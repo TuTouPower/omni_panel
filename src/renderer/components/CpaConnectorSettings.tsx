@@ -479,8 +479,8 @@ export function CpaConnectorSettings({
                                     variant="icon"
                                     size="sm"
                                     className="h-7 w-7 p-0"
-                                    title="编辑数据标签映射"
-                                    aria-label="编辑数据标签映射"
+                                    title="编辑数据标签设置"
+                                    aria-label="编辑数据标签设置"
                                     type="button"
                                     onClick={() => {
                                         onEditLabelMap(monitor.provider);

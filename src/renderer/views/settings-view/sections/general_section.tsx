@@ -332,8 +332,8 @@ export function GeneralSection({
                 }}
             />
             <SetRow
-                title="同一厂商的数据标签映射同步"
-                sub="同一厂商下的多个账号共用一套数据标签映射，编辑任一账号即同步到全部"
+                title="同一厂商的数据标签设置同步"
+                sub="同一厂商下的多个账号共用一套数据标签设置，编辑任一账号即同步到全部"
             >
                 <span aria-hidden="true" />
             </SetRow>

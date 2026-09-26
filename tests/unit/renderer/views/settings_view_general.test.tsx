@@ -289,10 +289,10 @@ describe("SettingsView", () => {
     it("shows label map sync behavior in general section", async () => {
         render(<SettingsView />);
         await waitFor(() => {
-            expect(screen.getByText("同一厂商的数据标签映射同步")).toBeInTheDocument();
+            expect(screen.getByText("同一厂商的数据标签设置同步")).toBeInTheDocument();
         });
         const syncRow = screen
-            .getByText("同一厂商的数据标签映射同步")
+            .getByText("同一厂商的数据标签设置同步")
             .closest('[data-testid="set-row"]');
         if (!syncRow) throw new Error("sync row not found");
         expect(within(syncRow as HTMLElement).queryByRole("button")).not.toBeInTheDocument();

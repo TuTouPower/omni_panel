@@ -71,6 +71,10 @@ export interface AppConfiguration {
         Partial<Record<string, Readonly<Record<string, string>>>>
     >;
     readonly accountLabelMaps?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    /** t526: 数据标签设置——按 provider 隐藏的 raw_label 列表 */
+    readonly providerHiddenLabels?: Readonly<Partial<Record<string, readonly string[]>>>;
+    /** t526: 数据标签设置——按 instanceId 隐藏的 raw_label 列表 */
+    readonly accountHiddenLabels?: Readonly<Record<string, readonly string[]>>;
     readonly labelMapSync?: boolean;
     /** When true, hide account remarks/display names in UI surfaces. */
     readonly uiDesensitizeRemarks?: boolean;

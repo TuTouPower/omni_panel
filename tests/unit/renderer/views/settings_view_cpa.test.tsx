@@ -130,7 +130,7 @@ describe("SettingsView", () => {
             cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_button) throw new Error("missing CPA edit button");
         await user.click(edit_button);
-        const label_map_button = (await screen.findAllByTitle("编辑数据标签映射"))[0];
+        const label_map_button = (await screen.findAllByTitle("编辑数据标签设置"))[0];
         if (!label_map_button) throw new Error("missing label map button");
         await user.click(label_map_button);
         await user.click(
@@ -204,7 +204,7 @@ describe("SettingsView", () => {
             cpa_card?.querySelector<HTMLButtonElement>('[title="编辑（连接设置）"]');
         if (!edit_button) throw new Error("missing CPA edit button");
         await user.click(edit_button);
-        const label_map_button = (await screen.findAllByTitle("编辑数据标签映射"))[0];
+        const label_map_button = (await screen.findAllByTitle("编辑数据标签设置"))[0];
         if (!label_map_button) throw new Error("missing label map button");
         await user.click(label_map_button);
         await user.click(

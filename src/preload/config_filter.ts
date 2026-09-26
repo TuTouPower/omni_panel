@@ -19,6 +19,8 @@ export const POPUP_ALLOWED_CONFIG_KEYS = new Set<string>([
     "accountLabels",
     "accountLabelMaps",
     "providerLabelMaps",
+    "providerHiddenLabels",
+    "accountHiddenLabels",
     "uiDesensitizeRemarks",
     "providerForcePercent",
     "upcomingResetThresholdPercent",

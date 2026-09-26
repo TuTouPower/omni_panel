@@ -7,6 +7,7 @@ import {
     visible_providers_from_groups,
     apply_account_overrides,
     apply_account_labels,
+    apply_hidden_metric_labels,
     collect_upcoming_resets,
     buildAccountErrors,
     type AccountError,
@@ -23,6 +24,8 @@ export interface UsePopupDerivedParams {
     provider_order: string[];
     active_tab: string;
     account_orders: Record<string, string[]>;
+    provider_hidden_labels?: Readonly<Partial<Record<string, readonly string[]>>> | undefined;
+    account_hidden_labels?: Readonly<Record<string, readonly string[]>> | undefined;
 }
 
 export interface UsePopupDerivedResult {
@@ -48,16 +51,28 @@ export function use_popup_derived(params: UsePopupDerivedParams): UsePopupDerive
         provider_order,
         active_tab,
         account_orders,
+        provider_hidden_labels,
+        account_hidden_labels,
     } = params;
 
     const rawGroups = useMemo(() => build_provider_usage_groups(plugins), [plugins]);
     const providerGroups = useMemo(
         () =>
-            apply_account_labels(
-                apply_account_overrides(rawGroups, account_overrides),
-                account_labels,
+            apply_hidden_metric_labels(
+                apply_account_labels(
+                    apply_account_overrides(rawGroups, account_overrides),
+                    account_labels,
+                ),
+                provider_hidden_labels,
+                account_hidden_labels,
             ),
-        [rawGroups, account_overrides, account_labels],
+        [
+            rawGroups,
+            account_overrides,
+            account_labels,
+            provider_hidden_labels,
+            account_hidden_labels,
+        ],
     );
     const visibleProviders = useMemo(
         () => visible_providers_from_groups(rawGroups, plugins),

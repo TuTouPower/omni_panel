@@ -46,7 +46,7 @@
 
 ### SettingsView（设置窗，route=setting）
 
-`SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签映射）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
+`SettingsForm` + `SecretInput`（密钥睁/闭）+ `VendorCard`（直连 provider 卡，内嵌 `AccountRow`）+ `CpaCard`（CPA 卡，父行自渲染 + `AccountRow mode="cpa-child"`）+ `CpaConnectorSettings`（CPA 数据源详情）+ `LabelMapDialog`（数据标签设置）+ `RenameAccountDialog`（账号备注）+ `ConfirmDelete`（删除确认）+ `AddAccountDialog`（新增账号）。
 
 - AddAccountDialog 使用统一 `Dialog`，提供 dialog role、模态标记和可访问名称；首帧直接呈现稳定状态，不依赖窗口专属入场动画或旧 `.acct-dialog` / `.ad-*` DOM 类名。
 
@@ -54,11 +54,11 @@
 
 编辑已存密钥时 `config:getSecrets` 回填明文；输入框 `spellCheck={false}`。
 
-**数据标签映射 key 不变量**（`lib/label-map-util` `build_label_map_rows`）：
+**数据标签设置 key 不变量与显隐过滤**（`lib/label-map-util` `build_label_map_rows`，t526）：
 
-- 映射配置 **key 永远是 `item.raw_label`**（与用量面板 `format_usage_period_label` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
+- 映射与显隐配置 **key 永远是 `item.raw_label`**（与用量面板 `format_usage_period_label` 及 `apply_hidden_metric_labels` 查找键一致）。禁止用 `normalized_label` 或显示名作 key。
 - `LabelMapRow`：`raw`（key）/ `default`（无用户覆盖时的显示回退）/ `display`（`existing_map[raw]` 或 `default`）。
-- **数据标签映射显示**（t101）：`SettingsForm` 以静态标题直接渲染映射内容，无折叠按钮；加载态、空态和标签行始终保留。
+- **数据标签设置显示与显隐**（t101/t526）：`SettingsForm` 与 `LabelMapDialog` 统一文案为「数据标签设置」；每行数据标签右侧提供显隐切换按钮（`eye` / `eye_off`），支持关闭特定标签；关闭后在用量柱状图、趋势折线图以及即将重置监控中均过滤隐藏（`provider-usage.ts` `apply_hidden_metric_labels`）。
 - 直连（`SettingsForm`）与 CPA（`LabelMapDialog`）共用此 util；CPA 可用 `normalize_for_display` 剥账号名做默认显示，**不改 key**。
 - **CPA 标签行监控（t104）**：`CpaLabelMapDialog` 向 `LabelMapDialog` 传入厂商的 watched map；每条 `raw_label` 行仅在同时收到 map 与回调时渲染 bell。全部 `account_keys` 已监控才 pressed；部分或全未监控时点击为全部 key 添加，全部已监控时移除全部。无监控记录时 CPA 传空 map，仍显示可添加监控的 bell。
 - 按 `raw_label` 去重（first wins）。旧映射若误用 `normalized_label` 作 key 不迁移，用户重设。

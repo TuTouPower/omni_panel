@@ -54,4 +54,9 @@ describe("filter_popup_config_save (A140 / AC-003)", () => {
         expect(POPUP_ALLOWED_CONFIG_KEYS.has("launchAtLogin")).toBe(false);
         expect(POPUP_ALLOWED_CONFIG_KEYS.has("schemaVersion")).toBe(false);
     });
+
+    it("t526 AC-002: includes providerHiddenLabels and accountHiddenLabels in POPUP_ALLOWED_CONFIG_KEYS", () => {
+        expect(POPUP_ALLOWED_CONFIG_KEYS.has("providerHiddenLabels")).toBe(true);
+        expect(POPUP_ALLOWED_CONFIG_KEYS.has("accountHiddenLabels")).toBe(true);
+    });
 });
