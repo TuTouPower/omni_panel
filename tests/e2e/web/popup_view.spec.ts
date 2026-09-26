@@ -21,6 +21,17 @@ test.describe("popup view (web)", () => {
         await popup.clickRefresh();
     });
 
+    test("refresh button does not have focus ring on initial render (p261)", async ({
+        webPage,
+    }) => {
+        const popup = new PopupPage(webPage);
+        await popup.waitReady();
+        const refreshBtn = popup.root().getByTitle("刷新全部");
+        await expect(refreshBtn).toBeVisible();
+        const isFocusVisible = await refreshBtn.evaluate((el) => el.matches(":focus-visible"));
+        expect(isFocusVisible).toBe(false);
+    });
+
     test("popup root fills the viewport height", async ({ webPage }) => {
         const popup = new PopupPage(webPage);
         await popup.waitReady();

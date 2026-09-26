@@ -548,6 +548,29 @@ describe("PopupView", () => {
         fireEvent.click(btn1);
         expect(settings_open).toHaveBeenCalledWith({ instanceId: "kimi-inst-card-2" });
     });
+
+    it("p261: keeps initial focus on live container instead of refresh button on mount and window focus", async () => {
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /总览/ })).toBeInTheDocument();
+        });
+
+        const liveRoot = document.querySelector('[data-popup="live"]');
+        const refreshBtn = screen.getByTitle("刷新全部");
+
+        expect(document.activeElement).toBe(liveRoot);
+        expect(document.activeElement).not.toBe(refreshBtn);
+
+        refreshBtn.focus();
+        expect(document.activeElement).toBe(refreshBtn);
+
+        act(() => {
+            window.dispatchEvent(new Event("focus"));
+        });
+
+        expect(document.activeElement).toBe(liveRoot);
+        expect(document.activeElement).not.toBe(refreshBtn);
+    });
 });
 
 describe("record_bool_equal", () => {

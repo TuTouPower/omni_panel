@@ -14,4 +14,4 @@
     2. 单元测试在 jsdom 运行，jsdom 不支持 `:focus-visible` 启发式及窗口原生激活机制，存在假绿盲区。
         应在 E2E 层（`tests/e2e/web/popup_view.spec.ts`）补测：面板挂载/初始激活后，顶部操作按钮不得匹配 `:focus-visible`。
 - 线索：`.scratch/repro_bug.mjs`，模拟 initial focus 与 Tab navigation 下 `box-shadow` 的出现。
-- 处理：未开
+- 处理：main
