@@ -18,6 +18,54 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/tasks/t527_fix_web_insecure_context_secure_apis"
+        },
+        {
+            "tid": "t528",
+            "slug": "connector_execution_budget",
+            "title": "连接器执行预算、协作取消与有界并发机制",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/tasks/t528_connector_execution_budget"
+        },
+        {
+            "tid": "t529",
+            "slug": "connector_discovery_cache",
+            "title": "连接器发现结果持久化缓存能力",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "t528",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/tasks/t529_connector_discovery_cache"
+        },
+        {
+            "tid": "t530",
+            "slug": "muse_discovery_budget",
+            "title": "Muse 连接器预算内动态发现重写与采集",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "t529",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/tasks/t530_muse_discovery_budget"
         }
     ]
 }
