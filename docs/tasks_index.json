@@ -4,22 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t525",
-            "slug": "muse_dynamic_action_resolution_fix",
-            "title": "Muse 连接器运行时自动动态嗅探与会话健壮性修复",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "",
-            "dir": "docs/tasks/t525_muse_dynamic_action_resolution_fix"
-        },
-        {
             "tid": "t526",
             "slug": "metric_label_settings_visibility",
             "title": "数据标签设置重命名与标签显隐开关",

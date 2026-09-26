@@ -5,4 +5,4 @@
 - 根因：当前打包依赖为 Electron 42.2.0。Electron 42 引入 `os_crypt_async`（PR #49054），其 `SafeStorage` 构造函数注册了 `app.ready` 钩子并在 `OnFinishLaunching` 中调用 `KeychainKeyProvider::GetKey()` 访问系统钥匙串。由于 Node ESM 规范在加载 `import { ... } from "electron"` 或 `await import("electron")` 时会 eager evaluate 命名空间内所有导出的 getter，导致业务虽未直接使用 `safeStorage` 却隐式实例化了它。配合打包脚本当前的 ad-hoc 签名缺乏稳定 Designated Requirement，macOS 无法继承授权记录，冷启动必弹窗。官方已在 PR #50419（42 分支 backport PR #51924，发布于 Electron 42.4.1）修复，改为仅在实际调用加密接口时才懒加载初始化。
 - 测试缺口：现有单元测试和无头集成测试未跑在真实打包 macOS 钥匙串交互环境下；CI 无法自动化检测系统原生钥匙串弹窗。应在 `package.json` 中将 Electron 升级至 42.4.1+ 并锁定，结合构建依赖版本断言或真实打包冒烟验证。
 - 线索：官方修复 PR #50419、Backport PR #51924、Electron 42.4.1 发布记录、系统钥匙串 `OmniPanel Safe Storage` 弹窗截图。
-- 处理：未开
+- 处理：main

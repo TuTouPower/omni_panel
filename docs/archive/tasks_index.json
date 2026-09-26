@@ -8354,6 +8354,22 @@
             "conflicts_with": "",
             "note": "来源: p259",
             "dir": "docs/archive/tasks/t524_connector_worker_packaged_fix"
+        },
+        {
+            "tid": "t525",
+            "slug": "muse_dynamic_action_resolution_fix",
+            "title": "Muse 连接器运行时自动动态嗅探与会话健壮性修复",
+            "status": "done",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "7b243c6ff11b76d7bac9885453e67f2fad60f91f",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t525_muse_dynamic_action_resolution_fix"
         }
     ]
 }

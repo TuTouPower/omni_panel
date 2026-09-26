@@ -369,3 +369,13 @@
 - 结论：维持 false。为保证跨平台（Windows / Linux / macOS）以及 Headless CLI 模式下的会话持久化与免登录稳定性，避免钥匙串弹窗阻断自动化与多进程，会话 Cookie 采用隔离目录文件明文落盘，安全依赖操作系统用户目录权限。
 - 落地：R10，t500，`architecture.md`，`README.md`。
 - 替代：开启 Chromium 钥匙串加密。
+
+## 041 Muse 连接器运行时动态嗅探 Turbopack Action ID（2026-09-26）
+
+- 背景：Muse AI 采用高频 CI/CD 编译部署，Next.js App Router 的 Server Action ID（`fetchSubscriptionAction`）在每次构建后哈希值均会变化，硬编码 ID 极易在几小时内遭遇 404；且首页路由源码中包含 `"forbidden":"$undefined"` 等元数据，原 `/Forbidden/i` 正则导致 HTTP 200 已登录页面被误判失效并死循环重登。
+- 结论：
+    1. 移除首页 HTML 的 `/Forbidden/i` 正则校验，会话失效严格以 401/403 状态码或重定向为依据。
+    2. 实现运行时动态嗅探机制：首屏拉取 `deployment_id`，若发生版本漂移，自动定位 Turbopack 异步清单 chunk 并逆向解析 `createServerReference` 提取最新 Action ID。
+    3. 支持通过 `ACTION_ID` / `DEPLOYMENT_ID` 参数手动显式覆盖，基准常量仅作最低兜底。
+- 落地：t525。
+- 替代：人工频繁修改代码发版更新写死 ID、或每次请求均无状态扫描全部 chunk。
