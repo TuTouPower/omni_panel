@@ -50,6 +50,22 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/tasks/t530_muse_discovery_budget"
+        },
+        {
+            "tid": "t531",
+            "slug": "empty_account_remark_fallback_display",
+            "title": "添加账号未填备注时不设默认值并在展示层动态回退",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/tasks/t531_empty_account_remark_fallback_display"
         }
     ]
 }
