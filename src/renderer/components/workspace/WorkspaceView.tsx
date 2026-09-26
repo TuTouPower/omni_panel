@@ -181,7 +181,7 @@ export function WorkspaceView({
         function on_keydown(e: KeyboardEvent): void {
             if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === "C") {
                 const text = format_entries(selection_store.all(), "markdown");
-                if (text) {
+                if (text && typeof navigator.clipboard !== "undefined") {
                     void navigator.clipboard.writeText(text).catch(() => {
                         // 忽略剪贴板拒绝。
                     });

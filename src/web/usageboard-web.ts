@@ -47,6 +47,7 @@ import type {
 } from "../shared/types/token-stats";
 import { apply_theme } from "../renderer/lib/theme";
 import { get_local_date_string } from "../shared/lib/local-time";
+import { safe_random_uuid } from "../shared/lib/uuid";
 
 const POLL_MS = 10_000;
 
@@ -264,7 +265,7 @@ export function create_web_usageboard(): UsageboardApi {
     const web_session_subs = new Map<string, WebSessionSubEntry>();
     let web_session_sub_seq = 0;
     // 页级连接 id 须跨 tab 唯一：服务端 sse_connections 以 id 为键，重复会互相覆盖（AC-006）。
-    const page_connection_id = `web-conn-${crypto.randomUUID()}`;
+    const page_connection_id = `web-conn-${safe_random_uuid()}`;
 
     function session_sub_key(source: string, env: string, session_id: string): string {
         return `${source}|${env}|${session_id}`;

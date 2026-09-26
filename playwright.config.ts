@@ -33,6 +33,13 @@ const config: PlaywrightTestConfig = {
             testDir: "./tests/e2e/web",
             use: {
                 baseURL: `http://127.0.0.1:${E2E_WEB_PORT}`,
+                launchOptions: {
+                    args: [
+                        "--proxy-server=direct://",
+                        "--proxy-bypass-list=*",
+                        "--host-resolver-rules=MAP omni-insecure.test 127.0.0.1",
+                    ],
+                },
             },
         },
         {

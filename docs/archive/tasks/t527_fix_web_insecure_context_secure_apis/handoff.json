@@ -1,0 +1,35 @@
+{
+    "tid": "t527",
+    "attempt": 1,
+    "execution_id": "5e06d6c5a5e4471298c774df3ddba4ed",
+    "status": "done",
+    "branch": "t527_fix_web_insecure_context_secure_apis",
+    "base_sha": "e5f5b86b12f4c42c34d43a2b323768b9ccd887ed",
+    "tests": "pnpm test 全量 336 个测试文件、4119+ 测试用例全部通过；pnpm typecheck、pnpm lint、pnpm format:check、pnpm deadcode、pnpm arch、pnpm build 全部通过；git diff --check 零格式问题",
+    "blackbox": "MOCK_FIXTURE=synthetic pnpm exec playwright test --config=playwright.config.ts --project=web tests/e2e/web/insecure_origin.spec.ts 通过，真实端到端验证在非 loopback HTTP origin（omni-insecure.test 映射到 127.0.0.1，isSecureContext=false，crypto.randomUUID=undefined）下 web 面板正常挂载且无 pageerror",
+    "review": "single 级：general_verdict=PASS, reviewed_scope=878d5ad29aa0c8fc",
+    "ac_evidence": {
+        "AC-001": [
+            "src/shared/lib/uuid.ts 实现 safe_random_uuid，在 crypto.randomUUID 缺失时回退至 crypto.getRandomValues 或伪随机",
+            "tests/unit/web/usageboard-web.test.ts 与 tests/unit/web/web_mount.test.tsx 验证在 crypto.randomUUID=undefined 下 install_web_usageboard() 不抛异常且 App 正常挂载"
+        ],
+        "AC-002": [
+            "src/web/usageboard-web.ts page_connection_id 改用 safe_random_uuid()",
+            "tests/unit/web/usageboard-web.test.ts 验证两个 bridge 实例生成的 connection id 均匹配 v4 UUID 格式且互不相同"
+        ],
+        "AC-003": [
+            "src/renderer/components/AddAccountDialog.tsx generate_instance_id 改用 safe_random_uuid()",
+            "tests/unit/renderer/components/AddAccountDialog.test.tsx 验证非安全上下文下 vendor 选择不抛错，生成的 instance id 带有 vendor 前缀与合法 UUID"
+        ],
+        "AC-004": [
+            "src/renderer/components/workspace/SelectionTray.tsx 与 WorkspaceView.tsx 增加 navigator.clipboard 未定义守卫",
+            "tests/unit/renderer/components/workspace/SelectionTray.test.tsx 与 WorkspaceView.test.tsx 验证非安全上下文下复制操作不抛错"
+        ],
+        "AC-005": [
+            "playwright.config.ts 与 vite.web.config.ts 增加代理隔离与 omni-insecure.test 映射与 preview 允许列表",
+            "tests/e2e/web/insecure_origin.spec.ts 验证真实非 loopback origin 明文 HTTP 下 isSecureContext=false、#root 正常渲染且零 pageerror"
+        ]
+    },
+    "pending": ["p264"],
+    "findings": []
+}

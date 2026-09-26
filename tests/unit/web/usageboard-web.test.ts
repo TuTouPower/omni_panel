@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { create_web_usageboard, build_query_string } from "../../../src/web/usageboard-web";
+import {
+    create_web_usageboard,
+    install_web_usageboard,
+    build_query_string,
+} from "../../../src/web/usageboard-web";
 
 /** 桥测试用假 EventSource：捕获连接与监听器，供订阅/推送/注销断言。 */
 class FakeEventSource {
@@ -1582,5 +1586,49 @@ describe("web usageboard bridge", () => {
                 empty: null,
             }),
         ).toBe("?provider=claude&days=7&active=true");
+    });
+
+    describe("非安全上下文适配 (t527 AC-001 / AC-002)", () => {
+        it("AC-001: crypto.randomUUID 不可用时 install_web_usageboard 不抛异常并安装 bridge", () => {
+            const orig_crypto = window.crypto;
+            const fake_crypto = {
+                getRandomValues: (arr: Uint8Array) => orig_crypto.getRandomValues(arr),
+                randomUUID: undefined,
+            };
+            vi.stubGlobal("crypto", fake_crypto);
+
+            expect(() => {
+                install_web_usageboard();
+            }).not.toThrow();
+            expect((window as unknown as { usageboard: unknown }).usageboard).toBeDefined();
+            expect(document.documentElement.getAttribute("data-web")).toBe("1");
+        });
+
+        it("AC-002: crypto.randomUUID 不可用时 bridge 仍能生成 page connection id，且两页互不相同", async () => {
+            const orig_crypto = window.crypto;
+            const fake_crypto = {
+                getRandomValues: (arr: Uint8Array) => orig_crypto.getRandomValues(arr),
+                randomUUID: undefined,
+            };
+            vi.stubGlobal("crypto", fake_crypto);
+            vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(mock_response({})));
+            FakeEventSource.instances = [];
+            vi.stubGlobal("EventSource", FakeEventSource);
+
+            const page1 = create_web_usageboard();
+            const page2 = create_web_usageboard();
+            await page1.sessionHistory.subscribe("claude_code", "win", "sess-a");
+            await page2.sessionHistory.subscribe("claude_code", "win", "sess-b");
+            expect(FakeEventSource.instances).toHaveLength(2);
+            const url1 = FakeEventSource.instances[0]?.url ?? "";
+            const url2 = FakeEventSource.instances[1]?.url ?? "";
+            expect(url1).toMatch(
+                /connectionId=web-conn-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+            );
+            expect(url2).toMatch(
+                /connectionId=web-conn-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+            );
+            expect(url1).not.toBe(url2);
+        });
     });
 });

@@ -11,4 +11,4 @@
     - 已扫其余 `crypto.*` / `navigator.*`（`crypto.subtle`、`mediaDevices`、`serviceWorker`、`geolocation`、`credentials`、`showOpenFilePicker` 等）无其他 renderer/web 命中。
 - 测试缺口：web e2e（`tests/e2e/web`，playwright webServer 绑 `http://127.0.0.1:${E2E_WEB_PORT}`）与全部单测（jsdom/Node 22 提供 webcrypto）都运行在安全上下文，`crypto.randomUUID`/`navigator.clipboard` 恒存在，永不触发该路径；无任何测试覆盖非安全 HTTP origin 的 web 启动与相关交互。应补：①单测——把 `crypto.randomUUID` 置为 `undefined` 后调用 `create_web_usageboard()` 不抛错并生成合法 page connection id；`generate_instance_id` 在 `crypto.randomUUID` 缺失时回退仍产生唯一 id；`SelectionTray`/`WorkspaceView` 复制路径在 `navigator.clipboard === undefined` 时不抛错。②web e2e——以非 loopback 主机名（如机器 LAN IP / `*.local`）访问 `out/web`，断言 `#root` 有内容、无 pageerror（可在 CI 用 `--host 0.0.0.0` + 主机名，或注入 `window.isSecureContext=false` 的等价用例）。修复面须覆盖上述全部已确认位点。
 - 线索：`.scratch/bug_web_lan/probe.mjs`（headless chromium 载入指定 URL，打印 `#root` 子节点数/`data-theme` 并捕获 console/pageerror/失败请求；`http://127.0.0.1:17863/` 正常 vs `http://192.168.31.76:17863/`、`http://karsondemacbook-pro.local:17863/` 白屏并可复现 `crypto.randomUUID is not a function`）。复现前置：本机运行 OmniPanel 占 17863 且 `out/web` 已构建。
-- 处理：未开
+- 处理：t527

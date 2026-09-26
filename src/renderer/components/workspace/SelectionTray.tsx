@@ -48,6 +48,7 @@ export function SelectionTray() {
     function copy(): void {
         const text = format_entries(items, format);
         if (!text) return;
+        if (typeof navigator.clipboard === "undefined") return;
         void navigator.clipboard
             .writeText(text)
             .then(() => {

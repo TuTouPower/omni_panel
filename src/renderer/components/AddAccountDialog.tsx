@@ -14,12 +14,13 @@ import { resolve_form_renderer, type FormContext } from "./add_account/form_regi
 import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import type { AddAccountParams } from "./add_account/add_account_params";
+import { safe_random_uuid } from "../../shared/lib/uuid";
 
 export type { AddAccountParams } from "./add_account/add_account_params";
 
-function generate_instance_id(vendor_id: AddServiceId): string {
-    // A75: 使用标准安全随机器代替 Math.random
-    return `${vendor_id}-${crypto.randomUUID()}`;
+export function generate_instance_id(vendor_id: AddServiceId): string {
+    // A75 / t527: 使用安全随机器生成 v4 UUID，非安全上下文回退至 getRandomValues / 伪随机
+    return `${vendor_id}-${safe_random_uuid()}`;
 }
 
 interface AddAccountDialogProps {
