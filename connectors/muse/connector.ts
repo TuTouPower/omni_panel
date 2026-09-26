@@ -34,8 +34,8 @@ interface SubscriptionResponse {
     readonly subscription?: SubscriptionData;
 }
 
-const BASELINE_ACTION_ID = "400d35d4ad8f6fec1fbe6afab3702db6fc9b789860";
-const BASELINE_DEPLOYMENT_ID = "dpl_ANdjwDWFehCiiGEKhQivsceJogig";
+const BASELINE_ACTION_ID = "4012d49305cf4c3246eb4b75085a93bbe92fe7cec7";
+const BASELINE_DEPLOYMENT_ID = "dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy";
 const DEFAULT_ROUTER_STATE_TREE =
     "%5B%22%22%2C%7B%22children%22%3A%5B%22(authenticated)%22%2C%7B%22children%22%3A%5B%22(shell)%22%2C%7B%22children%22%3A%5B%5B%22path%22%2C%22%22%2C%22oc%22%2Cnull%5D%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4112%5D";
 
@@ -86,24 +86,131 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
         ctx.log.warn(`Failed to fetch Muse home page for dynamic IDs: ${msg}`);
     }
 
-    // 匹配 x-deployment-id (如 data-dpl-id="dpl_..." 或 dpl=dpl_... 或 dpl_ANdjwDWFehCiiGEKhQivsceJogig)
+    // 匹配 x-deployment-id (如 data-dpl-id="dpl_..." 或 dpl=dpl_... 或 dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy)
     const dpl_match =
-        /data-dpl-id=["'](dpl_[A-Za-z0-9]+)["']/.exec(html) ??
-        /dpl=(dpl_[A-Za-z0-9]+)/.exec(html) ??
-        /"(dpl_[A-Za-z0-9]+)"/.exec(html) ??
+        /data-dpl-id=["'](dpl_[A-Za-z0-9_]+)["']/.exec(html) ??
+        /dpl=(dpl_[A-Za-z0-9_]+)/.exec(html) ??
+        /"(dpl_[A-Za-z0-9_]+)"/.exec(html) ??
         /deploymentId[:=]\s*["']([^"']+)["']/.exec(html);
 
-    // 匹配 next-action ID (32~64位十六进制哈希)
-    const action_match =
-        /actionId[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
-        /["'](?:next-action|actionId|action)["']\s*[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
-        /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/i.exec(
-            html,
-        );
-
     const deployment_id = param_dpl !== "" ? param_dpl : (dpl_match?.[1] ?? BASELINE_DEPLOYMENT_ID);
-    const action_id =
-        param_action !== "" ? param_action : (action_match?.[1] ?? BASELINE_ACTION_ID);
+    let action_id = param_action;
+
+    // 1. 若页面内已有 actionId，直接使用
+    if (!action_id) {
+        const action_match =
+            /actionId[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
+            /["'](?:next-action|actionId|action)["']\s*[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(
+                html,
+            ) ??
+            /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/i.exec(
+                html,
+            );
+        if (action_match?.[1]) {
+            action_id = action_match[1];
+        }
+    }
+
+    // 2. 若 deployment_id 与基准一致，优先复用基准 Action ID 免去异步探测
+    if (!action_id && deployment_id === BASELINE_DEPLOYMENT_ID) {
+        action_id = BASELINE_ACTION_ID;
+    }
+
+    // 3. 若线上版本发生迭代，通过 React 组件元数据与 Turbopack 清单动态嗅探最新 Server Action ID
+    if (!action_id && html) {
+        try {
+            const direct_scripts = [
+                ...html.matchAll(/<script[^>]+src=["'](\/_next\/static\/chunks\/[^"']+)["']/g),
+            ]
+                .map((m) => m[1])
+                .filter((s): s is string => typeof s === "string");
+            const rsc_scripts = [...html.matchAll(/\\"script-\d+\\",\{\\"src\\":\\"([^\\"]+)\\"/g)]
+                .map((m) => m[1])
+                .filter((s): s is string => typeof s === "string");
+            const all_scripts = [...new Set([...direct_scripts, ...rsc_scripts])];
+
+            const script_contents: { path: string; text: string }[] = [];
+            for (const s of all_scripts) {
+                if (!s) continue;
+                const path = s.startsWith("/") ? s : `/${s}`;
+                try {
+                    const res = await ctx.http.get_raw("default", path);
+                    script_contents.push({ path, text: res.body });
+                } catch {
+                    // ignore single script fetch failure
+                }
+            }
+
+            // 优先检查是否有脚本直接定义 fetchSubscriptionAction
+            for (const item of script_contents) {
+                const match =
+                    /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
+                        item.text,
+                    );
+                if (match?.[1]) {
+                    action_id = match[1];
+                    ctx.log.info(`Directly resolved Muse action ID: ${action_id}`);
+                    break;
+                }
+            }
+
+            // 若未直接定义，通过设置组件（HatchSettingsDialogContent）语义链接定位异步分包
+            if (!action_id) {
+                let settings_module_id: string | null = null;
+                for (const item of script_contents) {
+                    const match = /\.A\((\d+)\)\.then[\s\S]{0,300}HatchSettingsDialogContent/.exec(
+                        item.text,
+                    );
+                    if (match?.[1]) {
+                        settings_module_id = match[1];
+                        break;
+                    }
+                }
+
+                if (settings_module_id) {
+                    let target_chunks: string[] = [];
+                    for (const item of script_contents) {
+                        const reg = new RegExp(
+                            `${settings_module_id}[\\s\\S]{0,100}Promise\\.all\\(\\[([^\\]]+)\\]`,
+                        );
+                        const match = reg.exec(item.text);
+                        if (match?.[1]) {
+                            target_chunks = [...match[1].matchAll(/"(static\/chunks\/[^"]+\.js)"/g)]
+                                .map((m) => m[1])
+                                .filter((c): c is string => typeof c === "string");
+                            break;
+                        }
+                    }
+
+                    for (const chunk of target_chunks) {
+                        if (!chunk) continue;
+                        try {
+                            const cres = await ctx.http.get_raw("default", `/_next/${chunk}`);
+                            const match =
+                                /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
+                                    cres.body,
+                                );
+                            if (match?.[1]) {
+                                action_id = match[1];
+                                ctx.log.info(`Semantically resolved Muse action ID: ${action_id}`);
+                                break;
+                            }
+                        } catch {
+                            // continue searching other chunks
+                        }
+                    }
+                }
+            }
+        } catch (scan_err) {
+            ctx.log.warn(
+                `Dynamic action ID scan failed: ${scan_err instanceof Error ? scan_err.message : String(scan_err)}`,
+            );
+        }
+    }
+
+    if (!action_id) {
+        action_id = BASELINE_ACTION_ID;
+    }
 
     return { action_id, deployment_id };
 }
