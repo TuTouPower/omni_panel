@@ -153,14 +153,14 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
                     break;
                 }
             }
-
             // 若未直接定义，通过设置组件（HatchSettingsDialogContent）语义链接定位异步分包
             if (!action_id) {
                 let settings_module_id: string | null = null;
                 for (const item of script_contents) {
-                    const match = /\.A\((\d+)\)\.then[\s\S]{0,300}HatchSettingsDialogContent/.exec(
-                        item.text,
-                    );
+                    const match =
+                        /\.A\((\d+)\)\.then\((?:(?!\.A\()[\s\S])*?HatchSettingsDialogContent/.exec(
+                            item.text,
+                        );
                     if (match?.[1]) {
                         settings_module_id = match[1];
                         break;
@@ -171,7 +171,7 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
                     let target_chunks: string[] = [];
                     for (const item of script_contents) {
                         const reg = new RegExp(
-                            `${settings_module_id}[\\s\\S]{0,100}Promise\\.all\\(\\[([^\\]]+)\\]`,
+                            `(?:^|\\D)${settings_module_id}\\s*,\\s*(?:function\\s*\\([^)]*\\)|\\(?\\w+\\)?\\s*=>)(?:(?!Promise\\.all)[\\s\\S])*?Promise\\.all\\(\\[([^\\]]+)\\]`,
                         );
                         const match = reg.exec(item.text);
                         if (match?.[1]) {

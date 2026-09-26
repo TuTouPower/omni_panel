@@ -227,6 +227,148 @@ describe("muse connector", () => {
         });
     });
 
+    it("AC-002: does not mistakenly pick a preceding unrelated async import when locating HatchSettingsDialogContent", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_endpoint, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_CHAIN_TEST"></div>',
+                        '<script src="/_next/static/chunks/app-bundle.js"></script>',
+                        '<script src="/_next/static/chunks/manifest-bundle.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("app-bundle.js")) {
+                // 设置组件前存在前置的无关异步导入（111222）
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "var u = e.A(111222).then(function(m){ return { default: m.UserProfileDialogContent }; });",
+                        "var s = e.A(862035).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                    ].join(" "),
+                });
+            }
+            if (path.includes("manifest-bundle.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        '111222, s => { s.v(t => Promise.all(["static/chunks/wrong-unrelated.js"]).map(t=>s.l(t)).then(()=>t(111))) },',
+                        '862035, s => { s.v(t => Promise.all(["static/chunks/correct-settings.js"]).map(t=>s.l(t)).then(()=>t(862))) }',
+                    ].join("\n"),
+                });
+            }
+            if (path.includes("wrong-unrelated.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("1111111111111111111111111111111111111111", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            if (path.includes("correct-settings.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("2222222222222222222222222222222222222222", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "{}" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw).toHaveBeenCalledTimes(1);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "2222222222222222222222222222222222222222",
+            "x-deployment-id": "dpl_CHAIN_TEST",
+        });
+    });
+
+    it("AC-002: accurately enforces module ID boundaries in manifest to avoid matching prefix numbers", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_endpoint, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_PREFIX_TEST"></div>',
+                        '<script src="/_next/static/chunks/app-bundle.js"></script>',
+                        '<script src="/_next/static/chunks/manifest-bundle.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("app-bundle.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(555666).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("manifest-bundle.js")) {
+                // 清单中存在包含 555666 作为后缀的前缀 ID（1555666）
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        '1555666, s => { s.v(t => Promise.all(["static/chunks/wrong-prefix.js"]).map(t=>s.l(t)).then(()=>t(111))) },',
+                        '9999999, s => { s.v(t => Promise.all(["static/chunks/wrong-prefix.js"]).map(t=>s.l(t)).then(()=>t(999))) },',
+                        '555666, s => { s.v(t => Promise.all(["static/chunks/correct-bounded.js"]).map(t=>s.l(t)).then(()=>t(555))) }',
+                    ].join("\n"),
+                });
+            }
+            if (path.includes("wrong-prefix.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("3333333333333333333333333333333333333333", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            if (path.includes("correct-bounded.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("4444444444444444444444444444444444444444", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "{}" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw).toHaveBeenCalledTimes(1);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "4444444444444444444444444444444444444444",
+            "x-deployment-id": "dpl_PREFIX_TEST",
+        });
+    });
+
     it("does not false-trigger session expiration when 200 OK HTML contains forbidden router metadata", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("muse manifest missing");
