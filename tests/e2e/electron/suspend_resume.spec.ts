@@ -17,7 +17,7 @@ test.describe("suspend and resume", () => {
             timeout: 5_000,
         });
         const title = await popup.getTitle();
-        expect(title).toContain("Omni Panel");
+        expect(title).toBe("Usage");
     });
 
     test("resume event restarts refreshes without crashing", async ({ omni }) => {

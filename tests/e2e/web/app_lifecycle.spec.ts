@@ -12,7 +12,7 @@ test.describe("app lifecycle (web)", () => {
         await popup.waitReady();
 
         const title = await popup.getTitle();
-        expect(title).toContain("Omni Panel");
+        expect(title).toBe("Usage");
         // t311：web 下设置入口为原生链接（title 属性两态一致，跨 web/桌面定位稳定）。
         // t380：统一 PanelTitleBar 后 title 为「Settings面板」。
         await expect(popup.root().getByTitle("Settings面板")).toBeVisible();
