@@ -1,0 +1,14 @@
+# p262 局域网 HTTP 访问 web 面板白屏：非安全上下文下 crypto.randomUUID / navigator.clipboard 不可用
+
+- 现象：浏览器经非 loopback 主机名或局域网 IP 以 HTTP 打开 web 面板（`http://192.168.31.76:17863/`、`http://karsondemacbook-pro.local:17863/`）时整页白屏：`<title>OmniPanel` 加载、HTML/CSS/JS 资源均 200，但 `#root` 无内容、无 `data-theme`，控制台报 `TypeError: crypto.randomUUID is not a function`。经 `http://127.0.0.1:17863/`（loopback）访问正常渲染。
+- 影响：LocalAPI 绑 `0.0.0.0` 的既定用途正是局域网访问 web 面板，但**所有非 loopback HTTP 访问一律白屏**，web 面板在真实 LAN 场景完全不可用。另含确认同类位点：web 模式下「添加账号」选厂商时 `generate_instance_id` 抛错；工作台「复制选中/复制会话」在 web 模式抛错。桌面 Electron 模式不受影响（file:// 为安全上下文）。
+- 根因：`crypto.randomUUID` 与 `navigator.clipboard` 均属 **Secure Context 专属 API**。Chromium 仅把 https / localhost / 127.0.0.1 / file 等视为 potentially trustworthy origin，局域网 IP（192.168.x.x）与 mDNS 主机名（`*.local`）经明文 HTTP 均非安全上下文，`crypto.randomUUID`、`navigator.clipboard` 为 `undefined`，调用即同步 TypeError。`src/web/usageboard-web.ts:267` 在 `install_web_usageboard()` → `create_web_usageboard()` 顶层执行 `crypto.randomUUID()`，位于 App 挂载前，异常中断入口脚本 → React 永不挂载 → 白屏。已确认同类位点（同一 Secure Context 机制，均无守卫）：
+    - `src/web/usageboard-web.ts:267`：`crypto.randomUUID()`（致命，阻塞 web 启动）。
+    - `src/renderer/components/AddAccountDialog.tsx:22`：`generate_instance_id` 内 `crypto.randomUUID()`（web 添加账号时抛错）。
+    - `src/renderer/components/workspace/SelectionTray.tsx:51`：`navigator.clipboard.writeText` 无 `undefined` 守卫（同步抛错，`.catch` 不覆盖）。
+    - `src/renderer/components/workspace/WorkspaceView.tsx:185`：`navigator.clipboard.writeText` 无守卫（Ctrl+Shift+C 复制时抛错）。
+    - 参考反例（已正确守卫，证明项目已认知此类问题）：`src/renderer/components/session-library/SessionCard.tsx:71`、`src/renderer/components/workspace/SessionPane.tsx:128` 均 `if (typeof navigator.clipboard === "undefined") return;`。
+    - 已扫其余 `crypto.*` / `navigator.*`（`crypto.subtle`、`mediaDevices`、`serviceWorker`、`geolocation`、`credentials`、`showOpenFilePicker` 等）无其他 renderer/web 命中。
+- 测试缺口：web e2e（`tests/e2e/web`，playwright webServer 绑 `http://127.0.0.1:${E2E_WEB_PORT}`）与全部单测（jsdom/Node 22 提供 webcrypto）都运行在安全上下文，`crypto.randomUUID`/`navigator.clipboard` 恒存在，永不触发该路径；无任何测试覆盖非安全 HTTP origin 的 web 启动与相关交互。应补：①单测——把 `crypto.randomUUID` 置为 `undefined` 后调用 `create_web_usageboard()` 不抛错并生成合法 page connection id；`generate_instance_id` 在 `crypto.randomUUID` 缺失时回退仍产生唯一 id；`SelectionTray`/`WorkspaceView` 复制路径在 `navigator.clipboard === undefined` 时不抛错。②web e2e——以非 loopback 主机名（如机器 LAN IP / `*.local`）访问 `out/web`，断言 `#root` 有内容、无 pageerror（可在 CI 用 `--host 0.0.0.0` + 主机名，或注入 `window.isSecureContext=false` 的等价用例）。修复面须覆盖上述全部已确认位点。
+- 线索：`.scratch/bug_web_lan/probe.mjs`（headless chromium 载入指定 URL，打印 `#root` 子节点数/`data-theme` 并捕获 console/pageerror/失败请求；`http://127.0.0.1:17863/` 正常 vs `http://192.168.31.76:17863/`、`http://karsondemacbook-pro.local:17863/` 白屏并可复现 `crypto.randomUUID is not a function`）。复现前置：本机运行 OmniPanel 占 17863 且 `out/web` 已构建。
+- 处理：未开

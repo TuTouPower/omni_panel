@@ -2,5 +2,22 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t527",
+            "slug": "fix_web_insecure_context_secure_apis",
+            "title": "修复 web 面板非安全上下文 API 缺失导致的局域网白屏",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/tasks/t527_fix_web_insecure_context_secure_apis"
+        }
+    ]
 }
