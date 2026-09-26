@@ -28,6 +28,9 @@ export default {
     resolve: {
         alias: { "@": resolve("src/renderer") },
     },
+    preview: {
+        allowedHosts: true,
+    },
     css: {
         postcss: {
             plugins: [tailwindcss()],

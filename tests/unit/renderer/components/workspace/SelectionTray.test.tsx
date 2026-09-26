@@ -131,4 +131,23 @@ describe("SelectionTray (t226)", () => {
         fireEvent.click(screen.getByRole("button", { name: "清空摘选" }));
         expect(screen.getByText("摘选托盘（空）")).toBeTruthy();
     });
+
+    it("AC-004: navigator.clipboard 不可用时点击复制不抛异常", async () => {
+        Object.assign(navigator, { clipboard: undefined });
+        render(<SelectionTray />);
+        act(() => {
+            selection_store.toggle(item(LOC_A, "m1", "user", "测试内容"));
+        });
+        await waitFor(() => {
+            expect(document.querySelector('[data-testid="selection-tray"]')?.className).toContain(
+                "expanded",
+            );
+        });
+        const copy_btn = [
+            ...document.querySelectorAll<HTMLElement>('[data-testid="selection-tray-button"]'),
+        ].find((b) => b.getAttribute("data-testid") === "selection-tray-button");
+        if (!copy_btn) throw new Error("copy button missing");
+        expect(() => fireEvent.click(copy_btn)).not.toThrow();
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
 });

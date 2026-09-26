@@ -83,3 +83,10 @@ Grok 评审重申 §2 暴露面，并点名 t054 之后新增的免认证端点�
 - 窗口控制按钮的 `is_web` 隐藏：已落地——自绘控制按钮组件在 web 整体不渲染（`src/renderer/components/ui/PanelTitleBar.tsx` `is_web()` → `null`），不存在「点击 no-op」。
 - HTTPS / 跨网段访问 / 认证增强：按当前「局域网不考虑安全」决策不做。
 - review_20260723_opus C1 评估（t054）：4 方案对比后决策 A 保持现状，风险接受说明见 §2.1。
+
+## 9. 运行环境与上下文兼容（t527）
+
+- **非安全上下文支持**：局域网明文 HTTP（LAN IP `http://192.168.x.x:17863/`、mDNS `http://*.local:17863/`）在现代浏览器（Chromium/WebKit）中均属非安全上下文（Insecure Context）。
+- **Secure Context 专属 API 兼容策略**：
+    - `crypto.randomUUID`：非安全上下文下为 `undefined`。web 桥接层与组件生成 UUID（如 `page_connection_id`、账号 `instance_id`）必须使用兼容安全的随机器（`safe_random_uuid`：优先使用可在非安全上下文使用的 `crypto.getRandomValues` 构造标准 v4 UUID，在 Web Crypto 完全不可用时降级为伪随机生成）。
+    - `navigator.clipboard`：非安全上下文下为 `undefined`。剪贴板读写位点必须在使用前检查 `typeof navigator.clipboard !== "undefined"` 并静默降级，禁止直接解构或调用导致同步 `TypeError`。

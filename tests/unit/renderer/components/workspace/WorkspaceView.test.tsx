@@ -368,6 +368,27 @@ describe("WorkspaceView (t224)", () => {
         });
     });
 
+    it("AC-004: navigator.clipboard 不可用时快捷键 Ctrl+Shift+C 复制不抛异常", async () => {
+        Object.assign(navigator, { clipboard: undefined });
+        const ub = usageboard();
+        ub.sessionHistory.query.mockResolvedValue({
+            messages: [msg("m1", "user", "你好", 100)],
+            next_cursor: null,
+        });
+        render_workspace();
+        act(() => {
+            focus_cb()({ source: "claude_code", env: "win", session_id: "sess_a" });
+        });
+        await waitFor(() => screen.getByText("你好"));
+        fireEvent.click(screen.getByRole("checkbox"));
+        expect(() => {
+            window.dispatchEvent(
+                new KeyboardEvent("keydown", { ctrlKey: true, shiftKey: true, key: "C" }),
+            );
+        }).not.toThrow();
+        delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
     it("清空按钮退订全部并回到空态", async () => {
         const ub = usageboard();
         ub.sessionHistory.query.mockResolvedValue({ messages: [], next_cursor: null });
