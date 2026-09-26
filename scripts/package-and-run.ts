@@ -260,15 +260,25 @@ function main(): void {
 }
 
 export function run_package_build(): void {
+    const env_with_mirror = {
+        ...process.env,
+        ELECTRON_MIRROR:
+            process.env["ELECTRON_MIRROR"] ?? "https://npmmirror.com/mirrors/electron/",
+    };
     try {
         log("ensuring Electron ABI for better-sqlite3...");
-        execSync("node scripts/ensure_sqlite_abi.mjs electron", { cwd: ROOT, stdio: "inherit" });
+        execSync("node scripts/ensure_sqlite_abi.mjs electron", {
+            cwd: ROOT,
+            stdio: "inherit",
+            env: env_with_mirror,
+        });
         log("regenerating build-info...");
         execSync("tsx scripts/gen-build-info.ts", { cwd: ROOT, stdio: "inherit" });
         log("running electron-vite build...");
         execSync("electron-vite build", {
             cwd: ROOT,
             stdio: "inherit",
+            env: env_with_mirror,
         });
         log("running web build...");
         execSync("vite build --config vite.web.config.ts", {
@@ -282,8 +292,7 @@ export function run_package_build(): void {
             cwd: ROOT,
             stdio: "inherit",
             env: {
-                ...process.env,
-                ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/",
+                ...env_with_mirror,
                 CSC_IDENTITY_AUTO_DISCOVERY: "false",
             },
         });

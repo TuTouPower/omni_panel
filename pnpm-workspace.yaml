@@ -13,3 +13,4 @@ onlyBuiltDependencies:
 overrides:
     tar: ">=6.2.1"
     tmp: ">=0.2.4"
+    node-abi: "^4.35.0"
