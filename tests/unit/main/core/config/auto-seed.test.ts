@@ -248,6 +248,87 @@ describe("auto_seed_connectors", () => {
         const result = auto_seed_connectors([], [cpa_def]);
         expect(result.seeded).toHaveLength(0);
     });
+
+    it("does NOT clean up grok or interactive connectors on restart when schemaVersion >= 2", () => {
+        const grok_def = make_definition("grok", {
+            auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+        });
+        const grok_instance = make_existing("grok", {
+            name: "GROK",
+            executablePath: grok_def.executablePath,
+            parameterValues: {},
+            endpointOverrides: {},
+        });
+        const config: AppConfiguration = {
+            schemaVersion: 2,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [grok_instance],
+        };
+        const { updatedConfig, changed } = apply_auto_seed_and_migrate(config, [grok_def]);
+        expect(changed).toBe(false);
+        expect(updatedConfig.plugins.map((p) => p.instanceId)).toContain("grok-inst");
+    });
+
+    it("does NOT clean up grok or interactive connectors during migration if instance has stored tokens in vault", () => {
+        const grok_def = make_definition("grok", {
+            auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+        });
+        const grok_instance = make_existing("grok", {
+            name: "GROK",
+            parameterValues: {},
+            endpointOverrides: {},
+        });
+        const config: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [grok_instance],
+        };
+        const { updatedConfig } = apply_auto_seed_and_migrate(config, [grok_def], {
+            known_secret_instance_ids: new Set(["grok-inst"]),
+        });
+        expect(updatedConfig.plugins.map((p) => p.instanceId)).toContain("grok-inst");
+    });
+
+    it("does NOT clean up interactive connector during migration if displayName is set", () => {
+        const grok_def = make_definition("grok", {
+            auth: { method: "oauth_device", secret_name: "OAUTH_TOKEN" },
+        });
+        const grok_instance = make_existing("grok", {
+            displayName: "工作 Grok",
+            name: "GROK",
+            parameterValues: {},
+            endpointOverrides: {},
+        });
+        const config: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [grok_instance],
+        };
+        const { updatedConfig } = apply_auto_seed_and_migrate(config, [grok_def]);
+        expect(updatedConfig.plugins.map((p) => p.instanceId)).toContain("grok-inst");
+    });
+
+    it("does NOT clean up connector during migration if endpointOverrides is configured", () => {
+        const grok_bot_def = make_definition("grok_bot", {
+            auth: { method: "oauth_pkce", secret_name: "ACCESS_TOKEN" },
+        });
+        const grok_bot_instance = make_existing("grok_bot", {
+            name: "GROK_BOT",
+            parameterValues: {},
+            endpointOverrides: { cursor_api: "https://api2.cursor.sh" },
+        });
+        const config: AppConfiguration = {
+            schemaVersion: 1,
+            language: "zh-Hans",
+            launchAtLogin: false,
+            plugins: [grok_bot_instance],
+        };
+        const { updatedConfig } = apply_auto_seed_and_migrate(config, [grok_bot_def]);
+        expect(updatedConfig.plugins.map((p) => p.instanceId)).toContain("grok_bot-inst");
+    });
 });
 
 describe("resolve_refresh_interval", () => {

@@ -15,6 +15,11 @@ interface AutoSeedResult {
     changed: boolean;
 }
 
+export interface AutoSeedOptions {
+    readonly schema_version?: number | undefined;
+    readonly known_secret_instance_ids?: ReadonlySet<string> | undefined;
+}
+
 /**
  * Merge discovered connector definitions into existing config. New connectors
  * are seeded with `refreshIntervalSeconds: 0` (follow-global sentinel) so the
@@ -26,35 +31,80 @@ export function auto_seed_connectors(
     existing: readonly ConnectorConfiguration[],
     definitions: readonly ConnectorDefinition[],
     removed_ids?: ReadonlySet<string>,
+    options?: AutoSeedOptions,
 ): AutoSeedResult {
     const definitions_by_id = new Map(definitions.map((def) => [def.manifest.id, def]));
     const cleanedInstanceIds: string[] = [];
     const valid_existing: ConnectorConfiguration[] = [];
 
-    // t510 / A79: 清理存量未配置的交互式登录空实例（早期误自动生成的空壳）
-    for (const connector of existing) {
-        const def = definitions_by_id.get(connector.manifestId);
-        if (!def) {
-            valid_existing.push(connector);
-            continue;
-        }
-        const auth_method = def.manifest.auth?.method;
-        const is_interactive =
-            auth_method === "oauth_pkce" ||
-            auth_method === "oauth_device" ||
-            auth_method === "web_login" ||
-            auth_method === "cpa_mgmt";
-        const is_default_empty =
-            is_interactive &&
-            connector.name === def.manifest.id.toUpperCase() &&
-            Object.values(connector.parameterValues).every((v) => v === "") &&
-            Object.keys(connector.endpointOverrides).length === 0;
+    // t510 / A79: 清理存量未配置的交互式登录空实例（仅针对 schemaVersion < 2 历史遗留版本一次性迁移）
+    const should_clean_empty = (options?.schema_version ?? 1) < 2;
+    if (should_clean_empty) {
+        for (const connector of existing) {
+            const def = definitions_by_id.get(connector.manifestId);
+            if (!def) {
+                valid_existing.push(connector);
+                continue;
+            }
+            const auth_method = def.manifest.auth?.method;
+            const is_interactive =
+                auth_method === "oauth_pkce" ||
+                auth_method === "oauth_device" ||
+                auth_method === "web_login" ||
+                auth_method === "cpa_mgmt";
 
-        if (is_default_empty) {
+            if (!is_interactive) {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 1. 用户自定义了备注 displayName，绝非自动生成的空壳
+            if (connector.displayName && connector.displayName.trim() !== "") {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 2. 实例在 Vault 中有凭据，绝非空壳
+            if (options?.known_secret_instance_ids?.has(connector.instanceId)) {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 3. 用户修改了 endpointOverrides，绝非空壳
+            if (Object.keys(connector.endpointOverrides).length > 0) {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 4. 用户修改了 name，绝非空壳
+            if (connector.name !== def.manifest.id.toUpperCase()) {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 5. 若存在非密钥参数，且已被用户配置非默认值，保留
+            const non_secret_params = def.manifest.parameters.filter((p) => p.type !== "secret");
+            const has_configured_params = non_secret_params.some(
+                (p) => (connector.parameterValues[p.name] ?? "") !== (p.default ?? ""),
+            );
+            if (has_configured_params) {
+                valid_existing.push(connector);
+                continue;
+            }
+
+            // 6. 若所有非密钥参数值非空（且无默认值），保留
+            const has_any_param_value = Object.values(connector.parameterValues).some(
+                (v) => v !== "",
+            );
+            if (has_any_param_value) {
+                valid_existing.push(connector);
+                continue;
+            }
+
             cleanedInstanceIds.push(connector.instanceId);
-            continue;
         }
-        valid_existing.push(connector);
+    } else {
+        valid_existing.push(...existing);
     }
 
     const existing_by_id = new Map<string, ConnectorConfiguration[]>();
@@ -140,21 +190,31 @@ export function resolve_refresh_interval(
     return DEFAULT_FALLBACK_REFRESH_SECONDS;
 }
 
+export interface ApplyAutoSeedOptions {
+    readonly known_secret_instance_ids?: ReadonlySet<string> | undefined;
+}
+
 /**
  * 执行 auto_seed 与存量空实例清理迁移，并在发生数据结构变动时安全递增 schemaVersion。
  */
 export function apply_auto_seed_and_migrate(
     latest_config: AppConfiguration,
     definitions: readonly ConnectorDefinition[],
+    options?: ApplyAutoSeedOptions,
 ): {
     updatedConfig: AppConfiguration;
     seededPlugins: ConnectorConfiguration[];
     changed: boolean;
 } {
+    const schema_version = latest_config.schemaVersion;
     const { seeded, updatedExisting, cleanedInstanceIds } = auto_seed_connectors(
         latest_config.plugins,
         definitions,
         new Set(latest_config.removedConnectorIds ?? []),
+        {
+            schema_version,
+            known_secret_instance_ids: options?.known_secret_instance_ids,
+        },
     );
     const has_cleaned = Boolean(cleanedInstanceIds && cleanedInstanceIds.length > 0);
     if (seeded.length === 0 && updatedExisting.length === 0 && !has_cleaned) {
@@ -164,7 +224,7 @@ export function apply_auto_seed_and_migrate(
     const updatedById = new Map(updatedExisting.map((p) => [p.instanceId, p]));
     const filtered = latest_config.plugins.filter((p) => !cleaned_set.has(p.instanceId));
     const merged = filtered.map((p) => updatedById.get(p.instanceId) ?? p);
-    const next_schema_version = Math.max(latest_config.schemaVersion, 2);
+    const next_schema_version = Math.max(schema_version, 2);
     return {
         updatedConfig: {
             ...latest_config,

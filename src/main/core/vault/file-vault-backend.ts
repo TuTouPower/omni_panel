@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { access, chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import os from "node:os";
@@ -290,4 +291,26 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
             });
         },
     };
+}
+
+/**
+ * 启动时只读扫描 vault 物理文件中的 instanceIds（无须 masterKey 解密密文）。
+ * 用于启动阶段迁移判定哪些实例已保存有密钥凭据，防空壳清理逻辑误删。
+ */
+export function read_vault_instance_ids(vault_path: string): Set<string> {
+    try {
+        if (!existsSync(vault_path)) return new Set();
+        const raw = readFileSync(vault_path, "utf8");
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const instance_ids = new Set<string>();
+        for (const key of Object.keys(parsed)) {
+            const colon = key.indexOf(":");
+            if (colon > 0) {
+                instance_ids.add(key.slice(0, colon));
+            }
+        }
+        return instance_ids;
+    } catch {
+        return new Set();
+    }
 }

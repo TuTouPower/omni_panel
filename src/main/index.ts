@@ -24,6 +24,7 @@ import {
     getDataRoot,
     getBundledConnectorsDir,
     getUserConnectorsDir,
+    get_vault_path,
     get_tray_icon_path,
     get_app_icon_path,
     get_observations_db_path,
@@ -34,7 +35,10 @@ import { initLogging, defaultLogLevelForEnv } from "./core/logging";
 import { createLogger, setLogLevel } from "../shared/lib/logger";
 import { createRuntimeStore } from "./core/scheduler/runtime-store";
 import { createSecretsStore } from "./core/config/secrets-store";
-import { create_file_vault_backend } from "./core/vault/file-vault-backend";
+import {
+    create_file_vault_backend,
+    read_vault_instance_ids,
+} from "./core/vault/file-vault-backend";
 import { create_session_manager, is_valid_opencode_login } from "./core/session/session-manager";
 import { is_safe_cookie_string } from "../shared/lib/cookie";
 import { create_observation_store } from "./core/observation/observation-store";
@@ -193,10 +197,13 @@ void app.whenReady().then(async () => {
         currentConfig = await configStore.prune_unhealthy_plugins(
             new Set(allDefinitions.map((definition) => definition.manifest.id)),
         );
+        const vault_path = get_vault_path(dataRoot);
+        const known_secret_instance_ids = read_vault_instance_ids(vault_path);
         const seed_result = await run_config_transaction(configStore, async (latest, commit) => {
             const { updatedConfig, seededPlugins, changed } = apply_auto_seed_and_migrate(
                 latest,
                 allDefinitions,
+                { known_secret_instance_ids },
             );
             if (!changed) {
                 return { config: latest, seededPlugins: [] };

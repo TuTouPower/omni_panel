@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { create_file_vault_backend } from "../../../src/main/core/vault/file-vault-backend";
+import {
+    create_file_vault_backend,
+    read_vault_instance_ids,
+} from "../../../src/main/core/vault/file-vault-backend";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
 import { scrubber } from "../../../src/shared/lib/logger";
 
@@ -373,6 +376,15 @@ describe("file-vault-backend", () => {
             await expect(vault.delete("keep-1")).rejects.toThrow();
             // 镜像未提交：delete 失败后 key 仍可读。
             expect(await vault.get("keep-1")).toBe("value-k");
+        });
+
+        it("read_vault_instance_ids parses instance IDs from encrypted vault file", async () => {
+            await vault.set("grok-inst-1:OAUTH_TOKEN", "token-1");
+            await vault.set("kimi-inst-2:API_KEY", "key-2");
+            const ids = read_vault_instance_ids(join(temp_dir, "secrets.vault"));
+            expect(ids.has("grok-inst-1")).toBe(true);
+            expect(ids.has("kimi-inst-2")).toBe(true);
+            expect(ids.has("non-existent")).toBe(false);
         });
     });
 });
