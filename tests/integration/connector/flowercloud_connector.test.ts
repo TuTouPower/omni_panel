@@ -82,8 +82,7 @@ describe("flowercloud connector", () => {
             login_url: "https://api-flowercloud.com/clientarea.php",
         });
         expect(manifest?.loginDomains).toContain("api-flowercloud.com");
-        expect(manifest?.cookieNames).toContain("cf_clearance");
-        expect(manifest?.cookieNames).toContain("PHPSESSID");
+        expect(manifest?.cookieNames).toContain("*");
         expect(manifest?.parameters.some((p) => p.name === "RESET_DAY")).toBe(true);
     });
 
@@ -230,6 +229,29 @@ describe("flowercloud connector", () => {
             const reset_date = new Date(obs.reset_at);
             expect(reset_date.getDate()).toBe(20);
         }
+    });
+
+    it("gracefully falls back to cached_html when live fetch is challenged by Cloudflare", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const live_html = await fixture("live_dashboard_sample.html");
+        const secret = JSON.stringify({
+            cookie: "cf_clearance=abc; PHPSESSID=xyz",
+            html: live_html,
+        });
+
+        const ctx = create_ctx({
+            cookie: secret,
+            clientarea_body: "Just a moment...",
+            clientarea_status: 403,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.used).toBe(297.11);
+        expect(result.observations[0]?.limit).toBe(1000);
     });
 
     it("throws recognized auth error when HTTP 401 is returned", async () => {

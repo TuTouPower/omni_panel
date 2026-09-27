@@ -273,7 +273,8 @@ export function create_session_manager(
                             if (
                                 deps.verify_cookie &&
                                 params.cookie &&
-                                request.provider !== "kimi_web"
+                                request.provider !== "kimi_web" &&
+                                request.provider !== "flowercloud"
                             ) {
                                 const valid = await deps.verify_cookie(
                                     params.cookie,
@@ -332,7 +333,11 @@ export function create_session_manager(
                         // t337: 捕获后有效性探测。web_login 捕获点早于认证 cookie 生效，
                         // 匿名/旧 cookie 被判有效会存库导致 connector /auth 判定失效；
                         // 探测失败按「无效」处理不落库，返回可读提示。
-                        if (deps.verify_cookie && request.provider !== "kimi_web") {
+                        if (
+                            deps.verify_cookie &&
+                            request.provider !== "kimi_web" &&
+                            request.provider !== "flowercloud"
+                        ) {
                             const valid = await deps.verify_cookie(
                                 captured_cookie,
                                 request.login_url,
@@ -416,7 +421,8 @@ export function create_session_manager(
                         !request.close_when_credential_refreshed &&
                         is_wildcard_login &&
                         !wildcard_returned_to_login_origin &&
-                        request.provider !== "kimi_web"
+                        request.provider !== "kimi_web" &&
+                        request.provider !== "flowercloud"
                     )
                         return;
 

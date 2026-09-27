@@ -22,7 +22,10 @@ export const SESSION_LOGIN_AUTO_CLOSE_MS = 1500;
  * 登录窗口需保持打开、不自动关闭的 provider（t464）：页面存活期间才会把续期材料
  * （Bearer / refresh token）写入会话，过早关窗会捕获旧凭据。
  */
-export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> = new Set(["kimi_web"]);
+export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> = new Set([
+    "kimi_web",
+    "flowercloud",
+]);
 
 /** 登录成功后自动关窗延迟；undefined 表示不自动关闭，由用户手动关窗。 */
 export function login_auto_close_ms(provider: string): number | undefined {

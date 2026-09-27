@@ -283,14 +283,7 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             metadata: {
                 name: "flowercloud",
                 login_url: "https://api-flowercloud.com/clientarea.php",
-                cookie_names: [
-                    "PHPSESSID",
-                    "WHMCSUID",
-                    "WHMCSPW",
-                    "WHMCSUser",
-                    "cf_clearance",
-                    "D0S_Header",
-                ],
+                cookie_names: ["*"],
                 auth: {
                     method: "web_login",
                     login_url: "https://api-flowercloud.com/clientarea.php",
@@ -317,15 +310,8 @@ describe("AddAccountDialog descriptor-driven routing", () => {
             expect(session.login).toHaveBeenCalledWith({
                 provider: "flowercloud",
                 login_url: "https://api-flowercloud.com/clientarea.php",
-                cookie_names: [
-                    "PHPSESSID",
-                    "WHMCSUID",
-                    "WHMCSPW",
-                    "WHMCSUser",
-                    "cf_clearance",
-                    "D0S_Header",
-                ],
-                auto_close_ms: 1500,
+                cookie_names: ["*"],
+                auto_close_ms: undefined,
             });
         });
         await user.click(screen.getByText("添加账号"));

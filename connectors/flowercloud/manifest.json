@@ -30,6 +30,6 @@
         "login": "https://api-flowercloud.com/clientarea.php"
     },
     "loginDomains": ["api-flowercloud.com", "flower.yt", "flowercloud.net"],
-    "cookieNames": ["PHPSESSID", "WHMCSUID", "WHMCSPW", "WHMCSUser", "cf_clearance", "D0S_Header"],
+    "cookieNames": ["*"],
     "script": "connector.ts"
 }

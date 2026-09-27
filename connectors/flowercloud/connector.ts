@@ -8,13 +8,28 @@ const USER_AGENT =
 
 const CYCLE_30D_MS = 30 * 24 * 60 * 60 * 1000;
 
-function required_cookie(): string {
+function required_cookie(): { cookie: string; cached_html: string } {
     const raw = (ctx.params["SESSION_COOKIE"] ?? "").trim();
     if (!raw) throw new Error("Missing required secret: SESSION_COOKIE");
-    if (/[\r\n]/.test(raw) || raw.length > 16384) {
-        throw new Error("Invalid cookie: CRLF characters or length > 16KB detected");
+
+    let cookie = raw;
+    let cached_html = "";
+
+    if (raw.startsWith("{")) {
+        try {
+            const parsed = JSON.parse(raw) as { cookie?: unknown; html?: unknown };
+            if (typeof parsed.cookie === "string" && parsed.cookie) cookie = parsed.cookie;
+            if (typeof parsed.html === "string" && parsed.html) cached_html = parsed.html;
+        } catch {
+            // raw cookie string
+        }
     }
-    return raw;
+
+    if (!cookie) throw new Error("Missing required secret: SESSION_COOKIE");
+    if (/[\r\n]/.test(cookie) || cookie.length > 32768) {
+        throw new Error("Invalid cookie: CRLF characters or length > 32KB detected");
+    }
+    return { cookie, cached_html };
 }
 
 function parse_to_gb(value: number, unit: string): number {
@@ -167,7 +182,7 @@ function check_auth_or_challenge(res: {
 }
 
 async function main(): Promise<ScriptObservation[]> {
-    const cookie = required_cookie();
+    const { cookie, cached_html } = required_cookie();
     const now = Date.now();
     const reset_day_param = ctx.params["RESET_DAY"]?.trim();
 
@@ -178,26 +193,56 @@ async function main(): Promise<ScriptObservation[]> {
         Cookie: cookie,
     };
 
-    const res = await ctx.http.get_raw("default", "/clientarea.php", { headers });
-    check_auth_or_challenge(res);
+    let html = cached_html;
 
-    let html = res.body;
+    try {
+        const res = await ctx.http.get_raw("default", "/clientarea.php", { headers });
+        const lower = res.body.toLowerCase();
+        const has_cf_challenge =
+            lower.includes("cf-turnstile") ||
+            lower.includes("just a moment...") ||
+            lower.includes("challenge-running");
 
-    // 若客户区主页未直接展示用量卡片，检测是否有服务详情链接并跟进
-    const product_details_match =
-        /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
-        /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
+        if (res.status === 200 && !has_cf_challenge) {
+            check_auth_or_challenge(res);
+            html = res.body;
 
-    if (product_details_match?.[1] && !/(?:已用|Used|\d+GB\s*\/)/i.test(html)) {
-        const service_id = product_details_match[1];
-        ctx.log.info(`FlowerCloud: Navigating to service details: id=${service_id}`);
-        const details_res = await ctx.http.get_raw(
-            "default",
-            `/clientarea.php?action=productdetails&id=${service_id}`,
-            { headers },
+            // 若客户区主页未直接展示用量卡片，检测是否有服务详情链接并跟进
+            const product_details_match =
+                /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
+                /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
+
+            if (product_details_match?.[1] && !/(?:已用|Used|\d+GB\s*\/)/i.test(html)) {
+                const service_id = product_details_match[1];
+                ctx.log.info(`FlowerCloud: Navigating to service details: id=${service_id}`);
+                const details_res = await ctx.http.get_raw(
+                    "default",
+                    `/clientarea.php?action=productdetails&id=${service_id}`,
+                    { headers },
+                );
+                if (
+                    details_res.status === 200 &&
+                    !details_res.body.toLowerCase().includes("just a moment")
+                ) {
+                    html = details_res.body;
+                }
+            }
+        } else if (!cached_html) {
+            check_auth_or_challenge(res);
+        } else {
+            ctx.log.info(`FlowerCloud: Network challenged, using cached session HTML`);
+        }
+    } catch (err) {
+        if (!cached_html) {
+            throw err;
+        }
+        ctx.log.info(
+            `FlowerCloud: Network error (${String(err)}), falling back to cached session HTML`,
         );
-        check_auth_or_challenge(details_res);
-        html = details_res.body;
+    }
+
+    if (!html) {
+        throw new Error("FlowerCloud 遇到 Cloudflare 质询拦截，请点击网页登录完成人机验证");
     }
 
     const { used_gb, limit_gb, reset_at, product_name } = extract_from_html(
