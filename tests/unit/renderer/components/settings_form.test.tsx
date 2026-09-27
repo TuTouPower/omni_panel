@@ -2,7 +2,10 @@ import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SettingsForm } from "../../../../src/renderer/components/SettingsForm";
+import {
+    SettingsForm,
+    type SaveAccountOptions,
+} from "../../../../src/renderer/components/SettingsForm";
 import type { PluginParameterMetadata } from "../../../../src/shared/schemas/plugin-metadata";
 
 type SaveHandler = (
@@ -11,6 +14,8 @@ type SaveHandler = (
     secrets: Record<string, string>,
     endpointOverrides: Record<string, string>,
     refreshIntervalSeconds: number,
+    displayName?: string,
+    options?: SaveAccountOptions,
 ) => Promise<void>;
 
 const baseParams: PluginParameterMetadata[] = [
@@ -1147,5 +1152,52 @@ describe("SettingsForm label-map watch bell (t048)", () => {
         await waitFor(() => {
             expect(onSaveHiddenLabels).toHaveBeenCalledWith("inst-1", []);
         });
+    });
+
+    it("t532 AC-006: 表单清空备注提交时派发统一负载且 displayName 为空，不触发无变更的子保存", async () => {
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const onSaveHiddenLabels = vi.fn().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+
+        render(
+            <SettingsForm
+                instanceId="inst-test"
+                providerId="deepseek"
+                displayName="旧备注名称"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+                existingHiddenLabels={["label_a"]}
+                onSaveHiddenLabels={onSaveHiddenLabels}
+            />,
+        );
+
+        const remark_input = screen.getByPlaceholderText("例如：工作账号");
+        expect(remark_input).toHaveValue("旧备注名称");
+
+        await user.clear(remark_input);
+        expect(remark_input).toHaveValue("");
+
+        await user.click(screen.getByTestId("settings-save-btn-inst-test"));
+
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalled();
+        });
+
+        // 验证 onSave 接收到的 displayName 为 ""
+        expect(onSave).toHaveBeenCalledWith(
+            "inst-test",
+            expect.any(Object),
+            expect.any(Object),
+            expect.any(Object),
+            300,
+            "",
+            expect.objectContaining({}),
+        );
+
+        // 验证在 hiddenLabels 无实质变动时，不触发额外的 onSaveHiddenLabels
+        expect(onSaveHiddenLabels).not.toHaveBeenCalled();
     });
 });

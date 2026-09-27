@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { SettingsForm } from "./SettingsForm";
+import { SettingsForm, type SaveAccountOptions } from "./SettingsForm";
 import { AddAccountDialog } from "./AddAccountDialog";
 import type { AddAccountParams } from "./AddAccountDialog";
 import { Button } from "./ui/Button";
@@ -8,6 +8,7 @@ import { Icon, VendorMark } from "./Icon";
 import type { ConnectorCatalogEntry, ConnectorInfo } from "../../shared/types/ipc";
 import type { ConnectorConfiguration, AccountOverrides } from "../../shared/types/config";
 import { resolve_auth_method, resolve_auth_descriptor } from "../lib/auth-flow-registry";
+import { PROVIDER_LABELS } from "../lib/provider-usage";
 
 export function AccountDialog({
     mode,
@@ -48,6 +49,7 @@ export function AccountDialog({
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
         displayName?: string,
+        options?: SaveAccountOptions,
     ) => Promise<void>;
     onDuplicate?: (instanceId: string) => Promise<void>;
     onAddAccount: (params: AddAccountParams) => Promise<void>;
@@ -69,6 +71,15 @@ export function AccountDialog({
     onToggleWatched?: (raw_label: string) => void;
 }) {
     const isEdit = mode === "edit";
+    const fallback_vendor_name = pluginInfo?.activeProviders[0]
+        ? (PROVIDER_LABELS[pluginInfo.activeProviders[0]] ?? pluginInfo.activeProviders[0])
+        : "新账号";
+    const trimmed_name = pluginName?.trim();
+    const display_sub = isEdit
+        ? trimmed_name && trimmed_name.length > 0
+            ? trimmed_name
+            : fallback_vendor_name
+        : "选择要添加的服务";
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
@@ -108,7 +119,7 @@ export function AccountDialog({
                             {isEdit ? "编辑账号" : "添加账号"}
                         </div>
                         <div className="mt-1 truncate text-[length:var(--text-body-sm)] text-[var(--color-on-surface-muted)]">
-                            {isEdit ? (pluginName ?? "新账号") : "选择要添加的服务"}
+                            {display_sub}
                         </div>
                     </div>
                     <Button
