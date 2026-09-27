@@ -8402,6 +8402,22 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/archive/tasks/t527_fix_web_insecure_context_secure_apis"
+        },
+        {
+            "tid": "t531",
+            "slug": "empty_account_remark_fallback_display",
+            "title": "添加账号未填备注时不设默认值并在展示层动态回退",
+            "status": "done",
+            "branch": "t531_empty_account_remark_fallback_display",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "1ca9764ef72877b68aea4ccbea7ceb0d1c9c43a6",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t531_empty_account_remark_fallback_display"
         }
     ]
 }

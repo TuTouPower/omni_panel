@@ -4,7 +4,7 @@ import type { MetricRecord, UsageProvider } from "../../../../shared/schemas/plu
 import { CpaCard } from "../../../components/CpaCard";
 import { type VendorId } from "../../../components/Icon";
 import { VendorCard } from "../../../components/VendorCard";
-import { accountKey } from "../../../lib/provider-usage";
+import { accountKey, PROVIDER_LABELS } from "../../../lib/provider-usage";
 import { connection_status, map_status, snapshot_items } from "../lib";
 import type { AccountsDialogState, AccountsRenameTarget } from "./accounts_section";
 
@@ -115,7 +115,13 @@ export function AccountsList({
                     on_delete={(instance_id) => {
                         const info = plugin_infos.find((p) => p.instanceId === instance_id);
                         set_delete_confirm_id(instance_id);
-                        set_delete_confirm_name(info?.displayName ?? instance_id);
+                        const fallback_name = info?.activeProviders[0]
+                            ? (PROVIDER_LABELS[info.activeProviders[0]] ?? info.activeProviders[0])
+                            : instance_id;
+                        const display = info?.displayName.trim();
+                        set_delete_confirm_name(
+                            display && display.length > 0 ? display : fallback_name,
+                        );
                     }}
                     desensitizeRemarks={config.uiDesensitizeRemarks === true}
                 />
@@ -189,7 +195,10 @@ export function AccountsList({
                         }}
                         on_delete={() => {
                             set_remove_cpa_confirm_id(plugin.instanceId);
-                            set_remove_cpa_confirm_name(info?.displayName ?? plugin.instanceId);
+                            const cpa_name = info?.displayName.trim();
+                            set_remove_cpa_confirm_name(
+                                cpa_name && cpa_name.length > 0 ? cpa_name : "CPA",
+                            );
                         }}
                         on_hide={(target) => {
                             // t398 AC-001: 按行级 account_key 精确匹配——同 provider

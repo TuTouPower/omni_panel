@@ -63,8 +63,8 @@ export function GrokBotPkceForm({
                 secrets["REFRESH_TOKEN"] = poll_res.refresh_token;
             }
 
-            // A53: 账号名 trim 规范化，防空白字符串穿透
-            const safe_name = account_name.trim() || "Grok Bot";
+            // A53 / t531: 账号名 trim 规范化，未填时留空不兜底厂商名
+            const safe_name = account_name.trim();
 
             await on_save({
                 vendor_id: "grok_bot",
@@ -107,7 +107,7 @@ export function GrokBotPkceForm({
                 secrets["REFRESH_TOKEN"] = manual_refresh.trim();
             }
 
-            const safe_name = account_name.trim() || "Grok Bot";
+            const safe_name = account_name.trim();
 
             await on_save({
                 vendor_id: "grok_bot",

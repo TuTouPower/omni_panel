@@ -37,7 +37,7 @@ export function CpaMgmtForm({
         try {
             await on_save({
                 vendor_id,
-                account_name: account_name || "CPA",
+                account_name: account_name.trim(),
                 auth_method: "cpa_mgmt",
                 parameter_values: {},
                 endpoint_overrides: { default: endpoint.trim() || default_endpoint },

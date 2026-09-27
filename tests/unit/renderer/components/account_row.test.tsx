@@ -42,4 +42,32 @@ describe("AccountRow status text", () => {
         );
         expect(screen.getByText("已关闭")).toBeInTheDocument();
     });
+
+    it("t531 AC-004: account_label 为空时仅展示厂商名，不展示中点和空白或重复名", () => {
+        render(
+            <AccountRow
+                mode="direct"
+                provider="deepseek"
+                account_label=""
+                enabled={true}
+                status="ok"
+            />,
+        );
+        expect(screen.getByTestId("account-vendor")).toHaveTextContent("DeepSeek");
+        expect(screen.queryByText(/·/)).not.toBeInTheDocument();
+    });
+
+    it("t531 AC-004: account_label 存在自定义备注时展示 厂商名 · 备注", () => {
+        render(
+            <AccountRow
+                mode="direct"
+                provider="deepseek"
+                account_label="工作账号"
+                enabled={true}
+                status="ok"
+            />,
+        );
+        expect(screen.getByTestId("account-vendor")).toHaveTextContent("DeepSeek");
+        expect(screen.getByText("· 工作账号")).toBeInTheDocument();
+    });
 });

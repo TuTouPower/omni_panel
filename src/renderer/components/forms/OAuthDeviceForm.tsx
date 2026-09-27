@@ -26,7 +26,7 @@ export function OAuthDeviceForm({
         async (secrets: Record<string, string>) => {
             await on_save({
                 vendor_id,
-                account_name: account_name || vendor_id,
+                account_name: account_name.trim(),
                 auth_method: "oauth_device",
                 oauth_source_instance_id: instance_id,
                 parameter_values: {},

@@ -92,7 +92,9 @@ export function AccountsSection({
                         <Icon name="chevron" size={15} />
                     </span>
                     <span className="text-[length:var(--text-title-sm)] font-semibold">
-                        {editingInfo.displayName}
+                        {editingInfo.displayName.trim().length > 0
+                            ? editingInfo.displayName.trim()
+                            : "CPA"}
                     </span>
                 </div>
                 <div className="flex flex-1">
@@ -148,7 +150,8 @@ export function AccountsSection({
                         }}
                         onRemove={() => {
                             set_remove_cpa_confirm_id(editing_cpa_id);
-                            set_remove_cpa_confirm_name(editingInfo.displayName);
+                            const name = editingInfo.displayName.trim();
+                            set_remove_cpa_confirm_name(name.length > 0 ? name : "CPA");
                         }}
                         onEditLabelMap={(provider) => {
                             set_label_map_dialog({

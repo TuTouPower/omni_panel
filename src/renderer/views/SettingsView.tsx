@@ -363,7 +363,7 @@ export function SettingsView() {
                         parameterValues: { ...plugin.parameterValues, ...nonSecrets },
                         endpointOverrides,
                         refreshIntervalSeconds,
-                        ...(display_name ? { displayName: display_name } : {}),
+                        ...(display_name?.trim() ? { displayName: display_name.trim() } : {}),
                     };
                 }),
             });

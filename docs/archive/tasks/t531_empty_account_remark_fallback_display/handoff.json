@@ -1,0 +1,32 @@
+{
+    "tid": "t531",
+    "attempt": 1,
+    "execution_id": "ae8fa31269654a1898d7482a044b3ede",
+    "status": "done",
+    "branch": "t531_empty_account_remark_fallback_display",
+    "base_sha": "1ca9764ef72877b68aea4ccbea7ceb0d1c9c43a6",
+    "tests": "pnpm test 全量 336 个测试文件、4125+ 测试用例全部通过；pnpm typecheck、pnpm lint、pnpm format:check、pnpm deadcode、pnpm arch、pnpm build 全部通过；git diff --check 零格式问题",
+    "blackbox": "Playwright web e2e 全量 95 个用例全部通过，验证添加账号与各面板渲染和动态回退正常",
+    "review": "single 级：general_verdict=PASS, reviewed_scope=b4fabd55a65db395",
+    "ac_evidence": {
+        "AC-001": [
+            "AddAccountDialog.tsx 及各表单组件去除 account_name || vendor_label / vendor_id 兜底，未填时保持空字符串",
+            "use_connector_catalog.ts 与 SettingsView.tsx 在 display_name 为空时不写入 displayName",
+            "tests/unit/renderer/components/AddAccountDialog.test.tsx 与 use_connector_catalog.test.ts 验证空备注保存"
+        ],
+        "AC-002": [
+            "AddAccountDialog.tsx 及各表单组件将用户输入的 account_name 进行 trim 后传递并保存",
+            "tests/unit/renderer/components/AddAccountDialog.test.tsx 验证自定义备注传递与保存"
+        ],
+        "AC-003": [
+            "form_registry.tsx 保留 local_cli 扫描出邮箱时自动预填备注的行为",
+            "tests/unit/renderer/components/AddAccountDialog.test.tsx 验证本地 CLI 扫描到邮箱时自动预填并在导入时保存"
+        ],
+        "AC-004": [
+            "AccountRow.tsx、accounts_list.tsx 与 accounts_section.tsx 在 displayName/account_label 为空时动态展示厂商名，不出现重复或空白",
+            "tests/unit/renderer/components/account_row.test.tsx 与 accounts_list.test.tsx 验证空备注仅展示厂商名无中点分隔"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

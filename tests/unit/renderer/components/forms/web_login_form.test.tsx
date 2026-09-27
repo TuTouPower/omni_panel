@@ -63,7 +63,8 @@ describe("WebLoginForm", () => {
         expect(screen.queryByText("接口地址")).not.toBeInTheDocument();
     });
 
-    it("saves a manually pasted cookie", async () => {
+    // t531: 原测试期望空备注回退到厂商名 opencode_go，新语义未填备注时保持留空。
+    it("t531 AC-001: saves a manually pasted cookie with empty account_name when remark not provided", async () => {
         mock_session_api();
         const on_save = make_on_save();
         const user = userEvent.setup();
@@ -84,7 +85,7 @@ describe("WebLoginForm", () => {
         await waitFor(() => {
             expect(on_save).toHaveBeenCalledWith({
                 vendor_id: "opencode_go",
-                account_name: "opencode_go",
+                account_name: "",
                 auth_method: "web_login",
                 parameter_values: {},
                 secrets: { SESSION_COOKIE: "manual-cookie" },
