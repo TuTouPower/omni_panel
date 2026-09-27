@@ -140,10 +140,11 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
     }
 
     // 3. 有界并发与命中即停扫描（AC-001 / AC-002 / AC-006）
+    let scanned_chunks = 0;
+    let candidate_count = 0;
+    let start_time = 0;
     if (!action_id && all_scripts.length > 0) {
-        const start_time = Date.now();
-        let scanned_chunks = 0;
-        let settings_module_id: string | null = null;
+        start_time = Date.now();
         const downloaded_chunks = new Map<string, string>();
 
         for await (const chunk of ctx.pool.map(
@@ -174,35 +175,49 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
                 );
                 break; // 靠前分包命中即停（AC-001）
             }
+        }
 
-            if (!settings_module_id) {
-                const sm =
-                    /\.A\((\d+)\)\.then\((?:(?!\.A\()[\s\S])*?HatchSettingsDialogContent/.exec(
-                        chunk.text,
-                    );
-                if (sm?.[1]) {
-                    settings_module_id = sm[1];
+        // 提取所有候选 settings 模块 ID（p266：按 all_scripts 确定性顺序遍历已下载分包）
+        const candidate_module_ids: string[] = [];
+        const seen_modules = new Set<string>();
+        for (const script_path of all_scripts) {
+            const p = script_path.startsWith("/") ? script_path : `/${script_path}`;
+            const text = downloaded_chunks.get(p);
+            if (!text) continue;
+            const sm_matches = text.matchAll(
+                /\.A\((\d+)\)\.then\((?:(?!\.A\()[\s\S])*?HatchSettingsDialogContent/g,
+            );
+            for (const sm of sm_matches) {
+                const id = sm[1];
+                if (id && !seen_modules.has(id)) {
+                    seen_modules.add(id);
+                    candidate_module_ids.push(id);
                 }
             }
         }
 
-        // 若未直接命中，通过设置组件模块定位异步清单分包
-        if (!action_id && settings_module_id) {
-            const reg = new RegExp(
-                `(?:^|\\D)${settings_module_id}\\s*,\\s*(?:function\\s*\\([^)]*\\)|\\(?\\w+\\)?\\s*=>)(?:(?!Promise\\.all)[\\s\\S])*?Promise\\.all\\(\\[([^\\]]+)\\]`,
-            );
-            let target_chunks: string[] = [];
-            for (const text of downloaded_chunks.values()) {
-                const sm_match = reg.exec(text);
-                if (sm_match?.[1]) {
-                    target_chunks = [...sm_match[1].matchAll(/"(static\/chunks\/[^"]+\.js)"/g)]
-                        .map((m) => m[1])
-                        .filter((c): c is string => typeof c === "string" && c.length > 0);
-                    break;
-                }
-            }
+        candidate_count = candidate_module_ids.length;
 
-            if (target_chunks.length > 0) {
+        // 若未直接命中，遍历候选设置模块定位异步清单分包并回退验证（p266 / AC-001 / AC-002）
+        if (!action_id && candidate_module_ids.length > 0) {
+            for (const mod_id of candidate_module_ids) {
+                if (action_id) break;
+                const reg = new RegExp(
+                    `(?:^|\\D)${mod_id}\\s*,\\s*(?:function\\s*\\([^)]*\\)|\\(?\\w+\\)?\\s*=>)(?:(?!Promise\\.all)[\\s\\S])*?Promise\\.all\\(\\[([^\\]]+)\\]`,
+                );
+                let target_chunks: string[] = [];
+                for (const text of downloaded_chunks.values()) {
+                    const sm_match = reg.exec(text);
+                    if (sm_match?.[1]) {
+                        target_chunks = [...sm_match[1].matchAll(/"(static\/chunks\/[^"]+\.js)"/g)]
+                            .map((m) => m[1])
+                            .filter((c): c is string => typeof c === "string" && c.length > 0);
+                        if (target_chunks.length > 0) break;
+                    }
+                }
+
+                if (target_chunks.length === 0) continue;
+
                 for await (const chunk of ctx.pool.map(
                     target_chunks,
                     async (c) => {
@@ -224,7 +239,7 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
                     if (match?.[1]) {
                         action_id = match[1];
                         ctx.log.info(
-                            `[muse] Semantically resolved action ID ${action_id} in settings chunk (${String(Date.now() - start_time)}ms)`,
+                            `[muse] Semantically resolved action ID ${action_id} in settings candidate ${mod_id} (${String(Date.now() - start_time)}ms)`,
                         );
                         break;
                     }
@@ -234,6 +249,9 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
     }
 
     if (!action_id) {
+        ctx.log.error(
+            `[muse] Discovery failed: checked ${String(candidate_count)} candidates, ${String(scanned_chunks)} chunks scanned in ${String(Date.now() - start_time)}ms`,
+        );
         throw new Error("DISCOVERY_EMPTY: 未能从 Muse 页面分包中解析到有效的 Server Action ID");
     }
 

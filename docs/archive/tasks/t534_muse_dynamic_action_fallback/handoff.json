@@ -1,0 +1,29 @@
+{
+    "tid": "t534",
+    "attempt": 1,
+    "execution_id": "46bc76d4ed57424c8853f04e9421212a",
+    "status": "done",
+    "branch": "t534_muse_dynamic_action_fallback",
+    "base_sha": "f9bb0951b9c50fbeb2a37e02a4bb340adfd03a76",
+    "tests": "pnpm check 全绿（typecheck + lint + format:check + schema:check + deadcode + arch 0 warnings 0 errors）；pnpm test 全绿（338 测试套件，4177 单元/集成用例通过）",
+    "blackbox": "通过 tests/integration/connector/muse_connector.test.ts 模拟包含错误候选 A 与正确候选 B 的多分包真实网络拓扑，分别验证错误候选先到、正确候选后到以及时序置换下的回退命中；模拟候选穷尽失败验证 DISCOVERY_EMPTY 与结构化诊断日志输出",
+    "review": "full 级：review_code.md PASS（Round 1 零 finding）；review_test.md PASS（Round 1 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/integration/connector/muse_connector.test.ts: AC-001 / AC-002 (p266): falls back to subsequent settings module candidates when the first candidate does not yield action ID"
+        ],
+        "AC-002": [
+            "tests/integration/connector/muse_connector.test.ts: AC-002 (p266): reversed script order still deterministically resolves action ID"
+        ],
+        "AC-003": [
+            "tests/integration/connector/muse_connector.test.ts: AC-003 (p266): logs structured diagnostic info and throws DISCOVERY_EMPTY when all settings candidates fail to yield target"
+        ],
+        "AC-004": [
+            "全仓 pnpm check 与 pnpm test 全绿（338 test files, 4177 passed）"
+        ]
+    },
+    "pending": [
+        "p266: 已闭环归档至 docs/archive/pending/p266_muse_discovery_candidate_regression.md"
+    ],
+    "findings": []
+}

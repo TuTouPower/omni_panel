@@ -255,8 +255,12 @@ describe("t529: 连接器发现结果持久化缓存能力", () => {
             await store.set(ns, "k2", { signature: "s2", action_id: "a2", discovered_at: 20 });
             await store.set(ns, "k3", { signature: "s3", action_id: "a3", discovered_at: 30 });
 
+            await new Promise((r) => setTimeout(r, 2));
+
             // Access k1 to make k2 the least recently used
             await store.get(ns, "k1");
+
+            await new Promise((r) => setTimeout(r, 2));
 
             // Insert k4: should evict k2
             await store.set(ns, "k4", { signature: "s4", action_id: "a4", discovered_at: 40 });
