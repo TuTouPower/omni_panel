@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
 import type { ConnectorContext, HttpOpts } from "../../../src/main/core/connector/host-io";
-import { ctx_status } from "../../integration/connector/_ctx_status";
+import { ctx_status, ctx_budget_stub } from "../../integration/connector/_ctx_status";
 import { ADD_COMMON_SERVICES } from "../../../src/renderer/lib/common-services";
 import { PROVIDER_LABELS, PROVIDER_ORDER } from "../../../src/renderer/lib/provider-usage";
 import { usageProviderSchema } from "../../../src/shared/schemas/plugin-output";
@@ -27,6 +27,7 @@ function create_mock_ctx(
     params: Record<string, string> = { API_KEY: "user_test_secret_12345" },
 ): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json: vi.fn((endpoint: string, path: string, opts?: HttpOpts) =>

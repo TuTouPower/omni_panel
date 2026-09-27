@@ -31,3 +31,18 @@ export const ctx_util = {
         return Math.max(min, Math.min(value, max));
     },
 } as const;
+
+/** 测试用共享 ctx 预算/信号/并发/计数存根（注入 ConnectorContext mock，t528）。 */
+export const ctx_budget_stub = {
+    signal: new AbortController().signal,
+    deadline_ms: Date.now() + 15_000,
+    remaining_ms: () => 15_000,
+    metrics: { requests: 0, bytes: 0 },
+    pool: {
+        // eslint-disable-next-line @typescript-eslint/require-await
+        map: async function* () {
+            yield* [];
+        },
+        all: () => Promise.resolve([]),
+    },
+};

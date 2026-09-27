@@ -1,0 +1,62 @@
+{
+    "tid": "t528",
+    "attempt": 1,
+    "execution_id": "9112930650e645b6b13f4edf10cd389d",
+    "status": "done",
+    "branch": "t528_connector_execution_budget",
+    "base_sha": "db7b3d76c6a546f4f6c429539003b7838a939003",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch / schema:check / test）全绿；pnpm test 全量 336 个测试套件（4127 个测试用例）100% 通过；git diff --check 零格式问题",
+    "blackbox": "tests/integration/connector/execution-budget.test.ts 8 项行为验收用例全部通过，覆盖预算收敛、软截止协作取消、请求与字节计数、宿主有界并发限流与池增量取消、跨重试预算共享、看门狗硬上限终止、generation 过期覆盖保护及 DEFAULT_TIMEOUT_MS 静态消除断言",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=ef4190152d43e362",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/connector/net-client.ts 实现单次 HTTP 超时收敛为 min(opts.timeout_ms, ctx.remaining_ms())",
+            "tests/integration/connector/execution-budget.test.ts 验证查询剩余预算并断言延迟在剩余预算内被中止"
+        ],
+        "AC-002": [
+            "src/main/core/connector/net-client.ts 在软截止时通过 ctx.signal 发起 abort(new BudgetExhaustedError())",
+            "src/main/core/connector/runtime.ts 捕获软截止错误并统一结构化标识为 error_code: BUDGET_EXHAUSTED",
+            "tests/integration/connector/execution-budget.test.ts 验证协作退出与错误码"
+        ],
+        "AC-003": [
+            "src/main/core/connector/net-client.ts 精确统计每次执行发起的 HTTP 请求数与 UTF-8 解码字节数至 ctx.metrics",
+            "通过 ConnectorRunResult.metrics 结构化回传，日志只记录字节长度不含敏感正文与 Cookie",
+            "tests/integration/connector/execution-budget.test.ts 验证 metrics 统计准确性"
+        ],
+        "AC-004": [
+            "src/main/core/connector/execution-budget.ts 实现 HostConcurrencyLimiter 与 create_connector_pool",
+            "宿主强制每执行并发上限（MAX_HOST_CONCURRENCY = 6），裸循环同样被限流",
+            "增量并发原语 ctx.pool 支持增量消费及通过 break 或 stop() 提前终止，不残留后台请求且允许后续请求执行",
+            "tests/integration/connector/execution-budget.test.ts 验证最大并发数、提前退出及后续请求"
+        ],
+        "AC-005": [
+            "src/main/core/connector/net-client.ts 限制 opts.timeout_ms 只能缩小不能放大",
+            "tests/integration/connector/execution-budget.test.ts 验证 999999ms 放大被收敛到剩余预算"
+        ],
+        "AC-006": [
+            "src/main/core/scheduler/refresh-service.ts 刷新创建单一 ExecutionBudget 并在多次重试间共享连续消耗",
+            "tests/integration/connector/execution-budget.test.ts 验证多次重试间 remaining_ms() 持续递减且到期停止"
+        ],
+        "AC-007": [
+            "src/main/core/connector/isolated-process-runner.ts 看门狗在软截止 + 1500ms 宽限后强制 kill 隔离进程并返回 TERMINATED",
+            "tests/integration/connector/execution-budget.test.ts 验证无响应脚本被宿主硬上限终结并结构化区分 TERMINATED 与 BUDGET_EXHAUSTED"
+        ],
+        "AC-008": [
+            "src/main/core/scheduler/refresh-service.ts 引入 instance generation 跟踪，旧 generation 执行结果被丢弃，不覆盖 newer execution 的 observationStore 与 runtimeStore",
+            "tests/integration/connector/execution-budget.test.ts 验证慢速旧执行不覆盖快速新执行"
+        ],
+        "AC-009": [
+            "从 src/shared/constants.ts、src/main/core/connector/runtime.ts、src/main/core/scheduler/refresh-service.ts 彻底移除 DEFAULT_TIMEOUT_MS",
+            "tests/integration/connector/execution-budget.test.ts 包含静态源码断言"
+        ],
+        "AC-010": [
+            "utilityProcess 与 child_process.fork 共用同一个 worker 入口及 runtime 执行预算与取消代码路径",
+            "测试套件覆盖 fork 隔离环境"
+        ],
+        "AC-011": [
+            "全部 20 个连接器测试在新执行模型下 100% 通过，现有连接器行为语义无回归"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

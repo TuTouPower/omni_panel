@@ -187,8 +187,9 @@ describe("AC-002: 独立进程隔离执行器健壮性", () => {
         });
 
         const elapsed = Date.now() - start;
-        // 验证超时被强制终结
-        expect(result.error).toContain("timeout");
+        // 验证超时/预算耗尽被强制终结（t528 预算模型）
+        expect(result.error?.toLowerCase()).toMatch(/timeout|budget exhausted|terminated/);
+        expect(result.error_code).toMatch(/BUDGET_EXHAUSTED|TERMINATED/);
         expect(elapsed).toBeLessThan(3000);
     });
 

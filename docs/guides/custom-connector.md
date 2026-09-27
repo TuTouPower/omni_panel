@@ -137,7 +137,11 @@ async function main() {
 |成员|说明|
 |---|---|
 |`ctx.params`|manifest `exposeToScript` 参数键值（secret/string/number）|
-|`ctx.http.get_json(endpoint, path, opts)`|发 JSON GET，返回解析后对象|
+|`ctx.signal`|`AbortSignal` 取消信号，预算软截止时 abort。长任务应检查 `ctx.signal.aborted` 协作退出|
+|`ctx.remaining_ms()`|本次执行剩余预算（毫秒），执行默认预算为 15s 且跨重试共享|
+|`ctx.deadline_ms`|本次执行软截止绝对时间戳（ms）|
+|`ctx.pool.map(items, worker, opts)` / `all`|宿主强制限流的增量并发原语；支持在循环中 `break` 或调 `stop()` 提前终止批处理|
+|`ctx.http.get_json(endpoint, path, opts)`|发 JSON GET，返回解析后对象。`opts.timeout_ms` 只能缩小不能超出剩余预算|
 |`ctx.http.post_json(endpoint, path, body, opts)`|JSON POST|
 |`ctx.http.get_raw(...)`|返回 `{ status, headers, body }` 原始响应|
 |`ctx.files.read(path)` / `ctx.files.list(path)`|读账号本地文件（local 能力用）|

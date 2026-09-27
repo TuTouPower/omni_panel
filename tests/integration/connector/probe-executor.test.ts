@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { ctx_status } from "../../integration/connector/_ctx_status";
+import { ctx_status, ctx_budget_stub } from "../../integration/connector/_ctx_status";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execute_probe } from "../../../src/main/core/connector/probe-executor";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
@@ -29,6 +29,7 @@ function create_manifest(
 
 function create_ctx(): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json: () => Promise.resolve({}),

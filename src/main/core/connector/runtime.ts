@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { z } from "zod/v3";
 import { createLogger, withLogContext, scrubber } from "../../../shared/lib/logger";
-import { DEFAULT_TIMEOUT_MS } from "../../../shared/constants";
+import {
+    create_execution_budget,
+    create_execution_budget_from_deadline,
+    BudgetExhaustedError,
+    TerminatedError,
+    HARD_WATCHDOG_GRACE_MS,
+    type ExecutionBudget,
+} from "./execution-budget";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import { script_observation_schema } from "../../../shared/schemas/observation";
 import type { ScriptObservation, FailedAccount } from "../../../shared/types/observation";
-import type { ConnectorContext } from "./host-io";
+import type { ConnectorContext, ConnectorExecutionMetrics } from "./host-io";
 
 const log = createLogger("connector-runtime");
 const TIMEOUT_ERROR = "Connector script execution timeout";
@@ -59,11 +66,21 @@ export interface ConnectorRunResult {
     readonly observations: ScriptObservation[];
     readonly failed_accounts: FailedAccount[];
     readonly error: string | null;
+    readonly error_code?: "BUDGET_EXHAUSTED" | "TERMINATED" | "COOLDOWN" | null | undefined;
+    readonly metrics: ConnectorExecutionMetrics;
 }
 
 export function deep_freeze<T>(value: T, seen = new WeakSet<object>()): T {
     if (value !== null && typeof value === "object") {
-        if (seen.has(value) || value === (z as unknown)) return value;
+        if (
+            seen.has(value) ||
+            value === (z as unknown) ||
+            value instanceof AbortSignal ||
+            typeof (value as { addEventListener?: unknown }).addEventListener === "function" ||
+            ("requests" in value && "bytes" in value)
+        ) {
+            return value;
+        }
         seen.add(value);
         for (const child of Object.values(value as Record<string, unknown>)) {
             deep_freeze(child, seen);
@@ -161,31 +178,6 @@ function is_timeout_error(message: string): boolean {
     return /timed? out|execution timeout|script execution timeout/i.test(message);
 }
 
-class ConnectorTimeoutError extends Error {
-    constructor(timeout_ms: number) {
-        super(`${TIMEOUT_ERROR} after ${String(timeout_ms)}ms`);
-        this.name = "ConnectorTimeoutError";
-    }
-}
-
-function race_with_timeout<T>(promise: Promise<T>, timeout_ms: number): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-        const timer = setTimeout(() => {
-            reject(new ConnectorTimeoutError(timeout_ms));
-        }, timeout_ms);
-        promise.then(
-            (value) => {
-                clearTimeout(timer);
-                resolve(value);
-            },
-            (reason: unknown) => {
-                clearTimeout(timer);
-                reject(new Error(get_error_message(reason)));
-            },
-        );
-    });
-}
-
 // A122: 高性能 observation 快速结构前置校验，减轻大规模 safeParse 压力
 function is_fast_valid_observation(item: unknown): item is ScriptObservation {
     if (typeof item !== "object" || item === null) return false;
@@ -233,12 +225,23 @@ export async function run_connector(
     manifest: Manifest,
     script_code: string,
     ctx: ConnectorContext,
-    timeout_ms: number = DEFAULT_TIMEOUT_MS,
+    budget?: ExecutionBudget | number,
     compiled_code?: string,
 ): Promise<ConnectorRunResult> {
     if (!manifest.script) {
-        return { observations: [], failed_accounts: [], error: "No script defined in manifest" };
+        return {
+            observations: [],
+            failed_accounts: [],
+            error: "No script defined in manifest",
+            error_code: null,
+            metrics: ctx.metrics,
+        };
     }
+
+    const exec_budget =
+        typeof budget === "number"
+            ? create_execution_budget(budget)
+            : (budget ?? create_execution_budget_from_deadline(ctx.deadline_ms));
 
     // A93 / AC-004: 冷却 key 结合 source_instance_id，隔离同一连接器的多账号实例
     const cooldown_key = ctx.instance_id ? `${manifest.id}:${ctx.instance_id}` : manifest.id;
@@ -249,14 +252,27 @@ export async function run_connector(
                 observations: [],
                 failed_accounts: [],
                 error: `Connector ${manifest.id} is cooling down after a previous timeout (residual script work may still be running)`,
+                error_code: "COOLDOWN",
+                metrics: ctx.metrics,
             };
         }
         script_cooldown_until.delete(cooldown_key);
     }
 
-    const result = await run_connector_inner(manifest, script_code, ctx, timeout_ms, compiled_code);
-    if (result.error !== null && is_timeout_error(result.error)) {
-        const cooldown = timeout_ms * 2;
+    const result = await run_connector_inner(
+        manifest,
+        script_code,
+        ctx,
+        exec_budget,
+        compiled_code,
+    );
+    if (
+        result.error !== null &&
+        (result.error_code === "BUDGET_EXHAUSTED" ||
+            result.error_code === "TERMINATED" ||
+            is_timeout_error(result.error))
+    ) {
+        const cooldown = exec_budget.total_ms * 2;
         script_cooldown_until.set(cooldown_key, Date.now() + cooldown);
         log.warn(
             `Connector ${manifest.id} (instance ${ctx.instance_id ?? "default"}) timed out; cooling down for ${String(cooldown)}ms before next execution`,
@@ -272,10 +288,11 @@ async function run_connector_inner(
     manifest: Manifest,
     script_code: string,
     ctx: ConnectorContext,
-    timeout_ms: number,
+    budget: ExecutionBudget,
     compiled_code?: string,
 ): Promise<ConnectorRunResult> {
     const runtime_log = ctx.trace_id ? withLogContext(log, { trace_id: ctx.trace_id }) : log;
+    const metrics = ctx.metrics;
 
     // 收集脚本通过 ctx.report_failed_account 上报的失败账号。
     // 用 wrapper 注入收集实现，覆盖 ctx 上可能存在的 no-op（来自
@@ -293,24 +310,68 @@ async function run_connector_inner(
         },
     };
 
+    if (ctx.signal.aborted || budget.remaining_ms() <= 0) {
+        return {
+            observations: [],
+            failed_accounts,
+            error: "Connector execution budget exhausted",
+            error_code: "BUDGET_EXHAUSTED",
+            metrics,
+        };
+    }
+
     try {
         const context = create_sandbox_context(ctx_with_collector);
         // t195: 传入 compiled_code 时跳过 transpile（script-cache 已按 mtime 缓存）。
         const compiled = compiled_code ?? compile_script(script_code);
+        const remaining = Math.max(1, budget.remaining_ms());
         runtime_log.debug(
-            `Connector ${manifest.id}: compiled, running in VM (timeout=${String(timeout_ms)}ms)`,
+            `Connector ${manifest.id}: compiled, running in VM (budget_remaining=${String(remaining)}ms)`,
         );
-        const raw_result: unknown = vm.runInContext(compiled, context, {
-            timeout: timeout_ms,
-        }) as unknown;
+
+        let raw_result: unknown;
+        try {
+            const sync_timeout = Math.max(100, budget.remaining_ms() + HARD_WATCHDOG_GRACE_MS);
+            raw_result = vm.runInContext(compiled, context, {
+                timeout: sync_timeout,
+            }) as unknown;
+        } catch (sync_err: unknown) {
+            if (is_timeout_error(get_error_message(sync_err))) {
+                throw new TerminatedError();
+            }
+            throw sync_err;
+        }
+
         runtime_log.debug(
             `Connector ${manifest.id}: vm.runInContext returned type=${typeof raw_result}, isPromise=${String(raw_result instanceof Promise)}`,
         );
-        const result: unknown = await race_with_timeout(Promise.resolve(raw_result), timeout_ms);
-        runtime_log.debug(`Connector ${manifest.id}: race_with_timeout resolved`);
+
+        const hard_watchdog_ms = Math.max(100, budget.remaining_ms() + HARD_WATCHDOG_GRACE_MS);
+        let hard_timer: NodeJS.Timeout | undefined;
+        const hard_promise = new Promise<never>((_, reject) => {
+            hard_timer = setTimeout(() => {
+                reject(new TerminatedError());
+            }, hard_watchdog_ms);
+            hard_timer.unref();
+        });
+
+        let result: unknown;
+        try {
+            result = await Promise.race([Promise.resolve(raw_result), hard_promise]);
+        } finally {
+            if (hard_timer) clearTimeout(hard_timer);
+        }
+
+        runtime_log.debug(`Connector ${manifest.id}: execution resolved`);
 
         if (!Array.isArray(result)) {
-            return { observations: [], failed_accounts, error: "Script did not return an array" };
+            return {
+                observations: [],
+                failed_accounts,
+                error: "Script did not return an array",
+                error_code: null,
+                metrics,
+            };
         }
 
         const observations: ScriptObservation[] = [];
@@ -348,14 +409,31 @@ async function run_connector_inner(
         runtime_log.info(
             `Connector ${manifest.id}: ${String(observations.length)} valid observations (from ${String(result.length)} raw)`,
         );
-        return { observations, failed_accounts, error: null };
+        return { observations, failed_accounts, error: null, error_code: null, metrics };
     } catch (error) {
         const message = get_error_message(error);
         const raw_stack = error instanceof Error ? error.stack : undefined;
         // A39: 附带脱敏后 stack 记录排障信息
         const scrubbed_stack = raw_stack ? scrubber.scrub_text(raw_stack) : undefined;
-        const normalized = is_timeout_error(message) ? `${TIMEOUT_ERROR}: ${message}` : message;
+
+        let error_code: "BUDGET_EXHAUSTED" | "TERMINATED" | null = null;
+        let normalized = message;
+
+        if (error instanceof TerminatedError || /terminated/i.test(message)) {
+            error_code = "TERMINATED";
+            normalized = "Connector execution terminated by watchdog timeout";
+        } else if (
+            error instanceof BudgetExhaustedError ||
+            (ctx.signal as { readonly aborted: boolean }).aborted
+        ) {
+            error_code = "BUDGET_EXHAUSTED";
+            normalized = "Connector execution budget exhausted";
+        } else if (is_timeout_error(message)) {
+            error_code = "BUDGET_EXHAUSTED";
+            normalized = `${TIMEOUT_ERROR}: ${message}`;
+        }
+
         runtime_log.error(`Connector execution failed: ${normalized}`, { stack: scrubbed_stack });
-        return { observations: [], failed_accounts, error: normalized };
+        return { observations: [], failed_accounts, error: normalized, error_code, metrics };
     }
 }

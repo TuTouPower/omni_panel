@@ -718,6 +718,7 @@ async function main(): Promise<ScriptObservation[]> {
     const observations: ScriptObservation[] = [];
 
     for (const auth_file of files) {
+        if (ctx.signal.aborted) break;
         if (auth_file.disabled) continue;
 
         const monitor_key = `monitor_${auth_file.provider}`;

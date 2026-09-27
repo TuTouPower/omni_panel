@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -29,6 +29,7 @@ function create_ctx_with_post_json(
     params: Record<string, string>,
 ): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json: () => Promise.resolve({}),

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -31,6 +31,7 @@ const manifest: Manifest = {
 
 function create_ctx(usage: unknown, detail: unknown, balance: unknown): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(_endpoint, path) {
@@ -219,6 +220,7 @@ describe("mimo connector", () => {
     it("preserves HTTP error message when usage request rejects", async () => {
         const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
         const error_ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json(_endpoint, path) {
@@ -268,6 +270,7 @@ describe("mimo connector", () => {
     it("still returns usage items when detail API returns null", async () => {
         const script = await readFile(join("connectors", "mimo", "connector.ts"), "utf8");
         const detail_null_ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json(_endpoint, path) {

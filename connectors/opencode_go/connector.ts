@@ -231,6 +231,7 @@ async function main(): Promise<ScriptObservation[]> {
 
     // A148 (原 D11): 全 org 循环采集并进行组织隔离
     for (const org of orgs) {
+        if (ctx.signal.aborted) break;
         if (!org.id) continue;
         const org_id = org.id;
         const account_label = org.name?.trim() ? org.name.trim() : org_id;

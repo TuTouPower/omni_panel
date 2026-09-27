@@ -5,6 +5,7 @@ import { load_manifest } from "../../../src/main/core/connector/manifest-loader"
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import { is_auth_error } from "../../../src/shared/lib/auth-error";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
+import { ctx_budget_stub } from "./_ctx_status";
 
 const ROOT = join(process.cwd(), "connectors", "muse");
 
@@ -18,6 +19,7 @@ function context(
     status = 200,
 ): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         params: { SESSION_COOKIE: cookie },
         http: {
             get_raw: vi.fn().mockResolvedValue({

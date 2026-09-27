@@ -273,6 +273,7 @@ Web 配置实例管理、导入导出和实时同步的行为契约见 [`docs/sp
 - **secret 默认进脚本**：v2 设想"明文默认不进沙箱"；现状连接器 secret 参数**全部** `exposeToScript:true`，明文经 `ctx.params` 进脚本。
 - **无自适应探测/退避**：调度器固定间隔，无指数退避，`observe` 探测自适应未实现。
 - **连接器子进程隔离与完整性保护（t515）**：已升级为独立子进程/utilityProcess 隔离执行，并通过 SHA-256 完整性清单核验内置连接器，消除了旧 `node:vm` 原型链逃逸风险。
+- **连接器执行预算、协作取消与有界并发（t528）**：废除单值 `DEFAULT_TIMEOUT_MS`，采用全局统一执行预算模型（`DEFAULT_EXECUTION_BUDGET_MS = 15_000`）。预算在一次刷新中跨重试连续消耗共享；宿主提供 `ctx.signal` 与软截止时间戳驱动脚本协作退出（`BUDGET_EXHAUSTED`），宿主硬看门狗以硬上限强制终止（`TERMINATED`）；宿主对单次执行施加有界并发限流（`MAX_HOST_CONCURRENCY = 6`）并提供可提前停止的增量并发原语 `ctx.pool`，记录请求数与读取字节数统计，通过 generation 防止旧执行覆盖新执行。
 - **安全威胁模型与设计取舍声明（R7, R8, R10）**：
     - **LocalAPI LAN 信任模型（R7）**：LocalAPI 默认监听 `0.0.0.0:17863`，定位为家庭/办公可信内网服务，除 `/v1/ingest` 需 Bearer 外，其余端点免认证直连，避免在内网引入复杂鉴权。
     - **Vault 存储模型（R8）**：自管 AES-256-GCM Vault，主密钥 `vault.key` 与密文文件同级存储在应用数据目录，安全边界明确依托操作系统文件级访问权限控制（POSIX `chmod 0600`，Windows 严密 ACL 继承），不使用 OS Keyring。
