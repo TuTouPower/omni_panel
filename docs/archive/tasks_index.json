@@ -8466,6 +8466,22 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/archive/tasks/t531_empty_account_remark_fallback_display"
+        },
+        {
+            "tid": "t532",
+            "slug": "atomic_account_save_empty_remark",
+            "title": "设置页编辑账号清空备注原子保存与闭包写回修复",
+            "status": "done",
+            "branch": "t532_atomic_account_save_empty_remark",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "1dbafa5858cee62fee3bd84949d4dc93f5e8e495",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "",
+            "dir": "docs/archive/tasks/t532_atomic_account_save_empty_remark"
         }
     ]
 }

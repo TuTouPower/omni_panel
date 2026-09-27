@@ -13,6 +13,7 @@ import {
 } from "../lib/account-overrides";
 import { accountKey } from "../lib/provider-usage";
 import { AccountDialog } from "../components/AccountDialog";
+import { type SaveAccountOptions } from "../components/SettingsForm";
 import { CpaLabelMapDialog } from "../components/CpaLabelMapDialog";
 import { RenameAccountDialog } from "../components/RenameAccountDialog";
 import { ConfirmDelete } from "../components/ConfirmDelete";
@@ -344,13 +345,15 @@ export function SettingsView() {
             display_name?: string,
             refresh_after_save = true,
             base_config?: AppConfiguration,
+            options?: SaveAccountOptions,
         ) => {
             const current_config = base_config ?? configRef.current ?? config;
             if (!current_config) return;
             if (Object.keys(secrets).length > 0) {
                 await saveSecrets(instanceId, secrets);
             }
-            await save_config({
+
+            let next_config: AppConfiguration = {
                 ...current_config,
                 plugins: current_config.plugins.map((plugin) => {
                     if (plugin.instanceId !== instanceId) return plugin;
@@ -366,12 +369,73 @@ export function SettingsView() {
                         ...(display_name?.trim() ? { displayName: display_name.trim() } : {}),
                     };
                 }),
-            });
+            };
+
+            const provider = pluginInfos.find((p) => p.instanceId === instanceId)
+                ?.activeProviders[0];
+
+            if (options?.labelEdits && Object.keys(options.labelEdits).length > 0) {
+                if (provider) {
+                    next_config = {
+                        ...next_config,
+                        providerLabelMaps: {
+                            ...(next_config.providerLabelMaps ?? {}),
+                            [provider]: {
+                                ...(next_config.providerLabelMaps?.[provider] ?? {}),
+                                ...options.labelEdits,
+                            },
+                        },
+                    };
+                } else {
+                    next_config = {
+                        ...next_config,
+                        accountLabelMaps: {
+                            ...(next_config.accountLabelMaps ?? {}),
+                            [instanceId]: {
+                                ...(next_config.accountLabelMaps?.[instanceId] ?? {}),
+                                ...options.labelEdits,
+                            },
+                        },
+                    };
+                }
+            }
+
+            if (options?.hiddenLabels !== undefined) {
+                if (provider) {
+                    next_config = {
+                        ...next_config,
+                        providerHiddenLabels: {
+                            ...(next_config.providerHiddenLabels ?? {}),
+                            [provider]: Array.from(options.hiddenLabels),
+                        },
+                    };
+                } else {
+                    next_config = {
+                        ...next_config,
+                        accountHiddenLabels: {
+                            ...(next_config.accountHiddenLabels ?? {}),
+                            [instanceId]: Array.from(options.hiddenLabels),
+                        },
+                    };
+                }
+            }
+
+            if (options?.forcePercent !== undefined && provider) {
+                next_config = {
+                    ...next_config,
+                    providerForcePercent: {
+                        ...(next_config.providerForcePercent ?? {}),
+                        [provider]: options.forcePercent,
+                    },
+                };
+            }
+
+            await save_config(next_config);
             if (refresh_after_save) {
                 trigger_background_refresh(instanceId);
             }
         },
-        [config, save_config, saveSecrets],
+        [config, save_config, saveSecrets, pluginInfos],
     );
 
     const savePluginSecrets = useCallback(
@@ -584,7 +648,27 @@ export function SettingsView() {
                         pluginInfos={pluginInfos}
                         catalog={catalog}
                         hasSecrets={dialog.instanceId ? hasSecrets[dialog.instanceId] : undefined}
-                        onSave={savePluginSettings}
+                        onSave={async (
+                            id,
+                            nonSecrets,
+                            secrets,
+                            overrides,
+                            interval,
+                            name,
+                            options,
+                        ) => {
+                            await savePluginSettings(
+                                id,
+                                nonSecrets,
+                                secrets,
+                                overrides,
+                                interval,
+                                name,
+                                true,
+                                undefined,
+                                options,
+                            );
+                        }}
                         onDuplicate={async (instanceId) => {
                             const result = await duplicate(instanceId);
                             // t306: 复制账号成功后自动触发新实例用量采集（与编辑保存一致）。
@@ -619,33 +703,6 @@ export function SettingsView() {
                                   }
                                 : (config.accountLabelMaps?.[dialog.instanceId] ?? {});
                         })()}
-                        onSaveLabelMap={async (id, map) => {
-                            const provider = pluginInfos.find((plugin) => plugin.instanceId === id)
-                                ?.activeProviders[0];
-                            if (provider) {
-                                await save_config({
-                                    ...config,
-                                    providerLabelMaps: {
-                                        ...(config.providerLabelMaps ?? {}),
-                                        [provider]: {
-                                            ...(config.providerLabelMaps?.[provider] ?? {}),
-                                            ...map,
-                                        },
-                                    },
-                                });
-                                return;
-                            }
-                            await save_config({
-                                ...config,
-                                accountLabelMaps: {
-                                    ...(config.accountLabelMaps ?? {}),
-                                    [id]: {
-                                        ...(config.accountLabelMaps?.[id] ?? {}),
-                                        ...map,
-                                    },
-                                },
-                            });
-                        }}
                         existingHiddenLabels={(() => {
                             if (!dialog.instanceId) return undefined;
                             const provider = pluginInfos.find(
@@ -658,27 +715,6 @@ export function SettingsView() {
                                 : [];
                             return Array.from(new Set([...acc_hidden, ...prov_hidden]));
                         })()}
-                        onSaveHiddenLabels={async (id, hidden) => {
-                            const provider = pluginInfos.find((plugin) => plugin.instanceId === id)
-                                ?.activeProviders[0];
-                            if (provider) {
-                                await save_config({
-                                    ...config,
-                                    providerHiddenLabels: {
-                                        ...(config.providerHiddenLabels ?? {}),
-                                        [provider]: hidden,
-                                    },
-                                });
-                                return;
-                            }
-                            await save_config({
-                                ...config,
-                                accountHiddenLabels: {
-                                    ...(config.accountHiddenLabels ?? {}),
-                                    [id]: hidden,
-                                },
-                            });
-                        }}
                         globalIntervalLabel={interval_label}
                         forcePercent={(() => {
                             if (!dialog.instanceId) return false;
@@ -689,15 +725,6 @@ export function SettingsView() {
                                 ? config.providerForcePercent?.[provider] === true
                                 : false;
                         })()}
-                        onForcePercentChange={async (provider, force) => {
-                            await save_config({
-                                ...config,
-                                providerForcePercent: {
-                                    ...(config.providerForcePercent ?? {}),
-                                    [provider]: force,
-                                },
-                            });
-                        }}
                         watchedMetrics={config.accountOverrides?.upcomingResetWatched}
                         onToggleWatched={(raw_label) => {
                             if (!dialog.instanceId) return;

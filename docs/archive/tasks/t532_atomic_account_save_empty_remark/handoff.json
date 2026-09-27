@@ -1,0 +1,40 @@
+{
+    "tid": "t532",
+    "attempt": 1,
+    "execution_id": "b6ee477d87fa4060bbd51587e9403b1b",
+    "status": "done",
+    "branch": "t532_atomic_account_save_empty_remark",
+    "base_sha": "1dbafa5858cee62fee3bd84949d4dc93f5e8e495",
+    "tests": "pnpm test 全量 338 个测试文件、4168 个用例全部通过；pnpm typecheck、pnpm lint、pnpm format:check、pnpm deadcode、pnpm arch、pnpm build 全部通过；git diff --check 零格式问题",
+    "blackbox": "Playwright web e2e 全量 95 个用例全部通过，验证单一事务写盘、各面板与弹窗渲染及动态回退正常",
+    "review": "single 级：general_verdict=PASS, reviewed_scope=b55fe0318f147092",
+    "ac_evidence": {
+        "AC-001": [
+            "SettingsView.tsx 在 display_name 为空时解构剔除 displayName 并不写入配置，落地配置中 displayName 为 undefined",
+            "tests/unit/renderer/views/settings_view_accounts.test.tsx 验证清空已有备注后保存配置中 displayName 为 undefined"
+        ],
+        "AC-002": [
+            "SettingsForm.tsx 构建 SaveAccountOptions 统一负载由 onSave 单次提交",
+            "SettingsView.tsx 统一由 savePluginSettings 单次原子写盘，消除向 AccountDialog 传入的 3 个离散子保存",
+            "tests/unit/renderer/views/settings_view_accounts.test.tsx 验证 save 仅被调用一次"
+        ],
+        "AC-003": [
+            "AccountDialog.tsx 副标题在 pluginName 为空时动态回退展示厂商名",
+            "tests/unit/renderer/components/account_dialog.test.tsx 验证 pluginName 为空时动态回退厂商名"
+        ],
+        "AC-004": [
+            "AccountRow.tsx 与 AccountDialog.tsx 在已有备注时正常展示备注，无备注时展示厂商名",
+            "tests/unit/renderer/components/account_dialog.test.tsx 验证自定义备注与空备注的分支渲染"
+        ],
+        "AC-005": [
+            "tests/unit/renderer/views/settings_view_accounts.test.tsx 新增端到端真实交互测试，断言清空备注保存时单次原子写盘且无 displayName"
+        ],
+        "AC-006": [
+            "tests/unit/renderer/components/settings_form.test.tsx 补强 SaveHandler 参数签名并新增 AC-006 用例，验证单次统一负载派发且无冗余子保存"
+        ]
+    },
+    "pending": [
+        "p265"
+    ],
+    "findings": []
+}

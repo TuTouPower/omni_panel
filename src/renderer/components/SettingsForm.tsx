@@ -24,6 +24,12 @@ import type { ResolvedAuthMethod } from "../lib/auth-flow-registry";
 import type { AuthDescriptor } from "../../shared/schemas/auth";
 import { format_cookie_login_error, poll_cookie_login } from "../lib/cookie_login_poll";
 
+export interface SaveAccountOptions {
+    labelEdits?: Record<string, string>;
+    hiddenLabels?: readonly string[];
+    forcePercent?: boolean;
+}
+
 interface SettingsFormProps {
     instanceId: string;
     parameters: PluginParameterMetadata[];
@@ -48,6 +54,7 @@ interface SettingsFormProps {
         endpointOverrides: Record<string, string>,
         refreshIntervalSeconds: number,
         displayName?: string,
+        options?: SaveAccountOptions,
     ) => Promise<void>;
     onDuplicate?: ((instanceId: string) => void | Promise<void>) | undefined;
     existingLabelMap?: Readonly<Record<string, string>> | undefined;
@@ -96,7 +103,12 @@ export function SettingsForm({
     const [duplicating, setDuplicating] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [remark, set_remark] = useState(displayName ?? "");
     const [labelRows, setLabelRows] = useState<LabelMapRow[]>([]);
+
+    useEffect(() => {
+        set_remark(displayName ?? "");
+    }, [displayName]);
     const [labelLoading, setLabelLoading] = useState(false);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
     const [hiddenLabels, setHiddenLabels] = useState<Set<string>>(
@@ -149,7 +161,7 @@ export function SettingsForm({
     }, [instanceId]);
 
     useEffect(() => {
-        if (!providerId || !onSaveLabelMap) return;
+        if (!providerId) return;
         void (async () => {
             setLabelLoading(true);
             try {
@@ -171,7 +183,7 @@ export function SettingsForm({
                 if (mounted_ref.current) setLabelLoading(false);
             }
         })();
-    }, [instanceId, providerId, existingLabelMap, onSaveLabelMap]);
+    }, [instanceId, providerId, existingLabelMap]);
 
     const handle_label_edit = (raw: string, value: string) => {
         setLabelEdits((prev) => ({ ...prev, [raw]: value }));
@@ -203,6 +215,25 @@ export function SettingsForm({
             setSaveError(null);
             let account_saved = false;
             try {
+                const label_map_payload: Record<string, string> = {};
+                for (const [raw, display] of Object.entries(labelEdits)) {
+                    label_map_payload[raw] = display;
+                }
+                const has_label_edits = Object.keys(label_map_payload).length > 0;
+
+                const orig_hidden = new Set(existingHiddenLabels ?? []);
+                const has_hidden_changes =
+                    hiddenLabels.size !== orig_hidden.size ||
+                    Array.from(hiddenLabels).some((label) => !orig_hidden.has(label));
+
+                const has_force_percent_change =
+                    providerId !== undefined && force_percent_local !== forcePercent;
+
+                const atomic_options: SaveAccountOptions = {};
+                if (has_label_edits) atomic_options.labelEdits = label_map_payload;
+                if (has_hidden_changes) atomic_options.hiddenLabels = Array.from(hiddenLabels);
+                if (has_force_percent_change) atomic_options.forcePercent = force_percent_local;
+
                 await onSave(
                     instanceId,
                     nonSecrets,
@@ -210,21 +241,20 @@ export function SettingsForm({
                     endpointOverrides,
                     intervalSeconds,
                     displayName,
+                    atomic_options,
                 );
                 // t356 AC-004: onSave（账号配置）成功即视为账号已提交，后续步骤失败时
                 // 文案须区分已提交阶段，不笼统报「保存失败」。
                 account_saved = true;
-                if (onSaveLabelMap && Object.keys(labelEdits).length > 0) {
-                    const map: Record<string, string> = {};
-                    for (const [raw, display] of Object.entries(labelEdits)) {
-                        map[raw] = display;
-                    }
-                    await onSaveLabelMap(instanceId, map);
+
+                // 兼容孤立单测中未走统一事务、单独注入了子保存回调且子配置确实发生变更的场景
+                if (onSaveLabelMap && has_label_edits) {
+                    await onSaveLabelMap(instanceId, label_map_payload);
                 }
-                if (onSaveHiddenLabels) {
+                if (onSaveHiddenLabels && has_hidden_changes) {
                     await onSaveHiddenLabels(instanceId, Array.from(hiddenLabels));
                 }
-                if (providerId && onForcePercentChange && force_percent_local !== forcePercent) {
+                if (providerId && onForcePercentChange && has_force_percent_change) {
                     await onForcePercentChange(providerId, force_percent_local);
                 }
                 if (!mounted_ref.current) return true;
@@ -262,6 +292,7 @@ export function SettingsForm({
             labelEdits,
             onSaveLabelMap,
             hiddenLabels,
+            existingHiddenLabels,
             onSaveHiddenLabels,
             providerId,
             onForcePercentChange,
@@ -316,7 +347,7 @@ export function SettingsForm({
             }
 
             const intervalSeconds = followGlobal ? 0 : refresh_label_to_seconds(syncInterval);
-            const display_name = (formData.get("displayName") as string | null)?.trim();
+            const display_name = remark.trim();
 
             void perform_save(
                 nonSecrets,
@@ -335,6 +366,7 @@ export function SettingsForm({
             secret_values,
             loaded_secrets,
             perform_save,
+            remark,
         ],
     );
 
@@ -385,7 +417,10 @@ export function SettingsForm({
                     type="text"
                     id="displayName"
                     name="displayName"
-                    defaultValue={displayName ?? ""}
+                    value={remark}
+                    onChange={(e) => {
+                        set_remark(e.target.value);
+                    }}
                     placeholder="例如：工作账号"
                     spellCheck={false}
                     autoCorrect="off"
@@ -642,7 +677,7 @@ export function SettingsForm({
                     </p>
                 </div>
             )}
-            {onSaveLabelMap && providerId && (
+            {providerId && (
                 <div className="flex flex-col gap-2">
                     <label className="text-[length:var(--text-label-md)] font-semibold text-[var(--color-on-surface-variant)]">
                         数据标签设置

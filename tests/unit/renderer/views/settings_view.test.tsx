@@ -167,7 +167,12 @@ describe("SettingsView", () => {
         });
     });
 
-    it("saves account label edits as vendor-level label maps", async () => {
+    // t532: 删除旧测试 saves account label edits as vendor-level label maps。
+    // 理由：原旧测试同时向表单输入了接口地址与标签映射，但在原旧实现中因二次写盘触发陈旧闭包覆盖，
+    // 第二次调用 save 错误冲掉了第一次保存的 endpointOverrides，旧测试在错误覆盖产生的假象下断言无 endpointOverrides。
+    // 重构为单次原子写盘事务后，端点配置与标签映射在单次 save 中一并完整持久化。
+    // 新增覆盖新语义的单次原子事务测试如下：
+    it("t532: atomically saves account label edits and endpoint overrides in a single transaction", async () => {
         const user = userEvent.setup();
         window.usageboard.connector.getState = vi.fn().mockResolvedValue({
             status: "ready",
@@ -200,6 +205,16 @@ describe("SettingsView", () => {
         await waitFor(() => {
             expect(save).toHaveBeenCalledWith({
                 ...base_config,
+                plugins: base_config.plugins.map((p) =>
+                    p.instanceId === "deepseek-1"
+                        ? {
+                              ...p,
+                              endpointOverrides: {
+                                  default: "https://api.deepseek.example",
+                              },
+                          }
+                        : p,
+                ),
                 providerLabelMaps: {
                     deepseek: { rolling: "5 小时" },
                 },

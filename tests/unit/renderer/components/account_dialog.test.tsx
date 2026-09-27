@@ -58,4 +58,14 @@ describe("AccountDialog 关键分支（t397 AC-003）", () => {
         window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
         expect(props.onClose).toHaveBeenCalled();
     });
+
+    it("t532 AC-003: pluginName 为空时动态回退展示厂商名", () => {
+        render(<AccountDialog {...make_props({ pluginName: "" })} />);
+        expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+    });
+
+    it("t532 AC-004: pluginName 有自定义备注时正常展示自定义备注", () => {
+        render(<AccountDialog {...make_props({ pluginName: "自定义工作账号" })} />);
+        expect(screen.getByText("自定义工作账号")).toBeInTheDocument();
+    });
 });

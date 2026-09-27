@@ -13,4 +13,4 @@
         - `SettingsForm.tsx:224` `onSaveHiddenLabels` 无变更无条件连续触发保存。
 - 测试缺口：现有单测仅覆盖添加账号单次保存，未覆盖编辑账号表单保存后级联保存隐藏标签时的闭包状态一致性。应在 `tests/unit/renderer/views/settings_view_accounts.test.tsx` 补充编辑账号设空备注并级联保存隐藏标签的完整测试断言。
 - 线索：`.scratch/repro_stale_config.test.ts` 模拟双次写盘；用户日志 `app-2026-09-27.log:3262-3337` 证实 10:26 分保存 GROK_BOT 与 OPENCODE_GO 时紧随两次 `Saving config`。
-- 处理：未开
+- 处理：t532

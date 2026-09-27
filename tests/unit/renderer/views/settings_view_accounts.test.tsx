@@ -406,4 +406,77 @@ describe("SettingsView", () => {
             expect(refresh_spy).toHaveBeenCalledWith("deepseek-2");
         });
     });
+
+    it("t532 AC-001/AC-002/AC-005: 编辑已有账号清空备注后单次原子保存且落地配置无 displayName", async () => {
+        const user = userEvent.setup();
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "deepseek-1",
+                    stateId: "deepseek-1",
+                    manifestId: "deepseek",
+                    name: "deepseek",
+                    displayName: "原自定义备注",
+                    enabled: true,
+                    executablePath: "plugins/deepseek.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "deepseek-1",
+                sourceInstanceId: "deepseek-1",
+                stateId: "deepseek-1",
+                name: "deepseek",
+                displayName: "原自定义备注",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["deepseek"],
+                activeProviders: ["deepseek"],
+                metadata: { parameters: [], endpoints: {} },
+                snapshot: { status: "idle" },
+            },
+        ]);
+
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        // 验证列表显示厂商与原备注
+        expect(screen.getByText("· 原自定义备注")).toBeInTheDocument();
+
+        // 点击编辑按钮打开弹窗
+        const edit_button = (await screen.findAllByTitle("编辑"))[0];
+        if (!edit_button) throw new Error("missing edit button");
+        await user.click(edit_button);
+
+        const dialog = await screen.findByRole("dialog");
+        const remark_input = within(dialog).getByPlaceholderText("例如：工作账号");
+        expect(remark_input).toHaveValue("原自定义备注");
+
+        // 清空备注
+        await user.clear(remark_input);
+        expect(remark_input).toHaveValue("");
+
+        // 清空 save spy 调用记录以便断言本次保存行为
+        save.mockClear();
+
+        // 点击保存
+        const save_button = within(dialog).getByTestId("settings-save-btn-deepseek-1");
+        await user.click(save_button);
+
+        // 断言 save 被调用，且为单次调用（杜绝级联连续竞争写盘）
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledTimes(1);
+        });
+
+        // 断言最终落地配置中该 plugin 无 displayName 属性（或为 undefined）
+        const saved_config = (save.mock.calls as unknown as [AppConfiguration][])[0]?.[0];
+        const target_plugin = saved_config?.plugins.find((p) => p.instanceId === "deepseek-1");
+        expect(target_plugin).toBeDefined();
+        expect(target_plugin?.displayName).toBeUndefined();
+    });
 });
