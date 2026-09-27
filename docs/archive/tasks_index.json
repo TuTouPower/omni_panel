@@ -8498,6 +8498,22 @@
             "conflicts_with": "",
             "note": "复用现有 web_login 会话登录与保活基建，新增 FlowerCloud 网页版连接器，真机登录过盾并闭环跑通真实用量抓取与面板展示",
             "dir": "docs/archive/tasks/t533_flowercloud_usage_connector"
+        },
+        {
+            "tid": "t534",
+            "slug": "muse_dynamic_action_fallback",
+            "title": "Muse 动态 Action 多候选回退与发现稳定性修复",
+            "status": "done",
+            "branch": "t534_muse_dynamic_action_fallback",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "f9bb0951b9c50fbeb2a37e02a4bb340adfd03a76",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "修复 Muse 动态 Action 发现锁定单一 settings 候选导致 DISCOVERY_EMPTY 的缺陷，支持多候选遍历回退与真实回归测试 (p266)",
+            "dir": "docs/archive/tasks/t534_muse_dynamic_action_fallback"
         }
     ]
 }

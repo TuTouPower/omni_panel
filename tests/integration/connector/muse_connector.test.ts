@@ -311,6 +311,223 @@ describe("muse connector", () => {
         });
     });
 
+    it("AC-001 / AC-002 (p266): falls back to subsequent settings module candidates when the first candidate does not yield action ID", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_endpoint, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_MULTI_CANDIDATE"></div>',
+                        '<script src="/_next/static/chunks/chunk-a-wrong.js"></script>',
+                        '<script src="/_next/static/chunks/chunk-b-right.js"></script>',
+                        '<script src="/_next/static/chunks/manifest-bundle.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("chunk-a-wrong.js")) {
+                // 候选 273187（错误候选，关联分包无目标 Action）
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(273187).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("chunk-b-right.js")) {
+                // 候选 862035（正确候选，关联分包含目标 Action）
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(862035).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("manifest-bundle.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        '273187, s => { s.v(t => Promise.all(["static/chunks/empty-sub.js"]).map(t=>s.l(t)).then(()=>t(273))) },',
+                        '862035, s => { s.v(t => Promise.all(["static/chunks/real-sub.js"]).map(t=>s.l(t)).then(()=>t(862))) }',
+                    ].join("\n"),
+                });
+            }
+            if (path.includes("empty-sub.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "function UnrelatedComponent() { return 'no action here'; }",
+                });
+            }
+            if (path.includes("real-sub.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("9999888877776666555544443333222211110000", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "{}" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw).toHaveBeenCalledTimes(1);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "9999888877776666555544443333222211110000",
+            "x-deployment-id": "dpl_MULTI_CANDIDATE",
+        });
+    });
+
+    it("AC-002 (p266): reversed script order still deterministically resolves action ID", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_endpoint, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_REVERSED_ORDER"></div>',
+                        '<script src="/_next/static/chunks/chunk-b-right.js"></script>',
+                        '<script src="/_next/static/chunks/chunk-a-wrong.js"></script>',
+                        '<script src="/_next/static/chunks/manifest-bundle.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("chunk-a-wrong.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(273187).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("chunk-b-right.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(862035).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("manifest-bundle.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        '273187, s => { s.v(t => Promise.all(["static/chunks/empty-sub.js"]).map(t=>s.l(t)).then(()=>t(273))) },',
+                        '862035, s => { s.v(t => Promise.all(["static/chunks/real-sub.js"]).map(t=>s.l(t)).then(()=>t(862))) }',
+                    ].join("\n"),
+                });
+            }
+            if (path.includes("empty-sub.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "function UnrelatedComponent() { return 'no action here'; }",
+                });
+            }
+            if (path.includes("real-sub.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("9999888877776666555544443333222211110000", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "{}" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
+        const post_raw = vi.mocked(ctx.http.post_raw!);
+        expect(post_raw).toHaveBeenCalledTimes(1);
+        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
+            "next-action": "9999888877776666555544443333222211110000",
+            "x-deployment-id": "dpl_REVERSED_ORDER",
+        });
+    });
+
+    it("AC-003 (p266): logs structured diagnostic info and throws DISCOVERY_EMPTY when all settings candidates fail to yield target", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_endpoint, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_ALL_FAIL"></div>',
+                        '<script src="/_next/static/chunks/chunk-a-wrong.js"></script>',
+                        '<script src="/_next/static/chunks/chunk-b-wrong.js"></script>',
+                        '<script src="/_next/static/chunks/manifest-bundle.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("chunk-a-wrong.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(111111).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("chunk-b-wrong.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "var s = e.A(222222).then(function(m){ return { default: m.HatchSettingsDialogContent }; });",
+                });
+            }
+            if (path.includes("manifest-bundle.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        '111111, s => { s.v(t => Promise.all(["static/chunks/empty-1.js"]).map(t=>s.l(t)).then(()=>t(111))) },',
+                        '222222, s => { s.v(t => Promise.all(["static/chunks/empty-2.js"]).map(t=>s.l(t)).then(()=>t(222))) }',
+                    ].join("\n"),
+                });
+            }
+            if (path.includes("empty-1.js") || path.includes("empty-2.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: "function EmptyComponent() { return 'nothing'; }",
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "{}" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toMatch(/DISCOVERY_EMPTY/);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        const log_error = vi.mocked(ctx.log.error);
+        expect(log_error).toHaveBeenCalledWith(expect.stringMatching(/checked 2 candidates/i));
+    });
+
     it("AC-002: accurately enforces module ID boundaries in manifest to avoid matching prefix numbers", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("muse manifest missing");
