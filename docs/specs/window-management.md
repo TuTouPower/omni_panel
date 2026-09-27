@@ -33,6 +33,10 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 - 渲染经 `popup:reportContentHeight({ content_height, collapsed_min_height })` 上报测得内容高度。
 - 主进程据此 `setBounds` 锁 BrowserWindow 高度，跟随折叠/展开撑高/缩矮。
 - 约束：不超过 100% 工作区高度（t081 起 `MAX_HEIGHT_RATIO=1.0`），无不必要底部留白。
+- **高度纯自动驱动，禁止用户手动垂直拉伸**：弹窗模式下将 BrowserWindow 的 `minHeight` 与 `maxHeight` 严格锁定为内容计算目标高度（`target`），仅开放宽度横向拉伸（`[USAGE_MIN_WIDTH, workArea.width]`）。若受外部窗口管理器外力强制改变高度，`resize` 事件监听器强制将其回退至 `expected_height`。
+- **取消高度持久化与最低保底死锁**：彻底移除 `usagePopupHeight` 的持久化写入与 `min_preferred_height` 保底逻辑；popup 模式仅持久化 `usagePopupWidth`。拉宽窗口使排版折行减少时，窗口高度能够双向自适应变矮，不再被单向棘轮卡死。
+- **离屏测高镜像对齐**：测高离屏镜像（`data-popup="mirror"`）与前台 DOM 实时同步展开状态（`expandedProviders`、`l2OpenProviders`）与头部控件尺寸（`DragGrip`、折叠箭头等），杜绝由于镜像元素缺失导致的几何测量偏矮与多账号展开失效问题。
+- **滚动容器边距规范**：弹窗滚动容器设为 `px-4 pb-4 pt-3`，卡片距离窗口左边距（16px）、右边距（16px）与底边距（16px）保持绝对一致。
 - `floatingHeightMode` 配置控制浮窗高度策略。
 
 ## 主题
