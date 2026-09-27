@@ -60,11 +60,7 @@ def project_attempts(events: list[dict]) -> dict[tuple[str, int, str], dict]:
         record = records.get(key)
         if record is None:
             continue
-        if kind == "attempt_bound":
-            # 兼容旧 ledger：bind 已退役，但旧 agent attempt 的 reserved→bound
-            # 仍需转 running 才能继续 terminal/report/integrate。
-            record["state"] = "running"
-        elif kind == "attempt_terminal":
+        if kind == "attempt_terminal":
             record["state"] = "terminal"
             record["terminal_status"] = event.get("status", "")
             record["terminal"] = event
@@ -203,8 +199,9 @@ def reserve_attempt(tid: str, executor: str, model: str | None = None) -> dict:
         status = task.get("status", "")
         if status in ctx.ARCHIVED_STATUSES:
             raise ctx.TaskDataError(
-                f"{tid} 已归档（{status}）；拒绝 reserve 新 attempt，"
-                "需先 rewind 或显式恢复"
+                f"{tid} 已归档（{status}）；拒绝 reserve 新 attempt。"
+                "review 证据问题见 recovery 证据修复（amend 补审进同一执行 commit）；"
+                "禁止 rewind/reserve 新 attempt。"
             )
         if status != "active":
             raise ctx.TaskDataError(

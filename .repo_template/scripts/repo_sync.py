@@ -57,6 +57,10 @@ PROTECT_NAMES = {"sync_state.json"}
 # 裁定范围：可定制共享资产。.gitignore / .prettierignore / MCP 机械合并；AGENTS.md 语义合并。
 SHARED_FILES = ("AGENTS.md", ".gitignore")
 
+# 消费仓 apply / 默认门禁只跑模板契约，不含工厂全量集成测试。
+CONSUMER_TEST_COMMAND = ("pytest", ".repo_template/tests/", "-q", "-m", "contract")
+CONSUMER_TEST_TIMEOUT = 60
+
 # AGENTS.md 同步协议：按固定标题识别三类内容。
 # 项目介绍永不更新；目录与读写规则只报告差异，由 agent 语义合并；开发原则每轮强制更新。
 AGENTS_INTRO_HEADING = "## 目录与读写规则"
@@ -516,6 +520,48 @@ def force_migrate_workflow_tasks(changed: set[Path]) -> list[str]:
         changed.add(path)
         reports.append(f"{_rel(path)} 已强制迁移到当前 workflow schema")
     return reports
+
+
+CONVENTIONS_PATH = CONSUMER / "docs/blueprint/conventions.md"
+
+
+def _migrate_conventions_text(text: str) -> str:
+    # 替换旧导入语句
+    text = re.sub(
+        r"from\s+task\s+import\s+(_atomic_write_text|atomic_write_text)(?:（[^）\n]*）)?",
+        "from repo_task.documents import atomic_write_text",
+        text,
+    )
+    # 替换 helper 归属描述
+    text = re.sub(
+        r"([`'\"\(]?(?:\.repo_template/)?(?:scripts/)?task\.py\s*(?:的)?\s*)(_atomic_write_text|atomic_write_text)",
+        r"repo_task.documents 的 atomic_write_text",
+        text,
+    )
+    return text
+
+
+def conventions_migration_status() -> list[str]:
+    if not CONVENTIONS_PATH.is_file():
+        return []
+    before = CONVENTIONS_PATH.read_text(encoding="utf-8")
+    after = _migrate_conventions_text(before)
+    if after != before:
+        return [_rel(CONVENTIONS_PATH)]
+    return []
+
+
+def migrate_conventions(changed: set[Path]) -> list[str]:
+    if not CONVENTIONS_PATH.is_file():
+        return []
+    before = CONVENTIONS_PATH.read_text(encoding="utf-8")
+    after = _migrate_conventions_text(before)
+    if after != before:
+        _stage_rollback(CONVENTIONS_PATH)
+        CONVENTIONS_PATH.write_text(after, encoding="utf-8")
+        changed.add(CONVENTIONS_PATH)
+        return [f"{_rel(CONVENTIONS_PATH)} 已自动迁移原子写约定为 from repo_task.documents import atomic_write_text（保留消费仓自定义内容）"]
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -1183,9 +1229,9 @@ def _apply_shared_unit(unit: str, decision: str | None, src: Path, changed: set[
 
 def _run_tests(consumer: Path) -> bool:
     r = subprocess.run(
-        ["pytest", ".repo_template/tests/", "-q"], cwd=str(consumer),
+        list(CONSUMER_TEST_COMMAND), cwd=str(consumer),
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=500,
+        timeout=CONSUMER_TEST_TIMEOUT,
     )
     if r.returncode != 0:
         print(r.stdout[-2000:] if r.stdout else "", file=sys.stderr)
@@ -1260,6 +1306,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     for item in shared_status(src):
         print(f"  {item['cls']:14s} {item['unit']}")
     migrations, worktrees, migration_errors = workflow_migration_status(src)
+    conv_migrations = conventions_migration_status()
     print("\nworkflow schema 强制迁移:")
     if migration_errors:
         for error in migration_errors:
@@ -1269,7 +1316,10 @@ def cmd_status(args: argparse.Namespace) -> int:
     if migrations:
         for path in migrations:
             print(f"  migrate {path}")
-    if not migration_errors and not worktrees and not migrations:
+    if conv_migrations:
+        for path in conv_migrations:
+            print(f"  migrate {path}（原子写约定）")
+    if not migration_errors and not worktrees and not migrations and not conv_migrations:
         print("  无")
     print("\nformat 豁免 (.prettierignore):")
     dst = CONSUMER / ".prettierignore"
@@ -1378,6 +1428,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     print("\n### workflow schema 强制迁移")
     migrations, worktrees, migration_errors = workflow_migration_status(src)
+    conv_migrations = conventions_migration_status()
     if migration_errors:
         print("BLOCKED：以下文档无法自动迁移：")
         for error in migration_errors:
@@ -1389,7 +1440,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     if migrations:
         for path in migrations:
             print(f"- {path}")
-    if not migration_errors and not worktrees and not migrations:
+    if conv_migrations:
+        for path in conv_migrations:
+            print(f"- {path}（更新原子写约定为 repo_task.documents.atomic_write_text，保留自定义内容）")
+    if not migration_errors and not worktrees and not migrations and not conv_migrations:
         print("无")
 
     print("\n### state 推进预期")
@@ -1414,6 +1468,8 @@ def _apply_sync_write(src: Path, decisions: dict[str, str], changed: set[Path], 
         sync_file(src / rel, CONSUMER / rel, changed)
 
     for report in force_migrate_workflow_tasks(changed):
+        print(f"提示: {report}")
+    for report in migrate_conventions(changed):
         print(f"提示: {report}")
     reports = repair_symlinks(changed)
     for r in reports:
@@ -1459,7 +1515,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
     if not args.skip_tests:
         if not _run_tests(CONSUMER):
-            print("pytest .repo_template/tests/ 失败，不推进 state", file=sys.stderr)
+            print("pytest .repo_template/tests/ -m contract 失败，不推进 state", file=sys.stderr)
             _cleanup_rollback()
             return 1
     else:
@@ -1642,7 +1698,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply = sub.add_parser("apply", help="执行对齐写盘")
     apply.add_argument("--decision", action="append", default=[], metavar="UNIT:DISP",
                        help="裁定单元决策（可重复），如 AGENTS.md:update / AGENTS.md:keep")
-    apply.add_argument("--skip-tests", action="store_true", help="跳过 pytest 验证")
+    apply.add_argument("--skip-tests", action="store_true", help="跳过模板契约测试（-m contract）")
     apply.set_defaults(func=cmd_apply)
 
     prompt = sub.add_parser("prompt", help="管理 user_prompts")

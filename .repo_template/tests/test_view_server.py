@@ -10,6 +10,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 import repo_task.context as ctx
 from repo_task import view_server
 
+pytestmark = pytest.mark.contract
+
 
 def test_classify_maps_categories():
     tasks = {
@@ -26,7 +28,7 @@ def test_classify_maps_categories():
         "waiting_deps": [("t001", "t005")],
         "blocked_conflicts": [("t006", "t001")],
     }
-    classify = view_server._classify
+    classify = view_server.classify_node
     assert classify("t001", tasks, schedule) == "active"
     assert classify("t002", tasks, schedule) == "done"
     assert classify("t003", tasks, schedule) == "dropped"
@@ -159,7 +161,6 @@ def test_open_browser_windows_nt_uses_startfile(monkeypatch):
     started = []
     monkeypatch.setattr(view_server, "_is_wsl", lambda: False)
     monkeypatch.setattr(view_server, "_is_windows", lambda: True)
-    monkeypatch.setattr(view_server.os, "name", "nt")
     monkeypatch.setattr(
         view_server.os, "startfile", lambda url: started.append(url), raising=False
     )
