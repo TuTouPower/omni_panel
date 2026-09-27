@@ -1,0 +1,35 @@
+{
+    "id": "flowercloud",
+    "provider": "flowercloud",
+    "capabilities": ["session"],
+    "auth": {
+        "method": "web_login",
+        "secret_name": "SESSION_COOKIE",
+        "login_url": "https://api-flowercloud.com/clientarea.php"
+    },
+    "parameters": [
+        {
+            "name": "SESSION_COOKIE",
+            "type": "secret",
+            "required": true,
+            "label": "FlowerCloud Session Cookie",
+            "label@zh-Hans": "花云网页会话 Cookie",
+            "exposeToScript": true
+        },
+        {
+            "name": "RESET_DAY",
+            "type": "string",
+            "required": false,
+            "label": "Monthly Reset Day (Optional, 1-31)",
+            "label@zh-Hans": "每月重置日（可选，1-31，兜底使用）",
+            "exposeToScript": true
+        }
+    ],
+    "endpoints": {
+        "default": "https://api-flowercloud.com",
+        "login": "https://api-flowercloud.com/clientarea.php"
+    },
+    "loginDomains": ["api-flowercloud.com", "flower.yt", "flowercloud.net"],
+    "cookieNames": ["PHPSESSID", "WHMCSUID", "WHMCSPW", "WHMCSUser", "cf_clearance", "D0S_Header"],
+    "script": "connector.ts"
+}

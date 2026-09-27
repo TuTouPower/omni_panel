@@ -23,6 +23,7 @@ describe("add-account common services", () => {
             "grok_bot",
             "commandcode",
             "muse",
+            "flowercloud",
             "cpa",
         ]);
     });
@@ -38,5 +39,12 @@ describe("add-account common services", () => {
 
     it("labels the muse entry as Muse", () => {
         expect(ADD_COMMON_SERVICES).toContainEqual({ id: "muse", label: "Muse" });
+    });
+
+    it("labels the flowercloud entry as FlowerCloud (花云)", () => {
+        expect(ADD_COMMON_SERVICES).toContainEqual({
+            id: "flowercloud",
+            label: "FlowerCloud (花云)",
+        });
     });
 });

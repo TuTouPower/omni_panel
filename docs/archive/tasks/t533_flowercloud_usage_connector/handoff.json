@@ -1,0 +1,39 @@
+{
+    "tid": "t533",
+    "attempt": 1,
+    "execution_id": "197e5e1f95444d27b27d538c2437c57b",
+    "status": "done",
+    "branch": "t533_flowercloud_usage_connector",
+    "base_sha": "936679d737fb3d987384f3ab42c3738846e64e69",
+    "tests": "pnpm check 全绿（typecheck + lint + format:check + schema:check + deadcode + arch 0 warnings 0 errors）；pnpm test 全绿（338 测试套件，4173 单元/集成用例通过）",
+    "blackbox": "实机真机端到端全流程验证：通过 Electron 窗口完成真实花云账号登录并过盾，成功从真实客户区提取 Global Acceleration Max 套餐、297.11GB / 1000GB、下次重置日 2026/10/07 数据；集成测试 tests/integration/connector/flowercloud_connector.test.ts 9 项用例覆盖真实数据解析与边界错误路径；tests/unit/renderer/components/add_account_dialog.test.tsx 覆盖添加账号与授权表单映射",
+    "review": "full 级：review_code.md PASS（Round 1 零 finding）；review_test.md PASS（Round 1 零 finding）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/renderer/components/add_account_dialog.test.tsx: renders web_login form for flowercloud and saves after login succeeds",
+            "tests/unit/renderer/common_services.test.ts: includes flowercloud in add-account common services"
+        ],
+        "AC-002": [
+            "tests/integration/connector/flowercloud_connector.test.ts: parses clientarea main page with traffic ratio and next due date",
+            "tests/integration/connector/flowercloud_connector.test.ts: parses real FlowerCloud dashboard live output with Global Acceleration Max and 2026/10/07 reset",
+            "tests/integration/connector/flowercloud_connector.test.ts: follows product details link if clientarea overview lacks traffic statistics"
+        ],
+        "AC-003": [
+            "tests/integration/connector/flowercloud_connector.test.ts: throws recognized auth error when HTTP 401 is returned",
+            "tests/integration/connector/flowercloud_connector.test.ts: throws recognized auth error when redirected to login page",
+            "tests/integration/connector/flowercloud_connector.test.ts: throws challenge error when blocked by Cloudflare turnstile",
+            "tests/integration/connector/flowercloud_connector.test.ts: throws error when SESSION_COOKIE is missing"
+        ],
+        "AC-004": [
+            "tests/integration/connector/flowercloud_connector.test.ts: uses optional RESET_DAY when nextduedate is absent from HTML"
+        ],
+        "AC-005": [
+            "全仓 pnpm check 与 pnpm test 全绿（338 test files, 4173 passed）"
+        ],
+        "AC-006": [
+            "真实桌面运行环境中调起登录窗口，真实花云账号成功登录并过盾，提取到真实套餐名称 Global Acceleration Max、297.11GB / 1000GB、下次重置日 2026/10/07"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

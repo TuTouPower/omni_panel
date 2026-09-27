@@ -8482,6 +8482,22 @@
             "conflicts_with": "",
             "note": "",
             "dir": "docs/archive/tasks/t532_atomic_account_save_empty_remark"
+        },
+        {
+            "tid": "t533",
+            "slug": "flowercloud_usage_connector",
+            "title": "FlowerCloud 花云网页会话用量连接器与重置时间展示",
+            "status": "done",
+            "branch": "t533_flowercloud_usage_connector",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "936679d737fb3d987384f3ab42c3738846e64e69",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "复用现有 web_login 会话登录与保活基建，新增 FlowerCloud 网页版连接器，真机登录过盾并闭环跑通真实用量抓取与面板展示",
+            "dir": "docs/archive/tasks/t533_flowercloud_usage_connector"
         }
     ]
 }

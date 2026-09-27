@@ -73,6 +73,7 @@ import muse_png from "../assets/vendor_logos/muse.png";
 import mimo_svg from "../assets/vendor_logos/mimo.svg";
 import tavily_svg from "../assets/vendor_logos/tavily.svg";
 import tikhub_jpeg from "../assets/vendor_logos/tikhub.jpeg";
+import flowercloud_svg from "../assets/vendor_logos/flowercloud.svg";
 import { createLogger } from "../../shared/lib/logger";
 
 const log = createLogger("renderer:icon");
@@ -255,6 +256,7 @@ export const VENDOR_REGISTRY: Record<string, VendorRegistryEntry> = {
     tikhub: { type: "logo", src: tikhub_jpeg },
     cpa: { type: "logo", src: cpa_png },
     muse: { type: "logo", src: muse_png },
+    flowercloud: { type: "logo", src: flowercloud_svg },
     mimo: { type: "logo", src: mimo_svg },
 
     // SVG marks fallback
