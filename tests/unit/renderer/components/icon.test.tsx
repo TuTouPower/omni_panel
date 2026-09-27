@@ -271,6 +271,38 @@ describe("VendorMark", () => {
         );
     });
 
+    it("renders official Kimi logos for both themes", () => {
+        const { container } = render(<VendorMark id="kimi_web" />);
+        const light_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="kimi_light"]',
+        );
+        const dark_image = container.querySelector(
+            '[data-testid="vendor-mark"] img[src*="kimi_dark"]',
+        );
+        const light_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/kimi_light.svg"),
+            "utf8",
+        );
+        const dark_svg = readFileSync(
+            join(process.cwd(), "src/renderer/assets/vendor_logos/kimi_dark.svg"),
+            "utf8",
+        );
+
+        const official_light_hash =
+            "ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b";
+        const light_hash = createHash("sha256")
+            .update(light_svg.replace(/\r\n/g, "\n"))
+            .digest("hex");
+
+        expect(light_image?.getAttribute("src")).toContain("kimi_light");
+        expect(dark_image?.getAttribute("src")).toContain("kimi_dark");
+        expect(container.querySelector('[data-testid="vendor-mark"] svg')).not.toBeInTheDocument();
+        expect(light_hash).toBe(official_light_hash);
+        expect(dark_svg).toContain("<title>Kimi</title>");
+        expect(dark_svg).toContain('fill="#fff"');
+        expect(dark_svg).toContain('fill="#1783FF"');
+    });
+
     it("encapsulates theme logo switching in the component (light hidden in dark)", () => {
         const { container } = render(<VendorMark id="opencode_go" />);
         const light_image = container.querySelector(

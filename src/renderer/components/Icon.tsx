@@ -64,7 +64,8 @@ import glm_svg from "../assets/vendor_logos/glm.svg";
 import grok_light_svg from "../assets/vendor_logos/grok_light.svg";
 import grok_dark_svg from "../assets/vendor_logos/grok_dark.svg";
 import grok_bot_png from "../assets/vendor_logos/grok_bot.png";
-import kimi_svg from "../assets/vendor_logos/kimi.svg";
+import kimi_light_svg from "../assets/vendor_logos/kimi_light.svg";
+import kimi_dark_svg from "../assets/vendor_logos/kimi_dark.svg";
 import minimax_svg from "../assets/vendor_logos/minimax.svg";
 import opencode_go_dark_svg from "../assets/vendor_logos/opencode_go_dark.svg";
 import opencode_go_light_svg from "../assets/vendor_logos/opencode_go_light.svg";
@@ -236,6 +237,8 @@ export const VENDOR_REGISTRY: Record<string, VendorRegistryEntry> = {
     exa: { type: "theme", light: exa_light_png, dark: exa_dark_png },
     opencode_go: { type: "theme", light: opencode_go_light_svg, dark: opencode_go_dark_svg },
     grok: { type: "theme", light: grok_light_svg, dark: grok_dark_svg },
+    kimi: { type: "theme", light: kimi_light_svg, dark: kimi_dark_svg },
+    kimi_web: { type: "theme", light: kimi_light_svg, dark: kimi_dark_svg },
 
     // Static logos (A68: mimo 已归位统一使用 mimo_svg 资产文件)
     grok_bot: { type: "logo", src: grok_bot_png },
@@ -243,8 +246,6 @@ export const VENDOR_REGISTRY: Record<string, VendorRegistryEntry> = {
     codex: { type: "logo", src: codex_svg },
     commandcode: { type: "logo", src: commandcode_svg },
     antigravity: { type: "logo", src: antigravity_svg },
-    kimi: { type: "logo", src: kimi_svg },
-    kimi_web: { type: "logo", src: kimi_svg },
     glm: { type: "logo", src: glm_svg },
     deepseek: { type: "logo", src: deepseek_svg },
     getoneapi: { type: "logo", src: getoneapi_png },
