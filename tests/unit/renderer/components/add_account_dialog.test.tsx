@@ -263,6 +263,81 @@ describe("AddAccountDialog descriptor-driven routing", () => {
         expect(get_saved_params(on_save).vendor_id).toBe("muse");
     });
 
+    it("renders web_login form for flowercloud and saves after login succeeds", async () => {
+        const session = {
+            login: vi.fn().mockResolvedValue({
+                saved: true,
+                cookie: "WHMCSUID=12345; WHMCSPW=hash; PHPSESSID=session123",
+            }),
+        };
+        (window as unknown as { usageboard: { session: typeof session } }).usageboard = {
+            session,
+        };
+        const plugin: PluginInfo = make_plugin({
+            instanceId: "flowercloud-1",
+            name: "FlowerCloud",
+            displayName: "FlowerCloud",
+            source: "session",
+            supportedProviders: ["flowercloud"],
+            activeProviders: ["flowercloud"],
+            metadata: {
+                name: "flowercloud",
+                login_url: "https://api-flowercloud.com/clientarea.php",
+                cookie_names: [
+                    "PHPSESSID",
+                    "WHMCSUID",
+                    "WHMCSPW",
+                    "WHMCSUser",
+                    "cf_clearance",
+                    "D0S_Header",
+                ],
+                auth: {
+                    method: "web_login",
+                    login_url: "https://api-flowercloud.com/clientarea.php",
+                    secret_name: "SESSION_COOKIE",
+                },
+                parameters: [
+                    {
+                        name: "SESSION_COOKIE",
+                        label: "FlowerCloud Session Cookie",
+                        type: "secret",
+                        required: true,
+                    },
+                ],
+            },
+        });
+        const user = userEvent.setup();
+        render(<AddAccountDialog plugin_infos={[plugin]} on_close={on_close} on_save={on_save} />);
+
+        await user.click(screen.getByText("FlowerCloud (花云)"));
+        expect(screen.getByText("网页登录")).toBeInTheDocument();
+
+        await user.click(screen.getByText("网页登录"));
+        await waitFor(() => {
+            expect(session.login).toHaveBeenCalledWith({
+                provider: "flowercloud",
+                login_url: "https://api-flowercloud.com/clientarea.php",
+                cookie_names: [
+                    "PHPSESSID",
+                    "WHMCSUID",
+                    "WHMCSPW",
+                    "WHMCSUser",
+                    "cf_clearance",
+                    "D0S_Header",
+                ],
+                auto_close_ms: 1500,
+            });
+        });
+        await user.click(screen.getByText("添加账号"));
+        await waitFor(() => {
+            expect(on_save).toHaveBeenCalledTimes(1);
+        });
+        expect(get_saved_params(on_save).secrets).toEqual({
+            SESSION_COOKIE: "WHMCSUID=12345; WHMCSPW=hash; PHPSESSID=session123",
+        });
+        expect(get_saved_params(on_save).vendor_id).toBe("flowercloud");
+    });
+
     it("renders OAuth device form for grok and saves after polling succeeds", async () => {
         const grok = {
             login_start: vi.fn().mockResolvedValue({

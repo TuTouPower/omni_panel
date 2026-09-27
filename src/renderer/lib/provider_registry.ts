@@ -30,7 +30,8 @@ export const PROVIDER_DEFINITIONS: readonly ProviderMeta[] = [
     { id: "grok_bot", label: "Grok Bot", order: 16 },
     { id: "commandcode", label: "Command Code", order: 17 },
     { id: "muse", label: "Muse", order: 18 },
-    { id: "cpa", label: "CPA", addServiceLabel: "CPA Manager", order: 19 },
+    { id: "flowercloud", label: "FlowerCloud", addServiceLabel: "FlowerCloud (花云)", order: 19 },
+    { id: "cpa", label: "CPA", addServiceLabel: "CPA Manager", order: 20 },
 ];
 
 export const PROVIDER_ORDER: readonly string[] = PROVIDER_DEFINITIONS.filter(

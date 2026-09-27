@@ -11,6 +11,6 @@ describe("provider-account-list spacing (T6)", () => {
         );
         expect(src).toContain("gap-3");
         expect(src).toContain("grid items-stretch gap-3");
-        expect(src).toMatch(/minmax\(420px,\s*1fr\)/);
+        expect(src).toMatch(/minmax\(min\(100%,\s*420px\),\s*1fr\)/);
     });
 });
