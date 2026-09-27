@@ -2,5 +2,22 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t534",
+            "slug": "muse_dynamic_action_fallback",
+            "title": "Muse 动态 Action 多候选回退与发现稳定性修复",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "修复 Muse 动态 Action 发现锁定单一 settings 候选导致 DISCOVERY_EMPTY 的缺陷，支持多候选遍历回退与真实回归测试 (p266)",
+            "dir": "docs/tasks/t534_muse_dynamic_action_fallback"
+        }
+    ]
 }
