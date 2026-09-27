@@ -3,6 +3,7 @@ import {
     status_for_ratio,
     status_for_balance,
 } from "../../../src/shared/lib/connector-thresholds";
+import { create_connector_pool } from "../../../src/main/core/connector/execution-budget";
 
 /** 测试用共享 ctx.status（注入 ConnectorContext mock，t066）。 */
 export const ctx_status = {
@@ -32,19 +33,15 @@ export const ctx_util = {
     },
 } as const;
 
+const stub_signal = new AbortController().signal;
+
 /** 测试用共享 ctx 预算/信号/并发/计数存根（注入 ConnectorContext mock，t528）。 */
 export const ctx_budget_stub = {
-    signal: new AbortController().signal,
+    signal: stub_signal,
     deadline_ms: Date.now() + 15_000,
     remaining_ms: () => 15_000,
     metrics: { requests: 0, bytes: 0 },
-    pool: {
-        // eslint-disable-next-line @typescript-eslint/require-await
-        map: async function* () {
-            yield* [];
-        },
-        all: () => Promise.resolve([]),
-    },
+    pool: create_connector_pool(stub_signal),
     discovery: {
         get: () => Promise.resolve(null),
         set: () => Promise.resolve(),

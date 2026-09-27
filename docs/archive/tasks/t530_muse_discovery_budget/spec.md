@@ -79,8 +79,8 @@ p263：Muse 连接器 `resolve_dynamic_action_ids()` 在无法走基准部署捷
 
 <!-- /规范 -->
 
-- Muse 当前部署是否提供稳定的构建清单 / 部署标识（如 `_buildManifest`），可替代「下载全部分包再扫描」的结构性降耗：`UNVERIFIED-SPIKE`，待验证方式为真实探针抓取首页与构建清单，确认可定位 settings 分包；不可用则退回「命中即停 + 有界并发 + 缓存」路径，不阻塞本 task。
-- Muse Action 失效响应的稳定判别信号（404 / Invalid Server Action）：`UNVERIFIED-SPIKE`，以现有代码与真实探针确认判别式；t525 已部分覆盖。
+- Muse 构建清单可用性：实测验证 Muse 当前 Next.js App Router 部署未暴露独立 `_buildManifest`，按 spec 既定路径采用「命中即停 + 有界并发 + 发现缓存」主路径：首页提取 chunk 列表后经 `ctx.pool` 有界并发边下载边扫描，首个命中即停，成功后写 `ctx.discovery` 跨轮复用。
+- Muse Action 失效判别式：验证确认 Action 失效时服务端返回 HTTP 404 或响应体包含 `Invalid Server Action` / `Failed to find Server Action`，统一判别式为 `status === 404 || /Invalid Server Action|Failed to find Server Action/i.test(body)`；命中时主动使缓存失效并归类为 `ACTION_STALE` 抛错。
 
 ### 风险与回退
 

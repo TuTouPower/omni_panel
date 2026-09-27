@@ -112,6 +112,15 @@ token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailab
 - 用户自定义连接器（t095 开放 `userData/connectors` 自定义脚本）**默认禁用**，须经 `allowUserConnectors` 显式信任放行（`src/main/core/connector/manifest-loader.ts`）；脚本在隔离子进程内的 `node:vm` 中执行，`node:vm` 非真隔离，安全取舍见 `decisions.md` ADR 036；用户自负脚本风险，文档 `guides/custom-connector.md` 标注约束。
 - 界面语言切换、检查更新、问卷、赞助入口当前为占位，未落地实现。
 
+## Muse 动态发现与缓存失效语义（t530）
+
+- **发现与签名**：Muse 连接器通过 Next.js App Router 动态分包嗅探 Action ID，以 `deployment_id` 与首页脚本清单生成复合签名，记录于 `ctx.discovery`（`muse_subscription_action`）。
+- **缓存命中**：同签名刷新跳过全部分包扫描，分包 GET 请求降为 0，单轮刷新仅需 1 次首页验证即直达用量查询。
+- **失效与重试**：
+    - 线上部署或构建变化时，首页签名漂移，自动使缓存失效并进入动态扫描；
+    - 服务端返回 404 或 `Invalid Server Action` 时，主动删除发现缓存，产生 `ACTION_STALE` 错误并于下轮自动触发重新发现；
+    - 绝不使用过期 baseline 掩盖部署变更，无法解析时以 `DISCOVERY_EMPTY` 显式失败。
+
 ## 开发面板 Git 活动（t481）
 
 开发面板只读扫描本机配置中的目录。目录发现与日志读取均经主进程无 shell `execFile("git", ...)` 完成，不写仓库文件；相互包含的目录、普通仓库和 worktree 按 `git rev-parse --git-common-dir` 去重。

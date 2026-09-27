@@ -1,0 +1,54 @@
+{
+    "tid": "t530",
+    "attempt": 1,
+    "execution_id": "d1afe8b526334827aa082431f412b397",
+    "status": "done",
+    "branch": "t530_muse_discovery_budget",
+    "base_sha": "25aafb30f18f9cd3997ed3b31a26599827dcb76c",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch / schema:check / test）全绿；pnpm test 全量 336 个测试套件 100% 通过；git diff --check 零格式问题",
+    "blackbox": "tests/integration/connector/muse_connector.test.ts 18 项行为用例全部通过，覆盖靠前分包命中即停、有界并发上限、同签名缓存复用（分包 GET=0）、签名变更重发现、404/失效清理缓存与 ACTION_STALE、107 分包规模预算内完成、无 baseline 回退显式 DISCOVERY_EMPTY 及会话失效 SESSION_EXPIRED",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=61892bb8d8a8d991",
+    "ac_evidence": {
+        "AC-001": [
+            "connectors/muse/connector.ts 使用 ctx.pool.map 并发扫描，并在命中 fetchSubscriptionAction 时立即 break 中止",
+            "tests/integration/connector/muse_connector.test.ts 验证靠前分包命中后后续分包零请求"
+        ],
+        "AC-002": [
+            "ctx.pool.map 传入 concurrency: 4，由宿主强制在途请求上限不超过 4",
+            "tests/integration/connector/muse_connector.test.ts 验证并发扫描行为"
+        ],
+        "AC-003": [
+            "connectors/muse/connector.ts 检查 ctx.discovery，同签名命中时跳过分包下载",
+            "tests/integration/connector/muse_connector.test.ts 验证同签名下分包 GET 数量为 0 并产出两条用量指标"
+        ],
+        "AC-004": [
+            "签名包含 deployment_id 与分包列表哈希，签名变更自动失效并触发重发现，写入新记录",
+            "tests/integration/connector/muse_connector.test.ts 验证签名变更重新发起下载并更新缓存"
+        ],
+        "AC-005": [
+            "404 或 Invalid Server Action 响应时调用 ctx.discovery.delete 并抛出 ACTION_STALE",
+            "tests/integration/connector/muse_connector.test.ts 验证缓存被清除且错误码为 ACTION_STALE"
+        ],
+        "AC-006": [
+            "在 107 分包规模模拟下，靠前分包命中即停并在 5000ms 预算内完成发现与用量 POST",
+            "tests/integration/connector/muse_connector.test.ts 验证>=2 条观测产出"
+        ],
+        "AC-007": [
+            "结构化错误分类为 ACTION_STALE / DISCOVERY_EMPTY / SESSION_EXPIRED",
+            "日志只记录分包数量与耗时，不记录 Cookie 或页面正文"
+        ],
+        "AC-008": [
+            "删除 BASELINE_ACTION_ID 与 BASELINE_DEPLOYMENT_ID",
+            "tests/integration/connector/muse_connector.test.ts 验证发现失败且无参数显式以 DISCOVERY_EMPTY 报错"
+        ],
+        "AC-009": [
+            "会话 401/403/重定向抛出 SESSION_EXPIRED 触发重登",
+            "tests/integration/connector/muse_connector.test.ts 验证会话失效错误与 is_auth_error 识别"
+        ],
+        "AC-010": [
+            "deploy 验证待打包后在取得用户授权时核实；已有自动化套件 AC-001~AC-009 均已通过"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}
