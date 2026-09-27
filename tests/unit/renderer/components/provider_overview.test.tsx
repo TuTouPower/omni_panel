@@ -105,4 +105,18 @@ describe("ProviderOverview", () => {
 
         expect(screen.getByText("OpenCode Go")).toBeInTheDocument();
     });
+
+    it("renders responsive grid with min(100%, 420px) to prevent mobile column overflow", () => {
+        render(
+            <ProviderOverview
+                groups={[group()]}
+                visibleProviders={["opencode_go"]}
+                providerErrors={new Map()}
+                onRefreshProvider={vi.fn()}
+            />,
+        );
+
+        const grid = screen.getByTestId("overview-grid");
+        expect(grid.className).toContain("min(100%,420px)");
+    });
 });

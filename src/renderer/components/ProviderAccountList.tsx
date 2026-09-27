@@ -63,7 +63,7 @@ export function ProviderAccountList({
 
     return (
         <div
-            className="grid items-stretch gap-3 [grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]"
+            className="grid items-stretch gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]"
             data-testid="provider-account-list"
         >
             {group.accounts.map((account) => {
