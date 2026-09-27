@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import { manifest_schema, type Manifest } from "../../../src/shared/schemas/manifest";
@@ -70,6 +70,7 @@ describe("grok_bot connector", () => {
         const posted_headers: Record<string, string>[] = [];
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected get_json")),
@@ -124,6 +125,7 @@ describe("grok_bot connector", () => {
         const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),
@@ -154,6 +156,7 @@ describe("grok_bot connector", () => {
         const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),
@@ -177,6 +180,7 @@ describe("grok_bot connector", () => {
         const report_fn = vi.fn();
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),
@@ -205,6 +209,7 @@ describe("grok_bot connector", () => {
         const token = `eyJhbGciOiJIUzI1NiJ9.${empty_sub_payload}.sig`;
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),
@@ -229,6 +234,7 @@ describe("grok_bot connector", () => {
         const script = await readFile(join("connectors", "grok_bot", "connector.ts"), "utf8");
         const report_fn = vi.fn();
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.reject(new Error("unexpected")),

@@ -34,8 +34,7 @@ interface SubscriptionResponse {
     readonly subscription?: SubscriptionData;
 }
 
-const BASELINE_ACTION_ID = "4012d49305cf4c3246eb4b75085a93bbe92fe7cec7";
-const BASELINE_DEPLOYMENT_ID = "dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy";
+const DISCOVERY_KEY = "muse_subscription_action";
 const DEFAULT_ROUTER_STATE_TREE =
     "%5B%22%22%2C%7B%22children%22%3A%5B%22(authenticated)%22%2C%7B%22children%22%3A%5B%22(shell)%22%2C%7B%22children%22%3A%5B%5B%22path%22%2C%22%22%2C%22oc%22%2Cnull%5D%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4112%5D";
 
@@ -52,13 +51,14 @@ function required_cookie(): string {
     return raw.includes("=") ? raw : `hatch_sess=${raw}`;
 }
 
-// 动态拉取页面提取 Server Action ID 与 Deployment ID，未提取到时回退到基准 ID 保证可用性
 async function resolve_dynamic_action_ids(headers: Record<string, string>): Promise<{
     action_id: string;
     deployment_id: string;
 }> {
     const param_action = (ctx.params["ACTION_ID"] ?? "").trim();
     const param_dpl = (ctx.params["DEPLOYMENT_ID"] ?? "").trim();
+
+    // 手动逃生模式（AC-008）：显式参数覆盖
     if (param_action && param_dpl) {
         return { action_id: param_action, deployment_id: param_dpl };
     }
@@ -67,7 +67,9 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
     try {
         const res = await ctx.http.get_raw("default", "/", { headers });
         if (res.status === 401 || res.status === 403) {
-            throw new Error(`Muse 会话已失效，请重新登录 (HTTP ${String(res.status)})`);
+            throw new Error(
+                `SESSION_EXPIRED: Muse 会话已失效，请重新登录 (HTTP ${String(res.status)})`,
+            );
         }
         if (
             res.status >= 300 &&
@@ -75,28 +77,29 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
             typeof res.headers["location"] === "string" &&
             res.headers["location"].includes("auth.muse.ai")
         ) {
-            throw new Error("Muse 会话已失效，请重新登录: Redirected to auth");
+            throw new Error("SESSION_EXPIRED: Muse 会话已失效，请重新登录: Redirected to auth");
         }
         html = res.body;
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         if (/401|403|Authentication required|会话已失效/i.test(msg)) {
-            throw new Error(`Muse 会话已失效，请重新登录: ${msg}`);
+            throw new Error(`SESSION_EXPIRED: Muse 会话已失效，请重新登录: ${msg}`);
         }
-        ctx.log.warn(`Failed to fetch Muse home page for dynamic IDs: ${msg}`);
+        ctx.log.warn(`Failed to fetch Muse home page: ${msg}`);
+        throw err;
     }
 
-    // 匹配 x-deployment-id (如 data-dpl-id="dpl_..." 或 dpl=dpl_... 或 dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy)
+    // 匹配 x-deployment-id
     const dpl_match =
         /data-dpl-id=["'](dpl_[A-Za-z0-9_]+)["']/.exec(html) ??
         /dpl=(dpl_[A-Za-z0-9_]+)/.exec(html) ??
         /"(dpl_[A-Za-z0-9_]+)"/.exec(html) ??
         /deploymentId[:=]\s*["']([^"']+)["']/.exec(html);
 
-    const deployment_id = param_dpl !== "" ? param_dpl : (dpl_match?.[1] ?? BASELINE_DEPLOYMENT_ID);
-    let action_id = param_action;
+    const deployment_id = param_dpl !== "" ? param_dpl : (dpl_match?.[1] ?? "muse_default");
 
-    // 1. 若页面内已有 actionId，直接使用
+    // 1. 若首页 HTML 中已有 actionId，直接使用
+    let action_id = param_action;
     if (!action_id) {
         const action_match =
             /actionId[:=]\s*["']([a-f0-9]{32,64})["']/i.exec(html) ??
@@ -111,106 +114,136 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
         }
     }
 
-    // 2. 若 deployment_id 与基准一致，优先复用基准 Action ID 免去异步探测
-    if (!action_id && deployment_id === BASELINE_DEPLOYMENT_ID) {
-        action_id = BASELINE_ACTION_ID;
+    // 提取首页脚本清单
+    const direct_scripts = [
+        ...html.matchAll(/<script[^>]+src=["'](\/_next\/static\/chunks\/[^"']+)["']/g),
+    ]
+        .map((m) => m[1])
+        .filter((s): s is string => typeof s === "string");
+    const rsc_scripts = [...html.matchAll(/\\"script-\d+\\",\{\\"src\\":\\"([^\\"]+)\\"/g)]
+        .map((m) => m[1])
+        .filter((s): s is string => typeof s === "string");
+    const all_scripts = [...new Set([...direct_scripts, ...rsc_scripts])];
+    all_scripts.sort();
+
+    const signature = `${deployment_id}:${String(all_scripts.length)}:${all_scripts.slice(0, 3).join(",")}`;
+
+    // 2. 检查 ctx.discovery 缓存（AC-003 / AC-004）
+    if (!action_id) {
+        const cached = await ctx.discovery.get(DISCOVERY_KEY);
+        if (cached?.signature === signature && cached.action_id) {
+            ctx.log.info(
+                `[muse] Reuse cached action ID: ${cached.action_id} for deployment ${deployment_id}`,
+            );
+            return { action_id: cached.action_id, deployment_id };
+        }
     }
 
-    // 3. 若线上版本发生迭代，通过 React 组件元数据与 Turbopack 清单动态嗅探最新 Server Action ID
-    if (!action_id && html) {
-        try {
-            const direct_scripts = [
-                ...html.matchAll(/<script[^>]+src=["'](\/_next\/static\/chunks\/[^"']+)["']/g),
-            ]
-                .map((m) => m[1])
-                .filter((s): s is string => typeof s === "string");
-            const rsc_scripts = [...html.matchAll(/\\"script-\d+\\",\{\\"src\\":\\"([^\\"]+)\\"/g)]
-                .map((m) => m[1])
-                .filter((s): s is string => typeof s === "string");
-            const all_scripts = [...new Set([...direct_scripts, ...rsc_scripts])];
+    // 3. 有界并发与命中即停扫描（AC-001 / AC-002 / AC-006）
+    if (!action_id && all_scripts.length > 0) {
+        const start_time = Date.now();
+        let scanned_chunks = 0;
+        let settings_module_id: string | null = null;
+        const downloaded_chunks = new Map<string, string>();
 
-            const script_contents: { path: string; text: string }[] = [];
-            for (const s of all_scripts) {
-                if (!s) continue;
+        for await (const chunk of ctx.pool.map(
+            all_scripts,
+            async (s) => {
                 const path = s.startsWith("/") ? s : `/${s}`;
                 try {
                     const res = await ctx.http.get_raw("default", path);
-                    script_contents.push({ path, text: res.body });
+                    return { path, text: res.body };
                 } catch {
-                    // ignore single script fetch failure
+                    return { path, text: "" };
                 }
+            },
+            { concurrency: 4 },
+        )) {
+            scanned_chunks++;
+            if (!chunk.text) continue;
+            downloaded_chunks.set(chunk.path, chunk.text);
+
+            const match =
+                /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
+                    chunk.text,
+                );
+            if (match?.[1]) {
+                action_id = match[1];
+                ctx.log.info(
+                    `[muse] Directly resolved action ID ${action_id} after ${String(scanned_chunks)} chunks (${String(Date.now() - start_time)}ms)`,
+                );
+                break; // 靠前分包命中即停（AC-001）
             }
 
-            // 优先检查是否有脚本直接定义 fetchSubscriptionAction
-            for (const item of script_contents) {
-                const match =
-                    /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
-                        item.text,
+            if (!settings_module_id) {
+                const sm =
+                    /\.A\((\d+)\)\.then\((?:(?!\.A\()[\s\S])*?HatchSettingsDialogContent/.exec(
+                        chunk.text,
                     );
-                if (match?.[1]) {
-                    action_id = match[1];
-                    ctx.log.info(`Directly resolved Muse action ID: ${action_id}`);
+                if (sm?.[1]) {
+                    settings_module_id = sm[1];
+                }
+            }
+        }
+
+        // 若未直接命中，通过设置组件模块定位异步清单分包
+        if (!action_id && settings_module_id) {
+            const reg = new RegExp(
+                `(?:^|\\D)${settings_module_id}\\s*,\\s*(?:function\\s*\\([^)]*\\)|\\(?\\w+\\)?\\s*=>)(?:(?!Promise\\.all)[\\s\\S])*?Promise\\.all\\(\\[([^\\]]+)\\]`,
+            );
+            let target_chunks: string[] = [];
+            for (const text of downloaded_chunks.values()) {
+                const sm_match = reg.exec(text);
+                if (sm_match?.[1]) {
+                    target_chunks = [...sm_match[1].matchAll(/"(static\/chunks\/[^"]+\.js)"/g)]
+                        .map((m) => m[1])
+                        .filter((c): c is string => typeof c === "string" && c.length > 0);
                     break;
                 }
             }
-            // 若未直接定义，通过设置组件（HatchSettingsDialogContent）语义链接定位异步分包
-            if (!action_id) {
-                let settings_module_id: string | null = null;
-                for (const item of script_contents) {
+
+            if (target_chunks.length > 0) {
+                for await (const chunk of ctx.pool.map(
+                    target_chunks,
+                    async (c) => {
+                        try {
+                            const cres = await ctx.http.get_raw("default", `/_next/${c}`);
+                            return { path: c, text: cres.body };
+                        } catch {
+                            return { path: c, text: "" };
+                        }
+                    },
+                    { concurrency: 4 },
+                )) {
+                    scanned_chunks++;
+                    if (!chunk.text) continue;
                     const match =
-                        /\.A\((\d+)\)\.then\((?:(?!\.A\()[\s\S])*?HatchSettingsDialogContent/.exec(
-                            item.text,
+                        /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
+                            chunk.text,
                         );
                     if (match?.[1]) {
-                        settings_module_id = match[1];
+                        action_id = match[1];
+                        ctx.log.info(
+                            `[muse] Semantically resolved action ID ${action_id} in settings chunk (${String(Date.now() - start_time)}ms)`,
+                        );
                         break;
                     }
                 }
-
-                if (settings_module_id) {
-                    let target_chunks: string[] = [];
-                    for (const item of script_contents) {
-                        const reg = new RegExp(
-                            `(?:^|\\D)${settings_module_id}\\s*,\\s*(?:function\\s*\\([^)]*\\)|\\(?\\w+\\)?\\s*=>)(?:(?!Promise\\.all)[\\s\\S])*?Promise\\.all\\(\\[([^\\]]+)\\]`,
-                        );
-                        const match = reg.exec(item.text);
-                        if (match?.[1]) {
-                            target_chunks = [...match[1].matchAll(/"(static\/chunks\/[^"]+\.js)"/g)]
-                                .map((m) => m[1])
-                                .filter((c): c is string => typeof c === "string");
-                            break;
-                        }
-                    }
-
-                    for (const chunk of target_chunks) {
-                        if (!chunk) continue;
-                        try {
-                            const cres = await ctx.http.get_raw("default", `/_next/${chunk}`);
-                            const match =
-                                /createServerReference\)\(["']([a-f0-9]{32,64})["'][^)]*?fetchSubscriptionAction/.exec(
-                                    cres.body,
-                                );
-                            if (match?.[1]) {
-                                action_id = match[1];
-                                ctx.log.info(`Semantically resolved Muse action ID: ${action_id}`);
-                                break;
-                            }
-                        } catch {
-                            // continue searching other chunks
-                        }
-                    }
-                }
             }
-        } catch (scan_err) {
-            ctx.log.warn(
-                `Dynamic action ID scan failed: ${scan_err instanceof Error ? scan_err.message : String(scan_err)}`,
-            );
         }
     }
 
     if (!action_id) {
-        action_id = BASELINE_ACTION_ID;
+        throw new Error("DISCOVERY_EMPTY: 未能从 Muse 页面分包中解析到有效的 Server Action ID");
     }
+
+    // 发现成功后写入 discovery 缓存（AC-001 / AC-004）
+    await ctx.discovery.set(DISCOVERY_KEY, {
+        signature,
+        action_id,
+        deployment_id,
+        discovered_at: Date.now(),
+    });
 
     return { action_id, deployment_id };
 }
@@ -253,7 +286,6 @@ async function main(): Promise<ScriptObservation[]> {
         "User-Agent": USER_AGENT,
     };
 
-    // A146: 动态拉取当前最新的 Action ID 与 Deployment ID
     const { action_id, deployment_id } = await resolve_dynamic_action_ids(base_headers);
 
     const headers: Record<string, string> = {
@@ -284,7 +316,7 @@ async function main(): Promise<ScriptObservation[]> {
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         if (/401|403|Authentication required|会话已失效/i.test(msg)) {
-            throw new Error(`Muse 会话已失效，请重新登录: ${msg}`);
+            throw new Error(`SESSION_EXPIRED: Muse 会话已失效，请重新登录: ${msg}`);
         }
         throw new Error(`Muse 用量网络请求失败: ${msg}`);
     }
@@ -292,12 +324,13 @@ async function main(): Promise<ScriptObservation[]> {
     const { status, body } = raw_res;
 
     if (status === 401 || status === 403 || /Authentication required/i.test(body)) {
-        throw new Error("Muse 会话已失效，请重新登录: Authentication required");
+        throw new Error("SESSION_EXPIRED: Muse 会话已失效，请重新登录");
     }
 
-    if (status === 404 || /Invalid Server Action/i.test(body)) {
+    if (status === 404 || /Invalid Server Action|Failed to find Server Action/i.test(body)) {
+        await ctx.discovery.delete(DISCOVERY_KEY);
         throw new Error(
-            `MUSE_ACTION_STALE: Muse 服务端拒绝当前 Action ID，线上版本可能已更新 (HTTP ${String(status)})`,
+            `ACTION_STALE: Muse 服务端拒绝当前 Action ID，线上版本可能已更新 (HTTP ${String(status)})`,
         );
     }
 

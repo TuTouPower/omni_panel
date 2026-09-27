@@ -1,4 +1,5 @@
-export const DEFAULT_TIMEOUT_MS = 15_000;
+export const DEFAULT_EXECUTION_BUDGET_MS = 15_000;
+export const MAX_HOST_CONCURRENCY = 6;
 // A145: 调度器最小刷新间隔提至 30s，避免频繁请求风暴
 export const MIN_REFRESH_INTERVAL_SECONDS = 30;
 export const METADATA_MAX_LINES = 80;

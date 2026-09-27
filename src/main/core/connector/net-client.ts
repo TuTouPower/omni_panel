@@ -13,11 +13,35 @@ import {
 } from "../../../shared/lib/connector-thresholds";
 
 export { status_for_pct, status_for_ratio, status_for_balance };
-import { MAX_CONNECTIONS_PER_ORIGIN, KEEPALIVE_TIMEOUT_MS } from "../../../shared/constants";
+import {
+    MAX_CONNECTIONS_PER_ORIGIN,
+    KEEPALIVE_TIMEOUT_MS,
+    DEFAULT_EXECUTION_BUDGET_MS,
+    MAX_HOST_CONCURRENCY,
+} from "../../../shared/constants";
 import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
-import type { ConnectorContext, HttpOpts } from "./host-io";
+import type {
+    ConnectorContext,
+    ConnectorExecutionMetrics,
+    ConnectorDiscoveryContext,
+    ConnectorDiscoveryEntry,
+    HttpOpts,
+} from "./host-io";
+import {
+    compute_discovery_namespace,
+    is_secret_refused,
+    type ConnectorDiscoveryStore,
+} from "./discovery-cache";
+import {
+    create_execution_budget,
+    create_execution_budget_from_deadline,
+    create_connector_pool,
+    HostConcurrencyLimiter,
+    BudgetExhaustedError,
+    type ExecutionBudget,
+} from "./execution-budget";
 
 const log = createLogger("net-client");
 const sandbox_log = createLogger("connector-sandbox");
@@ -68,13 +92,25 @@ async function read_body_with_limit(
 }
 
 export interface NetClientConfig {
-    readonly proxy_url?: string;
-    readonly endpoint_overrides?: Record<string, string>;
-    readonly timeout_ms?: number;
-    readonly params?: Record<string, string>;
-    readonly trace_id?: string;
+    readonly proxy_url?: string | undefined;
+    readonly endpoint_overrides?: Record<string, string> | undefined;
+    readonly budget?: ExecutionBudget | undefined;
+    readonly deadline_ms?: number | undefined;
+    readonly total_ms?: number | undefined;
+    readonly timeout_ms?: number | undefined;
+    readonly generation?: number | undefined;
+    readonly script_code?: string | undefined;
+    readonly discovery_store?: ConnectorDiscoveryStore | undefined;
+    readonly initial_discovery?: Record<string, ConnectorDiscoveryEntry> | undefined;
+    readonly on_discovery_delta?:
+        | ((delta: Record<string, ConnectorDiscoveryEntry | null>) => void)
+        | undefined;
+    readonly vault_secrets?: ReadonlySet<string> | undefined;
+    readonly params?: Record<string, string> | undefined;
+    readonly trace_id?: string | undefined;
     /** 跳过连接池，强制新建 TCP+TLS 连接。所有请求共享此设置。 */
-    readonly reset?: boolean;
+    readonly reset?: boolean | undefined;
+    readonly max_concurrency?: number | undefined;
 }
 
 function expand_home(path_pattern: string): string {
@@ -232,8 +268,10 @@ export interface BuildRequestContextOptions {
     endpoint_overrides?: Record<string, string> | undefined;
     initial_headers?: Record<string, string> | undefined;
     extra_headers?: Record<string, string> | undefined;
-    default_timeout_ms: number;
+    remaining_budget_ms?: number | undefined;
+    default_timeout_ms?: number | undefined;
     timeout_ms?: number | undefined;
+    host_signal?: AbortSignal | undefined;
 }
 
 // A109: 安全边界函数内部化，仅通过 __test__ 导出用于单测
@@ -262,17 +300,29 @@ async function build_request_context(
     await apply_request_auth(manifest, vault, instance_id, url, headers);
     const all_headers = { ...headers, ...(options.extra_headers ?? {}) };
 
-    // A61 / A131: <= 0 或非有限值回退至默认值，防止自杀
-    const raw_timeout = options.timeout_ms ?? options.default_timeout_ms;
+    const remaining =
+        options.remaining_budget_ms ?? options.default_timeout_ms ?? DEFAULT_EXECUTION_BUDGET_MS;
+    if (remaining <= 0) {
+        throw new BudgetExhaustedError();
+    }
+
+    // AC-005: opts.timeout_ms 只能缩小不能放大，实际超时取 min(opts, remaining)
+    const raw_timeout = options.timeout_ms;
     const effective_timeout =
-        Number.isFinite(raw_timeout) && raw_timeout > 0 ? raw_timeout : options.default_timeout_ms;
+        raw_timeout !== undefined && Number.isFinite(raw_timeout) && raw_timeout > 0
+            ? Math.min(raw_timeout, remaining)
+            : remaining;
 
     const abort_controller = new AbortController();
     const timeout_id = setTimeout(() => {
         // t371 AC-002: abort reason 带明确 timeout 字样——下游 is_timeout_error 分类
         // 依赖（原裸 AbortError「This operation was aborted」无 timeout 无法识别）。
         abort_controller.abort(
-            new Error(`HTTP request timed out after ${String(effective_timeout)}ms`),
+            effective_timeout === remaining
+                ? new BudgetExhaustedError(
+                      `HTTP request timed out after ${String(effective_timeout)}ms (budget exhausted)`,
+                  )
+                : new Error(`HTTP request timed out after ${String(effective_timeout)}ms`),
         );
     }, effective_timeout);
 
@@ -292,12 +342,98 @@ export function create_connector_context(
     config: NetClientConfig,
 ): ConnectorContext {
     const dispatcher = config.proxy_url ? get_proxy_agent(config.proxy_url) : undefined;
-    const timeout_ms = config.timeout_ms ?? 15_000;
     const reset = config.reset ?? false;
     const request_log = config.trace_id ? withLogContext(log, { trace_id: config.trace_id }) : log;
     const connector_log = config.trace_id
         ? withLogContext(sandbox_log, { trace_id: config.trace_id })
         : sandbox_log;
+
+    const budget =
+        config.budget ??
+        (config.deadline_ms !== undefined
+            ? create_execution_budget_from_deadline(config.deadline_ms, config.total_ms)
+            : create_execution_budget(config.total_ms ?? DEFAULT_EXECUTION_BUDGET_MS));
+
+    const host_ac = new AbortController();
+    if (budget.remaining_ms() <= 0) {
+        host_ac.abort(new BudgetExhaustedError());
+    } else {
+        const soft_timer = setTimeout(() => {
+            host_ac.abort(new BudgetExhaustedError());
+        }, budget.remaining_ms());
+        soft_timer.unref();
+    }
+
+    const metrics: ConnectorExecutionMetrics = {
+        requests: 0,
+        bytes: 0,
+    };
+    const max_concurrency = config.max_concurrency ?? MAX_HOST_CONCURRENCY;
+    const limiter = new HostConcurrencyLimiter(max_concurrency);
+    const pool = create_connector_pool(host_ac.signal, max_concurrency);
+
+    const vault_secrets = new Set<string>(config.vault_secrets ?? []);
+    if (config.params) {
+        for (const param_def of manifest.parameters) {
+            if (param_def.type === "secret") {
+                const val = config.params[param_def.name];
+                if (val && typeof val === "string" && val.length >= 4) {
+                    vault_secrets.add(val);
+                }
+            }
+        }
+    }
+
+    let discovery: ConnectorDiscoveryContext;
+    if (config.discovery_store) {
+        const store = config.discovery_store;
+        const ns = config.script_code
+            ? compute_discovery_namespace(manifest.id, instance_id, config.script_code)
+            : "";
+        discovery = {
+            get: (key: string) => store.get(ns, key),
+            set: async (key: string, entry: ConnectorDiscoveryEntry) => {
+                if (is_secret_refused(key, entry, vault_secrets)) {
+                    return;
+                }
+                await store.set(ns, key, entry, config.generation);
+            },
+            delete: (key: string) => store.delete(ns, key),
+        };
+    } else {
+        const local_snapshot: Record<string, ConnectorDiscoveryEntry> = {
+            ...(config.initial_discovery ?? {}),
+        };
+        const local_delta: Record<string, ConnectorDiscoveryEntry | null> = {};
+
+        discovery = {
+            get: (key: string) => {
+                const item = local_snapshot[key];
+                if (!item) return Promise.resolve(null);
+                const updated = { ...item, hits: (item.hits ?? 0) + 1 };
+                local_snapshot[key] = updated;
+                local_delta[key] = updated;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve({ ...updated });
+            },
+            set: (key: string, entry: ConnectorDiscoveryEntry) => {
+                if (is_secret_refused(key, entry, vault_secrets)) {
+                    return Promise.resolve();
+                }
+                const record = { ...entry };
+                local_snapshot[key] = record;
+                local_delta[key] = record;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve();
+            },
+            delete: (key: string) => {
+                Reflect.deleteProperty(local_snapshot, key);
+                local_delta[key] = null;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve();
+            },
+        };
+    }
 
     type RawResponse = Awaited<ReturnType<typeof undici_request>>;
     type ResponseHeaders = Record<string, string | string[] | undefined>;
@@ -339,103 +475,129 @@ export function create_connector_context(
         const log_prefix = is_raw ? `${params.method} RAW` : params.method;
         const error_log_label = is_raw ? ` ${params.method.toLowerCase()}_raw` : "";
 
-        const ctx = await build_request_context(manifest, params.endpoint_key, vault, instance_id, {
-            path: params.path,
-            endpoint_overrides: config.endpoint_overrides,
-            initial_headers: params.initial_headers,
-            extra_headers: params.opts?.headers,
-            default_timeout_ms: timeout_ms,
-            timeout_ms: params.opts?.timeout_ms,
-        });
-        const {
-            url,
-            headers: all_headers,
-            abort_controller: ac,
-            timeout_id: total_timer,
-            effective_timeout,
-        } = ctx;
+        if (host_ac.signal.aborted || budget.remaining_ms() <= 0) {
+            throw host_ac.signal.reason ?? new BudgetExhaustedError();
+        }
 
-        const request_reset = params.opts?.reset ?? reset;
-        request_log.debug(`${log_prefix} ${url.origin}${url.pathname}`);
-        const request_options = {
-            method: params.method,
-            headers: all_headers,
-            headersTimeout: effective_timeout,
-            bodyTimeout: effective_timeout,
-            signal: ac.signal,
-            ...(params.body !== undefined
-                ? {
-                      body:
-                          typeof params.body === "string"
-                              ? params.body
-                              : JSON.stringify(params.body),
-                  }
-                : {}),
-            ...(dispatcher ? { dispatcher } : {}),
-            ...(request_reset ? { reset: true } : {}),
-        };
+        const release = await limiter.acquire(host_ac.signal);
+        metrics.requests++;
+
         try {
-            const response = await undici_request(url, request_options);
-            request_log.debug(
-                `${log_prefix} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
+            const ctx = await build_request_context(
+                manifest,
+                params.endpoint_key,
+                vault,
+                instance_id,
+                {
+                    path: params.path,
+                    endpoint_overrides: config.endpoint_overrides,
+                    initial_headers: params.initial_headers,
+                    extra_headers: params.opts?.headers,
+                    remaining_budget_ms: budget.remaining_ms(),
+                    timeout_ms: params.opts?.timeout_ms ?? config.timeout_ms,
+                    host_signal: host_ac.signal,
+                },
             );
+            const {
+                url,
+                headers: all_headers,
+                abort_controller: ac,
+                timeout_id: total_timer,
+                effective_timeout,
+            } = ctx;
 
-            if (response.statusCode >= 400) {
-                // t372 AC-002: 错误响应不读满 10MB。length 优先从 content-length 头取：
-                // 已声明超大 body 直接 destroy 不读（保留 HTTP 状态语义），未声明/小 body
-                // 才小上限读取，超限即破坏流（read_body_with_limit 内部处理）。
-                const content_length_header = response.headers["content-length"];
-                const declared_length = Array.isArray(content_length_header)
-                    ? content_length_header[0]
-                    : content_length_header;
-                const declared_bytes = declared_length
-                    ? Number.parseInt(declared_length, 10)
-                    : undefined;
-                if (declared_bytes !== undefined && declared_bytes > MAX_ERROR_BODY_BYTES) {
-                    response.body.destroy();
+            const combined_signal = AbortSignal.any([host_ac.signal, ac.signal]);
+
+            const request_reset = params.opts?.reset ?? reset;
+            request_log.debug(`${log_prefix} ${url.origin}${url.pathname}`);
+            const request_options = {
+                method: params.method,
+                headers: all_headers,
+                headersTimeout: effective_timeout,
+                bodyTimeout: effective_timeout,
+                signal: combined_signal,
+                ...(params.body !== undefined
+                    ? {
+                          body:
+                              typeof params.body === "string"
+                                  ? params.body
+                                  : JSON.stringify(params.body),
+                      }
+                    : {}),
+                ...(dispatcher ? { dispatcher } : {}),
+                ...(request_reset ? { reset: true } : {}),
+            };
+            try {
+                const response = await undici_request(url, request_options);
+                request_log.debug(
+                    `${log_prefix} ${url.origin}${url.pathname} → ${String(response.statusCode)}`,
+                );
+
+                if (response.statusCode >= 400) {
+                    // t372 AC-002: 错误响应不读满 10MB。length 优先从 content-length 头取：
+                    // 已声明超大 body 直接 destroy 不读（保留 HTTP 状态语义），未声明/小 body
+                    // 才小上限读取，超限即破坏流（read_body_with_limit 内部处理）。
+                    const content_length_header = response.headers["content-length"];
+                    const declared_length = Array.isArray(content_length_header)
+                        ? content_length_header[0]
+                        : content_length_header;
+                    const declared_bytes = declared_length
+                        ? Number.parseInt(declared_length, 10)
+                        : undefined;
+                    if (declared_bytes !== undefined && declared_bytes > MAX_ERROR_BODY_BYTES) {
+                        response.body.destroy();
+                        metrics.bytes += declared_bytes;
+                        request_log.debug(
+                            `HTTP ${String(response.statusCode)}${error_log_label} response (${String(declared_bytes)} bytes)`,
+                        );
+                        throw new Error(
+                            `HTTP ${String(response.statusCode)}: request failed (${String(declared_bytes)} bytes)`,
+                        );
+                    }
+                    const error_body = await read_body_with_limit(
+                        response.body,
+                        MAX_ERROR_BODY_BYTES,
+                    );
+                    metrics.bytes += error_body.length;
+                    const byte_count = declared_bytes ?? Buffer.byteLength(error_body);
+
+                    // A29 / AC-003: 4xx 客户端异常保留前 500B 脱敏片段用于诊断；5xx 保持紧凑状态
+                    let snippet_str = "";
+                    if (response.statusCode >= 400 && response.statusCode < 500) {
+                        const raw_snippet = error_body
+                            .slice(0, 500)
+                            .replace(/[\r\n\t\s]+/g, " ")
+                            .trim();
+                        const scrubbed_snippet = scrubber.scrub_text(raw_snippet);
+                        if (scrubbed_snippet.length > 0) {
+                            snippet_str = ` [${scrubbed_snippet}]`;
+                        }
+                    }
+
                     request_log.debug(
-                        `HTTP ${String(response.statusCode)}${error_log_label} response (${String(declared_bytes)} bytes)`,
+                        `HTTP ${String(response.statusCode)}${error_log_label} response (${String(byte_count)} bytes)${snippet_str}`,
                     );
                     throw new Error(
-                        `HTTP ${String(response.statusCode)}: request failed (${String(declared_bytes)} bytes)`,
+                        `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)${snippet_str}`,
                     );
                 }
-                const error_body = await read_body_with_limit(response.body, MAX_ERROR_BODY_BYTES);
-                const byte_count = declared_bytes ?? Buffer.byteLength(error_body);
 
-                // A29 / AC-003: 4xx 客户端异常保留前 500B 脱敏片段用于诊断；5xx 保持紧凑状态
-                let snippet_str = "";
-                if (response.statusCode >= 400 && response.statusCode < 500) {
-                    const raw_snippet = error_body
-                        .slice(0, 500)
-                        .replace(/[\r\n\t\s]+/g, " ")
-                        .trim();
-                    const scrubbed_snippet = scrubber.scrub_text(raw_snippet);
-                    if (scrubbed_snippet.length > 0) {
-                        snippet_str = ` [${scrubbed_snippet}]`;
-                    }
-                }
+                params.pre_read_guard?.(response);
 
-                request_log.debug(
-                    `HTTP ${String(response.statusCode)}${error_log_label} response (${String(byte_count)} bytes)${snippet_str}`,
+                const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
+                metrics.bytes += text.length;
+                return params.transform_response(
+                    response.statusCode,
+                    text,
+                    response.headers,
+                    request_log,
+                    url,
                 );
-                throw new Error(
-                    `HTTP ${String(response.statusCode)}: request failed (${String(byte_count)} bytes)${snippet_str}`,
-                );
+            } finally {
+                clearTimeout(total_timer);
             }
-
-            params.pre_read_guard?.(response);
-
-            const text = await read_body_with_limit(response.body, MAX_RESPONSE_BYTES);
-            return params.transform_response(
-                response.statusCode,
-                text,
-                response.headers,
-                request_log,
-                url,
-            );
         } finally {
-            clearTimeout(total_timer);
+            release();
         }
     }
 
@@ -523,6 +685,13 @@ export function create_connector_context(
     return {
         ...(config.trace_id ? { trace_id: config.trace_id } : {}),
         instance_id,
+        generation: config.generation,
+        signal: host_ac.signal,
+        deadline_ms: budget.deadline_ms,
+        remaining_ms: () => budget.remaining_ms(),
+        metrics,
+        pool,
+        discovery,
         log: {
             debug: (message: string, meta?: unknown) => {
                 connector_log.debug(`[${manifest.id}] ${message}`, meta);

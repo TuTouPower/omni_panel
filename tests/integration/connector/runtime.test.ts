@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ctx_status } from "../../integration/connector/_ctx_status";
+import { ctx_status, ctx_budget_stub } from "../../integration/connector/_ctx_status";
 import { run_connector, compile_script } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
 const stub_ctx: ConnectorContext = {
+    ...ctx_budget_stub,
     log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     http: {
         get_json() {

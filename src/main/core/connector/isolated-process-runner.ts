@@ -3,6 +3,14 @@ import { fork, type ChildProcess, type Serializable } from "node:child_process";
 import * as fs from "node:fs";
 import { join, resolve } from "node:path";
 import { createLogger } from "../../../shared/lib/logger";
+import { DEFAULT_EXECUTION_BUDGET_MS } from "../../../shared/constants";
+import {
+    create_execution_budget,
+    create_execution_budget_from_deadline,
+    HARD_WATCHDOG_GRACE_MS,
+    type ExecutionBudget,
+} from "./execution-budget";
+import { compute_discovery_namespace, type ConnectorDiscoveryStore } from "./discovery-cache";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { ConnectorRunResult } from "./runtime";
 import type { WorkerTaskPayload, WorkerResponsePayload } from "./worker/connector-worker-entry";
@@ -13,7 +21,12 @@ export interface RunIsolatedOptions {
     readonly manifest: Manifest;
     readonly script_code: string;
     readonly compiled_code?: string | undefined;
-    readonly timeout_ms: number;
+    readonly budget?: ExecutionBudget | undefined;
+    readonly deadline_ms?: number | undefined;
+    readonly total_ms?: number | undefined;
+    readonly timeout_ms?: number | undefined;
+    readonly generation?: number | undefined;
+    readonly discovery_store?: ConnectorDiscoveryStore | undefined;
     readonly params?: Record<string, string> | undefined;
     readonly instance_id?: string | undefined;
     readonly proxy_url?: string | undefined;
@@ -171,6 +184,16 @@ export async function run_connector_isolated(
     const task_id = `task_${String(Date.now())}_${Math.random().toString(36).slice(2, 8)}`;
     const worker_path = options.worker_entry_path ?? resolve_connector_worker_path();
 
+    const budget =
+        options.budget ??
+        (options.deadline_ms !== undefined &&
+        Number.isFinite(options.deadline_ms) &&
+        options.deadline_ms > 0
+            ? create_execution_budget_from_deadline(options.deadline_ms, options.total_ms)
+            : create_execution_budget(
+                  options.total_ms ?? options.timeout_ms ?? DEFAULT_EXECUTION_BUDGET_MS,
+              ));
+
     return new Promise<ConnectorRunResult>((resolve_result) => {
         let handle: ProcessHandle | null = null;
         let settled = false;
@@ -190,19 +213,21 @@ export async function run_connector_isolated(
             resolve_result(result);
         };
 
-        // 超时看门狗：如果超过 timeout_ms，强制 kill 隔离进程并 SIGKILL 兜底
-        const timeout_limit = Math.max(100, options.timeout_ms);
+        // 超时看门狗（硬上限兜底）：超过软截止 + grace period 时，强制 kill 隔离进程
+        const hard_timeout_limit = Math.max(100, budget.remaining_ms() + HARD_WATCHDOG_GRACE_MS);
         const timer = setTimeout(() => {
             log.warn(
-                `Connector "${options.manifest.id}" timed out in isolated process after ${String(timeout_limit)}ms, killing process`,
+                `Connector "${options.manifest.id}" timed out in isolated process after ${String(hard_timeout_limit)}ms, killing process`,
             );
             handle?.kill();
             finish({
                 observations: [],
                 failed_accounts: [],
-                error: `Connector execution timeout after ${String(timeout_limit)}ms in isolated process`,
+                error: `Connector execution terminated after hard deadline timeout (${String(budget.total_ms)}ms) in isolated process`,
+                error_code: "TERMINATED",
+                metrics: { requests: 0, bytes: 0 },
             });
-        }, timeout_limit);
+        }, hard_timeout_limit);
 
         try {
             handle = spawn_worker_process(worker_path);
@@ -213,6 +238,8 @@ export async function run_connector_isolated(
                 observations: [],
                 failed_accounts: [],
                 error: `Failed to spawn isolated worker process: ${msg}`,
+                error_code: null,
+                metrics: { requests: 0, bytes: 0 },
             });
             return;
         }
@@ -227,6 +254,8 @@ export async function run_connector_isolated(
                 observations: [],
                 failed_accounts: [],
                 error: `Connector worker process crashed (code: ${String(code)}, signal: ${String(signal)})`,
+                error_code: null,
+                metrics: { requests: 0, bytes: 0 },
             });
         });
 
@@ -237,14 +266,31 @@ export async function run_connector_isolated(
                 observations: [],
                 failed_accounts: [],
                 error: `Connector worker process error: ${err.message}`,
+                error_code: null,
+                metrics: { requests: 0, bytes: 0 },
             });
         });
+
+        const namespace = compute_discovery_namespace(
+            options.manifest.id,
+            options.instance_id ?? "default",
+            options.script_code,
+        );
+        const initial_discovery = options.discovery_store?.get_snapshot(namespace);
 
         // 监听子进程返回消息
         handle.onMessage((raw: unknown) => {
             if (!raw || typeof raw !== "object") return;
             const res = raw as WorkerResponsePayload;
             if (res.id !== task_id) return;
+
+            if (res.discovery_delta && options.discovery_store) {
+                void options.discovery_store.merge_delta(
+                    namespace,
+                    res.discovery_delta,
+                    options.generation,
+                );
+            }
 
             if (res.ok && res.result) {
                 finish(res.result as ConnectorRunResult);
@@ -253,6 +299,8 @@ export async function run_connector_isolated(
                     observations: [],
                     failed_accounts: [],
                     error: res.error ?? "Isolated connector task failed without specific message",
+                    error_code: res.error_code ?? null,
+                    metrics: res.metrics ?? { requests: 0, bytes: 0 },
                 });
             }
         });
@@ -263,7 +311,10 @@ export async function run_connector_isolated(
             manifest: options.manifest,
             script_code: options.script_code,
             compiled_code: options.compiled_code,
-            timeout_ms: options.timeout_ms,
+            total_ms: budget.total_ms,
+            deadline_ms: budget.deadline_ms,
+            generation: options.generation,
+            initial_discovery,
             params: options.params ?? {},
             instance_id: options.instance_id ?? "default",
             proxy_url: options.proxy_url,

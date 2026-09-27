@@ -17,6 +17,10 @@ src/generated/
 data/
 pids/
 *.pid
+connector-cache.json
+snapshot-cache.json
+session-path-index.json
+token-stats-scan-state.json
 
 # e2e fixture：本机真实数据录制，含账号信息，不入库
 tests/e2e/fixtures/data/

@@ -1,4 +1,24 @@
 import type { ZodType, z } from "zod/v3";
+import type { ConnectorPool } from "./execution-budget";
+
+export interface ConnectorExecutionMetrics {
+    requests: number;
+    bytes: number;
+}
+
+export interface ConnectorDiscoveryEntry {
+    readonly signature: string;
+    readonly action_id: string;
+    readonly deployment_id?: string | undefined;
+    readonly discovered_at: number;
+    readonly hits?: number | undefined;
+}
+
+export interface ConnectorDiscoveryContext {
+    get(key: string): Promise<ConnectorDiscoveryEntry | null>;
+    set(key: string, entry: ConnectorDiscoveryEntry): Promise<void>;
+    delete(key: string): Promise<void>;
+}
 
 export interface HttpOpts<T = unknown> {
     readonly headers?: Record<string, string> | undefined;
@@ -25,6 +45,13 @@ export interface ConnectorUtils {
 export interface ConnectorContext {
     readonly trace_id?: string;
     readonly instance_id?: string;
+    readonly generation?: number | undefined;
+    readonly signal: AbortSignal;
+    readonly deadline_ms: number;
+    readonly remaining_ms: () => number;
+    readonly metrics: ConnectorExecutionMetrics;
+    readonly pool: ConnectorPool;
+    readonly discovery: ConnectorDiscoveryContext;
     readonly log: {
         debug(message: string, meta?: unknown): void;
         info(message: string, meta?: unknown): void;

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -13,6 +13,7 @@ const manifest = JSON.parse(
 
 function create_ctx(balance_infos: unknown[]): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
@@ -91,6 +92,7 @@ describe("deepseek connector", () => {
     it("limit=null and status=unknown when LIMIT param missing (t097)", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx_no_limit: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () =>
@@ -114,6 +116,7 @@ describe("deepseek connector", () => {
     it("throws when API returns error code", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ code: 401, message: "Unauthorized" }),
@@ -135,6 +138,7 @@ describe("deepseek connector", () => {
     it("throws when API response lacks balance_infos", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ error: "invalid key" }),
@@ -156,6 +160,7 @@ describe("deepseek connector", () => {
     it("reports failed on empty API_KEY instead of silent success (t362 AC-001)", async () => {
         const script = await readFile(join("connectors", "deepseek", "connector.ts"), "utf8");
         const result = await run_connector(manifest, script, {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({}),

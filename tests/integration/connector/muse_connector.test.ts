@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import { is_auth_error } from "../../../src/shared/lib/auth-error";
-import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
+import type {
+    ConnectorContext,
+    ConnectorDiscoveryEntry,
+} from "../../../src/main/core/connector/host-io";
+import { create_execution_budget } from "../../../src/main/core/connector/execution-budget";
+import { ctx_budget_stub } from "./_ctx_status";
 
 const ROOT = join(process.cwd(), "connectors", "muse");
 
@@ -16,14 +21,27 @@ function context(
     body: string,
     cookie = "hatch_sess=test-session-token",
     status = 200,
+    discovery_map = new Map<string, ConnectorDiscoveryEntry>(),
 ): ConnectorContext {
     return {
+        ...ctx_budget_stub,
+        discovery: {
+            get: (key: string) => Promise.resolve(discovery_map.get(key) ?? null),
+            set: (key: string, entry: ConnectorDiscoveryEntry) => {
+                discovery_map.set(key, entry);
+                return Promise.resolve();
+            },
+            delete: (key: string) => {
+                discovery_map.delete(key);
+                return Promise.resolve();
+            },
+        },
         params: { SESSION_COOKIE: cookie },
         http: {
             get_raw: vi.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                body: '<div data-dpl-id="dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy"></div>',
+                body: '<div data-dpl-id="dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy" actionId="4012d49305cf4c3246eb4b75085a93bbe92fe7cec7"></div>',
             }),
             post_raw: vi.fn().mockResolvedValue({
                 status,
@@ -144,7 +162,8 @@ describe("muse connector", () => {
         expect(result.error).toMatch(/SESSION_COOKIE/);
     });
 
-    it("falls back to baseline action and deployment IDs when HTML does not contain them", async () => {
+    // [t530 删除旧测试理由]: 删除原 baseline 静默回退测试，按 AC-008 改为验证发现失败且无显式手动参数时以 DISCOVERY_EMPTY 显式失败
+    it("AC-008: throws DISCOVERY_EMPTY when discovery fails and no manual params provided (no silent baseline fallback)", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("muse manifest missing");
 
@@ -153,19 +172,12 @@ describe("muse connector", () => {
         ctx.http.get_raw = vi.fn().mockResolvedValue({
             status: 200,
             headers: {},
-            body: "<html><body>no ids here</body></html>",
+            body: "<html><body>no ids and no scripts here</body></html>",
         });
 
         const result = await run_connector(manifest, await code(), ctx);
-        expect(result.error).toBeNull();
-        expect(result.observations).toHaveLength(2);
-
-        // eslint-disable-next-line @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion
-        const post_raw = vi.mocked(ctx.http.post_raw!);
-        expect(post_raw.mock.calls[0]?.[3]?.headers).toMatchObject({
-            "next-action": "4012d49305cf4c3246eb4b75085a93bbe92fe7cec7",
-            "x-deployment-id": "dpl_CNQdEujmyWKVYPuVmTaSE1y33cfy",
-        });
+        expect(result.error).toMatch(/DISCOVERY_EMPTY/);
+        expect(result.observations).toHaveLength(0);
     });
 
     it("AC-002: dynamically resolves action ID from manifest chunks when deployment and chunk names change", async () => {
@@ -378,7 +390,7 @@ describe("muse connector", () => {
         ctx.http.get_raw = vi.fn().mockResolvedValue({
             status: 200,
             headers: {},
-            body: '<html><script>self.__next_f.push([1,"{\\"notFound\\":\\"$undefined\\",\\"forbidden\\":\\"$undefined\\"}"])</script></html>',
+            body: '<html><head><div data-dpl-id="dpl_test" actionId="4012d49305cf4c3246eb4b75085a93bbe92fe7cec7"></div></head><script>self.__next_f.push([1,"{\\"notFound\\":\\"$undefined\\",\\"forbidden\\":\\"$undefined\\"}"])</script></html>',
         });
 
         const result = await run_connector(manifest, await code(), ctx);
@@ -406,14 +418,24 @@ describe("muse connector", () => {
         });
     });
 
-    it("throws MUSE_ACTION_STALE when server rejects action ID with 404 or Invalid Server Action (A146 / AC-006)", async () => {
+    it("throws ACTION_STALE when server rejects action ID with 404 or Invalid Server Action (A146 / AC-005)", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("muse manifest missing");
 
-        const ctx = context("Invalid Server Action", "hatch_sess=valid", 404);
+        const discovery_map = new Map<string, ConnectorDiscoveryEntry>();
+        discovery_map.set("muse_subscription_action", {
+            signature: "sig",
+            action_id: "stale_id",
+            deployment_id: "dpl_test",
+            discovered_at: 1,
+        });
+
+        const ctx = context("Invalid Server Action", "hatch_sess=valid", 404, discovery_map);
         const result = await run_connector(manifest, await code(), ctx);
-        expect(result.error).toMatch(/MUSE_ACTION_STALE/);
+        expect(result.error).toMatch(/ACTION_STALE/);
         expect(result.observations).toHaveLength(0);
+        // Cache must have been cleared
+        expect(discovery_map.has("muse_subscription_action")).toBe(false);
     });
 
     it("rejects cookie with CRLF injection characters (A48 / AC-007)", async () => {
@@ -475,5 +497,186 @@ describe("muse connector", () => {
         const result = await run_connector(manifest, await code(), ctx);
         expect(result.error).toContain("未能找到 subscription 节点");
         expect(result.observations).toHaveLength(0);
+    });
+
+    it("AC-001: stops downloading subsequent chunks immediately when an earlier chunk matches target action", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        const fetched_paths: string[] = [];
+        ctx.http.get_raw = vi.fn().mockImplementation(async (_ep: string, path: string) => {
+            fetched_paths.push(path);
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_STOP_ON_HIT"></div>',
+                        '<script src="/_next/static/chunks/chunk_01.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_02.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_03.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_04.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_05.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_06.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_07.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_08.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_09.js"></script>',
+                        '<script src="/_next/static/chunks/chunk_10.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            if (path.includes("chunk_01.js")) {
+                return Promise.resolve({ status: 200, headers: {}, body: "var a = 1;" });
+            }
+            if (path.includes("chunk_02.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("999900001111222233334444555566667777888899", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            await new Promise((r) => setTimeout(r, 20));
+            return Promise.resolve({ status: 200, headers: {}, body: "var other = 999;" });
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(2);
+
+        // chunk_02 matched; later chunks like chunk_10 should not have been requested
+        expect(fetched_paths.some((p) => p.includes("chunk_02.js"))).toBe(true);
+        expect(fetched_paths.some((p) => p.includes("chunk_10.js"))).toBe(false);
+    });
+
+    it("AC-003 & AC-004: reuses discovery cache with 0 chunk downloads on matching signature and invalidates on signature drift", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const discovery_map = new Map<string, ConnectorDiscoveryEntry>();
+
+        // 1. Initial run: discovers and saves to cache
+        const ctx1 = context(rscBody, "hatch_sess=token", 200, discovery_map);
+        let chunk_get_count = 0;
+        ctx1.http.get_raw = vi.fn().mockImplementation((_ep: string, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_CACHE_TEST"></div>',
+                        '<script src="/_next/static/chunks/target.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            chunk_get_count++;
+            return Promise.resolve({
+                status: 200,
+                headers: {},
+                body: 'var fn = (0, O.createServerReference)("aaaaaaaa11112222333344445555666677778888bb", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+            });
+        });
+
+        const res1 = await run_connector(manifest, await code(), ctx1);
+        expect(res1.error).toBeNull();
+        expect(chunk_get_count).toBe(1);
+        expect(discovery_map.has("muse_subscription_action")).toBe(true);
+
+        // 2. Second run: same signature -> chunk downloads = 0
+        const ctx2 = context(rscBody, "hatch_sess=token", 200, discovery_map);
+        let run2_chunk_get_count = 0;
+        ctx2.http.get_raw = vi.fn().mockImplementation((_ep: string, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_CACHE_TEST"></div>',
+                        '<script src="/_next/static/chunks/target.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            run2_chunk_get_count++;
+            return Promise.resolve({ status: 200, headers: {}, body: "" });
+        });
+
+        const res2 = await run_connector(manifest, await code(), ctx2);
+        expect(res2.error).toBeNull();
+        expect(res2.observations).toHaveLength(2);
+        expect(run2_chunk_get_count).toBe(0); // 0 chunk GETs on cache hit!
+
+        // 3. Third run: deployment changes -> cache invalidates and re-discovers
+        const ctx3 = context(rscBody, "hatch_sess=token", 200, discovery_map);
+        let run3_chunk_get_count = 0;
+        ctx3.http.get_raw = vi.fn().mockImplementation((_ep: string, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: [
+                        "<html><head>",
+                        '<div data-dpl-id="dpl_NEW_DEPLOYMENT_V2"></div>',
+                        '<script src="/_next/static/chunks/target_v2.js"></script>',
+                        "</head><body></body></html>",
+                    ].join(""),
+                });
+            }
+            run3_chunk_get_count++;
+            return Promise.resolve({
+                status: 200,
+                headers: {},
+                body: 'var fn = (0, O.createServerReference)("cccccccc11112222333344445555666677778888dd", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+            });
+        });
+
+        const res3 = await run_connector(manifest, await code(), ctx3);
+        expect(res3.error).toBeNull();
+        expect(run3_chunk_get_count).toBe(1); // Re-discovered!
+    });
+
+    it("AC-006: completes discovery and usage collection under 107 simulated chunks within budget", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("muse manifest missing");
+
+        const rscBody = await fixture("subscription_sample.txt");
+        const ctx = context(rscBody);
+
+        const all_107_scripts = Array.from(
+            { length: 107 },
+            (_, i) =>
+                `<script src="/_next/static/chunks/chunk_${String(i).padStart(3, "0")}.js"></script>`,
+        ).join("");
+
+        ctx.http.get_raw = vi.fn().mockImplementation((_ep: string, path: string) => {
+            if (path === "/") {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: `<html><head><div data-dpl-id="dpl_107_TEST"></div>${all_107_scripts}</head><body></body></html>`,
+                });
+            }
+            if (path.includes("chunk_003.js")) {
+                return Promise.resolve({
+                    status: 200,
+                    headers: {},
+                    body: 'var fn = (0, O.createServerReference)("7777777711112222333344445555666677778888ee", O.callServer, void 0, O.map, "fetchSubscriptionAction");',
+                });
+            }
+            return Promise.resolve({ status: 200, headers: {}, body: "var dummy = 123;" });
+        });
+
+        const budget = create_execution_budget(5000);
+        const result = await run_connector(manifest, await code(), ctx, budget);
+        expect(result.error).toBeNull();
+        expect(result.observations.length).toBeGreaterThanOrEqual(2);
     });
 });

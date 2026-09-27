@@ -10,6 +10,8 @@ import {
 } from "../../../src/main/core/connector/net-client";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
 
+import { ctx_budget_stub } from "./_ctx_status";
+
 const manifest: Manifest = {
     id: "opencode_go",
     provider: "opencode_go",
@@ -25,6 +27,7 @@ function make_ctx(
     cookie = "__Host-console_session=valid-session",
 ): ConnectorContext & { warn_spy: typeof warn_spy } {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: warn_spy, error: vi.fn() },
         http: {
             get_raw: () => Promise.resolve({ status: 200, headers: {}, body: "" }),

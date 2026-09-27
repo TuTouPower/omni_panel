@@ -22,7 +22,19 @@ import { execute_probe } from "../connector/probe-executor";
 import { run_connector, is_non_retryable_error } from "../connector/runtime";
 import { run_connector_isolated } from "../connector/isolated-process-runner";
 import {
-    DEFAULT_TIMEOUT_MS,
+    create_connector_discovery_store,
+    type ConnectorDiscoveryStore,
+} from "../connector/discovery-cache";
+import { get_connector_cache_path } from "../paths";
+import {
+    create_execution_budget,
+    BudgetExhaustedError,
+    TerminatedError,
+    type ExecutionBudget,
+} from "../connector/execution-budget";
+import type { ConnectorExecutionMetrics } from "../connector/host-io";
+import {
+    DEFAULT_EXECUTION_BUDGET_MS,
     REFRESH_LOCK_TIMEOUT_MS,
     REFRESH_DEFAULT_MAX_ATTEMPTS,
     REFRESH_RETRY_BASE_DELAY_MS,
@@ -49,6 +61,7 @@ export interface RefreshServiceDeps {
         credential_changed: boolean;
     }>;
     resolve_proxy_url?: (config: AppConfiguration) => string | undefined;
+    discovery_store?: ConnectorDiscoveryStore | undefined;
     /** Test seam: override the connector executor to assert call counts. */
     execute_connector?: (
         connector_config: ConnectorConfiguration,
@@ -57,7 +70,15 @@ export interface RefreshServiceDeps {
         proxy_url?: string,
         trace_id?: string,
         reset?: boolean,
-    ) => Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }>;
+        budget?: ExecutionBudget,
+        generation?: number,
+        discovery_store?: ConnectorDiscoveryStore,
+    ) => Promise<{
+        observations: Observation[];
+        failed_accounts: FailedAccount[];
+        metrics?: ConnectorExecutionMetrics | undefined;
+        error_code?: string | null | undefined;
+    }>;
     /**
      * t172: OAuth 连接器（grok/kimi）即时 token 刷新入口。poll 因 auth 错误
      * （401/403）失败时调用一次；返回 undefined 表示该连接器无可用刷新器。
@@ -211,7 +232,15 @@ async function execute_connector(
     proxy_url?: string,
     trace_id?: string,
     reset?: boolean,
-): Promise<{ observations: Observation[]; failed_accounts: FailedAccount[] }> {
+    budget?: ExecutionBudget,
+    generation?: number,
+    discovery_store?: ConnectorDiscoveryStore,
+): Promise<{
+    observations: Observation[];
+    failed_accounts: FailedAccount[];
+    metrics?: ConnectorExecutionMetrics | undefined;
+    error_code?: string | null | undefined;
+}> {
     const params = await build_params(connector_config, definition, vault, trace_id);
     const auth_secret_name = definition.manifest.poll?.request.auth?.secret;
     if (auth_secret_name) {
@@ -225,9 +254,13 @@ async function execute_connector(
     if (definition.manifest.provider === "grok") {
         delete endpoint_overrides["grok_billing"];
     }
+    const exec_budget = budget ?? create_execution_budget(DEFAULT_EXECUTION_BUDGET_MS);
     const ctx = create_connector_context(definition.manifest, vault, connector_config.instanceId, {
         endpoint_overrides,
         params,
+        budget: exec_budget,
+        generation,
+        discovery_store,
         ...(proxy_url ? { proxy_url } : {}),
         ...(trace_id ? { trace_id } : {}),
         ...(reset !== undefined ? { reset } : {}),
@@ -235,24 +268,37 @@ async function execute_connector(
 
     let raw_observations: ScriptObservation[];
     let failed_accounts: FailedAccount[] = [];
+    let metrics: ConnectorExecutionMetrics = ctx.metrics;
+    let error_code: string | null | undefined = null;
+
     if (definition.manifest.script) {
         // t195: 脚本 transpile 结果按 mtime 缓存，文本未变不重读盘、不重编译。
         const { code, compiled } = await script_cache.get_script(resolve_script_path(definition));
         // t515 / AC-002: 连接器脚本在独立隔离子进程执行，防拖垮主进程；单元测试可通过 OMNI_IN_PROCESS_CONNECTOR 回退
         const result =
             process.env["OMNI_IN_PROCESS_CONNECTOR"] === "1"
-                ? await run_connector(definition.manifest, code, ctx, undefined, compiled)
+                ? await run_connector(definition.manifest, code, ctx, exec_budget, compiled)
                 : await run_connector_isolated({
                       manifest: definition.manifest,
                       script_code: code,
                       compiled_code: compiled,
-                      timeout_ms: DEFAULT_TIMEOUT_MS,
+                      budget: exec_budget,
+                      generation,
+                      discovery_store,
                       params,
                       instance_id: connector_config.instanceId,
                       proxy_url,
                       endpoint_overrides,
                   });
-        if (result.error) throw new Error(result.error);
+        metrics = result.metrics;
+        error_code = result.error_code;
+        if (result.error) {
+            const err = new Error(result.error);
+            if (result.error_code) {
+                (err as { error_code?: string }).error_code = result.error_code;
+            }
+            throw err;
+        }
         raw_observations = result.observations;
         failed_accounts = result.failed_accounts;
     } else if (definition.manifest.poll) {
@@ -271,7 +317,7 @@ async function execute_connector(
         ...obs,
         source_instance_id: connector_config.instanceId,
     }));
-    return { observations, failed_accounts };
+    return { observations, failed_accounts, metrics, error_code };
 }
 
 export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefreshService {
@@ -279,6 +325,15 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     // t370 f002: 锁存唯一 token——force 覆盖旧锁后，旧刷新 finally 只删自己 token，
     // 不误删新锁（否则级联并发）。
     const locks = new Map<string, { token: number; at: number }>();
+    const instance_generation_counters = new Map<string, number>();
+    const active_generations = new Map<string, number>();
+
+    function next_instance_generation(instanceId: string): number {
+        const next = (instance_generation_counters.get(instanceId) ?? 0) + 1;
+        instance_generation_counters.set(instanceId, next);
+        return next;
+    }
+
     /**
      * p241: 已上报过的「缺必填配置」文案，按实例去重——配置缺口每轮都会复现，
      * 只在文案变化（首次/换了缺失字段）时记一条 warn，避免周期性噪音。
@@ -288,6 +343,8 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     let lock_seq = 0;
     const LOCK_TIMEOUT_MS = REFRESH_LOCK_TIMEOUT_MS;
     const run_connector = deps.execute_connector ?? execute_connector;
+    const discovery_store =
+        deps.discovery_store ?? create_connector_discovery_store(get_connector_cache_path());
 
     function is_locked(instanceId: string): boolean {
         const lock = locks.get(instanceId);
@@ -314,6 +371,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
         // finally 只删自己 token，不误删更晚的锁。
         const lock_token = ++lock_seq;
         locks.set(instanceId, { token: lock_token, at: Date.now() });
+
+        const generation = next_instance_generation(instanceId);
+        active_generations.set(instanceId, generation);
+        const budget = create_execution_budget(DEFAULT_EXECUTION_BUDGET_MS);
 
         try {
             const config = await deps.configStore.load();
@@ -379,6 +440,10 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
             };
 
             for (let attempt = 0; attempt < max_attempts; attempt++) {
+                if (budget.remaining_ms() <= 0) {
+                    last_error = "Connector execution budget exhausted";
+                    break;
+                }
                 try {
                     const { observations, failed_accounts } = await run_connector(
                         connector_config,
@@ -387,7 +452,17 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         deps.resolve_proxy_url?.(config) ?? config.proxy?.url,
                         trace_id,
                         force_fresh_connection,
+                        budget,
+                        generation,
+                        discovery_store,
                     );
+
+                    if (active_generations.get(instanceId) !== generation) {
+                        trace_log.warn(
+                            `Discarding outdated execution results for ${instanceId} (generation ${String(generation)} != ${String(active_generations.get(instanceId))})`,
+                        );
+                        return;
+                    }
 
                     // t172: OAuth(poll) 连接器因 auth 错误（401/403）失败时，对该实例
                     // 即时刷新一次 token 并重试采集；刷新失败/无 refresh token 时维持
@@ -600,6 +675,25 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         break;
                     }
 
+                    const err_code =
+                        typeof last_raw_error === "object" &&
+                        last_raw_error !== null &&
+                        "error_code" in last_raw_error
+                            ? (last_raw_error as { error_code?: unknown }).error_code
+                            : undefined;
+                    if (
+                        err_code === "BUDGET_EXHAUSTED" ||
+                        err_code === "TERMINATED" ||
+                        last_raw_error instanceof BudgetExhaustedError ||
+                        last_raw_error instanceof TerminatedError ||
+                        budget.remaining_ms() <= 0
+                    ) {
+                        trace_log.warn(
+                            `Budget exhausted or terminated for ${connector_config.name}, aborting remaining retries: ${last_error}`,
+                        );
+                        break;
+                    }
+
                     // A40 / A42 / AC-003: 不可重试错误（4xx、语法/编译必败错误等）立即短路，不再浪费后续尝试
                     if (is_non_retryable_error(last_raw_error ?? last_error)) {
                         trace_log.warn(
@@ -623,9 +717,25 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                     }
 
                     if (attempt < max_attempts - 1) {
-                        await cancellable_sleep(retry_delay_ms, deps.abort_signal);
+                        const sleep_ms = Math.min(retry_delay_ms, budget.remaining_ms());
+                        if (sleep_ms <= 0) {
+                            last_error = "Connector execution budget exhausted";
+                            break;
+                        }
+                        await cancellable_sleep(sleep_ms, deps.abort_signal);
+                        if (budget.remaining_ms() <= 0) {
+                            last_error = "Connector execution budget exhausted";
+                            break;
+                        }
                     }
                 }
+            }
+
+            if (active_generations.get(instanceId) !== generation) {
+                trace_log.warn(
+                    `Discarding outdated execution failure for ${instanceId} (generation ${String(generation)} != ${String(active_generations.get(instanceId))})`,
+                );
+                return;
             }
 
             // invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError。

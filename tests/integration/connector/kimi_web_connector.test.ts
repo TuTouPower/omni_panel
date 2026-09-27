@@ -5,6 +5,7 @@ import { load_manifest } from "../../../src/main/core/connector/manifest-loader"
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import { is_auth_error } from "../../../src/shared/lib/auth-error";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
+import { ctx_budget_stub } from "./_ctx_status";
 
 const ROOT = join(process.cwd(), "connectors", "kimi_web");
 const fixture = async (name: string): Promise<unknown> =>
@@ -16,6 +17,7 @@ const fixture = async (name: string): Promise<unknown> =>
     ) as unknown;
 function context(payload: unknown, authorization = "Bearer fixture-token"): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         params: { SESSION_COOKIE: "session=fixture", AUTHORIZATION: authorization },
         http: {
             post_json: vi.fn().mockResolvedValue(payload),

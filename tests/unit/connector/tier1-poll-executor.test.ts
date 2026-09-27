@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ctx_status } from "../../integration/connector/_ctx_status";
+import { ctx_status, ctx_budget_stub } from "../../integration/connector/_ctx_status";
 import { execute_poll } from "../../../src/main/core/connector/tier1-poll-executor";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
@@ -23,6 +23,7 @@ const tavily_manifest: Manifest = {
 
 function make_ctx(response: unknown): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json() {
@@ -86,6 +87,7 @@ describe("tier1-poll-executor", () => {
             },
         };
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json() {
@@ -115,6 +117,7 @@ describe("tier1-poll-executor", () => {
 
     it("throws on HTTP error instead of silently returning empty", async () => {
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json() {

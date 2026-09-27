@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
@@ -28,6 +28,7 @@ const manifest: Manifest = {
 
 function create_ctx(limits: unknown[]): ConnectorContext {
     return {
+        ...ctx_budget_stub,
         log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         http: {
             get_json(endpoint_key, path, opts) {
@@ -134,6 +135,7 @@ describe("glm connector", () => {
     it("throws when API returns error code", async () => {
         const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () =>
@@ -156,6 +158,7 @@ describe("glm connector", () => {
     it("throws when API response lacks limits field", async () => {
         const script = await readFile(join("connectors", "glm", "connector.ts"), "utf8");
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json: () => Promise.resolve({ code: 200, data: {} }),

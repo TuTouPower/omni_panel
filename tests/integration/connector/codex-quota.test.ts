@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import type { Manifest } from "../../../src/shared/schemas/manifest";
-import { ctx_status } from "./_ctx_status";
+import { ctx_status, ctx_budget_stub } from "./_ctx_status";
 
 describe("codex quota connector", () => {
     it("reads ~/.codex/auth.json and fetches wham/usage quota", async () => {
@@ -51,6 +51,7 @@ describe("codex quota connector", () => {
             );
 
         const ctx: ConnectorContext = {
+            ...ctx_budget_stub,
             log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
             http: {
                 get_json,

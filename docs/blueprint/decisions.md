@@ -379,3 +379,26 @@
     3. 支持通过 `ACTION_ID` / `DEPLOYMENT_ID` 参数手动显式覆盖，基准常量仅作最低兜底。
 - 落地：t525。
 - 替代：人工频繁修改代码发版更新写死 ID、或每次请求均无状态扫描全部 chunk。
+
+## 042 连接器执行预算、协作取消与资源契约定稿（2026-09-27）
+
+- 背景：单值 timeout（15s）加每次重试独立计时，导致长连接器任务（如分包扫描）最坏 45s 连续压站并被宿主硬杀，无法协作取消且错误不可诊断；且缺少请求计数与并发上限，脚本只能自写串行。
+- 结论：
+    1. 彻底移除 `DEFAULT_TIMEOUT_MS`，采用单一执行预算模型（`Budget{total_ms, deadline_ms, remaining_ms()}`，默认 15s），一次刷新的多次重试共享同一预算，跨 retry 连续消耗不重置。
+    2. 协作取消机制：向脚本必选注入 `ctx.signal` 与 `ctx.remaining_ms()`；软截止触发协作退出（`BUDGET_EXHAUSTED`）；脚本未配合退出时由宿主硬上限（+1500ms 宽限）强制终结（`TERMINATED`），两者结构化区分。
+    3. 宿主强制每执行并发上限（`MAX_HOST_CONCURRENCY = 6`）并清理取消残留；提供可增量消费并可提前停止的并发原语 `ctx.pool`。
+    4. 执行结果回传请求数与读取字节数计数；同实例并发通过 generation / epoch 保证旧执行结果不覆盖较新执行。
+    5. 定稿连接器资源契约，为 t529 类型化发现结果缓存（`ctx.discovery`）定稿字段形态（`signature, action_id, deployment_id, discovered_at, hits`）。
+- 落地：t528，`docs/specs/connector-runtime.md`，`src/main/core/connector/execution-budget.ts`。
+- 替代：维持单值 15s 超时或引入运行时新旧双轨开关。
+
+## 043 连接器发现缓存为类型化可丢弃数据与隔离写回协议（2026-09-27）
+
+- 背景：动态发现类连接器（如 Muse 嗅探 Turbopack Action ID）在隔离子进程中缺乏持久化能力，每轮刷新与重试均重新下载大量分包；若引入通用数据库或双向 RPC 会破坏单向隔离与简单性。
+- 结论：
+    1. 定位为类型化可丢弃发现数据（非通用状态或任意 KV 数据库）：宿主定义严格 schema `{signature, action_id, deployment_id, discovered_at, hits}`，连接器仅提供业务键与记录值。
+    2. 命名空间绑定 `manifest_id:instance_id:code_hash`：连接器脚本一旦升级（code hash 变化），旧记录自动失效隔离，防止旧 ID 污染新版本。
+    3. 隔离交互采用一次性快照 / 写回 delta 协议而非双向 RPC：宿主启动 worker 时下发快照，worker 内存处理，执行完成后回传 delta，由宿主单点校验、LRU 治理并原子合并落盘。执行超时或崩溃本轮 delta 自动丢弃，不损坏已持久化数据；过期 generation 写回不得复活较新记录。
+    4. 密钥安全防线：强制拒绝 key 命中 secret 名或 value 包含 vault 保护值，拒写并告警，坚决不落盘、不落日志。
+- 落地：t529，`docs/specs/connector-runtime.md`，`src/main/core/connector/discovery-cache.ts`。
+- 替代：双向 IPC RPC 读写通用 SQLite 或允许连接器自由存取任意 KV。

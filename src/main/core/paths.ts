@@ -9,7 +9,11 @@ import { join, resolve } from "node:path";
 const PROJECT_ROOT = resolve(__dirname, "..", "..");
 
 export function getDataRoot(): string {
-    return app.getPath("userData");
+    try {
+        return app.getPath("userData");
+    } catch {
+        return process.cwd();
+    }
 }
 
 export function getConfigPath(): string {
@@ -56,6 +60,10 @@ export function get_token_stats_db_path(base: string = getDataRoot()): string {
 
 export function get_snapshot_cache_path(base: string = getDataRoot()): string {
     return join(base, "snapshot-cache.json");
+}
+
+export function get_connector_cache_path(base: string = getDataRoot()): string {
+    return join(base, "connector-cache.json");
 }
 
 export function get_logs_dir(base: string = getDataRoot()): string {
