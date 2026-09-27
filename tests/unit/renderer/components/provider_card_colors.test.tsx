@@ -209,6 +209,77 @@ describe("ProviderCard - colors", () => {
         ).toBeEmptyDOMElement();
     });
 
+    it("averages sub-account risk colors for multi-account overview (risk-current)", () => {
+        const low = makePeriod({
+            id: "a-5h",
+            accountId: "a",
+            accountLabel: "A",
+            name: "5小时",
+            used: 10,
+            limit: 100,
+            displayStyle: "percent",
+            resetAt: null,
+        });
+        const high = makePeriod({
+            id: "b-5h",
+            accountId: "b",
+            accountLabel: "B",
+            name: "5小时",
+            used: 96,
+            limit: 100,
+            displayStyle: "percent",
+            resetAt: null,
+        });
+        const group = makeGroup({
+            accountCount: 2,
+            periods: [low, high],
+            accounts: [
+                {
+                    id: "a",
+                    sourceInstanceId: "ds-1",
+                    accountId: "a",
+                    accountLabel: "A",
+                    status: "normal",
+                    updatedAt: "2026-01-01T15:00:00Z",
+                    observedAt: 1735689600000,
+                    stale: false,
+                    periods: [low],
+                },
+                {
+                    id: "b",
+                    sourceInstanceId: "ds-1",
+                    accountId: "b",
+                    accountLabel: "B",
+                    status: "normal",
+                    updatedAt: "2026-01-01T15:00:00Z",
+                    observedAt: 1735689600000,
+                    stale: false,
+                    periods: [high],
+                },
+            ],
+        });
+
+        render(
+            <ProviderCard
+                provider="deepseek"
+                group={group}
+                expanded
+                onToggleExpand={() => undefined}
+                barColorScheme="risk-current"
+            />,
+        );
+
+        const row = screen.getByText("5小时").closest('[data-testid="bar-row"]');
+        expect(row).toBeInstanceOf(HTMLElement);
+        const fill = (row as HTMLElement).querySelector<HTMLElement>('[data-testid="bar-fill"]');
+        if (!fill) throw new Error("missing fill");
+        // 宽度仍用 sum 聚合：(10+96)/200=53%；颜色取子账号绿+红平均，不再是聚合绿
+        expect(fill.style.width).toBe("53%");
+        expect(fill.style.background).toBe(
+            "color-mix(in srgb, var(--color-success) 50%, var(--color-risk-critical))",
+        );
+    });
+
     it("uses nine-cycle colors when configured", () => {
         const group = makeGroup({
             periods: [makePeriod({ id: "first", name: "5小时", used: 95, limit: 100 })],

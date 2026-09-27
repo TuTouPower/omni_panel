@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import type {
     OverviewWindow,
     ProviderUsageAccount,
     ProviderUsageGroup,
 } from "../lib/provider-usage";
 import type { UsageBarColorScheme, UsageBarStyle } from "../../shared/types/config";
+import { overview_fill_color } from "../lib/usage-colors";
 import { UsageBarList } from "./UsageBarList";
 import { AccountUsageRow } from "./UsageRows";
 import { Skeleton } from "./ui/Skeleton";
@@ -23,6 +25,24 @@ export function ProviderCardOverview({
     barStyle,
     forcePercent,
 }: ProviderCardOverviewProps) {
+    /**
+     * 风险色模式：概览条填充色取各子账号风险色的 RGB 平均
+     *（宽度仍用 sum(used)/sum(limit) 聚合 pct）。nine-cycle 不做平均，
+     * 交给 UsageBarRow 按位置取色；同色成员直接复用原 token。
+     */
+    const fill_colors = useMemo(
+        () =>
+            barColorScheme === "nine-cycle"
+                ? undefined
+                : overviewPeriods.map((period, idx) =>
+                      overview_fill_color(
+                          barColorScheme,
+                          { pct: period.percent, idx, elapsed: undefined },
+                          period.members,
+                      ),
+                  ),
+        [overviewPeriods, barColorScheme],
+    );
     if (isRefreshing && !overviewPeriods.length) {
         return (
             <div className="mt-3 flex flex-col gap-[9px]">
@@ -49,6 +69,7 @@ export function ProviderCardOverview({
             colorScheme={barColorScheme}
             barStyle={barStyle}
             forcePercent={forcePercent}
+            fillColors={fill_colors}
         />
     );
 }

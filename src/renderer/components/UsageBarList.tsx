@@ -15,6 +15,8 @@ interface UsageBarListProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     forcePercent?: boolean | undefined;
+    /** 与 periods 等长：概览风险色平均覆盖，未提供时按常规取色。 */
+    fillColors?: readonly (string | undefined)[] | undefined;
 }
 
 export function UsageBarList({
@@ -24,6 +26,7 @@ export function UsageBarList({
     barStyle = "thin",
     labelMap,
     forcePercent = false,
+    fillColors,
 }: UsageBarListProps) {
     return (
         <div
@@ -44,6 +47,7 @@ export function UsageBarList({
                     barStyle={barStyle}
                     labelMap={labelMap}
                     forcePercent={forcePercent}
+                    fillColor={fillColors?.[idx]}
                 />
             ))}
         </div>

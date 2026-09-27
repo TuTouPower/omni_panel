@@ -6,7 +6,12 @@ import type { MetricRecord } from "../../shared/schemas/plugin-output";
 import type { ProviderUsageAccount, ProviderUsagePeriod } from "../lib/provider-usage";
 import { format_usage_period_label } from "../lib/provider-usage";
 import { format_reset_time, relative_time } from "../lib/utils";
-import { bar_fill_color, DEFAULT_USAGE_BAR_COLOR_SCHEME } from "../lib/usage-colors";
+import {
+    bar_fill_color,
+    DEFAULT_USAGE_BAR_COLOR_SCHEME,
+    usage_elapsed,
+    usage_pct,
+} from "../lib/usage-colors";
 import { StatusDot } from "./ui/StatusDot";
 
 interface UsageBarRowProps {
@@ -26,6 +31,11 @@ interface UsageBarRowProps {
     barStyle?: UsageBarStyle | undefined;
     labelMap?: Readonly<Record<string, string>> | undefined;
     forcePercent?: boolean | undefined;
+    /**
+     * 概览条在风险色模式下的平均色覆盖（子账号风险色 RGB 平均）。
+     * 提供时直接用作填充色，宽度仍按自身 used/limit 的聚合 pct。
+     */
+    fillColor?: string | undefined;
 }
 
 export function split_reset_time(value: string): { date: string; clock: string } {
@@ -46,11 +56,6 @@ export function split_reset_time(value: string): { date: string; clock: string }
     return { date, clock };
 }
 
-function percent(used: number, limit: number | null): number {
-    if (limit === null || limit <= 0) return 0;
-    return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
-}
-
 const GRID_THIN = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_5ch_auto] items-center gap-x-2";
 const GRID_CAPSULE = "grid grid-cols-[4ic_minmax(0,1fr)_5ch_5ch_auto] items-center gap-x-2";
 
@@ -64,16 +69,14 @@ export const UsageBarRow = memo(function UsageBarRow({
     barStyle = "thin",
     labelMap,
     forcePercent = false,
+    fillColor,
 }: UsageBarRowProps) {
     const label = format_usage_period_label(period.raw_label, period.name, labelMap);
-    const elapsed =
-        period.resetAt && period.cycleDurationMs
-            ? Math.min(1, Math.max(0, 1 - (period.resetAt - Date.now()) / period.cycleDurationMs))
-            : undefined;
+    const elapsed = usage_elapsed(period.resetAt, period.cycleDurationMs);
     const used = period.used;
     const has_value = used !== null;
-    const pct = has_value ? percent(used, period.limit) : 0;
-    const fill_color = bar_fill_color(colorScheme, { pct, idx: index, elapsed });
+    const pct = usage_pct(used, period.limit);
+    const fill_color = fillColor ?? bar_fill_color(colorScheme, { pct, idx: index, elapsed });
     const track_style =
         barStyle === "capsule" ? ({ "--bar-fill": fill_color } as CSSProperties) : undefined;
     const is_ratio =

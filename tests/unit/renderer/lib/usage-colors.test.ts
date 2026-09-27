@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
     USAGE_COLOR_TOKENS,
+    average_fill_colors,
     bar_fill_color,
+    overview_fill_color,
     usage_color,
 } from "../../../../src/renderer/lib/usage-colors";
 import { BAR_COLOR_SCHEMES } from "../../../../src/renderer/views/settings-view/lib";
@@ -83,6 +85,106 @@ describe("nine-cycle swatch linkage (t418 AC-001)", () => {
 describe("projected risk color", () => {
     it("lets projected risk colors use elapsed", () => {
         expect(bar_fill_color("risk-projected", { pct: 50, idx: 0, elapsed: 0.6 })).toBe(
+            "var(--color-risk-mid)",
+        );
+    });
+});
+
+describe("average_fill_colors (overview risk average)", () => {
+    it("returns single color as-is and dedupes all-same without mix", () => {
+        expect(average_fill_colors(["var(--color-success)"])).toBe("var(--color-success)");
+        expect(average_fill_colors(["var(--color-success)", "var(--color-success)"])).toBe(
+            "var(--color-success)",
+        );
+    });
+
+    it("averages two risk colors with color-mix 50/50", () => {
+        expect(average_fill_colors(["var(--color-success)", "var(--color-risk-critical)"])).toBe(
+            "color-mix(in srgb, var(--color-success) 50%, var(--color-risk-critical))",
+        );
+    });
+
+    it("averages three colors with iterative weights and keeps duplicates weighted", () => {
+        expect(
+            average_fill_colors([
+                "var(--color-success)",
+                "var(--color-risk-mid)",
+                "var(--color-risk-critical)",
+            ]),
+        ).toBe(
+            "color-mix(in srgb, color-mix(in srgb, var(--color-success) 50%, var(--color-risk-mid)) 66.6667%, var(--color-risk-critical))",
+        );
+        // [绿, 绿, 红] ≠ [绿, 红]：重复成员必须参与加权
+        const weighted = average_fill_colors([
+            "var(--color-success)",
+            "var(--color-success)",
+            "var(--color-risk-critical)",
+        ]);
+        const unweighted = average_fill_colors([
+            "var(--color-success)",
+            "var(--color-risk-critical)",
+        ]);
+        expect(weighted).not.toBe(unweighted);
+        expect(weighted).toContain("66.6667%");
+    });
+
+    it("holds no bare hex (d044 single source)", () => {
+        const mixed = average_fill_colors([
+            "var(--color-success)",
+            "var(--color-risk-mid)",
+            "var(--color-risk-high)",
+            "var(--color-risk-critical)",
+        ]);
+        expect(mixed).not.toMatch(/#[0-9a-fA-F]{6}/);
+        expect(mixed).toContain("color-mix(in srgb,");
+    });
+});
+
+describe("overview_fill_color (multi-account overview)", () => {
+    it("averages member risk colors instead of aggregated pct (risk-current)", () => {
+        // 聚合 53% 本应是绿，但成员绿+红平均后应为 mix
+        const result = overview_fill_color("risk-current", { pct: 53, idx: 0 }, [
+            { used: 10, limit: 100, resetAt: null, cycleDurationMs: null },
+            { used: 96, limit: 100, resetAt: null, cycleDurationMs: null },
+        ]);
+        expect(result).toBe(
+            "color-mix(in srgb, var(--color-success) 50%, var(--color-risk-critical))",
+        );
+    });
+
+    it("returns plain token when all members share one color", () => {
+        expect(
+            overview_fill_color("risk-current", { pct: 50, idx: 0 }, [
+                { used: 50, limit: 100, resetAt: null, cycleDurationMs: null },
+                { used: 50, limit: 100, resetAt: null, cycleDurationMs: null },
+            ]),
+        ).toBe("var(--color-success)");
+    });
+
+    it("averages projected member colors with per-member elapsed", () => {
+        const now = 1_000_000;
+        // 成员 A：50% + elapsed 0.4 → 投影超限变红；成员 B：50% 无周期 → 绿
+        const result = overview_fill_color(
+            "risk-projected",
+            { pct: 50, idx: 0 },
+            [
+                { used: 50, limit: 100, resetAt: now + 6000, cycleDurationMs: 10000 },
+                { used: 50, limit: 100, resetAt: null, cycleDurationMs: null },
+            ],
+            now,
+        );
+        expect(result).toBe(
+            "color-mix(in srgb, var(--color-risk-critical) 50%, var(--color-success))",
+        );
+    });
+
+    it("falls back to aggregated color for nine-cycle and empty members", () => {
+        expect(
+            overview_fill_color("nine-cycle", { pct: 50, idx: 2 }, [
+                { used: 10, limit: 100, resetAt: null, cycleDurationMs: null },
+            ]),
+        ).toBe("var(--color-usage-3)");
+        expect(overview_fill_color("risk-current", { pct: 70, idx: 0 }, [])).toBe(
             "var(--color-risk-mid)",
         );
     });

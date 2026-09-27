@@ -659,6 +659,13 @@ function has_valid_quota(period: ProviderUsagePeriod): boolean {
     );
 }
 
+export interface OverviewColorMember {
+    used: number | null;
+    limit: number | null;
+    resetAt: number | null;
+    cycleDurationMs?: number | null | undefined;
+}
+
 export interface OverviewWindow {
     id: string;
     name: string;
@@ -671,6 +678,12 @@ export interface OverviewWindow {
     updatedAt: string | null;
     resetAt: number | null;
     color?: MetricRecord["color"];
+    /**
+     * 同 label 下参与聚合的各子账号周期明细（仅 has_valid_quota）。
+     * 概览条宽度仍用 sum(used)/sum(limit)；风险色模式下填充色取
+     * 各成员风险色的 RGB 平均（见 usage-colors.overview_fill_color）。
+     */
+    members: OverviewColorMember[];
 }
 
 export function build_overview_for_group(
@@ -726,6 +739,12 @@ export function build_overview_for_group(
                 convergentTimeMinutes !== undefined ? convergentTimeMinutes * 60 * 1000 : undefined,
             ),
             color: validPeriods.find((period) => period.color)?.color,
+            members: validPeriods.map((period) => ({
+                used: period.used,
+                limit: period.limit,
+                resetAt: period.resetAt,
+                cycleDurationMs: period.cycleDurationMs,
+            })),
         });
     }
 
