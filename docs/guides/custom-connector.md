@@ -141,6 +141,7 @@ async function main() {
 |`ctx.remaining_ms()`|本次执行剩余预算（毫秒），执行默认预算为 15s 且跨重试共享|
 |`ctx.deadline_ms`|本次执行软截止绝对时间戳（ms）|
 |`ctx.pool.map(items, worker, opts)` / `all`|宿主强制限流的增量并发原语；支持在循环中 `break` 或调 `stop()` 提前终止批处理|
+|`ctx.discovery`|类型化发现结果缓存（`get/set/delete`），记录 `{signature, action_id, deployment_id, discovered_at, hits}`；严禁存 secret|
 |`ctx.http.get_json(endpoint, path, opts)`|发 JSON GET，返回解析后对象。`opts.timeout_ms` 只能缩小不能超出剩余预算|
 |`ctx.http.post_json(endpoint, path, body, opts)`|JSON POST|
 |`ctx.http.get_raw(...)`|返回 `{ status, headers, body }` 原始响应|

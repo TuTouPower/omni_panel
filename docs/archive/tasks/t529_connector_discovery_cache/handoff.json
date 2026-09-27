@@ -1,0 +1,59 @@
+{
+    "tid": "t529",
+    "attempt": 1,
+    "execution_id": "8df3e56f193141a18dceec69db4a0a13",
+    "status": "done",
+    "branch": "t529_connector_discovery_cache",
+    "base_sha": "87c871397d09d5a1e6c9ae6d8f067e7a2e4d35ed",
+    "tests": "pnpm check（typecheck / lint / format:check / deadcode / arch / schema:check / test）全绿；pnpm test 全量 336 个测试套件 100% 通过；git diff --check 零格式问题",
+    "blackbox": "tests/integration/connector/discovery-cache.test.ts 10 项行为验收用例全部通过，覆盖读写与重启保留、命名空间隔离、超时崩溃丢弃 delta、签名覆盖、LRU容量收敛、读写失败降级、密钥拒写、代码hash升级失效、文件损坏丢弃及旧 generation 覆盖保护",
+    "review": "full 级：code_verdict=PASS, test_verdict=PASS, reviewed_scope=2b8a39d7cc117cc4",
+    "ac_evidence": {
+        "AC-001": [
+            "src/main/core/connector/discovery-cache.ts 实现 ConnectorDiscoveryStore 与类型化 schema",
+            "tests/integration/connector/discovery-cache.test.ts 验证写入后后续刷新成功读到 signature、action_id、deployment_id、discovered_at 与 hits"
+        ],
+        "AC-002": [
+            "持久化至 connector-cache.json",
+            "tests/integration/connector/discovery-cache.test.ts 模拟进程重启重建 store 依然能够读出已持久化记录"
+        ],
+        "AC-003": [
+            "src/main/core/connector/discovery-cache.ts 采用 manifest_id:instance_id:code_hash 命名空间",
+            "tests/integration/connector/discovery-cache.test.ts 验证不同 instanceId 相互隔离无法串读"
+        ],
+        "AC-004": [
+            "隔离协议采用执行结果合并 delta 机制，超时/崩溃本轮 delta 自动丢弃",
+            "tests/integration/connector/discovery-cache.test.ts 验证子进程被看门狗强杀后已有持久化数据未被破坏"
+        ],
+        "AC-005": [
+            "相同 key 传入新签名时覆盖既有记录",
+            "tests/integration/connector/discovery-cache.test.ts 验证覆盖写入与新值读取"
+        ],
+        "AC-006": [
+            "src/main/core/connector/discovery-cache.ts 实现条目数、单值字节与总字节三重治理与 LRU 淘汰",
+            "tests/integration/connector/discovery-cache.test.ts 验证单值超限拒写及 LRU 自动逐出"
+        ],
+        "AC-007": [
+            "持久化写盘异常时降级为内存缓存并记录警告",
+            "tests/integration/connector/discovery-cache.test.ts 验证写失败路径不抛异常且内存缓存仍可读写"
+        ],
+        "AC-008": [
+            "src/main/core/connector/discovery-cache.ts 实现 is_secret_refused 拦截敏感词与 vault 明文保护值",
+            "tests/integration/connector/discovery-cache.test.ts 验证 key 命中 secret 或 value 包含 secret 被拒绝且未落盘"
+        ],
+        "AC-009": [
+            "命名空间内置脚本代码 SHA-256 哈希",
+            "tests/integration/connector/discovery-cache.test.ts 验证代码修改后新命名空间无法命中旧记录"
+        ],
+        "AC-010": [
+            "加载时校验 JSON 与 schema_version，损坏文件自动丢弃重建",
+            "tests/integration/connector/discovery-cache.test.ts 验证非合法 JSON 文件被丢弃且后续正常写入合法文件"
+        ],
+        "AC-011": [
+            "merge_delta 比较 generation / epoch，过期写回被跳过",
+            "tests/integration/connector/discovery-cache.test.ts 验证旧 generation 写入不覆盖新 generation 记录"
+        ]
+    },
+    "pending": [],
+    "findings": []
+}

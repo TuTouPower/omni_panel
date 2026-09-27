@@ -7,6 +7,7 @@ import {
 } from "../execution-budget";
 import type { Manifest } from "../../../../shared/schemas/manifest";
 import type { VaultBackend } from "../../vault/vault-backend";
+import type { ConnectorDiscoveryEntry } from "../host-io";
 
 export interface WorkerTaskPayload {
     readonly id: string;
@@ -16,6 +17,7 @@ export interface WorkerTaskPayload {
     readonly total_ms: number;
     readonly deadline_ms: number;
     readonly generation?: number | undefined;
+    readonly initial_discovery?: Record<string, ConnectorDiscoveryEntry> | undefined;
     readonly params: Record<string, string>;
     readonly instance_id: string;
     readonly proxy_url?: string | undefined;
@@ -29,6 +31,7 @@ export interface WorkerResponsePayload {
     readonly error?: string | undefined;
     readonly error_code?: "BUDGET_EXHAUSTED" | "TERMINATED" | "COOLDOWN" | null | undefined;
     readonly metrics?: { requests: number; bytes: number } | undefined;
+    readonly discovery_delta?: Record<string, ConnectorDiscoveryEntry | null> | undefined;
 }
 
 // 模拟 Vault 内存后端（凭据已在主进程解密并通过受保护的 IPC 参数送达隔离进程）
@@ -55,12 +58,17 @@ async function handle_task(task: WorkerTaskPayload): Promise<WorkerResponsePaylo
 
     const budget = create_execution_budget_from_deadline(task.deadline_ms, task.total_ms);
     const vault = create_worker_vault(task.params);
+    const discovery_delta: Record<string, ConnectorDiscoveryEntry | null> = {};
     const ctx = create_connector_context(task.manifest, vault, task.instance_id, {
         params: task.params,
         budget,
         deadline_ms: task.deadline_ms,
         total_ms: task.total_ms,
         generation: task.generation,
+        initial_discovery: task.initial_discovery,
+        on_discovery_delta: (d) => {
+            Object.assign(discovery_delta, d);
+        },
         ...(task.proxy_url ? { proxy_url: task.proxy_url } : {}),
         ...(task.endpoint_overrides ? { endpoint_overrides: task.endpoint_overrides } : {}),
     });
@@ -80,6 +88,7 @@ async function handle_task(task: WorkerTaskPayload): Promise<WorkerResponsePaylo
             error: result.error ?? undefined,
             error_code: result.error_code,
             metrics: result.metrics,
+            discovery_delta,
         };
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

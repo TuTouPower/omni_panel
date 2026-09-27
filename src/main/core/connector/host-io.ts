@@ -51,7 +51,7 @@ export interface ConnectorContext {
     readonly remaining_ms: () => number;
     readonly metrics: ConnectorExecutionMetrics;
     readonly pool: ConnectorPool;
-    readonly discovery?: ConnectorDiscoveryContext | undefined;
+    readonly discovery: ConnectorDiscoveryContext;
     readonly log: {
         debug(message: string, meta?: unknown): void;
         info(message: string, meta?: unknown): void;

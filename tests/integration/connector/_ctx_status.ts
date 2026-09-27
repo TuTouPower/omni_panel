@@ -45,4 +45,9 @@ export const ctx_budget_stub = {
         },
         all: () => Promise.resolve([]),
     },
+    discovery: {
+        get: () => Promise.resolve(null),
+        set: () => Promise.resolve(),
+        delete: () => Promise.resolve(),
+    },
 };

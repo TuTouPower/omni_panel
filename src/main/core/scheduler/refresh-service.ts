@@ -22,6 +22,11 @@ import { execute_probe } from "../connector/probe-executor";
 import { run_connector, is_non_retryable_error } from "../connector/runtime";
 import { run_connector_isolated } from "../connector/isolated-process-runner";
 import {
+    create_connector_discovery_store,
+    type ConnectorDiscoveryStore,
+} from "../connector/discovery-cache";
+import { get_connector_cache_path } from "../paths";
+import {
     create_execution_budget,
     BudgetExhaustedError,
     TerminatedError,
@@ -56,6 +61,7 @@ export interface RefreshServiceDeps {
         credential_changed: boolean;
     }>;
     resolve_proxy_url?: (config: AppConfiguration) => string | undefined;
+    discovery_store?: ConnectorDiscoveryStore | undefined;
     /** Test seam: override the connector executor to assert call counts. */
     execute_connector?: (
         connector_config: ConnectorConfiguration,
@@ -66,6 +72,7 @@ export interface RefreshServiceDeps {
         reset?: boolean,
         budget?: ExecutionBudget,
         generation?: number,
+        discovery_store?: ConnectorDiscoveryStore,
     ) => Promise<{
         observations: Observation[];
         failed_accounts: FailedAccount[];
@@ -227,6 +234,7 @@ async function execute_connector(
     reset?: boolean,
     budget?: ExecutionBudget,
     generation?: number,
+    discovery_store?: ConnectorDiscoveryStore,
 ): Promise<{
     observations: Observation[];
     failed_accounts: FailedAccount[];
@@ -252,6 +260,7 @@ async function execute_connector(
         params,
         budget: exec_budget,
         generation,
+        discovery_store,
         ...(proxy_url ? { proxy_url } : {}),
         ...(trace_id ? { trace_id } : {}),
         ...(reset !== undefined ? { reset } : {}),
@@ -275,6 +284,7 @@ async function execute_connector(
                       compiled_code: compiled,
                       budget: exec_budget,
                       generation,
+                      discovery_store,
                       params,
                       instance_id: connector_config.instanceId,
                       proxy_url,
@@ -333,6 +343,8 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
     let lock_seq = 0;
     const LOCK_TIMEOUT_MS = REFRESH_LOCK_TIMEOUT_MS;
     const run_connector = deps.execute_connector ?? execute_connector;
+    const discovery_store =
+        deps.discovery_store ?? create_connector_discovery_store(get_connector_cache_path());
 
     function is_locked(instanceId: string): boolean {
         const lock = locks.get(instanceId);
@@ -442,6 +454,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                         force_fresh_connection,
                         budget,
                         generation,
+                        discovery_store,
                     );
 
                     if (active_generations.get(instanceId) !== generation) {

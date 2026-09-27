@@ -20,7 +20,7 @@
 - `ctx.remaining_ms(): number`：当前执行的剩余预算毫秒数。
 - `ctx.metrics: { requests: number, bytes: number }`：宿主计数的请求发起次数与 UTF-8 解码后字节数。
 - `ctx.pool: ConnectorPool`：增量并发原语（`map(items, worker, opts)` / `all`），在途请求数不超过宿主上限，支持 `stop()` 或 generator `break` 提前停止并中断批内请求，且允许后续请求（如用量 POST）继续执行。
-- `ctx.discovery?: ConnectorDiscoveryContext`：类型化发现结果缓存（t529 接入），记录 `{signature, action_id, deployment_id, discovered_at, hits}`。
+- `ctx.discovery: ConnectorDiscoveryContext`：类型化发现结果缓存（t529），记录 `{signature, action_id, deployment_id, discovered_at, hits}`，命名空间含 `code_hash`。
 - `ctx.http.get_json/post_json(endpoint_key, path[, body], opts?)` → `unknown`；`get_raw(endpoint_key, path, opts?)` → `{status, headers(全小写), body}`。`opts = {headers?, timeout_ms?, reset?}`。
 - `opts.timeout_ms`：只能缩小不能放大，实际超时收敛为 `min(opts.timeout_ms, ctx.remaining_ms())`。
 - `opts.reset`：跳过 undici 全局连接池，强制新建 TCP+TLS 连接。由 refresh-service 在连续两次连接级错误后自动注入，连接器脚本一般不需直接使用。
@@ -43,6 +43,7 @@
 - **编译**：`typescript.transpileModule`（CommonJS/ES2022），非 esbuild，**无 SHA-256 缓存**。编译前正则剥 `import type`/`declare const`；含 `import`/`export` 语句即抛错；包裹成 `(async()=>{...; if(typeof main==="function") return await main();})()`。
 - **执行预算与协作取消（t528）**：废除单值 `DEFAULT_TIMEOUT_MS`，采用单一执行预算模型（`DEFAULT_EXECUTION_BUDGET_MS = 15_000`）。一次刷新的多次重试共享同一预算，跨 retry 连续消耗不重置。软截止通过 `ctx.signal` 驱动脚本协作退出，结算为 `BUDGET_EXHAUSTED`；软截止后未返回时隔离宿主硬上限（+1500ms grace）看门狗强制杀灭并结算为 `TERMINATED`。同实例并发通过 generation / epoch 保证旧执行结果不覆盖较新执行。
 - **宿主强制有界并发与计数（t528）**：宿主层对每执行施加请求限流闸门（`MAX_HOST_CONCURRENCY = 6`），脚本裸循环亦被限流；执行完成或取消后清理全部在途排队请求。发起请求数与 UTF-8 解码字节数准确回传至 `ConnectorRunResult.metrics`。
+- **类型化发现结果缓存（t529）**：宿主定义结构 `{signature, action_id, deployment_id, discovered_at, hits}` 与格式版本（1）；命名空间为 `manifest_id:instance_id:code_hash`，脚本代码变更自动失效隔离旧记录。隔离协议采用快照下发 + 执行后写回 delta 机制，合并点唯一在宿主；执行超时或崩溃丢弃本轮 delta 保留已有记录；旧 generation 写回不得覆盖较新记录；具备条目数/总字节/单 value 三重容量治理与 LRU 淘汰；强制拒绝写入 secret 键或值。落盘文件为 `dataRoot/connector-cache.json`，原子写与损坏自动丢弃。
 - **能力分发**（`refresh-service.execute_connector`）：有 `script` → 跑脚本；否则 `poll` → `tier1-poll-executor`（宿主发 HTTP，`resolve_json_path` 取 `map`，盖 `observed_at`/`source:"poll"`）；否则 `observe.probe` → `probe-executor`（取响应头，`source:"probe"`）；否则报错。`local`/`session` 无独立 executor——都靠 script 分支 + `ctx.files`/vault cookie。
 - **observedAt 盖章**：poll/probe 路径宿主 `Date.now()`；script 路径脚本自填。`source_instance_id` 一律宿主盖（= `connector_config.instanceId`）。
 - **secret 注入**：`build_params` 仅 `exposeToScript:true` 的 secret 从 vault 取明文进 `ctx.params`；其余 secret 走 `ctx.http` 宿主侧 `apply_request_auth`（bearer/header/query），脚本看不到。

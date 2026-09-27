@@ -10,6 +10,7 @@ import {
     HARD_WATCHDOG_GRACE_MS,
     type ExecutionBudget,
 } from "./execution-budget";
+import { compute_discovery_namespace, type ConnectorDiscoveryStore } from "./discovery-cache";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { ConnectorRunResult } from "./runtime";
 import type { WorkerTaskPayload, WorkerResponsePayload } from "./worker/connector-worker-entry";
@@ -25,6 +26,7 @@ export interface RunIsolatedOptions {
     readonly total_ms?: number | undefined;
     readonly timeout_ms?: number | undefined;
     readonly generation?: number | undefined;
+    readonly discovery_store?: ConnectorDiscoveryStore | undefined;
     readonly params?: Record<string, string> | undefined;
     readonly instance_id?: string | undefined;
     readonly proxy_url?: string | undefined;
@@ -269,11 +271,26 @@ export async function run_connector_isolated(
             });
         });
 
+        const namespace = compute_discovery_namespace(
+            options.manifest.id,
+            options.instance_id ?? "default",
+            options.script_code,
+        );
+        const initial_discovery = options.discovery_store?.get_snapshot(namespace);
+
         // 监听子进程返回消息
         handle.onMessage((raw: unknown) => {
             if (!raw || typeof raw !== "object") return;
             const res = raw as WorkerResponsePayload;
             if (res.id !== task_id) return;
+
+            if (res.discovery_delta && options.discovery_store) {
+                void options.discovery_store.merge_delta(
+                    namespace,
+                    res.discovery_delta,
+                    options.generation,
+                );
+            }
 
             if (res.ok && res.result) {
                 finish(res.result as ConnectorRunResult);
@@ -297,6 +314,7 @@ export async function run_connector_isolated(
             total_ms: budget.total_ms,
             deadline_ms: budget.deadline_ms,
             generation: options.generation,
+            initial_discovery,
             params: options.params ?? {},
             instance_id: options.instance_id ?? "default",
             proxy_url: options.proxy_url,

@@ -22,7 +22,18 @@ import {
 import { get_proxy_agent } from "../network/proxy-pool";
 import type { Manifest } from "../../../shared/schemas/manifest";
 import type { VaultBackend } from "../vault/vault-backend";
-import type { ConnectorContext, ConnectorExecutionMetrics, HttpOpts } from "./host-io";
+import type {
+    ConnectorContext,
+    ConnectorExecutionMetrics,
+    ConnectorDiscoveryContext,
+    ConnectorDiscoveryEntry,
+    HttpOpts,
+} from "./host-io";
+import {
+    compute_discovery_namespace,
+    is_secret_refused,
+    type ConnectorDiscoveryStore,
+} from "./discovery-cache";
 import {
     create_execution_budget,
     create_execution_budget_from_deadline,
@@ -88,6 +99,13 @@ export interface NetClientConfig {
     readonly total_ms?: number | undefined;
     readonly timeout_ms?: number | undefined;
     readonly generation?: number | undefined;
+    readonly script_code?: string | undefined;
+    readonly discovery_store?: ConnectorDiscoveryStore | undefined;
+    readonly initial_discovery?: Record<string, ConnectorDiscoveryEntry> | undefined;
+    readonly on_discovery_delta?:
+        | ((delta: Record<string, ConnectorDiscoveryEntry | null>) => void)
+        | undefined;
+    readonly vault_secrets?: ReadonlySet<string> | undefined;
     readonly params?: Record<string, string> | undefined;
     readonly trace_id?: string | undefined;
     /** 跳过连接池，强制新建 TCP+TLS 连接。所有请求共享此设置。 */
@@ -354,6 +372,69 @@ export function create_connector_context(
     const limiter = new HostConcurrencyLimiter(max_concurrency);
     const pool = create_connector_pool(host_ac.signal, max_concurrency);
 
+    const vault_secrets = new Set<string>(config.vault_secrets ?? []);
+    if (config.params) {
+        for (const param_def of manifest.parameters) {
+            if (param_def.type === "secret") {
+                const val = config.params[param_def.name];
+                if (val && typeof val === "string" && val.length >= 4) {
+                    vault_secrets.add(val);
+                }
+            }
+        }
+    }
+
+    let discovery: ConnectorDiscoveryContext;
+    if (config.discovery_store) {
+        const store = config.discovery_store;
+        const ns = config.script_code
+            ? compute_discovery_namespace(manifest.id, instance_id, config.script_code)
+            : "";
+        discovery = {
+            get: (key: string) => store.get(ns, key),
+            set: async (key: string, entry: ConnectorDiscoveryEntry) => {
+                if (is_secret_refused(key, entry, vault_secrets)) {
+                    return;
+                }
+                await store.set(ns, key, entry, config.generation);
+            },
+            delete: (key: string) => store.delete(ns, key),
+        };
+    } else {
+        const local_snapshot: Record<string, ConnectorDiscoveryEntry> = {
+            ...(config.initial_discovery ?? {}),
+        };
+        const local_delta: Record<string, ConnectorDiscoveryEntry | null> = {};
+
+        discovery = {
+            get: (key: string) => {
+                const item = local_snapshot[key];
+                if (!item) return Promise.resolve(null);
+                const updated = { ...item, hits: (item.hits ?? 0) + 1 };
+                local_snapshot[key] = updated;
+                local_delta[key] = updated;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve({ ...updated });
+            },
+            set: (key: string, entry: ConnectorDiscoveryEntry) => {
+                if (is_secret_refused(key, entry, vault_secrets)) {
+                    return Promise.resolve();
+                }
+                const record = { ...entry };
+                local_snapshot[key] = record;
+                local_delta[key] = record;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve();
+            },
+            delete: (key: string) => {
+                Reflect.deleteProperty(local_snapshot, key);
+                local_delta[key] = null;
+                config.on_discovery_delta?.(local_delta);
+                return Promise.resolve();
+            },
+        };
+    }
+
     type RawResponse = Awaited<ReturnType<typeof undici_request>>;
     type ResponseHeaders = Record<string, string | string[] | undefined>;
 
@@ -610,6 +691,7 @@ export function create_connector_context(
         remaining_ms: () => budget.remaining_ms(),
         metrics,
         pool,
+        discovery,
         log: {
             debug: (message: string, meta?: unknown) => {
                 connector_log.debug(`[${manifest.id}] ${message}`, meta);
