@@ -235,7 +235,7 @@ export function AddAccountDialog({
         try {
             const params: AddAccountParams = {
                 vendor_id,
-                account_name: account_name || vendor_label,
+                account_name: account_name.trim(),
                 auth_method,
                 parameter_values: {},
                 secrets: {},
@@ -280,7 +280,6 @@ export function AddAccountDialog({
         auth_descriptor,
         selected_connector,
         selected_manifest_id,
-        vendor_label,
         saving,
         form_handles_save,
         is_local_cli_invalid,

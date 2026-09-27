@@ -49,7 +49,7 @@ export function ExaServiceKeyForm({
             }
             await on_save({
                 vendor_id,
-                account_name: account_name || "Exa",
+                account_name: account_name.trim(),
                 auth_method: "apikey",
                 parameter_values,
                 secrets: { [secret_name]: service_key.trim() },

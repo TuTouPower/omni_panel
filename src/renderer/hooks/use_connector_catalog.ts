@@ -67,7 +67,7 @@ export async function create_instance_and_save(
             params.secrets,
             params.endpoint_overrides ?? {},
             0,
-            params.account_name,
+            params.account_name.trim(),
             true,
             latest.config,
         );
@@ -108,6 +108,6 @@ export async function create_instance_and_save(
     }
     return {
         instanceId: created.instanceId,
-        pluginName: params.account_name,
+        pluginName: params.account_name.trim() || undefined,
     };
 }

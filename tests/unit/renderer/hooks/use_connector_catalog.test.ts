@@ -213,4 +213,24 @@ describe("create_instance_and_save", () => {
         expect(api.kimi_logout).toHaveBeenCalledWith("kimi-temp-instance");
         expect(api.grok_logout).not.toHaveBeenCalled();
     });
+
+    it("t531 AC-001: account_name 为空时不写入 displayName", async () => {
+        install_api();
+        const save_plugin_settings = vi.fn().mockResolvedValue(undefined);
+        const params = make_params({ account_name: "   " });
+
+        const result = await create_instance_and_save(params, save_plugin_settings);
+
+        expect(result).toEqual({ instanceId: "real-instance", pluginName: undefined });
+        expect(save_plugin_settings).toHaveBeenCalledWith(
+            "real-instance",
+            {},
+            params.secrets,
+            {},
+            0,
+            "",
+            true,
+            config,
+        );
+    });
 });

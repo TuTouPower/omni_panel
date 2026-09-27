@@ -106,7 +106,7 @@ describe("GrokBotPkceForm", () => {
             expect(on_save).toHaveBeenCalledWith(
                 expect.objectContaining({
                     vendor_id: "grok_bot",
-                    account_name: "Grok Bot",
+                    account_name: "",
                     auth_method: "oauth_pkce",
                     secrets: {
                         ACCESS_TOKEN: "manual-jwt-123",
@@ -156,7 +156,8 @@ describe("GrokBotPkceForm", () => {
         expect(api.login_cancel).toHaveBeenCalledWith("inst_unmount");
     });
 
-    it("trims whitespace-only account name and falls back to default Grok Bot (A53)", async () => {
+    // t531 AC-001: whitespace-only account name trims to empty string and does not fall back to Grok Bot
+    it("t531 AC-001: trims whitespace-only account name and saves as empty string without fallback (t531)", async () => {
         const user = userEvent.setup();
         const api = mock_grok_bot_api();
         const on_save = vi.fn().mockResolvedValue(undefined);
@@ -176,7 +177,7 @@ describe("GrokBotPkceForm", () => {
             expect(api.login_poll).toHaveBeenCalled();
             expect(on_save).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    account_name: "Grok Bot",
+                    account_name: "",
                 } satisfies Partial<AddAccountParams>),
             );
         });

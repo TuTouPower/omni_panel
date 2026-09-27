@@ -31,7 +31,7 @@ export function WebLoginForm({
         async (secrets: Record<string, string>) => {
             await on_save({
                 vendor_id: provider,
-                account_name: account_name || provider,
+                account_name: account_name.trim(),
                 auth_method: "web_login",
                 parameter_values: {},
                 secrets,
