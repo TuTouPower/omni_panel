@@ -41,6 +41,8 @@ export interface PopupWindowHandle {
     isDestroyed(): boolean;
     getBounds(): BoundsLike;
     setBounds(bounds: BoundsLike): void;
+    setMinimumSize?(width: number, height: number): void;
+    setMaximumSize?(width: number, height: number): void;
 }
 
 export interface PopupAnchorContext {
@@ -58,18 +60,10 @@ export interface PopupAnchorContext {
  * Content height is rounded up so sub-pixel content is never clipped.
  * Max height is rounded down so the popup never exceeds the work area.
  */
-export function compute_target_height(
-    report: ContentHeightReport,
-    display: DisplayLike,
-    min_preferred_height?: number,
-): number {
+export function compute_target_height(report: ContentHeightReport, display: DisplayLike): number {
     const max_height = Math.floor(display.workArea.height * MAX_HEIGHT_RATIO);
     const min_height = Math.ceil(report.collapsed_min_height);
-    const content_desired = Math.ceil(report.content_height);
-    const desired =
-        min_preferred_height !== undefined
-            ? Math.max(content_desired, min_preferred_height)
-            : content_desired;
+    const desired = Math.ceil(report.content_height);
 
     // When clamp bounds invert (min > max because work area is tiny),
     // honour the max — we must not exceed the work area constraint.
@@ -188,7 +182,8 @@ export interface PopupHeightControllerOptions {
     readonly get_window: () => PopupWindowHandle | null;
     readonly get_display_for_window: (win: PopupWindowHandle) => DisplayLike;
     readonly get_anchor: () => PopupAnchorContext;
-    readonly get_min_preferred_height?: () => number | undefined;
+    readonly lock_height?: () => boolean;
+    readonly min_width?: number;
 }
 
 export interface PopupHeightController {
@@ -220,14 +215,17 @@ export function create_popup_height_controller(
             if (!win || win.isDestroyed()) return null;
 
             const display = options.get_display_for_window(win);
-            const min_pref = options.get_min_preferred_height?.();
-            const target = compute_target_height(report, display, min_pref);
+            const target = compute_target_height(report, display);
+            const current = win.getBounds();
 
-            if (last_applied_height !== null && target === last_applied_height) {
+            if (
+                last_applied_height !== null &&
+                target === last_applied_height &&
+                current.height === target
+            ) {
                 return null;
             }
 
-            const current = win.getBounds();
             const next = apply_locked_size(
                 current,
                 target,
@@ -235,8 +233,23 @@ export function create_popup_height_controller(
                 options.platform,
                 options.get_anchor(),
             );
-            win.setBounds(next);
+
+            const should_lock = options.lock_height?.() ?? true;
+            const min_w = options.min_width ?? 472;
+
+            if (should_lock) {
+                win.setMinimumSize?.(min_w, Math.min(current.height, target));
+                win.setMaximumSize?.(display.workArea.width, Math.max(current.height, target));
+            }
+
             last_applied_height = target;
+            win.setBounds(next);
+
+            if (should_lock) {
+                win.setMinimumSize?.(min_w, target);
+                win.setMaximumSize?.(display.workArea.width, target);
+            }
+
             return target;
         },
         reset() {

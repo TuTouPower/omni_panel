@@ -33,6 +33,7 @@ interface FakeWindow {
     setResizable: ReturnType<typeof vi.fn>;
     setSkipTaskbar: ReturnType<typeof vi.fn>;
     setMinimumSize: ReturnType<typeof vi.fn>;
+    setMaximumSize: ReturnType<typeof vi.fn>;
     setAlwaysOnTop: ReturnType<typeof vi.fn>;
     setVisibleOnAllWorkspaces: ReturnType<typeof vi.fn>;
     showInactive: ReturnType<typeof vi.fn>;
@@ -76,6 +77,7 @@ function make_window(): FakeWindow {
         }),
         setSkipTaskbar: vi.fn(),
         setMinimumSize: vi.fn(),
+        setMaximumSize: vi.fn(),
         setAlwaysOnTop: vi.fn(),
         setVisibleOnAllWorkspaces: vi.fn(),
         showInactive: vi.fn(() => {
@@ -569,8 +571,8 @@ describe("main panel controller", () => {
         });
     });
 
-    describe("popup bounds persistence and content height behavior (p247)", () => {
-        it("persists popup width and height on resize in popup mode without persisting position", () => {
+    describe("popup bounds persistence and content height behavior", () => {
+        it("persists popup width on resize in popup mode without locking height", () => {
             const { controller, windows, saved_configs } = build(
                 { ...base_config, mainPanelMode: "popup" },
                 "darwin",
@@ -579,22 +581,20 @@ describe("main panel controller", () => {
             const win = windows[0];
             if (!win) throw new Error("window missing");
 
-            // 模拟 resize 到 600x650（mock workArea 高度为 720）
-            win.bounds = { ...win.bounds, width: 600, height: 650 };
+            // 模拟 resize 改变宽度到 600
+            win.bounds = { ...win.bounds, width: 600 };
             for (const fn of win.listeners["resize"] ?? []) fn();
 
             const last_config = saved_configs[saved_configs.length - 1];
             expect(last_config?.usagePopupWidth).toBe(600);
-            expect(last_config?.usagePopupHeight).toBe(650);
         });
 
-        it("restores popup width and height from config on open while anchoring to tray", () => {
+        it("restores popup width from config on open while anchoring to tray", () => {
             const { controller, windows } = build(
                 {
                     ...base_config,
                     mainPanelMode: "popup",
                     usagePopupWidth: 550,
-                    usagePopupHeight: 500,
                 },
                 "darwin",
             );
@@ -604,18 +604,16 @@ describe("main panel controller", () => {
             expect(win.setBounds).toHaveBeenCalledWith(
                 expect.objectContaining({
                     width: 550,
-                    height: 500,
                 }),
             );
         });
 
-        it("keeps user resized height when content reports smaller height (e.g. switching tabs)", () => {
-            const { controller, windows } = build(
+        it("dynamically adapts window height when width changes (widening -> shorter, narrowing -> taller)", async () => {
+            const { controller, windows, saved_configs } = build(
                 {
                     ...base_config,
                     mainPanelMode: "popup",
-                    usagePopupWidth: 500,
-                    usagePopupHeight: 650,
+                    usagePopupWidth: 482,
                 },
                 "darwin",
             );
@@ -623,19 +621,73 @@ describe("main panel controller", () => {
             const win = windows[0];
             if (!win) throw new Error("window missing");
 
-            // 模拟 DeepSeek 页签上报较矮的内容高度 280
-            const applied = controller.report_content_height({
-                content_height: 280,
+            // 1. 初始宽度 482 下，内容高度为 500
+            controller.report_content_height({
+                content_height: 500,
                 collapsed_min_height: 150,
             });
+            expect(win.bounds.height).toBe(500);
+            await new Promise((r) => setImmediate(r));
 
-            // 窗口高度应维持用户设定的 650，而不是被压扁成 280
-            expect(applied).toBe(650);
-            expect(win.setBounds).toHaveBeenLastCalledWith(
-                expect.objectContaining({
-                    height: 650,
-                }),
+            // 2. 用户拉宽窗口到 650：内容折行减少，内容高度变矮至 380
+            win.bounds = { ...win.bounds, width: 650 };
+            for (const fn of win.listeners["resize"] ?? []) fn();
+            expect(saved_configs[saved_configs.length - 1]?.usagePopupWidth).toBe(650);
+
+            const applied_wide = controller.report_content_height({
+                content_height: 380,
+                collapsed_min_height: 150,
+            });
+            // 彻底根治：拉宽窗口后，窗口高度变矮为 380，不再被旧高度死锁
+            expect(applied_wide).toBe(380);
+            expect(win.bounds.height).toBe(380);
+            await new Promise((r) => setImmediate(r));
+
+            // 3. 用户缩窄窗口到 472：内容折行增加，内容高度变高至 580
+            win.bounds = { ...win.bounds, width: 472 };
+            for (const fn of win.listeners["resize"] ?? []) fn();
+            expect(saved_configs[saved_configs.length - 1]?.usagePopupWidth).toBe(472);
+
+            const applied_narrow = controller.report_content_height({
+                content_height: 580,
+                collapsed_min_height: 150,
+            });
+            // 缩窄窗口后，窗口高度自动撑大为 580
+            expect(applied_narrow).toBe(580);
+            expect(win.bounds.height).toBe(580);
+        });
+
+        it("locks height to content height and prevents manual vertical resize in popup mode", async () => {
+            const { controller, windows } = build(
+                {
+                    ...base_config,
+                    mainPanelMode: "popup",
+                    usagePopupWidth: 482,
+                },
+                "darwin",
             );
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+
+            // 内容高度上报为 420
+            controller.report_content_height({
+                content_height: 420,
+                collapsed_min_height: 150,
+            });
+            await new Promise((r) => setImmediate(r));
+
+            // 验证 minHeight 与 maxHeight 均被锁定为 420（mock workArea 宽为 1280）
+            expect(win.setMinimumSize).toHaveBeenLastCalledWith(472, 420);
+            expect(win.setMaximumSize).toHaveBeenLastCalledWith(1280, 420);
+            expect(win.bounds.height).toBe(420);
+
+            // 模拟用户或外力试图改变窗口高度为 700
+            win.bounds = { ...win.bounds, height: 700 };
+            for (const fn of win.listeners["resize"] ?? []) fn();
+
+            // 弹窗模式高度强制重置回 expected_height 420，不允许手动拉伸
+            expect(win.bounds.height).toBe(420);
         });
     });
 

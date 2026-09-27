@@ -92,6 +92,7 @@ describe("dock-badge (t488)", () => {
             setAlwaysOnTop: vi.fn(),
             setSkipTaskbar: vi.fn(),
             setMinimumSize: vi.fn(),
+            setMaximumSize: vi.fn(),
             setResizable: vi.fn(),
             setVisibleOnAllWorkspaces: vi.fn(),
             showInactive: vi.fn(),

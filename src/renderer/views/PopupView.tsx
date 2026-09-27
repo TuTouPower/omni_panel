@@ -748,6 +748,9 @@ export function PopupView() {
         const collapsed_map = force_collapse
             ? new Proxy<Record<string, boolean>>({}, { get: () => true })
             : collapsed_accounts;
+        const expanded_map = force_collapse
+            ? new Proxy<Record<string, boolean>>({}, { get: () => false })
+            : expanded_providers;
         const toggle_handler = is_live ? toggle_account : () => undefined;
         return (
             <>
@@ -795,7 +798,7 @@ export function PopupView() {
 
                 {/* scroll body */}
                 <div
-                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-2 pt-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-4 pt-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                     data-testid="popup-scroll"
                     ref={scroll_ref}
                 >
@@ -849,12 +852,10 @@ export function PopupView() {
                                 }}
                                 providerErrors={providerErrors}
                                 onRefreshProvider={is_live ? refreshProvider : () => undefined}
-                                expandedProviders={is_live ? expanded_providers : undefined}
-                                onToggleExpandProvider={
-                                    is_live ? toggle_expand_provider : undefined
-                                }
-                                l2OpenProviders={is_live ? l2open_providers : undefined}
-                                onToggleL2Open={is_live ? toggle_l2open : undefined}
+                                expandedProviders={expanded_map}
+                                onToggleExpandProvider={toggle_expand_provider}
+                                l2OpenProviders={force_collapse ? {} : l2open_providers}
+                                onToggleL2Open={toggle_l2open}
                                 onReLogin={
                                     is_live
                                         ? (p, instanceId) => {
@@ -863,7 +864,7 @@ export function PopupView() {
                                         : undefined
                                 }
                                 draggingProvider={is_live ? drag_id : null}
-                                onDragStart={is_live ? handle_drag_start : undefined}
+                                onDragStart={handle_drag_start}
                                 onDragOver={is_live ? handle_drag_over : undefined}
                                 onDragEnd={is_live ? handle_drag_end : undefined}
                                 refreshingProviders={is_live ? refresh_providers : undefined}
@@ -937,7 +938,7 @@ export function PopupView() {
                                         Total Tokens
                                     </span>
                                 }
-                                collapsed={is_live ? token_panel_collapsed : false}
+                                collapsed={force_collapse ? true : token_panel_collapsed}
                                 collapsible={is_live}
                                 onToggle={
                                     is_live

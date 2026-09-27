@@ -18,6 +18,7 @@ export type WindowLike = Pick<
     | "setAlwaysOnTop"
     | "setBounds"
     | "setMinimumSize"
+    | "setMaximumSize"
     | "setResizable"
     | "setSkipTaskbar"
     | "setVisibleOnAllWorkspaces"

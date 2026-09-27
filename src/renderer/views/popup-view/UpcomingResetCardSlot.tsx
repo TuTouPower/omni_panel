@@ -34,24 +34,12 @@ export function UpcomingResetCardSlot(props: UpcomingResetCardSlotProps) {
             items={upcomingItems}
             onSelectProvider={is_live ? onSelectProvider : () => undefined}
             desensitizeRemarks={desensitizeRemarks}
-            expanded={is_live && !force_collapse ? expanded : false}
-            onToggleExpand={is_live ? onToggleExpand : undefined}
+            expanded={force_collapse ? false : expanded}
+            onToggleExpand={onToggleExpand}
             dragging={is_live && drag_id === UPCOMING_RESET_CARD_ID}
-            onDragStart={
-                is_live
-                    ? (rect) => {
-                          onDragStart(rect);
-                      }
-                    : undefined
-            }
-            onDragOver={
-                is_live
-                    ? (clientX, clientY, rect) => {
-                          onDragOver(clientX, clientY, rect);
-                      }
-                    : undefined
-            }
-            onDragEnd={is_live ? onDragEnd : undefined}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
         />
     );
 }

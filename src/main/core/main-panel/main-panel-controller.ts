@@ -86,6 +86,8 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
     function build_height_controller(target: WindowLike): PopupHeightController {
         return create_popup_height_controller({
             platform: deps.platform,
+            min_width: USAGE_MIN_WIDTH,
+            lock_height: () => mode === "popup",
             get_window: () => {
                 if (target.isDestroyed()) return null;
                 return {
@@ -100,6 +102,16 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                             suppress_tokens.delete(token);
                         });
                     },
+                    setMinimumSize: (width, height) => {
+                        if (!target.isDestroyed()) {
+                            target.setMinimumSize(width, height);
+                        }
+                    },
+                    setMaximumSize: (width, height) => {
+                        if (!target.isDestroyed()) {
+                            target.setMaximumSize(width, height);
+                        }
+                    },
                 };
             },
             get_display_for_window: () => deps.get_display_for_bounds(target.getBounds()),
@@ -107,10 +119,6 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 tray_bounds: deps.get_tray_bounds(),
                 user_moved: mode === "floating",
             }),
-            get_min_preferred_height: () => {
-                if (mode === "floating") return undefined;
-                return deps.get_config().usagePopupHeight;
-            },
         });
     }
 
@@ -141,15 +149,15 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         const bounds = target.getBounds();
         const display = deps.get_display_for_bounds(bounds);
         const width = clamp(bounds.width, USAGE_MIN_WIDTH, display.workArea.width);
-        const height = clamp(bounds.height, 160, display.workArea.height);
         const config = deps.get_config();
-        if (config.usagePopupWidth === width && config.usagePopupHeight === height) {
+        if (config.usagePopupWidth === width && config.usagePopupHeight === undefined) {
             return;
         }
+        const clean_config = { ...config };
+        delete clean_config.usagePopupHeight;
         deps.save_config({
-            ...config,
+            ...clean_config,
             usagePopupWidth: width,
-            usagePopupHeight: height,
         });
     }
 
@@ -162,13 +170,11 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
         const work = display.workArea;
 
         const saved_width = config.usagePopupWidth;
-        const saved_height = config.usagePopupHeight;
         const width =
             saved_width !== undefined
                 ? clamp(saved_width, USAGE_MIN_WIDTH, work.width)
                 : current.width;
-        const height =
-            saved_height !== undefined ? clamp(saved_height, 160, work.height) : current.height;
+        const height = height_controller?.last_applied_height() ?? current.height;
 
         const x = Math.round(tray_bounds.x + tray_bounds.width / 2 - width / 2);
         const y = Math.round(tray_bounds.y + tray_bounds.height + 4);
@@ -181,6 +187,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 width,
                 height,
             });
+            if (mode === "popup") {
+                target.setMinimumSize(USAGE_MIN_WIDTH, height);
+                target.setMaximumSize(work.width, height);
+            }
         } finally {
             suppress_tokens.delete(token);
         }
@@ -224,6 +234,7 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             // t368 AC-001: 先 setMinimumSize 再 setBounds——否则创建瞬间 BrowserWindow
             // minWidth（window-manager usage=472）会把首次 460 抬升。
             target.setMinimumSize(MIN_FLOATING_WIDTH, 240);
+            target.setMaximumSize(0, 0);
             target.setBounds({
                 ...bounds,
                 // 浮窗恢复宽度按浮窗语义 clamp（MIN_FLOATING_WIDTH=320），首次默认
@@ -238,28 +249,39 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
                 save_floating_bounds(target);
             });
         } else {
-            // t495 & p247: 先设最小宽高，若有保存的 usagePopupWidth/usagePopupHeight 则预设 target bounds，
-            // 确保无 tray_bounds 场景下也能恢复尺寸；position_popup 时再按工作区 clamp 定位。
+            // t495: 先设最小宽度，若有保存的 usagePopupWidth 则预设 target bounds，
+            // 确保无 tray_bounds 场景下也能恢复宽度；position_popup 时再按工作区 clamp 定位。
             target.setMinimumSize(USAGE_MIN_WIDTH, 160);
             const saved_width = deps.get_config().usagePopupWidth;
-            const saved_height = deps.get_config().usagePopupHeight;
-            if (saved_width !== undefined || saved_height !== undefined) {
+            if (saved_width !== undefined) {
                 const current = target.getBounds();
                 const display = deps.get_display_for_bounds(current);
-                const width =
-                    saved_width !== undefined
-                        ? clamp(saved_width, USAGE_MIN_WIDTH, display.workArea.width)
-                        : current.width;
-                const height =
-                    saved_height !== undefined
-                        ? clamp(saved_height, 160, display.workArea.height)
-                        : current.height;
-                target.setBounds({ ...current, width, height });
+                const width = clamp(saved_width, USAGE_MIN_WIDTH, display.workArea.width);
+                target.setBounds({ ...current, width });
             }
             position_popup(target);
             target.setResizable(true);
+            const initial_bounds = target.getBounds();
+            const initial_display = deps.get_display_for_bounds(initial_bounds);
+            // 弹窗模式：高度只允许随内容自动伸缩，禁止用户手动拉伸高度
+            // 锁定当前高度为 min/max，仅允许横向拉伸宽度
+            target.setMinimumSize(USAGE_MIN_WIDTH, initial_bounds.height);
+            target.setMaximumSize(initial_display.workArea.width, initial_bounds.height);
+
             target.on("resize", () => {
-                save_popup_bounds(target);
+                if (mode === "popup") {
+                    if (suppress_tokens.size > 0 || target.isDestroyed()) return;
+                    const bounds = target.getBounds();
+                    const expected_height = height_controller?.last_applied_height();
+                    if (
+                        expected_height !== null &&
+                        expected_height !== undefined &&
+                        bounds.height !== expected_height
+                    ) {
+                        target.setBounds({ ...bounds, height: expected_height });
+                    }
+                    save_popup_bounds(target);
+                }
             });
             // p258 真解：popup 点外部收起不能靠 app 焦点事件（外部应用/
             // 桌面到不了本进程），靠失 key。即便 darwin 非激活 NSPanel，

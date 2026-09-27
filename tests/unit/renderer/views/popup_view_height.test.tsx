@@ -603,4 +603,26 @@ describe("PopupView collapse + height report", () => {
             { timeout: 3_000 },
         );
     });
+
+    it("mirrors l2Open multi-account expansion so mirror renders account detail", async () => {
+        render(<PopupView />);
+        await waitFor(() => {
+            expect(screen.getAllByText("2账号").length).toBeGreaterThan(0);
+        });
+
+        const l2_btn = screen
+            .getAllByText("2账号")
+            .find((el) => !el.closest('[aria-hidden="true"]'));
+        expect(l2_btn).toBeDefined();
+        if (!l2_btn) throw new Error("l2 button missing");
+
+        fireEvent.click(l2_btn);
+
+        await waitFor(() => {
+            const mirror = document.querySelector('[data-popup="mirror"]');
+            expect(mirror).not.toBeNull();
+            expect(mirror?.textContent).toContain("Account A");
+            expect(mirror?.textContent).toContain("Account B");
+        });
+    });
 });
