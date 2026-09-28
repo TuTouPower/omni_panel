@@ -282,6 +282,11 @@ export async function trySilentCookieRefresh(
         return NO_SILENT_REFRESH;
     }
     const is_kimi_web = def.manifest.provider === "kimi_web";
+    const is_flowercloud = def.manifest.provider === "flowercloud";
+    if (is_flowercloud) {
+        // FlowerCloud 依赖完整会话 DOM，裸 cookie 覆盖会擦除已存 HTML，跳过纯 cookie 静默刷新
+        return NO_SILENT_REFRESH;
+    }
     const cookie_names = def.manifest.cookieNames ?? [];
     if (!cookie_names.length) {
         log.debug(`Silent refresh: ${instanceId} declares no cookieNames, skipping`);

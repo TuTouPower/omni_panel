@@ -231,7 +231,7 @@ describe("flowercloud connector", () => {
         }
     });
 
-    it("gracefully falls back to cached_html when live fetch is challenged by Cloudflare", async () => {
+    it("uses session DOM directly", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("flowercloud manifest missing");
 
@@ -252,6 +252,24 @@ describe("flowercloud connector", () => {
         expect(result.observations).toHaveLength(1);
         expect(result.observations[0]?.used).toBe(297.11);
         expect(result.observations[0]?.limit).toBe(1000);
+    });
+
+    it("throws challenge error when blocked by Cloudflare turnstile and no session DOM is provided", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const ctx = create_ctx({
+            cookie: "cf_clearance=abc; PHPSESSID=xyz",
+            clientarea_body: "Just a moment...",
+            clientarea_status: 403,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).not.toBeNull();
+        expect(result.error).toContain("Cloudflare");
+        if (result.error) {
+            expect(is_auth_error(result.error)).toBe(true);
+        }
     });
 
     it("throws recognized auth error when HTTP 401 is returned", async () => {

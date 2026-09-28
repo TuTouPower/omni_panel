@@ -26,6 +26,8 @@ export interface SessionWindow {
      * （SPA 把 refresh_token 写在 localStorage，见 d060）。缺省表示宿主不支持。
      */
     read_local_storage?(key: string): Promise<string | null>;
+    /** 读取登录窗或后台会话窗口当前页面的 DOM HTML。 */
+    read_html?(): Promise<string | null>;
 }
 
 export interface SessionController {
@@ -37,6 +39,7 @@ export interface SessionController {
         }) => void,
     ): void;
     get_cookies(url: string): Promise<SessionCookie[]>;
+    set_cookie?(url: string, name: string, value: string, domain?: string): Promise<void>;
 }
 
 export interface SessionManagerDeps {
@@ -156,6 +159,9 @@ export function create_session_manager(
             let refresh_token_read: Promise<void> | null = null;
             let timeout: ReturnType<typeof setTimeout> | null = null;
             let auto_close_timer: ReturnType<typeof setTimeout> | null = null;
+            let flower_poll: ReturnType<typeof setInterval> | null = null;
+            let captured_html: string | null = null;
+            let flowercloud_inspecting = false;
             let completed = false;
 
             return new Promise<LoginResult>((resolve, reject) => {
@@ -167,6 +173,10 @@ export function create_session_manager(
                     if (auto_close_timer) {
                         clearTimeout(auto_close_timer);
                         auto_close_timer = null;
+                    }
+                    if (flower_poll) {
+                        clearInterval(flower_poll);
+                        flower_poll = null;
                     }
                 }
 
@@ -216,6 +226,52 @@ export function create_session_manager(
                             refresh_token_read = null;
                         }
                     })();
+                }
+
+                async function inspect_flowercloud_page(): Promise<void> {
+                    if (
+                        request.provider !== "flowercloud" ||
+                        !window.read_html ||
+                        window.isDestroyed() ||
+                        completed ||
+                        flowercloud_inspecting
+                    ) {
+                        return;
+                    }
+                    flowercloud_inspecting = true;
+                    try {
+                        const html = await window.read_html();
+                        if (!html) return;
+
+                        // 若在客户区主页且检测到产品详情链接，自动跟进至详情页
+                        const product_match =
+                            /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
+                            /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
+
+                        if (product_match?.[1] && !/(?:流量使用|\d+(\.\d+)?GB\s*\/)/i.test(html)) {
+                            const service_id = product_match[1];
+                            log.info(
+                                `FlowerCloud: Auto-navigating to productdetails: id=${service_id}`,
+                            );
+                            await window.loadURL(
+                                `https://api-flowercloud.com/clientarea.php?action=productdetails&id=${service_id}`,
+                            );
+                            return;
+                        }
+
+                        // 检测页面是否已呈现流量数据
+                        if (/(?:流量使用|\d+(\.\d+)?GB\s*\/)/i.test(html)) {
+                            log.info(`FlowerCloud: Live traffic DOM captured successfully`);
+                            captured_html = html;
+                            if (request.close_when_credential_refreshed || request.hidden) {
+                                window.close();
+                            }
+                        }
+                    } catch (err) {
+                        log.debug(`FlowerCloud inspection skipped: ${String(err)}`);
+                    } finally {
+                        flowercloud_inspecting = false;
+                    }
                 }
 
                 /**
@@ -318,6 +374,23 @@ export function create_session_manager(
                     completed = true;
                     clear_timers();
                     try {
+                        if (!captured_cookie && request.provider === "flowercloud") {
+                            const raw = await stored_secret();
+                            if (raw) {
+                                if (raw.startsWith("{")) {
+                                    try {
+                                        const parsed = JSON.parse(raw) as { cookie?: unknown };
+                                        if (typeof parsed.cookie === "string")
+                                            captured_cookie = parsed.cookie;
+                                    } catch {
+                                        // ignore
+                                    }
+                                } else {
+                                    captured_cookie = raw;
+                                }
+                            }
+                        }
+
                         // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
                         if (!captured_cookie) {
                             log.warn(`No matching cookies captured for ${login_id}`);
@@ -359,6 +432,21 @@ export function create_session_manager(
                             await refresh_token_read.catch(() => undefined);
                         }
 
+                        let final_html = captured_html;
+                        if (!final_html && request.provider === "flowercloud") {
+                            const raw = await stored_secret();
+                            if (raw?.startsWith("{")) {
+                                try {
+                                    const parsed = JSON.parse(raw) as { html?: unknown };
+                                    if (typeof parsed.html === "string" && parsed.html) {
+                                        final_html = parsed.html;
+                                    }
+                                } catch {
+                                    // ignore
+                                }
+                            }
+                        }
+
                         const saved_secret =
                             request.provider === "kimi_web"
                                 ? JSON.stringify({
@@ -368,7 +456,13 @@ export function create_session_manager(
                                       device_id: captured_device_id,
                                       refresh_token: captured_refresh_token,
                                   })
-                                : captured_cookie;
+                                : request.provider === "flowercloud"
+                                  ? JSON.stringify({
+                                        cookie: captured_cookie,
+                                        html: final_html,
+                                        captured_at: Date.now(),
+                                    })
+                                  : captured_cookie;
                         if (!instance_id) {
                             log.info("Anonymous session cookie captured");
                             resolve({ saved: true, cookie: saved_secret });
@@ -456,7 +550,8 @@ export function create_session_manager(
                         captured_cookie = selected_cookie;
                         if (
                             request.close_when_credential_refreshed &&
-                            request.provider !== "kimi_web"
+                            request.provider !== "kimi_web" &&
+                            request.provider !== "flowercloud"
                         ) {
                             close_when_credential_refreshed({ cookie: selected_cookie });
                         }
@@ -482,9 +577,59 @@ export function create_session_manager(
                     finish_with_error(new Error("Login timed out"));
                 }, timeout_ms);
 
-                void window.loadURL(request.login_url).catch((error: unknown) => {
-                    finish_with_error(to_error(error));
-                });
+                async function init_session_and_load(): Promise<void> {
+                    if (instance_id && session.set_cookie) {
+                        try {
+                            const raw = await stored_secret();
+                            if (raw) {
+                                let cookie_str = raw;
+                                if (raw.startsWith("{")) {
+                                    try {
+                                        const parsed = JSON.parse(raw) as { cookie?: unknown };
+                                        if (typeof parsed.cookie === "string")
+                                            cookie_str = parsed.cookie;
+                                    } catch {
+                                        // ignore
+                                    }
+                                }
+                                const parts = cookie_str.split(";").map((p) => p.trim());
+                                for (const part of parts) {
+                                    const eq = part.indexOf("=");
+                                    if (eq > 0) {
+                                        const name = part.slice(0, eq).trim();
+                                        const value = part.slice(eq + 1).trim();
+                                        if (name && value) {
+                                            await session.set_cookie(
+                                                request.login_url,
+                                                name,
+                                                value,
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            log.debug(`Failed to pre-set cookies for ${login_id}: ${String(e)}`);
+                        }
+                    }
+
+                    if (request.provider === "flowercloud") {
+                        flower_poll = setInterval(() => {
+                            void inspect_flowercloud_page();
+                        }, 1500);
+                    }
+
+                    try {
+                        await window.loadURL(request.login_url);
+                        if (request.provider === "flowercloud") {
+                            void inspect_flowercloud_page();
+                        }
+                    } catch (error: unknown) {
+                        finish_with_error(to_error(error));
+                    }
+                }
+
+                void init_session_and_load();
             });
         },
         is_login_in_progress(

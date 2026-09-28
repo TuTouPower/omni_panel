@@ -20,6 +20,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 const LOG_LEVELS = new Set<LogLevel>(["debug", "info", "warn", "error"]);
 const MIN_SCRUB_LENGTH = 4;
+const MAX_SCRUB_VALUE_LENGTH = 1024;
 const MAX_SCRUB_VALUES = 10000;
 const REPLACEMENT = "***";
 const SECRET_KEY_PATTERN =
@@ -32,17 +33,21 @@ function rebuild_pattern(): void {
     if (registered_values.size === 0) {
         combined_pattern = null;
     } else {
-        const escaped = Array.from(registered_values).map((v) =>
-            v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        );
-        combined_pattern = new RegExp(escaped.join("|"), "g");
+        try {
+            const escaped = Array.from(registered_values).map((v) =>
+                v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            );
+            combined_pattern = new RegExp(escaped.join("|"), "g");
+        } catch {
+            combined_pattern = null;
+        }
     }
     scrub_dirty = false;
 }
 
 export const scrubber = {
     register(value: string): void {
-        if (value.length < MIN_SCRUB_LENGTH) return;
+        if (value.length < MIN_SCRUB_LENGTH || value.length > MAX_SCRUB_VALUE_LENGTH) return;
         if (registered_values.size >= MAX_SCRUB_VALUES) return;
         registered_values.add(value);
         scrub_dirty = true;

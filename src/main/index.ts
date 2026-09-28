@@ -757,6 +757,13 @@ void app.whenReady().then(async () => {
                         );
                         return typeof value === "string" ? value : null;
                     },
+                    read_html: async (): Promise<string | null> => {
+                        if (window.isDestroyed()) return null;
+                        const value: unknown = await window.webContents.executeJavaScript(
+                            "document.documentElement.outerHTML",
+                        );
+                        return typeof value === "string" ? value : null;
+                    },
                 });
             },
             create_session: (partition) => {
@@ -770,6 +777,22 @@ void app.whenReady().then(async () => {
                                 resource_type: details.resourceType,
                             });
                             callback({ requestHeaders: details.requestHeaders });
+                        });
+                    },
+                    set_cookie: async (
+                        url: string,
+                        name: string,
+                        value: string,
+                        domain?: string,
+                    ) => {
+                        await ses.cookies.set({
+                            url,
+                            name,
+                            value,
+                            ...(domain ? { domain } : {}),
+                            path: "/",
+                            secure: true,
+                            httpOnly: name.startsWith("WHMCS") || name === "cf_clearance",
                         });
                     },
                     async get_cookies(url: string) {

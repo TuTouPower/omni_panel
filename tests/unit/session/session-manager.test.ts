@@ -19,6 +19,7 @@ class MockWindow extends EventEmitter implements SessionWindow {
     readonly local_storage: Record<string, string> = {};
     readonly read_local_storage_keys: string[] = [];
     read_local_storage_fails = false;
+    html: string | null = null;
 
     loadURL(url: string): Promise<void> {
         this.loaded_urls.push(url);
@@ -35,6 +36,13 @@ class MockWindow extends EventEmitter implements SessionWindow {
 
     isDestroyed(): boolean {
         return this.closed;
+    }
+
+    read_html(): Promise<string | null> {
+        if (this.closed) {
+            return Promise.reject(new Error("Object has been destroyed"));
+        }
+        return Promise.resolve(this.html);
     }
 
     read_local_storage(key: string): Promise<string | null> {
@@ -1216,5 +1224,71 @@ describe("session-manager", () => {
 
         deps.window.close();
         await expect(bg_promise_1).resolves.toBeDefined();
+    });
+
+    it("captures live traffic DOM and saves { cookie, html, captured_at } for flowercloud", async () => {
+        const deps = create_deps();
+        deps.window.html = "<div>流量使用 320.14GB / 1000GB</div>";
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "flower-1",
+            provider: "flowercloud",
+            login_url: "https://api-flowercloud.com/clientarea.php",
+            cookie_names: ["*"],
+            hidden: true,
+        });
+
+        deps.emit_before_send_headers("https://api-flowercloud.com/clientarea.php", {
+            cookie: "cf_clearance=cf123; WHMCS=w123",
+        });
+
+        // inspect_flowercloud_page should detect traffic DOM and auto-close
+        const result = await promise;
+        expect(result.saved).toBe(true);
+
+        const stored = await deps.vault.get("flower-1:SESSION_COOKIE");
+        expect(stored).not.toBeNull();
+        if (stored) {
+            const parsed = JSON.parse(stored) as {
+                cookie?: string;
+                html?: string;
+                captured_at?: number;
+            };
+            expect(parsed.cookie).toBe("cf_clearance=cf123; WHMCS=w123");
+            expect(parsed.html).toContain("320.14GB");
+            expect(typeof parsed.captured_at).toBe("number");
+            expect(Date.now() - (parsed.captured_at ?? 0)).toBeLessThan(5000);
+        }
+    });
+
+    it("auto-navigates from clientarea overview to productdetails for flowercloud", async () => {
+        const deps = create_deps();
+        deps.window.html = '<a href="clientarea.php?action=productdetails&id=394686">Global</a>';
+        const manager = create_session_manager(deps);
+
+        const promise = manager.start_login({
+            instance_id: "flower-2",
+            provider: "flowercloud",
+            login_url: "https://api-flowercloud.com/clientarea.php",
+            cookie_names: ["*"],
+        });
+
+        // Let microtasks settle so inspect_flowercloud_page runs
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // Should have auto-navigated to productdetails URL
+        expect(deps.window.loaded_urls).toContain(
+            "https://api-flowercloud.com/clientarea.php?action=productdetails&id=394686",
+        );
+
+        deps.emit_before_send_headers("https://api-flowercloud.com/clientarea.php", {
+            cookie: "WHMCS=w123",
+        });
+        deps.window.close();
+
+        await expect(promise).resolves.toEqual({ saved: true });
     });
 });
