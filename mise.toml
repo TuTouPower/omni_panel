@@ -1,0 +1,6 @@
+# 项目 Runtime 版本（契约：~/kar/code/my_file/coding_agent/docs/ENVIRONMENT.md §3/§5）
+# mise.toml 优先于 mise global 默认；此处与 package.json 的 packageManager 必须一致，
+# 否则 pnpm 的 manage-package-manager-versions 会自行下载另一版本（曾因此把 pnpm
+# 10.34.5 的二进制拉进项目内 .pnpm-store）。
+[tools]
+pnpm = "11.26.0"

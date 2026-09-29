@@ -1,15 +1,21 @@
-# t392: pnpm v10 起不再读 package.json 的 pnpm 字段（onlyBuiltDependencies 等），
-# 迁移到 pnpm-workspace.yaml（规范位置）。electron postinstall（写 path.txt）依赖
-# onlyBuiltDependencies 白名单，缺失会致全新 install 后 import electron 测试 ENOENT。
+# t392: pnpm v10 起不再读 package.json 的 pnpm 字段，构建脚本白名单放到
+# pnpm-workspace.yaml（规范位置）。pnpm 11 把该白名单改名为 allowBuilds（映射，值必须
+# 是 true/false），`pnpm approve-builds --all` 会自动迁移；缺项会让 esbuild / unrs-resolver
+# 等 postinstall 被忽略（[ERR_PNPM_IGNORED_BUILDS]）。
 # packages 声明 workspace 成员；本项目单包，根包 '.'。
 packages:
     - "."
-onlyBuiltDependencies:
-    - better-sqlite3
-    - electron
-    - electron-winstaller
-    - esbuild
-    - unrs-resolver
+# pnpm 11 起 .npmrc 只承载 registry / auth 设置，其余 pnpm 设置必须写在本文件
+# （或各人本机的全局 ~/.config/pnpm/config.yaml）。原先 .npmrc 的 node-linker=hoisted
+# 因此失效，这里声明以保持 Electron / electron-builder 需要的扁平 node_modules 布局。
+# store 位置刻意不写在这里：pnpm 默认按各机器 / CI 的 home 目录决定，写死机器路径会
+# 破坏可移植性。
+nodeLinker: hoisted
+allowBuilds:
+    better-sqlite3: true
+    electron-winstaller: true
+    esbuild: true
+    unrs-resolver: true
 overrides:
     tar: ">=6.2.1"
     tmp: ">=0.2.4"

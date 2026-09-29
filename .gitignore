@@ -46,6 +46,10 @@ coverage/
 
 # 缓存
 .npm/
+# pnpm 的 store 默认在各机器 home 下；但若执行环境连 home 都不可写（agent 沙箱、仅挂载
+# 项目的容器），pnpm 会降级把 store 建在项目内 .pnpm-store。属可再生缓存，不入库。
+# 注意 prettier 会读本文件做 ignore，缺这行会去扫 store 里的二进制。
+.pnpm-store/
 .eslintcache
 .cache/
 .pytest_cache/
