@@ -142,7 +142,8 @@ async function resolve_dynamic_action_ids(headers: Record<string, string>): Prom
     // 3. 有界并发与命中即停扫描（AC-001 / AC-002 / AC-006）
     let scanned_chunks = 0;
     let candidate_count = 0;
-    let start_time = 0;
+    // 初值取函数起点：没有分包可扫时，失败日志里的耗时才是真实耗时而不是 epoch 值。
+    let start_time = Date.now();
     if (!action_id && all_scripts.length > 0) {
         start_time = Date.now();
         const downloaded_chunks = new Map<string, string>();
