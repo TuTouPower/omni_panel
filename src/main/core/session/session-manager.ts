@@ -1,8 +1,26 @@
 import { randomUUID } from "node:crypto";
+import { DOM_SNAPSHOT_PROVIDERS, PAGE_BOUND_CREDENTIAL_PROVIDERS } from "../../../shared/constants";
 import { is_safe_cookie_string } from "../../../shared/lib/cookie";
 import { createLogger } from "../../../shared/lib/logger";
 import { keyFor } from "../config/secrets-store";
 import type { VaultBackend } from "../vault/vault-backend";
+import {
+    build_flowercloud_secret,
+    FLOWER_USAGE_RE,
+    flower_details_url,
+    flower_product_details_id,
+    parse_flowercloud_secret,
+    run_flowercloud_snapshot,
+    seed_partition_cookies,
+} from "./flowercloud_dom";
+import type {
+    FlowercloudSnapshotOptions,
+    SessionController,
+    SessionCookie,
+    SessionWindow,
+} from "./session-types";
+
+export type { FlowercloudSnapshotOptions, SessionController, SessionCookie, SessionWindow };
 
 const log = createLogger("session-manager");
 
@@ -10,37 +28,6 @@ const SESSION_COOKIE_KEY = "SESSION_COOKIE";
 const ALL_COOKIES = "*";
 /** Session login timeout — longer than connector timeout because user interaction is required. */
 const SESSION_LOGIN_TIMEOUT_MS = 120_000;
-
-export interface SessionCookie {
-    readonly name: string;
-    readonly value: string;
-}
-
-export interface SessionWindow {
-    loadURL(url: string): Promise<void>;
-    close(): void;
-    isDestroyed(): boolean;
-    on(event: "closed", listener: () => void): this;
-    /**
-     * t492: 读取登录窗页面的 localStorage。kimi_web 用它取 refresh token
-     * （SPA 把 refresh_token 写在 localStorage，见 d060）。缺省表示宿主不支持。
-     */
-    read_local_storage?(key: string): Promise<string | null>;
-    /** 读取登录窗或后台会话窗口当前页面的 DOM HTML。 */
-    read_html?(): Promise<string | null>;
-}
-
-export interface SessionController {
-    on_before_send_headers(
-        handler: (details: {
-            url: string;
-            requestHeaders: Record<string, string>;
-            resource_type: string;
-        }) => void,
-    ): void;
-    get_cookies(url: string): Promise<SessionCookie[]>;
-    set_cookie?(url: string, name: string, value: string, domain?: string): Promise<void>;
-}
 
 export interface SessionManagerDeps {
     readonly vault: VaultBackend;
@@ -90,9 +77,21 @@ export interface LoginResult {
 export interface SessionManager {
     start_login(request: LoginRequest): Promise<LoginResult>;
     is_login_in_progress?(instance_id: string, options?: { only_interactive?: boolean }): boolean;
+    /**
+     * 用已有会话分区打开窗口，等花云页面把用量渲染出来后写回 vault。
+     * 定时刷新必须走这里：连接器自己只会重放上次落盘的 HTML。
+     * 失败时不改 vault，返回 false。同一实例已有一次快照在跑时，后到的调用等同一次结果。
+     */
+    refresh_flowercloud_snapshot?(
+        instance_id: string,
+        login_url: string,
+        options?: FlowercloudSnapshotOptions,
+    ): Promise<boolean>;
 }
 
 interface ActiveLoginSession {
+    /** snapshot = 花云 DOM 抓取占用；它不是登录，只用于与登录互斥。 */
+    readonly kind?: "login" | "snapshot";
     readonly hidden: boolean;
     readonly window: SessionWindow;
     cancel(error?: Error): void;
@@ -104,6 +103,7 @@ export function create_session_manager(
 ): SessionManager {
     const timeout_ms = options?.timeout_ms ?? SESSION_LOGIN_TIMEOUT_MS;
     const in_progress = new Map<string, ActiveLoginSession>();
+    const flower_snapshots = new Map<string, Promise<boolean>>();
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
@@ -187,6 +187,7 @@ export function create_session_manager(
                 }
 
                 const active: ActiveLoginSession = {
+                    kind: "login",
                     hidden: request.hidden === true,
                     window,
                     cancel(error?: Error) {
@@ -230,7 +231,7 @@ export function create_session_manager(
 
                 async function inspect_flowercloud_page(): Promise<void> {
                     if (
-                        request.provider !== "flowercloud" ||
+                        !DOM_SNAPSHOT_PROVIDERS.has(request.provider) ||
                         !window.read_html ||
                         window.isDestroyed() ||
                         completed ||
@@ -244,23 +245,18 @@ export function create_session_manager(
                         if (!html) return;
 
                         // 若在客户区主页且检测到产品详情链接，自动跟进至详情页
-                        const product_match =
-                            /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
-                            /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
+                        const service_id = flower_product_details_id(html);
 
-                        if (product_match?.[1] && !/(?:流量使用|\d+(\.\d+)?GB\s*\/)/i.test(html)) {
-                            const service_id = product_match[1];
+                        if (service_id && !FLOWER_USAGE_RE.test(html)) {
                             log.info(
                                 `FlowerCloud: Auto-navigating to productdetails: id=${service_id}`,
                             );
-                            await window.loadURL(
-                                `https://api-flowercloud.com/clientarea.php?action=productdetails&id=${service_id}`,
-                            );
+                            await window.loadURL(flower_details_url(request.login_url, service_id));
                             return;
                         }
 
                         // 检测页面是否已呈现流量数据
-                        if (/(?:流量使用|\d+(\.\d+)?GB\s*\/)/i.test(html)) {
+                        if (FLOWER_USAGE_RE.test(html)) {
                             log.info(`FlowerCloud: Live traffic DOM captured successfully`);
                             captured_html = html;
                             if (request.close_when_credential_refreshed || request.hidden) {
@@ -329,8 +325,7 @@ export function create_session_manager(
                             if (
                                 deps.verify_cookie &&
                                 params.cookie &&
-                                request.provider !== "kimi_web" &&
-                                request.provider !== "flowercloud"
+                                !PAGE_BOUND_CREDENTIAL_PROVIDERS.has(request.provider)
                             ) {
                                 const valid = await deps.verify_cookie(
                                     params.cookie,
@@ -374,21 +369,11 @@ export function create_session_manager(
                     completed = true;
                     clear_timers();
                     try {
-                        if (!captured_cookie && request.provider === "flowercloud") {
-                            const raw = await stored_secret();
-                            if (raw) {
-                                if (raw.startsWith("{")) {
-                                    try {
-                                        const parsed = JSON.parse(raw) as { cookie?: unknown };
-                                        if (typeof parsed.cookie === "string")
-                                            captured_cookie = parsed.cookie;
-                                    } catch {
-                                        // ignore
-                                    }
-                                } else {
-                                    captured_cookie = raw;
-                                }
-                            }
+                        if (!captured_cookie && DOM_SNAPSHOT_PROVIDERS.has(request.provider)) {
+                            // 页面型 provider 的凭据常从持久化 cookie 自愈：没捕获到请求头
+                            // Cookie 时沿用 vault 里已存的那份（含 DOM 载荷里的 cookie 字段）。
+                            captured_cookie =
+                                parse_flowercloud_secret(await stored_secret()).cookie ?? null;
                         }
 
                         // 不从 cookie jar 回退：仅信任 webRequest 捕获的请求头 Cookie。
@@ -408,8 +393,7 @@ export function create_session_manager(
                         // 探测失败按「无效」处理不落库，返回可读提示。
                         if (
                             deps.verify_cookie &&
-                            request.provider !== "kimi_web" &&
-                            request.provider !== "flowercloud"
+                            !PAGE_BOUND_CREDENTIAL_PROVIDERS.has(request.provider)
                         ) {
                             const valid = await deps.verify_cookie(
                                 captured_cookie,
@@ -433,18 +417,9 @@ export function create_session_manager(
                         }
 
                         let final_html = captured_html;
-                        if (!final_html && request.provider === "flowercloud") {
-                            const raw = await stored_secret();
-                            if (raw?.startsWith("{")) {
-                                try {
-                                    const parsed = JSON.parse(raw) as { html?: unknown };
-                                    if (typeof parsed.html === "string" && parsed.html) {
-                                        final_html = parsed.html;
-                                    }
-                                } catch {
-                                    // ignore
-                                }
-                            }
+                        if (!final_html && DOM_SNAPSHOT_PROVIDERS.has(request.provider)) {
+                            final_html =
+                                parse_flowercloud_secret(await stored_secret()).html ?? null;
                         }
 
                         const saved_secret =
@@ -456,12 +431,8 @@ export function create_session_manager(
                                       device_id: captured_device_id,
                                       refresh_token: captured_refresh_token,
                                   })
-                                : request.provider === "flowercloud"
-                                  ? JSON.stringify({
-                                        cookie: captured_cookie,
-                                        html: final_html,
-                                        captured_at: Date.now(),
-                                    })
+                                : DOM_SNAPSHOT_PROVIDERS.has(request.provider)
+                                  ? build_flowercloud_secret(captured_cookie, final_html)
                                   : captured_cookie;
                         if (!instance_id) {
                             log.info("Anonymous session cookie captured");
@@ -515,8 +486,7 @@ export function create_session_manager(
                         !request.close_when_credential_refreshed &&
                         is_wildcard_login &&
                         !wildcard_returned_to_login_origin &&
-                        request.provider !== "kimi_web" &&
-                        request.provider !== "flowercloud"
+                        !PAGE_BOUND_CREDENTIAL_PROVIDERS.has(request.provider)
                     )
                         return;
 
@@ -550,8 +520,7 @@ export function create_session_manager(
                         captured_cookie = selected_cookie;
                         if (
                             request.close_when_credential_refreshed &&
-                            request.provider !== "kimi_web" &&
-                            request.provider !== "flowercloud"
+                            !PAGE_BOUND_CREDENTIAL_PROVIDERS.has(request.provider)
                         ) {
                             close_when_credential_refreshed({ cookie: selected_cookie });
                         }
@@ -578,42 +547,20 @@ export function create_session_manager(
                 }, timeout_ms);
 
                 async function init_session_and_load(): Promise<void> {
-                    if (instance_id && session.set_cookie) {
+                    if (instance_id) {
                         try {
-                            const raw = await stored_secret();
-                            if (raw) {
-                                let cookie_str = raw;
-                                if (raw.startsWith("{")) {
-                                    try {
-                                        const parsed = JSON.parse(raw) as { cookie?: unknown };
-                                        if (typeof parsed.cookie === "string")
-                                            cookie_str = parsed.cookie;
-                                    } catch {
-                                        // ignore
-                                    }
-                                }
-                                const parts = cookie_str.split(";").map((p) => p.trim());
-                                for (const part of parts) {
-                                    const eq = part.indexOf("=");
-                                    if (eq > 0) {
-                                        const name = part.slice(0, eq).trim();
-                                        const value = part.slice(eq + 1).trim();
-                                        if (name && value) {
-                                            await session.set_cookie(
-                                                request.login_url,
-                                                name,
-                                                value,
-                                            );
-                                        }
-                                    }
-                                }
-                            }
+                            await seed_partition_cookies(
+                                session,
+                                deps.vault,
+                                instance_id,
+                                request.login_url,
+                            );
                         } catch (e) {
                             log.debug(`Failed to pre-set cookies for ${login_id}: ${String(e)}`);
                         }
                     }
 
-                    if (request.provider === "flowercloud") {
+                    if (DOM_SNAPSHOT_PROVIDERS.has(request.provider)) {
                         flower_poll = setInterval(() => {
                             void inspect_flowercloud_page();
                         }, 1500);
@@ -621,7 +568,7 @@ export function create_session_manager(
 
                     try {
                         await window.loadURL(request.login_url);
-                        if (request.provider === "flowercloud") {
+                        if (DOM_SNAPSHOT_PROVIDERS.has(request.provider)) {
                             void inspect_flowercloud_page();
                         }
                     } catch (error: unknown) {
@@ -632,12 +579,87 @@ export function create_session_manager(
                 void init_session_and_load();
             });
         },
+        refresh_flowercloud_snapshot(
+            instance_id: string,
+            login_url: string,
+            options?: FlowercloudSnapshotOptions,
+        ): Promise<boolean> {
+            try {
+                new URL(login_url);
+            } catch {
+                return Promise.resolve(false);
+            }
+            if (deps.has_display && !deps.has_display()) {
+                log.warn(`FlowerCloud DOM refresh skipped for ${instance_id}: no display`);
+                return Promise.resolve(false);
+            }
+            const in_flight = flower_snapshots.get(instance_id);
+            if (in_flight) return in_flight;
+            if (in_progress.has(instance_id)) {
+                log.info(`FlowerCloud DOM refresh skipped for ${instance_id}: login in progress`);
+                return Promise.resolve(false);
+            }
+
+            const partition = get_session_login_partition(instance_id);
+            const window = deps.create_window(partition, { hidden: true });
+            const session = deps.create_session(partition);
+            // 用对象属性而非裸 let：TS 会把闭包内赋值的 let 收窄成字面量，导致取消判断被
+            // 判成恒真/恒假（no-unnecessary-condition），运行时逻辑也更容易读错。
+            const state = { cancelled: false };
+            const active: ActiveLoginSession = {
+                kind: "snapshot",
+                hidden: true,
+                window,
+                cancel() {
+                    state.cancelled = true;
+                    if (!window.isDestroyed()) window.close();
+                },
+            };
+            in_progress.set(instance_id, active);
+            // 用户手动关掉快照窗即放弃本轮。不接线的话 cancelled 永远是 false，
+            // 「用户取消」会被日志与 handed_over 判定误报成「页面没渲染出用量」。
+            window.on("closed", () => {
+                state.cancelled = true;
+            });
+
+            const slot: { current?: Promise<boolean> } = {};
+            const job = (async (): Promise<boolean> => {
+                let keep_window = false;
+                try {
+                    const outcome = await run_flowercloud_snapshot({
+                        window,
+                        session,
+                        vault: deps.vault,
+                        instance_id,
+                        login_url,
+                        is_cancelled: () => state.cancelled,
+                        ...(options ? { options } : {}),
+                    });
+                    // handed_over：窗口已亮给用户过质询/重新登录，别在他输入时关掉。
+                    keep_window = outcome.handed_over;
+                    return outcome.written;
+                } finally {
+                    if (slot.current && flower_snapshots.get(instance_id) === slot.current) {
+                        flower_snapshots.delete(instance_id);
+                    }
+                    if (in_progress.get(instance_id)?.window === window) {
+                        in_progress.delete(instance_id);
+                    }
+                    if (!keep_window && !window.isDestroyed()) window.close();
+                }
+            })();
+            slot.current = job;
+            flower_snapshots.set(instance_id, job);
+            return job;
+        },
         is_login_in_progress(
             instance_id: string,
             options?: { only_interactive?: boolean },
         ): boolean {
             const active = in_progress.get(instance_id);
-            if (!active) return false;
+            // 花云 DOM 快照也占 in_progress（与登录互斥），但外部查询问的是「登录中」，
+            // 拿快照冒充登录会让 UI/自动重登误判。
+            if (!active || active.kind === "snapshot") return false;
             if (options?.only_interactive) {
                 return !active.hidden;
             }

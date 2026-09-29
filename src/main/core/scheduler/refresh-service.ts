@@ -13,6 +13,7 @@ import { pluginResultSchema } from "../../../shared/schemas/plugin-output";
 import { keyFor } from "../config/secrets-store";
 import { createLogger, createTraceId, withLogContext } from "../../../shared/lib/logger";
 import { is_auth_error } from "../../../shared/lib/auth-error";
+import { DOM_SNAPSHOT_PROVIDERS } from "../../../shared/constants";
 import type { RefreshResult } from "../auth/oauth_helpers";
 
 import type { ConnectorDefinition } from "../connector/manifest-loader";
@@ -88,6 +89,15 @@ export interface RefreshServiceDeps {
         instanceId: string,
         definition: ConnectorDefinition,
     ) => Promise<RefreshResult | undefined>;
+    /**
+     * 数据只在页面 DOM 里的连接器（见 DOM_SNAPSHOT_PROVIDERS）：连接器执行前由宿主重抓
+     * 一次，否则脚本只会解析 vault 里的旧 HTML。失败不得抛到刷新循环外。
+     */
+    refresh_web_session?: (
+        instanceId: string,
+        definition: ConnectorDefinition,
+        options?: { force?: boolean },
+    ) => Promise<void>;
 }
 
 export interface ConnectorRefreshService {
@@ -374,7 +384,6 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
 
         const generation = next_instance_generation(instanceId);
         active_generations.set(instanceId, generation);
-        const budget = create_execution_budget(DEFAULT_EXECUTION_BUDGET_MS);
 
         try {
             const config = await deps.configStore.load();
@@ -398,6 +407,33 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 status: "loading",
                 ...(prior !== undefined && { lastSuccess: prior }),
             });
+
+            if (
+                DOM_SNAPSHOT_PROVIDERS.has(definition.manifest.provider) &&
+                deps.refresh_web_session
+            ) {
+                // 抓取可能要开一次窗口（含交给用户过质询的时间），因此放在 15s 连接器预算
+                // 之外；状态已经在上面置为 loading，UI 不会在这段时间里毫无反馈。
+                try {
+                    await deps.refresh_web_session(instanceId, definition, {
+                        force: options?.force === true,
+                    });
+                } catch (error: unknown) {
+                    trace_log.warn(
+                        `Web session refresh failed for ${instanceId}: ${
+                            error instanceof Error ? error.message : String(error)
+                        }`,
+                    );
+                }
+                // 抓取期间可能有更新的刷新（force）接管，本轮结果已过期就别再跑连接器。
+                if (active_generations.get(instanceId) !== generation) {
+                    trace_log.warn(
+                        `Discarding outdated refresh for ${instanceId} after page refresh (generation ${String(generation)})`,
+                    );
+                    return;
+                }
+            }
+            const budget = create_execution_budget(DEFAULT_EXECUTION_BUDGET_MS);
 
             let last_error = "";
             let last_raw_error: unknown = null;

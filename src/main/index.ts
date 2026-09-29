@@ -108,6 +108,7 @@ import { registerBuildInfoIpc } from "./ipc/build-info-ipc";
 import { registerPopupIpc } from "./ipc/popup-ipc";
 import { parseSizeReport } from "./ipc/size-validation";
 import { IPC_CHANNELS } from "../shared/types/ipc";
+import { DOM_SNAPSHOT_PROVIDERS } from "../shared/constants";
 import {
     create_main_panel_controller,
     should_hide_popup_on_outside_focus,
@@ -399,6 +400,22 @@ void app.whenReady().then(async () => {
                 if (!result.ok) throw new Error(result.error.message);
                 // 交互式登录拿到的是全新凭据，视为已更换。
                 return { saved: result.data.saved, credential_changed: result.data.saved };
+            },
+            refresh_web_session: async (
+                instanceId: string,
+                definition: ConnectorDefinition,
+                options?: { force?: boolean },
+            ) => {
+                if (!DOM_SNAPSHOT_PROVIDERS.has(definition.manifest.provider)) return;
+                const login_url =
+                    definition.manifest.auth?.login_url ??
+                    "https://api-flowercloud.com/clientarea.php";
+                if (!sessionManager.refresh_flowercloud_snapshot) return;
+                await sessionManager.refresh_flowercloud_snapshot(instanceId, login_url, {
+                    // 定时刷新：vault 快照仍在新鲜期内就不必再开一次窗口；
+                    // 手动刷新（force）强制重抓，保证用户点下去就能拿到最新数据。
+                    ...(options?.force === true ? {} : { skip_if_fresh: true }),
+                });
             },
             oauth_refresh: async (instanceId: string, definition: ConnectorDefinition) => {
                 // t172: OAuth(poll) 连接器 401/403 时的即时 token 刷新。manager 自带
@@ -763,6 +780,32 @@ void app.whenReady().then(async () => {
                             "document.documentElement.outerHTML",
                         );
                         return typeof value === "string" ? value : null;
+                    },
+                    present_for_capture(): void {
+                        if (window.isDestroyed() || is_e2e_headless()) return;
+                        // show:false 时 document.hidden 为 true，花云 Cloudflare 质询脚本不跑。
+                        // setSkipTaskbar 只在 Windows/Linux 生效（macOS 为 no-op）。
+                        if (process.platform !== "darwin") window.setSkipTaskbar(true);
+                        window.showInactive();
+                        window.setOpacity(0);
+                    },
+                    reveal(): void {
+                        if (window.isDestroyed() || is_e2e_headless()) return;
+                        window.setOpacity(1);
+                        if (process.platform !== "darwin") window.setSkipTaskbar(false);
+                        window.show();
+                    },
+                    read_page_hint: async (): Promise<{ url: string; title: string } | null> => {
+                        if (window.isDestroyed()) return null;
+                        const value: unknown = await window.webContents.executeJavaScript(
+                            "({ url: location.href, title: document.title })",
+                        );
+                        if (!value || typeof value !== "object") return null;
+                        const record = value as { url?: unknown; title?: unknown };
+                        return {
+                            url: typeof record.url === "string" ? record.url : "",
+                            title: typeof record.title === "string" ? record.title : "",
+                        };
                     },
                 });
             },

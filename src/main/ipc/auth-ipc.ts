@@ -14,7 +14,7 @@ import {
     refresh_kimi_web_tokens,
     type KimiWebRefreshResult,
 } from "../core/auth/kimi_web_token_refresher";
-import { login_auto_close_ms } from "../../shared/constants";
+import { DOM_SNAPSHOT_PROVIDERS, login_auto_close_ms } from "../../shared/constants";
 import {
     COOKIE_LOGIN_MESSAGES,
     type CookieLoginErrorCode,
@@ -282,9 +282,9 @@ export async function trySilentCookieRefresh(
         return NO_SILENT_REFRESH;
     }
     const is_kimi_web = def.manifest.provider === "kimi_web";
-    const is_flowercloud = def.manifest.provider === "flowercloud";
-    if (is_flowercloud) {
-        // FlowerCloud 依赖完整会话 DOM，裸 cookie 覆盖会擦除已存 HTML，跳过纯 cookie 静默刷新
+    if (DOM_SNAPSHOT_PROVIDERS.has(def.manifest.provider)) {
+        // 数据只存在于登录后页面 DOM 中（花云）：纯 cookie 静默刷新会擦除已存 HTML 且
+        // 取不到用量，交给宿主 DOM 快照刷新处理。
         return NO_SILENT_REFRESH;
     }
     const cookie_names = def.manifest.cookieNames ?? [];

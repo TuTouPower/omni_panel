@@ -19,13 +19,34 @@ export const KEEPALIVE_TIMEOUT_MS = 30_000;
 export const SESSION_LOGIN_AUTO_CLOSE_MS = 1500;
 
 /**
- * 登录窗口需保持打开、不自动关闭的 provider（t464）：页面存活期间才会把续期材料
- * （Bearer / refresh token）写入会话，过早关窗会捕获旧凭据。
+ * 会话凭据不体现在裸 cookie 上的 provider：凭据/数据在页面 localStorage 或完整
+ * 页面 DOM 里（kimi_web 的 refresh token、花云的用量页面）。这是下面几条策略的
+ * 同一根因，新增此类 provider 只需登记这一处。
  */
-export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> = new Set([
+export const PAGE_BOUND_CREDENTIAL_PROVIDERS: ReadonlySet<string> = new Set([
     "kimi_web",
     "flowercloud",
 ]);
+
+/**
+ * 登录窗口需保持打开、不自动关闭的 provider（t464）：页面存活期间才会把续期材料
+ * （Bearer / refresh token）写入会话，过早关窗会捕获旧凭据。
+ */
+export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> =
+    PAGE_BOUND_CREDENTIAL_PROVIDERS;
+
+/**
+ * 数据只存在于登录后页面 DOM 中的 provider：cookie 不足以取数，宿主必须在连接器
+ * 执行前重抓页面。新增此类 provider 时，只需在此登记并实现对应 connector 的
+ * DOM 解析；会话/刷新链路上的分支都查这张表。
+ */
+export const DOM_SNAPSHOT_PROVIDERS: ReadonlySet<string> = new Set(["flowercloud"]);
+
+/**
+ * 花云 DOM 快照的新鲜期。宿主侧与 connectors/flowercloud/connector.ts 的
+ * SNAPSHOT_FRESH_MS 必须保持一致（connector 是独立脚本，不能 import 本文件）。
+ */
+export const FLOWERCLOUD_SNAPSHOT_FRESH_MS = 5 * 60 * 1000;
 
 /** 登录成功后自动关窗延迟；undefined 表示不自动关闭，由用户手动关窗。 */
 export function login_auto_close_ms(provider: string): number | undefined {

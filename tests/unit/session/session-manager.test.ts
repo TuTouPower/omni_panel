@@ -20,6 +20,9 @@ class MockWindow extends EventEmitter implements SessionWindow {
     readonly read_local_storage_keys: string[] = [];
     read_local_storage_fails = false;
     html: string | null = null;
+    html_after_reveal: string | null = null;
+    presented = 0;
+    revealed = 0;
 
     loadURL(url: string): Promise<void> {
         this.loaded_urls.push(url);
@@ -43,6 +46,15 @@ class MockWindow extends EventEmitter implements SessionWindow {
             return Promise.reject(new Error("Object has been destroyed"));
         }
         return Promise.resolve(this.html);
+    }
+
+    present_for_capture(): void {
+        this.presented += 1;
+    }
+
+    reveal(): void {
+        this.revealed += 1;
+        if (this.html_after_reveal !== null) this.html = this.html_after_reveal;
     }
 
     read_local_storage(key: string): Promise<string | null> {
@@ -99,6 +111,7 @@ interface TestDeps extends SessionManagerDeps {
     readonly windows: MockWindow[];
     readonly partitions: string[];
     readonly cookie_urls: string[];
+    readonly seeded_cookies: { url: string; name: string; value: string }[];
     /** p240: create_window 收到的选项（hidden 用于自动重登）。 */
     readonly window_options: { hidden?: boolean }[];
     /** 注入的 cookie 有效性探测（t337）。 */
@@ -110,11 +123,12 @@ interface TestDeps extends SessionManagerDeps {
     ): void;
 }
 
-function create_deps(cookies: SessionCookie[] = []): TestDeps {
+function create_deps(cookies: SessionCookie[] = [], options?: { set_cookie?: boolean }): TestDeps {
     const initial_window = new MockWindow();
     const windows: MockWindow[] = [initial_window];
     const partitions: string[] = [];
     const cookie_urls: string[] = [];
+    const seeded_cookies: { url: string; name: string; value: string }[] = [];
     const window_options: { hidden?: boolean }[] = [];
     let call_count = 0;
     let before_send_headers:
@@ -132,6 +146,7 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
         windows,
         partitions,
         cookie_urls,
+        seeded_cookies,
         window_options,
         vault: create_vault(),
         verify_cookie: vi.fn().mockResolvedValue(true),
@@ -156,6 +171,14 @@ function create_deps(cookies: SessionCookie[] = []): TestDeps {
                     cookie_urls.push(url);
                     return Promise.resolve(cookies);
                 },
+                ...(options?.set_cookie
+                    ? {
+                          set_cookie(url: string, name: string, value: string) {
+                              seeded_cookies.push({ url, name, value });
+                              return Promise.resolve();
+                          },
+                      }
+                    : {}),
             };
         },
         emit_before_send_headers(
@@ -1290,5 +1313,535 @@ describe("session-manager", () => {
         deps.window.close();
 
         await expect(promise).resolves.toEqual({ saved: true });
+    });
+
+    it("refreshes flowercloud DOM into the stored session without dropping the cookie", async () => {
+        const deps = create_deps([], { set_cookie: true });
+        deps.window.html = "<p class='usage-amount'>331.40GB / 1000GB</p><h3>流量使用</h3>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept; cf_clearance=cf",
+                html: "<p>流量使用 321.31GB / 1000GB</p>",
+                captured_at: Date.now() - 24 * 60 * 60 * 1000,
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(true);
+        expect(deps.window_options[0]).toEqual({ hidden: true });
+        expect(deps.window.presented).toBe(1);
+        expect(deps.window.closed).toBe(true);
+        expect(deps.seeded_cookies).toEqual([
+            {
+                url: "https://api-flowercloud.com/clientarea.php",
+                name: "WHMCS",
+                value: "kept",
+            },
+            {
+                url: "https://api-flowercloud.com/clientarea.php",
+                name: "cf_clearance",
+                value: "cf",
+            },
+        ]);
+        const stored = await deps.vault.get("flower-1:SESSION_COOKIE");
+        const parsed = JSON.parse(stored ?? "{}") as {
+            cookie?: string;
+            html?: string;
+            captured_at?: number;
+        };
+        expect(parsed.cookie).toBe("WHMCS=kept; cf_clearance=cf");
+        expect(parsed.html).toContain("331.40GB");
+        expect(Date.now() - (parsed.captured_at ?? 0)).toBeLessThan(5_000);
+    });
+
+    it("keeps the later flowercloud usage number rendered during settle", async () => {
+        const deps = create_deps();
+        const pages = [
+            "<p>流量使用 321.31GB / 1000GB</p>",
+            "<p>流量使用 331.00GB / 1000GB</p>",
+            "<p>流量使用 331.00GB / 1000GB</p>",
+        ];
+        let read = 0;
+        deps.window.read_html = () => {
+            const html = pages[Math.min(read, pages.length - 1)] ?? null;
+            read += 1;
+            return Promise.resolve(html);
+        };
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({ cookie: "WHMCS=kept", html: "<p>流量使用 1GB / 1000GB</p>" }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 15,
+            settle_ms: 40,
+        });
+
+        expect(updated).toBe(true);
+        const stored = await deps.vault.get("flower-1:SESSION_COOKIE");
+        expect(stored).toContain("331.00GB");
+        expect(stored).not.toContain("321.31GB");
+    });
+
+    it("does not replace the stored flowercloud page when usage never appears", async () => {
+        const deps = create_deps();
+        deps.window.html = "<form action='dologin.php'></form>";
+        const original = JSON.stringify({
+            cookie: "WHMCS=kept",
+            html: "<p>流量使用 321.31GB / 1000GB</p>",
+            captured_at: 1,
+        });
+        await deps.vault.set("flower-1:SESSION_COOKIE", original);
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 40,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(false);
+        expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toBe(original);
+    });
+
+    it("skips flowercloud DOM refresh while a login window is open", async () => {
+        const deps = create_deps();
+        const manager = create_session_manager(deps);
+        const login = manager.start_login({
+            instance_id: "flower-1",
+            provider: "mimo",
+            login_url: "https://api-flowercloud.com/clientarea.php",
+            cookie_names: ["*"],
+            hidden: true,
+        });
+
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 200,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(false);
+        expect(deps.windows).toHaveLength(1);
+        deps.window.close();
+        await login;
+    });
+
+    it("opens the stored flowercloud service page instead of the client area", async () => {
+        const deps = create_deps();
+        deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: '<a href="clientarea.php?action=productdetails&id=394686">Global</a>',
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(true);
+        expect(deps.window.loaded_urls[0]).toBe(
+            "https://api-flowercloud.com/clientarea.php?action=productdetails&id=394686",
+        );
+    });
+
+    it("does not overwrite a flowercloud clearance already in the partition", async () => {
+        const deps = create_deps([{ name: "cf_clearance", value: "live" }], { set_cookie: true });
+        deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept; cf_clearance=stale",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(deps.seeded_cookies).toEqual([
+            {
+                url: "https://api-flowercloud.com/clientarea.php",
+                name: "WHMCS",
+                value: "kept",
+            },
+        ]);
+    });
+
+    it("joins an in-flight flowercloud snapshot instead of opening another window", async () => {
+        const deps = create_deps();
+        deps.window.html = "<form action='dologin.php'></form>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+        const options = { timeout_ms: 80, poll_ms: 20, settle_ms: 0 };
+
+        const first = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", options);
+        const second = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", options);
+
+        expect(second).toBe(first);
+        await expect(first).resolves.toBe(false);
+        expect(deps.windows).toHaveLength(1);
+    });
+
+    it("shows the flowercloud window when a challenge does not clear on its own", async () => {
+        const deps = create_deps();
+        deps.window.html = "<title>Just a moment...</title><div class='cf-challenge'></div>";
+        deps.window.html_after_reveal = "<p>流量使用 331.80GB / 1000GB</p>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: "<p>流量使用 321.31GB / 1000GB</p>",
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+            reveal_after_ms: 0,
+        });
+
+        expect(updated).toBe(true);
+        expect(deps.window.revealed).toBe(1);
+        const stored = await deps.vault.get("flower-1:SESSION_COOKIE");
+        expect(stored).toContain("331.80GB");
+    });
+
+    it("merges fresh flowercloud login cookies into the stored cookie header", async () => {
+        const deps = create_deps([{ name: "WHMCSUserID", value: "42" }], { set_cookie: true });
+        deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "D0S_Header=keepme; WHMCSUserID=1",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(true);
+        const parsed = JSON.parse((await deps.vault.get("flower-1:SESSION_COOKIE")) ?? "{}") as {
+            cookie?: string;
+        };
+        // 分区里的新值覆盖同名 cookie，vault 里其它 cookie 必须原样保留。
+        expect(parsed.cookie).toBe("D0S_Header=keepme; WHMCSUserID=42");
+    });
+
+    it("keeps the stored flowercloud cookie when the partition has no login cookie", async () => {
+        const deps = create_deps([{ name: "cf_clearance", value: "live" }], { set_cookie: true });
+        deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({ cookie: "WHMCS=kept", html: "<p>流量使用 1GB / 1000GB</p>" }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+        });
+
+        expect(updated).toBe(true);
+        const parsed = JSON.parse((await deps.vault.get("flower-1:SESSION_COOKIE")) ?? "{}") as {
+            cookie?: string;
+            html?: string;
+        };
+        // 分区只有 clearance、没有 WHMCS 会话：保留旧 cookie，只更新页面。
+        expect(parsed.cookie).toBe("WHMCS=kept");
+        expect(parsed.html).toContain("331.20GB");
+    });
+
+    it("hands the flowercloud window over instead of closing it under the user", async () => {
+        const deps = create_deps();
+        deps.window.html = "<title>Just a moment...</title><div class='cf-challenge'></div>";
+        const original = JSON.stringify({
+            cookie: "WHMCS=kept",
+            html: "<p>流量使用 1GB / 1000GB</p>",
+            captured_at: 1,
+        });
+        await deps.vault.set("flower-1:SESSION_COOKIE", original);
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 30,
+            poll_ms: 10,
+            settle_ms: 0,
+            reveal_after_ms: 0,
+            reveal_budget_ms: 0,
+            // 0 = 不等用户，到点就交接（默认是 30 分钟内继续采集）。
+            handover_wait_ms: 0,
+        });
+
+        expect(updated).toBe(false);
+        expect(deps.window.revealed).toBe(1);
+        // 页面仍停在质询页且等待上限已到：窗口留给用户，别在他输入时关掉，vault 也不能被覆盖。
+        expect(deps.window.closed).toBe(false);
+        expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toBe(original);
+    });
+
+    it("keeps capturing after revealing the window until the user finishes", async () => {
+        const deps = create_deps();
+        const challenge = "<title>Just a moment...</title><div class='cf-challenge'></div>";
+        const usage = "<p>流量使用 331.80GB / 1000GB</p>";
+        let reads = 0;
+        deps.window.read_html = () => {
+            reads += 1;
+            // 亮窗后用户需要几轮才过掉质询，期间必须继续采集而不是放手。
+            return Promise.resolve(reads < 5 ? challenge : usage);
+        };
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+                captured_at: 1,
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 2_000,
+            poll_ms: 10,
+            settle_ms: 0,
+            reveal_after_ms: 0,
+            reveal_budget_ms: 0,
+            handover_wait_ms: 2_000,
+        });
+
+        expect(updated).toBe(true);
+        expect(deps.window.closed).toBe(true);
+        expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toContain("331.80GB");
+    });
+
+    it("keeps the handover window registered so refreshes do not stack windows", async () => {
+        const deps = create_deps();
+        deps.window.html = "<title>Just a moment...</title><div class='cf-challenge'></div>";
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+                captured_at: 1,
+            }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+        const options = {
+            timeout_ms: 40,
+            poll_ms: 10,
+            settle_ms: 0,
+            reveal_after_ms: 0,
+            reveal_budget_ms: 0,
+            handover_wait_ms: 5_000,
+        };
+
+        const first = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", options);
+        // 等到亮窗并进入交接等待期。
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        const second = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", options);
+
+        // 等待期内仍持有登记：后续刷新复用在途任务，而不是再开一个同分区窗口。
+        expect(second).toBe(first);
+        expect(deps.windows).toHaveLength(1);
+
+        deps.window.close();
+        await expect(first).resolves.toBe(false);
+        expect(manager.is_login_in_progress?.("flower-1")).toBe(false);
+    });
+
+    it("skips opening a window while the stored flowercloud snapshot is fresh", async () => {
+        const deps = create_deps();
+        deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
+        const stored = JSON.stringify({
+            cookie: "WHMCS=kept",
+            html: "<p>流量使用 1GB / 1000GB</p>",
+            captured_at: Date.now(),
+        });
+        await deps.vault.set("flower-1:SESSION_COOKIE", stored);
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            skip_if_fresh: true,
+        });
+
+        expect(updated).toBe(true);
+        expect(deps.windows).toHaveLength(1);
+        expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toBe(stored);
+    });
+
+    it("does not report a flowercloud DOM snapshot as a login in progress", async () => {
+        const deps = create_deps();
+        let released = false;
+        const gate: { release?: () => void } = {};
+        deps.window.read_html = () => {
+            if (released) return Promise.resolve("<form action='dologin.php'></form>");
+            return new Promise((resolve) => {
+                gate.release = () => {
+                    released = true;
+                    resolve("<form action='dologin.php'></form>");
+                };
+            });
+        };
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({ cookie: "WHMCS=kept", html: "<p>流量使用 1GB / 1000GB</p>" }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const job = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 60,
+            poll_ms: 10,
+            settle_ms: 0,
+            reveal_after_ms: 60_000,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(manager.is_login_in_progress?.("flower-1")).toBe(false);
+        expect(manager.is_login_in_progress?.("flower-1", { only_interactive: true })).toBe(false);
+        gate.release?.();
+        await expect(job).resolves.toBe(false);
+    });
+
+    it("stops the flowercloud snapshot when the user closes the window", async () => {
+        const deps = create_deps();
+        let reads = 0;
+        deps.window.read_html = () => {
+            reads += 1;
+            // 第二轮模拟用户在质询页上直接关窗。
+            if (reads >= 2) deps.window.close();
+            return Promise.resolve(
+                "<title>Just a moment...</title><div class='cf-challenge'></div>",
+            );
+        };
+        const original = JSON.stringify({
+            cookie: "WHMCS=kept",
+            html: "<p>流量使用 1GB / 1000GB</p>",
+            captured_at: 1,
+        });
+        await deps.vault.set("flower-1:SESSION_COOKIE", original);
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const updated = await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 5_000,
+            poll_ms: 5,
+            settle_ms: 0,
+            reveal_after_ms: 60_000,
+        });
+
+        expect(updated).toBe(false);
+        // 关窗必须立刻结束轮询（否则会一直轮询到 5s 超时＝上千次读取）。
+        expect(reads).toBeLessThan(10);
+        expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toBe(original);
+    });
+
+    it("preempts a running flowercloud snapshot with an interactive login", async () => {
+        const deps = create_deps();
+        let released = false;
+        const gate: { release?: () => void } = {};
+        deps.window.read_html = () => {
+            if (released) return Promise.resolve("<form action='dologin.php'></form>");
+            return new Promise((resolve) => {
+                gate.release = () => {
+                    released = true;
+                    resolve("<form action='dologin.php'></form>");
+                };
+            });
+        };
+        await deps.vault.set(
+            "flower-1:SESSION_COOKIE",
+            JSON.stringify({ cookie: "WHMCS=kept", html: "<p>流量使用 1GB / 1000GB</p>" }),
+        );
+        const manager = create_session_manager(deps);
+        const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+        if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+        const job = refresh("flower-1", "https://api-flowercloud.com/clientarea.php", {
+            timeout_ms: 5_000,
+            poll_ms: 5,
+            settle_ms: 0,
+            reveal_after_ms: 60_000,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // 前台交互登录抢占隐藏的快照窗（t505 语义：用户显式操作优先）。
+        const login = manager.start_login({
+            instance_id: "flower-1",
+            provider: "mimo",
+            login_url: "https://api-flowercloud.com/clientarea.php",
+            cookie_names: ["*"],
+        });
+        expect(deps.windows).toHaveLength(2);
+
+        gate.release?.();
+        await expect(job).resolves.toBe(false);
+        // 快照退出后互斥锁必须释放，登录窗才能正常收尾。
+        expect(manager.is_login_in_progress?.("flower-1")).toBe(true);
+        deps.window.close();
+        await login;
     });
 });

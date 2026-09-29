@@ -114,6 +114,198 @@ function create_config_store(plugins: ConnectorConfiguration[]) {
     };
 }
 
+describe("refresh-service flowercloud page refresh", () => {
+    function flower_definition(): ConnectorDefinition {
+        return {
+            directory: "/connectors/flowercloud",
+            executablePath: "/connectors/flowercloud",
+            manifest: {
+                id: "flowercloud",
+                provider: "flowercloud",
+                capabilities: ["session"],
+                auth: {
+                    method: "web_login",
+                    secret_name: "SESSION_COOKIE",
+                    login_url: "https://api-flowercloud.com/clientarea.php",
+                },
+                parameters: [
+                    {
+                        name: "SESSION_COOKIE",
+                        type: "secret",
+                        required: true,
+                        exposeToScript: true,
+                    },
+                ],
+                endpoints: { default: "https://api-flowercloud.com" },
+                script: "connector.ts",
+            },
+        };
+    }
+
+    function flower_config(): ConnectorConfiguration {
+        return {
+            instanceId: "flower-1",
+            stateId: "flower-1",
+            manifestId: "flowercloud",
+            name: "FlowerCloud",
+            enabled: true,
+            executablePath: "/connectors/flowercloud",
+            refreshIntervalSeconds: 1800,
+            parameterValues: {},
+            endpointOverrides: {},
+        };
+    }
+
+    const flower_observation: Observation = {
+        provider: "flowercloud",
+        source_instance_id: "flower-1",
+        account_id: "flowercloud_default",
+        account_label: "Global Acceleration Max",
+        metric_id: "flowercloud:traffic",
+        raw_label: "monthly_traffic",
+        normalized_label: "月流量",
+        window: "month",
+        used: 331,
+        limit: 1000,
+        display_style: "ratio",
+        reset_at: null,
+        status: "normal",
+        observed_at: 1780000000000,
+        source: "session",
+        stale: false,
+        last_error: null,
+    };
+
+    it("rereads the flowercloud page before the connector runs", async () => {
+        const order: string[] = [];
+        const refresh_web_session = vi.fn(() => {
+            order.push("page");
+            return Promise.resolve();
+        });
+        const execute_connector = vi.fn(() => {
+            order.push("connector");
+            return Promise.resolve({
+                observations: [flower_observation],
+                failed_accounts: [],
+            });
+        });
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector,
+            refresh_web_session,
+        });
+
+        await service.refresh("flower-1");
+
+        expect(order).toEqual(["page", "connector"]);
+        expect(refresh_web_session).toHaveBeenCalledTimes(1);
+    });
+
+    it("still runs the flowercloud connector when the page refresh fails", async () => {
+        const execute_connector = vi.fn().mockResolvedValue({
+            observations: [flower_observation],
+            failed_accounts: [],
+        });
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector,
+            refresh_web_session: vi.fn().mockRejectedValue(new Error("window failed")),
+        });
+
+        await service.refresh("flower-1");
+
+        expect(execute_connector).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not open a page for connectors that are not flowercloud", async () => {
+        const refresh_web_session = vi.fn().mockResolvedValue(undefined);
+        const execute_connector = vi.fn().mockResolvedValue({
+            observations: [
+                {
+                    ...flower_observation,
+                    provider: "deepseek",
+                    metric_id: "deepseek:usage",
+                },
+            ],
+            failed_accounts: [],
+        });
+        const service = createRefreshService({
+            definitions: [definition()],
+            observationStore: create_observation_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([plugin_config()]),
+            vault: create_vault(),
+            execute_connector,
+            refresh_web_session,
+        });
+
+        await service.refresh("deepseek-1");
+
+        expect(refresh_web_session).not.toHaveBeenCalled();
+        expect(execute_connector).toHaveBeenCalledTimes(1);
+    });
+
+    it("marks the instance loading before the page refresh starts", async () => {
+        const runtimeStore = createRuntimeStore();
+        const observed: string[] = [];
+        const refresh_web_session = vi.fn(() => {
+            observed.push(runtimeStore.getSnapshot("flower-1").status);
+            return Promise.resolve();
+        });
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector: vi.fn().mockResolvedValue({
+                observations: [flower_observation],
+                failed_accounts: [],
+            }),
+            refresh_web_session,
+        });
+
+        await service.refresh("flower-1");
+
+        // 抓取最长可到两分钟以上，这段时间 UI 必须已经显示「刷新中」。
+        expect(observed).toEqual(["loading"]);
+    });
+
+    it("passes the manual-refresh flag through to the page refresh", async () => {
+        const refresh_web_session = vi.fn().mockResolvedValue(undefined);
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore: createRuntimeStore(),
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector: vi.fn().mockResolvedValue({
+                observations: [flower_observation],
+                failed_accounts: [],
+            }),
+            refresh_web_session,
+        });
+
+        await service.refresh("flower-1");
+        await service.refresh("flower-1", { force: true });
+
+        expect(refresh_web_session).toHaveBeenNthCalledWith(1, "flower-1", expect.anything(), {
+            force: false,
+        });
+        expect(refresh_web_session).toHaveBeenNthCalledWith(2, "flower-1", expect.anything(), {
+            force: true,
+        });
+    });
+});
+
 describe("refresh-service auth-error no-retry (t155)", () => {
     it("calls execute_connector only once on auth error", async () => {
         const execute_connector = vi.fn().mockRejectedValue(new Error("HTTP 401: request failed"));
