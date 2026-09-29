@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { addTransport, createLogger, scrubber, setLogLevel } from "../../../src/shared/lib/logger";
 
 function capture_output(): { lines: string[]; remove: () => void } {
@@ -51,6 +51,51 @@ describe("scrubber", () => {
             expect(() => {
                 scrubber.unregister("not-registered");
             }).not.toThrow();
+        });
+
+        it("skips values longer than the redaction limit and warns once", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+            try {
+                scrubber.register("x".repeat(9000));
+                scrubber.register("y".repeat(9001));
+                // 整页 DOM 快照这类超长值不参与脱敏（否则每次日志都要跑巨大交替匹配）。
+                expect(scrubber.get_values().size).toBe(0);
+                expect(warn).toHaveBeenCalledTimes(1);
+            } finally {
+                warn.mockRestore();
+            }
+        });
+
+        it("still redacts long-but-plausible tokens", () => {
+            const token = "t".repeat(2000);
+            scrubber.register(token);
+            expect(scrubber.get_values().has(token)).toBe(true);
+            expect(scrubber.scrub_text(`token=${token}`)).toBe("token=***");
+        });
+    });
+
+    describe("pattern grouping", () => {
+        it("redacts values across internal pattern groups", () => {
+            for (let i = 0; i < 620; i++) {
+                scrubber.register(`grouped-value-${String(i).padStart(4, "0")}`);
+            }
+            expect(scrubber.scrub_text("grouped-value-0000 and grouped-value-0619")).toBe(
+                "*** and ***",
+            );
+        });
+
+        it("does not leak a longer credential matched by a shorter one", () => {
+            scrubber.register("innerkey");
+            scrubber.register("prefixinnerkeysuffix");
+            // 逐个 pattern 依次替换会留下 `prefix***suffix`，等于泄露了凭据片段。
+            expect(scrubber.scrub_text("token=prefixinnerkeysuffix")).toBe("token=***");
+        });
+
+        it("replaces every match when ranges overlap", () => {
+            // 4 字符是注册下限，取 "abcd" 与 "abcdef" 构造前缀重叠。
+            scrubber.register("abcd");
+            scrubber.register("abcdef");
+            expect(scrubber.scrub_text("abcd abcdef")).toBe("*** ***");
         });
     });
 

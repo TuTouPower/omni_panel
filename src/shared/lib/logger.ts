@@ -20,26 +20,50 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 const LOG_LEVELS = new Set<LogLevel>(["debug", "info", "warn", "error"]);
 const MIN_SCRUB_LENGTH = 4;
-const MAX_SCRUB_VALUE_LENGTH = 1024;
+/**
+ * 注册值的长度上限。超长字符串（例如整页 DOM 快照）不参与脱敏：把它们拼进正则会让
+ * 每次日志写入都跑一遍巨大的交替匹配，代价远超收益。8192 覆盖常见 JWT/OAuth token，
+ * 同时把页面快照挡在外面——被跳过的值会在首次出现时告警，不静默放行。
+ */
+const MAX_SCRUB_VALUE_LENGTH = 8192;
 const MAX_SCRUB_VALUES = 10000;
+/** 正则分组大小：单组构建失败只丢这一组，而不是整个脱敏模式。 */
+const SCRUB_GROUP_SIZE = 500;
 const REPLACEMENT = "***";
 const SECRET_KEY_PATTERN =
     /(^|_|-|\b)(api[_-]?key|token|key|secret|password|cookie|authorization|credential|session)($|_|-|\b)/i;
 const registered_values = new Set<string>();
 let scrub_dirty = true;
-let combined_pattern: RegExp | null = null;
+let scrub_patterns: RegExp[] = [];
+let pattern_error_reported = false;
+let long_value_reported = false;
 
-function rebuild_pattern(): void {
-    if (registered_values.size === 0) {
-        combined_pattern = null;
-    } else {
+function escape_pattern(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function rebuild_patterns(): void {
+    scrub_patterns = [];
+    const values = Array.from(registered_values);
+    for (let index = 0; index < values.length; index += SCRUB_GROUP_SIZE) {
+        // 组内按长度降序：正则交替命中即停，短值排前面会在长值内部先命中，
+        // 使长凭据的完整匹配区间根本收集不到（`abcd` 吃掉 `abcdef` 的前缀）。
+        const group = values
+            .slice(index, index + SCRUB_GROUP_SIZE)
+            .sort((a, b) => b.length - a.length)
+            .map(escape_pattern);
         try {
-            const escaped = Array.from(registered_values).map((v) =>
-                v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-            );
-            combined_pattern = new RegExp(escaped.join("|"), "g");
-        } catch {
-            combined_pattern = null;
+            scrub_patterns.push(new RegExp(group.join("|"), "g"));
+        } catch (error: unknown) {
+            // 静默降级成「这批值不再脱敏」会悄悄泄露凭据，必须留下痕迹。
+            if (!pattern_error_reported) {
+                pattern_error_reported = true;
+                console.warn(
+                    `[scrubber] failed to build a redaction pattern for ${String(group.length)} values; they will not be redacted: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`,
+                );
+            }
         }
     }
     scrub_dirty = false;
@@ -47,7 +71,16 @@ function rebuild_pattern(): void {
 
 export const scrubber = {
     register(value: string): void {
-        if (value.length < MIN_SCRUB_LENGTH || value.length > MAX_SCRUB_VALUE_LENGTH) return;
+        if (value.length < MIN_SCRUB_LENGTH) return;
+        if (value.length > MAX_SCRUB_VALUE_LENGTH) {
+            if (!long_value_reported) {
+                long_value_reported = true;
+                console.warn(
+                    `[scrubber] a value longer than ${String(MAX_SCRUB_VALUE_LENGTH)} chars was not registered for redaction (likely a stored page snapshot); make sure it never reaches a log sink`,
+                );
+            }
+            return;
+        }
         if (registered_values.size >= MAX_SCRUB_VALUES) return;
         registered_values.add(value);
         scrub_dirty = true;
@@ -61,10 +94,44 @@ export const scrubber = {
 
     scrub_text(text: string): string {
         if (registered_values.size === 0) return text;
-        if (scrub_dirty) rebuild_pattern();
-        if (!combined_pattern) return text;
-        combined_pattern.lastIndex = 0;
-        return text.replace(combined_pattern, REPLACEMENT);
+        if (scrub_dirty) rebuild_patterns();
+        if (scrub_patterns.length === 0) return text;
+
+        // 必须在**原始文本**上收集所有匹配区间再统一替换：逐个 pattern 依次替换时，
+        // 短凭据（组 1）会先命中长凭据（组 n）的内部片段，破坏后者的完整匹配，
+        // 结果留下 `prefix***suffix` 这类可见片段。
+        const ranges: { start: number; end: number }[] = [];
+        for (const pattern of scrub_patterns) {
+            pattern.lastIndex = 0;
+            let match = pattern.exec(text);
+            while (match !== null) {
+                ranges.push({ start: match.index, end: match.index + match[0].length });
+                // 零宽匹配防御：不推进 lastIndex 会死循环。
+                if (match[0].length === 0) pattern.lastIndex += 1;
+                match = pattern.exec(text);
+            }
+        }
+        if (ranges.length === 0) return text;
+
+        // 同起点优先取更长区间，再合并重叠：长凭据覆盖其内部短凭据。
+        ranges.sort((a, b) => a.start - b.start || b.end - a.end);
+        const merged: { start: number; end: number }[] = [];
+        for (const range of ranges) {
+            const last = merged[merged.length - 1];
+            if (last && range.start <= last.end) {
+                if (range.end > last.end) last.end = range.end;
+            } else {
+                merged.push({ start: range.start, end: range.end });
+            }
+        }
+
+        let result = "";
+        let cursor = 0;
+        for (const range of merged) {
+            result += text.slice(cursor, range.start) + REPLACEMENT;
+            cursor = range.end;
+        }
+        return result + text.slice(cursor);
     },
 
     get_values(): ReadonlySet<string> {
@@ -74,7 +141,9 @@ export const scrubber = {
     clear(): void {
         registered_values.clear();
         scrub_dirty = true;
-        combined_pattern = null;
+        scrub_patterns = [];
+        pattern_error_reported = false;
+        long_value_reported = false;
     },
 };
 
