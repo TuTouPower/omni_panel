@@ -7,13 +7,24 @@ const USER_AGENT =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
 const CYCLE_30D_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * vault 快照超过这个年龄只能当过期数据（宿主每轮刷新会重抓页面）。
+ * 必须与 src/shared/constants.ts 的 FLOWERCLOUD_SNAPSHOT_FRESH_MS 保持一致
+ * ——connector 是独立脚本，不能 import 宿主常量。
+ */
+const SNAPSHOT_FRESH_MS = 5 * 60 * 1000;
 
-function required_cookie(): { cookie: string; session_html?: string | undefined } {
+function required_cookie(): {
+    cookie: string;
+    session_html?: string | undefined;
+    captured_at?: number | undefined;
+} {
     const raw = (ctx.params["SESSION_COOKIE"] ?? "").trim();
     if (!raw) throw new Error("Missing required secret: SESSION_COOKIE");
 
     let cookie = raw;
     let session_html: string | undefined;
+    let captured_at: number | undefined;
 
     if (raw.startsWith("{")) {
         try {
@@ -27,6 +38,9 @@ function required_cookie(): { cookie: string; session_html?: string | undefined 
             if (typeof parsed.html === "string" && parsed.html) {
                 session_html = parsed.html;
             }
+            if (typeof parsed.captured_at === "number" && Number.isFinite(parsed.captured_at)) {
+                captured_at = parsed.captured_at;
+            }
         } catch {
             // raw cookie string
         }
@@ -36,7 +50,7 @@ function required_cookie(): { cookie: string; session_html?: string | undefined 
     if (/[\r\n]/.test(cookie) || cookie.length > 32768) {
         throw new Error("Invalid cookie: CRLF characters or length > 32KB detected");
     }
-    return { cookie, session_html };
+    return { cookie, session_html, captured_at };
 }
 
 function parse_to_gb(value: number, unit: string): number {
@@ -189,14 +203,28 @@ function check_auth_or_challenge(res: {
 }
 
 async function main(): Promise<ScriptObservation[]> {
-    const { cookie, session_html } = required_cookie();
+    const { cookie, session_html, captured_at } = required_cookie();
     const now = Date.now();
     const reset_day_param = ctx.params["RESET_DAY"]?.trim();
+    // 没有 captured_at 的旧载荷无法判断新鲜度，按过期处理：宁可让 UI 标注不新鲜，
+    // 也不能把未知年龄的页面当成实时数据。
+    const snapshot_age_ms = captured_at === undefined ? null : now - captured_at;
+    const snapshot_stale =
+        session_html !== undefined &&
+        (snapshot_age_ms === null || snapshot_age_ms > SNAPSHOT_FRESH_MS);
 
     let html: string;
 
     if (session_html) {
-        ctx.log.info("FlowerCloud: Using browser session DOM");
+        // 有快照就不再发网络请求：Cloudflare 会拦住纯 HTTP 重放，重试只会换来挑战页。
+        // 数据新鲜度由宿主的 DOM 快照刷新负责（stale 标记如实反映快照年龄）。
+        ctx.log.info(
+            snapshot_age_ms === null
+                ? "FlowerCloud: stored DOM has no capture time, treating it as stale"
+                : snapshot_age_ms > SNAPSHOT_FRESH_MS
+                  ? `FlowerCloud: stored DOM is ${String(Math.round(snapshot_age_ms / 60000))}min old`
+                  : "FlowerCloud: Using browser session DOM",
+        );
         html = session_html;
     } else {
         const headers: Record<string, string> = {
@@ -234,6 +262,19 @@ async function main(): Promise<ScriptObservation[]> {
         reset_day_param,
     );
 
+    // p267: 一个账号可挂多个服务，而本连接器只取首个用量。出现多个服务时明确记一条，
+    // 免得用户把面板数字当成全部服务的合计。
+    const service_ids = new Set(
+        [...html.matchAll(/clientarea\.php\?action=productdetails(?:&amp;|&)id=(\d+)/gi)]
+            .map((match) => match[1])
+            .filter((id): id is string => typeof id === "string"),
+    );
+    if (service_ids.size > 1) {
+        ctx.log.warn(
+            `FlowerCloud: 页面含 ${String(service_ids.size)} 个服务，当前只统计首个（见 p267）`,
+        );
+    }
+
     if (used_gb === null && limit_gb === null) {
         ctx.log.warn("FlowerCloud: 无法从控制台页面匹配到用量或配额数据");
     }
@@ -260,7 +301,7 @@ async function main(): Promise<ScriptObservation[]> {
         status,
         observed_at: now,
         source: "session",
-        stale: false,
+        stale: snapshot_stale,
         last_error: null,
     };
 

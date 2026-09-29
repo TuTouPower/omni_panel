@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
 import { run_connector } from "../../../src/main/core/connector/runtime";
 import { is_auth_error } from "../../../src/shared/lib/auth-error";
+import { FLOWERCLOUD_SNAPSHOT_FRESH_MS } from "../../../src/shared/constants";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
 import { ctx_budget_stub, ctx_status } from "./_ctx_status";
 
@@ -21,6 +22,8 @@ function create_ctx(options: {
     cookie?: string;
     reset_day?: string;
     get_raw?: ReturnType<typeof vi.fn>;
+    /** 需要断言日志时注入，避免直接引用 ctx.log.warn（unbound-method）。 */
+    warn?: ReturnType<typeof vi.fn>;
 }): ConnectorContext {
     const {
         clientarea_body = "",
@@ -29,6 +32,7 @@ function create_ctx(options: {
         details_status = 200,
         cookie = "WHMCSUID=12345; WHMCSPW=hash; PHPSESSID=session123",
         reset_day,
+        warn = vi.fn(),
         get_raw = vi.fn().mockImplementation((_endpoint: string, path: string) => {
             if (path === "/clientarea.php") {
                 return Promise.resolve({
@@ -61,7 +65,7 @@ function create_ctx(options: {
             get_json: vi.fn(),
         },
         files: { read: vi.fn(), list: vi.fn() },
-        log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        log: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
         status: ctx_status,
         report_failed_account: vi.fn(),
     };
@@ -236,9 +240,11 @@ describe("flowercloud connector", () => {
         if (!manifest) throw new Error("flowercloud manifest missing");
 
         const live_html = await fixture("live_dashboard_sample.html");
+        // captured_at 为必填语义（无捕获时间的旧载荷按过期处理，见下一条用例）。
         const secret = JSON.stringify({
             cookie: "cf_clearance=abc; PHPSESSID=xyz",
             html: live_html,
+            captured_at: Date.now(),
         });
 
         const ctx = create_ctx({
@@ -252,6 +258,51 @@ describe("flowercloud connector", () => {
         expect(result.observations).toHaveLength(1);
         expect(result.observations[0]?.used).toBe(297.11);
         expect(result.observations[0]?.limit).toBe(1000);
+        expect(result.observations[0]?.stale).toBe(false);
+    });
+
+    it("marks a stored flowercloud DOM stale when the snapshot is old", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const live_html = await fixture("live_dashboard_sample.html");
+        const secret = JSON.stringify({
+            cookie: "cf_clearance=abc; PHPSESSID=xyz",
+            html: live_html,
+            captured_at: Date.now() - 60 * 60 * 1000,
+        });
+        const ctx = create_ctx({
+            cookie: secret,
+            clientarea_body: "Just a moment...",
+            clientarea_status: 403,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.used).toBe(297.11);
+        expect(result.observations[0]?.stale).toBe(true);
+    });
+
+    it("marks a stored flowercloud DOM stale when it has no capture time", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const live_html = await fixture("live_dashboard_sample.html");
+        // 旧格式载荷（无 captured_at）：年龄未知，按过期处理而不是当成实时数据。
+        const secret = JSON.stringify({
+            cookie: "cf_clearance=abc; PHPSESSID=xyz",
+            html: live_html,
+        });
+        const ctx = create_ctx({
+            cookie: secret,
+            clientarea_body: "Just a moment...",
+            clientarea_status: 403,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.used).toBe(297.11);
+        expect(result.observations[0]?.stale).toBe(true);
     });
 
     it("throws challenge error when blocked by Cloudflare turnstile and no session DOM is provided", async () => {
@@ -330,5 +381,45 @@ describe("flowercloud connector", () => {
         const result = await run_connector(manifest, await code(), ctx);
         expect(result.error).not.toBeNull();
         expect(result.error).toContain("SESSION_COOKIE");
+    });
+
+    it("keeps the connector snapshot freshness aligned with the host constant", async () => {
+        // connector 是独立脚本，不能 import 宿主常量，只能靠这份契约测试盯住漂移。
+        const source = await code();
+        const match = /const SNAPSHOT_FRESH_MS\s*=\s*([0-9_\s*]+);/.exec(source);
+        const expression = match?.[1];
+        if (!expression) throw new Error("SNAPSHOT_FRESH_MS not found in connector source");
+        const connector_value = expression
+            .split("*")
+            .map((factor) => Number(factor.replaceAll("_", "").trim()))
+            .reduce((product, factor) => product * factor, 1);
+
+        expect(connector_value).toBe(FLOWERCLOUD_SNAPSHOT_FRESH_MS);
+    });
+
+    it("warns when the page exposes more than one service (p267)", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const html = [
+            '<a href="clientarea.php?action=productdetails&amp;id=394686">Global A</a>',
+            '<a href="clientarea.php?action=productdetails&amp;id=394687">Global B</a>',
+            "<p>流量使用 331.40GB / 1000GB</p>",
+        ].join("\n");
+        const warn = vi.fn();
+        const ctx = create_ctx({
+            cookie: JSON.stringify({
+                cookie: "WHMCS=kept",
+                html,
+                captured_at: Date.now(),
+            }),
+            warn,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("2 个服务"));
     });
 });
