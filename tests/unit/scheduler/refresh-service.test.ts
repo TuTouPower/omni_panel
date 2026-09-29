@@ -180,7 +180,7 @@ describe("refresh-service flowercloud page refresh", () => {
         const order: string[] = [];
         const refresh_web_session = vi.fn(() => {
             order.push("page");
-            return Promise.resolve();
+            return Promise.resolve({ ok: true });
         });
         const execute_connector = vi.fn(() => {
             order.push("connector");
@@ -205,15 +205,71 @@ describe("refresh-service flowercloud page refresh", () => {
         expect(refresh_web_session).toHaveBeenCalledTimes(1);
     });
 
-    it("still runs the flowercloud connector when the page refresh fails", async () => {
-        const execute_connector = vi.fn().mockResolvedValue({
-            observations: [flower_observation],
-            failed_accounts: [],
+    it("marks the instance failed with the capture reason instead of replaying the connector", async () => {
+        const execute_connector = vi.fn();
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector,
+            refresh_web_session: vi.fn().mockResolvedValue({
+                ok: false,
+                reason: "花云要求完成人机验证（Cloudflare 质询）",
+            }),
+        });
+
+        await service.refresh("flower-1");
+
+        // 没有新 DOM 时不浪费连接器预算重放旧 HTML，直接如实标记失败原因（AC-003 / AC-004）。
+        expect(execute_connector).not.toHaveBeenCalled();
+        const state = runtimeStore.getSnapshot("flower-1");
+        expect(state.status).toBe("failed");
+        if (state.status === "failed") {
+            expect(state.error).toContain("人机验证");
+        }
+    });
+
+    it("keeps the last successful snapshot when the page refresh fails", async () => {
+        const runtimeStore = createRuntimeStore();
+        const updated_at = new Date("2026-09-29T12:00:00+08:00");
+        runtimeStore.updateState("flower-1", {
+            status: "ready",
+            items: [],
+            updatedAt: updated_at,
         });
         const service = createRefreshService({
             definitions: [flower_definition()],
             observationStore: create_observation_store(),
-            runtimeStore: createRuntimeStore(),
+            runtimeStore,
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector: vi.fn(),
+            refresh_web_session: vi.fn().mockResolvedValue({
+                ok: false,
+                reason: "花云要求完成人机验证（Cloudflare 质询）",
+            }),
+        });
+
+        await service.refresh("flower-1");
+
+        const state = runtimeStore.getSnapshot("flower-1");
+        expect(state.status).toBe("failed");
+        if (state.status === "failed") {
+            // 失败保留上次成功数据及其采集时间（AC-004）。
+            expect(state.lastSuccess?.updatedAt).toBe(updated_at.toISOString());
+        }
+    });
+
+    it("treats a thrown page-refresh error as a capture failure", async () => {
+        const execute_connector = vi.fn();
+        const runtimeStore = createRuntimeStore();
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
             configStore: create_config_store([flower_config()]),
             vault: create_vault(),
             execute_connector,
@@ -222,11 +278,70 @@ describe("refresh-service flowercloud page refresh", () => {
 
         await service.refresh("flower-1");
 
-        expect(execute_connector).toHaveBeenCalledTimes(1);
+        expect(execute_connector).not.toHaveBeenCalled();
+        const state = runtimeStore.getSnapshot("flower-1");
+        expect(state.status).toBe("failed");
+        if (state.status === "failed") {
+            expect(state.error).toContain("window failed");
+        }
+    });
+
+    it("marks the previous observations stale when the capture fails", async () => {
+        const runtimeStore = createRuntimeStore();
+        const observationStore = create_observation_store();
+        observationStore.list_latest_success_by_instance = vi.fn(() => [
+            { ...flower_observation, stale: false },
+        ]);
+        const reason = "花云要求完成人机验证（Cloudflare 质询），本轮未取到新数据";
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector: vi.fn(),
+            refresh_web_session: vi.fn().mockResolvedValue({ ok: false, reason }),
+        });
+
+        await service.refresh("flower-1");
+
+        // AC-004：失败必须把上次成功观测降级成 stale + last_error，否则 UI 的
+        // 「数据过期」标记与按 stale 判断新鲜度的消费方都会把旧值当新鲜数据。
+        expect(observationStore.inserted).toHaveLength(1);
+        expect(observationStore.inserted[0]?.stale).toBe(true);
+        expect(observationStore.inserted[0]?.last_error).toBe(reason);
+    });
+
+    it("marks a forced refresh failed as well when the capture reports a blocked page", async () => {
+        const runtimeStore = createRuntimeStore();
+        const refresh_web_session = vi
+            .fn()
+            .mockResolvedValue({ ok: false, reason: "花云访问被拦截，当前网络出口可能受限" });
+        const service = createRefreshService({
+            definitions: [flower_definition()],
+            observationStore: create_observation_store(),
+            runtimeStore,
+            configStore: create_config_store([flower_config()]),
+            vault: create_vault(),
+            execute_connector: vi.fn(),
+            refresh_web_session,
+        });
+
+        await service.refresh("flower-1", { force: true });
+
+        // 手动刷新与定时刷新走同一条失败语义：不前台化、不重放旧 HTML（AC-002 / AC-003）。
+        expect(refresh_web_session).toHaveBeenCalledWith("flower-1", expect.anything(), {
+            force: true,
+        });
+        const state = runtimeStore.getSnapshot("flower-1");
+        expect(state.status).toBe("failed");
+        if (state.status === "failed") {
+            expect(state.error).toContain("网络出口");
+        }
     });
 
     it("does not open a page for connectors that are not flowercloud", async () => {
-        const refresh_web_session = vi.fn().mockResolvedValue(undefined);
+        const refresh_web_session = vi.fn().mockResolvedValue({ ok: true });
         const execute_connector = vi.fn().mockResolvedValue({
             observations: [
                 {
@@ -258,7 +373,7 @@ describe("refresh-service flowercloud page refresh", () => {
         const observed: string[] = [];
         const refresh_web_session = vi.fn(() => {
             observed.push(runtimeStore.getSnapshot("flower-1").status);
-            return Promise.resolve();
+            return Promise.resolve({ ok: true });
         });
         const service = createRefreshService({
             definitions: [flower_definition()],
@@ -280,7 +395,7 @@ describe("refresh-service flowercloud page refresh", () => {
     });
 
     it("passes the manual-refresh flag through to the page refresh", async () => {
-        const refresh_web_session = vi.fn().mockResolvedValue(undefined);
+        const refresh_web_session = vi.fn().mockResolvedValue({ ok: true });
         const service = createRefreshService({
             definitions: [flower_definition()],
             observationStore: create_observation_store(),

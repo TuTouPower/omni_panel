@@ -4,22 +4,6 @@
     "workspace": ".",
     "tasks": [
         {
-            "tid": "t535",
-            "slug": "flowercloud_background_first_refresh",
-            "title": "花云后台刷新的后台优先策略与采集窗口可见性",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "来源: p269 + p268",
-            "dir": "docs/tasks/t535_flowercloud_background_first_refresh"
-        },
-        {
             "tid": "t536",
             "slug": "flowercloud_login_exit_lifecycle",
             "title": "花云未登录场景下应用存活保障与退出入口定位",

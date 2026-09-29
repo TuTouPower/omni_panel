@@ -8514,6 +8514,22 @@
             "conflicts_with": "",
             "note": "修复 Muse 动态 Action 发现锁定单一 settings 候选导致 DISCOVERY_EMPTY 的缺陷，支持多候选遍历回退与真实回归测试 (p266)",
             "dir": "docs/archive/tasks/t534_muse_dynamic_action_fallback"
+        },
+        {
+            "tid": "t535",
+            "slug": "flowercloud_background_first_refresh",
+            "title": "花云后台刷新的后台优先策略与采集窗口可见性",
+            "status": "done",
+            "branch": "t535_flowercloud_background_first_refresh",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "56c01c1be881a2e834248aa11ad849d1b2a70ec3",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源: p269 + p268",
+            "dir": "docs/archive/tasks/t535_flowercloud_background_first_refresh"
         }
     ]
 }

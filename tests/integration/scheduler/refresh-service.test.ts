@@ -1700,6 +1700,98 @@ return [{
         }
     });
 
+    it("marks stale observations when the flowercloud page capture fails (t535 AC-004)", async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), "flowercloud-capture-fail-"));
+        await writeFile(
+            join(tempDir, "connector.js"),
+            `throw new Error("connector must not run");`,
+        );
+
+        const prior_observation: Observation = {
+            provider: "flowercloud",
+            source_instance_id: "flower-1",
+            account_id: "flowercloud_default",
+            account_label: "Global Acceleration Max",
+            metric_id: "flowercloud:traffic",
+            raw_label: "monthly_traffic",
+            normalized_label: "月流量",
+            window: "month",
+            used: 331,
+            limit: 1000,
+            display_style: "ratio",
+            reset_at: null,
+            status: "normal",
+            observed_at: 1780000000000,
+            source: "session",
+            stale: false,
+            last_error: null,
+        };
+
+        const observationStore = make_store();
+        observationStore.list_latest_success_by_instance = vi.fn(() => [prior_observation]);
+        observationStore.list_by_source_instance_id = vi.fn(() => [prior_observation]);
+        const runtimeStore = createRuntimeStore();
+        const execute_connector = vi.fn();
+        const reason = "花云要求完成人机验证（Cloudflare 质询），本轮未取到新数据";
+        const service = createRefreshService({
+            definitions: [
+                {
+                    directory: tempDir,
+                    executablePath: tempDir,
+                    manifest: {
+                        id: "flowercloud",
+                        provider: "flowercloud",
+                        capabilities: ["session"],
+                        auth: {
+                            method: "web_login",
+                            secret_name: "SESSION_COOKIE",
+                            login_url: "https://api-flowercloud.com/clientarea.php",
+                        },
+                        parameters: [
+                            {
+                                name: "SESSION_COOKIE",
+                                type: "secret",
+                                required: true,
+                                exposeToScript: true,
+                            },
+                        ],
+                        endpoints: { default: "https://api-flowercloud.com" },
+                        script: "connector.js",
+                    },
+                },
+            ],
+            observationStore,
+            runtimeStore,
+            configStore: create_config_store([
+                { ...plugin_config("flower-1", true, "flowercloud"), executablePath: tempDir },
+            ]),
+            vault: create_vault(),
+            execute_connector,
+            refresh_web_session: vi.fn().mockResolvedValue({ ok: false, reason }),
+        });
+
+        try {
+            await service.refresh("flower-1", { force: true });
+
+            // 抓取失败不重放旧 HTML。
+            expect(execute_connector).not.toHaveBeenCalled();
+            // 上次成功观测必须降级为 stale + last_error，否则 UI 显示不出「数据过期」（AC-004）。
+            expect(observationStore.inserted).toHaveLength(1);
+            const stale_obs = observationStore.inserted[0];
+            if (!stale_obs) throw new Error("expected stale observation");
+            expect(stale_obs).toMatchObject({
+                provider: "flowercloud",
+                account_id: "flowercloud_default",
+                stale: true,
+                last_error: reason,
+            });
+            const state = runtimeStore.getSnapshot("flower-1");
+            expect(state.status).toBe("failed");
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it("only upgrades to reset after two consecutive connection errors (regression: premature reset)", async () => {
         // Regression: previously, the first connection error immediately set
         // force_fresh_connection=true. With connection pool reuse (keepAlive),

@@ -3,7 +3,12 @@
  *
  * 花云的用量只渲染在登录后的页面里，Cloudflare 质询也不允许纯 HTTP 重放，因此：
  * - 登录流程靠轮询页面 DOM 拿到用量快照（本模块被 session-manager 复用）；
- * - 定时刷新由宿主开一次会话窗口重抓，再把 HTML 写回 vault 供 connector 解析。
+ * - 定时刷新由宿主开一次隐藏会话窗口重抓，再把 HTML 写回 vault 供 connector 解析。
+ *
+ * s040 结论（`docs/findings/d063`）：`show:false` 的窗口里 `document.hidden` 已是 false，
+ * Cloudflare 脚本照常执行，抓取**不需要把窗口显示出来**；而 `show()` + 聚焦（reveal）会把
+ * 托管式自动挑战（「正在验证…」）升级成必须人工点击的交互挑战（「请验证您是真人」）并抢焦点。
+ * 因此本模块只使用隐藏窗，失败即有界返回原因，不再前台化、不把窗口交给用户。
  *
  * 会话/窗口契约见 ./session-types，避免与 session-manager 形成 import 环。
  */
@@ -26,11 +31,6 @@ const SESSION_COOKIE_KEY = "SESSION_COOKIE";
 export const FLOWER_SNAPSHOT_TIMEOUT_MS = 45_000;
 const FLOWER_SNAPSHOT_POLL_MS = 400;
 const FLOWER_SNAPSHOT_SETTLE_MS = 2_500;
-/** 质询页持续这么久仍无用量，才把窗口亮出来让人点。自动能过的 5 秒盾不闪屏。 */
-const FLOWER_REVEAL_AFTER_MS = 8_000;
-const FLOWER_REVEAL_BUDGET_MS = 120_000;
-/** 亮窗后继续采集的上限：用户可能要在质询/登录页上停留很久。 */
-const FLOWER_HANDOVER_WAIT_MS = 30 * 60 * 1000;
 export const FLOWER_USAGE_RE = /(?:流量使用|\d+(?:\.\d+)?GB\s*\/)/i;
 
 export type FlowerPageKind =
@@ -41,6 +41,7 @@ export type FlowerPageKind =
     | "blocked"
     | "empty"
     | "other"
+    | "network"
     | "cancelled";
 
 /** vault 中 SESSION_COOKIE 的载荷结构（与 connectors/flowercloud/connector.ts 约定一致）。 */
@@ -153,8 +154,32 @@ export function flower_page_kind(html: string | null): FlowerPageKind {
     return "other";
 }
 
-export function flower_needs_user(kind: FlowerPageKind): boolean {
-    return kind === "cloudflare" || kind === "login" || kind === "blocked";
+/**
+ * 把抓取失败分类翻译成用户可读原因（供调度层写入 runtime 失败状态）。
+ * 成功路径（usage / overview）不应调用本函数。
+ */
+export function flower_failure_reason(kind: FlowerPageKind): string {
+    switch (kind) {
+        case "cloudflare":
+            return "花云要求完成人机验证（Cloudflare 质询），本轮未取到新数据";
+        case "login":
+            return "花云登录会话已失效，请重新登录";
+        case "blocked":
+            return "花云访问被拦截，当前网络出口可能受限";
+        case "empty":
+            return "花云页面未渲染出内容";
+        case "cancelled":
+            return "花云抓取被取消";
+        case "other":
+            return "花云页面未出现用量数据";
+        case "network":
+            // 同一 try 里除页面加载外还有 vault / session 读写，故不主张具体原因。
+            return "花云页面抓取失败（加载、网络或会话读取异常）";
+        case "usage":
+        case "overview":
+            // 成功分类不应走到失败原因映射；保留兜底文案以保持 switch 穷尽。
+            return "花云页面已出现用量，但本轮未写入快照";
+    }
 }
 
 /** 只保留登录态 cookie。分区里的客服 cookie 名很长，整包写回会超过安全长度。 */
@@ -232,8 +257,8 @@ export async function write_flowercloud_html(
         log.warn(`FlowerCloud DOM refresh refused an unsafe cookie for ${instance_id}`);
         return false;
     }
-    // 落盘前最后一次校验：读数期间可能被用户关窗/交互登录抢占（cancelled），
-    // 也可能有更新的快照或新登录凭据写进 vault——两种情况都不能用本轮旧数据覆盖。
+    // 落盘前最后一次校验：读数期间可能被抢占（cancelled），也可能有更新的快照或新登录
+    // 凭据写进 vault——两种情况都不能用本轮旧数据覆盖。
     if (options?.is_cancelled?.() === true) return false;
     const current = await vault.get(key);
     if (current !== raw) {
@@ -250,10 +275,12 @@ export async function write_flowercloud_html(
 export interface FlowerPollResult {
     readonly html: string | null;
     readonly kind: FlowerPageKind;
-    /** 已经为需要人交互的页面亮过窗（超时后不应再直接关窗）。 */
-    readonly revealed: boolean;
 }
 
+/**
+ * 在隐藏窗里轮询页面 DOM，直到出现稳定用量或超时。
+ * 不做任何前台化：需要人操作的页面只是被分类记录，作为失败原因返回。
+ */
 export async function poll_flower_usage_html(
     window: SessionWindow,
     login_url: string,
@@ -261,21 +288,14 @@ export async function poll_flower_usage_html(
         timeout_ms: number;
         poll_ms: number;
         settle_ms: number;
-        reveal_after_ms: number;
-        reveal_budget_ms: number;
-        handover_wait_ms: number;
         is_cancelled(): boolean;
-        reveal?(): void;
-        on_reveal?(kind: FlowerPageKind): void;
     },
 ): Promise<FlowerPollResult> {
-    if (!window.read_html) return { html: null, kind: "empty", revealed: false };
-    let deadline = Date.now() + options.timeout_ms;
+    if (!window.read_html) return { html: null, kind: "empty" };
+    const deadline = Date.now() + options.timeout_ms;
     let navigated = false;
     let first_usage_at = 0;
     let latest: string | null = null;
-    let blocked_since = 0;
-    let revealed = false;
     let last_kind: FlowerPageKind = "empty";
 
     while (!options.is_cancelled() && Date.now() < deadline && !window.isDestroyed()) {
@@ -287,21 +307,7 @@ export async function poll_flower_usage_html(
         }
         const kind = flower_page_kind(html);
         last_kind = kind;
-        if (flower_needs_user(kind)) {
-            if (blocked_since === 0) blocked_since = Date.now();
-            if (!revealed && Date.now() - blocked_since >= options.reveal_after_ms) {
-                revealed = true;
-                options.reveal?.();
-                // 亮窗后继续采集到 handover_wait 上限：用户过质询/重新登录期间仍然
-                // 轮询，拿到用量就正常写回；窗口关闭或被抢占则走取消路径。
-                const extended = Date.now() + options.reveal_budget_ms + options.handover_wait_ms;
-                if (extended > deadline) deadline = extended;
-                options.on_reveal?.(kind);
-            }
-        } else if (kind !== "empty") {
-            blocked_since = 0;
-        }
-        if (html && !navigated && kind === "overview") {
+        if (kind === "overview" && html && !navigated) {
             const service_id = flower_product_details_id(html);
             if (service_id) {
                 navigated = true;
@@ -317,13 +323,13 @@ export async function poll_flower_usage_html(
             latest = html;
             if (first_usage_at === 0) first_usage_at = Date.now();
             if (Date.now() - first_usage_at >= options.settle_ms) {
-                return { html, kind: "usage", revealed };
+                return { html, kind: "usage" };
             }
         }
         await delay(options.poll_ms);
     }
-    if (options.is_cancelled()) return { html: null, kind: "cancelled", revealed };
-    return { html: latest, kind: latest ? "usage" : last_kind, revealed };
+    if (options.is_cancelled()) return { html: null, kind: "cancelled" };
+    return { html: latest, kind: latest ? "usage" : last_kind };
 }
 
 export interface FlowercloudSnapshotInput {
@@ -339,11 +345,7 @@ export interface FlowercloudSnapshotInput {
 export interface FlowercloudSnapshotOutcome {
     /** 磁盘上的快照当前可用（刚写入，或仍在新鲜期内被跳过）。 */
     readonly written: boolean;
-    /**
-     * 已到亮窗后的等待上限、页面仍需要人操作：窗口交给用户，调用方不要关窗。
-     * 等待期内（默认 30 分钟）会持续轮询，完成即写回，因此这是兜底路径。
-     */
-    readonly handed_over: boolean;
+    /** 成功时为 usage；失败时为分类结果，调用方可据此给出可读原因。 */
     readonly kind: FlowerPageKind;
 }
 
@@ -357,7 +359,7 @@ async function read_page_hint(window: SessionWindow): Promise<string> {
     }
 }
 
-/** 开一次会话窗口，等用量渲染出来后写回 vault。任何失败都不改 vault。 */
+/** 开一次隐藏会话窗口抓取用量，成功才写回 vault。任何失败都不改 vault。 */
 export async function run_flowercloud_snapshot(
     input: FlowercloudSnapshotInput,
 ): Promise<FlowercloudSnapshotOutcome> {
@@ -376,7 +378,7 @@ export async function run_flowercloud_snapshot(
                 log.info(
                     `FlowerCloud DOM refresh skipped for ${instance_id}: stored snapshot is fresh`,
                 );
-                return { written: true, handed_over: false, kind: "usage" };
+                return { written: true, kind: "usage" };
             }
         }
 
@@ -386,57 +388,50 @@ export async function run_flowercloud_snapshot(
             skip_names: new Set(jar.map((cookie) => cookie.name)),
         });
         const start_url = await flower_snapshot_url(vault, instance_id, login_url);
-        window.present_for_capture?.();
+        // 隐藏窗即可执行质询脚本（s040）：不调用任何前台化方法。
         await window.loadURL(start_url);
         const result = await poll_flower_usage_html(window, login_url, {
             timeout_ms: options.timeout_ms ?? FLOWER_SNAPSHOT_TIMEOUT_MS,
             poll_ms: options.poll_ms ?? FLOWER_SNAPSHOT_POLL_MS,
             settle_ms: options.settle_ms ?? FLOWER_SNAPSHOT_SETTLE_MS,
-            reveal_after_ms: options.reveal_after_ms ?? FLOWER_REVEAL_AFTER_MS,
-            reveal_budget_ms: options.reveal_budget_ms ?? FLOWER_REVEAL_BUDGET_MS,
-            handover_wait_ms: options.handover_wait_ms ?? FLOWER_HANDOVER_WAIT_MS,
             is_cancelled,
-            reveal() {
-                window.reveal?.();
-            },
-            on_reveal(kind) {
-                log.info(`FlowerCloud DOM refresh showing window for ${instance_id}: ${kind}`);
-            },
         });
 
         if (!result.html || is_cancelled()) {
             if (is_cancelled()) {
-                return { written: false, handed_over: false, kind: "cancelled" };
+                return { written: false, kind: "cancelled" };
             }
             const where = await read_page_hint(window);
-            // 等待上限已到且页面仍要人操作：窗口留给用户继续（登记随之释放），
-            // 别在他输入时关掉；本轮不写 vault。
-            const handed_over = result.revealed && flower_needs_user(result.kind);
             log.warn(
                 `FlowerCloud DOM refresh found no usage for ${instance_id}: ${result.kind}${
                     where ? ` ${where}` : ""
-                }${handed_over ? " (handover wait exhausted, window left to the user)" : ""}`,
+                }`,
             );
-            return { written: false, handed_over, kind: result.kind };
+            return { written: false, kind: result.kind };
         }
 
-        // 读 cookie 与写 vault 都是异步的：这期间窗口可能被用户关掉或被交互登录抢占，
+        // 读 cookie 与写 vault 都是异步的：这期间窗口可能被关掉或被交互登录抢占，
         // 因此取消校验要做在写入点（write_flowercloud_html 内部还有落盘前复核）。
         const fresh = flower_auth_cookie_header(await session.get_cookies(login_url));
         if (is_cancelled()) {
             log.info(`FlowerCloud DOM refresh cancelled before writing ${instance_id}`);
-            return { written: false, handed_over: false, kind: "cancelled" };
+            return { written: false, kind: "cancelled" };
         }
         const written = await write_flowercloud_html(vault, instance_id, result.html, fresh, {
             is_cancelled,
         });
-        return { written, handed_over: false, kind: "usage" };
+        return { written, kind: "usage" };
     } catch (error: unknown) {
         log.warn(
             `FlowerCloud DOM refresh failed for ${instance_id}: ${
                 error instanceof Error ? error.message : String(error)
             }`,
         );
-        return { written: false, handed_over: false, kind: "other" };
+        // 抢占/关窗会在 await 期间让 read_html / executeJavaScript 抛错，这类不是
+        // 「网络失败」而是本轮被取消（AC-003 的分类要与原因一致）。
+        if (is_cancelled()) return { written: false, kind: "cancelled" };
+        // 其余异常（页面加载、网络、vault / session 读写）统一按抓取失败归类，
+        // 文案不主张具体原因，真实错误仍在上面的 warn 里。
+        return { written: false, kind: "network" };
     }
 }

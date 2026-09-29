@@ -402,3 +402,11 @@
     4. 密钥安全防线：强制拒绝 key 命中 secret 名或 value 包含 vault 保护值，拒写并告警，坚决不落盘、不落日志。
 - 落地：t529，`docs/specs/connector-runtime.md`，`src/main/core/connector/discovery-cache.ts`。
 - 替代：双向 IPC RPC 读写通用 SQLite 或允许连接器自由存取任意 KV。
+
+## 044 花云网页快照后台优先、不自动前台化（2026-09-29）
+
+- 背景：花云用量只能从登录后页面 DOM 读取，宿主需周期性开隐藏会话窗重抓。原实现在质询/登录页持续 8s 后主动 `show()` + 聚焦，把窗口亮给用户，并在 30 分钟交接预算内保留窗口；结果是后台取数失败被升级为前台打断，用户未点验证也会被要求前台操作。s040 在真实站点实测（`docs/findings/d063`）：`show:false` 窗口的 `document.hidden` 已是 false、Cloudflare 脚本照常执行；`show()` + 聚焦反而把托管式自动挑战（「正在验证…」）升级为必须人工点击的交互挑战（「请验证您是真人」+ 复选框）并抢焦点。
+- 选项：A) 保留自动亮窗，只改提示文案；B) 后台优先——窗口始终隐藏，失败有界并如实给出原因，只有用户主动走网页登录才前台化。
+- 结论：选 B。移除 `present_for_capture` / `reveal` 与交接等待；快照窗在成功、失败、超时、取消时一律关闭并释放登记；抓取失败由调度层写入 `failed` 状态与可读原因（保留 `lastSuccess`），不再调用连接器重放旧 HTML；不实现自动点击验证控件（无 DOM 可点击目标）。
+- 落地：t535，`docs/specs/flowercloud_usage.md`，`src/main/core/session/flowercloud_dom.ts`、`src/main/core/session/session-manager.ts`、`src/main/core/scheduler/refresh-service.ts`。
+- 替代：无
