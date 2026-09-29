@@ -5,4 +5,4 @@
 - 根因：Electron API 平台差异；透明窗口在 macOS 仍参与窗口层级与 Mission Control。未找到等价 Electron API（`setVisibleOnAllWorkspaces`、`app.dock.hide()` 都会影响主窗口）。已扫：`src/main/index.ts` 中 `present_for_capture` / `reveal` 两处，均已在非 darwin 平台才调用 `setSkipTaskbar`。
 - 测试缺口：无自动化覆盖——`is_e2e_headless()` 下这两个方法直接 return，Playwright 也观察不到真实窗口层级。需要 macOS 真机手动验证（观察 Dock/切换器/截图），再决定是否改用 `type: "panel"` + 更高窗口层级，或直接复用主窗口分区。
 - 线索：无。
-- 处理：未开
+- 处理：t535
