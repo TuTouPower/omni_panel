@@ -8,6 +8,7 @@ import {
     build_flowercloud_secret,
     FLOWER_USAGE_RE,
     flower_details_url,
+    flower_failure_reason,
     flower_product_details_id,
     parse_flowercloud_secret,
     run_flowercloud_snapshot,
@@ -15,12 +16,19 @@ import {
 } from "./flowercloud_dom";
 import type {
     FlowercloudSnapshotOptions,
+    FlowercloudSnapshotResult,
     SessionController,
     SessionCookie,
     SessionWindow,
 } from "./session-types";
 
-export type { FlowercloudSnapshotOptions, SessionController, SessionCookie, SessionWindow };
+export type {
+    FlowercloudSnapshotOptions,
+    FlowercloudSnapshotResult,
+    SessionController,
+    SessionCookie,
+    SessionWindow,
+};
 
 const log = createLogger("session-manager");
 
@@ -78,15 +86,17 @@ export interface SessionManager {
     start_login(request: LoginRequest): Promise<LoginResult>;
     is_login_in_progress?(instance_id: string, options?: { only_interactive?: boolean }): boolean;
     /**
-     * 用已有会话分区打开窗口，等花云页面把用量渲染出来后写回 vault。
+     * 用已有会话分区开一次**隐藏**窗口，等花云页面把用量渲染出来后写回 vault。
      * 定时刷新必须走这里：连接器自己只会重放上次落盘的 HTML。
-     * 失败时不改 vault，返回 false。同一实例已有一次快照在跑时，后到的调用等同一次结果。
+     * 失败时不改 vault，返回 ok=false 与可读原因；窗口无论成败都在本轮关闭，
+     * 不做任何前台化（见 `docs/findings/d063`）。同一实例已有一次快照在跑时，
+     * 后到的调用等同一次结果。
      */
     refresh_flowercloud_snapshot?(
         instance_id: string,
         login_url: string,
         options?: FlowercloudSnapshotOptions,
-    ): Promise<boolean>;
+    ): Promise<FlowercloudSnapshotResult>;
 }
 
 interface ActiveLoginSession {
@@ -103,7 +113,7 @@ export function create_session_manager(
 ): SessionManager {
     const timeout_ms = options?.timeout_ms ?? SESSION_LOGIN_TIMEOUT_MS;
     const in_progress = new Map<string, ActiveLoginSession>();
-    const flower_snapshots = new Map<string, Promise<boolean>>();
+    const flower_snapshots = new Map<string, Promise<FlowercloudSnapshotResult>>();
 
     return {
         start_login(request: LoginRequest): Promise<LoginResult> {
@@ -583,21 +593,24 @@ export function create_session_manager(
             instance_id: string,
             login_url: string,
             options?: FlowercloudSnapshotOptions,
-        ): Promise<boolean> {
+        ): Promise<FlowercloudSnapshotResult> {
             try {
                 new URL(login_url);
             } catch {
-                return Promise.resolve(false);
+                return Promise.resolve({ ok: false, reason: "花云登录地址无效" });
             }
             if (deps.has_display && !deps.has_display()) {
                 log.warn(`FlowerCloud DOM refresh skipped for ${instance_id}: no display`);
-                return Promise.resolve(false);
+                return Promise.resolve({
+                    ok: false,
+                    reason: "当前环境没有可用显示，无法抓取花云页面",
+                });
             }
             const in_flight = flower_snapshots.get(instance_id);
             if (in_flight) return in_flight;
             if (in_progress.has(instance_id)) {
                 log.info(`FlowerCloud DOM refresh skipped for ${instance_id}: login in progress`);
-                return Promise.resolve(false);
+                return Promise.resolve({ ok: false, reason: "花云登录进行中，本轮跳过抓取" });
             }
 
             const partition = get_session_login_partition(instance_id);
@@ -616,15 +629,14 @@ export function create_session_manager(
                 },
             };
             in_progress.set(instance_id, active);
-            // 用户手动关掉快照窗即放弃本轮。不接线的话 cancelled 永远是 false，
-            // 「用户取消」会被日志与 handed_over 判定误报成「页面没渲染出用量」。
+            // 窗口被关掉（用户手动关闭或被交互登录抢占）即放弃本轮；不接线的话
+            // 「取消」会被日志误报成「页面没渲染出用量」。
             window.on("closed", () => {
                 state.cancelled = true;
             });
 
-            const slot: { current?: Promise<boolean> } = {};
-            const job = (async (): Promise<boolean> => {
-                let keep_window = false;
+            const slot: { current?: Promise<FlowercloudSnapshotResult> } = {};
+            const job = (async (): Promise<FlowercloudSnapshotResult> => {
                 try {
                     const outcome = await run_flowercloud_snapshot({
                         window,
@@ -635,9 +647,8 @@ export function create_session_manager(
                         is_cancelled: () => state.cancelled,
                         ...(options ? { options } : {}),
                     });
-                    // handed_over：窗口已亮给用户过质询/重新登录，别在他输入时关掉。
-                    keep_window = outcome.handed_over;
-                    return outcome.written;
+                    if (outcome.written) return { ok: true };
+                    return { ok: false, reason: flower_failure_reason(outcome.kind) };
                 } finally {
                     if (slot.current && flower_snapshots.get(instance_id) === slot.current) {
                         flower_snapshots.delete(instance_id);
@@ -645,7 +656,8 @@ export function create_session_manager(
                     if (in_progress.get(instance_id)?.window === window) {
                         in_progress.delete(instance_id);
                     }
-                    if (!keep_window && !window.isDestroyed()) window.close();
+                    // 成功、失败、超时、取消一视同仁：本轮结束即关窗，不留失管窗口（AC-005/AC-006）。
+                    if (!window.isDestroyed()) window.close();
                 }
             })();
             slot.current = job;

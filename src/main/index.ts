@@ -406,12 +406,14 @@ void app.whenReady().then(async () => {
                 definition: ConnectorDefinition,
                 options?: { force?: boolean },
             ) => {
-                if (!DOM_SNAPSHOT_PROVIDERS.has(definition.manifest.provider)) return;
+                if (!DOM_SNAPSHOT_PROVIDERS.has(definition.manifest.provider)) {
+                    return { ok: true };
+                }
                 const login_url =
                     definition.manifest.auth?.login_url ??
                     "https://api-flowercloud.com/clientarea.php";
-                if (!sessionManager.refresh_flowercloud_snapshot) return;
-                await sessionManager.refresh_flowercloud_snapshot(instanceId, login_url, {
+                if (!sessionManager.refresh_flowercloud_snapshot) return { ok: true };
+                return await sessionManager.refresh_flowercloud_snapshot(instanceId, login_url, {
                     // 定时刷新：vault 快照仍在新鲜期内就不必再开一次窗口；
                     // 手动刷新（force）强制重抓，保证用户点下去就能拿到最新数据。
                     ...(options?.force === true ? {} : { skip_if_fresh: true }),
@@ -781,20 +783,9 @@ void app.whenReady().then(async () => {
                         );
                         return typeof value === "string" ? value : null;
                     },
-                    present_for_capture(): void {
-                        if (window.isDestroyed() || is_e2e_headless()) return;
-                        // show:false 时 document.hidden 为 true，花云 Cloudflare 质询脚本不跑。
-                        // setSkipTaskbar 只在 Windows/Linux 生效（macOS 为 no-op）。
-                        if (process.platform !== "darwin") window.setSkipTaskbar(true);
-                        window.showInactive();
-                        window.setOpacity(0);
-                    },
-                    reveal(): void {
-                        if (window.isDestroyed() || is_e2e_headless()) return;
-                        window.setOpacity(1);
-                        if (process.platform !== "darwin") window.setSkipTaskbar(false);
-                        window.show();
-                    },
+                    // 采集窗不做任何前台化（s040 / docs/findings/d063）：隐藏窗里
+                    // document.hidden 已是 false、Cloudflare 脚本照常执行；show() + 聚焦
+                    // 反而会把托管式挑战升级为必须人工点击的交互挑战并抢焦点。
                     read_page_hint: async (): Promise<{ url: string; title: string } | null> => {
                         if (window.isDestroyed()) return null;
                         const value: unknown = await window.webContents.executeJavaScript(

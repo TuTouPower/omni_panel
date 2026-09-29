@@ -1,0 +1,53 @@
+{
+    "tid": "t535",
+    "attempt": 1,
+    "execution_id": "038724b635b640418e4786192d3c447e",
+    "status": "done",
+    "branch": "t535_flowercloud_background_first_refresh",
+    "base_sha": "56c01c1be881a2e834248aa11ad849d1b2a70ec3",
+    "tests": "pnpm test 全量 339 passed | 1 skipped（340 files），4234 passed / 8 skipped；pnpm typecheck / lint / format:check / arch / deadcode 全绿",
+    "blackbox": "s040 真实站点探针（docs/spikes/s040_flowercloud_challenge_probe/，主仓已入库 56c01c1b）作为 AC-007 的程序化证据：隐藏窗 document.hidden === false 且 Cloudflare 质询脚本执行；reveal 前后挑战形态由「正在验证…」变为「请验证您是真人」+ 复选框；窗口 isVisible/getOpacity/isFocused 实测（透明态 visible=true / opacity=0 / 未聚焦，reveal 后 isFocused=true）。本 task 实现改为全程隐藏窗且不再调用任何前台化方法，Mission Control 目视项按 spec 声明为 [deploy] 待真机核验。",
+    "review": "full 级。review_code.md：Round 1 FAIL（f001 important + f002/f003 minor）→ Round 2 PASS → Round 3 定向 PASS（f004 minor）→ Round 4 定向 PASS（零新 finding）。review_test.md 同轨迹（Round 1 FAIL 同源 f001 + f002/f003 minor → Round 2 PASS → Round 3 PASS（f004）→ Round 4 PASS）。全部 finding 已修，无遗留 critical/important。",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/session/flowercloud_dom.test.ts: never surfaces the capture window (AC-001)（show/showInactive/setOpacity 计数为 0）",
+            "src/main/core/session/session-types.ts: SessionWindow 不再声明 present_for_capture / reveal（编译期消除前台化调用面）"
+        ],
+        "AC-002": [
+            "tests/unit/scheduler/refresh-service.test.ts: passes the manual-refresh flag through to the page refresh",
+            "tests/unit/scheduler/refresh-service.test.ts: marks a forced refresh failed as well when the capture reports a blocked page"
+        ],
+        "AC-003": [
+            "tests/unit/session/session-manager.test.ts: closes the window and frees the registration when the capture budget runs out",
+            "tests/unit/session/flowercloud_dom.test.ts: flower_failure_reason it.each（9 个分类的文案）",
+            "tests/unit/session/flowercloud_dom.test.ts: reports a network reason when loading the page fails",
+            "tests/unit/session/flowercloud_dom.test.ts: reports a cancelled reason when the session is torn down mid-capture"
+        ],
+        "AC-004": [
+            "tests/unit/scheduler/refresh-service.test.ts: marks the instance failed with the capture reason instead of replaying the connector",
+            "tests/unit/scheduler/refresh-service.test.ts: keeps the last successful snapshot when the page refresh fails",
+            "tests/unit/scheduler/refresh-service.test.ts: marks the previous observations stale when the capture fails",
+            "tests/integration/scheduler/refresh-service.test.ts: marks stale observations when the flowercloud page capture fails (t535 AC-004)"
+        ],
+        "AC-005": [
+            "tests/unit/session/session-manager.test.ts: closes the window and frees the registration when the capture budget runs out（下一轮刷新 windows=2 且两窗均已关闭）"
+        ],
+        "AC-006": [
+            "tests/unit/session/session-manager.test.ts: joins an in-flight flowercloud snapshot instead of opening another window",
+            "tests/unit/session/session-manager.test.ts: stops the flowercloud snapshot when the user closes the window",
+            "tests/unit/session/session-manager.test.ts: preempts a running flowercloud snapshot with an interactive login",
+            "tests/unit/session/session-manager.test.ts: does not report a flowercloud DOM snapshot as a login in progress"
+        ],
+        "AC-007": [
+            "[deploy] macOS 真机人工核验未执行；程序化证据见 docs/spikes/s040_flowercloud_challenge_probe/report.md 与 code/probe_v2_*.json"
+        ]
+    },
+    "pending": [
+        "p269: 已拆分为 t535（本 task）与 t536，归档 docs/archive/pending/p269_flowercloud_background_challenge_popup.md",
+        "p268: 已并入 t535，归档 docs/archive/pending/p268_flowercloud_snapshot_window_macos.md",
+        "遗留（非 blocking，未新建条目）：AC-007 真机目视核验；catch 取消分支的 warn 级日志卫生；force 刷新与在途 skip_if_fresh join 与 failed+lastSuccess 过期展示依赖 hydrate（pre-existing）"
+    ],
+    "findings": [
+        "d063: s040 结论（隐藏窗可执行质询、reveal 升级挑战形态），docs/findings/d063_flowercloud_challenge_and_capture_window.md"
+    ]
+}

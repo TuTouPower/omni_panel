@@ -254,6 +254,7 @@ route `history`/`session` 渲染根组件为 `SessionShell`（见 `docs/specs/se
 - **开发面板通路（t481/t482）**：桌面 `devPanel:*` IPC 与 Web `/v1/devPanel/*` 都调用主进程能力；Git 扫描由 `DevPanelScanManager` 统一执行，模型路由由 `DevPanelModelRoutingManager` 统一读外部 YAML、访问 New API、写渠道映射和自检。Git 命令经无 shell `execFile` 只读执行；模型路由凭证仅在宿主持有，响应不含 `session`。模型路由保存先写宿主本地 `models`/`model_mapping`/`priority` 快照，再串行写渠道，首次失败后停止并返回 success/failed/skipped 分类；桌面 IPC 与 Web LocalAPI/bridge 保持同权限与二次确认语义。
 - **会话历史 IPC 通道组（t210，决策 15）**：`SESSION_HISTORY_OPEN`（打开/聚焦历史窗口 + 定位）、`SUBSCRIBE`/`UNSUBSCRIBE`（watcher 生命周期）、`QUERY`（全量/分页）、`RECENT`（最近会话，按 ended_at 降序）、推送 `MESSAGES_UPDATED` / `FOCUS`。preload 按 route 分权（t212 三档）：`history` / `agent` 暴露全量真实 IPC；`usage`（托盘 popup / 用量面板）仅暴露 `open`（打开/聚焦窗口，订阅查询保持 noop）；其余 route 用 noop 栈。OPEN handler 在 `main/index.ts` 单点注册（fire-and-forget，无 IpcResult 包装）。
 - **用量窗口宽度**：usage 窗口仅有 472px 最小宽度；floating 持久化宽度最多为所在 display 的 `workArea.width`，popup 不设固定最大宽度。
+- **网页 DOM 快照的会话窗口不变量（t535，决策 044）**：数据只存在于页面 DOM 的 provider（`DOM_SNAPSHOT_PROVIDERS`）由宿主在连接器执行前开一次**隐藏**会话窗抓取；该窗口不做任何前台化，并在成功、失败、超时、被取消时一律关闭并释放在途登记，因此不存在「留给用户」的失管窗口。抓取失败由 `refresh-service` 写入 `failed` 状态与可读原因（保留 `lastSuccess`），不再调用连接器重放旧 HTML。依据 `docs/findings/d063`：隐藏窗已能执行 Cloudflare 脚本，而 `show()` + 聚焦会升级挑战形态并抢焦点。
 
 ### 5.1 Web 配置操作与事件桥
 

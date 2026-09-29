@@ -91,13 +91,14 @@ export interface RefreshServiceDeps {
     ) => Promise<RefreshResult | undefined>;
     /**
      * 数据只在页面 DOM 里的连接器（见 DOM_SNAPSHOT_PROVIDERS）：连接器执行前由宿主重抓
-     * 一次，否则脚本只会解析 vault 里的旧 HTML。失败不得抛到刷新循环外。
+     * 一次，否则脚本只会解析 vault 里的旧 HTML。失败不得抛到刷新循环外；
+     * 返回 `{ ok: false, reason }` 表示本轮抓取失败，调用方据此如实标记失败原因。
      */
     refresh_web_session?: (
         instanceId: string,
         definition: ConnectorDefinition,
         options?: { force?: boolean },
-    ) => Promise<void>;
+    ) => Promise<{ ok: boolean; reason?: string }>;
 }
 
 export interface ConnectorRefreshService {
@@ -402,6 +403,46 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 return;
             }
 
+            /**
+             * invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError。
+             * 为该 instance 下的每条最新成功观测插入一份 stale 副本，UI 据此显示「数据过期」。
+             * 首次即失败（无上次观测）时跳过——UI 应显示「无数据」而非「stale」。
+             * t174: 副本保留原观测的 observed_at，卡片相对时间反映数据真实年龄。
+             * t370 AC-002: 插入包 try/catch——insert/list 抛错仅告警，确保调用方的
+             * updateState(failed) 无条件执行（否则 store 卡 loading）。
+             *
+             * 抓取失败（网页会话拿不到新 DOM）与采集失败走同一条降级路径，否则
+             * `Observation.stale` 不翻转，UI 的「已过期」标记与按 stale 判断新鲜度的
+             * 消费方都会把旧值当新鲜数据（AC-004）。
+             */
+            function mark_observations_stale(reason: string): void {
+                try {
+                    // A113 / AC-004: 严格基于最新成功观测 (stale=0) 生成降级副本，消除多轮连续失败 stale 衍生雪崩
+                    const successful_priors = deps.observationStore.list_latest_success_by_instance
+                        ? deps.observationStore.list_latest_success_by_instance(instanceId)
+                        : deps.observationStore
+                              .list_by_source_instance_id(instanceId)
+                              .filter((o) => !o.stale);
+                    const stale_copies: Observation[] = successful_priors.map((obs) => ({
+                        ...obs,
+                        stale: true,
+                        last_error: reason,
+                    }));
+                    if (stale_copies.length > 0) {
+                        deps.observationStore.insert_batch(stale_copies);
+                    }
+                    trace_log.info(
+                        `Marked ${String(stale_copies.length)} observation(s) stale for ${instanceId}`,
+                    );
+                } catch (stale_err: unknown) {
+                    trace_log.warn(
+                        `Failed to mark stale observations for ${instanceId}: ${
+                            stale_err instanceof Error ? stale_err.message : String(stale_err)
+                        }`,
+                    );
+                }
+            }
+
             const prior = last_success_snapshot(deps.runtimeStore.getSnapshot(instanceId));
             deps.runtimeStore.updateState(instanceId, {
                 status: "loading",
@@ -412,23 +453,39 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 DOM_SNAPSHOT_PROVIDERS.has(definition.manifest.provider) &&
                 deps.refresh_web_session
             ) {
-                // 抓取可能要开一次窗口（含交给用户过质询的时间），因此放在 15s 连接器预算
-                // 之外；状态已经在上面置为 loading，UI 不会在这段时间里毫无反馈。
+                // 抓取要开一次隐藏窗口，因此放在 15s 连接器预算之外；状态已经在上面置为
+                // loading，UI 不会在这段时间里毫无反馈。
+                let session_result: { ok: boolean; reason?: string };
                 try {
-                    await deps.refresh_web_session(instanceId, definition, {
+                    session_result = await deps.refresh_web_session(instanceId, definition, {
                         force: options?.force === true,
                     });
                 } catch (error: unknown) {
-                    trace_log.warn(
-                        `Web session refresh failed for ${instanceId}: ${
-                            error instanceof Error ? error.message : String(error)
-                        }`,
-                    );
+                    const message = error instanceof Error ? error.message : String(error);
+                    trace_log.warn(`Web session refresh failed for ${instanceId}: ${message}`);
+                    session_result = { ok: false, reason: `抓取网页会话失败：${message}` };
                 }
                 // 抓取期间可能有更新的刷新（force）接管，本轮结果已过期就别再跑连接器。
                 if (active_generations.get(instanceId) !== generation) {
                     trace_log.warn(
                         `Discarding outdated refresh for ${instanceId} after page refresh (generation ${String(generation)})`,
+                    );
+                    return;
+                }
+                if (!session_result.ok) {
+                    // 抓取失败：本轮没有新 DOM，如实标记失败原因并保留上次成功数据，
+                    // 不浪费连接器预算重放旧 HTML（AC-003 / AC-004）。
+                    const reason = session_result.reason ?? "花云页面抓取失败";
+                    // 与采集失败同路径：把上次成功观测降级为 stale + last_error，
+                    // 否则 UI 的「已过期」标记不会出现（AC-004）。
+                    mark_observations_stale(reason);
+                    deps.runtimeStore.updateState(instanceId, {
+                        status: "failed",
+                        error: reason,
+                        ...(prior !== undefined && { lastSuccess: prior }),
+                    });
+                    trace_log.warn(
+                        `Web session refresh could not produce data for ${instanceId}: ${reason}`,
                     );
                     return;
                 }
@@ -774,37 +831,7 @@ export function createRefreshService(deps: RefreshServiceDeps): ConnectorRefresh
                 return;
             }
 
-            // invariant 2: 采集失败保留上次成功观测，挂 stale:true + lastError。
-            // 为该 instance 下的每条最新观测插入一份 stale 副本，UI 据此显示"数据过期"。
-            // 首次即失败（无上次观测）时跳过——UI 应显示"无数据"而非"stale"。
-            // t174: 副本保留原观测的 observed_at，卡片相对时间反映数据真实年龄。
-            // t370 AC-002: 全轮失败后的 stale 副本插入包 try/catch——insert/list 抛错
-            // 仅告警，确保 updateState(failed) 无条件执行（否则 store 卡 loading）。
-            try {
-                // A113 / AC-004: 严格基于最新成功观测 (stale=0) 生成降级副本，消除多轮连续失败 stale 衍生雪崩
-                const successful_priors = deps.observationStore.list_latest_success_by_instance
-                    ? deps.observationStore.list_latest_success_by_instance(instanceId)
-                    : deps.observationStore
-                          .list_by_source_instance_id(instanceId)
-                          .filter((o) => !o.stale);
-                const stale_copies: Observation[] = successful_priors.map((obs) => ({
-                    ...obs,
-                    stale: true,
-                    last_error: last_error,
-                }));
-                if (stale_copies.length > 0) {
-                    deps.observationStore.insert_batch(stale_copies);
-                }
-                trace_log.info(
-                    `Marked ${String(stale_copies.length)} observation(s) stale for ${instanceId}`,
-                );
-            } catch (stale_err: unknown) {
-                trace_log.warn(
-                    `Failed to mark stale observations for ${instanceId}: ${
-                        stale_err instanceof Error ? stale_err.message : String(stale_err)
-                    }`,
-                );
-            }
+            mark_observations_stale(last_error);
 
             deps.runtimeStore.updateState(instanceId, {
                 status: "failed",

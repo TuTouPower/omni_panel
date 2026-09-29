@@ -54,6 +54,7 @@
 |`pnpm test:packaged`（`--project=packaged`）|**有**：起打包版 app（CDP）|临时 remote-debugging 端口|无|**须许可**|
 |`pnpm package` / `pnpm reload`|**有**：先 kill 正在运行的 OmniPanel 再重启；macOS 默认 ad-hoc 重签，不弹钥匙串（`OMNI_SIGN=1` 才用本机证书）|本地 API 端口随重启变更|**有**：直接改变用户正在用的 app|**须许可**|
 |`pnpm start` / `pnpm start:test`|**有**：dev app 窗口|dev server 端口|写用户 userData（除显式 `--user-data-dir`）|**须许可**|
+|`docs/spikes/*/code/probe*.mjs`（直接用 `electron` 跑）|**有**：真实 Electron 窗口（探针为受限环境关掉 Chromium sandbox，见 `docs/findings/d063`）|无（独立分区 + 仓库内 `userData`/`temp`）|无（不碰应用 vault / 配置 / userData）|**须许可**|
 |`pnpm test:contract:live`（当前无 live 用例）|无|打真实上游|无（但消耗真实额度）|**须许可**|
 
 无窗口替代（推荐给 agent 自测）：`E2E=1 E2E_HEADLESS=1 pnpm exec playwright test --config=playwright.config.ts --project=electron`——窗口 `show:false`，不弹屏抢焦点；Linux CI 另需 `xvfb-run -a`。它仍会起真实 Electron 进程（占 CPU），但不动用户正在用的实例（独立 `--user-data-dir`）。

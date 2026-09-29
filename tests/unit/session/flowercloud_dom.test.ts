@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    flower_failure_reason,
     run_flowercloud_snapshot,
     write_flowercloud_html,
 } from "../../../src/main/core/session/flowercloud_dom";
@@ -18,10 +19,27 @@ const OLD_SECRET = JSON.stringify({
     captured_at: 1,
 });
 
-function create_window(html: string): SessionWindow {
-    const win = {
+/**
+ * 假窗口带三个「前台化」探针：抓取路径若调用它们，计数即可暴露回归
+ * （AC-001：采集窗不得 show / showInactive / setOpacity）。
+ */
+type ProbedWindow = SessionWindow & {
+    closed: boolean;
+    shown: number;
+    shown_inactive: number;
+    opacity_calls: number;
+    // SessionWindow 已不声明前台化方法；这里显式挂上探针，任何调用都会被计数。
+    show(): void;
+    showInactive(): void;
+    setOpacity(value: number): void;
+};
+
+function create_window(html: string): ProbedWindow {
+    const win: ProbedWindow = {
         closed: false,
-        revealed: 0,
+        shown: 0,
+        shown_inactive: 0,
+        opacity_calls: 0,
         loadURL: vi.fn(() => Promise.resolve()),
         close(): void {
             win.closed = true;
@@ -29,15 +47,18 @@ function create_window(html: string): SessionWindow {
         isDestroyed(): boolean {
             return win.closed;
         },
-        on(): SessionWindow {
+        on(): ProbedWindow {
             return win;
         },
         read_html: () => Promise.resolve(html),
-        present_for_capture(): void {
-            // no-op
+        show(): void {
+            win.shown += 1;
         },
-        reveal(): void {
-            win.revealed += 1;
+        showInactive(): void {
+            win.shown_inactive += 1;
+        },
+        setOpacity(): void {
+            win.opacity_calls += 1;
         },
     };
     return win;
@@ -175,5 +196,110 @@ describe("flowercloud_dom", () => {
             expect(outcome.written).toBe(true);
             expect(vault.values.get(KEY)).toContain("331.40GB");
         });
+    });
+    it("never surfaces the capture window (AC-001)", async () => {
+        const vault = create_vault();
+        await vault.set(KEY, OLD_SECRET);
+        const window = create_window(USAGE_HTML);
+
+        const outcome = await run_flowercloud_snapshot({
+            window,
+            session: create_session(),
+            vault,
+            instance_id: "flower-1",
+            login_url: LOGIN_URL,
+            is_cancelled: () => false,
+            options: { poll_ms: 5, settle_ms: 0, timeout_ms: 500 },
+        });
+
+        expect(outcome.written).toBe(true);
+        // 采集窗全程隐藏：任何前台化调用都是回归。
+        expect(window.shown).toBe(0);
+        expect(window.shown_inactive).toBe(0);
+        expect(window.opacity_calls).toBe(0);
+    });
+});
+
+describe("flower_failure_reason", () => {
+    it.each([
+        ["cloudflare", "人机验证"],
+        ["login", "重新登录"],
+        ["blocked", "拦截"],
+        ["empty", "未渲染"],
+        ["cancelled", "取消"],
+        ["other", "未出现用量数据"],
+        ["network", "抓取失败"],
+        ["usage", "未写入快照"],
+        ["overview", "未写入快照"],
+    ] as const)("maps %s to a readable reason", (kind, expected) => {
+        expect(flower_failure_reason(kind)).toContain(expected);
+    });
+
+    it("reports a network reason when loading the page fails", async () => {
+        const vault = create_vault();
+        await vault.set(KEY, OLD_SECRET);
+        const window = create_window(USAGE_HTML);
+        window.loadURL = vi.fn(() => Promise.reject(new Error("net::ERR_FAILED")));
+
+        const outcome = await run_flowercloud_snapshot({
+            window,
+            session: create_session(),
+            vault,
+            instance_id: "flower-1",
+            login_url: LOGIN_URL,
+            is_cancelled: () => false,
+            options: { poll_ms: 5, settle_ms: 0, timeout_ms: 200 },
+        });
+
+        expect(outcome.written).toBe(false);
+        expect(outcome.kind).toBe("network");
+        expect(flower_failure_reason(outcome.kind)).toContain("网络");
+    });
+
+    it("reports a cancelled reason when the session is torn down mid-capture", async () => {
+        const vault = create_vault();
+        await vault.set(KEY, OLD_SECRET);
+        const session = create_session();
+        let cancelled = false;
+        // 交互登录抢占/关窗时，await 中的会话调用会 reject；这属于取消而不是网络失败。
+        session.get_cookies = vi.fn(() => {
+            cancelled = true;
+            return Promise.reject(new Error("Object has been destroyed"));
+        });
+
+        const outcome = await run_flowercloud_snapshot({
+            window: create_window(USAGE_HTML),
+            session,
+            vault,
+            instance_id: "flower-1",
+            login_url: LOGIN_URL,
+            is_cancelled: () => cancelled,
+            options: { poll_ms: 5, settle_ms: 0, timeout_ms: 200 },
+        });
+
+        expect(outcome.written).toBe(false);
+        expect(outcome.kind).toBe("cancelled");
+        expect(flower_failure_reason(outcome.kind)).toContain("取消");
+    });
+
+    it("reports the blocked reason for an Error 1020 page", async () => {
+        const vault = create_vault();
+        await vault.set(KEY, OLD_SECRET);
+        const window = create_window(
+            "<title>Attention Required! | Cloudflare</title><div>error 1020</div>",
+        );
+
+        const outcome = await run_flowercloud_snapshot({
+            window,
+            session: create_session(),
+            vault,
+            instance_id: "flower-1",
+            login_url: LOGIN_URL,
+            is_cancelled: () => false,
+            options: { poll_ms: 5, settle_ms: 0, timeout_ms: 40 },
+        });
+
+        expect(outcome.written).toBe(false);
+        expect(flower_failure_reason(outcome.kind)).toContain("拦截");
     });
 });
