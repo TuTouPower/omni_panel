@@ -1,0 +1,419 @@
+{
+    "mode": "transparent",
+    "login_url": "https://api-flowercloud.com/clientarea.php",
+    "partition": "persist:spike-s040-transparent",
+    "final_kind": "cloudflare",
+    "cf_clearance_elapsed_ms": null,
+    "final_probe": {
+        "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+        "hidden": false,
+        "visibilityState": "visible",
+        "hasFocus": false,
+        "iframes": [],
+        "widgets": [],
+        "shadowHosts": [],
+        "forms": [],
+        "cfKeys": [
+            "cITFT5",
+            "VvsrP6",
+            "DqqU0",
+            "QEIAY8",
+            "NWeoF4",
+            "VbYF3",
+            "JWud0",
+            "FfLGH5",
+            "gcwS3",
+            "fDDOx7",
+            "rziaC7",
+            "hwKQ9"
+        ],
+        "checkboxVisible": null
+    },
+    "final_windows": [
+        {
+            "label": "final",
+            "index": 0,
+            "id": 1,
+            "visible": true,
+            "focused": false,
+            "opacity": 0,
+            "bounds": {
+                "x": 768,
+                "y": 283,
+                "width": 520,
+                "height": 720
+            },
+            "destroyed": false
+        }
+    ],
+    "cf_requests": [
+        {
+            "url": "https://api-flowercloud.com/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1?ray=a42b83e3af113ec8",
+            "status": 200,
+            "elapsed_ms": 1261
+        },
+        {
+            "url": "https://api-flowercloud.com/cdn-cgi/challenge-platform/h/b/fo/551389470:1790686821:bpoLS9DX3dDyXP2rvmjFrKfzg8N",
+            "status": 200,
+            "elapsed_ms": 1636
+        },
+        {
+            "url": "https://challenges.cloudflare.com/turnstile/v0/b/d76008a69eab/api.js?onload=zaERg6&render=explicit",
+            "status": 200,
+            "elapsed_ms": 3182
+        },
+        {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/turnstile/f/av0/rch/62z8s/0x4AAAAAAAAjq6WYeRD",
+            "status": 200,
+            "elapsed_ms": 3869
+        },
+        {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/fo/3949808587:1790686823:We_naMlAAG_8RaIfdnVO",
+            "status": 200,
+            "elapsed_ms": 4889
+        },
+        {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/pat/a42b83f5ea2533ed/1790690441210/a2d512cbdc",
+            "status": 401,
+            "elapsed_ms": 5215
+        },
+        {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/ci/a42b83f5ea2533ed/1790690441211/GYON0Ccxt0x",
+            "status": 200,
+            "elapsed_ms": 5224
+        },
+        {
+            "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/fo/3949808587:1790686823:We_naMlAAG_8RaIfdnVO",
+            "status": 200,
+            "elapsed_ms": 6702
+        }
+    ],
+    "timeline": [
+        {
+            "at": "2026-09-29T14:00:36.861Z",
+            "elapsed_ms": 78,
+            "label": "app_ready",
+            "mode": "transparent",
+            "electron": "44.0.0",
+            "chrome": "152.0.7977.54"
+        },
+        {
+            "at": "2026-09-29T14:00:36.965Z",
+            "elapsed_ms": 182,
+            "label": "window_created_hidden",
+            "windows": [
+                {
+                    "label": "created",
+                    "index": 0,
+                    "id": 1,
+                    "visible": false,
+                    "focused": false,
+                    "opacity": 1,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:00:41.729Z",
+            "elapsed_ms": 4946,
+            "label": "loaded",
+            "kind": "cloudflare",
+            "hidden": false,
+            "visibilityState": "visible",
+            "windows": [
+                {
+                    "label": "after-load",
+                    "index": 0,
+                    "id": 1,
+                    "visible": false,
+                    "focused": false,
+                    "opacity": 1,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:00:42.945Z",
+            "elapsed_ms": 6162,
+            "label": "present_for_capture",
+            "windows": [
+                {
+                    "label": "transparent",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:00:42.946Z",
+            "elapsed_ms": 6163,
+            "label": "kind_change",
+            "kind": "cloudflare"
+        },
+        {
+            "at": "2026-09-29T14:00:42.947Z",
+            "elapsed_ms": 6164,
+            "label": "sample",
+            "at_ms": 5000,
+            "kind": "cloudflare",
+            "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+            "hidden": false,
+            "visibilityState": "visible",
+            "hasFocus": false,
+            "iframes": [],
+            "widgets": [],
+            "shadowHosts": [],
+            "forms": [],
+            "cfKeys": [
+                "cITFT5",
+                "VvsrP6",
+                "DqqU0",
+                "QEIAY8",
+                "NWeoF4",
+                "VbYF3",
+                "JWud0",
+                "FfLGH5",
+                "gcwS3",
+                "fDDOx7",
+                "rziaC7",
+                "hwKQ9"
+            ],
+            "checkboxVisible": null,
+            "windows": [
+                {
+                    "label": "t5s",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:00:52.018Z",
+            "elapsed_ms": 15235,
+            "label": "sample",
+            "at_ms": 15000,
+            "kind": "cloudflare",
+            "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+            "hidden": false,
+            "visibilityState": "visible",
+            "hasFocus": false,
+            "iframes": [],
+            "widgets": [],
+            "shadowHosts": [],
+            "forms": [],
+            "cfKeys": [
+                "cITFT5",
+                "VvsrP6",
+                "DqqU0",
+                "QEIAY8",
+                "NWeoF4",
+                "VbYF3",
+                "JWud0",
+                "FfLGH5",
+                "gcwS3",
+                "fDDOx7",
+                "rziaC7",
+                "hwKQ9"
+            ],
+            "checkboxVisible": null,
+            "windows": [
+                {
+                    "label": "t15s",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:01:07.105Z",
+            "elapsed_ms": 30322,
+            "label": "sample",
+            "at_ms": 30000,
+            "kind": "cloudflare",
+            "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+            "hidden": false,
+            "visibilityState": "visible",
+            "hasFocus": false,
+            "iframes": [],
+            "widgets": [],
+            "shadowHosts": [],
+            "forms": [],
+            "cfKeys": [
+                "cITFT5",
+                "VvsrP6",
+                "DqqU0",
+                "QEIAY8",
+                "NWeoF4",
+                "VbYF3",
+                "JWud0",
+                "FfLGH5",
+                "gcwS3",
+                "fDDOx7",
+                "rziaC7",
+                "hwKQ9"
+            ],
+            "checkboxVisible": null,
+            "windows": [
+                {
+                    "label": "t30s",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:01:27.211Z",
+            "elapsed_ms": 50428,
+            "label": "sample",
+            "at_ms": 50000,
+            "kind": "cloudflare",
+            "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+            "hidden": false,
+            "visibilityState": "visible",
+            "hasFocus": false,
+            "iframes": [],
+            "widgets": [],
+            "shadowHosts": [],
+            "forms": [],
+            "cfKeys": [
+                "cITFT5",
+                "VvsrP6",
+                "DqqU0",
+                "QEIAY8",
+                "NWeoF4",
+                "VbYF3",
+                "JWud0",
+                "FfLGH5",
+                "gcwS3",
+                "fDDOx7",
+                "rziaC7",
+                "hwKQ9"
+            ],
+            "checkboxVisible": null,
+            "windows": [
+                {
+                    "label": "t50s",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:01:46.813Z",
+            "elapsed_ms": 70030,
+            "label": "sample",
+            "at_ms": 70000,
+            "kind": "cloudflare",
+            "text": "api-flowercloud.com 正在进行安全验证 本网站使用安全服务防护恶意自动程序。在验证您不是自动程序期间，将显示此页面。 Ray ID: a42b83e3af113ec8 由 Cloudflare 提供的性能和安全服务 隐私",
+            "hidden": false,
+            "visibilityState": "visible",
+            "hasFocus": false,
+            "iframes": [],
+            "widgets": [],
+            "shadowHosts": [],
+            "forms": [],
+            "cfKeys": [
+                "cITFT5",
+                "VvsrP6",
+                "DqqU0",
+                "QEIAY8",
+                "NWeoF4",
+                "VbYF3",
+                "JWud0",
+                "FfLGH5",
+                "gcwS3",
+                "fDDOx7",
+                "rziaC7",
+                "hwKQ9"
+            ],
+            "checkboxVisible": null,
+            "windows": [
+                {
+                    "label": "t70s",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T14:01:51.864Z",
+            "elapsed_ms": 75081,
+            "label": "final",
+            "final_kind": "cloudflare",
+            "cf_clearance_elapsed_ms": null,
+            "cf_request_count": 8
+        }
+    ]
+}

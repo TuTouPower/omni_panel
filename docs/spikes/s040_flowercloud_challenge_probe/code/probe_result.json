@@ -1,0 +1,232 @@
+{
+    "login_url": "https://api-flowercloud.com/clientarea.php",
+    "partition": "persist:spike-flowercloud",
+    "final": {
+        "final_kind": "cloudflare",
+        "page": {
+            "url": "https://api-flowercloud.com/clientarea.php",
+            "title": "请稍候…",
+            "hidden": false,
+            "visibilityState": "visible",
+            "readyState": "complete",
+            "htmlLength": 28163
+        },
+        "windows": [
+            {
+                "label": "final",
+                "index": 0,
+                "id": 1,
+                "visible": true,
+                "focused": false,
+                "opacity": 1,
+                "bounds": {
+                    "x": 223,
+                    "y": 368,
+                    "width": 520,
+                    "height": 720
+                },
+                "title": "请稍候…",
+                "destroyed": false
+            }
+        ],
+        "turnstile": {
+            "iframes": [],
+            "widgets": [],
+            "scripts": [
+                "https://challenges.cloudflare.com/turnstile/v0/b/d76008a69eab/api.js?onload=zaERg6&render=explicit"
+            ],
+            "crossOriginIframe": false
+        },
+        "cf_clearance_elapsed_ms": null
+    },
+    "timeline": [
+        {
+            "at": "2026-09-29T13:57:50.216Z",
+            "elapsed_ms": 58,
+            "kind": "app_ready",
+            "electron": "44.0.0",
+            "chrome": "152.0.7977.54"
+        },
+        {
+            "at": "2026-09-29T13:57:50.315Z",
+            "elapsed_ms": 156,
+            "kind": "window_created_hidden",
+            "windows": [
+                {
+                    "label": "created",
+                    "index": 0,
+                    "id": 1,
+                    "visible": false,
+                    "focused": false,
+                    "opacity": 1,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "title": "Electron",
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T13:57:53.768Z",
+            "elapsed_ms": 3609,
+            "kind": "cloudflare",
+            "page": {
+                "url": "https://api-flowercloud.com/clientarea.php",
+                "title": "请稍候…",
+                "hidden": false,
+                "visibilityState": "visible",
+                "readyState": "complete",
+                "htmlLength": 28163
+            },
+            "htmlLength": 28163,
+            "cf_clearance": 0
+        },
+        {
+            "at": "2026-09-29T13:57:55.280Z",
+            "elapsed_ms": 5121,
+            "kind": "present_for_capture",
+            "page": {
+                "url": "https://api-flowercloud.com/clientarea.php",
+                "title": "请稍候…",
+                "hidden": false,
+                "visibilityState": "visible",
+                "readyState": "complete",
+                "htmlLength": 28163
+            },
+            "windows": [
+                {
+                    "label": "transparent",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 0,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "title": "请稍候…",
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T13:57:55.317Z",
+            "elapsed_ms": 5158,
+            "kind": "screenshot",
+            "name": "transparent_state.png",
+            "bytes": 80633
+        },
+        {
+            "at": "2026-09-29T13:57:55.318Z",
+            "elapsed_ms": 5159,
+            "kind": "cloudflare",
+            "hidden": false,
+            "visibilityState": "visible",
+            "url": "https://api-flowercloud.com/clientarea.php",
+            "htmlLength": 28163
+        },
+        {
+            "at": "2026-09-29T13:57:55.319Z",
+            "elapsed_ms": 5160,
+            "kind": "turnstile_probe",
+            "iframes": [],
+            "widgets": [],
+            "scripts": [
+                "https://challenges.cloudflare.com/turnstile/v0/b/d76008a69eab/api.js?onload=zaERg6&render=explicit"
+            ],
+            "crossOriginIframe": false
+        },
+        {
+            "at": "2026-09-29T13:57:55.319Z",
+            "elapsed_ms": 5160,
+            "kind": "turnstile_click_attempt",
+            "found": false
+        },
+        {
+            "at": "2026-09-29T13:57:59.543Z",
+            "elapsed_ms": 9384,
+            "kind": "reveal",
+            "page": {
+                "url": "https://api-flowercloud.com/clientarea.php",
+                "title": "请稍候…",
+                "hidden": false,
+                "visibilityState": "visible",
+                "readyState": "complete",
+                "htmlLength": 28163
+            },
+            "windows": [
+                {
+                    "label": "revealed",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": true,
+                    "opacity": 1,
+                    "bounds": {
+                        "x": 768,
+                        "y": 283,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "title": "请稍候…",
+                    "destroyed": false
+                }
+            ]
+        },
+        {
+            "at": "2026-09-29T13:57:59.576Z",
+            "elapsed_ms": 9417,
+            "kind": "screenshot",
+            "name": "revealed_state.png",
+            "bytes": 81504
+        },
+        {
+            "at": "2026-09-29T13:58:35.385Z",
+            "elapsed_ms": 45226,
+            "kind": "final",
+            "final_kind": "cloudflare",
+            "page": {
+                "url": "https://api-flowercloud.com/clientarea.php",
+                "title": "请稍候…",
+                "hidden": false,
+                "visibilityState": "visible",
+                "readyState": "complete",
+                "htmlLength": 28163
+            },
+            "windows": [
+                {
+                    "label": "final",
+                    "index": 0,
+                    "id": 1,
+                    "visible": true,
+                    "focused": false,
+                    "opacity": 1,
+                    "bounds": {
+                        "x": 223,
+                        "y": 368,
+                        "width": 520,
+                        "height": 720
+                    },
+                    "title": "请稍候…",
+                    "destroyed": false
+                }
+            ],
+            "turnstile": {
+                "iframes": [],
+                "widgets": [],
+                "scripts": [
+                    "https://challenges.cloudflare.com/turnstile/v0/b/d76008a69eab/api.js?onload=zaERg6&render=explicit"
+                ],
+                "crossOriginIframe": false
+            },
+            "cf_clearance_elapsed_ms": null
+        }
+    ]
+}
