@@ -1,18 +1,30 @@
 # handoff
 
-- 最后更新：2026-09-27
+- 最后更新：2026-09-29
 - branch：`main`
-- head_commit：`1dbafa58`
-- 当前状态：用量弹窗高度动态自适应、边距统一对齐与多账号卡片自适应展开修复已合入 main 分支。
+- head_commit：`8b15016d`（工作区另有未提交改动，见下）
+- 当前状态：花云 DOM 快照链路的审查修复已落在工作区，未提交、未走 task 流程。
 
-## 2026-09-27 用量弹窗高度动态自适应与边距规范修复
+## 2026-09-29 花云 DOM 快照链路审查修复（工作区未提交）
 
 - branch：`main`
-- head_commit：`1dbafa58`
+- head_commit：`8b15016d`（本节改动尚未提交）
 - 内容：
-    1. **弹窗高度自适应根治**：彻底消除 popup 模式窗口拉宽后高度无法变矮的单向棘轮死锁。移除 `PopupHeightController` 中的 `min_preferred_height` 逻辑与 `usagePopupHeight` 配置项持久化，弹窗高度完全由内容物理高度驱动（拉宽折行减少变矮，缩窄折行增加变高）。
-    2. **高度锁定与防手动纵向拉伸**：弹窗模式下将 BrowserWindow 的 `minHeight` 与 `maxHeight` 严格锁定为内容计算高度（`target`），仅开放宽度横向拉伸（`[USAGE_MIN_WIDTH, workArea.width]`）；`resize` 事件监听器拦截任何外力篡改并强制恢复 `expected_height`。
-    3. **离屏测高镜像对齐与多账号撑高修复**：解决切换「多账号」明细卡片无法撑高窗口的问题。修复 `PopupView.tsx` 向离屏测高镜像（`data-popup="mirror"`）传递 `l2open_providers` 与 `expanded_map` 的状态丢失，并对齐卡片头部按钮（折叠箭头、拖拽手柄）的 DOM 尺寸，消除镜像测高与前台 DOM 几何高度偏差。
-    4. **滚动容器边距规范**：弹窗滚动容器规范化为 `px-4 pb-4 pt-3`，卡片到窗口左边距（16px）、右边距（16px）与底边距（16px）保持绝对一致。
-    5. **自动化测试覆盖**：新增单测覆盖镜像多账号展开与高度锁定防拉伸；Playwright Electron 端到端测试扩展 6 项约束验收（含拉宽变矮/缩窄变高、纵向拉伸拦截、切换多账号明细自动撑高）。
-- 下一步：按 backlog 执行既有任务。
+    1. **模块拆分**：新增 `src/main/core/session/flowercloud_dom.ts`（页面判定、轮询、cookie 合并、vault 读写）与 `session-types.ts`（会话窗口/控制器契约），session-manager 只保留去重、窗口生命周期与登录流程钩子，消除 `import` 环。
+    2. **provider 策略集中**：`src/shared/constants.ts` 新增 `PAGE_BOUND_CREDENTIAL_PROVIDERS` 与 `DOM_SNAPSHOT_PROVIDERS`，session-manager / auth-ipc / refresh-service / index.ts 的实名特判改为查表（原 10 处 `provider === "kimi_web" | "flowercloud"` 字面量）。
+    3. **行为修复**：cookie 按名合并而非整体替换（不再丢掉 `D0S_Header` 等）；质询超时后窗口交给用户、不再强制关闭；新增 `skip_if_fresh`（定时刷新命中新鲜期不开窗）与 `force` 透传（手动刷新强制重抓）；刷新先把状态置 `loading` 再抓取，抓取返回后校验 generation。
+    4. **语义修复**：连接器 `stale` 在载荷缺少 `captured_at` 时也为 `true`；花云快照不再被 `is_login_in_progress` 当成「登录中」。
+    5. **安全与质量**：脱敏正则分组构建（单组失败不再整段失效）并告警；超长值跳过脱敏时告警一次，上限 1024→8192 以覆盖 JWT/OAuth token；muse 失败日志耗时不再打印 epoch 值；macOS 不再调用 no-op 的 `setSkipTaskbar`。
+    6. **审查复核补强**（同日二轮）：快照窗 `closed` → `cancelled` 接线（取消不再被误报成「页面没渲染出用量」）；新增「用户关窗取消」「交互登录抢占快照」两条 Desktop 测试；connector 新鲜期常量与宿主 `FLOWERCLOUD_SNAPSHOT_FRESH_MS` 加一致性契约测试；花云页面出现多服务时连接器记 `warn`（p267 最小可感知措施）；`.gitignore` 忽略 `.pnpm-store/`。
+    7. **P1/P2 缺陷修复**（同日三轮）：脱敏改为「原始文本收集匹配区间 + 组内长值优先 + 重叠合并」，修掉短凭据先命中长凭据内部导致的片段泄露（`prefix***suffix`）；快照写入点二次校验取消状态并加 CAS（vault 值并发变更则放弃写入），旧任务不再覆盖新登录凭据；亮窗后继续采集至 `handover_wait_ms`（缺省 30 分钟）上限，交接窗口在用户完成或关窗后才释放登记，不再堆积同分区窗口。新增 `tests/unit/session/flowercloud_dom.test.ts` 覆盖写入取消与 CAS。
+    8. **环境对齐（ENVIRONMENT.md §5）**：`package.json` 的 `packageManager` 由 `pnpm@10.34.5` 改为 `pnpm@11.26.0`（与 mise 全局一致），新增项目级 `mise.toml` 锁定 `pnpm = "11.26.0"`；以 pnpm 11 `pnpm install` 重建 node_modules，`pnpm-lock.yaml` 无 diff。pnpm 11 把 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies` 迁移为 `allowBuilds`（占位值会让构建脚本被忽略），已用 `pnpm approve-builds --all` 批准并复跑 install（esbuild ×3 / unrs-resolver / electron-winstaller postinstall 已执行）。electron 44 起无 postinstall 且 `index.js` 在缺 `dist` 时会同步下载（写 `~/Library/Caches/electron`），重建后 29 个测试文件因此收集失败，已用 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ pnpm exec install-electron` 从本机已有缓存恢复。`.gitignore` 忽略 pnpm 11 的项目内 `.pnpm-store/`（该目录名义 616MB，prettier 也依赖这行做 ignore）。
+    9. **pnpm 11 迁移收口（同日四轮，方案 B：项目正式升级到 pnpm 11）**：查证 pnpm 官方文档后修正了先前的错误判断——(a) pnpm 11 起 `.npmrc` **只承载 registry/auth**，pnpm 专属设置必须放 `pnpm-workspace.yaml` 或各人本机的全局 `~/.config/pnpm/config.yaml`，所以原 `.npmrc` 的 `node-linker = hoisted` 失效、node_modules 曾退化为 isolated；该设置已迁移为 `pnpm-workspace.yaml` 的 `nodeLinker: hoisted`，`.npmrc` 只留迁移说明注释。(b) store 默认在各机器 home 下，**只有执行环境连 home 都不可写时**（agent 沙箱、仅 bind-mount 项目的容器）pnpm 才降级把 store 建在项目内——仓库里那个 `.pnpm-store` 是执行环境产物，不是项目需要，**store 位置不写入仓库**（先前误写机器绝对路径已清除，未提交、未进历史）。清理：仓库内 `.pnpm-store` 已删；pnpm 10 遗留的全局 store `~/Library/pnpm/store/v10`（1.5G）已删，只剩 v11 在用。
+- 验证：`pnpm lint`、`pnpm typecheck`、`pnpm arch`、`pnpm format:check`、`pnpm deadcode`、`pnpm test`（4224 passed / 1 skipped，pnpm 11.26.0 + hoisted）全绿；未运行需要许可的 `test:e2e:electron` / `test:packaged`。
+- 遗留：p267（花云多服务账号只取首个产品）、p268（macOS 快照窗口隐藏需真机验证）、p269（另一会话新建，未处理）；本次行为已补记 `docs/specs/flowercloud_usage.md`。
+- 环境注意：
+    1. pnpm 11 的 `runDepsStatusCheck` 会在 `pnpm run` 前自动 install，非交互环境下若判定需清空 node_modules 会失败，可临时加 `--config.confirm-modules-purge=false`。
+    2. 写全局 store 需要**工作区外**写权限：本 agent 的沙箱默认只允许写仓库，`pnpm install` 会以 `[ERR_SQLITE_ERROR] unable to open database file` 失败，需一次性放宽权限；用户自己的终端无此限制。
+    3. `mise.toml` 触发的 tracked-configs 软链因沙箱失败并打印一行警告，不影响版本解析。
+    4. electron 44 无 postinstall，重建依赖后需 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ pnpm exec install-electron` 恢复二进制（否则 `index.js` 会尝试下载并写 `~/Library/Caches/electron`，沙箱下失败并连带测试收集报错）。
+    5. pnpm 11 要求 Node 22+（CI 已是 Node 22）；`package.json` 尚未声明 `engines.node`，如需对贡献者强制可后续补。
+- 下一步：按 backlog 执行既有任务；本批改动提交前建议按语义拆分 commit（环境迁移单独一个），并在 commit message 中说明 pnpm 11 升级对贡献者的影响（`.npmrc` 语义、`allowBuilds`、Node 22+）。
