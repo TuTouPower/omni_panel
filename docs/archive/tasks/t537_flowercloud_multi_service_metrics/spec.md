@@ -66,7 +66,7 @@
 
 <!-- /规范 -->
 
-- 真实多服务账号的客户区 / 服务页 DOM 结构（服务列表与用量卡片的关联方式）：UNVERIFIED-SPIKE，需要真实账号页面样本，或按 WHMCS 结构构造 fixture 并验证。
+- 无未核实外部契约。原项「真实多服务账号的客户区 / 服务页 DOM 结构（服务列表与用量卡片的关联方式）」已由 spike `s041`（`docs/spikes/s041_flowercloud_multi_service_dom/`）验证为结论：**链接在卡/行尾的结构下卡窗切片可靠**（真实单服务样本同构 3 服务列表与 WHMCS 表格 probe 全 PASS，字段数值逐一断言）；**结构漂移（链接前置）表现为窗口缺失而非可自动识别的错配，故生产规则定为「任一服务窗口不完整 → 丢弃全部窗口结果、逐服务 HTTP 详情页补数，补数失败逐服务 `report_failed_account`」**。验证方式：`code/probe.mjs` 断言 + 落地为 t537 集成测试（fixture `clientarea_multi_sample.html` 等）。真实多服务账号的类型化布局差异维持「有意不测」。
 
 ### 风险与回退
 

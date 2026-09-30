@@ -202,6 +202,93 @@ function check_auth_or_challenge(res: {
     }
 }
 
+function service_ids(html: string): string[] {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    const re = /clientarea\.php\?action=productdetails(?:&amp;|&)id=(\d+)/gi;
+    for (const match of html.matchAll(re)) {
+        const id = match[1];
+        if (id !== undefined && !seen.has(id)) {
+            seen.add(id);
+            ids.push(id);
+        }
+    }
+    return ids;
+}
+
+/**
+ * t537 s041：多服务快照分段（宿主 compose_flower_sections 的沙箱内复刻解析）。
+ * 无分段标记时返回 []，走单页/卡窗路径。
+ */
+interface SnapshotSection {
+    readonly id: string;
+    readonly html?: string;
+    readonly error?: string;
+}
+
+function parse_snapshot_sections(html: string): SnapshotSection[] {
+    const sections: SnapshotSection[] = [];
+    const re = /<!--omni-flower id=(\d+)(?: error="([^"]*)")?-->([\s\S]*?)<!--\/omni-flower-->/g;
+    for (const match of html.matchAll(re)) {
+        const id = match[1];
+        if (id === undefined) continue;
+        const error = match[2];
+        const body = match[3] ?? "";
+        sections.push({
+            id,
+            ...(error ? { error } : {}),
+            ...(body ? { html: body } : {}),
+        });
+    }
+    return sections;
+}
+
+/** 卡窗切片（s041）：第 k 个详情链接之前的窗口承载第 k 个服务的卡片字段。 */
+function card_windows(html: string, ids: readonly string[]): string[] {
+    const positions: { id: string; end: number }[] = [];
+    const re = /clientarea\.php\?action=productdetails(?:&amp;|&)id=(\d+)/gi;
+    for (const match of html.matchAll(re)) {
+        const id = match[1];
+        if (id !== undefined && ids.includes(id) && !positions.some((p) => p.id === id)) {
+            positions.push({ id, end: match.index + match[0].length });
+        }
+    }
+    return positions.map((entry, index) => {
+        const from = index === 0 ? 0 : (positions[index - 1]?.end ?? 0);
+        return html.slice(from, entry.end);
+    });
+}
+
+function is_complete_usage(usage: ParsedUsage): boolean {
+    return usage.used_gb !== null && usage.limit_gb !== null;
+}
+
+function detail_headers(cookie: string): Record<string, string> {
+    return {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        Cookie: cookie,
+    };
+}
+
+async function fetch_details_html(cookie: string, service_id: string): Promise<string> {
+    const res = await ctx.http.get_raw(
+        "default",
+        `/clientarea.php?action=productdetails&id=${service_id}`,
+        { headers: detail_headers(cookie) },
+    );
+    check_auth_or_challenge(res);
+    return res.body;
+}
+
+interface ServiceEntry {
+    readonly id: string | null;
+    readonly usage?: ParsedUsage;
+    readonly error?: string;
+    readonly fetched?: boolean;
+}
+
 async function main(): Promise<ScriptObservation[]> {
     const { cookie, session_html, captured_at } = required_cookie();
     const now = Date.now();
@@ -216,8 +303,9 @@ async function main(): Promise<ScriptObservation[]> {
     let html: string;
 
     if (session_html) {
-        // 有快照就不再发网络请求：Cloudflare 会拦住纯 HTTP 重放，重试只会换来挑战页。
-        // 数据新鲜度由宿主的 DOM 快照刷新负责（stale 标记如实反映快照年龄）。
+        // 快照为准：数据新鲜度由宿主的 DOM 快照刷新负责（stale 标记如实反映快照年龄）。
+        // t537：只有快照缺某个服务的用量时才按服务 HTTP 补数（Cloudflare 可能拦截，
+        // 失败逐服务 report_failed_account，绝不静默）；快照含完整数据则零网络请求。
         ctx.log.info(
             snapshot_age_ms === null
                 ? "FlowerCloud: stored DOM has no capture time, treating it as stale"
@@ -227,85 +315,125 @@ async function main(): Promise<ScriptObservation[]> {
         );
         html = session_html;
     } else {
-        const headers: Record<string, string> = {
-            "User-Agent": USER_AGENT,
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            Cookie: cookie,
-        };
-
-        const res = await ctx.http.get_raw("default", "/clientarea.php", { headers });
+        const res = await ctx.http.get_raw("default", "/clientarea.php", {
+            headers: detail_headers(cookie),
+        });
         check_auth_or_challenge(res);
         html = res.body;
+    }
 
-        // 若客户区主页未直接展示用量卡片，检测是否有服务详情链接并跟进
-        const product_details_match =
-            /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
-            /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
-
-        if (product_details_match?.[1] && !/(?:已用|Used|\d+GB\s*\/)/i.test(html)) {
-            const service_id = product_details_match[1];
-            ctx.log.info(`FlowerCloud: Navigating to service details: id=${service_id}`);
-            const details_res = await ctx.http.get_raw(
-                "default",
-                `/clientarea.php?action=productdetails&id=${service_id}`,
-                { headers },
+    // ---- 服务条目解析：快照分段 / 卡窗（多服务） / 整页（单服务）三形态 ----
+    let entries: ServiceEntry[];
+    const composite = parse_snapshot_sections(html);
+    if (composite.length > 0) {
+        entries = composite.map((section) => {
+            if (section.error !== undefined) return { id: section.id, error: section.error };
+            const usage = extract_from_html(section.html ?? "", now, reset_day_param);
+            // 分段由宿主在用量结算后写入；仍解析不出完整用量 → 该服务走 HTTP 补数。
+            return is_complete_usage(usage) ? { id: section.id, usage } : { id: section.id };
+        });
+    } else {
+        const ids = service_ids(html);
+        if (ids.length <= 1) {
+            // 单服务（或纯详情页 / 无链接页）：整页语义与历史行为一致。
+            const usage = extract_from_html(html, now, reset_day_param);
+            const id = ids[0] ?? null;
+            entries = id === null || is_complete_usage(usage) ? [{ id, usage }] : [{ id }]; // 有 id 但整页缺用量 → 详情页补数
+        } else {
+            const windows = card_windows(html, ids);
+            const window_usages = windows.map((window_html) =>
+                extract_from_html(window_html, now, reset_day_param),
             );
-            check_auth_or_challenge(details_res);
-            html = details_res.body;
+            // s041 结论：错配表现为「命中」而非缺失，任一窗口不完整就必须整体丢弃
+            // 窗口结果，逐服务 HTTP 详情页补数。
+            entries = window_usages.every(is_complete_usage)
+                ? ids.flatMap((id, index) => {
+                      const usage = window_usages[index];
+                      return usage ? [{ id, usage }] : [];
+                  })
+                : ids.map((id) => ({ id }));
         }
     }
 
-    const { used_gb, limit_gb, reset_at, product_name } = extract_from_html(
-        html,
-        now,
-        reset_day_param,
-    );
-
-    // p267: 一个账号可挂多个服务，而本连接器只取首个用量。出现多个服务时明确记一条，
-    // 免得用户把面板数字当成全部服务的合计。
-    const service_ids = new Set(
-        [...html.matchAll(/clientarea\.php\?action=productdetails(?:&amp;|&)id=(\d+)/gi)]
-            .map((match) => match[1])
-            .filter((id): id is string => typeof id === "string"),
-    );
-    if (service_ids.size > 1) {
-        ctx.log.warn(
-            `FlowerCloud: 页面含 ${String(service_ids.size)} 个服务，当前只统计首个（见 p267）`,
-        );
+    // ---- 缺用量的条目逐服务 HTTP 详情页补数（失败隔离，AC-002） ----
+    const resolved: ServiceEntry[] = [];
+    for (const entry of entries) {
+        if (entry.usage !== undefined || entry.error !== undefined || entry.id === null) {
+            resolved.push(entry);
+            continue;
+        }
+        const service_id = entry.id;
+        try {
+            const detail_html = await fetch_details_html(cookie, service_id);
+            const usage = extract_from_html(detail_html, now, reset_day_param);
+            resolved.push(
+                is_complete_usage(usage)
+                    ? { id: service_id, usage, fetched: true }
+                    : { id: service_id, error: "服务详情页未解析出用量", fetched: true },
+            );
+        } catch (error) {
+            resolved.push({
+                id: service_id,
+                error: error instanceof Error ? error.message : String(error),
+                fetched: true,
+            });
+        }
     }
 
-    if (used_gb === null && limit_gb === null) {
-        ctx.log.warn("FlowerCloud: 无法从控制台页面匹配到用量或配额数据");
+    // ---- 输出：多服务按服务区分 account_id/标签，失败逐服务登记 ----
+    const with_id = resolved.filter((entry) => entry.id !== null);
+    const multi = with_id.length > 1;
+    const observations: ScriptObservation[] = [];
+
+    for (const entry of resolved) {
+        const account_id =
+            entry.id !== null && multi ? `flowercloud_service_${entry.id}` : "flowercloud_default";
+        let account_label =
+            entry.usage?.product_name ?? (entry.id !== null ? `服务 ${entry.id}` : "FlowerCloud");
+        if (entry.id !== null && multi && account_label === "FlowerCloud") {
+            account_label = `服务 ${entry.id}`;
+        }
+
+        if (entry.error !== undefined) {
+            ctx.report_failed_account("flowercloud", account_id, account_label, entry.error);
+            continue;
+        }
+
+        const usage = entry.usage;
+        const used_gb = usage?.used_gb ?? null;
+        const limit_gb = usage?.limit_gb ?? null;
+        if (used_gb === null && limit_gb === null) {
+            ctx.log.warn("FlowerCloud: 无法从控制台页面匹配到用量或配额数据");
+        }
+
+        const status =
+            used_gb !== null && limit_gb !== null && limit_gb > 0
+                ? ctx.status.for_ratio(used_gb, limit_gb)
+                : "unknown";
+
+        observations.push({
+            provider: "flowercloud",
+            account_id,
+            account_label,
+            metric_id: "flowercloud:traffic",
+            raw_label: "monthly_traffic",
+            normalized_label: "月流量",
+            window: "month",
+            cycleDurationMs: CYCLE_30D_MS,
+            used: used_gb,
+            limit: limit_gb,
+            display_style: "ratio",
+            reset_at: usage?.reset_at ?? null,
+            status,
+            observed_at: now,
+            source: "session",
+            // 快照解析的数据按快照年龄标 stale；HTTP 当场取到的是新鲜数据。
+            stale: entry.fetched === true ? false : snapshot_stale,
+            last_error: null,
+        });
     }
 
-    const account_id = "flowercloud_default";
-    const status =
-        used_gb !== null && limit_gb !== null && limit_gb > 0
-            ? ctx.status.for_ratio(used_gb, limit_gb)
-            : "unknown";
-
-    const obs: ScriptObservation = {
-        provider: "flowercloud",
-        account_id,
-        account_label: product_name,
-        metric_id: "flowercloud:traffic",
-        raw_label: "monthly_traffic",
-        normalized_label: "月流量",
-        window: "month",
-        cycleDurationMs: CYCLE_30D_MS,
-        used: used_gb,
-        limit: limit_gb,
-        display_style: "ratio",
-        reset_at,
-        status,
-        observed_at: now,
-        source: "session",
-        stale: snapshot_stale,
-        last_error: null,
-    };
-
-    return [obs];
+    return observations;
 }
 
 void main;

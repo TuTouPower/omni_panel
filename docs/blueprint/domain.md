@@ -148,3 +148,12 @@ token-stats 采集每轮产出源级状态：`{source, env, status: ok|unavailab
 - grok：**正文在 `chat_history.jsonl`（WSL `~/.grok/sessions/<enc_cwd>/<sess>/`），非 `updates.jsonl`**（后者只 turn_completed usage 元数据）。每行 `{type:"user|assistant|system|reasoning|tool_result",content}`，**无顶层 timestamp**（按行序）。增量 id 与全量共享全局序号命名空间（p050，避免历史窗口按 id 去重丢新消息）；增量游标落半行时回退行边界重读、未完成尾行驻留行首（不丢记录）。user 取 `<user_query>` inner，丢 `<user_info>`/`<git_status>`/`<rules>`/`<user_rules>`/纯 `<system-reminder>`/`<skill_information>` 等信封。
 
 统一模型 `HistoryMessage{id,role,text,timestamp|null}`；user 文本经共享 `normalize_user_display_text` 归一后再入模（assistant 不套此规则）。Claude / Kimi token-stats session 标题的「首条 user 文本」同源规则（有 `type=summary` 仍优先 summary）。增量游标 byte_offset（JSONL 端）或 sqlite_rowid（opencode）。硬约束：对会话源文件全程只读；提取器对新行型一律跳过（宁可漏不可错），窗口层空态兜底。
+
+## 花云多服务账号指标与账号标识（t537）
+
+- 花云单账号可挂 N 个服务，用量按服务分别计量；连接器对每个服务输出一组 `flowercloud:traffic`（`window: month`，`display_style: ratio`，`source: session`）观测，`metric_id` 相同但 `(account_id, metric_id)` 唯一。
+- **account_id 约定**：账号下仅 1 个服务时保持 `flowercloud_default`（与历史序列连续）；≥2 个服务时全部改为 `flowercloud_service_<服务id>`（服务 id = WHMCS `productdetails&id`）。服务数 1→N 的瞬间账号标识整体切换一次，旧 `flowercloud_default` 序列停止增长，为已接受的取舍。
+- **采集形态**：宿主快照从列表页（客户区）发现全部服务 id 并逐服务详情页抓取；结果单服务存裸 HTML（存量兼容的退化形态），多服务存分段 composite（`<!--omni-flower id=<id>-->…<!--/omni-flower-->`，失败段带 `error="…"` 标注）。一个服务都没抓到时不写快照（保留旧值，t535 失败语义）。
+- **连接器解析**（沙箱不共享 import，composite 格式在两侧各自实现并由集成测试锁一致）：composite 按段解析；无分段时多服务走卡窗切片（链接在卡/行尾假设，s041 实测）——**任一窗口不完整即丢弃全部窗口结果**（错配表现为命中、不可自动识别），逐服务 HTTP 详情页补数；补数失败逐服务 `report_failed_account`，不整体失败、不静默省略。
+- **stale**：快照解析的观测按快照年龄标 stale；HTTP 当场补数的观测为新鲜（`stale: false`）。
+- **展示**：实例备注（`displayName`）只命名单账号实例；同一实例贡献多个账号时回退采集层服务名，保证多服务可区分（t537 AC-004）。

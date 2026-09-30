@@ -35,7 +35,7 @@
 |connector-session|Desktop|迁移自 omni_powers，t098，t282，t331，t337|2026-08-13|
 |connector-user-scripts-entry|Desktop|t094|2026-07-24|
 |connector-user-scripts|Desktop|t095|2026-07-24|
-|flowercloud_usage|API / Desktop|t533；2026-09-29 DOM 快照修复（无 task）|2026-09-29|
+|flowercloud_usage|API / Desktop|t533；2026-09-29 DOM 快照修复（无 task）；t537|2026-09-30|
 |ipc-api|API|拆自 ipc（t037）|2026-07-21|
 |ipc-electron|Desktop|拆自 ipc（t037）|2026-07-21|
 |log_rotation|Desktop|t154|2026-07-27|

@@ -1449,7 +1449,10 @@ describe("session-manager", () => {
         await login;
     });
 
-    it("opens the stored flowercloud service page instead of the client area", async () => {
+    it("starts the flowercloud snapshot from the list page for service discovery (t537)", async () => {
+        // t537 语义变更（原「直跳存储的服务详情页」测试同此替换）：多服务账号必须先
+        // 打开列表页才能发现全部服务 id；直跳首个详情页会让其余服务永远不被发现。
+        // 本例起始窗口即含用量（首页直达路径），列表页被读取后直接结算。
         const deps = create_deps();
         deps.window.html = "<p>流量使用 331.20GB / 1000GB</p>";
         await deps.vault.set(
@@ -1470,9 +1473,7 @@ describe("session-manager", () => {
         });
 
         expect(updated.ok).toBe(true);
-        expect(deps.window.loaded_urls[0]).toBe(
-            "https://api-flowercloud.com/clientarea.php?action=productdetails&id=394686",
-        );
+        expect(deps.window.loaded_urls[0]).toBe("https://api-flowercloud.com/clientarea.php");
     });
 
     it("does not overwrite a flowercloud clearance already in the partition", async () => {

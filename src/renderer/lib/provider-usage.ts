@@ -20,6 +20,10 @@ export interface ProviderUsagePeriod {
     connectorDisplayName: string;
     accountId: string;
     accountLabel: string;
+    /** 采集层原始账号名（实例备注覆盖前）。t537 AC-004：多账号实例回退用。 */
+    collected_label?: string | undefined;
+    /** 本条 accountLabel 是否由实例备注（displayName）覆盖而来。 */
+    instance_label_applied?: boolean | undefined;
     raw_label: string;
     name: string;
     display_label?: string | undefined;
@@ -125,6 +129,13 @@ function to_period(
         accountId: item.accountId,
         // 直连账号备注（ConnectorConfiguration.displayName）覆盖采集层默认名。
         // CPA displayName 属于数据源备注，不能覆盖其子账号标签。
+        // t537 AC-004：记录采集层原名与「备注是否命中」，多账号实例在分组阶段回退
+        //（不能用清洗后的 accountLabel 反比 displayName——trim/截断会造成漏判）。
+        collected_label: sanitize_remote_string(item.accountLabel) ?? item.accountLabel,
+        instance_label_applied:
+            item.source !== "gateway" &&
+            Boolean(connector.displayName) &&
+            connector.displayName !== connector.name,
         accountLabel:
             sanitize_remote_string(
                 item.source !== "gateway" &&
@@ -383,6 +394,28 @@ export function build_provider_usage_groups(
                     stale: period.stale,
                     periods: [period],
                 });
+            }
+
+            // t537 AC-004：实例备注（displayName）只命名单账号实例——同一实例
+            // 多账号（花云多服务）时备注无法区分服务，回退采集层服务名；用量仍逐账号独立。
+            const accounts_by_connector = new Map<string, ProviderUsageAccount[]>();
+            for (const account of accountsByKey.values()) {
+                const connector_id = account.periods[0]?.connectorInstanceId ?? "";
+                const list = accounts_by_connector.get(connector_id) ?? [];
+                list.push(account);
+                accounts_by_connector.set(connector_id, list);
+            }
+            for (const connector_accounts of accounts_by_connector.values()) {
+                if (connector_accounts.length <= 1) continue;
+                for (const account of connector_accounts) {
+                    const first = account.periods[0];
+                    if (first?.instance_label_applied !== true) continue;
+                    if (first.collected_label === undefined) continue;
+                    account.accountLabel = first.collected_label;
+                    for (const period of account.periods) {
+                        period.accountLabel = first.collected_label;
+                    }
+                }
             }
 
             // t040：并入失败占位账号（不覆盖真实账号）
