@@ -95,8 +95,9 @@ export const UsageBarRow = memo(function UsageBarRow({
               ? String(used)
               : `${String(pct)}%`
         : "";
-    const reset_time =
-        !has_value || is_ratio || !period.resetAt ? "" : format_reset_time(period.resetAt);
+    // t537+花云反馈：ratio（如花云 34.56/150）不再隐藏套餐刷新时间——resetAt
+    // 存在即显示（无值仍隐藏）。value 文本右对齐、超宽向左溢出，不侵入 date 列。
+    const reset_time = !has_value || !period.resetAt ? "" : format_reset_time(period.resetAt);
     const { date, clock } = split_reset_time(reset_time);
     const is_capsule = barStyle === "capsule";
 

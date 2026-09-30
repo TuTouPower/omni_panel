@@ -136,5 +136,11 @@ describe("t537 AC-004 flowercloud multi-service display", () => {
         expect(screen.getByText("34.56/150")).toBeInTheDocument();
         expect(screen.getByText("77.1/400")).toBeInTheDocument();
         expect(screen.getAllByText("月流量")).toHaveLength(2);
+        // 套餐刷新时间（reset_at → bar-reset/bar-clock）对 ratio 行可见。
+        const reset_cells = screen.getAllByTestId("bar-reset");
+        const clock_cells = screen.getAllByTestId("bar-clock");
+        expect(reset_cells).toHaveLength(2);
+        expect(reset_cells.every((cell) => cell.textContent.trim() !== "")).toBe(true);
+        expect(clock_cells.every((cell) => cell.textContent.trim() !== "")).toBe(true);
     });
 });

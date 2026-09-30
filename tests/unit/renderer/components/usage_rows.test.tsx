@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { relative_time } from "../../../../src/renderer/lib/utils";
+import { relative_time, format_reset_time } from "../../../../src/renderer/lib/utils";
 
 import {
     UsageBarRow,
@@ -140,6 +140,49 @@ describe("UsageBarRow", () => {
         expect(
             container.querySelector('[data-testid="bar-row"][data-ratio="true"]'),
         ).not.toBeInTheDocument();
+    });
+
+    it("shows reset date/clock for ratio periods (花云类 ratio 展示套餐刷新时间)", () => {
+        const reset_at = 1747571400000;
+        const { container } = render(
+            <UsageBarRow
+                period={make_period({
+                    displayStyle: "ratio",
+                    used: 34.56,
+                    limit: 150,
+                    resetAt: reset_at,
+                })}
+                index={0}
+            />,
+        );
+
+        const expected = split_reset_time(format_reset_time(reset_at));
+        expect(expected.date).not.toBe("");
+        expect(container.querySelector('[data-testid="bar-reset"]')?.textContent).toBe(
+            expected.date,
+        );
+        expect(container.querySelector('[data-testid="bar-clock"]')?.textContent).toBe(
+            expected.clock,
+        );
+        // 值列仍按 ratio 展示，不受重置时间恢复影响。
+        expect(container.querySelector('[data-testid="bar-pct"]')?.textContent).toBe("34.56/150");
+    });
+
+    it("keeps reset columns empty for ratio periods without resetAt", () => {
+        const { container } = render(
+            <UsageBarRow
+                period={make_period({
+                    displayStyle: "ratio",
+                    used: 34.56,
+                    limit: 150,
+                    resetAt: null,
+                })}
+                index={0}
+            />,
+        );
+
+        expect(container.querySelector('[data-testid="bar-reset"]')).toBeEmptyDOMElement();
+        expect(container.querySelector('[data-testid="bar-clock"]')).toBeEmptyDOMElement();
     });
 });
 
