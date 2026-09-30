@@ -39,7 +39,7 @@
 - **失败账号占位（t040）**：`build_provider_usage_groups` 对 enabled 直连（非 gateway）`snapshot.status==="failed"` 且 `items` 空的 connector 合成失败账号占位（`ProviderUsageAccount`：`periods:[]`、`status:"unknown"`、`error=snapshot.error`、`accountLabel=displayName||name`、`accountId="__failed__"`），使首次采集失败（无 observation）的账号仍显示失败行而非"暂无账号"。CPA（gateway）failed 不合成（多账号无法确定具体行）；有 items 的 failed 走真实 item 聚合不占位。`buildAccountErrors` 先看 `account.error` 再看 `periods[].error`。
 - **用量面板无账号编辑入口**（T8）：账号设置仅在 Settings；用量面板 provider 卡片无更多操作菜单，关闭/管理操作在设置页进行
 - **界面脱敏** `uiDesensitizeRemarks`：隐藏备注/displayName（用量面板 + 设置列表）
-- **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %
+- **厂商强制百分比** `providerForcePercent`：该厂商用量数字统一为 %。入口为设置 → 账号 → 编辑账号弹窗（刷新间隔下方、「数据标签设置」上方，「用量数字统一为百分比」开关）；t532 起经 `SaveAccountOptions.forcePercent` 随账号保存原子落盘 `providerForcePercent[provider]`，展示门只看 `providerId`，不再依赖独立回调。
 - **多账号卡片 L2 状态**（t100，t250 持久化）：账号明细「概览/N账号」选择持久化到 `providerL2Open`（每 provider 独立），重启恢复；卡片折叠时强制复位为概览。t100 原「仅在当前展开期间有效」语义自 t250 起改为跨重启持久化恢复。
 - **顶部 provider 页签选择**（t250）：popup 顶部 provider 页签（overview / 各 provider）选择持久化到 `activeUsageTab`，重启恢复；外部配置回显不触发写回（t153 抑制）。
 - **卡片 stale 展示**（t102）：数据过期或采集失败时不为卡片渲染 amber 外框；保留「已过期」徽章和错误文字。

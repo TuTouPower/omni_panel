@@ -655,7 +655,8 @@ export function SettingsForm({
                     </>
                 )}
             </div>
-            {providerId && onForcePercentChange && (
+            {/* t532 起 forcePercent 经 onSave 原子选项持久化，展示门只看 providerId，不再依赖已移除的 onForcePercentChange 单独回调（后者仅作孤立单测兼容）。 */}
+            {providerId && (
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-[length:var(--text-body-md)] text-[var(--color-on-surface)]">

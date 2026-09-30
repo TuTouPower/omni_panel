@@ -479,4 +479,64 @@ describe("SettingsView", () => {
         expect(target_plugin).toBeDefined();
         expect(target_plugin?.displayName).toBeUndefined();
     });
+
+    it("编辑账号弹窗渲染统一百分比开关且保存落盘 providerForcePercent", async () => {
+        const user = userEvent.setup();
+        // 用无必填参数的最小实例，避免原生 required 校验 chặn submit（同 t532 用例做法）
+        current_config = {
+            ...base_config,
+            plugins: [
+                {
+                    instanceId: "deepseek-1",
+                    stateId: "deepseek-1",
+                    manifestId: "deepseek",
+                    name: "deepseek",
+                    enabled: true,
+                    executablePath: "plugins/deepseek.ts",
+                    refreshIntervalSeconds: 300,
+                    parameterValues: {},
+                    endpointOverrides: {},
+                },
+            ],
+        };
+        window.usageboard.connector.list = vi.fn().mockResolvedValue([
+            {
+                instanceId: "deepseek-1",
+                sourceInstanceId: "deepseek-1",
+                stateId: "deepseek-1",
+                name: "deepseek",
+                displayName: "DeepSeek",
+                enabled: true,
+                source: "poll",
+                supportedProviders: ["deepseek"],
+                activeProviders: ["deepseek"],
+                metadata: { parameters: [], endpoints: {} },
+                snapshot: { status: "idle" },
+            },
+        ]);
+        render(<SettingsView />);
+        await user.click(screen.getByTestId("settings-plugin-nav-accounts"));
+
+        const edit_button = (await screen.findAllByTitle("编辑"))[0];
+        if (!edit_button) throw new Error("missing edit button");
+        await user.click(edit_button);
+
+        const dialog = await screen.findByRole("dialog");
+        // 回归：t532 移除单独回调后开关仍须可见（真实接线只走 onSave 原子选项）
+        const percent_switch = within(dialog).getByTestId("settings-force-percent-deepseek-1");
+        expect(percent_switch).toBeInTheDocument();
+        expect(percent_switch).toHaveAttribute("data-on", "0");
+
+        save.mockClear();
+        await user.click(percent_switch);
+        expect(percent_switch).toHaveAttribute("data-on", "1");
+
+        await user.click(within(dialog).getByTestId("settings-save-btn-deepseek-1"));
+
+        await waitFor(() => {
+            expect(save).toHaveBeenCalledTimes(1);
+        });
+        const saved_config = (save.mock.calls as unknown as [AppConfiguration][])[0]?.[0];
+        expect(saved_config?.providerForcePercent?.["deepseek"]).toBe(true);
+    });
 });

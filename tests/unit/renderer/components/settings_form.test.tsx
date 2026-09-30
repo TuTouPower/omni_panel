@@ -1201,3 +1201,97 @@ describe("SettingsForm label-map watch bell (t048)", () => {
         expect(onSaveHiddenLabels).not.toHaveBeenCalled();
     });
 });
+
+describe("SettingsForm force percent (t532 回归：真实接线无单独回调)", () => {
+    it("仅凭 providerId 即渲染开关，不依赖 onForcePercentChange", async () => {
+        render(
+            <SettingsForm
+                instanceId="deepseek-1"
+                providerId="deepseek"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.getByTestId("settings-force-percent-deepseek-1")).toBeInTheDocument();
+        expect(screen.getByText("用量数字统一为百分比")).toBeInTheDocument();
+    });
+
+    it("无 providerId 时不渲染开关", async () => {
+        render(
+            <SettingsForm
+                instanceId="deepseek-1"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={vi.fn<SaveHandler>().mockResolvedValue(undefined)}
+            />,
+        );
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(screen.queryByTestId("settings-force-percent-deepseek-1")).not.toBeInTheDocument();
+        expect(screen.queryByText("用量数字统一为百分比")).not.toBeInTheDocument();
+    });
+
+    it("拨动开关后经 onSave 原子选项持久化，无需单独回调", async () => {
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="deepseek-1"
+                providerId="deepseek"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+            />,
+        );
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await user.click(screen.getByTestId("settings-force-percent-deepseek-1"));
+        await user.click(screen.getByTestId("settings-save-btn-deepseek-1"));
+        await waitFor(() => {
+            expect(onSave).toHaveBeenCalled();
+        });
+        const call = onSave.mock.calls[0];
+        expect(call).toBeDefined();
+        if (!call) return;
+        const options = call[6];
+        expect(options?.forcePercent).toBe(true);
+    });
+
+    it("提供单独回调时仍兼容调用", async () => {
+        const onSave = vi.fn<SaveHandler>().mockResolvedValue(undefined);
+        const onForcePercentChange = vi.fn().mockResolvedValue(undefined);
+        const user = userEvent.setup();
+        render(
+            <SettingsForm
+                instanceId="deepseek-1"
+                providerId="deepseek"
+                parameters={[]}
+                values={{}}
+                refreshIntervalSeconds={300}
+                globalIntervalLabel="5 分钟"
+                onSave={onSave}
+                onForcePercentChange={onForcePercentChange}
+            />,
+        );
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await user.click(screen.getByTestId("settings-force-percent-deepseek-1"));
+        await user.click(screen.getByTestId("settings-save-btn-deepseek-1"));
+        await waitFor(() => {
+            expect(onForcePercentChange).toHaveBeenCalledWith("deepseek", true);
+        });
+    });
+});
