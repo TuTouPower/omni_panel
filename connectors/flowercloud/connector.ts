@@ -63,30 +63,6 @@ function parse_to_gb(value: number, unit: string): number {
     return value;
 }
 
-function compute_next_reset_from_day(day_num: number, now: number): number {
-    const current = new Date(now);
-    const year = current.getFullYear();
-    const month = current.getMonth();
-    const current_day = current.getDate();
-
-    let target_year = year;
-    let target_month = month;
-
-    if (current_day >= day_num) {
-        target_month += 1;
-        if (target_month > 11) {
-            target_month = 0;
-            target_year += 1;
-        }
-    }
-
-    // 处理月末天数边界（如 2 月无 31 日）
-    const max_day_in_target = new Date(target_year, target_month + 1, 0).getDate();
-    const valid_day = Math.min(day_num, max_day_in_target);
-
-    return new Date(target_year, target_month, valid_day, 0, 0, 0, 0).getTime();
-}
-
 interface ParsedUsage {
     used_gb: number | null;
     limit_gb: number | null;
@@ -94,7 +70,7 @@ interface ParsedUsage {
     product_name: string;
 }
 
-function extract_from_html(html: string, now: number, reset_day_param?: string): ParsedUsage {
+function extract_from_html(html: string): ParsedUsage {
     let used_gb: number | null = null;
     let limit_gb: number | null = null;
     let reset_at: number | null = null;
@@ -138,36 +114,24 @@ function extract_from_html(html: string, now: number, reset_day_param?: string):
             used_gb = parse_to_gb(parseFloat(used_match[1]), used_match[2]);
         }
     }
+    // 3. 匹配下次到期重置日期：只认专属元素 `plan-next-reset` 内的日期
+    // （2026-09-30 真实快照实测：详情页
+    // `<p class="plan-expires plan-next-reset">下次重置日: 2026/10/07</p>`）。
+    // 没有该元素就是没有——reset_at 保持 null（UI 隐藏重置列），禁止编造：
+    // 关键词邻接、无锚裸日期、RESET_DAY 手工值一律不再作为来源。
+    const anchored_zone = /plan-next-reset[^<>]*>([^<>]{0,300})/i.exec(html)?.[1] ?? "";
+    const raw_date = /(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})/.exec(anchored_zone)?.[1] ?? null;
 
-    // 3. 匹配下次到期重置日期 (nextduedate)
-    const date_match =
-        /(?:下次重置日|下次付款日期|下次到期日|Next Due Date|nextduedate|重置日|到期日)[^<>{}:：]*[:：]\s*<[^>]*>(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})<\/[^>]*>/i.exec(
-            html,
-        ) ??
-        /(?:下次重置日|下次付款日期|下次到期日|Next Due Date|nextduedate|重置日|到期日)[^<>{}:：]*[:：]\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})/i.exec(
-            html,
-        ) ??
-        /\b(\d{4}[-/]\d{2}[-/]\d{2})\b/.exec(html);
-
-    if (date_match?.[1]) {
-        const normalized_date = date_match[1].replace(/[年月/]/g, "-").replace(/日/g, "");
+    if (raw_date) {
+        const normalized_date = raw_date.replace(/[年月/]/g, "-").replace(/日/g, "");
         const parsed = Date.parse(`${normalized_date}T00:00:00+08:00`);
         if (Number.isFinite(parsed)) {
             reset_at = parsed;
         }
     }
 
-    // 4. 用户指定 RESET_DAY 兜底逻辑
-    if (!reset_at && reset_day_param) {
-        const day_num = parseInt(reset_day_param.trim(), 10);
-        if (Number.isFinite(day_num) && day_num >= 1 && day_num <= 31) {
-            reset_at = compute_next_reset_from_day(day_num, now);
-        }
-    }
-
     return { used_gb, limit_gb, reset_at, product_name };
 }
-
 function check_auth_or_challenge(res: {
     status: number;
     body: string;
@@ -292,7 +256,6 @@ interface ServiceEntry {
 async function main(): Promise<ScriptObservation[]> {
     const { cookie, session_html, captured_at } = required_cookie();
     const now = Date.now();
-    const reset_day_param = ctx.params["RESET_DAY"]?.trim();
     // 没有 captured_at 的旧载荷无法判断新鲜度，按过期处理：宁可让 UI 标注不新鲜，
     // 也不能把未知年龄的页面当成实时数据。
     const snapshot_age_ms = captured_at === undefined ? null : now - captured_at;
@@ -331,7 +294,7 @@ async function main(): Promise<ScriptObservation[]> {
     if (composite.length > 0) {
         entries = composite.map((section) => {
             if (section.error !== undefined) return { id: section.id, error: section.error };
-            const usage = extract_from_html(section.html ?? "", now, reset_day_param);
+            const usage = extract_from_html(section.html ?? "");
             // 分段由宿主在用量结算后写入；仍解析不出完整用量 → 该服务走 HTTP 补数。
             return is_complete_usage(usage) ? { id: section.id, usage } : { id: section.id };
         });
@@ -339,14 +302,12 @@ async function main(): Promise<ScriptObservation[]> {
         const ids = service_ids(html);
         if (ids.length <= 1) {
             // 单服务（或纯详情页 / 无链接页）：整页语义与历史行为一致。
-            const usage = extract_from_html(html, now, reset_day_param);
+            const usage = extract_from_html(html);
             const id = ids[0] ?? null;
             entries = id === null || is_complete_usage(usage) ? [{ id, usage }] : [{ id }]; // 有 id 但整页缺用量 → 详情页补数
         } else {
             const windows = card_windows(html, ids);
-            const window_usages = windows.map((window_html) =>
-                extract_from_html(window_html, now, reset_day_param),
-            );
+            const window_usages = windows.map((window_html) => extract_from_html(window_html));
             // s041 结论：错配表现为「命中」而非缺失，任一窗口不完整就必须整体丢弃
             // 窗口结果，逐服务 HTTP 详情页补数。
             entries = window_usages.every(is_complete_usage)
@@ -368,7 +329,7 @@ async function main(): Promise<ScriptObservation[]> {
         const service_id = entry.id;
         try {
             const detail_html = await fetch_details_html(cookie, service_id);
-            const usage = extract_from_html(detail_html, now, reset_day_param);
+            const usage = extract_from_html(detail_html);
             resolved.push(
                 is_complete_usage(usage)
                     ? { id: service_id, usage, fetched: true }

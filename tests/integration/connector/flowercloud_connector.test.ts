@@ -21,7 +21,6 @@ function create_ctx(options: {
     details_body?: string;
     details_status?: number;
     cookie?: string;
-    reset_day?: string;
     get_raw?: ReturnType<typeof vi.fn>;
     /** 需要断言日志时注入，避免直接引用 ctx.log.warn（unbound-method）。 */
     warn?: ReturnType<typeof vi.fn>;
@@ -32,7 +31,6 @@ function create_ctx(options: {
         details_body = "",
         details_status = 200,
         cookie = "WHMCSUID=12345; WHMCSPW=hash; PHPSESSID=session123",
-        reset_day,
         warn = vi.fn(),
         get_raw = vi.fn().mockImplementation((_endpoint: string, path: string) => {
             if (path === "/clientarea.php") {
@@ -57,7 +55,6 @@ function create_ctx(options: {
         ...ctx_budget_stub,
         params: {
             SESSION_COOKIE: cookie,
-            ...(reset_day ? { RESET_DAY: reset_day } : {}),
         },
         http: {
             get_raw,
@@ -88,10 +85,10 @@ describe("flowercloud connector", () => {
         });
         expect(manifest?.loginDomains).toContain("api-flowercloud.com");
         expect(manifest?.cookieNames).toContain("*");
-        expect(manifest?.parameters.some((p) => p.name === "RESET_DAY")).toBe(true);
+        expect(manifest?.parameters.some((p) => p.name === "RESET_DAY")).toBe(false);
     });
 
-    it("parses clientarea main page with traffic ratio and next due date", async () => {
+    it("parses clientarea main page traffic ratio; keyword-only dates are ignored", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("flowercloud manifest missing");
 
@@ -118,7 +115,8 @@ describe("flowercloud connector", () => {
             status: "normal",
             source: "session",
         });
-        expect(obs.reset_at).toBe(Date.parse("2026-10-18T00:00:00+08:00"));
+        // 列表卡无 plan-next-reset 专属元素：关键词日期不采信，reset_at 为 null（UI 隐藏重置列）。
+        expect(obs.reset_at).toBeNull();
     });
 
     it("parses real FlowerCloud dashboard live output with Global Acceleration Max and 2026/10/07 reset", async () => {
@@ -208,34 +206,49 @@ describe("flowercloud connector", () => {
         );
     });
 
-    it("uses optional RESET_DAY when nextduedate is absent from HTML", async () => {
+    it("prefers the plan-next-reset element over keyword dates", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("flowercloud manifest missing");
 
+        // 真实快照结构：专属元素优先，即使关键词日期指向另一天也不被覆盖。
         const html = `
             <html><body>
                 <p>已用流量：10.00 GB / 200.00 GB</p>
+                <p class="plan-expires">到期日: 2026/12/01</p>
+                <p class="plan-expires plan-next-reset">下次重置日: 2026/10/07</p>
             </body></html>
         `;
-        const ctx = create_ctx({
-            clientarea_body: html,
-            reset_day: "20",
-        });
+        const ctx = create_ctx({ clientarea_body: html });
 
         const result = await run_connector(manifest, await code(), ctx);
         expect(result.error).toBeNull();
         expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.reset_at).toBe(Date.parse("2026-10-07T00:00:00+08:00"));
+    });
 
+    it("ignores non-reset dates and returns null reset_at instead of fabricating", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        // 真实快照含「最近使用」日期与弹窗到期日：都不是重置日，必须一律无视。
+        const html = `
+            <html><body>
+                <p>已用流量：10.00 GB / 200.00 GB</p>
+                <div class="usage-details"><div class="last-used"><span>最近使用: 2026-09-30</span></div></div>
+                <div class="custom-modal-body"><p>当前周期：月付，到期日 2026-10-07</p></div>
+            </body></html>
+        `;
+        const ctx = create_ctx({ clientarea_body: html });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
         const obs = result.observations[0];
         expect(obs).toBeDefined();
         if (!obs) return;
         expect(obs.used).toBe(10);
         expect(obs.limit).toBe(200);
-        expect(obs.reset_at).not.toBeNull();
-        if (obs.reset_at !== null) {
-            const reset_date = new Date(obs.reset_at);
-            expect(reset_date.getDate()).toBe(20);
-        }
+        expect(obs.reset_at).toBeNull();
     });
 
     it("uses session DOM directly", async () => {
@@ -464,7 +477,8 @@ describe("flowercloud connector", () => {
             true,
         );
         expect(result.observations.every((obs) => !obs.stale)).toBe(true);
-        expect(result.observations[0]?.reset_at).toBe(Date.parse("2026-10-18T00:00:00+08:00"));
+        // 列表卡无专属元素：用量照常解析，重置日为 null（抓不到就抓不到，不编造）。
+        expect(result.observations.every((obs) => obs.reset_at === null)).toBe(true);
         // 快照已含全部服务用量 → 零网络请求（clientarea 403 不会被碰到）。
         expect(get_raw).not.toHaveBeenCalled();
     });

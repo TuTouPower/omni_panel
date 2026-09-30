@@ -15,14 +15,6 @@
             "label": "FlowerCloud Session Cookie",
             "label@zh-Hans": "花云网页会话 Cookie",
             "exposeToScript": true
-        },
-        {
-            "name": "RESET_DAY",
-            "type": "string",
-            "required": false,
-            "label": "Monthly Reset Day (Optional, 1-31)",
-            "label@zh-Hans": "每月重置日（可选，1-31，兜底使用）",
-            "exposeToScript": true
         }
     ],
     "endpoints": {
