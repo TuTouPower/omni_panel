@@ -112,6 +112,7 @@ import { DOM_SNAPSHOT_PROVIDERS } from "../shared/constants";
 import {
     create_main_panel_controller,
     handle_browser_window_focus,
+    should_show_tray_menu_on_right_click,
 } from "./core/main-panel/main-panel-controller";
 import { setup_application_menu } from "./menu/application-menu";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
@@ -1468,7 +1469,14 @@ void app.whenReady().then(async () => {
                 if (!trayMenuWin || trayMenuWin.isDestroyed()) return;
                 // t503 AC-002: 二次右键收起（darwin 下 showInactive 无焦点、
                 // 无 blur，此为主要收起路径；左键点击同样收起）。
-                if (trayMenuWin.isVisible()) {
+                // t539 AC-003: 仅同 Space 可见且聚焦再次右键才收；可见但失焦/
+                // 在它 Space 时再次右键走显示路径（跟到当前 Space），不误收。
+                if (
+                    !should_show_tray_menu_on_right_click({
+                        menu_visible: trayMenuWin.isVisible(),
+                        menu_focused: trayMenuWin.isFocused(),
+                    })
+                ) {
                     hideTrayMenu();
                     return;
                 }
@@ -1530,7 +1538,7 @@ void app.whenReady().then(async () => {
             // - 托盘菜单：我方任一其它窗口获焦即收。桌面空白/外部应用点击
             //   到不了本进程，仍靠再次点击托盘（见菜单内 tray-dismiss-hint）。
             // - 用量面板：仅 popup 模式 popover 语义自动收（floating 常驻；
-            //   pinToTop 钉住豁免）。hide 经 restore_after_hide 恢复提权。
+            //   t539 起 pinToTop 只管层级不再豁免收起）。hide 经 restore_after_hide 恢复提权。
             app.on("browser-window-focus", (_event, focused) => {
                 handle_browser_window_focus({
                     focused,
@@ -1538,7 +1546,6 @@ void app.whenReady().then(async () => {
                     hide_tray_menu: hideTrayMenu,
                     popup: main_panel_controller?.get_window() ?? null,
                     mode: main_panel_controller?.get_mode() ?? "floating",
-                    pin_to_top: currentConfigSnapshot.pinToTop ?? false,
                     hide_panel: () => {
                         main_panel_controller?.hide();
                     },

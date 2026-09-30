@@ -1,0 +1,29 @@
+{
+    "tid": "t539",
+    "attempt": 1,
+    "execution_id": "29e90626f92d4f7da0e8dd720af11a08",
+    "status": "done",
+    "branch": "t539_usage_popup_pin_toggle_fix",
+    "base_sha": "c4599ec715df8b4f78906a90650ab7a99215c544",
+    "tests": "pnpm test 341 passed | 1 skipped 文件、4293 passed | 8 skipped 用例；typecheck/lint/format:check/md_format/deadcode/arch/schema:check 全绿；controller 单文件 56 passed（含新写 5 用例先红后绿）",
+    "blackbox": "AC-001/002/003 为主进程控制器逻辑，CI 无真窗，按 spec 以控制器单测等价覆盖；AC-004 [deploy] 需用户 mac 真机 Command+Tab + 双全屏 Space 按 p271 复现步骤手工走查左键/右键各一次，未执行",
+    "review": "single 级。review_general.md Round 1 PASS 零 finding（scope ok，coverage 3/4，AC-004 trust_prior）",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/main_panel_controller.test.ts t539 AC-001：pin=true 外部获焦照样收起；改写 should_hide pin 豁免/blur 钉住/t536 钉住三旧断言为新语义"
+        ],
+        "AC-002": [
+            "tests/unit/main/main_panel_controller.test.ts t539 AC-002：可见失焦 toggle 走显示（重锚 setBounds + 提权 floating + setVisibleOnAllWorkspaces 重申 + showInactive），不 hide；聚焦态/隐藏态两对照"
+        ],
+        "AC-003": [
+            "tests/unit/main/main_panel_controller.test.ts t539 AC-003：should_show_tray_menu_on_right_click 三条件；tests/unit/main/tray_menu.test.ts 右键接线哨兵（index 引用 helper）"
+        ],
+        "AC-004": [
+            "未执行：待用户真机走查（deploy），单测侧由 AC-002/003 等价覆盖"
+        ]
+    },
+    "pending": [
+        "p271: 来源 pending，创建期已归档（archive），本 task 闭环，无需二次归档"
+    ],
+    "findings": []
+}

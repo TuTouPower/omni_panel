@@ -12,6 +12,8 @@ export type WindowLike = Pick<
     | "getBounds"
     | "hide"
     | "isDestroyed"
+    // t539: 只读查询扩展（Space/失焦反转判定用），不加新行为。
+    | "isFocused"
     | "isVisible"
     | "loadURL"
     | "on"

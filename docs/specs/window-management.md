@@ -17,7 +17,7 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 
 ## 用量面板模式（`mainPanelMode`）
 
-- `popup` — 托盘弹窗（默认），点击托盘图标弹出，失焦隐藏。
+- `popup` — 托盘弹窗（默认），点击托盘图标弹出，失焦隐藏（t539 起 `pinToTop` 钉住不再豁免收起，pin 只管窗口层级）。托盘左键 toggle 为焦点感知：同 Space 聚焦态单击收起；已可见但失焦或在它 Space 时单击走显示路径（重锚托盘下方 + 展示期提权 + 跟到当前 Space），无需第二击。
 - `floating` — 常驻浮窗。
 - `system` — schema 已收纳（`types.ts` `mainPanelModeSchema` = `z.enum(["system","popup","floating"])`），但语义未落地。
 - `main_panel:get_mode()` 返回当前模式；`mainPanel:hide` 隐藏。
@@ -66,5 +66,5 @@ URL：`file://...renderer/index.html?ou_theme=<dark|light>#<route>`（query 在�
 - 窗口类型（`usage`）：macOS 平台下通过 `type: "panel"` 将窗口设为 `NSPanel`（携带 `NSWindowStyleMaskNonactivatingPanel`），打开时不激活应用、不强占前台全屏窗口的键盘焦点；Windows/Linux 保持默认 normal 窗口类型。
 - 多空间与全屏可见性：macOS 下创建面板窗口即调用 `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })`，确保三指滑动或切换 Space 时窗口可见，且在第三方全屏应用（如终端、浏览器、IDE）上方弹出时不会将用户切回主桌面空间。`skipTransformProcessType: true` 避免每次调用引发 Dock 与窗口短暂闪烁。
 - 焦点与显示：macOS 展示用量面板时使用 `showInactive()` 替代 `show()`，并不调用 `focus()`，保持全屏宿主应用的操作状态不被打断。
-- 置顶级别：macOS 下展示期间临时提权到 `"floating"`（`setAlwaysOnTop(true, "floating")`），保证浮于全屏应用之上（t503/p253，与用户 `pinToTop` 解耦）；隐藏/失焦后按 `pinToTop` 恢复（false 则降回 normal，不残留置顶），配置变更时只更新恢复基线。每次展示重申 `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`，使窗口跟到当前 Space（p253 跨全屏 Space 粘滞）。Windows/Linux 保持既有布尔调用语义。
-- 托盘右键菜单（t503）：macOS 下 `type: "panel"` + `visibleOnFullScreen`，右键弹出用 `showInactive()` 且不 `focus()`（不强切 Space），二次右键/左键收起；Windows/Linux 保持 `show() + focus()`。
+- 置顶级别：macOS 下展示期间临时提权到 `"floating"`（`setAlwaysOnTop(true, "floating")`），保证浮于全屏应用之上（t503/p253，与用户 `pinToTop` 解耦）；隐藏/失焦后按 `pinToTop` 恢复（false 则降回 normal，不残留置顶），配置变更时只更新恢复基线。每次展示重申 `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`，使窗口跟到当前 Space（p253 跨全屏 Space 粘滞；t539 起 toggle 失焦/跨 Space 显示同样跟随）。Windows/Linux 保持既有布尔调用语义。
+- 托盘右键菜单（t503，t539 改切换语义）：macOS 下 `type: "panel"` + `visibleOnFullScreen`，右键弹出用 `showInactive()` 且不 `focus()`（不强切 Space）；仅同 Space 可见且聚焦时再次右键/左键收起，可见但失焦或在它 Space 时再次右键走显示（跟到当前 Space，不误收）；Windows/Linux 保持 `show() + focus()`。

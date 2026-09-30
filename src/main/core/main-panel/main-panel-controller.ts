@@ -49,18 +49,16 @@ export interface MainPanelControllerDeps {
 
 /**
  * p258: popup 点外部自动收起判定（popover 语义，纯函数可单测）。
- * 仅 popup 模式（floating 常驻窗口不自动收）；pinToTop 钉住豁免；
+ * 仅 popup 模式（floating 常驻窗口不自动收）；t539 起 pinToTop 不再参与判定——
+ * pin 只保留窗口层级语义，钉住的 popup 点外部照样收起。
  * 调用方保证只在面板存活时调（destroyed 窗口的 isVisible 会抛）。
  */
 export function should_hide_popup_on_outside_focus(args: {
     readonly mode: MainPanelShellMode;
     readonly panel_visible: boolean;
     readonly focused_is_panel: boolean;
-    readonly pin_to_top: boolean;
 }): boolean {
-    return (
-        args.mode === "popup" && args.panel_visible && !args.focused_is_panel && !args.pin_to_top
-    );
+    return args.mode === "popup" && args.panel_visible && !args.focused_is_panel;
 }
 
 export interface BrowserWindowFocusArgs {
@@ -70,7 +68,6 @@ export interface BrowserWindowFocusArgs {
     readonly hide_tray_menu: () => void;
     readonly popup: WindowLike | null;
     readonly mode: MainPanelShellMode;
-    readonly pin_to_top: boolean;
     readonly hide_panel: () => void;
 }
 
@@ -88,11 +85,22 @@ export function handle_browser_window_focus(args: BrowserWindowFocusArgs): void 
             mode: args.mode,
             panel_visible: args.popup.isVisible(),
             focused_is_panel: args.focused === args.popup,
-            pin_to_top: args.pin_to_top,
         })
     ) {
         args.hide_panel();
     }
+}
+
+/**
+ * t539 AC-003: 托盘右键菜单切换判定（纯函数可单测）。
+ * 仅「同 Space 可见且聚焦」再次右键走收起；可见但失焦/在它 Space 时再次右键
+ * 走显示路径（重定位到当前 Space + show），不误收；隐藏态走显示。
+ */
+export function should_show_tray_menu_on_right_click(args: {
+    readonly menu_visible: boolean;
+    readonly menu_focused: boolean;
+}): boolean {
+    return !(args.menu_visible && args.menu_focused);
 }
 
 export function create_main_panel_controller(deps: MainPanelControllerDeps): MainPanelController {
@@ -318,10 +326,9 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             // p258 真解：popup 点外部收起不能靠 app 焦点事件（外部应用/
             // 桌面到不了本进程），靠失 key。即便 darwin 非激活 NSPanel，
             // focus() 也只拿 key 不激活应用（全屏宿主不被打断），之后点
-            // 任何外部即 blur。仅 popup；pinToTop 钉住豁免。
+            // 任何外部即 blur。仅 popup；t539 起 pinToTop 不再豁免。
             target.on("blur", () => {
                 if (mode !== "popup" || target.isDestroyed() || !target.isVisible()) return;
-                if (deps.get_config().pinToTop === true) return;
                 target.hide();
                 restore_after_hide(target);
             });
@@ -400,7 +407,10 @@ export function create_main_panel_controller(deps: MainPanelControllerDeps): Mai
             const target = ensure_window();
             // t194: popup 与 floating 关闭/切换都改为隐藏——保留渲染进程与已加载
             // 数据，下次打开直接 show，消除冷启动重建。模式切换/退出仍走 close（AC4）。
-            if (target.isVisible()) {
+            // t539: 可见性 alone 不再决定 toggle 方向——已可见但失焦/在它 Space
+            // （如 Command+Tab 切走）时托盘点击走显示路径（重锚托盘 + 展示期提权 +
+            // 跟到当前 Space），不走 hide；仅同 Space 聚焦态走 hide 交替。
+            if (target.isVisible() && target.isFocused()) {
                 target.hide();
                 // t503 AC-001: 隐藏后按 pinToTop 恢复，不残留置顶。
                 restore_after_hide(target);

@@ -18,6 +18,7 @@ import {
     create_main_panel_controller,
     handle_browser_window_focus,
     should_hide_popup_on_outside_focus,
+    should_show_tray_menu_on_right_click,
 } from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
 import { WINDOW_CONFIGS } from "../../../src/main/window/window-manager";
@@ -35,6 +36,8 @@ interface FakeWindow {
     bounds: { x: number; y: number; width: number; height: number };
     destroyed: boolean;
     visible: boolean;
+    // t539: 是否聚焦（同 Space 前台语义由单测直接置位；Electron 真窗由 isFocused 查询）。
+    focused: boolean;
     resizable: boolean;
     listeners: Record<string, (() => void)[]>;
     show: ReturnType<typeof vi.fn>;
@@ -46,6 +49,7 @@ interface FakeWindow {
     getBounds: () => { x: number; y: number; width: number; height: number };
     isDestroyed: () => boolean;
     isVisible: () => boolean;
+    isFocused: () => boolean;
     setResizable: ReturnType<typeof vi.fn>;
     setSkipTaskbar: ReturnType<typeof vi.fn>;
     setMinimumSize: ReturnType<typeof vi.fn>;
@@ -62,6 +66,7 @@ function make_window(): FakeWindow {
         bounds: { x: 0, y: 0, width: 460, height: 480 },
         destroyed: false,
         visible: false,
+        focused: false,
         resizable: true,
         listeners: {},
         show: vi.fn(() => {
@@ -88,6 +93,7 @@ function make_window(): FakeWindow {
         getBounds: () => win.bounds,
         isDestroyed: () => win.destroyed,
         isVisible: () => win.visible,
+        isFocused: () => win.focused,
         setResizable: vi.fn((value: boolean) => {
             win.resizable = value;
         }),
@@ -274,13 +280,17 @@ describe("main panel controller", () => {
     });
 
     it("hides a visible popup on toggle instead of closing it (AC1)", () => {
+        // t539: toggle 改为焦点感知——同 Space 聚焦态才走 hide；fake 默认失焦，
+        // 此处显式置聚焦以保留原用例意图（可见→收起交替）。
         const { controller, windows } = build({ ...base_config, mainPanelMode: "popup" });
         controller.open_or_focus();
         const win = windows[0];
+        if (!win) throw new Error("window missing");
+        win.focused = true;
         controller.open_or_toggle();
-        expect(win?.hide).toHaveBeenCalled();
-        expect(win?.close).not.toHaveBeenCalled();
-        expect(win?.isDestroyed()).toBe(false);
+        expect(win.hide).toHaveBeenCalled();
+        expect(win.close).not.toHaveBeenCalled();
+        expect(win.isDestroyed()).toBe(false);
     });
 
     it("reopens a hidden popup by showing the same window without recreating it (AC1/AC2)", () => {
@@ -426,7 +436,8 @@ describe("main panel controller", () => {
             for (const h of win.listeners["resize"] ?? []) h();
             expect(state.config.usagePopupWidth).toBe(600);
 
-            // Hide and reopen
+            // Hide and reopen（t539：toggle 焦点感知，此处为同 Space 聚焦态 hide）
+            win.focused = true;
             controller.open_or_toggle(); // hide
             expect(win.hide).toHaveBeenCalled();
             controller.open_or_toggle(); // show
@@ -538,6 +549,8 @@ describe("main panel controller", () => {
             // 展示期提权盖全屏（与 pinToTop 解耦）。
             expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(true, "floating");
 
+            // t539：toggle 焦点感知，同 Space 聚焦态才走 hide。
+            if (win) win.focused = true;
             controller.open_or_toggle(); // hide
             expect(win?.isVisible()).toBe(false);
             // 隐藏后按 pinToTop 恢复，不残留置顶。
@@ -551,6 +564,8 @@ describe("main panel controller", () => {
             );
             controller.open_or_focus();
             const win = windows[0];
+            // t539：toggle 焦点感知，同 Space 聚焦态才走 hide。
+            if (win) win.focused = true;
             controller.open_or_toggle(); // hide → restore false
             expect(win?.setAlwaysOnTop).toHaveBeenLastCalledWith(false, "floating");
 
@@ -708,13 +723,12 @@ describe("main panel controller", () => {
     });
 
     describe("p258 should_hide_popup_on_outside_focus", () => {
-        it("popup 可见、焦点在他窗、不钉住 → 收起", () => {
+        it("popup 可见、焦点在他窗 → 收起（pin 不再参与判定）", () => {
             expect(
                 should_hide_popup_on_outside_focus({
                     mode: "popup",
                     panel_visible: true,
                     focused_is_panel: false,
-                    pin_to_top: false,
                 }),
             ).toBe(true);
         });
@@ -725,20 +739,18 @@ describe("main panel controller", () => {
                     mode: "floating",
                     panel_visible: true,
                     focused_is_panel: false,
-                    pin_to_top: false,
                 }),
             ).toBe(false);
         });
 
-        it("pinToTop 钉住 → 豁免不收", () => {
+        it("pinToTop 不再豁免：钉住仍收起（t539 解耦，pin 只管层级）", () => {
             expect(
                 should_hide_popup_on_outside_focus({
                     mode: "popup",
                     panel_visible: true,
                     focused_is_panel: false,
-                    pin_to_top: true,
                 }),
-            ).toBe(false);
+            ).toBe(true);
         });
 
         it("焦点仍在面板自己 / 面板不可见 → 不收", () => {
@@ -747,7 +759,6 @@ describe("main panel controller", () => {
                     mode: "popup",
                     panel_visible: true,
                     focused_is_panel: true,
-                    pin_to_top: false,
                 }),
             ).toBe(false);
             expect(
@@ -755,7 +766,6 @@ describe("main panel controller", () => {
                     mode: "popup",
                     panel_visible: false,
                     focused_is_panel: false,
-                    pin_to_top: false,
                 }),
             ).toBe(false);
         });
@@ -783,10 +793,10 @@ describe("main panel controller", () => {
             expect(win.hide).toHaveBeenCalled();
         });
 
-        it("pinToTop 钉住时失 key 不收", () => {
+        it("pinToTop 钉住时失 key 照样收（t539 解耦）", () => {
             const { win } = open_popup({ ...base_config, pinToTop: true });
             fire_blur(win);
-            expect(win.hide).not.toHaveBeenCalled();
+            expect(win.hide).toHaveBeenCalled();
         });
 
         it("隐藏中/已销毁时 blur 无操作不抛错", () => {
@@ -826,7 +836,6 @@ describe("main panel controller", () => {
         function focus_session(args: {
             win: FakeWindow;
             mode?: "popup" | "floating";
-            pin_to_top?: boolean;
             focused?: object;
             tray_menu?: object | null;
         }): void {
@@ -837,7 +846,6 @@ describe("main panel controller", () => {
                 hide_tray_menu: hide_tray_spy,
                 popup: args.win,
                 mode: args.mode ?? "popup",
-                pin_to_top: args.pin_to_top ?? false,
                 hide_panel: () => {
                     args.win.hide();
                 },
@@ -868,13 +876,14 @@ describe("main panel controller", () => {
             expect(app_exit_spy).not.toHaveBeenCalled();
         });
 
-        it("pinToTop 钉住：验证窗获焦豁免，保持可见", () => {
-            const win = open_panel("darwin");
+        it("pinToTop 钉住：验证窗获焦不再豁免，照样收起（t539 解耦）", () => {
+            const win = open_panel("darwin", { ...base_config, pinToTop: true });
 
-            focus_session({ win, pin_to_top: true });
+            focus_session({ win });
 
-            expect(win.visible).toBe(true);
-            expect(win.hide).not.toHaveBeenCalled();
+            expect(win.visible).toBe(false);
+            expect(win.hide).toHaveBeenCalled();
+            expect(win.destroyed).toBe(false);
             expect(app_quit_spy).not.toHaveBeenCalled();
             expect(app_exit_spy).not.toHaveBeenCalled();
         });
@@ -906,8 +915,90 @@ describe("main panel controller", () => {
             focus_session({ win, focused: tray_menu, tray_menu });
 
             expect(hide_tray_spy).not.toHaveBeenCalled();
-            // 焦点是托盘菜单（非面板）→ popup 未钉住仍应收起。
+            // 焦点是托盘菜单（非面板）→ popup 照样收起（t539：pin 不再参与判定）。
             expect(win.visible).toBe(false);
         });
+    });
+});
+
+describe("t539 popup 置顶解耦与跨 Space toggle", () => {
+    function open_darwin_popup(config: AppConfiguration = base_config) {
+        const { controller, windows } = build({ ...config, mainPanelMode: "popup" }, "darwin");
+        controller.open_or_focus();
+        const win = windows[0];
+        if (!win) throw new Error("window missing");
+        win.hide.mockClear();
+        win.setBounds.mockClear();
+        win.setVisibleOnAllWorkspaces.mockClear();
+        win.setAlwaysOnTop.mockClear();
+        win.showInactive.mockClear();
+        return { controller, win };
+    }
+
+    it("AC-001: pin=true 时外部窗口获焦照样收起面板", () => {
+        const { win } = open_darwin_popup({ ...base_config, pinToTop: true });
+        const hide_panel = vi.fn(() => {
+            win.hide();
+        });
+        handle_browser_window_focus({
+            focused: { id: "other-app" },
+            tray_menu: null,
+            hide_tray_menu: vi.fn(),
+            popup: win,
+            mode: "popup",
+            hide_panel,
+        });
+        expect(hide_panel).toHaveBeenCalledTimes(1);
+        expect(win.visible).toBe(false);
+    });
+
+    it("AC-002: 可见但失焦时 toggle 走显示路径（重锚+提权+跟 Space），不 hide", () => {
+        const { controller, win } = open_darwin_popup();
+        win.focused = false;
+        controller.open_or_toggle();
+        expect(win.hide).not.toHaveBeenCalled();
+        // 重锚托盘下方
+        expect(win.setBounds).toHaveBeenCalled();
+        // 展示期提权 + 重申跟到当前 Space
+        expect(win.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(
+            true,
+            expect.objectContaining({ visibleOnFullScreen: true }),
+        );
+        expect(win.setAlwaysOnTop).toHaveBeenCalledWith(true, "floating");
+        expect(win.showInactive).toHaveBeenCalled();
+    });
+
+    it("AC-002 对照：同 Space 聚焦态 toggle 仍 hide 交替", () => {
+        const { controller, win } = open_darwin_popup();
+        win.focused = true;
+        controller.open_or_toggle();
+        expect(win.hide).toHaveBeenCalledTimes(1);
+        expect(win.showInactive).not.toHaveBeenCalled();
+    });
+
+    it("AC-002 对照：隐藏态 toggle 走显示路径", () => {
+        const { controller, win } = open_darwin_popup();
+        win.focused = true;
+        controller.open_or_toggle();
+        expect(win.visible).toBe(false);
+        win.hide.mockClear();
+        win.showInactive.mockClear();
+        win.focused = false;
+        controller.open_or_toggle();
+        expect(win.hide).not.toHaveBeenCalled();
+        expect(win.showInactive).toHaveBeenCalledTimes(1);
+        expect(win.visible).toBe(true);
+    });
+
+    it("AC-003: tray 右键 helper——仅可见且聚焦才收，其余走显示", () => {
+        expect(
+            should_show_tray_menu_on_right_click({ menu_visible: false, menu_focused: false }),
+        ).toBe(true);
+        expect(
+            should_show_tray_menu_on_right_click({ menu_visible: true, menu_focused: false }),
+        ).toBe(true);
+        expect(
+            should_show_tray_menu_on_right_click({ menu_visible: true, menu_focused: true }),
+        ).toBe(false);
     });
 });
