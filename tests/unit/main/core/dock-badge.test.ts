@@ -81,6 +81,7 @@ describe("dock-badge (t488)", () => {
         const mock_win: WindowLike = {
             isDestroyed: () => false,
             isVisible: () => false,
+            isFocused: () => false,
             show: vi.fn(),
             focus: vi.fn(),
             close: vi.fn(),

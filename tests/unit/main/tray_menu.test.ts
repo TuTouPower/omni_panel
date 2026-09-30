@@ -101,4 +101,10 @@ describe("tray menu", () => {
     // 处理委托给 handle_browser_window_focus（main-panel-controller），断言必然失效；
     // 其语义（获焦收起 + pinToTop 豁免 + floating 不收）已由行为测试覆盖：
     // main_panel_controller.test.ts 的 p258 纯函数组与 t536 AC-004 组合组。
+    it("t539: tray 右键切换接线使用焦点感知 helper（AC-003）", async () => {
+        const main_source = await import("../../../src/main/index.ts?raw").then((m) => m.default);
+        // 右键收起条件不再是裸 isVisible，而走 should_show_tray_menu_on_right_click
+        //（可见且聚焦才收，可见失焦/它 Space 走显示）。
+        expect(main_source).toContain("should_show_tray_menu_on_right_click");
+    });
 });

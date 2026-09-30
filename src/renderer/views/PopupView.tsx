@@ -348,34 +348,12 @@ export function PopupView() {
         patchConfig({ activeUsageTab: activeTab });
     }, [activeTab, patchConfig]);
 
-    const live_root_ref = useRef<HTMLDivElement>(null);
     const tabsRef = useRef<HTMLDivElement>(null);
     const content_mirror_ref = useRef<HTMLDivElement | null>(null);
     // t196 AC3: cached all-collapsed minimum height, re-measured on structural
     // change by briefly forcing the single mirror into the collapsed state.
     const collapsed_min_ref = useRef(0);
     const scroll_ref = useRef<HTMLDivElement>(null);
-
-    // p261: 窗口唤起/激活时，Chromium 默认将初始焦点交给首个 tabbable 元素（刷新全部按钮），
-    // 导致未点击却常驻 :focus-visible 蓝框。将焦点引导并重置到外层无轮廓容器，
-    // 避免操作按钮默认被焦点框包围，同时保留用户主动 Tab 导航能力。
-    useEffect(() => {
-        const reset_focus = () => {
-            if (
-                document.activeElement === null ||
-                document.activeElement === document.body ||
-                document.activeElement instanceof HTMLButtonElement ||
-                document.activeElement instanceof HTMLAnchorElement
-            ) {
-                live_root_ref.current?.focus({ preventScroll: true });
-            }
-        };
-        reset_focus();
-        window.addEventListener("focus", reset_focus);
-        return () => {
-            window.removeEventListener("focus", reset_focus);
-        };
-    }, []);
 
     const {
         providerGroups,
@@ -965,8 +943,6 @@ export function PopupView() {
     return (
         <>
             <div
-                ref={live_root_ref}
-                tabIndex={-1}
                 className="mx-auto flex h-[100vh] max-h-[100vh] w-full flex-col overflow-hidden rounded-xl border-[0.5px] border-[var(--color-outline)] bg-[var(--color-surface-window)] shadow-window outline-none transition-[height,box-shadow] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0.3,1)] motion-reduce:transition-[box-shadow]"
                 data-popup="live"
             >

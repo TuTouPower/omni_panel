@@ -1,0 +1,26 @@
+{
+    "tid": "t538",
+    "attempt": 1,
+    "execution_id": "ceed259b26e742d39ef25266dd8cdcbf",
+    "status": "done",
+    "branch": "t538_remove_button_focus_ring",
+    "base_sha": "c666bd36e6078b7ae000ff174f9dfb09d4452abb",
+    "tests": "pnpm test 341 passed | 1 skipped 文件、4288 passed | 8 skipped 用例（build_code_split 7 用例需 out/，build 后补跑绿；session-path 1 用例预设跳过）；typecheck/lint/format:check/md_format/deadcode/arch/schema:check/build 全绿",
+    "blackbox": "test:e2e:web headless（MOCK_FIXTURE=synthetic）popup_view.spec.ts -g t538：3 passed；改前红（AC-001/002 类名含不透明环而失败，AC-003 通过）改后绿。Electron 真窗时序按 spec 以 web 点击+重聚焦等价覆盖，未申请弹窗许可",
+    "review": "single 级。review_general.md Round 1 PASS 零 finding；无 critical/important；review_scope 覆盖 git diff anchor 全部 7 文件",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/e2e/web/popup_view.spec.ts t538 AC-001：刷新全部按钮初始 matches(':focus-visible')===false；点击后 activeElement 落钮、visible false、类名无 ring- 片段、box-shadow none；点标题失焦再点一次同样"
+        ],
+        "AC-002": [
+            "tests/e2e/web/popup_view.spec.ts t538 AC-002：Settings面板原生 <a>（ICON_LINK_CLS，tagName A 断言）类名无 ring-、聚焦 shadow none；刷新全部 Button 同断言。卡片级按钮共享 Button 基类，基类删除由类名断言结构性覆盖（抽样符合 spec 测试策略）"
+        ],
+        "AC-003": [
+            "tests/e2e/web/popup_view.spec.ts t538 AC-003 guard：设置编辑账号备注输入框聚焦后 border-color 变化且 box-shadow 非 none（B 类 accent-ring+边框变色未动）"
+        ]
+    },
+    "pending": [
+        "p270: 来源 pending，创建期已归档 docs/archive/pending/p270_refresh_button_focus_ring_recur.md，本 task 闭环，无需二次归档"
+    ],
+    "findings": []
+}

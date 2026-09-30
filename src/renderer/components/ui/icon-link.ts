@@ -6,5 +6,5 @@
 export const ICON_LINK_CLS =
     "inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent " +
     "text-[var(--color-on-surface-variant)] no-underline transition-feedback " +
-    "hover:bg-[var(--color-surface-raised)] focus-visible:outline-none " +
-    "focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-0";
+    // t538: 与 Button 基类同步移除不透明焦点环，只保留 outline-none。
+    "hover:bg-[var(--color-surface-raised)] focus-visible:outline-none";

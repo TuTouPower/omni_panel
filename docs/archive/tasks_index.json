@@ -8564,6 +8564,38 @@
             "dir": "docs/archive/tasks/t537_flowercloud_multi_service_metrics"
         },
         {
+            "tid": "t538",
+            "slug": "remove_button_focus_ring",
+            "title": "按钮类不透明焦点环彻底移除",
+            "status": "done",
+            "branch": "t538_remove_button_focus_ring",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "c666bd36e6078b7ae000ff174f9dfb09d4452abb",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p270；A类全去，B类保留",
+            "dir": "docs/archive/tasks/t538_remove_button_focus_ring"
+        },
+        {
+            "tid": "t539",
+            "slug": "usage_popup_pin_toggle_fix",
+            "title": "用量 popup 置顶解耦与跨 Space 托盘点击修正",
+            "status": "done",
+            "branch": "t539_usage_popup_pin_toggle_fix",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "c4599ec715df8b4f78906a90650ab7a99215c544",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p271；pin 只管层级不管收起 + toggle Space/focus 修正",
+            "dir": "docs/archive/tasks/t539_usage_popup_pin_toggle_fix"
+        },
+        {
             "tid": "t540",
             "slug": "flowercloud_challenge_recovery",
             "title": "花云后台挑战诊断与自动恢复链路修复",
