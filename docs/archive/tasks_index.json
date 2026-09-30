@@ -8562,6 +8562,22 @@
             "conflicts_with": "",
             "note": "来源: p267",
             "dir": "docs/archive/tasks/t537_flowercloud_multi_service_metrics"
+        },
+        {
+            "tid": "t540",
+            "slug": "flowercloud_challenge_recovery",
+            "title": "花云后台挑战诊断与自动恢复链路修复",
+            "status": "dropped",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p272；用户要求执行自动验证恢复，真实挑战先实验; dropped: 用户放弃：真实站点自动恢复路径无证据，交互挑战不可自动解决",
+            "dir": "docs/archive/tasks/t540_flowercloud_challenge_recovery"
         }
     ]
 }

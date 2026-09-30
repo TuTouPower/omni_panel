@@ -36,22 +36,6 @@
             "dir": "docs/tasks/t539_usage_popup_pin_toggle_fix"
         },
         {
-            "tid": "t540",
-            "slug": "flowercloud_challenge_recovery",
-            "title": "花云后台挑战诊断与自动恢复链路修复",
-            "status": "backlog",
-            "branch": "",
-            "worktree": "",
-            "review_level": "full",
-            "review_limit": "5",
-            "verify_limit": "5",
-            "diff_anchor": "",
-            "depends_on": "",
-            "conflicts_with": "",
-            "note": "来源 p272；用户要求执行自动验证恢复，真实挑战先实验",
-            "dir": "docs/tasks/t540_flowercloud_challenge_recovery"
-        },
-        {
             "tid": "t541",
             "slug": "script_only_execution_model",
             "title": "删Tier1 poll/probe执行路径与无auth空poll（保留鉴权/沙箱/来源活字段）",
