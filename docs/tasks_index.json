@@ -2,5 +2,38 @@
     "generated_by": ".repo_template/scripts/task.py",
     "authority": "docs/tasks/{tid}_{slug}/task.md front matter",
     "workspace": ".",
-    "tasks": []
+    "tasks": [
+        {
+            "tid": "t538",
+            "slug": "remove_button_focus_ring",
+            "title": "按钮类不透明焦点环彻底移除",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p270；A类全去，B类保留",
+            "dir": "docs/tasks/t538_remove_button_focus_ring"
+        },
+        {
+            "tid": "t539",
+            "slug": "usage_popup_pin_toggle_fix",
+            "title": "用量 popup 置顶解耦与跨 Space 托盘点击修正",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p271；pin 只管层级不管收起 + toggle Space/focus 修正",
+            "dir": "docs/tasks/t539_usage_popup_pin_toggle_fix"
+        }
+    ]
 }
