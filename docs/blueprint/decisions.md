@@ -410,3 +410,10 @@
 - 结论：选 B。移除 `present_for_capture` / `reveal` 与交接等待；快照窗在成功、失败、超时、取消时一律关闭并释放登记；抓取失败由调度层写入 `failed` 状态与可读原因（保留 `lastSuccess`），不再调用连接器重放旧 HTML；不实现自动点击验证控件（无 DOM 可点击目标）。
 - 落地：t535，`docs/specs/flowercloud_usage.md`，`src/main/core/session/flowercloud_dom.ts`、`src/main/core/session/session-manager.ts`、`src/main/core/scheduler/refresh-service.ts`。
 - 替代：无
+
+## 045 按钮类不透明焦点环彻底移除、B 类保留（2026-09-30）
+
+- 背景：用量面板「刷新全部」按钮外圈不定期出现不透明蓝色框（`Button` 基类 `focus-visible:ring-2` 不透明 accent 环）；p261 只修了首次挂载一种时序，点击残留 + 窗口重显 + 其余面板持续复现（p270）。
+- 结论：按钮类（`ui/Button` 全变体 + `ui/icon-link` web 互跳链接）不透明焦点环在任何场景都不需要，彻底移除，只保留 `outline-none` 压住 UA 默认描边与 hover/active 背景反馈；p261 引入的 `PopupView` 焦点重置逻辑（`live_root_ref` + window focus 监听 + `tabIndex={-1}`）随之删除。B 类表单控件（Input/Textarea/Select/SecretInput/Checkbox/Switch/Segmented/Menu 等半透明 `accent-ring` + 边框变色）保持不动。纯键盘用户失去按钮位置指示已被用户明确接受。
+- 落地：t538，`src/renderer/components/ui/Button.tsx`、`src/renderer/components/ui/icon-link.ts`、`src/renderer/views/PopupView.tsx`。
+- 替代：逐时序打补丁（p261 路线，已证伪）或保留环改半透明（用户否决，按钮类一律不要）。

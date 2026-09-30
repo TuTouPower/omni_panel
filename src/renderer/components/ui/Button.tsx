@@ -28,7 +28,9 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 const base =
     "inline-flex items-center justify-center gap-2 rounded-md font-semibold " +
     "transition-feedback disabled:pointer-events-none disabled:opacity-50 " +
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-0";
+    // t538: 按钮类不透明焦点环彻底移除（任何场景都不需要）；只保留 outline-none
+    // 压住 UA 默认描边，hover/active 背景反馈不变。
+    "focus-visible:outline-none";
 
 const variants: Record<ButtonVariant, string> = {
     primary:
