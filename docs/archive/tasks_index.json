@@ -8530,6 +8530,38 @@
             "conflicts_with": "",
             "note": "来源: p269 + p268",
             "dir": "docs/archive/tasks/t535_flowercloud_background_first_refresh"
+        },
+        {
+            "tid": "t536",
+            "slug": "flowercloud_login_exit_lifecycle",
+            "title": "花云未登录场景下应用存活保障与退出入口定位",
+            "status": "done",
+            "branch": "t536_flowercloud_login_exit_lifecycle",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "289f1a8c39b70b663b56cb9b8dbfabce33c7bf89",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源: p269（应用退出部分）",
+            "dir": "docs/archive/tasks/t536_flowercloud_login_exit_lifecycle"
+        },
+        {
+            "tid": "t537",
+            "slug": "flowercloud_multi_service_metrics",
+            "title": "花云多服务账号用量采集",
+            "status": "done",
+            "branch": "t537_flowercloud_multi_service_metrics",
+            "worktree": "",
+            "review_level": "single",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "3b8ea11bead74f5ba07f38ceadf7e4ef0332ad34",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源: p267",
+            "dir": "docs/archive/tasks/t537_flowercloud_multi_service_metrics"
         }
     ]
 }

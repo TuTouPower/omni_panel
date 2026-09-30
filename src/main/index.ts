@@ -111,7 +111,7 @@ import { IPC_CHANNELS } from "../shared/types/ipc";
 import { DOM_SNAPSHOT_PROVIDERS } from "../shared/constants";
 import {
     create_main_panel_controller,
-    should_hide_popup_on_outside_focus,
+    handle_browser_window_focus,
 } from "./core/main-panel/main-panel-controller";
 import { setup_application_menu } from "./menu/application-menu";
 import { create_agent_window_controller } from "./core/main-panel/agent-window-controller";
@@ -126,6 +126,7 @@ import { is_e2e_headless } from "./e2e-headless";
 
 import { bootstrap_cli_and_locks } from "./bootstrap/cli_init";
 import { active_instance_ids_for_provider } from "./bootstrap/active_instances";
+import { log_application_shutdown, request_app_exit, request_app_quit } from "./core/quit_source";
 
 const { cliMode, cli_args, has_single_instance_lock } = bootstrap_cli_and_locks();
 
@@ -155,13 +156,13 @@ void app.whenReady().then(async () => {
         // help 已在进程入口处理；此处兜底。
         if (cliMode && cli_args.command?.type === "help") {
             process.stdout.write(CLI_HELP_TEXT);
-            app.exit(0);
+            await request_app_exit("cli.help", 0);
             return;
         }
         if (cliMode && cli_args.command?.type === "export") {
             const { run_export_command } = await import("./cli/client");
             const exitCode = await run_export_command(cli_args.command.options);
-            app.exit(exitCode);
+            await request_app_exit("cli.export", exitCode);
             return;
         }
         // t276: CLI 控制子命令 = 瘦客户端，不进服务初始化。执行完即退出。
@@ -175,7 +176,7 @@ void app.whenReady().then(async () => {
             const { run_control_command } = await import("./cli/client");
             const cmd = cli_args.command;
             const exitCode = await run_control_command(cmd.type, cmd.options);
-            app.exit(exitCode);
+            await request_app_exit("cli.control", exitCode);
             return;
         }
 
@@ -900,10 +901,10 @@ void app.whenReady().then(async () => {
                 },
                 restart: () => {
                     app.relaunch();
-                    app.quit();
+                    request_app_quit("control-api.restart");
                 },
                 quit: () => {
-                    app.quit();
+                    request_app_quit("control-api.quit");
                 },
                 autostart: () =>
                     set_launch_at_login_from_control(!currentConfigSnapshot.launchAtLogin),
@@ -1424,11 +1425,11 @@ void app.whenReady().then(async () => {
                 log.info("Sponsor/support author requested (not yet implemented)");
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_QUIT, () => {
-                app.quit();
+                request_app_quit("tray.quit");
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_RESTART, () => {
                 app.relaunch();
-                app.quit();
+                request_app_quit("tray.restart");
             });
             ipcMain.handle(IPC_CHANNELS.TRAY_HIDE, () => {
                 hideTrayMenu();
@@ -1531,20 +1532,17 @@ void app.whenReady().then(async () => {
             // - 用量面板：仅 popup 模式 popover 语义自动收（floating 常驻；
             //   pinToTop 钉住豁免）。hide 经 restore_after_hide 恢复提权。
             app.on("browser-window-focus", (_event, focused) => {
-                if (focused !== trayMenuWin) hideTrayMenu();
-                const popup = main_panel_controller?.get_window() ?? null;
-                if (
-                    popup !== null &&
-                    !popup.isDestroyed() &&
-                    should_hide_popup_on_outside_focus({
-                        mode: main_panel_controller?.get_mode() ?? "floating",
-                        panel_visible: popup.isVisible(),
-                        focused_is_panel: focused === popup,
-                        pin_to_top: currentConfigSnapshot.pinToTop ?? false,
-                    })
-                ) {
-                    main_panel_controller?.hide();
-                }
+                handle_browser_window_focus({
+                    focused,
+                    tray_menu: trayMenuWin,
+                    hide_tray_menu: hideTrayMenu,
+                    popup: main_panel_controller?.get_window() ?? null,
+                    mode: main_panel_controller?.get_mode() ?? "floating",
+                    pin_to_top: currentConfigSnapshot.pinToTop ?? false,
+                    hide_panel: () => {
+                        main_panel_controller?.hide();
+                    },
+                });
             });
         } // end of E2E !== "1" tray block
 
@@ -1557,7 +1555,9 @@ void app.whenReady().then(async () => {
         });
 
         app.on("before-quit", () => {
-            log.info("Application shutting down");
+            // t536 AC-001：关停行与退出请求共享同一 trace，日志可回答「谁请求了退出」；
+            // 漏斗之外的退出（系统会话结束等）标 untracked；级别/transport 不可用时兜底。
+            log_application_shutdown();
             quitting = true;
             // t368 范围项 5: local_api/close_all_proxy 移入 will-quit Promise.all 等待
             // 完成，此处不再 fire-and-forget。
@@ -1622,7 +1622,7 @@ void app.whenReady().then(async () => {
                         );
                     })
                     .finally(() => {
-                        app.quit();
+                        request_app_quit("will-quit.flush-retry");
                     });
             } else {
                 void Promise.all(shutdown_tasks).catch((err: unknown) => {
@@ -1655,7 +1655,7 @@ void app.whenReady().then(async () => {
         // 错误后非零退出。生产下 console transport 不挂载，日志仅落文件。
         if (cliMode) {
             process.stderr.write(`OmniPanel: 启动失败：${message}\n`);
-            app.exit(1);
+            await request_app_exit("startup.cli-failure", 1);
             return;
         }
         try {
@@ -1667,7 +1667,7 @@ void app.whenReady().then(async () => {
         } catch {
             // dialog not available — nothing more we can do
         }
-        app.exit(1);
+        await request_app_exit("startup.failure", 1);
     }
 });
 

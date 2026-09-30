@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import { createLogger } from "../../shared/lib/logger";
+import { request_app_quit } from "../core/quit_source";
 
 const log = createLogger("app-menu");
 
@@ -46,7 +47,7 @@ export function build_application_menu_template(
                         if (deps.on_quit) {
                             deps.on_quit();
                         } else {
-                            app.quit();
+                            request_app_quit("menu.cmd-q");
                         }
                     },
                 },

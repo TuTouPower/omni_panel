@@ -101,6 +101,10 @@ CLI 控制子命令（t276）是同一二进制的瘦客户端形态（`open|ref
 |会话 Cookie（R10 声明）|网页登录连接器会话 Cookie 采用明文持久化（`enableCookieEncryption: false`），规避各系统钥匙串交互弹窗与登录态失效，信任同机用户文件隔离|
 |SSRF|NetClient 阻断云元数据主机（169.254.169.254 / metadata.google.internal / metadata.azure.com）|
 
+**应用退出来源可追溯（t536 AC-001）**：`app.quit()` / `app.exit()` 在 `src/` 内唯一入口是 `src/main/core/quit_source.ts` 漏斗——`QUIT_SOURCES` 目录当前 12 处出口（`cli.help` / `cli.export` / `cli.control` / `control-api.restart` / `control-api.quit` / `tray.quit` / `tray.restart` / `will-quit.flush-retry` / `startup.cli-failure` / `startup.failure` / `menu.cmd-q` / `single-instance.lock-lost`），先写 `quit-source` 日志（meta 含 `source`/`action`/`exit_code`/`trace_id`）再触发退出；同一进程退出序列共享一个 trace，`before-quit` 的 `Application shutting down` 行带 `exit_source`（首个请求方；漏斗外退出标 `untracked`）与同一 `trace_id`。`request_app_exit` 在 `app.exit()` 前 `flushLogTransports()`，保证记录落盘后进程才终止。两道静态门禁禁止 `src/` 其余位置直接调用：eslint `no-restricted-properties`（漏斗文件自身豁免，`pnpm lint`）+ `quit_source.test` 的调用点一致性扫描（拦 `app.quit()`/`app.exit(` 裸调用与未登记来源）。两道门禁都绑定 `app.` 标识符，改名/别名形态（`electronApp.quit()`）静态不拦，由 code review 的调用点核对兜住（t536 已逐一核实 12 处出口）。**新增退出出口必须登记 `QUIT_SOURCES` 并同步本清单**，否则上述门禁失败。transport 不可用、info 被 logLevel 过滤时（日志初始化前的早期出口——cli.help/export/control、单实例锁竞争、初始化完成前的启动失败；will-quit 已清掉 transport 后的 flush 重入；`log_application_shutdown` 关停行）由 `persist_log_line` 用 `getCurrentLogFilePath` **同步追加到同一活动日志文件**（getDataRoot 取路径），12 处出口的来源行与关停行都可落盘；兜底失败只留 stderr 告警、不阻塞退出。注意：瘦客户端（cli.control）退出写的是自身 userData 的日志、trace 独立，与被控实例的 control-api.quit 序列不共 trace。
+
+焦点与主面板收起：任意窗口（如花云验证/登录窗）获焦统一走 `handle_browser_window_focus`（`main-panel-controller.ts`，index.ts `browser-window-focus` 委托）——托盘菜单收起 + 主面板按 `should_hide_popup_on_outside_focus`（仅 popup 可见未钉住收起，floating 常驻、pinToTop 豁免），只 hide 不 close/destroy、不触发应用退出。
+
 ## 4. 数据流（单向：采集 → 观测 → 消费）
 
 ```

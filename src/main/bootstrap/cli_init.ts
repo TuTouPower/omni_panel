@@ -5,6 +5,7 @@ import { is_test_build } from "../core/paths";
 import { extract_user_argv, resolve_entry, type CliArgs } from "../cli/args";
 import { run_background_serve_parent } from "../cli/background_serve";
 import { createLogger } from "../../shared/lib/logger";
+import { request_app_quit } from "../core/quit_source";
 
 const process_log = createLogger("process");
 
@@ -70,7 +71,7 @@ export function bootstrap_cli_and_locks(): CliBootstrapResult {
         has_single_instance_lock = check_single_instance_lock(
             () => app.requestSingleInstanceLock(),
             () => {
-                app.quit();
+                request_app_quit("single-instance.lock-lost");
             },
         );
     }

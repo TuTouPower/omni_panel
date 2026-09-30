@@ -18,6 +18,7 @@
 |---|---|---|---|
 |add_account_auto_refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
+|app_quit_lifecycle|Desktop|t536|2026-09-30|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
 |session-library|API / Web / Desktop|t476，t484：会话历史查询契约、Command Code 提取与宿主 resume|2026-09-14|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|
@@ -34,7 +35,7 @@
 |connector-session|Desktop|迁移自 omni_powers，t098，t282，t331，t337|2026-08-13|
 |connector-user-scripts-entry|Desktop|t094|2026-07-24|
 |connector-user-scripts|Desktop|t095|2026-07-24|
-|flowercloud_usage|API / Desktop|t533；2026-09-29 DOM 快照修复（无 task）|2026-09-29|
+|flowercloud_usage|API / Desktop|t533；2026-09-29 DOM 快照修复（无 task）；t537|2026-09-30|
 |ipc-api|API|拆自 ipc（t037）|2026-07-21|
 |ipc-electron|Desktop|拆自 ipc（t037）|2026-07-21|
 |log_rotation|Desktop|t154|2026-07-27|

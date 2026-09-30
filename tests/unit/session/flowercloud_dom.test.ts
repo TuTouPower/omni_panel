@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    compose_flower_sections,
     flower_failure_reason,
+    flower_service_ids,
     run_flowercloud_snapshot,
     write_flowercloud_html,
 } from "../../../src/main/core/session/flowercloud_dom";
@@ -28,6 +30,7 @@ type ProbedWindow = SessionWindow & {
     shown: number;
     shown_inactive: number;
     opacity_calls: number;
+    readonly loaded_urls: string[];
     // SessionWindow 已不声明前台化方法；这里显式挂上探针，任何调用都会被计数。
     show(): void;
     showInactive(): void;
@@ -40,6 +43,7 @@ function create_window(html: string): ProbedWindow {
         shown: 0,
         shown_inactive: 0,
         opacity_calls: 0,
+        loaded_urls: [],
         loadURL: vi.fn(() => Promise.resolve()),
         close(): void {
             win.closed = true;
@@ -99,6 +103,26 @@ function create_session(): SessionController {
         on_before_send_headers: vi.fn(),
         get_cookies: vi.fn(() => Promise.resolve([{ name: "WHMCSUserID", value: "42" }])),
     };
+}
+
+/**
+ * t537：可导航窗口——loadURL 按路由切换 html；未登记的 URL 落到 fallback
+ * （默认无用量页），模拟「页面没渲染出用量」而不是沿用上一页（避免假捕获）。
+ */
+function create_nav_window(
+    routes: Record<string, string>,
+    start_html: string,
+    fallback_html = "<html><body>加载中…</body></html>",
+): ProbedWindow {
+    const win = create_window(start_html);
+    let current = start_html;
+    win.read_html = () => Promise.resolve(current);
+    win.loadURL = vi.fn((url: string) => {
+        win.loaded_urls.push(url);
+        current = routes[url] ?? fallback_html;
+        return Promise.resolve();
+    });
+    return win;
 }
 
 describe("flowercloud_dom", () => {
@@ -217,6 +241,217 @@ describe("flowercloud_dom", () => {
         expect(window.shown).toBe(0);
         expect(window.shown_inactive).toBe(0);
         expect(window.opacity_calls).toBe(0);
+    });
+
+    describe("t537 multi-service snapshot", () => {
+        const LIST_HTML = [
+            '<a href="clientarea.php?action=productdetails&amp;id=8848">Global Acceleration Lite</a>',
+            '<a href="clientarea.php?action=productdetails&amp;id=8849">Global Acceleration Plus</a>',
+        ].join("\n");
+        const LIST_ONE = '<a href="clientarea.php?action=productdetails&amp;id=8848">Lite</a>';
+        const DETAIL_A = "<p>流量使用 10.00GB / 100GB</p>";
+        const DETAIL_B = "<p>流量使用 20.00GB / 200GB</p>";
+        const url_for = (id: string): string =>
+            `https://api-flowercloud.com/clientarea.php?action=productdetails&id=${id}`;
+
+        it("flower_service_ids keeps discovery order and dedups", () => {
+            expect(flower_service_ids(LIST_HTML)).toEqual(["8848", "8849"]);
+            expect(
+                flower_service_ids(
+                    '<a href="clientarea.php?action=productdetails&id=7">x</a>' +
+                        '<a href="clientarea.php?action=productdetails&amp;id=7">y</a>' +
+                        '<a href="clientarea.php?action=productdetails&id=8">z</a>',
+                ),
+            ).toEqual(["7", "8"]);
+            expect(flower_service_ids("<p>没有链接</p>")).toEqual([]);
+        });
+
+        it("compose_flower_sections marks success and failure entries", () => {
+            const composite = compose_flower_sections([
+                { id: "8848", html: DETAIL_A },
+                { id: "8849", error: "本轮等待超时，该服务未取到用量" },
+            ]);
+            expect(composite).toContain("<!--omni-flower id=8848-->");
+            expect(composite).toContain(DETAIL_A);
+            expect(composite).toContain("<!--/omni-flower-->");
+            expect(composite).toContain(
+                '<!--omni-flower id=8849 error="本轮等待超时，该服务未取到用量"-->',
+            );
+        });
+
+        it("visits every discovered service and stores a composite snapshot", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                {
+                    [LOGIN_URL]: LIST_HTML,
+                    [url_for("8848")]: DETAIL_A,
+                    [url_for("8849")]: DETAIL_B,
+                },
+                LIST_HTML,
+            );
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 2_000 },
+            });
+
+            expect(outcome.written).toBe(true);
+            expect(window.loaded_urls).toEqual([LOGIN_URL, url_for("8848"), url_for("8849")]);
+            const stored = vault.values.get(KEY) ?? "";
+            expect(stored).toContain("<!--omni-flower id=8848-->");
+            expect(stored).toContain("10.00GB / 100GB");
+            expect(stored).toContain("<!--omni-flower id=8849-->");
+            expect(stored).toContain("20.00GB / 200GB");
+            // 采集窗不前台化（t535 AC-001 回归在多服务路径同样成立）。
+            expect(window.shown).toBe(0);
+        });
+
+        it("single service keeps the raw html degenerate form (no composite markers)", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                { [LOGIN_URL]: LIST_ONE, [url_for("8848")]: DETAIL_A },
+                LIST_ONE,
+            );
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 2_000 },
+            });
+
+            expect(outcome.written).toBe(true);
+            const stored = vault.values.get(KEY) ?? "";
+            expect(stored).toContain("10.00GB / 100GB");
+            expect(stored).not.toContain("omni-flower");
+        });
+
+        it("marks the unreachable service with an error instead of silently dropping it", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            // 8849 的详情页永远渲染不出用量 → 预算耗尽后带 error 标注写入。
+            const window = create_nav_window(
+                { [LOGIN_URL]: LIST_HTML, [url_for("8848")]: DETAIL_A },
+                LIST_HTML,
+            );
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 250 },
+            });
+
+            expect(outcome.written).toBe(true);
+            const stored_raw = vault.values.get(KEY) ?? "";
+            // vault 载荷是 JSON：取出 html 字段再断言分段（引号在 JSON 层会被转义）。
+            const payload = JSON.parse(stored_raw) as { html?: string };
+            const stored = payload.html ?? "";
+            expect(stored).toContain("<!--omni-flower id=8848-->");
+            expect(stored).toMatch(/<!--omni-flower id=8849 error="[^"]+"-->/);
+            expect(stored).toContain("未取到用量");
+        });
+
+        it("never captures a page whose URL does not belong to the current service (gen_f003)", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                {
+                    [LOGIN_URL]: LIST_HTML,
+                    [url_for("8848")]: DETAIL_A,
+                    [url_for("8849")]: DETAIL_B,
+                },
+                LIST_HTML,
+            );
+            // 8848 导航后 hint 落点是别的服务（id=9999）：该服务判失败，
+            // DETAIL_A 的用量绝不能错配进 8848 的分段。
+            window.read_page_hint = () => {
+                const loaded = window.loaded_urls.at(-1) ?? LOGIN_URL;
+                const url = loaded.includes("id=8848")
+                    ? "https://api-flowercloud.com/clientarea.php?action=productdetails&id=9999"
+                    : loaded;
+                return Promise.resolve({ url, title: "" });
+            };
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 2_000 },
+            });
+
+            expect(outcome.written).toBe(true);
+            const payload = JSON.parse(vault.values.get(KEY) ?? "{}") as { html?: string };
+            const stored = payload.html ?? "";
+            expect(stored).toContain('<!--omni-flower id=8848 error="导航未到达该服务的详情页"-->');
+            expect(stored).toContain("<!--omni-flower id=8849-->");
+            expect(stored).toContain("20.00GB / 200GB");
+            expect(stored).not.toContain("10.00GB / 100GB");
+        });
+
+        it("rejects a hint URL whose id only shares a prefix with the target service (gen_f004)", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                { [LOGIN_URL]: LIST_ONE, [url_for("8848")]: DETAIL_A },
+                LIST_ONE,
+            );
+            // id=88480 与目标 8848 前缀相同：substring 会误放行，精确参数比对必须拒绝。
+            window.read_page_hint = () =>
+                Promise.resolve({
+                    url: "https://api-flowercloud.com/clientarea.php?action=productdetails&id=88480",
+                    title: "",
+                });
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 300 },
+            });
+
+            // 唯一服务判失败 → 无捕获 → 不写快照（旧值保留）。
+            expect(outcome.written).toBe(false);
+            expect(vault.values.get(KEY)).toBe(OLD_SECRET);
+        });
+
+        it("keeps the old snapshot when no service yields usage at all (t535 failure semantics)", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window({ [LOGIN_URL]: LIST_HTML }, LIST_HTML);
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 250 },
+            });
+
+            expect(outcome.written).toBe(false);
+            expect(vault.values.get(KEY)).toBe(OLD_SECRET);
+        });
     });
 });
 

@@ -64,6 +64,14 @@ function getLogFilePath(logDir: string): string {
     return join(logDir, `app-${get_local_date_string()}.log`);
 }
 
+/**
+ * t536 AC-001：当日活动日志文件路径（与写路径同一命名约定）。
+ * 供 quit_source 在 transport 不可用时同步兜底落盘，避免文件名约定漂移。
+ */
+export function getCurrentLogFilePath(userDataPath: string): string {
+    return getLogFilePath(getLogDir(userDataPath));
+}
+
 async function getCurrentSegmentCount(logDir: string, logFile: string): Promise<number> {
     const base = basename(logFile);
     const prefix = base.replace(/\.log$/, ".");

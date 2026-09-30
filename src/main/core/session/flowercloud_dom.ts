@@ -76,15 +76,49 @@ export function build_flowercloud_secret(cookie: string, html: string | null): s
 }
 
 export function flower_product_details_id(html: string): string | null {
-    const match =
-        /clientarea\.php\?action=productdetails&amp;id=(\d+)/i.exec(html) ??
-        /clientarea\.php\?action=productdetails&id=(\d+)/i.exec(html);
-    return match?.[1] ?? null;
+    return flower_service_ids(html)[0] ?? null;
+}
+
+/** t537 AC-001：页面里全部服务详情 id（出现顺序、按 id 去重）。 */
+export function flower_service_ids(html: string): string[] {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    const re = /clientarea\.php\?action=productdetails(?:&amp;|&)id=(\d+)/gi;
+    for (const match of html.matchAll(re)) {
+        const id = match[1];
+        if (id !== undefined && !seen.has(id)) {
+            seen.add(id);
+            ids.push(id);
+        }
+    }
+    return ids;
 }
 
 export function flower_details_url(login_url: string, service_id: string): string {
     const origin = new URL(login_url).origin;
     return `${origin}/clientarea.php?action=productdetails&id=${service_id}`;
+}
+
+/**
+ * t537：多服务快照分段。单服务保持裸 HTML（退化形态，存量载荷兼容）；
+ * 多服务按段拼接，失败服务保留 error 标注而非静默省略（AC-003）。
+ * 解析方为独立 connector 脚本，同格式在其内部复刻（沙箱边界不共享 import）。
+ */
+export interface FlowerSnapshotSection {
+    readonly id: string;
+    readonly html?: string;
+    readonly error?: string;
+}
+
+export function compose_flower_sections(sections: readonly FlowerSnapshotSection[]): string {
+    return sections
+        .map((section) => {
+            // error 文案来自 flower_failure_reason / 固定超时文案，理论上无引号；
+            // 仍清洗以保证标注不破坏分段标记。
+            const error = section.error ? ` error="${section.error.replace(/["\r\n]/g, " ")}"` : "";
+            return `<!--omni-flower id=${section.id}${error}-->${section.html ?? ""}<!--/omni-flower-->`;
+        })
+        .join("\n");
 }
 
 function delay(ms: number): Promise<void> {
@@ -214,23 +248,6 @@ export function merge_cookie_header(existing: string, fresh: string): string {
     return order.map((name) => `${name}=${values.get(name) ?? ""}`).join("; ");
 }
 
-export async function flower_snapshot_url(
-    vault: VaultBackend,
-    instance_id: string,
-    login_url: string,
-): Promise<string> {
-    try {
-        const stored = parse_flowercloud_secret(
-            await vault.get(keyFor(instance_id, SESSION_COOKIE_KEY)),
-        );
-        if (!stored.html) return login_url;
-        const service_id = flower_product_details_id(stored.html);
-        return service_id ? flower_details_url(login_url, service_id) : login_url;
-    } catch {
-        return login_url;
-    }
-}
-
 export async function write_flowercloud_html(
     vault: VaultBackend,
     instance_id: string,
@@ -280,6 +297,11 @@ export interface FlowerPollResult {
 /**
  * 在隐藏窗里轮询页面 DOM，直到出现稳定用量或超时。
  * 不做任何前台化：需要人操作的页面只是被分类记录，作为失败原因返回。
+ *
+ * t537 多服务：发现服务 id 后逐服务详情页抓取；单服务/无服务列表的单页形态
+ * 保持原结算语义。收尾时——单服务返回裸 HTML（退化形态），多服务返回分段
+ * composite（含失败服务的 error 标注）；一个服务都没抓到则不产出快照
+ * （沿用 t535「失败保留旧值」语义）。
  */
 export async function poll_flower_usage_html(
     window: SessionWindow,
@@ -293,10 +315,61 @@ export async function poll_flower_usage_html(
 ): Promise<FlowerPollResult> {
     if (!window.read_html) return { html: null, kind: "empty" };
     const deadline = Date.now() + options.timeout_ms;
-    let navigated = false;
-    let first_usage_at = 0;
     let latest: string | null = null;
     let last_kind: FlowerPageKind = "empty";
+    let single_usage_html: string | null = null;
+    let single_first_usage_at = 0;
+    // 多服务抓取状态
+    const pending: string[] = [];
+    const seen: string[] = [];
+    const seen_set = new Set<string>();
+    const captured = new Map<string, string>();
+    const failed = new Map<string, string>();
+    let current_id: string | null = null;
+    let current_first_usage_at = 0;
+
+    function enqueue(html: string): void {
+        for (const id of flower_service_ids(html)) {
+            if (!seen_set.has(id)) {
+                seen_set.add(id);
+                seen.push(id);
+                pending.push(id);
+            }
+        }
+    }
+
+    function partial_result(): FlowerPollResult {
+        if (current_id !== null) {
+            const reason =
+                last_kind === "cloudflare" || last_kind === "login" || last_kind === "blocked"
+                    ? flower_failure_reason(last_kind)
+                    : "本轮等待超时，该服务未取到用量";
+            failed.set(current_id, reason);
+        }
+        for (const id of seen) {
+            if (!captured.has(id) && !failed.has(id)) {
+                failed.set(id, "本轮等待超时，该服务未取到用量");
+            }
+        }
+        if (captured.size === 0) {
+            // 一个服务都没抓到：不产出多服务快照，沿用单页语义（有用量页则返回，
+            // 否则由调用方按 kind 走失败路径，vault 旧值保留 —— t535 失败语义）。
+            return {
+                html: single_usage_html,
+                kind: single_usage_html !== null ? "usage" : last_kind,
+            };
+        }
+        if (seen.length <= 1) {
+            return { html: [...captured.values()][0] ?? latest, kind: "usage" };
+        }
+        const entries = seen.map((id) => {
+            const html = captured.get(id);
+            return html !== undefined
+                ? { id, html }
+                : { id, error: failed.get(id) ?? "本轮等待超时，该服务未取到用量" };
+        });
+        return { html: compose_flower_sections(entries), kind: "usage" };
+    }
 
     while (!options.is_cancelled() && Date.now() < deadline && !window.isDestroyed()) {
         let html: string | null = null;
@@ -305,31 +378,90 @@ export async function poll_flower_usage_html(
         } catch {
             html = null;
         }
-        const kind = flower_page_kind(html);
-        last_kind = kind;
-        if (kind === "overview" && html && !navigated) {
-            const service_id = flower_product_details_id(html);
-            if (service_id) {
-                navigated = true;
-                first_usage_at = 0;
-                latest = null;
-                log.info(`FlowerCloud: DOM refresh navigating to productdetails id=${service_id}`);
-                await window.loadURL(flower_details_url(login_url, service_id));
-                await delay(options.poll_ms);
+        last_kind = flower_page_kind(html);
+        if (html) {
+            latest = html;
+            enqueue(html);
+        }
+
+        // 发现服务后逐个进详情页（t537：多服务全覆盖；单服务与原「首页→详情」导航一致）。
+        if (current_id === null && pending.length > 0) {
+            current_id = pending.shift() ?? null;
+            if (current_id !== null) {
+                current_first_usage_at = 0;
+                const target_id = current_id;
+                try {
+                    await window.loadURL(flower_details_url(login_url, target_id));
+                } catch {
+                    failed.set(target_id, "服务详情页加载失败");
+                    current_id = null;
+                    continue;
+                }
+                // t537 gen_f003：导航后核对落点确实属于该服务（宿主窗口提供
+                // read_page_hint 时）；不匹配按该服务失败处理，绝不把别的页面的
+                // 用量错配进分段。测试窗口未实现 hint 时跳过核对。
+                const hint = await read_service_hint(window);
+                if (hint !== null && !hint_belongs_to_service(hint, target_id)) {
+                    failed.set(target_id, "导航未到达该服务的详情页");
+                    current_id = null;
+                }
                 continue;
             }
         }
-        if (kind === "usage" && html) {
-            latest = html;
-            if (first_usage_at === 0) first_usage_at = Date.now();
-            if (Date.now() - first_usage_at >= options.settle_ms) {
-                return { html, kind: "usage" };
+
+        if (html && FLOWER_USAGE_RE.test(html)) {
+            if (current_id !== null) {
+                if (current_first_usage_at === 0) current_first_usage_at = Date.now();
+                if (Date.now() - current_first_usage_at >= options.settle_ms) {
+                    // t537 gen_f004：落盘前复核落点仍属于当前服务——导航后的客户端
+                    // 重定向会让用量页换主，substring 前缀命中（id=8848 vs 88480）也在此被
+                    // 精确 id 比对排除。
+                    const capture_hint = await read_service_hint(window);
+                    if (
+                        capture_hint !== null &&
+                        !hint_belongs_to_service(capture_hint, current_id)
+                    ) {
+                        failed.set(current_id, "导航未到达该服务的详情页");
+                        current_id = null;
+                        current_first_usage_at = 0;
+                        continue;
+                    }
+                    captured.set(current_id, html);
+                    current_id = null;
+                    current_first_usage_at = 0;
+                    if (pending.length === 0 && captured.size + failed.size >= seen.length) {
+                        return partial_result();
+                    }
+                    continue;
+                }
+            } else if (seen.length === 0) {
+                // 起始页自身含用量且无服务列表：单页形态，保持既有结算语义。
+                single_usage_html = html;
+                if (single_first_usage_at === 0) single_first_usage_at = Date.now();
+                if (Date.now() - single_first_usage_at >= options.settle_ms) {
+                    return { html, kind: "usage" };
+                }
             }
+            // 列表页含用量但仍有服务未抓：不在此断言，继续导航取逐服务详情。
+        }
+
+        if (
+            current_id === null &&
+            pending.length === 0 &&
+            seen.length > 0 &&
+            captured.size + failed.size >= seen.length
+        ) {
+            return partial_result();
         }
         await delay(options.poll_ms);
     }
     if (options.is_cancelled()) return { html: null, kind: "cancelled" };
-    return { html: latest, kind: latest ? "usage" : last_kind };
+    if (seen.length > 0 || current_id !== null) return partial_result();
+    // 单页形态：与旧行为一致——结算未完成也返回最后见到的用量页。
+    return {
+        html: single_usage_html,
+        kind: single_usage_html !== null ? "usage" : last_kind,
+    };
 }
 
 export interface FlowercloudSnapshotInput {
@@ -356,6 +488,29 @@ async function read_page_hint(window: SessionWindow): Promise<string> {
         return `${hint.url} ${hint.title}`.trim();
     } catch {
         return "";
+    }
+}
+
+/**
+ * 落点 URL 是否属于该服务：解析查询参数做精确 `id` 比对——`includes("id=8848")`
+ * 会被 `id=88480` / `redirect_id=8848` 误命中（t537 gen_f004）；解析失败按不匹配
+ * 处理，宁可判该服务失败也不静默错配。
+ */
+function hint_belongs_to_service(url: string, service_id: string): boolean {
+    try {
+        return new URL(url).searchParams.get("id") === service_id;
+    } catch {
+        return false;
+    }
+}
+
+/** 导航落点核对用 URL；窗口未实现 hint 或读取失败时返回 null（不拦）。 */
+async function read_service_hint(window: SessionWindow): Promise<string | null> {
+    try {
+        const hint = await window.read_page_hint?.();
+        return hint?.url ?? null;
+    } catch {
+        return null;
     }
 }
 
@@ -387,9 +542,11 @@ export async function run_flowercloud_snapshot(
         await seed_partition_cookies(session, vault, instance_id, login_url, {
             skip_names: new Set(jar.map((cookie) => cookie.name)),
         });
-        const start_url = await flower_snapshot_url(vault, instance_id, login_url);
+        // t537：统一从列表页（客户区）开始——多服务必须先发现全部服务 id；
+        // 单服务由列表页导航进详情页，与原「首页→详情」路径一致。
+        // （原 flower_snapshot_url 直跳首个详情页会让其它服务永远无法被发现。）
         // 隐藏窗即可执行质询脚本（s040）：不调用任何前台化方法。
-        await window.loadURL(start_url);
+        await window.loadURL(login_url);
         const result = await poll_flower_usage_html(window, login_url, {
             timeout_ms: options.timeout_ms ?? FLOWER_SNAPSHOT_TIMEOUT_MS,
             poll_ms: options.poll_ms ?? FLOWER_SNAPSHOT_POLL_MS,
