@@ -34,6 +34,54 @@
             "conflicts_with": "",
             "note": "来源 p271；pin 只管层级不管收起 + toggle Space/focus 修正",
             "dir": "docs/tasks/t539_usage_popup_pin_toggle_fix"
+        },
+        {
+            "tid": "t540",
+            "slug": "flowercloud_challenge_recovery",
+            "title": "花云后台挑战诊断与自动恢复链路修复",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p272；用户要求执行自动验证恢复，真实挑战先实验",
+            "dir": "docs/tasks/t540_flowercloud_challenge_recovery"
+        },
+        {
+            "tid": "t541",
+            "slug": "script_only_execution_model",
+            "title": "脚本唯一执行模型：删Tier1 poll/probe/local声明式路径与虚标",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "",
+            "conflicts_with": "",
+            "note": "来源 p273；架构最干净方向，不兼容旧声明式路径",
+            "dir": "docs/tasks/t541_script_only_execution_model"
+        },
+        {
+            "tid": "t542",
+            "slug": "host_boundary_minimal",
+            "title": "宿主边界收敛：删exposeToScript与grok_billing特例",
+            "status": "backlog",
+            "branch": "",
+            "worktree": "",
+            "review_level": "full",
+            "review_limit": "5",
+            "verify_limit": "5",
+            "diff_anchor": "",
+            "depends_on": "t541",
+            "conflicts_with": "",
+            "note": "来源 p273；依赖上一task的manifest schema重整",
+            "dir": "docs/tasks/t542_host_boundary_minimal"
         }
     ]
 }
