@@ -2,21 +2,23 @@
 
 ## 背景
 
-21个内置连接器全部带`script: connector.ts`，`execute_connector`（`src/main/core/scheduler/refresh-service.ts:285`）先判script，导致`:315` poll分支与`:317` probe分支零命中。带poll段8家（commandcode/cpa/deepseek/exa/grok/grok_bot/kimi/tikhub）`poll.map`全为`{}`；21家全无observe段；5家（firecrawl/getoneapi/glm/minimax/tavily）`capabilities:['poll']`却无poll段（`manifest.ts:104` refine放行，转为诚实性问题）；3家local（antigravity/claude/codex）与5家session（muse/mimo/flowercloud/kimi_web/opencode_go）均无独立executor，执行仍走脚本。现行`execute_poll`仅支持`$.a.b.c`单观测used/limit，无法表达真实脚本逻辑（firecrawl双端点arithmetic与per-metric reset_at、tavily条件breakdown、deepseek数组fan-out）。用户决策：架构最干净优先，不做旧兼容，不限开发成本。结论：废弃声明式执行路径，收敛为脚本唯一执行模型，删除死代码与虚标。
+21个内置连接器全部带`script: connector.ts`，`execute_connector`（`src/main/core/scheduler/refresh-service.ts:285`）先判script，导致`:315` poll分支与`:317` probe分支对这21家零命中。8家`poll.map`全为`{}`，21家全无observe段（`.scratch/tier1_declarative_landing/evidence.md`）。但分支走不到不等于这些键无读者：`poll.request.auth`仍被`net-client.ts:238 apply_request_auth`读走（Grok/Grok Bot的Bearer注入）、`refresh-service.ts:256`据此向params补secret；`local.paths`是`ctx.files.read/list`（`net-client.ts:753/:767`）的允许目录沙箱边界（Claude/Codex在用）；`capabilities`被`src/main/ipc/connector-ipc.ts:34-38`推出source、`refresh-service.ts:715`触发session自动重登、`src/renderer/lib/auth-flow-registry.ts:25-29`回退添加账号表单（MiMo/Claude/Codex/Antigravity无auth段，靠capabilities）。结论修正：只删真正死亡的执行路径与无auth空poll，活字段保留并去“执行器”伪装。
 
 ## 契约区
 
 ### 范围
 
-- 删除`src/main/core/connector/tier1-poll-executor.ts`与`probe-executor.ts`，清理全部引用与对应单测。
-- `src/shared/schemas/manifest.ts`删除`poll`/`observe`/`local`段、`capabilities`字段及refine（含t363 AC-005注释），保留`id/provider/parameters/endpoints/script/auth/loginDomains/cookieNames`；strict拒收旧字段。
-- `refresh-service.ts`的`execute_connector`简化为script唯一路径：无script直接抛`has no executable capability`类明确错误（含connector id）；删除`poll?.request.auth?.secret`注入分支。
-- 21个`connectors/*/manifest.json`删除`capabilities/poll/observe/local`键，保留其余键原值。
-- 更新引用上述模块的测试与文档索引。
+- 删除`src/main/core/connector/tier1-poll-executor.ts`与`probe-executor.ts`，删除`execute_connector`内poll/probe两条分发分支，清理全部引用与对应单测。
+- 删除`observe` schema段（strict拒收），21家本就无observe段，无manifest改动。
+- 删除6家无auth空poll段（commandcode/cpa/deepseek/exa/kimi/tikhub：仅path无auth，执行与鉴权均无读者）。
+- Grok/Grok Bot的`poll.request.auth`挪成宿主鉴权声明（字段名实现期定）：`apply_request_auth`的Bearer注入行为与`refresh-service.ts:256`的params补secret行为保持不变；两家脚本所用端点名仍由manifest声明。
+- `local.paths`原样保留，仅去除“local是一种执行器”的文档/注释表述，不改allowlist语义。
+- `capabilities`字段原样保留，不动source推导、重登条件与表单回退。
 
 ### 非范围
 
-- 不改任何`connector.ts`业务逻辑。
+- 不改任何`connector.ts`业务逻辑与observation结构。
+- 不动`capabilities`/`local.paths`的读取语义（source、重登、表单、文件沙箱）。
 - 不动`exposeToScript`与`grok_billing`特例（t542）。
 - 不新增声明式DSL能力，不新增local/session executor。
 
@@ -28,12 +30,14 @@
 
 <!-- /规范 -->
 
-- [ ] AC-001：无script的manifest执行刷新时直接抛错，错误信息含connector id，不再尝试poll/probe分支。
-- [ ] AC-002：仓库内无`tier1-poll-executor`与`probe-executor`文件，且`rg`无生产代码引用残留。
-- [ ] AC-003：含`poll`/`observe`/`local`/`capabilities`任一键的manifest经`manifest_schema`校验失败（strict未知键报错）。
-- [ ] AC-004：21个内置manifest均无`poll`/`observe`/`local`/`capabilities`键且全部通过新schema校验。
-- [ ] AC-005：21个连接器定义可正常discover加载；刷新冒烟中脚本路径仍产出与改前一致的observation结构（字段集不变）。
-- [ ] AC-006：firecrawl/tavily/deepseek既有连接器单测在唯一脚本路径下全部通过。
+- [ ] AC-001：执行器文件已删除，生产代码`rg`无`tier1-poll-executor`/`probe-executor`引用；`execute_connector`无script manifest直接抛错（含connector id），不再有poll/probe分支。
+- [ ] AC-002：含`observe`键的manifest经`manifest_schema`校验失败；21个内置manifest全部通过新schema校验。
+- [ ] AC-003：6家无auth空poll段已删除且校验通过；其刷新仍走脚本路径，observation字段集与改前一致。
+- [ ] AC-004：Grok与Grok Bot请求仍带Bearer：mock端点断言`Authorization: Bearer <token>`（脚本自身不拼接该头，行为由宿主注入保持）。
+- [ ] AC-005：Claude/Codex允许路径内`ctx.files.read/list`仍成功，路径外仍抛`not allowed`类错误。
+- [ ] AC-006：5个session连接器（muse/mimo/flowercloud/kimi_web/opencode_go）鉴权失败仍触发自动重登。
+- [ ] AC-007：MiMo添加账号仍走session表单，Claude/Codex/Antigravity仍走本地CLI表单（与改前一致）。
+- [ ] AC-008：firecrawl/tavily/deepseek既有连接器单测在脚本路径下全部通过。
 
 ### 可测试性声明
 
@@ -47,19 +51,20 @@
 
 ## 上下文区
 
-- 来源：p273（2026-09-30只读核实：21对21 script对应、8空poll.map、0 observe段、5虚标poll、3 local+5 session无executor；证据`.scratch/tier1_declarative_landing/evidence.md`）+用户2026-09-30决策（最干净架构、不兼容旧路径、合并为2 task）
+- 来源：p273（2026-09-30只读核实：21对21 script对应、8空poll.map、0 observe段；证据`.scratch/tier1_declarative_landing/evidence.md`）+用户2026-09-30修正（活读者：net-client auth注入、files allowlist、capabilities三处；错推论：走不到≠无读者）+本次2026-09-30复核（`apply_request_auth` bearer注入、`files.read/list` allowlist、`source_from_definition`/重登/表单回退、Grok空parameters、2家有auth poll vs 6家无auth poll）
 
 ### 有意不测
 
-- 旧manifest前向兼容：不测原因：用户明确不做旧兼容，旧字段直接拒收。
-- 各脚本业务语义回归全量：不测原因：脚本零改动，仅执行分发简化，由AC-006抽样覆盖。
+- 旧`observe`/执行器前向兼容：不测原因：用户明确不做旧兼容，旧字段直接拒收。
+- 全量21脚本端到端刷新：不测原因：脚本零改动，由AC-003/AC-004/AC-008抽样覆盖。
 
 ### 测试策略
 
-- zod schema负向单测：旧四键逐个拒收断言。
-- `rg`断言删除无残留：执行器文件与导入引用。
-- 21 manifest批量校验脚本：无旧键且parse通过。
-- 既有连接器vitest抽样：firecrawl/tavily/deepseek。
+- zod schema负向单测：`observe`拒收、无auth空poll删除后parse通过。
+- `rg`断言删除无残留：两执行器文件与导入引用。
+- Bearer注入集成单测：Grok/Grok Bot mock端点断言Authorization头。
+- files allowlist单测：允许内外路径正反断言。
+- session重登与表单回退：既有单测保持通过为凭。
 
 ### 未知契约清单
 
@@ -74,13 +79,13 @@
 ### 风险与回退
 
 - 风险：第三方用户自定义连接器（t095）依赖poll/observe声明式路径被直接拒收。
-- 回退：用户已接受不兼容；回退即`git revert`本task执行commit，恢复四键schema与两执行器。
+- 回退：用户已接受不兼容；回退即`git revert`本task执行commit。
 
 ### 依赖与约束
 
-- 无前置依赖；与t542同改`manifest.ts`/`refresh-service.ts`/21 manifests，t542须后做。
+- 无前置依赖；与t542同改`manifest.ts`/`refresh-service.ts`及部分manifest，t542须后做。
 
 ### Finalization 时更新的 blueprint
 
-- `docs/blueprint/architecture.md`：连接器运行时章节删除poll/probe执行描述，改为脚本唯一路径。
-- `docs/blueprint/decisions.md`：新增声明式路径废弃决策条目。
+- `docs/blueprint/architecture.md`：Tier1段改写为“声明式执行器已删除；poll.request.auth为宿主鉴权声明，local.paths为文件沙箱边界，capabilities为来源/重登/表单信号”。
+- `docs/blueprint/decisions.md`：新增执行路径删除决策条目（含保留活字段的理由）。

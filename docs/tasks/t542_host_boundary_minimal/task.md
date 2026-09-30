@@ -1,7 +1,7 @@
 ---
 tid: "t542"
 slug: "host_boundary_minimal"
-title: "宿主边界收敛：删exposeToScript与grok_billing特例"
+title: "宿主边界收敛：删exposeToScript，grok端点保护声明化"
 status: "backlog"
 branch: ""
 worktree: ""
@@ -11,7 +11,7 @@ verify_limit: "5"
 diff_anchor: ""
 depends_on: "t541"
 conflicts_with: ""
-note: "来源 p273；依赖上一task的manifest schema重整"
+note: "来源 p273；依赖上一task的manifest schema重整; 2026-09-30修正：grok由透传改为受保护端点声明，AC-006反转"
 ---
 
 # Task 过程总账

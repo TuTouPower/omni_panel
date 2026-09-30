@@ -1,7 +1,7 @@
 ---
 tid: "t541"
 slug: "script_only_execution_model"
-title: "脚本唯一执行模型：删Tier1 poll/probe/local声明式路径与虚标"
+title: "删Tier1 poll/probe执行路径与无auth空poll（保留鉴权/沙箱/来源活字段）"
 status: "backlog"
 branch: ""
 worktree: ""
@@ -11,7 +11,7 @@ verify_limit: "5"
 diff_anchor: ""
 depends_on: ""
 conflicts_with: ""
-note: "来源 p273；架构最干净方向，不兼容旧声明式路径"
+note: "来源 p273；架构最干净方向，不兼容旧声明式路径; 2026-09-30修正：活读者复核后收窄范围，capabilities/local.paths/poll.auth保留"
 ---
 
 # Task 过程总账
