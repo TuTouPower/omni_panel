@@ -6,7 +6,7 @@
         {
             "tid": "t541",
             "slug": "script_only_execution_model",
-            "title": "删Tier1 poll/probe执行路径与无auth空poll（保留鉴权/沙箱/来源活字段）",
+            "title": "删Tier1执行器与poll/observe段，宿主鉴权host_auth声明化",
             "status": "backlog",
             "branch": "",
             "worktree": "",
