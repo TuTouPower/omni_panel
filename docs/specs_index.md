@@ -18,6 +18,7 @@
 |---|---|---|---|
 |add_account_auto_refresh|Web|t306|2026-08-11|
 |add-account-catalog|API|t121|2026-07-26|
+|app_quit_lifecycle|Desktop|t536|2026-09-30|
 |ai-cli-token-stats-api|API|拆自 ai-cli-token-stats（t037），t114，t162，t163，t192，t193，t197，t201，t204，t308，t309，t437，t438|2026-08-23|
 |session-library|API / Web / Desktop|t476，t484：会话历史查询契约、Command Code 提取与宿主 resume|2026-09-14|
 |ai-cli-token-stats-desktop|Desktop|拆自 ai-cli-token-stats（t037），t114，t165，t166，t167|2026-07-31|

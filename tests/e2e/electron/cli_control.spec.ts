@@ -2,7 +2,7 @@ import { expect, test } from "../fixtures/test";
 import { _electron as electron, type ElectronApplication } from "@playwright/test";
 import { resolve_electron_binary } from "../fixtures/electron_binary";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -231,6 +231,48 @@ test.describe("CLI 控制子命令（t276）", () => {
                 () => ({ status: 0 }),
             );
             expect(after.status).toBe(0);
+
+            // t536 AC-001：实例退出来源与关停行落盘且共享同一 trace（真实运行断言）。
+            // 瘦客户端自身退出也经漏斗写同一日志文件（各自独立 trace，来源
+            // cli.control），只锁定实例侧 control-api.quit 序列。
+            const logs_dir = join(userDataDir, "logs");
+            const log_files = readdirSync(logs_dir).filter(
+                (name) => name.startsWith("app-") && name.endsWith(".log"),
+            );
+            expect(log_files.length).toBeGreaterThan(0);
+            const parsed: { message?: string; trace_id?: string; meta?: { source?: string } }[] =
+                [];
+            for (const name of log_files) {
+                for (const line of readFileSync(join(logs_dir, name), "utf8").split("\n")) {
+                    if (!line.trim()) continue;
+                    try {
+                        parsed.push(
+                            JSON.parse(line) as {
+                                message?: string;
+                                trace_id?: string;
+                                meta?: { source?: string };
+                            },
+                        );
+                    } catch {
+                        // 非日志 JSON 行忽略
+                    }
+                }
+            }
+            const instance_exit = parsed.find((rec) => rec.meta?.source === "control-api.quit");
+            expect(instance_exit).toBeDefined();
+            const exit_trace = instance_exit?.trace_id;
+            expect(exit_trace).toBeTruthy();
+            // 同一退出序列：flush 重入与关停行共享实例 trace；瘦身客户端行不参与。
+            const flush_retry = parsed.filter(
+                (rec) => rec.meta?.source === "will-quit.flush-retry",
+            );
+            expect(flush_retry.length).toBeGreaterThan(0);
+            expect(flush_retry.every((rec) => rec.trace_id === exit_trace)).toBe(true);
+            const shutdown_records = parsed.filter(
+                (rec) => rec.message === "Application shutting down",
+            );
+            expect(shutdown_records.length).toBeGreaterThan(0);
+            expect(shutdown_records.every((rec) => rec.trace_id === exit_trace)).toBe(true);
         } finally {
             await closeServe(app).catch(() => undefined);
             await reap_user_data_dir_processes(userDataDir);

@@ -48,6 +48,29 @@ export default defineConfig(
         },
     },
     {
+        // t536 AC-001：应用退出唯一入口是 quit_source 漏斗（记录来源 + trace），
+        // 禁止绕过；新增 app.quit()/app.exit() 出口必须先登记 QUIT_SOURCES。
+        files: ["src/**/*.ts"],
+        ignores: ["src/main/core/quit_source.ts"],
+        rules: {
+            "no-restricted-properties": [
+                "error",
+                {
+                    object: "app",
+                    property: "quit",
+                    message:
+                        "app.quit() 必须经 src/main/core/quit_source.ts 的 request_app_quit 记录退出来源（t536 AC-001）。",
+                },
+                {
+                    object: "app",
+                    property: "exit",
+                    message:
+                        "app.exit() 必须经 src/main/core/quit_source.ts 的 request_app_exit 记录退出来源（t536 AC-001）。",
+                },
+            ],
+        },
+    },
+    {
         ignores: [
             "dist/",
             "out/",

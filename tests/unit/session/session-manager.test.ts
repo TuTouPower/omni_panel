@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     create_session_manager,
     is_valid_opencode_login,
@@ -10,6 +10,24 @@ import type {
     SessionWindow,
 } from "../../../src/main/core/session/session-manager";
 import type { VaultBackend } from "../../../src/main/core/vault/vault-backend";
+import {
+    get_quit_requests,
+    reset_quit_source_state_for_testing,
+} from "../../../src/main/core/quit_source";
+
+const app_quit_spy = vi.fn();
+const app_exit_spy = vi.fn();
+
+vi.mock("electron", () => ({
+    app: {
+        quit: () => {
+            app_quit_spy();
+        },
+        exit: (code: number) => {
+            app_exit_spy(code);
+        },
+    },
+}));
 
 class MockWindow extends EventEmitter implements SessionWindow {
     readonly loaded_urls: string[] = [];
@@ -1775,5 +1793,118 @@ describe("session-manager", () => {
         await refresh("flower-1", "https://api-flowercloud.com/clientarea.php", options);
         expect(deps.windows).toHaveLength(2);
         expect(deps.windows.every((win) => win.closed)).toBe(true);
+    });
+
+    describe("t536 花云会话异常只影响花云实例，不触发应用退出 (AC-002/AC-003)", () => {
+        const flower_url = "https://api-flowercloud.com/clientarea.php";
+        const usage_html = "<p class='usage-amount'>331.40GB / 1000GB</p><h3>流量使用</h3>";
+        const challenge_html = "<title>Just a moment...</title><div class='cf-challenge'></div>";
+
+        async function seed_flower_vault(vault: VaultBackend, instance_id: string): Promise<void> {
+            await vault.set(
+                `${instance_id}:SESSION_COOKIE`,
+                JSON.stringify({
+                    cookie: "WHMCS=kept",
+                    html: "<p>流量使用 321.31GB / 1000GB</p>",
+                    captured_at: Date.now() - 24 * 60 * 60 * 1000,
+                }),
+            );
+        }
+
+        function expect_no_app_exit(): void {
+            // 退出唯一入口是 quit_source 漏斗（eslint 门禁禁止裸 app.quit/exit）：
+            // 漏斗零请求 + electron app 退出 API 零调用 ⇒ 会话异常未触发应用退出。
+            expect(get_quit_requests()).toEqual([]);
+            expect(app_quit_spy).not.toHaveBeenCalled();
+            expect(app_exit_spy).not.toHaveBeenCalled();
+        }
+
+        beforeEach(() => {
+            reset_quit_source_state_for_testing();
+            app_quit_spy.mockClear();
+            app_exit_spy.mockClear();
+        });
+
+        it("AC-002 未登录阻塞页预算耗尽：登记释放、其它实例刷新继续、无退出", async () => {
+            const deps = create_deps([], { set_cookie: true });
+            await seed_flower_vault(deps.vault, "flower-1");
+            await seed_flower_vault(deps.vault, "flower-2");
+            deps.window.html = challenge_html;
+            const manager = create_session_manager(deps);
+            const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+            if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+            // flower-1 预算须显著大于 flower-2 正常完成耗时，避免慢机时序耦合误报。
+            const options = { timeout_ms: 2_000, poll_ms: 10, settle_ms: 0 };
+
+            const blocked = refresh("flower-1", flower_url, options);
+            const other = refresh("flower-2", flower_url, options);
+            // 第二个窗口与本轮任务同步创建；首次 read_html 发生在其后的 await 之后。
+            const other_window = deps.windows[1];
+            if (!other_window) throw new Error("flower-2 window missing");
+            other_window.html = usage_html;
+
+            const other_result = await other;
+            expect(other_result.ok).toBe(true);
+            // flower-1 仍在等待预算：未登录会话独立存在，不牵连其它实例。
+            expect(deps.windows[0]?.closed).toBe(false);
+
+            const blocked_result = await blocked;
+            expect(blocked_result.ok).toBe(false);
+            expect(deps.windows[0]?.closed).toBe(true);
+            expect(manager.is_login_in_progress?.("flower-1")).toBe(false);
+            expect_no_app_exit();
+        });
+
+        it("AC-003 手动关闭/取消登录窗只结束该会话：登记释放、后续刷新可用、无退出", async () => {
+            const deps = create_deps([], { set_cookie: true });
+            await seed_flower_vault(deps.vault, "flower-1");
+            const manager = create_session_manager(deps);
+            const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
+            if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
+
+            const login = manager.start_login({
+                instance_id: "flower-1",
+                provider: "flowercloud",
+                login_url: flower_url,
+                cookie_names: ["*"],
+            });
+            expect(manager.is_login_in_progress?.("flower-1")).toBe(true);
+
+            // 用户取消与手动关闭同一收尾路径：关窗即结束该会话。
+            deps.window.close();
+            await login;
+            expect(deps.window.closed).toBe(true);
+            expect(manager.is_login_in_progress?.("flower-1")).toBe(false);
+            expect_no_app_exit();
+
+            // 登记已释放：该实例下一轮刷新照常开新窗并成功。
+            const again = refresh("flower-1", flower_url, {
+                timeout_ms: 2_000,
+                poll_ms: 10,
+                settle_ms: 0,
+            });
+            const again_window = deps.windows[1];
+            if (!again_window) throw new Error("reopened window missing");
+            again_window.html = usage_html;
+            await expect(again).resolves.toMatchObject({ ok: true });
+            expect_no_app_exit();
+        });
+
+        it("AC-002 登录超时只结束该会话：窗口关闭、登记释放、无退出", async () => {
+            const deps = create_deps([], { set_cookie: true });
+            const manager = create_session_manager(deps, { timeout_ms: 50 });
+
+            const login = manager.start_login({
+                instance_id: "flower-1",
+                provider: "flowercloud",
+                login_url: flower_url,
+                cookie_names: ["*"],
+            });
+            await expect(login).rejects.toThrow("Login timed out");
+
+            expect(deps.window.closed).toBe(true);
+            expect(manager.is_login_in_progress?.("flower-1")).toBe(false);
+            expect_no_app_exit();
+        });
     });
 });

@@ -63,6 +63,38 @@ export function should_hide_popup_on_outside_focus(args: {
     );
 }
 
+export interface BrowserWindowFocusArgs {
+    /** 获焦窗口（如花云验证/登录窗）；与 tray_menu / popup 做身份比较。 */
+    readonly focused: object | null;
+    readonly tray_menu: object | null;
+    readonly hide_tray_menu: () => void;
+    readonly popup: WindowLike | null;
+    readonly mode: MainPanelShellMode;
+    readonly pin_to_top: boolean;
+    readonly hide_panel: () => void;
+}
+
+/**
+ * t536 AC-004：任意窗口获焦时的收拢处理（托盘菜单收起 + 主面板收起判定）。
+ * index.ts 的 `browser-window-focus` 处理器整体委托于此，保证该路径只做
+ * hide（不 close/destroy、不触发应用退出），行为可单测固定。
+ */
+export function handle_browser_window_focus(args: BrowserWindowFocusArgs): void {
+    if (args.focused !== args.tray_menu) args.hide_tray_menu();
+    // destroyed 窗口的 isVisible 会抛：先判存活再读可见性。
+    if (args.popup === null || args.popup.isDestroyed()) return;
+    if (
+        should_hide_popup_on_outside_focus({
+            mode: args.mode,
+            panel_visible: args.popup.isVisible(),
+            focused_is_panel: args.focused === args.popup,
+            pin_to_top: args.pin_to_top,
+        })
+    ) {
+        args.hide_panel();
+    }
+}
+
 export function create_main_panel_controller(deps: MainPanelControllerDeps): MainPanelController {
     let win: WindowLike | null = null;
     let mode: MainPanelShellMode = resolve_main_panel_mode(deps.get_config(), deps.platform);

@@ -177,6 +177,11 @@ export function addTransport(transport: LogTransport): () => void {
     };
 }
 
+/** t536 AC-001：是否存在可写 transport（日志初始化前 / will-quit 清理后为 false）。 */
+export function has_log_transports(): boolean {
+    return transports.length > 0;
+}
+
 export async function flushLogTransports(): Promise<void> {
     await Promise.all(transports.map((transport) => transport.flush?.() ?? Promise.resolve()));
 }
@@ -186,6 +191,11 @@ function format_timestamp(): string {
 }
 
 function should_log(level: LogLevel): boolean {
+    return is_log_level_enabled(level);
+}
+
+/** t536 AC-001：该级别当前是否会被输出（quit_source 据此决定同步兜底）。 */
+export function is_log_level_enabled(level: LogLevel): boolean {
     return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[globalLevel];
 }
 

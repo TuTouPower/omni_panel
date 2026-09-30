@@ -1,0 +1,41 @@
+{
+    "tid": "t536",
+    "attempt": 1,
+    "execution_id": "f0978a1b8aea4ad49a6558486ccdb84f",
+    "status": "done",
+    "branch": "t536_flowercloud_login_exit_lifecycle",
+    "base_sha": "289f1a8c39b70b663b56cb9b8dbfabce33c7bf89",
+    "tests": "pnpm check 7 段全绿（typecheck/lint/format:check/deadcode/arch/schema/test），pnpm test 341 文件 4259 passed / 1 skipped（4260 tests）；pnpm build 绿；headless e2e cli_control.spec.ts 7 passed（含新增真实关停链同 trace 断言）",
+    "blackbox": "默认 pnpm test 主链；真实运行实测 AC-001：隔离 serve（--user-data-dir 临时目录 --port 18999 --foreground）+ 瘦客户端 quit --port 18999，日志断言 Exit requested: source=control-api.quit 与 Application shutting down 携带同一 trace_id（66b31f3c-e126-4c31-ad66-9379f8531db0）且进程退出；electron headless 全量 18 failed 经 git stash 基线对照（基线 289f1a8c 同样 18 failed）确认预存，见 docs/findings/d064；会弹窗的 test:packaged / package / start 未触发（需许可，黑盒细则默认层级已覆盖）",
+    "review": "full 级。review_code.md：Round 1 FAIL（f001 important：早期出口与 flush-retry 记录无 sink）→ Round 2 PASS（f002-f004 minor）→ Round 3 PASS（f005/f006 minor）→ Round 4 PASS 零 finding；review_test.md：Round 1 PASS（f001-f004 minor）→ Round 2 PASS（f005 minor）→ Round 3 PASS 零 finding。check_review_status：overall=PASS、review_scope=ok、round=4；11 条 finding 全部已修，无遗留 critical/important。",
+    "ac_evidence": {
+        "AC-001": [
+            "tests/unit/main/quit_source.test.ts: 来源目录固定覆盖创建时扫描到的 12 处显式退出入口（QUIT_SOURCES 与 spec 清单一一对应）",
+            "tests/unit/main/quit_source.test.ts: request_app_quit/request_app_exit 记录来源与 trace 并调用 app.quit/app.exit；多个出口共享同一 trace、首请求方为退出请求方",
+            "tests/unit/main/quit_source.test.ts: 无 transport（初始化前/清理后）同步落盘同一活动日志文件；logLevel 过滤 info 时来源行与关停行（module=main、exit_source、同 trace）同样落盘；关停行 meta 关联 + untracked",
+            "tests/unit/main/quit_source.test.ts: QUIT_SOURCES 与 src 内漏斗调用点一致（无死目录/未登记出口）+ 裸 app.quit()/app.exit( 双门禁扫描",
+            "tests/e2e/electron/cli_control.spec.ts: AC1 内 t536 真实运行断言——control-api.quit → will-quit.flush-retry → Application shutting down 共享同一 trace_id（瘦客户端行独立 trace 不参与）",
+            "eslint.config.ts: no-restricted-properties 禁止 src/ 裸 app.quit/app.exit（漏斗豁免，探针验证会红）",
+            "docs/blueprint/architecture.md §3: 12 处出口清单与来源可追溯约定（含别名形态 review 兜住的口径）"
+        ],
+        "AC-002": [
+            "tests/unit/session/session-manager.test.ts: AC-002 未登录阻塞页预算耗尽——登记释放、其它实例（flower-2）刷新继续、退出 API 零调用（app.quit/exit spy + get_quit_requests 双通道）",
+            "tests/unit/session/session-manager.test.ts: AC-002 登录超时只结束该会话——窗口关闭、登记释放、退出 API 零调用",
+            "src/main/core/quit_source.ts: 会话路径零退出调用由 lint 双门禁结构性保证（无漏斗调用即无退出请求）"
+        ],
+        "AC-003": [
+            "tests/unit/session/session-manager.test.ts: AC-003 手动关闭/取消登录窗只结束该会话——窗口关闭、登记释放、该实例后续刷新可用、退出 API 零调用"
+        ],
+        "AC-004": [
+            "tests/unit/main/main_panel_controller.test.ts: t536 AC-004 验证窗获焦 × 主面板状态组合 6 例——popup 收起（hide 不销毁）/ floating 常驻 / pinToTop 豁免 / 焦点在面板 / 已销毁无操作 / 托盘菜单焦点，全部断言退出 API 零调用",
+            "tests/unit/main/tray_menu.test.ts: index 接线哨兵（handle_browser_window_focus + log_application_shutdown）",
+            "tests/unit/main/main_panel_controller.test.ts: p258 should_hide_popup_on_outside_focus 纯函数组（既有，语义回归）"
+        ]
+    },
+    "pending": [
+        "p269: 应用退出部分由 t536（本 task）闭环，p269 已在创建期归档 docs/archive/pending/p269_flowercloud_background_challenge_popup.md（拆分 t535/t536/t537）"
+    ],
+    "findings": [
+        "d064: electron e2e headless 全量 18 个预存失败基线（基线 289f1a8c 同样失败），docs/findings/d064_electron_e2e_headless_baseline_failures.md"
+    ]
+}

@@ -99,3 +99,10 @@ task 在 `../omni_usage_{tid}/` worktree 执行时，worktree 无 `node_modules`
 - `E2E_HEADLESS=1` 门控：仅当 `E2E=1` 且 `E2E_HEADLESS=1` 同时存在时，app 侧窗口 `show:false`（窗口存在可测但不弹屏），playwright chromium 侧 `headless: true`。双条件之外代码路径零改动——正常启动/CI（不设 `E2E_HEADLESS`）行为与现状完全一致。
 - 依赖窗口可见性/焦点/尺寸度量的既有 electron spec 标「仅 headed」，headless 下跳过不计失败——`test.skip(is_e2e_headless(), reason)`（fixtures/test.ts 提供 helper）；清单见 t280 spec「仅 headed 清单」。
 - `cli` 项目：`pnpm test:e2e:cli`（playwright `--project=cli`）——`_electron.launch` 传 argv 起真实 `serve` 无头实例（含 `--config` 导入），stdout 正则抓 URL，chromium 驱动 web UI 走核心链路（面板加载、dashboard、config），全程零窗口。跑前 `node scripts/ensure_sqlite_abi.mjs electron` + `pnpm build`。
+
+### 应用退出与会话生命周期（t536）
+
+- 单测：`tests/unit/main/quit_source.test.ts`（12 来源目录固定、来源/trace/退出码落日志、同一 trace 串联首请求方、无 transport / logLevel 过滤时来源行与关停行同步落盘同一活动日志文件、QUIT_SOURCES↔调用点一致性扫描、reset）；`tests/unit/main/main_panel_controller.test.ts` 「t536 AC-004 验证窗获焦 × 主面板状态组合」（popup 收起 / floating 常驻 / 钉住豁免 / 焦点在面板 / 已销毁 / 托盘菜单焦点，只 hide 不销毁、退出 API 零调用）；`tests/unit/session/session-manager.test.ts` 「t536 花云会话异常只影响花云实例」（阻塞页预算耗尽、手动关窗/取消、登录超时：登记释放、其它实例刷新继续、退出 API 零调用）。
+- 门禁：eslint `no-restricted-properties` 禁止 `src/` 绕过 `quit_source.ts` 直接 `app.quit()`/`app.exit()`（`pnpm lint`；新增出口必须登记 `QUIT_SOURCES`）。
+- 黑盒（真实运行，可自动）：`pnpm test`；退出链路实测——`npx electron out/main/index.js serve --port <p> --user-data-dir <临时目录> --foreground` 起隔离实例，瘦客户端 `npx electron out/main/index.js quit --port <p>` 触发，日志断言 `Exit requested: source=control-api.quit` 与 `Application shutting down` 携带同一 `trace_id` 且进程退出；`cli_control.spec.ts`（headless 变体）覆盖 control-api quit/restart 真实链路。
+- 会弹窗 / 抢焦点的 `test:e2e:electron`、`test:packaged`、`package`、`reload`、`start` 仍须用户许可；无窗口替代 `E2E=1 E2E_HEADLESS=1 pnpm exec playwright test --config=playwright.config.ts --project=electron` 可自动跑。注意：headless 全量 electron 存在与任务无关的预存失败基线（本机 2026-09-30 核对 18 个失败在基线 commit `289f1a8c` 同样失败，见 `docs/findings/d064_electron_e2e_headless_baseline_failures.md`），判定回归须先跑基线对照。

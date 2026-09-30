@@ -1,6 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const app_quit_spy = vi.fn();
+const app_exit_spy = vi.fn();
+
+vi.mock("electron", () => ({
+    app: {
+        quit: () => {
+            app_quit_spy();
+        },
+        exit: (code: number) => {
+            app_exit_spy(code);
+        },
+    },
+}));
+
 import {
     create_main_panel_controller,
+    handle_browser_window_focus,
     should_hide_popup_on_outside_focus,
 } from "../../../src/main/core/main-panel/main-panel-controller";
 import type { MainPanelControllerDeps } from "../../../src/main/core/main-panel/main-panel-controller";
@@ -780,6 +796,118 @@ describe("main panel controller", () => {
                 fire_blur(win);
             }).not.toThrow();
             expect(win.hide).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("t536 AC-004 验证窗获焦 × 主面板状态组合", () => {
+        // 花云验证/登录窗获焦 = 焦点落在非主面板窗口。
+        const session_window = { id: "flowercloud-verify" };
+        let hide_tray_spy: ReturnType<typeof vi.fn>;
+
+        beforeEach(() => {
+            app_quit_spy.mockClear();
+            app_exit_spy.mockClear();
+            hide_tray_spy = vi.fn();
+        });
+
+        function open_panel(
+            platform: "darwin" | "win32",
+            config: AppConfiguration = base_config,
+        ): FakeWindow {
+            const { controller, windows } = build(config, platform);
+            controller.open_or_focus();
+            const win = windows[0];
+            if (!win) throw new Error("window missing");
+            win.visible = true;
+            win.hide.mockClear();
+            return win;
+        }
+
+        function focus_session(args: {
+            win: FakeWindow;
+            mode?: "popup" | "floating";
+            pin_to_top?: boolean;
+            focused?: object;
+            tray_menu?: object | null;
+        }): void {
+            const tray_menu = args.tray_menu ?? null;
+            handle_browser_window_focus({
+                focused: args.focused ?? session_window,
+                tray_menu,
+                hide_tray_menu: hide_tray_spy,
+                popup: args.win,
+                mode: args.mode ?? "popup",
+                pin_to_top: args.pin_to_top ?? false,
+                hide_panel: () => {
+                    args.win.hide();
+                },
+            });
+        }
+
+        it("popup 可见未钉住：验证窗获焦收起面板，不销毁窗口、不触发进程退出", () => {
+            const win = open_panel("darwin");
+
+            focus_session({ win });
+
+            expect(win.visible).toBe(false);
+            expect(win.destroyed).toBe(false);
+            expect(hide_tray_spy).toHaveBeenCalledTimes(1);
+            expect(app_quit_spy).not.toHaveBeenCalled();
+            expect(app_exit_spy).not.toHaveBeenCalled();
+        });
+
+        it("floating 浮窗：验证窗获焦保持可见，不收起", () => {
+            const win = open_panel("win32");
+
+            focus_session({ win, mode: "floating" });
+
+            expect(win.visible).toBe(true);
+            expect(win.hide).not.toHaveBeenCalled();
+            expect(win.destroyed).toBe(false);
+            expect(app_quit_spy).not.toHaveBeenCalled();
+            expect(app_exit_spy).not.toHaveBeenCalled();
+        });
+
+        it("pinToTop 钉住：验证窗获焦豁免，保持可见", () => {
+            const win = open_panel("darwin");
+
+            focus_session({ win, pin_to_top: true });
+
+            expect(win.visible).toBe(true);
+            expect(win.hide).not.toHaveBeenCalled();
+            expect(app_quit_spy).not.toHaveBeenCalled();
+            expect(app_exit_spy).not.toHaveBeenCalled();
+        });
+
+        it("焦点仍在面板自己：不收起", () => {
+            const win = open_panel("darwin");
+
+            focus_session({ win, focused: win });
+
+            expect(win.visible).toBe(true);
+            expect(win.hide).not.toHaveBeenCalled();
+        });
+
+        it("面板已销毁：无操作不抛错、不触发退出", () => {
+            const destroyed_win = make_window();
+            destroyed_win.destroyed = true;
+
+            expect(() => {
+                focus_session({ win: destroyed_win });
+            }).not.toThrow();
+            expect(app_quit_spy).not.toHaveBeenCalled();
+            expect(app_exit_spy).not.toHaveBeenCalled();
+        });
+
+        it("焦点在托盘菜单时不收托盘菜单，主面板按各自状态判定", () => {
+            const tray_menu = { id: "tray-menu" };
+            const win = open_panel("darwin");
+
+            focus_session({ win, focused: tray_menu, tray_menu });
+
+            expect(hide_tray_spy).not.toHaveBeenCalled();
+            // 焦点是托盘菜单（非面板）→ popup 未钉住仍应收起。
+            expect(win.visible).toBe(false);
         });
     });
 });
