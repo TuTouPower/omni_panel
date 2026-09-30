@@ -40,6 +40,23 @@ function decrypt_value(key: Buffer, entry: VaultEntry): string {
     return decipher.update(ciphertext, undefined, "utf8") + decipher.final("utf8");
 }
 
+/**
+ * A17：JSON 载荷顶层 `cookie` 短串单独注册脱敏。vault 为通用存储，不解释业务
+ * 结构——只认顶层 `cookie` 键（cookie 是通用概念）；解析失败/非对象/非短串
+ * 均静默跳过（整体 register 已覆盖能覆盖的部分）。
+ */
+function register_short_cookie_field(plaintext: string): void {
+    if (!plaintext.startsWith("{")) return;
+    try {
+        const parsed: unknown = JSON.parse(plaintext);
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
+        const cookie = (parsed as Record<string, unknown>)["cookie"];
+        if (typeof cookie === "string" && cookie) scrubber.register(cookie);
+    } catch {
+        // 非 JSON 载荷：整体注册已覆盖，无需动作。
+    }
+}
+
 export function build_icacls_args(
     path: string,
     user_resolver: () => string = () => {
@@ -204,6 +221,10 @@ export async function create_file_vault_backend(user_data_dir: string): Promise<
                 try {
                     const plaintext = decrypt_value(master_key, entry);
                     scrubber.register(plaintext);
+                    // A17：JSON 载荷（如花云 cookie + 整页 DOM）整体超长会被脱敏注册
+                    // 跳过——顶层短 cookie 字段单独注册，短凭据仍进脱敏表，长 HTML
+                    // 仍挡在门外（register 自带长度上下限）。
+                    register_short_cookie_field(plaintext);
                     return plaintext;
                 } catch {
                     log.warn(`Failed to decrypt vault key: ${redact_key(key)}`);

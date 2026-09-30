@@ -7,6 +7,7 @@ import {
     flushLogTransports,
     has_log_transports,
     is_log_level_enabled,
+    scrubber,
 } from "../../shared/lib/logger";
 import { format_local_iso } from "../../shared/lib/local-time";
 import { getCurrentLogFilePath } from "./logging";
@@ -90,17 +91,19 @@ function persist_log_line(
         const file_path = getCurrentLogFilePath(getDataRoot());
         mkdirSync(dirname(file_path), { recursive: true });
         const trace = typeof meta["trace_id"] === "string" ? meta["trace_id"] : undefined;
-        appendFileSync(
-            file_path,
-            `${JSON.stringify({
+        // A10：兜底行同样过脱敏——scrubber 是纯函数，不依赖 transport，在此调用不破坏
+        // "无 transport 可写盘"的设计；当前调用方传参干净，属纵深防护。
+        const line = scrubber.scrub_text(
+            JSON.stringify({
                 ts: format_local_iso(),
                 level: "info",
                 module: module_name,
                 message,
                 meta,
                 ...(trace !== undefined ? { trace_id: trace } : {}),
-            })}\n`,
+            }),
         );
+        appendFileSync(file_path, `${line}\n`);
     } catch (error) {
         // 已无其它日志通道；兜底失败不能反过来阻塞退出，只留 stderr 告警。
         console.warn(`[quit-source] fallback persist failed: ${String(error)}`);

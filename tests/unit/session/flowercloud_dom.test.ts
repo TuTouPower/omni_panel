@@ -3,7 +3,9 @@ import {
     compose_flower_sections,
     flower_failure_reason,
     flower_service_ids,
+    is_flowercloud_snapshot_fresh,
     run_flowercloud_snapshot,
+    seed_partition_cookies,
     write_flowercloud_html,
 } from "../../../src/main/core/session/flowercloud_dom";
 import type {
@@ -160,6 +162,53 @@ describe("flowercloud_dom", () => {
             expect(vault.set_mock).not.toHaveBeenCalled();
         });
 
+        it("A4: skips the write when the vault changed after the capture started", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const fresh_secret = JSON.stringify({
+                cookie: "WHMCS=new",
+                html: "<p>流量使用 400GB / 1000GB</p>",
+                captured_at: Date.now(),
+            });
+            // 捕获起点基线是 OLD_SECRET；写入前 vault 已被外部更新为 fresh_secret。
+            vault.get = vi.fn(() => Promise.resolve(fresh_secret));
+
+            const written = await write_flowercloud_html(vault, "flower-1", USAGE_HTML, null, {
+                expected_vault_value: OLD_SECRET,
+            });
+
+            expect(written).toBe(false);
+            expect(vault.set_mock).toHaveBeenCalledTimes(1); // 只有测试自己的预置写入
+        });
+
+        it("A4: writes when the vault still matches the capture-start baseline", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+
+            const written = await write_flowercloud_html(vault, "flower-1", USAGE_HTML, null, {
+                expected_vault_value: OLD_SECRET,
+            });
+
+            expect(written).toBe(true);
+            expect(vault.values.get(KEY)).toContain("331.40GB");
+        });
+
+        it("A6: treats a negative-age snapshot as expired", () => {
+            const fresh = {
+                cookie: "WHMCS=kept",
+                html: "<p>流量使用 1GB / 1000GB</p>",
+                captured_at: Date.now(),
+            };
+            expect(is_flowercloud_snapshot_fresh(fresh)).toBe(true);
+            // 时钟回拨 / 迁移旧载荷：captured_at 在未来 → 负年龄 → 过期。
+            expect(
+                is_flowercloud_snapshot_fresh({ ...fresh, captured_at: Date.now() + 60_000 }),
+            ).toBe(false);
+            // 远古快照（年龄超新鲜期）同样过期。
+            expect(is_flowercloud_snapshot_fresh({ ...fresh, captured_at: 1 })).toBe(false);
+            expect(is_flowercloud_snapshot_fresh({ cookie: "WHMCS=kept" })).toBe(false);
+        });
+
         it("writes when neither cancellation nor a concurrent change happened", async () => {
             const vault = create_vault();
             await vault.set(KEY, OLD_SECRET);
@@ -170,6 +219,46 @@ describe("flowercloud_dom", () => {
 
             expect(written).toBe(true);
             expect(vault.values.get(KEY)).toContain("331.40GB");
+        });
+    });
+
+    describe("seed_partition_cookies", () => {
+        function create_seeding_session(): SessionController & {
+            readonly seeded: { url: string; name: string; value: string }[];
+        } {
+            const seeded: { url: string; name: string; value: string }[] = [];
+            return {
+                seeded,
+                on_before_send_headers: vi.fn(),
+                get_cookies: vi.fn(() => Promise.resolve([])),
+                set_cookie: vi.fn((url: string, name: string, value: string) => {
+                    seeded.push({ url, name, value });
+                    return Promise.resolve();
+                }),
+            };
+        }
+
+        it("A1: skips cookie parts that fail the safety check", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, "WHMCS=ok; evil=bad\r\nvalue; cf_clearance=abc");
+            const session = create_seeding_session();
+
+            await seed_partition_cookies(session, vault, "flower-1", LOGIN_URL);
+
+            const names = session.seeded.map((s) => s.name);
+            expect(names).toContain("WHMCS");
+            expect(names).toContain("cf_clearance");
+            expect(names).not.toContain("evil");
+        });
+
+        it("A13: seeds nothing when the payload is a broken JSON without cookie", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, '{"nonsense": 1}');
+            const session = create_seeding_session();
+
+            await seed_partition_cookies(session, vault, "flower-1", LOGIN_URL);
+
+            expect(session.seeded).toHaveLength(0);
         });
     });
 
@@ -277,6 +366,72 @@ describe("flowercloud_dom", () => {
             expect(composite).toContain(
                 '<!--omni-flower id=8849 error="本轮等待超时，该服务未取到用量"-->',
             );
+        });
+
+        it("A8: strips comment-breaking sequences from section errors", () => {
+            const composite = compose_flower_sections([{ id: "8848", error: 'a"b--c\nd' }]);
+            // 引号/换行/`--` 均被清洗，标注不再破坏 HTML 注释语法。
+            expect(composite).toContain('<!--omni-flower id=8848 error="a b c d"-->');
+            expect(composite).not.toContain('"b');
+        });
+
+        it("A13: tolerates a throwing read_page_hint (hint check skipped)", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                { [LOGIN_URL]: LIST_ONE, [url_for("8848")]: DETAIL_A },
+                LIST_ONE,
+            );
+            window.read_page_hint = () => Promise.reject(new Error("boom"));
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => false,
+                options: { poll_ms: 5, settle_ms: 0, timeout_ms: 2_000 },
+            });
+
+            // hint 全抛错 → 每次核对都按"无提示"跳过，用量照常结算入库。
+            expect(outcome.written).toBe(true);
+            expect(vault.values.get(KEY)).toContain("10.00GB");
+        });
+
+        it("A13: reports cancelled when the window closes mid multi-service capture", async () => {
+            const vault = create_vault();
+            await vault.set(KEY, OLD_SECRET);
+            const window = create_nav_window(
+                {
+                    [LOGIN_URL]: LIST_HTML,
+                    [url_for("8848")]: DETAIL_A,
+                    [url_for("8849")]: DETAIL_B,
+                },
+                LIST_HTML,
+            );
+            // 第二次读到页面即关窗：抓取中途取消走 cancelled 边界，不写快照、不误报用量缺失。
+            let reads = 0;
+            const base_read = window.read_html?.bind(window);
+            if (!base_read) throw new Error("read_html missing");
+            window.read_html = () => {
+                reads += 1;
+                if (reads >= 2) window.close();
+                return base_read();
+            };
+
+            const outcome = await run_flowercloud_snapshot({
+                window,
+                session: create_session(),
+                vault,
+                instance_id: "flower-1",
+                login_url: LOGIN_URL,
+                is_cancelled: () => window.isDestroyed(),
+                options: { poll_ms: 5, settle_ms: 200, timeout_ms: 5_000 },
+            });
+
+            expect(outcome).toEqual({ written: false, kind: "cancelled" });
+            expect(vault.values.get(KEY)).toBe(OLD_SECRET);
         });
 
         it("visits every discovered service and stores a composite snapshot", async () => {

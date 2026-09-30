@@ -15,6 +15,7 @@ function make_group(): ProviderUsageGroup {
         connectorDisplayName: "CPA",
         accountId: "auth-a",
         accountLabel: "Account A",
+        collected_label: "Account A",
         raw_label: "5h",
         name: "5小时",
         used: 50,

@@ -32,6 +32,7 @@ function period(
         connectorDisplayName: "Claude",
         accountId: overrides.accountId ?? "acct1",
         accountLabel: overrides.accountLabel ?? "acct1@example.com",
+        collected_label: overrides.accountLabel ?? "acct1@example.com",
         raw_label: overrides.raw_label ?? "5小时",
         name: overrides.raw_label ?? "5小时",
         display_label: undefined as NonNullable<MetricRecord["display_label"]> | undefined,

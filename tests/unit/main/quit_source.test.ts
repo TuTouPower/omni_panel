@@ -117,6 +117,29 @@ describe("quit_source (t536 AC-001)", () => {
         expect(meta["trace_id"]).toBe(get_quit_trace_id());
     });
 
+    it("A13: request_app_exit 先 flush transport 再调 app.exit", async () => {
+        const order: string[] = [];
+        const remove = addTransport({
+            write() {
+                // 顺序断言只关心 flush；write 留空。
+            },
+            flush: () => {
+                order.push("flush");
+                return Promise.resolve();
+            },
+        });
+        app_exit_spy.mockImplementationOnce(() => {
+            order.push("exit");
+        });
+        try {
+            await request_app_exit("tray.quit", 0);
+        } finally {
+            remove();
+        }
+
+        expect(order).toEqual(["flush", "exit"]);
+    });
+
     it("多个退出入口共享同一 trace，首个入口为退出请求方", () => {
         request_app_quit("menu.cmd-q");
         request_app_quit("will-quit.flush-retry");

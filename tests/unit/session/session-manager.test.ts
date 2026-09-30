@@ -1602,6 +1602,9 @@ describe("session-manager", () => {
 
         expect(updated.ok).toBe(true);
         expect(deps.windows).toHaveLength(1);
+        // A5：skip 判定在建窗之前——断言 create_window 零调用（partitions 无 window: 项），
+        // 而非仅窗口数组长度（旧断言在新旧语义下都绿，属误导性保护）。
+        expect(deps.partitions.filter((p) => p.startsWith("window:"))).toHaveLength(0);
         expect(await deps.vault.get("flower-1:SESSION_COOKIE")).toBe(stored);
     });
 
@@ -1835,10 +1838,13 @@ describe("session-manager", () => {
             const refresh = manager.refresh_flowercloud_snapshot?.bind(manager);
             if (!refresh) throw new Error("flowercloud snapshot refresh is missing");
             // flower-1 预算须显著大于 flower-2 正常完成耗时，避免慢机时序耦合误报。
-            const options = { timeout_ms: 2_000, poll_ms: 10, settle_ms: 0 };
+            // A14：flower-2 用独立宽预算——慢机上它若 2s 内未完成会误报，
+            // 而 flower-1 的 2s 预算耗尽才是本用例的断言对象，两者解耦。
+            const blocked_options = { timeout_ms: 2_000, poll_ms: 10, settle_ms: 0 };
+            const other_options = { timeout_ms: 10_000, poll_ms: 10, settle_ms: 0 };
 
-            const blocked = refresh("flower-1", flower_url, options);
-            const other = refresh("flower-2", flower_url, options);
+            const blocked = refresh("flower-1", flower_url, blocked_options);
+            const other = refresh("flower-2", flower_url, other_options);
             // 第二个窗口与本轮任务同步创建；首次 read_html 发生在其后的 await 之后。
             const other_window = deps.windows[1];
             if (!other_window) throw new Error("flower-2 window missing");

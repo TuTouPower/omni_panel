@@ -20,8 +20,8 @@ export interface ProviderUsagePeriod {
     connectorDisplayName: string;
     accountId: string;
     accountLabel: string;
-    /** 采集层原始账号名（实例备注覆盖前）。t537 AC-004：多账号实例回退用。 */
-    collected_label?: string | undefined;
+    /** 采集层原始账号名（实例备注覆盖前）。t537 AC-004：多账号实例回退用。to_period 恒赋 string（sanitize(string) 必返 string），故为必填。 */
+    collected_label: string;
     /** 本条 accountLabel 是否由实例备注（displayName）覆盖而来。 */
     instance_label_applied?: boolean | undefined;
     raw_label: string;
@@ -410,7 +410,6 @@ export function build_provider_usage_groups(
                 for (const account of connector_accounts) {
                     const first = account.periods[0];
                     if (first?.instance_label_applied !== true) continue;
-                    if (first.collected_label === undefined) continue;
                     account.accountLabel = first.collected_label;
                     for (const period of account.periods) {
                         period.accountLabel = first.collected_label;

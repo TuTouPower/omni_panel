@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { load_manifest } from "../../../src/main/core/connector/manifest-loader";
 import { run_connector } from "../../../src/main/core/connector/runtime";
+import { compose_flower_sections } from "../../../src/main/core/session/flowercloud_dom";
 import { is_auth_error } from "../../../src/shared/lib/auth-error";
 import { FLOWERCLOUD_SNAPSHOT_FRESH_MS } from "../../../src/shared/constants";
 import type { ConnectorContext } from "../../../src/main/core/connector/host-io";
@@ -287,6 +288,29 @@ describe("flowercloud connector", () => {
         expect(result.observations[0]?.stale).toBe(true);
     });
 
+    it("A6: marks a future-dated snapshot stale instead of forever fresh", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        const live_html = await fixture("live_dashboard_sample.html");
+        // 时钟回拨 / 迁移旧载荷：captured_at 在未来 → 负年龄 → 按过期处理。
+        const secret = JSON.stringify({
+            cookie: "cf_clearance=abc; PHPSESSID=xyz",
+            html: live_html,
+            captured_at: Date.now() + 60_000,
+        });
+        const ctx = create_ctx({
+            cookie: secret,
+            clientarea_body: "Just a moment...",
+            clientarea_status: 403,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+        expect(result.error).toBeNull();
+        expect(result.observations[0]?.used).toBe(297.11);
+        expect(result.observations[0]?.stale).toBe(true);
+    });
+
     it("marks a stored flowercloud DOM stale when it has no capture time", async () => {
         const manifest = await load_manifest(ROOT);
         if (!manifest) throw new Error("flowercloud manifest missing");
@@ -476,6 +500,43 @@ describe("flowercloud connector", () => {
             [10, 100],
             [20, 200],
         ]);
+        expect(get_raw).not.toHaveBeenCalled();
+    });
+
+    it("A2: host compose_flower_sections output round-trips through the real connector", async () => {
+        const manifest = await load_manifest(ROOT);
+        if (!manifest) throw new Error("flowercloud manifest missing");
+
+        // 宿主真实输出（非手写字面量）：两侧分段格式漂移时本用例变红。
+        const composite = compose_flower_sections([
+            {
+                id: "8848",
+                html: '<p>流量使用 10.00GB / 100GB</p><span class="product-name">Global Acceleration Lite</span>',
+            },
+            {
+                id: "8850",
+                error: "花云要求完成人机验证（Cloudflare 质询），本轮未取到新数据",
+            },
+        ]);
+        const get_raw = vi.fn();
+        const ctx = create_ctx({
+            cookie: JSON.stringify({
+                cookie: "WHMCS=kept",
+                html: composite,
+                captured_at: Date.now(),
+            }),
+            get_raw,
+        });
+
+        const result = await run_connector(manifest, await code(), ctx);
+
+        expect(result.error).toBeNull();
+        expect(result.observations).toHaveLength(1);
+        expect(result.observations[0]?.account_id).toBe("flowercloud_service_8848");
+        expect(result.observations[0]?.used).toBe(10);
+        expect(result.failed_accounts).toHaveLength(1);
+        expect(result.failed_accounts[0]?.account_id).toBe("flowercloud_service_8850");
+        expect(result.failed_accounts[0]?.error).toContain("人机验证");
         expect(get_raw).not.toHaveBeenCalled();
     });
 

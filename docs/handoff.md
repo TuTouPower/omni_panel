@@ -1,11 +1,20 @@
 # handoff
 
-- 最后更新：2026-09-29
+- 最后更新：2026-09-30
 - branch：`main`
-- head_commit：`8b15016d`（工作区另有未提交改动，见下）
-- 当前状态：花云 DOM 快照链路的审查修复已落在工作区，未提交、未走 task 流程。
+- head_commit：`75f3d605`（t535/t536/t537 整段 + review 归档提交；另有采纳项 A1–A19 落地改动在工作区，未提交）
+- 当前状态：t535（后台优先快照）/t536（退出来源漏斗）/t537（多服务指标）全合入；四路审阅与 adoption 决策已归档 `docs/reviews/review_20260930_111051/`（采纳 19 / 不采纳 13）；采纳项正在工作区落地。
+
+## 2026-09-30 审阅采纳项落地（进行中）
+
+- branch：`main`
+- head_commit：`75f3d605`（本节改动尚未提交）
+- 内容：adoption A1–A19（CAS 基线前移、skip 先判鲜、vault cookie 单独注册脱敏、composite 往返契约测试等）+ my-adoption 白名单兼容现行 `review_<agent>_<model>.md` 命名（个人 skills_mine，非本仓）。
+- 下一步：落地完成后跑针对性单测 + typecheck/lint，按语义提交工作区改动。
 
 ## 2026-09-29 花云 DOM 快照链路审查修复（工作区未提交）
+
+> 废止注记（2026-09-30，A3）：本节以下陈述已过时，仅留档——① 第 3 条"质询超时后窗口交给用户"与第 7 条"亮窗后继续采集至 handover_wait_ms"已被 t535/决策 044 取代（永不前台化，`present_for_capture`/`handover_wait`/`reveal_after` 零残留）；② 环境注意第 5 条"`package.json` 尚未声明 `engines.node`"与现状矛盾（已声明 `"engines": {"node": ">=22"}`）；③ "工作区未提交"状态已过期（整段 16 commit + review 归档均已提交）。
 
 - branch：`main`
 - head_commit：`8b15016d`（本节改动尚未提交）

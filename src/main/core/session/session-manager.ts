@@ -10,6 +10,7 @@ import {
     flower_details_url,
     flower_failure_reason,
     flower_product_details_id,
+    is_flowercloud_snapshot_fresh,
     parse_flowercloud_secret,
     run_flowercloud_snapshot,
     seed_partition_cookies,
@@ -142,6 +143,13 @@ export function create_session_manager(
                     );
                     existing.cancel(
                         new Error(`Login preempted by interactive user login for ${login_id}`),
+                    );
+                } else if (existing.kind === "snapshot") {
+                    // A12：快照占用窗口不是登录冲突——自动重登撞上抓取时文本如实说明，
+                    // 调用方（refresh-service）据此跳过本轮而非按登录冲突排障。
+                    log.info(`FlowerCloud snapshot in progress for ${login_id}: skip auto relogin`);
+                    return Promise.reject(
+                        new Error(`FlowerCloud snapshot in progress for instance: ${login_id}`),
                     );
                 } else {
                     log.warn(`Concurrent login rejected for ${login_id}`);
@@ -612,57 +620,72 @@ export function create_session_manager(
                 log.info(`FlowerCloud DOM refresh skipped for ${instance_id}: login in progress`);
                 return Promise.resolve({ ok: false, reason: "花云登录进行中，本轮跳过抓取" });
             }
-
-            const partition = get_session_login_partition(instance_id);
-            const window = deps.create_window(partition, { hidden: true });
-            const session = deps.create_session(partition);
-            // 用对象属性而非裸 let：TS 会把闭包内赋值的 let 收窄成字面量，导致取消判断被
-            // 判成恒真/恒假（no-unnecessary-condition），运行时逻辑也更容易读错。
-            const state = { cancelled: false };
-            const active: ActiveLoginSession = {
-                kind: "snapshot",
-                hidden: true,
-                window,
-                cancel() {
+            const start_snapshot = (): Promise<FlowercloudSnapshotResult> => {
+                const partition = get_session_login_partition(instance_id);
+                const window = deps.create_window(partition, { hidden: true });
+                const session = deps.create_session(partition);
+                // 用对象属性而非裸 let：TS 会把闭包内赋值的 let 收窄成字面量，导致取消判断被
+                // 判成恒真/恒假（no-unnecessary-condition），运行时逻辑也更容易读错。
+                const state = { cancelled: false };
+                const active: ActiveLoginSession = {
+                    kind: "snapshot",
+                    hidden: true,
+                    window,
+                    cancel() {
+                        state.cancelled = true;
+                        if (!window.isDestroyed()) window.close();
+                    },
+                };
+                in_progress.set(instance_id, active);
+                // 窗口被关掉（用户手动关闭或被交互登录抢占）即放弃本轮；不接线的话
+                // 「取消」会被日志误报成「页面没渲染出用量」。
+                window.on("closed", () => {
                     state.cancelled = true;
-                    if (!window.isDestroyed()) window.close();
-                },
-            };
-            in_progress.set(instance_id, active);
-            // 窗口被关掉（用户手动关闭或被交互登录抢占）即放弃本轮；不接线的话
-            // 「取消」会被日志误报成「页面没渲染出用量」。
-            window.on("closed", () => {
-                state.cancelled = true;
-            });
+                });
 
-            const slot: { current?: Promise<FlowercloudSnapshotResult> } = {};
-            const job = (async (): Promise<FlowercloudSnapshotResult> => {
-                try {
-                    const outcome = await run_flowercloud_snapshot({
-                        window,
-                        session,
-                        vault: deps.vault,
-                        instance_id,
-                        login_url,
-                        is_cancelled: () => state.cancelled,
-                        ...(options ? { options } : {}),
-                    });
-                    if (outcome.written) return { ok: true };
-                    return { ok: false, reason: flower_failure_reason(outcome.kind) };
-                } finally {
-                    if (slot.current && flower_snapshots.get(instance_id) === slot.current) {
-                        flower_snapshots.delete(instance_id);
+                const slot: { current?: Promise<FlowercloudSnapshotResult> } = {};
+                const job = (async (): Promise<FlowercloudSnapshotResult> => {
+                    try {
+                        const outcome = await run_flowercloud_snapshot({
+                            window,
+                            session,
+                            vault: deps.vault,
+                            instance_id,
+                            login_url,
+                            is_cancelled: () => state.cancelled,
+                            ...(options ? { options } : {}),
+                        });
+                        if (outcome.written) return { ok: true };
+                        return { ok: false, reason: flower_failure_reason(outcome.kind) };
+                    } finally {
+                        if (slot.current && flower_snapshots.get(instance_id) === slot.current) {
+                            flower_snapshots.delete(instance_id);
+                        }
+                        if (in_progress.get(instance_id)?.window === window) {
+                            in_progress.delete(instance_id);
+                        }
+                        // 成功、失败、超时、取消一视同仁：本轮结束即关窗，不留失管窗口（AC-005/AC-006）。
+                        if (!window.isDestroyed()) window.close();
                     }
-                    if (in_progress.get(instance_id)?.window === window) {
-                        in_progress.delete(instance_id);
+                })();
+                slot.current = job;
+                flower_snapshots.set(instance_id, job);
+                return job;
+            };
+            if (options?.skip_if_fresh === true) {
+                // A5：先判鲜再建窗——新鲜轮直接返回，不付 BrowserWindow 创建/销毁代价；
+                // run_flowercloud_snapshot 内部保留二次判定（直接调用方仍受益）。
+                return deps.vault.get(keyFor(instance_id, SESSION_COOKIE_KEY)).then((raw) => {
+                    if (is_flowercloud_snapshot_fresh(parse_flowercloud_secret(raw))) {
+                        log.info(
+                            `FlowerCloud DOM refresh skipped for ${instance_id}: stored snapshot is fresh`,
+                        );
+                        return { ok: true };
                     }
-                    // 成功、失败、超时、取消一视同仁：本轮结束即关窗，不留失管窗口（AC-005/AC-006）。
-                    if (!window.isDestroyed()) window.close();
-                }
-            })();
-            slot.current = job;
-            flower_snapshots.set(instance_id, job);
-            return job;
+                    return start_snapshot();
+                });
+            }
+            return start_snapshot();
         },
         is_login_in_progress(
             instance_id: string,

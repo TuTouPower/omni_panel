@@ -25,6 +25,7 @@ function make_account(overrides: Partial<ProviderUsageAccount> = {}): ProviderUs
                 connectorDisplayName: "CPA",
                 accountId: "auth-a",
                 accountLabel: "Account A",
+                collected_label: "Account A",
                 raw_label: "5h",
                 name: "Claude Pro · 5小时",
                 used: 10,

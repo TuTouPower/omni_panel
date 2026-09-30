@@ -75,6 +75,19 @@ export function build_flowercloud_secret(cookie: string, html: string | null): s
     return JSON.stringify({ cookie, html, captured_at: Date.now() });
 }
 
+/**
+ * 快照是否仍在新鲜期内。负年龄（时钟回拨 / 迁移机器后的旧载荷）视为过期，
+ * 否则定时刷新会永久判定"新鲜"而跳过、UI 静默显示旧数据（A6）。
+ */
+export function is_flowercloud_snapshot_fresh(
+    stored: FlowercloudSecretPayload,
+    now: number = Date.now(),
+): boolean {
+    if (!stored.html || stored.captured_at === undefined) return false;
+    const age = now - stored.captured_at;
+    return age >= 0 && age <= FLOWERCLOUD_SNAPSHOT_FRESH_MS;
+}
+
 export function flower_product_details_id(html: string): string | null {
     return flower_service_ids(html)[0] ?? null;
 }
@@ -114,8 +127,12 @@ export function compose_flower_sections(sections: readonly FlowerSnapshotSection
     return sections
         .map((section) => {
             // error 文案来自 flower_failure_reason / 固定超时文案，理论上无引号；
-            // 仍清洗以保证标注不破坏分段标记。
-            const error = section.error ? ` error="${section.error.replace(/["\r\n]/g, " ")}"` : "";
+            // 仍清洗以保证标注不破坏分段标记：引号/换行破坏属性，`--` 破坏 HTML 注释语法。
+            // 体部 html 原样嵌入（若含字面 `<!--/omni-flower-->` 会提前闭合——项目自造标记，
+            // 概率极低；体部冲突由宿主→连接器往返契约测试锁定，见 A2）。
+            const error = section.error
+                ? ` error="${section.error.replace(/["\r\n]/g, " ").replace(/--/g, " ")}"`
+                : "";
             return `<!--omni-flower id=${section.id}${error}-->${section.html ?? ""}<!--/omni-flower-->`;
         })
         .join("\n");
@@ -152,6 +169,8 @@ export async function seed_partition_cookies(
         const name = part.slice(0, eq).trim();
         const value = part.slice(eq + 1).trim();
         if (!name || !value || options?.skip_names?.has(name)) continue;
+        // A1：回灌与写路径同基线——vault 内容先过安全校验再进分区，CRLF/超长直接跳过该条。
+        if (!is_safe_cookie_string(`${name}=${value}`)) continue;
         await session.set_cookie(login_url, name, value);
     }
 }
@@ -211,7 +230,8 @@ export function flower_failure_reason(kind: FlowerPageKind): string {
             return "花云页面抓取失败（加载、网络或会话读取异常）";
         case "usage":
         case "overview":
-            // 成功分类不应走到失败原因映射；保留兜底文案以保持 switch 穷尽。
+            // 可达：run_flowercloud_snapshot 拿到用量页但 write_flowercloud_html 未写入
+            //（无会话 / CAS 跳过 / 取消）时 kind 仍为 usage，调用方用本条文案（R9）。
             return "花云页面已出现用量，但本轮未写入快照";
     }
 }
@@ -253,7 +273,7 @@ export async function write_flowercloud_html(
     instance_id: string,
     html: string,
     cookie_override?: string | null,
-    options?: { is_cancelled?: () => boolean },
+    options?: { is_cancelled?: () => boolean; expected_vault_value?: string | null },
 ): Promise<boolean> {
     if (options?.is_cancelled?.() === true) return false;
     const key = keyFor(instance_id, SESSION_COOKIE_KEY);
@@ -276,9 +296,13 @@ export async function write_flowercloud_html(
     }
     // 落盘前最后一次校验：读数期间可能被抢占（cancelled），也可能有更新的快照或新登录
     // 凭据写进 vault——两种情况都不能用本轮旧数据覆盖。
+    // A4：基线取自捕获起点（调用方经 expected_vault_value 传入），而非本函数入口——
+    // poll 数十秒窗口内被外部更新的凭据不会再被旧 HTML 覆盖；未传基线时退化为入口值。
+    // 校验与写入间仍非原子（本地 vault 窗口极小），调用方不得依赖强 CAS。
     if (options?.is_cancelled?.() === true) return false;
     const current = await vault.get(key);
-    if (current !== raw) {
+    const baseline = options?.expected_vault_value ?? raw;
+    if (current !== baseline) {
         log.warn(
             `FlowerCloud DOM refresh skipped stale write for ${instance_id}: stored session changed while capturing`,
         );
@@ -398,12 +422,14 @@ export async function poll_flower_usage_html(
                     continue;
                 }
                 // t537 gen_f003：导航后核对落点确实属于该服务（宿主窗口提供
-                // read_page_hint 时）；不匹配按该服务失败处理，绝不把别的页面的
-                // 用量错配进分段。测试窗口未实现 hint 时跳过核对。
+                // read_page_hint 时）。A19：首次读取可能撞上页面未就绪（前端重定向
+                // 中），不匹配仅记未就绪、保持 current_id 继续轮询，不立即判死；
+                // 用量稳定后的二次核对（下 L419）与超时收口仍是失败 backstop。
+                // 绝不把别的页面的用量错配进分段。测试窗口未实现 hint 时跳过核对。
                 const hint = await read_service_hint(window);
                 if (hint !== null && !hint_belongs_to_service(hint, target_id)) {
-                    failed.set(target_id, "导航未到达该服务的详情页");
-                    current_id = null;
+                    current_first_usage_at = 0;
+                    continue;
                 }
                 continue;
             }
@@ -504,11 +530,13 @@ function hint_belongs_to_service(url: string, service_id: string): boolean {
     }
 }
 
-/** 导航落点核对用 URL；窗口未实现 hint 或读取失败时返回 null（不拦）。 */
+/** 导航落点核对用 URL；窗口未实现 hint、读取失败或空串时返回 null（不拦）。 */
 async function read_service_hint(window: SessionWindow): Promise<string | null> {
     try {
         const hint = await window.read_page_hint?.();
-        return hint?.url ?? null;
+        const url = hint?.url;
+        // 空串视同无提示：new URL("") 必抛，判"不匹配"不如"不拦"稳健（A11）。
+        return url !== undefined && url !== "" ? url : null;
     } catch {
         return null;
     }
@@ -521,15 +549,11 @@ export async function run_flowercloud_snapshot(
     const { window, session, vault, instance_id, login_url, is_cancelled } = input;
     const options = input.options ?? {};
     try {
+        // A4：捕获起点读一次 vault 载荷，既作 skip 判定输入，也作写回 CAS 基线。
+        const snapshot_baseline = await vault.get(keyFor(instance_id, SESSION_COOKIE_KEY));
         if (options.skip_if_fresh === true) {
-            const stored = parse_flowercloud_secret(
-                await vault.get(keyFor(instance_id, SESSION_COOKIE_KEY)),
-            );
-            if (
-                stored.html &&
-                stored.captured_at !== undefined &&
-                Date.now() - stored.captured_at <= FLOWERCLOUD_SNAPSHOT_FRESH_MS
-            ) {
+            const stored = parse_flowercloud_secret(snapshot_baseline);
+            if (is_flowercloud_snapshot_fresh(stored)) {
                 log.info(
                     `FlowerCloud DOM refresh skipped for ${instance_id}: stored snapshot is fresh`,
                 );
@@ -576,6 +600,7 @@ export async function run_flowercloud_snapshot(
         }
         const written = await write_flowercloud_html(vault, instance_id, result.html, fresh, {
             is_cancelled,
+            expected_vault_value: snapshot_baseline,
         });
         return { written, kind: "usage" };
     } catch (error: unknown) {

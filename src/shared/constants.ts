@@ -32,8 +32,10 @@ export const PAGE_BOUND_CREDENTIAL_PROVIDERS: ReadonlySet<string> = new Set([
  * 登录窗口需保持打开、不自动关闭的 provider（t464）：页面存活期间才会把续期材料
  * （Bearer / refresh token）写入会话，过早关窗会捕获旧凭据。
  */
-export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> =
-    PAGE_BOUND_CREDENTIAL_PROVIDERS;
+export const LOGIN_WINDOW_KEEP_OPEN_PROVIDERS: ReadonlySet<string> = new Set(
+    // 独立拷贝：ReadonlySet 只拦编译期写入，运行时共用同一 Set 会被任一处 add 互相污染（A9 同类）。
+    PAGE_BOUND_CREDENTIAL_PROVIDERS,
+);
 
 /**
  * 数据只存在于登录后页面 DOM 中的 provider：cookie 不足以取数，宿主必须在连接器

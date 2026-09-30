@@ -23,6 +23,7 @@ function make_period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsag
         connectorDisplayName: "CPA",
         accountId: "glm-main",
         accountLabel: "GLM Account",
+        collected_label: "GLM Account",
         name: "glm-4-plus",
         raw_label: "glm-4-plus",
         used: 10,
@@ -183,6 +184,31 @@ describe("UsageBarRow", () => {
 
         expect(container.querySelector('[data-testid="bar-reset"]')).toBeEmptyDOMElement();
         expect(container.querySelector('[data-testid="bar-clock"]')).toBeEmptyDOMElement();
+    });
+
+    it("A15: long ratio values do not break the reset date/clock containers", () => {
+        const reset_at = 1747571400000;
+        const { container } = render(
+            <UsageBarRow
+                period={make_period({
+                    displayStyle: "ratio",
+                    used: 1228.8,
+                    limit: 2048,
+                    resetAt: reset_at,
+                })}
+                index={0}
+            />,
+        );
+
+        // 长数值下 date/clock 容器仍存在且内容正确（commit 9eb54a76 的溢出语义回归保护）。
+        const expected = split_reset_time(format_reset_time(reset_at));
+        expect(container.querySelector('[data-testid="bar-reset"]')?.textContent).toBe(
+            expected.date,
+        );
+        expect(container.querySelector('[data-testid="bar-clock"]')?.textContent).toBe(
+            expected.clock,
+        );
+        expect(container.querySelector('[data-testid="bar-pct"]')?.textContent).toBe("1228.8/2048");
     });
 });
 

@@ -296,9 +296,10 @@ async function main(): Promise<ScriptObservation[]> {
     // 没有 captured_at 的旧载荷无法判断新鲜度，按过期处理：宁可让 UI 标注不新鲜，
     // 也不能把未知年龄的页面当成实时数据。
     const snapshot_age_ms = captured_at === undefined ? null : now - captured_at;
+    // A6：负年龄（时钟回拨 / 迁移旧载荷）视为过期，避免永久不标 stale。
     const snapshot_stale =
         session_html !== undefined &&
-        (snapshot_age_ms === null || snapshot_age_ms > SNAPSHOT_FRESH_MS);
+        (snapshot_age_ms === null || snapshot_age_ms > SNAPSHOT_FRESH_MS || snapshot_age_ms < 0);
 
     let html: string;
 
@@ -311,7 +312,9 @@ async function main(): Promise<ScriptObservation[]> {
                 ? "FlowerCloud: stored DOM has no capture time, treating it as stale"
                 : snapshot_age_ms > SNAPSHOT_FRESH_MS
                   ? `FlowerCloud: stored DOM is ${String(Math.round(snapshot_age_ms / 60000))}min old`
-                  : "FlowerCloud: Using browser session DOM",
+                  : snapshot_age_ms < 0
+                    ? "FlowerCloud: stored DOM capture time is in the future, treating it as stale"
+                    : "FlowerCloud: Using browser session DOM",
         );
         html = session_html;
     } else {

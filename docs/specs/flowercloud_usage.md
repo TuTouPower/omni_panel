@@ -30,7 +30,7 @@
     - 用户手动关掉快照窗 = 取消本轮（`closed` → `cancelled`），不写 vault，也不误报成「页面没渲染出用量」。
 - 用户处理入口：需要人机验证或重新登录时宿主不自动弹窗；用户主动走「网页登录」（`start_login`）时登录窗照常前台显示，这是唯一的前台化路径。
 - 自动交互边界：不实现「自动点击验证控件」——s040 证明 Turnstile 控件位于跨域 iframe / 不可遍历 shadow DOM，主文档枚举不到可点击目标（`docs/findings/d063`）。
-- 新鲜期常量在宿主（`FLOWERCLOUD_SNAPSHOT_FRESH_MS`）与 connector（`SNAPSHOT_FRESH_MS`）各一份（connector 不能 import 宿主代码），由集成测试锁死一致性。
+- 新鲜期常量在宿主（`FLOWERCLOUD_SNAPSHOT_FRESH_MS`）与 connector（`SNAPSHOT_FRESH_MS`）各一份（connector 不能 import 宿主代码），由集成测试锁死一致性；composite 分段格式同样由宿主 `compose_flower_sections` → connector `parse_snapshot_sections` 往返契约测试锁定（A2）。
 
 ## 4. UI 与展示契约
 

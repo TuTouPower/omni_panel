@@ -18,6 +18,7 @@ function period(overrides: Partial<ProviderUsagePeriod> = {}): ProviderUsagePeri
         connectorDisplayName: "OpenCode Go",
         accountId: "workspace-1",
         accountLabel: "OpenCode",
+        collected_label: "OpenCode",
         raw_label: "rolling",
         name: "滚动",
         used: 10,

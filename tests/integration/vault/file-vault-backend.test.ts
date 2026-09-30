@@ -175,6 +175,24 @@ describe("file-vault-backend", () => {
         expect(scrubber.get_values().has(secret_value)).toBe(true);
     });
 
+    it("A17: registers a short cookie inside an over-long JSON payload", async () => {
+        const cookie = "WHMCSabcdef123456";
+        const payload = JSON.stringify({
+            cookie,
+            html: `<html>${"x".repeat(20_000)}</html>`,
+            captured_at: Date.now(),
+        });
+        expect(payload.length).toBeGreaterThan(8192);
+        await vault.set("flower-1:SESSION_COOKIE", payload);
+
+        const result = await vault.get("flower-1:SESSION_COOKIE");
+        expect(result).toBe(payload);
+        // 整包超长未进注册表，短 cookie 单独进了。
+        expect(scrubber.get_values().has(payload)).toBe(false);
+        expect(scrubber.get_values().has(cookie)).toBe(true);
+        expect(scrubber.scrub_text(`leaked ${cookie} here`)).toBe("leaked *** here");
+    });
+
     it("concurrent set on different keys preserves all values", async () => {
         await Promise.all(
             Array.from({ length: 10 }, (_, i) =>
